@@ -3802,7 +3802,7 @@
       "blocked_selection": "Garden captures are hidden while you select bird visits.",
       "bird_filters_ignored": "Species, Favourites, Hidden, Multiple species, Matching call and confidence order describe bird visits, so they are not applied to Garden captures.",
       "load_failed": "Could not load the Garden captures. The visits are unaffected.",
-      "truncated": "This page spans {total} Garden captures; {shown} are shown beside its visits. Choose Garden to page through them all.",
+      "truncated": "This page spans {total} Garden entries; {shown} are shown. Choose Garden to page through all entries.",
       "no_cameras_title": "No camera has Garden animals turned on",
       "no_cameras_desc": "Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.",
       "empty_title": "No Garden captures yet",
@@ -3834,7 +3834,8 @@
       "fact_source": "Proposed by",
       "manual_device_note": "Manual checks only. This CPU default does not describe automatic checks. Automatic checks follow Detection settings; their last execution device is shown with the result. An unavailable manual device fails rather than switching devices.",
       "state_manual": "Manual review: automatic naming is off or an owner override is active",
-      "state_waiting_automatic": "Waiting for automatic identification"
+      "state_waiting_automatic": "Waiting for automatic identification",
+      "entry_total": "Garden entries: {count} · captures: {captures}"
     },
     "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "confirm_manually": "Confirm animal manually",

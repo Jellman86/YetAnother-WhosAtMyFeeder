@@ -42,6 +42,11 @@
         /** Photos opened together, in display order, including this one. */
         group?: GardenCapture[];
         /** `position`: motion proposals around one spot. `visit`: one animal's stay. */
+        groupTotal?: number;
+        groupOffset?: number;
+        groupLoading?: boolean;
+        groupError?: string | null;
+        onpage?: (index: number) => void;
         groupKind?: 'position' | 'visit';
         onclose: () => void;
         /** The capture after any saved review; the Explorer decides whether it still belongs. */
@@ -50,7 +55,7 @@
         /** Photos dismissed together, for the page to offer Undo. */
         ongroupdismissed?: (ids: string[], skipped: number) => void;
     }
-    let { capture, group = [capture], groupKind = 'position', onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
+    let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
 
     let dialog = $state<HTMLElement | null>(null);
     let size = $state<readonly [number, number] | undefined>(undefined);
@@ -134,8 +139,14 @@
         photoCheckBusy = false;
     }
 
+    function move(direction: -1 | 1): void {
+        const next = group[index + direction];
+        if (next) select(next);
+        else { clearPhotoCheck(); size = undefined; error = null; onpage?.(groupOffset + index + direction); }
+    }
+
     function select(next: GardenCapture | undefined): void {
-        if (!next || saving) return;
+        if (!next || saving || groupLoading) return;
         clearPhotoCheck();
         size = undefined;
         error = null;
@@ -166,7 +177,7 @@
               ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden visitors, Dismissed.' })
               : $_('garden.photo_restored', { default: 'Photo returned to review.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
-        const remaining = group.length > 1 && action !== 'restore'
+        const remaining = groupTotal > 1 && action !== 'restore'
             ? ` ${$_('garden.group_remaining', { default: 'Other photos in this group still need review.' })}`
             : '';
         return act(() => reviewGarden(capture.id, action), message + remaining);
@@ -302,12 +313,12 @@
                         <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
                         <p class="mt-2 text-3xs font-semibold text-white/50">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
                     </div>
-                    {#if group.length > 1}
+                    {#if groupTotal > 1}
                         <div class="space-y-2" data-garden-capture-group>
                             <p class="text-sm font-semibold text-white">
                                 {groupKind === 'position'
-                                    ? $_('garden.group_count', { default: '{count} photos around the same position', values: { count: group.length } })
-                                    : $_('garden.explorer.visit_heading', { default: '{count} captures in this visit', values: { count: group.length } })}
+                                    ? $_('garden.group_count', { default: '{count} photos around the same position', values: { count: groupTotal } })
+                                    : $_('garden.explorer.visit_heading', { default: '{count} captures in this visit', values: { count: groupTotal } })}
                             </p>
                             <p class="text-xs text-white/70">
                                 {groupKind === 'position'
@@ -315,9 +326,9 @@
                                     : $_('garden.explorer.visit_help', { default: 'Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.' })}
                             </p>
                             <div class="flex flex-wrap items-center gap-2">
-                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || index === 0} onclick={() => select(group[index - 1])}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
-                                <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: index + 1, count: group.length } })}</span>
-                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || index + 1 >= group.length} onclick={() => select(group[index + 1])}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
+                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || groupLoading || groupOffset + index === 0} onclick={() => move(-1)}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
+                                <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
+                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || groupLoading || groupOffset + index + 1 >= groupTotal} onclick={() => move(1)}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
                             </div>
                         </div>
                     {/if}
@@ -437,6 +448,10 @@
                     />
                 {/if}
 
+                {#if groupError}
+                    <p role="alert" class="text-sm text-red-700 dark:text-red-300">{groupError}</p>
+                    <button type="button" class="btn btn-secondary" disabled={groupLoading} onclick={() => onpage?.(groupOffset + index)}>{$_('common.retry')}</button>
+                {/if}
                 {#if error}<p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{error}</p>{/if}
 
                 <div class="flex flex-col gap-2 border-t border-line-soft pt-3" data-garden-capture-actions>
@@ -499,12 +514,12 @@
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.dismiss_effect', { default: 'Dismissing removes it from the animals. It stays under Garden visitors, Dismissed while its photo lasts.' })}</p>
                     {/if}
 
-                    {#if group.length > 1 && capture.status === 'pending' && (view.review || manualOverride)}
+                    {#if groupTotal > 1 && groupTotal === group.length && capture.status === 'pending' && (view.review || manualOverride)}
                         <div class="space-y-2 border-t border-line-soft pt-3" data-garden-capture-group-review>
                             <p class="text-sm font-semibold">{$_('garden.group_review', { default: 'Review this stack' })}</p>
                             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_dismiss_help', { default: 'Confirm any animal photos first, then dismiss the remaining photos in this stack. Confirmed photos are kept; future captures are unaffected.' })}</p>
                             <button type="button" class="btn btn-secondary min-h-11 w-full whitespace-normal px-4 py-2" disabled={saving} onclick={dismissGroup}>
-                                {$_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: group.length } })}
+                                {$_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: groupTotal } })}
                             </button>
                         </div>
                     {/if}

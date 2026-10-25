@@ -1,3 +1,4 @@
+import { gardenVisitResponse } from './garden-visits-fixture';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 // Garden review happens in the Explorer: Garden visitors in the filter rail, one review state at a
@@ -36,9 +37,9 @@ async function mockGarden(page: Page, mock: Mock) {
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
-        if (path === '/api/garden/timeline') {
+        if (path === '/api/garden/visits' || (path.startsWith('/api/garden/visits/') && path.endsWith('/captures'))) {
             const items = mock.items(url.searchParams.get('status') ?? 'reviewable');
-            return route.fulfill({ json: { items, total: items.length, limit: 128, offset: 0 } });
+            return route.fulfill({ json: gardenVisitResponse(items, url) });
         }
         if (path === '/api/garden/identification') return route.fulfill({ json: mock.identification ?? modelStatus });
         if (path === '/api/garden/motion') return route.fulfill({ json: motionStatus });
@@ -275,9 +276,9 @@ test('owner confirms presence only after the photo loads', async ({ page }) => {
 test('a failed read is visible and Retry recovers', async ({ page }) => {
     let failed = true;
     await mockGarden(page, { items: () => [] });
-    await page.route('**/api/garden/timeline**', route => route.fulfill(failed
+    await page.route('**/api/garden/visits?**', route => route.fulfill(failed
         ? { status: 503, json: { detail: 'History temporarily unavailable' } }
-        : { json: { items: [], total: 0, limit: 128, offset: 0 } }));
+        : { json: { visits: [], total: 0, capture_total: 0, limit: 24, offset: 0 } }));
     await openReview(page);
     const retry = page.getByRole('button', { name: 'Retry', exact: true });
     await expect(retry).toBeVisible();
@@ -427,9 +428,9 @@ test('109 repeated proposals become two position groups with exact photo review 
     });
     await openReview(page);
     await expect(page.locator('[data-garden-card]')).toHaveCount(2);
-    await expect(page.locator('[data-explorer-count]')).toContainText('109 Garden captures');
-    // Review reads a fixed page so stacks stay whole; a page-size choice would not apply.
-    await expect(page.locator('#page-size-selector')).toHaveCount(0);
+    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 109');
+    // Page size now counts server groups, keeping every stack whole.
+    await expect(page.locator('#page-size-selector')).toBeVisible();
     await openFirst(page);
     await expect(record(page).getByText('108 photos around the same position')).toBeVisible();
     await expect(record(page).getByText('Position does not identify an animal. This group can contain different visitors.')).toBeVisible();
@@ -538,7 +539,10 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await page.route(`**/api/garden/*/${action}`, route => {
             const reviewed = new URL(route.request().url()).pathname.split('/').at(-2) ?? '';
             writes.push(reviewed);
-            return route.fulfill({ json: { ...captures.find(item => item.id === reviewed), status: action === 'confirm' ? 'confirmed' : 'dismissed' } });
+            const index = captures.findIndex(item => item.id === reviewed);
+            const original = captures[index];
+            captures.splice(index, 1);
+            return route.fulfill({ json: { ...original, status: action === 'confirm' ? 'confirmed' : 'dismissed' } });
         });
         await openReview(page);
         await openFirst(page);
@@ -547,7 +551,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
         await expect(toasts(page)).toContainText('Other photos in this group still need review.');
         await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
-        await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden capture');
+        await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 1 · captures: 1');
         expect(writes).toEqual([second]);
         await fitsNarrowScreen(page);
     });
@@ -598,7 +602,7 @@ test("one animal's repeated captures are one Explorer entry, as a bird's visit i
     await mockGarden(page, { items: requested => (requested === 'confirmed' ? [later, ...stay] : []) });
     await openReview(page, 'confirmed');
     await expect(page.locator('[data-garden-card]')).toHaveCount(2);
-    await expect(page.locator('[data-explorer-count]')).toContainText('21 Garden captures');
+    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 21');
     const visit = page.locator('[data-garden-card]').filter({ has: page.locator('[data-garden-card-group]') });
     await expect(visit.locator('[data-garden-card-group]')).toHaveText('20 captures in this visit');
     await visit.getByRole('button', { name: /^Open Garden capture/ }).click();
@@ -608,4 +612,88 @@ test("one animal's repeated captures are one Explorer entry, as a bird's visit i
     await expect(record(page).getByText('Photo 2 of 20', { exact: true })).toBeVisible();
     // Confirmed animals have nothing left to dismiss as a stack.
     await expect(record(page).getByRole('button', { name: /^Dismiss remaining/ })).toHaveCount(0);
+});
+
+
+test('a 215-photo visit stays on one group page and its photo navigation crosses capture pages', async ({ page }) => {
+    test.setTimeout(90_000);
+    const photos = Array.from({ length: 215 }, (_, index) => ({ ...row,
+        id: `long-${String(index).padStart(3, '0')}`.padEnd(32, '0'), status: 'confirmed',
+        observed_at: new Date(Date.UTC(2026, 9, 24, 7, 0, 214-index)).toISOString(),
+        snapshot_url: `/api/garden/long-${index}/snapshot` }));
+    const other = Array.from({ length: 24 }, (_, index) => ({ ...row,
+        id: `separate-${String(index).padStart(3, '0')}`.padEnd(32, '0'), status: 'confirmed', camera: `camera-${index}`,
+        observed_at: new Date(Date.UTC(2026, 9, 24, 6, index)).toISOString() }));
+    await mockGarden(page, { items: () => [...photos, ...other] });
+    const reads: number[] = [];
+    page.on('request', request => {
+        const url = new URL(request.url());
+        if (url.pathname.startsWith('/api/garden/visits/') && url.pathname.endsWith('/captures')) reads.push(Number(url.searchParams.get('offset')));
+    });
+    await openReview(page, 'confirmed');
+    await expect(page.locator('[data-garden-card]')).toHaveCount(24);
+    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 25 · captures: 239');
+    await expect(page.locator('[data-garden-card-group]').first()).toContainText('215 captures');
+    await openFirst(page);
+    await expect(record(page).getByText('Photo 1 of 215', { exact: true })).toBeVisible();
+    const next = record(page).getByRole('button', { name: 'Next photo', exact: true });
+    for (let index = 0; index < 128; index++) await next.click();
+    await expect(record(page).getByText('Photo 129 of 215', { exact: true })).toBeVisible();
+    await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', /long-128\/snapshot/);
+    await record(page).getByRole('button', { name: 'Previous photo', exact: true }).click();
+    await expect(record(page).getByText('Photo 128 of 215', { exact: true })).toBeVisible();
+    expect(reads).toEqual([0, 128, 0]);
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', { name: 'Next page', exact: true }).click();
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-garden-card-group]')).toHaveCount(0);
+});
+
+test('a late capture-page read cannot undo the displayed owner confirmation', async ({ page }) => {
+    let current = { ...row };
+    await mockGarden(page, { items: () => [current] });
+    let release = () => {};
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    await page.route('**/api/garden/visits/*/captures?**', async route => {
+        const stale = { ...current };
+        await gate;
+        return route.fulfill({ json: { items: [stale], total: 1, limit: 128, offset: 0 } });
+    });
+    await page.route('**/api/garden/*/confirm', route => {
+        current = { ...current, status: 'confirmed' };
+        return route.fulfill({ json: current });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden');
+    await openFirst(page);
+    await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
+    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    const loaded = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/captures'));
+    release();
+    await loaded;
+    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(record(page).getByText('Waiting for automatic identification', { exact: true })).toHaveCount(0);
+});
+
+test('confirming one photo in the mixed review state leaves its pending position stack', async ({ page }) => {
+    const pending = [row, { ...row, id: 'b'.repeat(32), snapshot_url: `/api/garden/${'b'.repeat(32)}/snapshot` }]
+        .map(item => ({ ...item, source_kind: 'motion', motion_source: motionSource }));
+    const confirmed: Capture[] = [];
+    await mockGarden(page, { items: () => [...pending, ...confirmed] });
+    await page.route('**/api/garden/*/confirm', route => {
+        const id = new URL(route.request().url()).pathname.split('/').at(-2);
+        const at = pending.findIndex(item => item.id === id);
+        const reviewed = { ...pending[at], status: 'confirmed' };
+        pending.splice(at, 1);
+        confirmed.push(reviewed);
+        return route.fulfill({ json: reviewed });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden');
+    await openFirst(page);
+    await expect(record(page).getByRole('button', { name: 'Next photo', exact: true })).toBeEnabled();
+    await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
+    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(record(page).getByRole('button', { name: 'Next photo', exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(1);
+    await expect(page.locator('[data-garden-card="pending"]')).toHaveCount(1);
 });

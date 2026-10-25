@@ -1,3 +1,4 @@
+import { gardenVisitResponse } from './garden-visits-fixture';
 import { test, expect, type Page } from '@playwright/test';
 
 // Set EXPLORER_SHOTS to a directory to keep review screenshots outside the test output.
@@ -44,9 +45,9 @@ async function openExplorer(page: Page, query = '') {
                 best_score: 0.91, needs_review: false, audio_confirmed: false, representative: record, latest: record, peak_capture: null
             })) } });
         }
-        if (path === '/api/garden/timeline') {
-            timelineQueries.push(url.searchParams);
-            return route.fulfill({ json: { items: garden, total: garden.length, limit: 200, offset: 0 } });
+        if (path === '/api/garden/visits' || (path.startsWith('/api/garden/visits/') && path.endsWith('/captures'))) {
+            if (!path.endsWith('/captures')) timelineQueries.push(url.searchParams);
+            return route.fulfill({ json: gardenVisitResponse(garden, url) });
         }
         if (path === '/api/garden/identification') {
             return route.fulfill({ json: { country: 'GBR', catalogue_ready: true, busy: false, models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }] } });
@@ -54,7 +55,9 @@ async function openExplorer(page: Page, query = '') {
         if (path.endsWith('/confirm')) {
             const id = path.split('/')[3];
             confirmed.push(id);
-            return route.fulfill({ json: { ...garden.find(item => item.id === id), status: 'confirmed' } });
+            const index = garden.findIndex(item => item.id === id);
+            garden[index] = { ...garden[index], status: 'confirmed' };
+            return route.fulfill({ json: garden[index] });
         }
         if (path.endsWith('/snapshot') || path.endsWith('.jpg')) {
             return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#4d7c0f"/></svg>' });
@@ -93,7 +96,7 @@ test('Garden on its own lists only captures, and its record confirms an animal w
     if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     await expect(page.locator('[data-explorer-visit]')).toHaveCount(0);
-    await expect(page.locator('[data-explorer-count]')).toContainText('2 Garden captures');
+    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 2');
 
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');

@@ -3802,7 +3802,7 @@
       "blocked_selection": "Les captures du jardin sont masquées pendant que vous sélectionnez des visites d'oiseaux.",
       "bird_filters_ignored": "Espèce, Favoris, Masquées, Plusieurs espèces, Chant correspondant et le tri par confiance décrivent les visites d'oiseaux ; ils ne s'appliquent donc pas aux captures du jardin.",
       "load_failed": "Impossible de charger les captures du jardin. Les visites ne sont pas affectées.",
-      "truncated": "Cette page couvre {total} captures du jardin ; {shown} sont affichées à côté de ses visites. Choisissez Jardin pour toutes les parcourir.",
+      "truncated": "Cette page couvre {total} entrées du jardin ; {shown} sont affichées. Choisissez Jardin pour parcourir toutes les entrées.",
       "no_cameras_title": "Aucune caméra n'a les animaux du jardin activés",
       "no_cameras_desc": "Activez les animaux du jardin pour une caméra, et ses animaux confirmés et captures à vérifier apparaîtront ici.",
       "empty_title": "Pas encore de captures du jardin",
@@ -3834,7 +3834,8 @@
       "fact_source": "Proposé par",
       "manual_device_note": "Vérifications manuelles uniquement. Le CPU par défaut ne décrit pas les vérifications automatiques. Elles suivent les paramètres de Détection ; l’appareil utilisé figure dans le résultat. Un appareil manuel indisponible provoque un échec sans changement d’appareil.",
       "state_manual": "Vérification manuelle : nomination automatique désactivée ou décision du propriétaire active",
-      "state_waiting_automatic": "En attente d’identification automatique"
+      "state_waiting_automatic": "En attente d’identification automatique",
+      "entry_total": "Entrées du jardin : {count} · captures : {captures}"
     },
     "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
     "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",

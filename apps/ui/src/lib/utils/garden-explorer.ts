@@ -164,6 +164,7 @@ const GARDEN_VISIT_GAP_MS = 60_000;
 
 export interface GardenVisit {
     id: string;
+    captureCount?: number;
     /** `position`: unconfirmed motion proposals around one spot. `visit`: one animal's stay, by time. */
     kind: 'position' | 'visit';
     /** In the order they were given, which is the page's display order. */
@@ -215,8 +216,8 @@ export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVis
 
 /** How a grouped entry says what it holds, or null for a single capture. */
 export function gardenVisitLabel(visit: GardenVisit | undefined, t: Translate): string | null {
-    if (!visit || visit.items.length < 2) return null;
-    const count = String(visit.items.length);
+    if (!visit || (visit.captureCount ?? visit.items.length) < 2) return null;
+    const count = String(visit.captureCount ?? visit.items.length);
     return visit.kind === 'position'
         ? t('garden.explorer.group_photos', '{count} photos, same position', { count })
         : t('garden.explorer.visit_captures', '{count} captures in this visit', { count });

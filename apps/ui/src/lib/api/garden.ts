@@ -70,3 +70,37 @@ export async function checkGardenPhoto(id: string, request: GardenPhotoCheckRequ
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), signal, timeoutMs: 160000
     }));
 }
+
+
+export type GardenServerVisit = components['schemas']['GardenVisitResponse'];
+export type GardenVisitPage = components['schemas']['GardenVisitPage'];
+export interface GardenVisitQuery extends GardenTimelineQuery {
+    pageStart?: string;
+    pageEnd?: string;
+}
+
+function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>): URLSearchParams {
+    const params = new URLSearchParams();
+    if (query.start) params.set('start', query.start);
+    if (query.end) params.set('end', query.end);
+    if (query.camera) params.set('camera', query.camera);
+    if (query.status && query.status !== 'reviewable') params.set('status', query.status);
+    return params;
+}
+
+export async function fetchGardenVisits(query: GardenVisitQuery): Promise<GardenVisitPage> {
+    const params = gardenScope(query);
+    params.set('order', query.order);
+    params.set('limit', String(query.limit));
+    params.set('offset', String(query.offset ?? 0));
+    if (query.pageStart) params.set('page_start', query.pageStart);
+    if (query.pageEnd) params.set('page_end', query.pageEnd);
+    return handleResponse<GardenVisitPage>(await apiFetch(`${API_BASE}/garden/visits?${params}`, { timeoutMs: 15000 }));
+}
+
+export async function fetchGardenVisitCaptures(id: string, query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>, offset: number): Promise<GardenPage> {
+    const params = gardenScope(query);
+    params.set('limit', '128');
+    params.set('offset', String(offset));
+    return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/visits/${encodeURIComponent(id)}/captures?${params}`, { timeoutMs: 15000 }));
+}

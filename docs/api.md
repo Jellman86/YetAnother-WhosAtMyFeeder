@@ -361,6 +361,21 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `animal` check whose top crop prediction reaches `garden_naming_threshold` also
   confirms the capture and saves an accepted `identification` with `automatic=true`,
   in one transaction. `reviewed_at` stays `null` because no owner reviewed it.
+- `GET /api/garden/visits` returns owner-only Garden entries, grouped before pagination.
+  `start`/`end`, `camera` and `status` (`reviewable`, `pending`, `confirmed`, `dismissed`)
+  scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`
+  count groups. The response has `visits`, group `total`, `capture_total`, `limit` and
+  `offset`. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
+  `capture_count` and its latest `representative`. Canonical identity, camera and
+  review state separate timed stays; gaps over 60 seconds start another stay.
+  Pending motion proposals retain fixed-anchor position stacks instead of joining by time.
+  Optional `page_start`/`page_end` select whole groups by latest capture time after grouping,
+  for mixed bird pages. Newest order uses [start,end); oldest order uses (start,end].
+- `GET /api/garden/visits/{visit_id}/captures` rechecks the same history scope and
+  returns capture `items`, `total`, `limit` and `offset`, newest photo first. `limit`
+  is 1–128. Membership is recomputed after reviews, expiry and privacy revocation;
+  an unavailable group returns 404. Reads never change reviews. Visit identifiers
+  are the first eligible capture and can change when membership changes.
 - `GET /api/garden/timeline` — the Explorer's Garden view and review states. Optional `start` and `end` (ISO 8601;
   a time without an offset is UTC; `422` when `start` is after `end`), `camera`,
   `status=reviewable|pending|confirmed|dismissed` (default `reviewable`, meaning confirmed plus

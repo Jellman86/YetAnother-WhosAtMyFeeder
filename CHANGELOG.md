@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden history pages complete visits and position stacks on the server. Long stays
+  no longer split at capture-page boundaries; records load photos in bounded pages
+  while preserving each original review. Counts distinguish entries from captures.
+
 - The Explorer updates Garden captures and open records when automatic checks finish,
   including new names, dismissals and person-evidence removal, without a page refresh.
 

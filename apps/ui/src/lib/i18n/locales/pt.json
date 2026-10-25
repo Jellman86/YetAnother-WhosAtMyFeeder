@@ -3802,7 +3802,7 @@
       "blocked_selection": "As capturas do jardim ficam ocultas enquanto seleciona visitas de aves.",
       "bird_filters_ignored": "Espécie, Favoritos, Ocultas, Várias espécies, Canto correspondente e a ordem por confiança descrevem visitas de aves, por isso não se aplicam às capturas do jardim.",
       "load_failed": "Não foi possível carregar as capturas do jardim. As visitas não são afetadas.",
-      "truncated": "Esta página abrange {total} capturas do jardim; {shown} são mostradas junto das suas visitas. Escolha Jardim para as percorrer todas.",
+      "truncated": "Esta página abrange {total} registos do jardim; são apresentados {shown}. Escolha Jardim para percorrer todos os registos.",
       "no_cameras_title": "Nenhuma câmara tem os animais do jardim ativados",
       "no_cameras_desc": "Ative os animais do jardim numa câmara e os seus animais confirmados e capturas por rever aparecem aqui.",
       "empty_title": "Ainda não há capturas do jardim",
@@ -3834,7 +3834,8 @@
       "fact_source": "Proposto por",
       "manual_device_note": "Apenas verificações manuais. A CPU predefinida não descreve as automáticas. Estas seguem as definições de Deteção; o dispositivo usado aparece no resultado. Um dispositivo manual indisponível causa erro sem mudar de dispositivo.",
       "state_manual": "Revisão manual: identificação automática desativada ou intervenção do proprietário ativa",
-      "state_waiting_automatic": "A aguardar identificação automática"
+      "state_waiting_automatic": "A aguardar identificação automática",
+      "entry_total": "Registos do jardim: {count} · capturas: {captures}"
     },
     "automatic_animal_manual": "Animal detetado. A identificação automática está desativada ou este resultado antigo aguarda nova verificação.",
     "automatic_below_threshold": "Abaixo do limiar automático. Movido para Descartados; restaure a fotografia para a rever.",

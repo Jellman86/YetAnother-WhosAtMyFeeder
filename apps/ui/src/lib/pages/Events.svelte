@@ -9,9 +9,9 @@
     import GardenExplorerRow from '../components/GardenExplorerRow.svelte';
     import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
     import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
-    import { fetchGardenTimeline, type GardenCapture } from '../api/garden';
+    import { fetchGardenVisits, fetchGardenVisitCaptures, type GardenServerVisit, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
-    import { gardenBelongs, gardenBlocker, gardenWindow, groupGardenVisits, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
+    import { gardenEntryView, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -114,6 +114,13 @@
     let heardFailed = $state(false);
     let heardLoadGeneration = 0;
     let gardenItems = $state.raw<GardenCapture[] | null>(null);
+    let serverGardenVisits = $state.raw<GardenServerVisit[]>([]);
+    let gardenCaptureTotal = $state(0);
+    let openedGardenGroup = $state.raw<GardenVisit | null>(null);
+    let gardenGroupOffset = $state(0);
+    let gardenGroupLoading = $state(false);
+    let gardenGroupError = $state<string | null>(null);
+    let gardenGroupGeneration = 0;
     let gardenTotal = $state(0);
     let gardenFailed = $state(false);
     let gardenLoadGeneration = 0;
@@ -240,9 +247,9 @@
             let nextVisits: DetectionVisit[] = [];
             let nextPrevious: DetectionVisit | null = null;
             if (gardenOnly) {
-                // Garden on its own pages through its captures; nothing about birds is read.
+                // Garden pages complete groups; no bird history is read.
                 const gardenGeneration = ++gardenLoadGeneration;
-                const page = await fetchGardenTimeline({
+                const page = await fetchGardenVisits({
                     start: localDayBound(range.start, false)?.toISOString() ?? null,
                     end: localDayBound(range.end, true)?.toISOString(),
                     camera: cameraFilter || undefined,
@@ -256,7 +263,9 @@
                 pageVisits = [];
                 previousVisit = null;
                 totalCount = page.total;
-                gardenItems = page.items;
+                serverGardenVisits = page.visits;
+                gardenItems = page.visits.map((visit) => visit.representative);
+                gardenCaptureTotal = page.capture_total;
                 gardenTotal = page.total;
                 gardenFailed = false;
                 void loadHeard();
@@ -667,7 +676,14 @@
                 if (gardenOnly) await loadEvents();
                 else await loadGarden();
                 if (selectedGarden && !gardenFailed) {
-                    selectedGarden = gardenItems?.find((capture) => capture.id === selectedGarden?.id) ?? null;
+                    const refreshed = serverGardenVisits.find((visit) => visit.id === openedGardenGroup?.id);
+                    if (refreshed && openedGardenGroup) {
+                        openedGardenGroup = { ...openedGardenGroup, captureCount: refreshed.capture_count };
+                        await loadGardenCapturePage(gardenGroupOffset, false);
+                    } else {
+                        selectedGarden = null;
+                        openedGardenGroup = null;
+                    }
                 }
             }, 350);
             return () => clearTimeout(timer);
@@ -1254,9 +1270,8 @@
     const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
     const subjects = $derived<ExplorerSubjects>(gardenAvailable ? explorerSubjectsStore.value : 'birds');
     const gardenOnly = $derived(subjects === 'garden');
-    // Review groups photos by position, so it reads a larger page, as the Garden review always did.
-    const GARDEN_REVIEW_PAGE = 128;
-    const effectivePageSize = $derived(gardenOnly && gardenReview === 'pending' ? GARDEN_REVIEW_PAGE : pageSize);
+    // Page size counts complete server groups, including position stacks.
+    const effectivePageSize = $derived(pageSize);
     let totalPages = $derived(Math.ceil(totalCount / effectivePageSize));
 
     // Heard calls between visits (off until this device turns them on).
@@ -1381,15 +1396,19 @@
             return;
         }
         try {
-            const page = await fetchGardenTimeline({
-                start: span.start?.toISOString() ?? null,
-                end: span.end.toISOString(),
+            const page = await fetchGardenVisits({
+                start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
+                end: localDayBound(dateRange.end, true)?.toISOString(),
+                pageStart: span.start?.toISOString(),
+                pageEnd: span.end.toISOString(),
                 camera: cameraFilter || undefined,
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
             if (generation !== gardenLoadGeneration) return;
-            gardenItems = page.items;
+            serverGardenVisits = page.visits;
+            gardenItems = page.visits.map((visit) => visit.representative);
+            gardenCaptureTotal = page.capture_total;
             gardenTotal = page.total;
             gardenFailed = false;
         } catch (e) {
@@ -1401,34 +1420,86 @@
         }
     }
 
+    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; status: GardenReview } {
+        return { start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
+            end: localDayBound(dateRange.end, true)?.toISOString(), camera: cameraFilter || undefined,
+            status: gardenOnly ? gardenReview : 'reviewable' };
+    }
+
+    async function loadGardenCapturePage(index: number, selectCapture = true): Promise<void> {
+        const group = openedGardenGroup;
+        if (!group) return;
+        const generation = ++gardenGroupGeneration;
+        const selectedId = selectedGarden?.id;
+        gardenGroupLoading = true;
+        gardenGroupError = null;
+        const offset = Math.floor(index / 128) * 128;
+        try {
+            const page = await fetchGardenVisitCaptures(group.id, gardenCaptureScope(), offset);
+            if (generation !== gardenGroupGeneration || !selectedGarden || selectedGarden.id !== selectedId) return;
+            openedGardenGroup = { ...group, captureCount: page.total, items: page.items };
+            gardenGroupOffset = offset;
+            if (selectCapture) selectedGarden = page.items[index - offset] ?? page.items[0] ?? null;
+            else selectedGarden = page.items.find((item) => item.id === selectedId) ?? page.items[0] ?? null;
+        } catch (failure) {
+            if (generation !== gardenGroupGeneration) return;
+            gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
+        } finally {
+            if (generation === gardenGroupGeneration) gardenGroupLoading = false;
+        }
+    }
+
+    function openGardenCapture(capture: GardenCapture): void {
+        gardenGroupGeneration++;
+        selectedGarden = capture;
+        openedGardenGroup = gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
+        gardenGroupOffset = 0;
+        gardenGroupError = null;
+        if (openedGardenGroup) void loadGardenCapturePage(0, false);
+    }
+
     function setSubjects(next: ExplorerSubjects): void {
         explorerSubjectsStore.set(next);
     }
 
     /** A capture after a review: kept where it still belongs, otherwise the next photo of its group opens. */
     function gardenChanged(next: GardenCapture): void {
+        gardenGroupGeneration++;
+        gardenGroupLoading = false;
+        gardenGroupError = null;
         const view: GardenReview = gardenOnly ? gardenReview : 'reviewable';
         if (gardenBelongs(next, view)) {
             gardenItems = (gardenItems ?? []).map((item) => (item.id === next.id ? next : item));
             selectedGarden = next;
+            if (openedGardenGroup) {
+                const previous = openedGardenGroup.items.find((item) => item.id === next.id);
+                if (!previous || previous.status !== next.status || gardenEntryView(previous).name !== gardenEntryView(next).name) {
+                    // A changed identity/state no longer belongs to the cached stack.
+                    openedGardenGroup = { id: next.id, kind: 'visit', captureCount: 1, items: [next] };
+                    gardenGroupOffset = 0;
+                } else {
+                    openedGardenGroup = { ...openedGardenGroup, items: openedGardenGroup.items.map((item) => item.id === next.id ? next : item) };
+                }
+            }
+            void (gardenOnly ? loadEvents() : loadGarden());
             return;
         }
-        const group = gardenGroups.find((candidate) => candidate.items.some((item) => item.id === next.id))?.items ?? [];
+        const group = openedGardenGroup?.items ?? [];
         const at = group.findIndex((item) => item.id === next.id);
         const neighbour = group[at + 1] ?? group[at - 1] ?? null;
         gardenItems = (gardenItems ?? []).filter((item) => item.id !== next.id);
-        gardenTotal = Math.max(0, gardenTotal - 1);
-        if (gardenOnly) totalCount = Math.max(0, totalCount - 1);
         selectedGarden = neighbour;
+        if (openedGardenGroup) openedGardenGroup = { ...openedGardenGroup, items: group.filter((item) => item.id !== next.id), captureCount: Math.max(0, (openedGardenGroup.captureCount ?? group.length) - 1) };
+        void (gardenOnly ? loadEvents() : loadGarden());
     }
 
     function gardenGroupDismissed(ids: string[], skipped: number): void {
         const removed = new Set(ids);
         gardenItems = (gardenItems ?? []).filter((item) => !removed.has(item.id));
-        gardenTotal = Math.max(0, gardenTotal - ids.length);
-        if (gardenOnly) totalCount = Math.max(0, totalCount - ids.length);
         gardenUndo = { ids, skipped };
         selectedGarden = null;
+        openedGardenGroup = null;
+        void (gardenOnly ? loadEvents() : loadGarden());
         const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
         if (skipped > 0) {
             toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
@@ -1476,7 +1547,10 @@
 
     /** Motion proposals around one position open as one entry, as the Garden review grouped them. */
     /** One animal's stay is one entry, as a bird's is; unconfirmed motion proposals stack by position. */
-    const gardenGroups = $derived(groupGardenVisits(shownGarden));
+    const gardenGroups = $derived(serverGardenVisits
+        .filter((visit) => shownGarden.some((item) => item.id === visit.representative.id))
+        .map((visit): GardenVisit => ({ id: visit.id, kind: visit.kind,
+            captureCount: visit.capture_count, items: [visit.representative] })));
 
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
@@ -1517,7 +1591,7 @@
     });
 
     const selectedGardenVisit = $derived(
-        selectedGarden ? gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id)) ?? null : null
+        selectedGarden ? openedGardenGroup ?? gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id)) ?? null : null
     );
 
     function entryTime(entry: ExplorerEntry): number {
@@ -1562,7 +1636,7 @@
         <div class="flex flex-wrap items-center gap-2">
             <div class="mr-1 basis-full text-sm text-slate-500 sm:basis-auto dark:text-slate-400" data-explorer-count>
                 <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
-                    ? $_('garden.explorer.total', { values: { count: totalCount }, default: '{count} Garden captures' })
+                    ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: 'Garden entries: {count} · captures: {captures}' })
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
@@ -1925,7 +1999,7 @@
             </p>
         {:else if gardenInTimeline && gardenItems !== null && gardenTotal > gardenItems.length}
             <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
-                {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden captures; {shown} are shown beside its visits. Choose Garden to page through them all.' })}
+                {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden entries; {shown} are shown. Choose Garden to page through all entries.' })}
             </p>
         {/if}
 
@@ -1994,7 +2068,7 @@
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
                     {:else if entry.kind === 'garden'}
-                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} onopen={(capture) => (selectedGarden = capture)} />
+                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} onopen={openGardenCapture} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -2025,7 +2099,7 @@
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
                     {:else if entry.kind === 'garden'}
-                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} onopen={(capture) => (selectedGarden = capture)} /></div>
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} onopen={openGardenCapture} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}
@@ -2123,7 +2197,12 @@
         capture={selectedGarden}
         group={selectedGardenVisit?.items ?? [selectedGarden]}
         groupKind={selectedGardenVisit?.kind ?? 'visit'}
-        onclose={() => (selectedGarden = null)}
+        groupTotal={selectedGardenVisit?.captureCount ?? 1}
+        groupOffset={gardenGroupOffset}
+        groupLoading={gardenGroupLoading}
+        groupError={gardenGroupError}
+        onpage={(index) => void loadGardenCapturePage(index)}
+        onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}
         onchanged={gardenChanged}
         onselect={(capture) => (selectedGarden = capture)}
         ongroupdismissed={gardenGroupDismissed}
