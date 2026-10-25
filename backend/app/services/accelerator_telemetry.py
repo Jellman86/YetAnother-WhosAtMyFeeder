@@ -201,9 +201,10 @@ class DrmEngineTimeProbe:
         # never summed across clients first: a joining client's lifetime
         # total is not this interval's work, and a departing client's total
         # must not subtract from the rest. The DRM usage-stats spec permits
-        # counters to temporarily regress, so a rolled-back reading keeps
-        # the previous larger value as its baseline until it catches up,
-        # instead of recounting the recovery as new work.
+        # busy counters to temporarily regress, so a rolled-back busy reading
+        # keeps its high-water until it catches up. Total cycles are a GPU
+        # timestamp, not cumulative client work: rebaseline a backwards clock
+        # after leaving that interval unmeasured, without guessing its width.
         self._high_water: dict[tuple[str, str, str, str], tuple[int, float]] = {}
         self.diagnostics = DrmProbeDiagnostics()
         self._read_counts: dict[str, int] = {}
@@ -341,7 +342,22 @@ class DrmEngineTimeProbe:
                             driver=client.driver if client.driver in _DRIVER_LABELS else "other",
                             engine=engine
                             if engine
-                            in {"render", "copy", "video", "video-enhance", "compute", "gfx", "dma", "decode", "encode"}
+                            in {
+                                "render",
+                                "copy",
+                                "video",
+                                "video-enhance",
+                                "compute",
+                                "gfx",
+                                "dma",
+                                "decode",
+                                "encode",
+                                "rcs",
+                                "bcs",
+                                "vcs",
+                                "vecs",
+                                "ccs",
+                            }
                             else "other",
                             unit=unit,
                             value=bounded(value),
@@ -478,10 +494,10 @@ class DrmEngineTimeProbe:
                 for engine, value in counters.items():
                     key = (client.pdev, client.client_id, unit, engine)
                     mark = self._high_water.get(key)
-                    # Equal means caught up (or idle): refresh the time so
-                    # the next interval is measured from here. Only a
-                    # strictly smaller reading keeps the old mark and time.
-                    if mark is None or value >= mark[0]:
+                    # Retain cumulative busy work across temporary regressions.
+                    # The total-cycle clock can wrap or reset independently;
+                    # keeping its old high-water would suppress future samples.
+                    if unit == "total_cycles" or mark is None or value >= mark[0]:
                         self._high_water[key] = (value, now)
         return readings
 

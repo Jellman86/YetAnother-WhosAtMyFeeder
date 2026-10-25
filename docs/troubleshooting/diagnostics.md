@@ -519,6 +519,15 @@ Cycle observations include current and previous total cycles. This evidence can
 distinguish counter access failures, unsupported counters and client turnover.
 It does not establish whether the GPU is stable or why processing became slower.
 
+A GPU's total-cycle clock can wrap independently of its cumulative busy counters.
+For example, Xe hardware with a 36-bit clock at 19.2 MHz wraps about every 59.6
+minutes. YA-WAMF leaves that discontinuous interval unmeasured, then uses the new
+clock baseline for the next valid interval. It does not guess a counter width or
+restart inference. Busy counters still keep their previous high-water mark across
+temporary regressions so recovered work is not counted twice. Standard Xe engine
+names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
+unrecognised names are still replaced with `other`.
+
 No raw fdinfo, file paths, process arguments, environment variables, client IDs or
 exception messages are added to this evidence. Capturing a bundle uses existing
 in-memory samples and does not start inference, change devices or restart workers.

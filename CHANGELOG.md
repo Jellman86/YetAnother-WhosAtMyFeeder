@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- GPU utilisation resumes after a DRM total-cycle clock rolls backwards, instead
+  of staying unmeasured until the old timestamp catches up. The discontinuous
+  interval stays unknown; cumulative busy counters keep their regression protection.
+  Support diagnostics retain the standard Xe engine names.
+
 - Garden can send separate, opt-in text notifications for recent named animals.
   Choose channels independently of bird alerts and inspect saved delivery attempts
   in Beta features. No photographs or media links are sent.

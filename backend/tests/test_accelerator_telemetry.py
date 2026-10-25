@@ -381,3 +381,92 @@ def test_drm_diagnostics_distinguish_missing_total_regression_and_measurement(tm
     _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=5, total_cycles=50))
     probe.read(now=4.0, pids=[100])
     assert probe.diagnostics.counters[0].state == "counter_regressed"
+
+
+def test_gpu_probe_recovers_after_reported_xe_total_clock_rollover(tmp_path: Path) -> None:
+    # Sanitized counters from #778: busy cycles remain cumulative while the
+    # hardware timestamp wraps near 2**36. Its old high-water never catches up.
+    proc = tmp_path / "proc"
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=116_100_017, total_cycles=68_706_428_536))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=117_290_788, total_cycles=9_711_283_593))
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    assert probe.diagnostics.counters[0].state == "counter_regressed"
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=117_290_788, total_cycles=9_807_446_444))
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 0.0
+    assert probe.diagnostics.counters[0].state == "measured"
+    assert probe.diagnostics.counters[0].previous_total == 9_711_283_593
+
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=127_290_788, total_cycles=9_907_446_444))
+    assert probe.read(now=25.0, pids=[100])[0].utilization_percent == 10.0
+
+
+def test_gpu_probe_rebaselines_total_clock_without_resetting_busy_high_water(tmp_path: Path) -> None:
+    proc = tmp_path / "proc"
+    probe = DrmEngineTimeProbe(proc_root=proc, drm_root=tmp_path / "drm")
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=100, total_cycles=1000))
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=50, total_cycles=10))
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=100, total_cycles=110))
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 0.0
+    _write_fdinfo(proc, 100, 9, _xe_client(1, cycles=125, total_cycles=210))
+    assert probe.read(now=25.0, pids=[100])[0].utilization_percent == 25.0
+
+
+def test_gpu_probe_clock_rollover_keeps_other_clients_measured(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=1000, total_cycles=10000))
+    _write_fdinfo(tmp_path, 200, 9, _xe_client(2, cycles=1000, total_cycles=100))
+    probe.read(now=10.0, pids=[100, 200])
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=1100, total_cycles=10))
+    _write_fdinfo(tmp_path, 200, 9, _xe_client(2, cycles=1020, total_cycles=200))
+    assert probe.read(now=15.0, pids=[100, 200])[0].utilization_percent == 20.0
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=1110, total_cycles=1))
+    _write_fdinfo(tmp_path, 200, 9, _xe_client(2, cycles=1030, total_cycles=1))
+    assert probe.read(now=20.0, pids=[100, 200])[0].utilization_percent is None
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=1130, total_cycles=101))
+    _write_fdinfo(tmp_path, 200, 9, _xe_client(2, cycles=1060, total_cycles=101))
+    assert probe.read(now=25.0, pids=[100, 200])[0].utilization_percent == 50.0
+
+
+def test_gpu_probe_recovers_after_each_total_clock_rollover(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    cycles = 1000
+    now = 10.0
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=cycles, total_cycles=2**36 - 10))
+    probe.read(now=now, pids=[100])
+    for _ in range(2):
+        now += 5
+        cycles += 30
+        _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=cycles, total_cycles=5))
+        assert probe.read(now=now, pids=[100])[0].utilization_percent is None
+        now += 5
+        cycles += 10
+        _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=cycles, total_cycles=105))
+        assert probe.read(now=now, pids=[100])[0].utilization_percent == 10.0
+        now += 3500
+        _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=cycles, total_cycles=2**36 - 10))
+        probe.read(now=now, pids=[100])
+
+
+def test_gpu_probe_xe_engine_names_and_busiest_engine_survive_clock_rollover(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path, drm_root=tmp_path / "drm")
+    engines = ["rcs", "bcs", "vcs", "vecs", "ccs"]
+
+    def write(total: int, busy: list[int]) -> None:
+        body = "drm-driver: xe\ndrm-client-id: 1\ndrm-pdev: 0000:00:02.0\n"
+        for engine, value in zip(engines, busy, strict=True):
+            body += f"drm-cycles-{engine}: {value}\ndrm-total-cycles-{engine}: {total}\n"
+        body += f"drm-cycles-private-engine: 0\ndrm-total-cycles-private-engine: {total}\n"
+        _write_fdinfo(tmp_path, 100, 9, body)
+
+    write(2**36 - 10, [1000] * 5)
+    probe.read(now=10.0, pids=[100])
+    write(5, [1050] * 5)
+    assert probe.read(now=15.0, pids=[100])[0].utilization_percent is None
+    write(105, [1060, 1070, 1080, 1090, 1100])
+    assert probe.read(now=20.0, pids=[100])[0].utilization_percent == 50.0
+    assert {counter.engine for counter in probe.diagnostics.counters} == {*engines, "other"}
