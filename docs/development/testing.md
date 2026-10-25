@@ -223,6 +223,25 @@ file identity even when size and timestamps match. This guards rapid same-size
 updates on coarse-timestamp filesystems without hashing every settled model on
 every request.
 
+### Crop process containment
+
+`backend/tests/test_crop_process_session.py` uses disposable children to inject
+SIGABRT, device errors, hangs and repeated cancellation. It verifies child reaping
+before CPU fallback, retained quarantine, transient reload, concurrent queue
+admission, nonblocking model reset, delayed launch shutdown, cleanup status and
+recovery, and bounded numeric tensor exchange. Owner-pipe EOF and a Linux kernel
+parent-death test cover loss of the owning API or classifier worker, including native code holding
+the Python lock. The test's private subreaper collects every descendant. A tiny embedded ONNX
+Identity graph also checks the production CPU child without a model download.
+The native-exception test aborts if a failed exception is destroyed; the worker
+must instead exit immediately with its recognised device-error evidence intact.
+These checks do not retry a quarantined production accelerator or establish GPU
+hardware qualification. Run them with the normal backend test dependencies:
+
+```bash
+PYTHONPATH=backend pytest backend/tests/test_crop_process_session.py -q
+```
+
 ### Native OpenVINO crash reproducer
 
 Verify the application recovery contract separately with real installed weights:

@@ -94,6 +94,7 @@ def test_load_model_reads_detector_contract_from_model_config(monkeypatch, tmp_p
     service = BirdCropService(detector_tier="accurate")
     monkeypatch.setenv("BIRD_CROP_MODEL_PATH_ACCURATE", str(model_path))
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
 
     loaded = service._load_model_for_tier("accurate")
     candidates = service._infer_candidates(loaded, _make_image())

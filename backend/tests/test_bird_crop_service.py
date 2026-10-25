@@ -61,6 +61,7 @@ def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, 
     ort = types.SimpleNamespace(preload_dlls=preload_dlls, SessionOptions=object, InferenceSession=create_session)
     service = BirdCropService()
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: ort)
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
 
     service._load_model_on_provider(
         tier="accurate", model_path=tmp_path / "model.onnx", model_config={}, provider=provider
@@ -286,6 +287,7 @@ def test_load_model_uses_local_onnx_detector_path(monkeypatch, tmp_path):
     service = BirdCropService()
     monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
 
     loaded = service._load_model()
 
@@ -400,6 +402,7 @@ def test_load_model_autodiscovers_standard_detector_path_without_env(monkeypatch
     service = BirdCropService()
     monkeypatch.delenv("BIRD_CROP_MODEL_PATH", raising=False)
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
     monkeypatch.setattr(service, "_candidate_model_paths", lambda: [str(model_path)])
 
     loaded = service._load_model()
@@ -445,6 +448,7 @@ def test_load_model_handles_nhwc_input_shape(monkeypatch, tmp_path):
     service = BirdCropService()
     monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
 
     loaded = service._load_model()
 
@@ -559,6 +563,7 @@ def test_load_model_captures_nhwc_uint8_detector_metadata(monkeypatch, tmp_path)
     service = BirdCropService()
     monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
     monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
 
     loaded = service._load_model()
 

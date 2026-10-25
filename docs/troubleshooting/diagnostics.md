@@ -355,6 +355,50 @@ switching to workers cannot release a native thread that is still stalled in the
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
 Wildlife reclassification also uses isolated workers when subprocess execution is active.
 
+### Crop detector process failures
+
+Crop detector model loading and inference run in persistent child processes,
+including high-quality snapshots, bird scans and video crop searches. The API
+and classifier workers keep tensor data and crop geometry, without owning the
+native detector session or its exceptions. A failed child is stopped and reaped
+before the existing CPU fallback can load another detector. Normal repeated
+frames reuse a warm child. Each cached detector adds a process and IPC tensor
+copies, so cold loading and memory use can increase.
+
+A native crop crash or recognised GPU device error retains a separate incident
+under `/config/native-crashes`, with `operation: crop_detector` and the actual
+crop model, artifact and provider. Diagnostic reasons are `native_crop_crash`
+or `crop_worker_retired`. The bird classifier's selected provider may differ
+from the crop detector's provider; a classifier NPU setting does not prove that
+the crop detector used the NPU. Inspect the crop detector's completed execution
+and incident evidence separately.
+
+A quarantined crop configuration is skipped on later loads, allowing the
+existing CPU fallback where permitted. CPU detector failures are contained too.
+A timed-out or ordinarily exited child is reaped; the next request can reload
+it after checking quarantine. The 45-second inference deadline starts after
+queue admission. Queue waiting has a separate 60-second bound; expiry leaves
+the active inference alone. Initial loading has a 180-second deadline.
+
+If cleanup cannot be confirmed, new detector launches are blocked for that owner
+process. Crop status reports `runtime_cleanup_unconfirmed`, and error diagnostics
+record `crop_cleanup_unconfirmed`. A retained wait clears the block only after
+the child is reaped. Shutdown joins owned children. An owner-pipe monitor exits
+the child when its API or classifier worker disappears; Linux also uses a kernel
+parent-death signal, which works if native code holds the Python lock. A process
+in uninterruptible kernel sleep may still require host-level recovery. This does
+not repair a driver hang or qualify the failed accelerator for reuse.
+
+Hardware crop validation uses the same containment and quarantine. A failed
+probe can therefore retain an incident and block later probes of that exact
+configuration. There is no automatic crop quarantine reset or crop-specific
+approval action. Preserve the evidence and follow the manual investigation
+procedure below. Older classifier-level incidents cannot establish the exact
+crop profile: they remain blocking for classification but are not converted
+into crop incidents. Before deploying after a known crop failure, verify the
+current crop provider recommendation separately. A new process boundary does
+not authorize another attempt on a known failing accelerator.
+
 ### Confirmed native worker crashes
 
 If an isolated worker exits with SIGSEGV, SIGABRT, SIGBUS, SIGILL or SIGFPE,
