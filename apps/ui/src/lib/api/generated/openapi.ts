@@ -920,6 +920,36 @@ export interface components {
     progress: number;
     status: string;
 };
+    DrmCounterDiagnostic: {
+    device: string;
+    driver: string;
+    elapsed_seconds: number | null;
+    engine: string;
+    previous: number | null;
+    previous_total: number | null;
+    state: "baseline" | "measured" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
+    total: number | null;
+    unit: "ns" | "cycles";
+    value: number;
+};
+    DrmProbeDiagnostics: {
+    counters?: Array<components['schemas']['DrmCounterDiagnostic']>;
+    departed_clients?: number;
+    drivers?: Array<string>;
+    fdinfo_reads?: number;
+    missing_processes?: number;
+    new_clients?: number;
+    omitted_counters?: number;
+    parsed_clients?: number;
+    permission_denied?: number;
+    process_count?: number;
+    read_errors?: number;
+    unsupported_fdinfo?: number;
+};
+    DrmProbeSnapshot: {
+    at: number;
+    diagnostic: components['schemas']['DrmProbeDiagnostics'];
+};
     EbirdNearbyResponse: {
     message?: string | null;
     results: Array<components['schemas']['EbirdObservation']>;
@@ -2377,6 +2407,7 @@ export interface components {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
     accelerators?: Array<components['schemas']['SystemAcceleratorSeries']>;
     app_rss_bytes?: number | null;
+    drm_diagnostics?: Array<components['schemas']['DrmProbeSnapshot']>;
     host: components['schemas']['SystemHostFacts'];
     interval_seconds: number;
     points: Array<components['schemas']['SystemHistoryPointResponse']>;

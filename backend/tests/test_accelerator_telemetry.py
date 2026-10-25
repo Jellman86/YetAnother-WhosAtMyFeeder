@@ -286,3 +286,98 @@ def test_a_failing_probe_never_hides_the_accelerators_that_did_answer(tmp_path: 
     )
 
     assert [reading.kind for reading in sampler.sample(pids=[1])] == ["npu"]
+
+
+def test_drm_diagnostics_explain_frozen_cycles_and_keep_only_safe_fields(tmp_path: Path) -> None:
+    from dataclasses import asdict
+    import json
+
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=10, total_cycles=1000) + "secret: PRIVATE_TOKEN\n")
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    probe.read(now=10.0, pids=[100])
+    assert probe.diagnostics.new_clients == 1
+    assert probe.diagnostics.counters[0].state == "baseline"
+    probe.read(now=12.0, pids=[100])
+    diagnostic = probe.diagnostics
+    assert diagnostic.parsed_clients == 1
+    assert diagnostic.fdinfo_reads == 1
+    assert diagnostic.counters[0].state == "total_not_advancing"
+    assert diagnostic.counters[0].value == 10
+    assert diagnostic.counters[0].previous == 10
+    assert diagnostic.counters[0].total == 1000
+    assert diagnostic.counters[0].previous_total == 1000
+    assert "PRIVATE_TOKEN" not in json.dumps(asdict(diagnostic))
+
+
+def test_drm_diagnostics_report_missing_process_and_client_turnover(tmp_path: Path) -> None:
+    _write_fdinfo(tmp_path, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    probe.read(now=10.0, pids=[100])
+    _write_fdinfo(tmp_path, 100, 9, _drm_client(2, render_ns=0, video_ns=0))
+    probe.read(now=12.0, pids=[100, 200])
+    assert probe.diagnostics.new_clients == 1
+    assert probe.diagnostics.departed_clients == 1
+    assert probe.diagnostics.missing_processes == 1
+    assert all(counter.state == "baseline" for counter in probe.diagnostics.counters)
+
+
+def test_drm_diagnostics_are_bounded_and_allowlist_counter_identity(tmp_path: Path) -> None:
+    from dataclasses import asdict
+    import json
+
+    for fd in range(40):
+        body = (
+            _drm_client(fd, render_ns=0, video_ns=0)
+            .replace("i915", "PRIVATE_DRIVER")
+            .replace("0000:00:02.0", "PRIVATE_DEVICE")
+            .replace("render", "PRIVATE_ENGINE")
+        )
+        _write_fdinfo(tmp_path, 100, fd, body)
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    probe.read(now=10.0, pids=[100])
+    assert len(probe.diagnostics.counters) == 64
+    assert probe.diagnostics.omitted_counters == 16
+    assert "PRIVATE" not in json.dumps(asdict(probe.diagnostics))
+
+
+def test_drm_diagnostics_count_denied_reads_without_exception_text(tmp_path: Path, monkeypatch) -> None:
+    _write_fdinfo(tmp_path, 100, 9, _drm_client(1, render_ns=0, video_ns=0))
+
+    def denied(*args, **kwargs):
+        raise PermissionError("PRIVATE_PATH")
+
+    monkeypatch.setattr(Path, "read_text", denied)
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    assert probe.read(now=10.0, pids=[100]) == []
+    assert probe.diagnostics.permission_denied == 1
+    assert probe.diagnostics.fdinfo_reads == 0
+
+
+def test_drm_diagnostics_identify_driver_without_supported_counters(tmp_path: Path) -> None:
+    _write_fdinfo(tmp_path, 100, 9, "drm-driver: xe\ndrm-client-id: 1\n")
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    assert probe.read(now=1.0, pids=[100]) == []
+    assert probe.diagnostics.drivers == ("xe",)
+    assert probe.diagnostics.unsupported_fdinfo == 1
+    probe.read(now=2.0, pids=[])
+    assert probe.diagnostics.drivers == ()
+    assert probe.diagnostics.process_count == 0
+
+
+def test_drm_diagnostics_distinguish_missing_total_regression_and_measurement(tmp_path: Path) -> None:
+    probe = DrmEngineTimeProbe(proc_root=tmp_path)
+    _write_fdinfo(
+        tmp_path, 100, 9, _xe_client(1, cycles=10, total_cycles=100).replace("drm-total-cycles-render:\t100\n", "")
+    )
+    probe.read(now=1.0, pids=[100])
+    assert probe.diagnostics.counters[0].state == "missing_total"
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=10, total_cycles=100))
+    probe.read(now=2.0, pids=[100])
+    assert probe.diagnostics.counters[0].state == "baseline"
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=20, total_cycles=200))
+    assert probe.read(now=3.0, pids=[100])[0].utilization_percent == 10.0
+    assert probe.diagnostics.counters[0].state == "measured"
+    assert probe.diagnostics.counters[0].elapsed_seconds == 1.0
+    _write_fdinfo(tmp_path, 100, 9, _xe_client(1, cycles=5, total_cycles=50))
+    probe.read(now=4.0, pids=[100])
+    assert probe.diagnostics.counters[0].state == "counter_regressed"

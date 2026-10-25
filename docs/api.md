@@ -1131,8 +1131,12 @@ The callback exception grants no owner role and does not expand cookie authentic
   `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
   It is a support snapshot, not a restorable configuration/history backup.
   Workspace and bundle responses also include optional `system_telemetry` evidence
-  in the `/api/system-telemetry/history` response shape. It reads the existing bounded
-  history without sampling or inference; unmeasured accelerator values remain null.
+  in the `/api/system-telemetry/history` response shape. The owner-only `drm_diagnostics`
+  field retains the last two timestamped probe summaries: read/error and client-turnover
+  counts, and at most 64 allow-listed counter observations each. Counter observations
+  include current/previous busy and total values, units and measurement-state codes;
+  arbitrary driver/engine text, raw procfs, client IDs and exception messages are excluded.
+  It reads the existing bounded history without sampling or inference; unmeasured accelerator values remain null.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)

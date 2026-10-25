@@ -503,7 +503,7 @@ async def test_diagnostic_exports_do_not_disclose_configured_credentials(client,
 @pytest.mark.parametrize("endpoint", ["workspace", "bundle"])
 async def test_diagnostics_preserves_gpu_measurement_gaps_and_worker_attribution(client, monkeypatch, endpoint):
     from app.routers import stats
-    from app.services.accelerator_telemetry import AcceleratorReading
+    from app.services.accelerator_telemetry import AcceleratorReading, DrmProbeDiagnostics
     from app.services.system_telemetry import ProcessLoad, SystemTelemetryHistory, SystemTelemetrySample
 
     settings.auth.enabled = False
@@ -512,6 +512,7 @@ async def test_diagnostics_preserves_gpu_measurement_gaps_and_worker_attribution
         history.record(
             SystemTelemetrySample(
                 cpu_percent=25.0,
+                drm_diagnostics=DrmProbeDiagnostics(permission_denied=1),
                 accelerators=(
                     AcceleratorReading(
                         id="gpu-test", kind="gpu", label="Intel GPU", scope="app", utilization_percent=percent
@@ -534,6 +535,8 @@ async def test_diagnostics_preserves_gpu_measurement_gaps_and_worker_attribution
     telemetry = response.json()["system_telemetry"]
     assert [point["accelerators"]["gpu-test"] for point in telemetry["points"]] == [42.0, None]
     assert telemetry["processes"][0]["accelerator"] == {"kind": "gpu", "label": "Intel GPU"}
+    assert [sample["at"] for sample in telemetry["drm_diagnostics"]] == [10.0, 15.0]
+    assert telemetry["drm_diagnostics"][1]["diagnostic"]["permission_denied"] == 1
     assert telemetry["processes"][0]["cpu_percent"] == 8.0
     assert "cmdline" not in telemetry["processes"][0]
     if endpoint == "bundle":
