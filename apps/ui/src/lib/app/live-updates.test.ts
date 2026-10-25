@@ -42,6 +42,7 @@ function buildCoordinator(options?: {
     checkHealth?: () => Promise<any>;
     hasOwnerAccess?: boolean;
     refreshOwnerHistory?: () => Promise<void>;
+    onGardenHistoryChanged?: () => void;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -58,6 +59,7 @@ function buildCoordinator(options?: {
         completeReclassification: [] as any[],
         failReclassification: [] as any[],
         markReclassificationStrategyChanged: [] as any[],
+        addDetection: [] as unknown[],
         syncDiagnosticsWorkspace: [] as any[]
     };
 
@@ -77,6 +79,7 @@ function buildCoordinator(options?: {
         shouldNotify: () => options?.shouldNotify ?? true,
         hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
         refreshOwnerHistory: options?.refreshOwnerHistory,
+        onGardenHistoryChanged: options?.onGardenHistoryChanged,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -103,7 +106,7 @@ function buildCoordinator(options?: {
         jobProgress,
         detectionsStore: {
             setConnected: () => undefined,
-            addDetection: () => undefined,
+            addDetection: (detection) => { calls.addDetection.push(detection); },
             updateDetection: () => undefined,
             removeDetection: () => undefined,
             startReclassification: (...args: any[]) => calls.startReclassification.push(args),
@@ -781,4 +784,16 @@ it('keeps current and initial classification input in owner live updates', () =>
     const result = toDetection({ frigate_event: 'source-change', classification_input: current, initial_classification_input: original });
     expect(result.classification_input).toEqual(current);
     expect(result.initial_classification_input).toEqual(original);
+});
+
+
+describe('private Garden live updates', () => {
+    it.each([true, false])('invalidates Garden only with owner access (%s), without bird or notification changes', (owner) => {
+        const onGardenHistoryChanged = vi.fn();
+        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onGardenHistoryChanged });
+        coordinator.handlePayload({ type: 'garden_history_changed' });
+        expect(onGardenHistoryChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
+        expect(calls.addDetection).toEqual([]);
+        expect(calls.notificationUpserts).toEqual([]);
+    });
 });

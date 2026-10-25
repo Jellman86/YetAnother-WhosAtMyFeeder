@@ -62,6 +62,11 @@ page opens the Explorer's Garden review instead.
 
 ## Garden animals in the Explorer
 
+The open Explorer updates when an automatic check saves a name, dismissal or retry
+result. An open record updates with it; a removed capture closes. Reconnecting the
+live stream refreshes the current Garden view after a missed update. This private
+update signal carries no capture details and is never delivered to guests.
+
 With Garden on, the **Explorer** shows each opted-in camera's animals beside its birds, placed by
 time between the visits they fell between. **Visitors** at the top of the filter rail chooses
 **Birds and Garden** (the default), **Birds** or **Garden visitors**, and this device remembers the

@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer updates Garden captures and open records when automatic checks finish,
+  including new names, dismissals and person-evidence removal, without a page refresh.
+
 - Garden captures awaiting automatic identification no longer claim that the animal
   is confirmed before an identification or manual review has completed.
 - Support bundles include the last two bounded DRM counter diagnostics, distinguishing unreadable counters, missing or frozen cycle totals, and GPU client turnover without exporting raw process files.

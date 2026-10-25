@@ -65,7 +65,7 @@ async function openExplorer(page: Page, query = '') {
     });
     await page.goto(`/browser-tests/owner-history.html?surface=explorer${query}`);
     await expect(page.locator('[data-explorer-visit="morning"]')).toBeVisible();
-    return { errors, timelineQueries, confirmed };
+    return { errors, timelineQueries, confirmed, garden };
 }
 
 test('Garden captures sit between the visits they fell between, marked Garden in words', async ({ page }) => {
@@ -119,3 +119,35 @@ test('without the Garden beta the Explorer shows birds and asks for nothing abou
     await expect(page.locator('[data-garden-card]')).toHaveCount(0);
     expect(timelineQueries).toEqual([]);
 });
+
+
+for (const gardenOnly of [false, true]) {
+    test(`automatic Garden changes refresh the open record and privacy removal closes it (Garden only: ${gardenOnly})`, async ({ page }) => {
+        const { garden, timelineQueries, errors } = await openExplorer(page, '&garden=1');
+        if (gardenOnly) {
+            const option = page.locator('[data-explorer-subjects-option="garden"]');
+            if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
+            await option.click();
+            await expect(page.locator('[data-explorer-visit]')).toHaveCount(0);
+        }
+        await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
+        const dialog = page.getByRole('dialog');
+        await expect(dialog).toContainText('Waiting for automatic identification');
+        const previousReads = timelineQueries.length;
+        const named = capture('cat', garden[1].observed_at, 'confirmed', 'Domestic cat');
+        if (named.identification) named.identification.automatic = true;
+        garden[1] = named;
+        await page.evaluate(() => {
+            window.dispatchEvent(new Event('fixture-garden-change'));
+            window.dispatchEvent(new Event('fixture-garden-change'));
+        });
+        await expect(dialog).toContainText('Domestic cat');
+        await expect(dialog).toContainText('Named automatically');
+        expect(timelineQueries.length).toBe(previousReads + 1);
+        garden.splice(1, 1);
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await expect(dialog).toHaveCount(0);
+        await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+        expect(errors).toEqual([]);
+    });
+}

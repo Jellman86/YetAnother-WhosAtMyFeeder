@@ -42,6 +42,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { gardenHistory } from './lib/stores/garden_history.svelte';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
@@ -307,7 +308,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
       onConnected: () => {
           reconnectAttempts = 0;
+          if (authStore.hasOwnerAccess) gardenHistory.invalidate();
       },
+      onGardenHistoryChanged: () => gardenHistory.invalidate(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
       // Only the generic signal arrives; no owner settings are sent to visitors.

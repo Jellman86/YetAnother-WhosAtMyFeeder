@@ -17,6 +17,7 @@ from app.database import get_db
 from app.models.garden import GardenAutomaticCheck, GardenIdentification, GardenPresenceMass
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services import garden_motion_privacy
+from app.services.broadcaster import broadcaster
 from app.services.classifier_service import garden_inference_pressure
 from app.services.frigate_client import frigate_client
 from app.services.garden_capture_policy import garden_collection_cameras
@@ -77,6 +78,7 @@ class GardenAutomaticReviewService:
         if event.get("false_positive") or label in {"person", "human"}:
             async with get_db() as db:
                 await GardenRepository(db).block_capture(capture.id)
+            await broadcaster.broadcast({"type": "garden_history_changed"})
             raise GardenBusy("Capture revoked by Frigate")
         if label not in settings.frigate.garden_labels or label in settings.frigate.ingest_labels:
             raise HTTPException(409, "Capture label no longer enabled")
@@ -114,6 +116,7 @@ class GardenAutomaticReviewService:
         review_generation = service._photo_review_generation
         guard_time = time.monotonic()
         watcher: asyncio.Task | None = None
+        changed = False
 
         def blocked() -> bool:
             return (
@@ -229,6 +232,7 @@ class GardenAutomaticReviewService:
                     repo = GardenRepository(db)
                     if outcome == "human_rejected":
                         await repo.block_capture(original.id)
+                        changed = True
                         service.automatic_message = (
                             "A Garden capture was removed because the check found person evidence."
                         )
@@ -259,12 +263,12 @@ class GardenAutomaticReviewService:
                             devices=native["devices"],
                         )
                         if named is not None:
-                            await repo.save_automatic_naming(original, result, named)
+                            changed = await repo.save_automatic_naming(original, result, named)
                             service.automatic_message = (
                                 "Automatic check named an animal; it is in Confirmed animals, where you can correct it."
                             )
                         else:
-                            await repo.save_automatic_check(original, result)
+                            changed = await repo.save_automatic_check(original, result)
                             service.automatic_message = (
                                 "Automatic check finished below the animal naming threshold or excluded this capture; it is in Dismissed and can be restored."
                                 if outcome in {"bird", "non_animal"} or decision_reason == "below_threshold"
@@ -297,7 +301,7 @@ class GardenAutomaticReviewService:
                 async with garden_motion_privacy.lock:
                     if not blocked():
                         async with get_db() as db:
-                            await GardenRepository(db).save_automatic_check(
+                            changed = await GardenRepository(db).save_automatic_check(
                                 original,
                                 GardenAutomaticCheck(
                                     outcome="unavailable",
@@ -310,6 +314,8 @@ class GardenAutomaticReviewService:
                 with suppress(asyncio.CancelledError):
                     await watcher
             service.busy = False
+        if changed:
+            await broadcaster.broadcast({"type": "garden_history_changed"})
 
 
 garden_automatic_review_service = GardenAutomaticReviewService()

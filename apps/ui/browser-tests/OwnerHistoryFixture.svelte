@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { initKeyboardShortcuts } from '../src/lib/utils/keyboard-shortcuts';
+    import { gardenHistory } from '../src/lib/stores/garden_history.svelte';
     import { detectionsStore } from '../src/lib/stores/detections.svelte';
     import Events from '../src/lib/pages/Events.svelte';
     import SpeciesDetailModal from '../src/lib/components/SpeciesDetailModal.svelte';
@@ -20,7 +21,15 @@
     settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
     // The app's global Escape handler must not consume native capture-panel dismissal.
-    onMount(() => initKeyboardShortcuts({ Escape: () => {} }));
+    onMount(() => {
+        const releaseShortcuts = initKeyboardShortcuts({ Escape: () => {} });
+        const invalidateGarden = () => gardenHistory.invalidate();
+        window.addEventListener('fixture-garden-change', invalidateGarden);
+        return () => {
+            releaseShortcuts();
+            window.removeEventListener('fixture-garden-change', invalidateGarden);
+        };
+    });
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
 </script>
 

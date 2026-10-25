@@ -1223,7 +1223,10 @@ the field is pacing metadata and grants no extra access.
 4. Treat Swagger/OpenAPI as canonical for integration code generation.
 
 5. Use SSE (`/api/sse`) for realtime UI updates instead of short polling. Owner streams
-   carry detailed messages. Guest streams carry only `public_history_changed` and
+   carry detailed messages. `garden_history_changed` is an owner-only invalidation
+   emitted after an automatic Garden result is committed, including removal for person
+   evidence. It contains no capture ID or metadata; reread the owner-only Garden history
+   with the current filters. Guest streams carry only `public_history_changed` and
    `public_access_changed` invalidations, in addition to connection/heartbeat frames;
    fetch allowed data through the public HTTP API and refresh sharing preferences.
 
