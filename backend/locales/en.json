@@ -3,7 +3,11 @@
     "new_detection": "New Bird Detected: {species}",
     "detection_body": "{species} detected on {camera} with {confidence}% confidence",
     "audio_confirmed": "🎤 Audio Confirmed by BirdNET-Go",
-    "view_detection": "View detection"
+    "view_detection": "View detection",
+    "garden_title": "Garden animal: {name}",
+    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_automatic": "Named automatically",
+    "garden_owner": "Species confirmed by owner"
   },
   "errors": {
     "detection_not_found": "Detection not found",

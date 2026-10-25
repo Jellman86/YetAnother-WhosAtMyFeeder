@@ -676,3 +676,27 @@ def test_garden_naming_defaults_on_at_080_and_env_overrides_file(monkeypatch, tm
     loaded = Settings.load()
     assert loaded.frigate.garden_automatic_naming is False
     assert loaded.frigate.garden_naming_threshold == 0.9
+
+
+def test_garden_notification_file_settings_respect_environment_without_inheriting_bird_switches(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "frigate": {"garden_notifications_enabled": True, "garden_notification_channels": ["telegram"]},
+                "notifications": {"telegram": {"enabled": False}},
+            }
+        )
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", raising=False)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", raising=False)
+    loaded = Settings.load()
+    assert loaded.frigate.garden_notifications_enabled
+    assert loaded.frigate.garden_notification_channels == ["telegram"]
+    assert not loaded.notifications.telegram.enabled
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", "false")
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", '["discord", "email"]')
+    loaded = Settings.load()
+    assert not loaded.frigate.garden_notifications_enabled
+    assert loaded.frigate.garden_notification_channels == ["discord", "email"]

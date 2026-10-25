@@ -1981,7 +1981,17 @@
       "garden_status_title": "Estado da recolha",
       "garden_models_limits_explorer": "As verificações automáticas seguem a sua preferência de dispositivo de Deteção após uma comparação local com a CPU, e voltam à CPU se a verificação do dispositivo falhar. As análises de movimento continuam a usar a CPU. O trabalho do jardim corre um de cada vez enquanto aves e câmaras estão inativas; cada processo liberta a memória do modelo ao terminar. As verificações que inicia a partir de uma captura do jardim no Explorador usam o dispositivo escolhido aí e falham em vez de mudar de dispositivo sem aviso.",
       "garden_explorer_help": "Os visitantes do jardim aparecem no Explorador ao lado das suas aves. Escolha aí Visitantes do jardim e depois Revisão necessária para rever as capturas novas.",
-      "garden_explorer_open": "Rever visitantes do jardim"
+      "garden_explorer_open": "Rever visitantes do jardim",
+      "garden_notifications": "Notificações do jardim",
+      "garden_notifications_help": "Alertas de texto para animais recém-identificados, separados dos alertas de aves. Guarde com Aplicar definições.",
+      "garden_notifications_privacy": "Envia nome do animal, câmara e hora aos serviços escolhidos. Sem fotografias nem ligações multimédia. O histórico continua a exigir acesso do proprietário.",
+      "garden_notification_channels": "Canais de envio do jardim",
+      "garden_notification_channel": "Alertas do jardim por {channel}",
+      "garden_notifications_choose": "Escolha pelo menos um canal para os alertas do jardim.",
+      "garden_notifications_credentials": "Faltam credenciais num canal escolhido. Configure-o em Notificações; os alertas de aves podem continuar desligados.",
+      "garden_notifications_attempts_help": "Só são elegíveis capturas identificadas dos últimos cinco minutos. Uma tentativa por canal e visita conhecida; envios falhados ou incertos não são repetidos automaticamente.",
+      "garden_notifications_status": "Tentativas guardadas. Aceites pelo canal: {sent}. Falhadas: {failed}. Por confirmar: {unknown}. Ignoradas: {skipped}.",
+      "garden_notifications_refresh": "Atualizar estado de envio"
     },
     "native_revalidation": {
       "title": "Verificar perfil em quarentena",

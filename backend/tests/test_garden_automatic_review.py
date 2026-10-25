@@ -727,3 +727,18 @@ async def test_automatic_results_invalidate_owner_history_only_after_committed_c
     await c.service.process_once()
     expected = {"named": "confirmed", "dismissed": "dismissed", "unavailable": "pending", "person": None}
     assert delivered == ([] if outcome == "stale" else [({"type": "garden_history_changed"}, expected[outcome])])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("saved", [True, False])
+async def test_only_successful_automatic_naming_schedules_private_notifications(naming, monkeypatch, saved):
+    c = naming
+    schedule = AsyncMock()
+    monkeypatch.setattr(c.module.garden_notification_service, "schedule", schedule)
+    if not saved:
+        monkeypatch.setattr(GardenRepository, "save_automatic_naming", AsyncMock(return_value=False))
+    await c.service.process_once()
+    if saved:
+        schedule.assert_awaited_once_with(c.capture_id)
+    else:
+        schedule.assert_not_awaited()

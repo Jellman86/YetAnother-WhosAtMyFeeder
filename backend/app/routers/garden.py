@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
+from app.config import settings
 from app.database import get_db
 from app.repositories.garden_visit_repository import GardenVisitRepository
 from app.repositories.garden_repository import (
@@ -17,10 +18,12 @@ from app.repositories.garden_repository import (
     GardenStatus,
     GardenTimelineStatus,
 )
+from app.services.garden_notifications import garden_notification_service
 from app.services.garden_capture_service import garden_capture_service
 from app.services import garden_motion_privacy
 from app.models.garden import (
     GardenIdentification,
+    GardenNotificationStatus,
     GardenIdentificationStatus,
     GardenIdentifyRequest,
     GardenVariant,
@@ -257,6 +260,18 @@ async def garden_visit_captures(
     return await _page(items, total, limit, offset)
 
 
+@router.get("/notifications", response_model=GardenNotificationStatus)
+async def garden_notification_status() -> GardenNotificationStatus:
+    from app.services.garden_notification_transport import channel_configured
+
+    return GardenNotificationStatus(
+        enabled=garden_notification_service.enabled(),
+        channels=settings.frigate.garden_notification_channels,
+        configured={channel: channel_configured(channel) for channel in ["discord", "telegram", "pushover", "email"]},
+        attempts=await garden_notification_service.status_counts(),
+    )
+
+
 @router.post("/review-batch", response_model=GardenBatchReviewResponse)
 async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewResponse:
     ids = list(dict.fromkeys(request.ids))
@@ -304,7 +319,10 @@ async def review_identification(capture_id: str, action: Literal["accept", "dism
     async with garden_motion_privacy.lock:
         garden_identification_service.invalidate_photo_checks()
         await garden_identification_service.review(capture_id, action)
-    return await _response(await garden_capture_service.get(capture_id))
+    capture = await garden_capture_service.get(capture_id)
+    if action == "accept":
+        await garden_notification_service.schedule(capture_id)
+    return await _response(capture)
 
 
 async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:

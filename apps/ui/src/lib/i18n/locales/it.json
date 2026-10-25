@@ -1981,7 +1981,17 @@
       "garden_status_title": "Stato della raccolta",
       "garden_models_limits_explorer": "I controlli automatici seguono la preferenza di dispositivo di Rilevamento dopo un confronto locale con la CPU, e tornano alla CPU se il controllo del dispositivo non riesce. Le scansioni di movimento usano ancora la CPU. Il lavoro del giardino procede uno alla volta mentre uccelli e telecamere sono inattivi; ogni processo libera la memoria del modello quando si ferma. I controlli avviati da una cattura del giardino nell'Esploratore usano il dispositivo scelto lì e falliscono invece di cambiare dispositivo in silenzio.",
       "garden_explorer_help": "I visitatori del giardino compaiono nell'Esploratore accanto ai tuoi uccelli. Scegli lì Visitatori del giardino e poi Da verificare per esaminare le nuove catture.",
-      "garden_explorer_open": "Verifica i visitatori del giardino"
+      "garden_explorer_open": "Verifica i visitatori del giardino",
+      "garden_notifications": "Notifiche del giardino",
+      "garden_notifications_help": "Avvisi di testo per animali appena identificati, separati da quelli degli uccelli. Salva con Applica impostazioni.",
+      "garden_notifications_privacy": "Invia nome dell’animale, videocamera e ora ai servizi scelti. Nessuna foto o collegamento multimediale. La cronologia richiede ancora l’accesso del proprietario.",
+      "garden_notification_channels": "Canali di invio del giardino",
+      "garden_notification_channel": "Avvisi del giardino tramite {channel}",
+      "garden_notifications_choose": "Scegli almeno un canale per gli avvisi del giardino.",
+      "garden_notifications_credentials": "Mancano le credenziali di un canale scelto. Configuralo in Notifiche; gli avvisi degli uccelli possono restare disattivati.",
+      "garden_notifications_attempts_help": "Sono idonee solo le acquisizioni identificate negli ultimi cinque minuti. Un tentativo per canale e visita nota; gli invii falliti o incerti non vengono ripetuti automaticamente.",
+      "garden_notifications_status": "Tentativi salvati. Accettati dal canale: {sent}. Falliti: {failed}. Non confermati: {unknown}. Saltati: {skipped}.",
+      "garden_notifications_refresh": "Aggiorna stato di invio"
     },
     "native_revalidation": {
       "title": "Verifica profilo in quarantena",

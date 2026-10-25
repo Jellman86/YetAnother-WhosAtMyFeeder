@@ -816,6 +816,15 @@ class SettingsUpdate(BaseModel):
         strict=True,
         description="Minimum Cedar animal score for new motion proposals; does not change bird or person thresholds",
     )
+    garden_notifications_enabled: bool = Field(
+        False, description="Opt in to text-only Garden alerts independently of bird notifications"
+    )
+    garden_notification_channels: list[Literal["discord", "telegram", "pushover", "email"]] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Explicit Garden delivery channels using saved notification credentials",
+    )
+
     garden_automatic_naming: bool = Field(
         True, description="Confirm and name a Garden animal automatically at or above the naming threshold"
     )
@@ -1517,6 +1526,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "garden_labels": settings.frigate.garden_labels,
         "garden_motion_cameras": settings.frigate.garden_motion_cameras,
         "garden_motion_confidence": settings.frigate.garden_motion_confidence,
+        "garden_notifications_enabled": settings.frigate.garden_notifications_enabled,
+        "garden_notification_channels": settings.frigate.garden_notification_channels,
         "garden_automatic_naming": settings.frigate.garden_automatic_naming,
         "garden_naming_threshold": settings.frigate.garden_naming_threshold,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
@@ -1855,6 +1866,10 @@ async def update_settings(
         settings.frigate.garden_motion_cameras = update.garden_motion_cameras
     if "garden_motion_confidence" in fields_set:
         settings.frigate.garden_motion_confidence = update.garden_motion_confidence
+    if "garden_notifications_enabled" in fields_set:
+        settings.frigate.garden_notifications_enabled = update.garden_notifications_enabled
+    if "garden_notification_channels" in fields_set:
+        settings.frigate.garden_notification_channels = list(dict.fromkeys(update.garden_notification_channels))
     if "garden_automatic_naming" in fields_set:
         settings.frigate.garden_automatic_naming = update.garden_automatic_naming
     if "garden_naming_threshold" in fields_set:

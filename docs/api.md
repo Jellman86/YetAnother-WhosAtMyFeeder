@@ -398,6 +398,11 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
 
+- `GET /api/garden/notifications` — owner-only, beta-gated delivery status. Returns
+  `enabled`, selected `channels`, credential-presence booleans in `configured`, and
+  aggregate `attempts` counts (`attempted`, `sent`, `failed`, `skipped`). No secrets
+  or message contents are returned; private/no-store headers apply. `sent` means
+  provider acceptance, not recipient acknowledgement. Reading status sends nothing.
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
   shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and
   interval/photo limits. `interval_seconds` reports the selected minimum spacing between scan starts:
@@ -494,6 +499,13 @@ Settings use `garden_cameras` (default `[]`), `garden_motion_cameras` (default `
 independent of `cameras`, `camera_roles` and bird `frigate_ingest_labels`.
 Motion cameras must also be enabled garden cameras; otherwise they are inactive.
 Motion collection ignores animal event labels and does not perform species identification.
+Garden notification settings use flat settings API fields
+`garden_notifications_enabled` (default `false`) and
+`garden_notification_channels` (default `[]`; `discord`, `telegram`, `pushover`,
+`email`). They persist independently of bird channel switches. Only recent
+confirmed captures with accepted names qualify. See [Garden notification rules](features/garden-animals.md#send-garden-notifications)
+for freshness, privacy and durable per-visit attempt semantics.
+
 Garden captures have no bird detection ID and cannot be submitted by bird export APIs.
 See [Garden animals](features/garden-animals.md) for retention and prototype limits.
 

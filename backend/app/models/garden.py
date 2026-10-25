@@ -141,3 +141,10 @@ class GardenIdentificationStatus(BaseModel):
     preferred_provider: InferenceProvider = "cpu"
     last_execution: InferenceExecution | None = None
     automatic_message: str = "Automatic checks wait for an enabled Garden camera and idle bird inference."
+
+
+class GardenNotificationStatus(BaseModel):
+    enabled: bool
+    channels: list[Literal["discord", "telegram", "pushover", "email"]]
+    configured: dict[str, bool]
+    attempts: dict[str, int]

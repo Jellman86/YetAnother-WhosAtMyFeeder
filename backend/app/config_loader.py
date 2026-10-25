@@ -254,6 +254,9 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "birdnet_external_url": os.environ.get("FRIGATE__BIRDNET_EXTERNAL_URL", ""),
         "camera_audio_mapping": {},
         "garden_motion_confidence": float(os.environ.get("FRIGATE__GARDEN_MOTION_CONFIDENCE", "0.5")),
+        "garden_notifications_enabled": os.environ.get("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", "false").lower()
+        == "true",
+        "garden_notification_channels": json.loads(os.environ.get("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", "[]")),
         "garden_automatic_naming": os.environ.get("FRIGATE__GARDEN_AUTOMATIC_NAMING", "true").lower() == "true",
         "garden_naming_threshold": float(os.environ.get("FRIGATE__GARDEN_NAMING_THRESHOLD", "0.8")),
     }

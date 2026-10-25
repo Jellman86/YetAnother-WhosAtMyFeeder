@@ -1971,7 +1971,17 @@
       "garden_status_title": "收集状态",
       "garden_models_limits_explorer": "自动检查在本地与 CPU 比较后遵循你在 检测 中的设备偏好，设备检查失败时回退到 CPU。动态扫描仍使用 CPU。花园任务在鸟类和摄像头空闲时逐个运行；每个进程停止时都会释放模型内存。在浏览器中从花园拍摄启动的检查使用你在那里选择的设备，失败时不会悄悄切换设备。",
       "garden_explorer_help": "花园访客会在浏览器中与鸟类一起显示。在那里选择 花园访客，再选择 需要审核，即可逐一处理新的拍摄。",
-      "garden_explorer_open": "审核花园访客"
+      "garden_explorer_open": "审核花园访客",
+      "garden_notifications": "花园通知",
+      "garden_notifications_help": "新识别动物的文字提醒，与鸟类提醒分开。点击“应用设置”保存。",
+      "garden_notifications_privacy": "向所选服务发送动物名称、摄像头和时间。不发送照片或媒体链接。查看历史链接仍需所有者权限。",
+      "garden_notification_channels": "花园通知渠道",
+      "garden_notification_channel": "通过 {channel} 发送花园提醒",
+      "garden_notifications_choose": "请至少选择一个花园通知渠道。",
+      "garden_notifications_credentials": "所选渠道缺少凭据。请在“通知”中配置；鸟类提醒可以保持关闭。",
+      "garden_notifications_attempts_help": "仅限最近五分钟内已识别的抓拍。每个已知访问的每个渠道尝试一次；失败或结果不明时不会自动重试。",
+      "garden_notifications_status": "已保存的发送尝试。渠道已接受：{sent}。失败：{failed}。未确认：{unknown}。已跳过：{skipped}。",
+      "garden_notifications_refresh": "刷新发送状态"
     },
     "native_revalidation": {
       "title": "检查隔离的配置",
