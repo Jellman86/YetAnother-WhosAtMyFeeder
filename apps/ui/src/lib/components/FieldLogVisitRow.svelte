@@ -127,6 +127,11 @@
     }
 </script>
 
+{#snippet ownerConfirmation()}
+    <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 10 4 4 8-8" /></svg>
+    <span class="min-w-0 break-words font-medium">{$_('visits.owner_confirmed')}</span>
+{/snippet}
+
 <!-- A stretch of the thread. Captures tint it so the visit they belong to is visible at a glance. -->
 {#snippet branch(dot: 'capture' | null, hint = '')}
     <!-- Two kinds of node only: the visit's solid one, and this ring for each of its captures. The
@@ -230,6 +235,17 @@
                         </span>
                     </button>
                 {/if}
+            {/if}
+            {#if visit.ownerConfirmed}
+                <span class="inline-flex min-w-0 max-w-full items-center text-success-700 dark:text-success-300" data-field-log-owner-confirmed>
+                    <span class="flex min-w-0 items-center gap-1 sm:hidden">{@render ownerConfirmation()}</span>
+                    <span class="hidden sm:inline-flex">
+                        <BadgeHint target text={$_('visits.owner_confirmed_hint')} label={$_('visits.owner_confirmed')}
+                            class="max-w-full gap-1 text-left font-medium text-success-700 dark:text-success-300">
+                            {@render ownerConfirmation()}
+                        </BadgeHint>
+                    </span>
+                </span>
             {/if}
             {#if visit.audioConfirmed}
                 <!-- A second sensor agreed; said in words, so it is never colour alone. -->

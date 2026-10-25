@@ -371,7 +371,7 @@
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" role="status">
                         {$_('garden.explorer.state_dismissed', { default: 'Dismissed, not counted as an animal' })}
                     </p>
-                {:else}
+                {:else if capture.status === 'confirmed'}
                     <p class="flex items-start gap-2 text-sm font-semibold text-success-700 dark:text-success-300" role="status">
                         <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-success-500" aria-hidden="true"></span>
                         {$_('garden.explorer.confirmed_animal', { default: 'Animal confirmed' })}

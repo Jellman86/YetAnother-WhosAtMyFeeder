@@ -806,6 +806,7 @@ export interface components {
     end_time: string | null;
     latest: components['schemas']['DetectionResponse'];
     needs_review: boolean;
+    owner_confirmed?: boolean;
     peak_capture?: components['schemas']['DetectionResponse'] | null;
     representative: components['schemas']['DetectionResponse'];
     start_time: string | null;

@@ -813,3 +813,36 @@ async def test_recent_visit_peak_work_is_bounded_by_matching_history(repo):
     await repo.db.commit()
     after = await measured_page()
     assert after <= before * 1.5 + 10, f"Unrelated observations grew SQL work from {before} to {after} steps"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("confirmation", ["visible", "hidden", "none", "unknown"])
+async def test_visit_reports_owner_confirmation_from_visible_members_not_model_or_audio(
+    repo, monkeypatch, confirmation
+):
+    import httpx
+    from unittest.mock import AsyncMock
+    from app.config import settings
+    from app.main import app
+    from app.routers import events
+
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    species = "Unknown Bird" if confirmation == "unknown" else "Turdus merula"
+    reviewed = await capture(repo, 0, 0, species=species, hidden=int(confirmation == "hidden"))
+    favorite = await capture(repo, 1, 12, species=species, favorite=True)
+    if confirmation != "none":
+        await repo.db.execute("UPDATE detections SET manual_tagged=1 WHERE frigate_event=?", (reviewed,))
+    await repo.db.execute("UPDATE detections SET score=1, audio_confirmed=1 WHERE frigate_event=?", (favorite,))
+    await repo.db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
+        assert response.status_code == 200, response.text
+        visits = response.json()["visits"]
+        if confirmation == "unknown":
+            assert all(not visit["owner_confirmed"] for visit in visits)
+        else:
+            assert visits[0]["representative"]["frigate_event"] == favorite
+            assert visits[0]["representative"]["manual_tagged"] is False
+            assert visits[0]["owner_confirmed"] is (confirmation == "visible")

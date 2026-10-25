@@ -162,6 +162,7 @@ class DetectionVisitResponse(APIModel):
     best_score: float
     needs_review: bool
     audio_confirmed: bool
+    owner_confirmed: bool = False
     representative: DetectionResponse
     latest: DetectionResponse
     peak_capture: DetectionResponse | None = None

@@ -5693,6 +5693,11 @@
             "title": "Needs Review",
             "type": "boolean"
           },
+          "owner_confirmed": {
+            "default": false,
+            "title": "Owner Confirmed",
+            "type": "boolean"
+          },
           "peak_capture": {
             "anyOf": [
               {

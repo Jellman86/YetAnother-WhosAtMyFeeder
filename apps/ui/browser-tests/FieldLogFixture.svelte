@@ -44,10 +44,11 @@
     const blackbird = record('blackbird');
     const serverVisits: ServerVisit[] = [
         visit('blackbird', 13, blackbird, {
+            owner_confirmed: params.get('confirmed') === '1',
             latest: record('blackbird-latest', { detection_time: '2026-10-02T10:44:47Z', score: 0.86 }),
             peak_capture: record('blackbird-peak', { bird_summary: { counted: 3, unknown: 0, excluded: 0, species: [], hint_only: false } })
         }),
-        visit('dunnock', 1, record('dunnock', { display_name: 'Prunella modularis', scientific_name: 'Prunella modularis', common_name: 'Dunnock', detection_time: '2026-10-02T10:20:00Z', score: 0.89 }), { start_time: '2026-10-02T10:20:00Z' }),
+        visit('dunnock', 1, record('dunnock', { display_name: 'Prunella modularis', scientific_name: 'Prunella modularis', common_name: 'Dunnock', detection_time: '2026-10-02T10:20:00Z', score: 0.89 }), { start_time: '2026-10-02T10:20:00Z', audio_confirmed: params.get('confirmed') === '1' }),
         visit('cowbird', 3, record('cowbird', { display_name: 'Molothrus ater', scientific_name: 'Molothrus ater', common_name: 'Brown-headed Cowbird', detection_time: '2026-10-02T09:59:00Z', score: 0.77 }), {
             start_time: '2026-10-02T09:58:10Z',
             latest: record('cowbird-latest', { display_name: 'Molothrus ater', scientific_name: 'Molothrus ater', common_name: 'Brown-headed Cowbird', detection_time: '2026-10-02T09:59:30Z', score: 0.7 })

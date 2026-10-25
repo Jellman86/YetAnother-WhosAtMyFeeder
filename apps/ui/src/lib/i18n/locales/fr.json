@@ -3636,7 +3636,9 @@
     "node_visit_many": "Visite, {span}, {count} captures",
     "node_capture": "Capture à {time}, dans cette visite",
     "node_capture_shown": "Capture à {time}, dans cette visite, et sa photo de visite",
-    "open_capture": "Ouvrir la capture de {species}"
+    "open_capture": "Ouvrir la capture de {species}",
+    "owner_confirmed": "Confirmé par le propriétaire",
+    "owner_confirmed_hint": "Un propriétaire a explicitement confirmé cette espèce sur au moins une capture visible de la visite. La confiance du modèle et les sons correspondants sont des indices distincts."
   },
   "model_eval": {
     "col_best_provider": "Meilleur fournisseur validé",

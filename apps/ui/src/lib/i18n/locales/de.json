@@ -3636,7 +3636,9 @@
     "node_visit_many": "Besuch, {span}, {count} Aufnahmen",
     "node_capture": "Aufnahme um {time}, Teil dieses Besuchs",
     "node_capture_shown": "Aufnahme um {time}, Teil dieses Besuchs und zugleich sein Besuchsfoto",
-    "open_capture": "Aufnahme von {species} öffnen"
+    "open_capture": "Aufnahme von {species} öffnen",
+    "owner_confirmed": "Vom Eigentümer bestätigt",
+    "owner_confirmed_hint": "Ein Eigentümer hat diese Art in mindestens einer sichtbaren Aufnahme des Besuchs ausdrücklich bestätigt. Modellkonfidenz und passende Rufe sind getrennte Belege."
   },
   "model_eval": {
     "col_best_provider": "Bester validierter Anbieter",
