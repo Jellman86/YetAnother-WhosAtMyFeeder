@@ -22,6 +22,8 @@ export interface DetectionVisit {
     needsReview: boolean;
     /** A matching call was heard for at least one frame; a second sensor agrees with the camera. */
     audioConfirmed: boolean;
+    /** An owner explicitly confirmed this species in a visible capture of the visit. */
+    ownerConfirmed?: boolean;
     captureCount?: number;
     server?: ServerVisit;
     window?: { startTime?: string; endTime?: string };
@@ -51,6 +53,7 @@ export function needsReview(detection: Detection, reviewThreshold: number | null
     if (!label || label === UNRESOLVED_LABEL) return true;
     const input = detection.classification_input;
     if (input?.is_cropped === false && input.source !== 'frigate_sublabel' && input.source !== 'owner_species_choice') return true;
+    if (detection.manual_tagged === true) return false;
     if (reviewThreshold === null || !Number.isFinite(reviewThreshold)) return false;
     return (detection.score ?? 0) < reviewThreshold;
 }
@@ -86,6 +89,7 @@ function toVisit(frames: Detection[], reviewThreshold: number | null): Detection
         startTime: oldest.detection_time,
         endTime: lead.detection_time,
         needsReview: frames.every((frame) => needsReview(frame, reviewThreshold)),
+        ownerConfirmed: frames.some((frame) => frame.manual_tagged === true && !needsReview(frame, null)),
         // A visit needs a person only if every frame does, but one heard call confirms it.
         // A manual observation has no camera moment for a call to match.
         audioConfirmed: frames.some(
@@ -153,6 +157,7 @@ export function fromServerVisit(visit: ServerVisit, window?: { startTime?: strin
         lead: visit.latest, best: visit.representative,
         startTime: visit.start_time, endTime: visit.end_time,
         needsReview: visit.needs_review, audioConfirmed: visit.audio_confirmed,
+        ownerConfirmed: visit.owner_confirmed === true,
         captureCount: visit.capture_count, server: visit, window
     };
 }

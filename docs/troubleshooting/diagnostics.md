@@ -501,3 +501,24 @@ and record the approximate time it began. The graph history resets on restart.
 Exporting reads that history without starting a classification or a new sample.
 The bundle is owner-only and can contain private operational details; review it
 before sharing.
+
+
+### GPU utilisation says Not measured
+
+Capture a fresh bundle while the symptom is present, before restarting. Include the
+local time and whether processing slowed or the queue grew. A missing utilisation
+reading does not establish CPU fallback; worker runtime evidence is separate.
+
+The bundle includes the last two DRM probe samples, normally five seconds apart,
+under `system_telemetry.drm_diagnostics`. These contain read/error counts, parsed
+client counts and client arrivals/departures, plus up to 64 counter observations
+per sample. Each observation records an allow-listed driver, PCI device identity,
+engine and counter unit, current and previous counters, and a bounded reason such
+as `baseline`, `missing_total`, `total_not_advancing` or `counter_regressed`.
+Cycle observations include current and previous total cycles. This evidence can
+distinguish counter access failures, unsupported counters and client turnover.
+It does not establish whether the GPU is stable or why processing became slower.
+
+No raw fdinfo, file paths, process arguments, environment variables, client IDs or
+exception messages are added to this evidence. Capturing a bundle uses existing
+in-memory samples and does not start inference, change devices or restart workers.

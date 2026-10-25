@@ -5693,6 +5693,11 @@
             "title": "Needs Review",
             "type": "boolean"
           },
+          "owner_confirmed": {
+            "default": false,
+            "title": "Owner Confirmed",
+            "type": "boolean"
+          },
           "peak_capture": {
             "anyOf": [
               {
@@ -6383,6 +6388,194 @@
           "progress"
         ],
         "title": "DownloadProgress",
+        "type": "object"
+      },
+      "DrmCounterDiagnostic": {
+        "description": "Allow-listed counter evidence; never raw fdinfo or process identifiers.",
+        "properties": {
+          "device": {
+            "title": "Device",
+            "type": "string"
+          },
+          "driver": {
+            "title": "Driver",
+            "type": "string"
+          },
+          "elapsed_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elapsed Seconds"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          },
+          "previous_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Total"
+          },
+          "state": {
+            "enum": [
+              "baseline",
+              "measured",
+              "counter_regressed",
+              "missing_total",
+              "total_not_advancing",
+              "invalid_interval"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "unit": {
+            "enum": [
+              "ns",
+              "cycles"
+            ],
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "device",
+          "driver",
+          "engine",
+          "unit",
+          "value",
+          "previous",
+          "elapsed_seconds",
+          "total",
+          "previous_total",
+          "state"
+        ],
+        "title": "DrmCounterDiagnostic",
+        "type": "object"
+      },
+      "DrmProbeDiagnostics": {
+        "properties": {
+          "counters": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/DrmCounterDiagnostic"
+            },
+            "title": "Counters",
+            "type": "array"
+          },
+          "departed_clients": {
+            "default": 0,
+            "title": "Departed Clients",
+            "type": "integer"
+          },
+          "drivers": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Drivers",
+            "type": "array"
+          },
+          "fdinfo_reads": {
+            "default": 0,
+            "title": "Fdinfo Reads",
+            "type": "integer"
+          },
+          "missing_processes": {
+            "default": 0,
+            "title": "Missing Processes",
+            "type": "integer"
+          },
+          "new_clients": {
+            "default": 0,
+            "title": "New Clients",
+            "type": "integer"
+          },
+          "omitted_counters": {
+            "default": 0,
+            "title": "Omitted Counters",
+            "type": "integer"
+          },
+          "parsed_clients": {
+            "default": 0,
+            "title": "Parsed Clients",
+            "type": "integer"
+          },
+          "permission_denied": {
+            "default": 0,
+            "title": "Permission Denied",
+            "type": "integer"
+          },
+          "process_count": {
+            "default": 0,
+            "title": "Process Count",
+            "type": "integer"
+          },
+          "read_errors": {
+            "default": 0,
+            "title": "Read Errors",
+            "type": "integer"
+          },
+          "unsupported_fdinfo": {
+            "default": 0,
+            "title": "Unsupported Fdinfo",
+            "type": "integer"
+          }
+        },
+        "title": "DrmProbeDiagnostics",
+        "type": "object"
+      },
+      "DrmProbeSnapshot": {
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "diagnostic": {
+            "$ref": "#/components/schemas/DrmProbeDiagnostics"
+          }
+        },
+        "required": [
+          "at",
+          "diagnostic"
+        ],
+        "title": "DrmProbeSnapshot",
         "type": "object"
       },
       "EbirdNearbyResponse": {
@@ -18251,6 +18444,13 @@
               }
             ],
             "title": "App Rss Bytes"
+          },
+          "drm_diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/DrmProbeSnapshot"
+            },
+            "title": "Drm Diagnostics",
+            "type": "array"
           },
           "host": {
             "$ref": "#/components/schemas/SystemHostFacts"

@@ -78,6 +78,14 @@ as the visit and keep the separate crop score in the evidence. Other birds and o
 keep their own identity. Both counted-bird editors use the shared common/scientific species
 search; require a selected complete species and discard searches from an earlier capture or edit.
 
+The field log also says **Owner confirmed**, with a checkmark, when an owner
+explicitly confirmed the visit species in a visible capture. This is separate from
+model confidence and matching calls; a high score or manual upload alone does not
+establish owner confirmation. Server visit summaries carry the aggregate even
+when the chosen favourite or latest capture was not the confirmed one. Unresolved
+names and captures excluded by the active visibility filters do not establish the marker. The desktop badge explains
+this on hover or keyboard focus; phones keep a plain worded marker.
+
 ### 1.3 Say what needs a human, and say why
 
 Work that is waiting is first-class: the review queue is a docked card with a count, not a filter

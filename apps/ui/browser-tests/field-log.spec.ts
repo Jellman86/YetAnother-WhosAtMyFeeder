@@ -343,3 +343,23 @@ test('a visit opens from its Show captures button, keys its nodes, and keeps eve
     await toggle.click();
     await expect(visit.locator('[data-visit-capture]').first()).toBeHidden();
 });
+
+
+for (const width of [320, 1280]) {
+    test(`owner-confirmed visit is visible without opening it and distinct from audio at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 1000 });
+        const { captureReads } = await open(page, '?confirmed=1');
+        const marked = row(page, 'blackbird').locator('[data-field-log-owner-confirmed]');
+        await expect(marked).toBeVisible();
+        await expect(marked).toContainText('Owner confirmed');
+        await expect(row(page, 'dunnock').locator('[data-field-log-audio]')).toBeVisible();
+        await expect(row(page, 'dunnock').locator('[data-field-log-owner-confirmed]')).toHaveCount(0);
+        expect(captureReads).toEqual([]);
+        if (width >= 640) {
+            const badge = marked.getByRole('button', { name: 'Owner confirmed', exact: true });
+            await badge.focus();
+            await expect(page.getByRole('tooltip')).toContainText('explicitly confirmed this species');
+        }
+        await noHorizontalOverflow(page);
+    });
+}

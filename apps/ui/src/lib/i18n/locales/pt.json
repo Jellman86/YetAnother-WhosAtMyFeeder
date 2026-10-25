@@ -3636,7 +3636,9 @@
     "node_visit_many": "Visita, {span}, {count} capturas",
     "node_capture": "Captura às {time}, parte desta visita",
     "node_capture_shown": "Captura às {time}, parte desta visita e a sua foto",
-    "open_capture": "Abrir captura de {species}"
+    "open_capture": "Abrir captura de {species}",
+    "owner_confirmed": "Confirmado pelo proprietário",
+    "owner_confirmed_hint": "Um proprietário confirmou explicitamente esta espécie em pelo menos uma captura visível da visita. A confiança do modelo e o áudio correspondente são provas distintas."
   },
   "model_eval": {
     "col_best_provider": "Melhor provedor validado",

@@ -12,6 +12,7 @@ from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
 from app.config import settings
+from app.services.accelerator_telemetry import DrmProbeSnapshot
 from app.services.host_facts import collect_host_facts
 from app.services.system_telemetry import process_load_sampler, system_telemetry_history, system_telemetry_sampler
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -177,6 +178,7 @@ class SystemTelemetryHistoryResponse(APIModel):
     points: list[SystemHistoryPointResponse]
     processes: list[SystemProcessLoadResponse]
     app_rss_bytes: int | None = None
+    drm_diagnostics: list[DrmProbeSnapshot] = Field(default_factory=list)
 
 
 @router.get("/system-telemetry/history", response_model=SystemTelemetryHistoryResponse)
@@ -207,6 +209,7 @@ def build_system_telemetry_history() -> SystemTelemetryHistoryResponse:
         sampled_at=datetime.now(timezone.utc).isoformat(),
         window_seconds=snapshot.window_seconds,
         interval_seconds=snapshot.interval_seconds,
+        drm_diagnostics=snapshot.drm_diagnostics,
         host=SystemHostFacts(
             cpu_count=facts.get("cpu_count"),
             cpu_quota=facts.get("cpu_quota"),

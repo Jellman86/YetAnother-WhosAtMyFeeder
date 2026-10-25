@@ -3636,7 +3636,9 @@
     "node_visit_many": "Visita, {span}, {count} acquisizioni",
     "node_capture": "Acquisizione delle {time}, parte di questa visita",
     "node_capture_shown": "Acquisizione delle {time}, parte di questa visita e usata come foto della visita",
-    "open_capture": "Apri l’acquisizione di {species}"
+    "open_capture": "Apri l’acquisizione di {species}",
+    "owner_confirmed": "Confermato dal proprietario",
+    "owner_confirmed_hint": "Un proprietario ha confermato esplicitamente questa specie in almeno una ripresa visibile della visita. La confidenza del modello e l’audio corrispondente sono prove separate."
   },
   "model_eval": {
     "col_best_provider": "Miglior provider convalidato",

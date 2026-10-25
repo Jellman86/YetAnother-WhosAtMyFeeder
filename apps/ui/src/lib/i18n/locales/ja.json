@@ -3636,7 +3636,9 @@
     "node_visit_many": "訪問、{span}、撮影 {count} 件",
     "node_capture": "{time} の撮影（この訪問の一部）",
     "node_capture_shown": "{time} の撮影（この訪問の一部で、訪問の写真）",
-    "open_capture": "{species} の撮影を開く"
+    "open_capture": "{species} の撮影を開く",
+    "owner_confirmed": "所有者が確認済み",
+    "owner_confirmed_hint": "この訪問の表示対象の画像のうち少なくとも1枚で、所有者がこの種を明示的に確認しました。モデルの信頼度や一致する鳴き声とは別の証拠です。"
   },
   "model_eval": {
     "col_best_provider": "検証済みの最適なプロバイダー",

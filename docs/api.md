@@ -204,11 +204,15 @@ fresh day. This does not cache sharing preferences.
   `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
   `confidence`). Returns `visits`, `total` and `gap_seconds`. Each visit includes
-  `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio
+  `visit_id` (its first accessible capture ID), start/end, full `capture_count`, best score, review/audio/owner-confirmation
   state, representative/latest records and owner-only busiest counted capture. Grouping uses
   canonical species, actual camera and a 60-second inactivity gap after the running latest
   verified event end; historical captures without bounds use capture time. Unknown and manual
-  records remain separate. It does not identify individual birds. Access/date/hidden scope is
+  records remain separate. It does not identify individual birds. `owner_confirmed`
+  aggregates explicit owner species confirmations from accessible visit members,
+  independently of model confidence and matching audio. Another favourite may represent
+  the visit. Unresolved names and captures excluded by the active visibility filters
+  do not establish confirmation. Access/date/hidden scope is
   applied before grouping; species, favourite, audio and multiple-species matching selects the
   whole accessible visit. A sharing window or correction can change membership and the first id.
 - `GET /api/visits/{visit_id}/captures` Rechecks access and history window on every read. Accepts
@@ -1131,8 +1135,12 @@ The callback exception grants no owner role and does not expand cookie authentic
   `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
   It is a support snapshot, not a restorable configuration/history backup.
   Workspace and bundle responses also include optional `system_telemetry` evidence
-  in the `/api/system-telemetry/history` response shape. It reads the existing bounded
-  history without sampling or inference; unmeasured accelerator values remain null.
+  in the `/api/system-telemetry/history` response shape. The owner-only `drm_diagnostics`
+  field retains the last two timestamped probe summaries: read/error and client-turnover
+  counts, and at most 64 allow-listed counter observations each. Counter observations
+  include current/previous busy and total values, units and measurement-state codes;
+  arbitrary driver/engine text, raw procfs, client IDs and exception messages are excluded.
+  It reads the existing bounded history without sampling or inference; unmeasured accelerator values remain null.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)

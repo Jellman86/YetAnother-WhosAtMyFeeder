@@ -3636,7 +3636,9 @@
     "node_visit_many": "到访，{span}，{count} 次拍摄",
     "node_capture": "{time} 的拍摄，属于本次到访",
     "node_capture_shown": "{time} 的拍摄，属于本次到访，也是到访照片",
-    "open_capture": "打开{species}的拍摄"
+    "open_capture": "打开{species}的拍摄",
+    "owner_confirmed": "所有者已确认",
+    "owner_confirmed_hint": "所有者在本次到访至少一张可见照片中明确确认了此物种。模型置信度和匹配的音频是不同的证据。"
   },
   "model_eval": {
     "col_best_provider": "最佳已验证提供程序",

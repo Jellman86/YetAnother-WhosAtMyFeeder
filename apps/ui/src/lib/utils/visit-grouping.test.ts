@@ -4,6 +4,7 @@ import {
     VISIT_GAP_MS,
     groupDetectionsIntoVisits as groupVisits,
     needsReview,
+    fromServerVisit,
     withinDeskWindow
 } from './visit-grouping';
 
@@ -201,4 +202,27 @@ it('keeps a confident whole-view identification in Needs your call until an owne
         classification_input: { source: 'full_frame', is_cropped: false } });
     expect(needsReview(frame, 0.6)).toBe(true);
     expect(needsReview({ ...frame, classification_input: { source: 'owner_species_choice' } }, 0.6)).toBe(false);
+});
+
+
+describe('owner confirmation on a visit', () => {
+    it('carries explicit confirmation from any same-species capture, independently of score or audio', () => {
+        const frames = [
+            detection({ frigate_event: 'latest', score: 1, audio_confirmed: true }),
+            detection({ frigate_event: 'older', detection_time: '2026-08-11T11:34:30Z', manual_tagged: true })
+        ];
+        expect(groupDetectionsIntoVisits(frames)[0].ownerConfirmed).toBe(true);
+        expect(groupDetectionsIntoVisits([frames[0]])[0].ownerConfirmed).toBe(false);
+        expect(groupDetectionsIntoVisits([detection({ frigate_event: 'unknown', display_name: 'Unknown Bird', manual_tagged: true })])[0].ownerConfirmed).toBe(false);
+    });
+
+    it('uses the server aggregate even when the shown captures were not owner confirmed', () => {
+        const representative = detection({ frigate_event: 'favorite', score: 1 });
+        const summary = { visit_id: 'visit', start_time: representative.detection_time,
+            end_time: representative.detection_time, capture_count: 20, best_score: 1,
+            needs_review: false, audio_confirmed: false, owner_confirmed: true,
+            representative, latest: representative, peak_capture: null };
+        expect(fromServerVisit(summary).ownerConfirmed).toBe(true);
+        expect(fromServerVisit({ ...summary, owner_confirmed: false }).ownerConfirmed).toBe(false);
+    });
 });

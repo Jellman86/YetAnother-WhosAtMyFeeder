@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Support bundles include the last two bounded DRM counter diagnostics, distinguishing unreadable counters, missing or frozen cycle totals, and GPU client turnover without exporting raw process files.
+- Dashboard visits show a worded checkmark when an owner explicitly confirmed
+  the species in a visible capture, even when a different favourite is shown.
+  High model confidence and matching calls keep their separate meaning.
+
 - Bird finder settings distinguish the host recommendation from the last completed
   run and its CPU fallback, and keep the scoped device check available to repeat.
   Garden settings and automatic results show completed device/time evidence;
