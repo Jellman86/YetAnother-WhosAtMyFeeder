@@ -196,7 +196,11 @@ class BirdCropService:
         model_loader: Callable[[], Any] | None = None,
         provider_override: str | None = None,
         strict_provider: bool = False,
+        session_factory: Callable[..., Any] | None = None,
     ):
+        from app.services.crop_process_session import CropProcessSession
+
+        self._session_factory = session_factory or CropProcessSession
         self.model_id = str(model_id or "bird_crop")
         normalized_detector_tier = str(detector_tier or "").strip().lower()
         self.detector_tier = normalized_detector_tier if normalized_detector_tier in {"fast", "accurate"} else None
@@ -303,6 +307,12 @@ class BirdCropService:
         try:
             candidates = self._infer_candidates(model, image)
         except Exception as exc:
+            from app.services.crop_process_session import CropProcessBusyError
+
+            if isinstance(exc, CropProcessBusyError):
+                return self._empty_result(
+                    "inference_failed", detector_tier=detector_tier, fallback_reason=fallback_reason
+                ), True
             active_provider = str((model or {}).get("provider") or "cpu") if isinstance(model, dict) else "cpu"
             if not self.strict_provider and active_provider != "cpu":
                 try:
@@ -1058,6 +1068,38 @@ class BirdCropService:
         preprocessing = dict(model_config.get("preprocessing") or {})
         preferred_input_size = self._resolve_config_input_size(model_config)
         normalized_provider = str(provider or "cpu").strip().lower()
+        session = self._session_factory(
+            model_path, provider=normalized_provider, model_id=self._registry_model_id_for_tier(tier)
+        )
+        model_input = session.get_inputs()[0]
+        input_shape = getattr(model_input, "shape", None)
+        input_layout = self._infer_input_layout(input_shape)
+        dynamic_input_hw = self._has_dynamic_hw(input_shape, layout=input_layout)
+        input_height, input_width = self._resolve_input_hw(input_shape, layout=input_layout)
+        get_outputs = getattr(session, "get_outputs", None)
+        session_outputs = get_outputs() if callable(get_outputs) else []
+        return {
+            "session": session,
+            "input_name": str(getattr(model_input, "name", "images") or "images"),
+            "input_height": input_height,
+            "input_width": input_width,
+            "input_layout": input_layout,
+            "input_type": str(getattr(model_input, "type", "") or ""),
+            "dynamic_input_hw": dynamic_input_hw,
+            "preferred_input_height": preferred_input_size,
+            "preferred_input_width": preferred_input_size,
+            "preprocessing": preprocessing,
+            "output_names": [str(getattr(output, "name", "") or "") for output in (session_outputs or [])],
+            "detector_tier": "accurate" if str(tier or "").strip().lower() == "accurate" else "fast",
+            "detector_config": detector_config,
+            "model_path": str(model_path),
+            "provider": normalized_provider,
+        }
+
+    def _create_native_session(self, model_path: Path | str, *, provider: str, model_id: str) -> Any:
+        """Load native code only at the detector child boundary."""
+        model_path = Path(model_path)
+        normalized_provider = str(provider).strip().lower()
         if normalized_provider in {"cpu", "cuda"}:
             ort = self._import_onnxruntime()
             if normalized_provider == "cuda":
@@ -1083,30 +1125,7 @@ class BirdCropService:
             if not device:
                 raise ValueError(f"Unsupported crop detector provider: {normalized_provider}")
             session = _OpenVINODetectorSession(model_path, device=device)
-        model_input = session.get_inputs()[0]
-        input_shape = getattr(model_input, "shape", None)
-        input_layout = self._infer_input_layout(input_shape)
-        dynamic_input_hw = self._has_dynamic_hw(input_shape, layout=input_layout)
-        input_height, input_width = self._resolve_input_hw(input_shape, layout=input_layout)
-        get_outputs = getattr(session, "get_outputs", None)
-        session_outputs = get_outputs() if callable(get_outputs) else []
-        return {
-            "session": session,
-            "input_name": str(getattr(model_input, "name", "images") or "images"),
-            "input_height": input_height,
-            "input_width": input_width,
-            "input_layout": input_layout,
-            "input_type": str(getattr(model_input, "type", "") or ""),
-            "dynamic_input_hw": dynamic_input_hw,
-            "preferred_input_height": preferred_input_size,
-            "preferred_input_width": preferred_input_size,
-            "preprocessing": preprocessing,
-            "output_names": [str(getattr(output, "name", "") or "") for output in (session_outputs or [])],
-            "detector_tier": "accurate" if str(tier or "").strip().lower() == "accurate" else "fast",
-            "detector_config": detector_config,
-            "model_path": str(model_path),
-            "provider": normalized_provider,
-        }
+        return session
 
     def reset_models(self) -> None:
         """Release cached detector sessions so a new validation result takes effect."""
@@ -1237,7 +1256,15 @@ class BirdCropService:
                 "reason": "ready" if model_path is not None else "not_installed",
                 "model_path": str(model_path) if model_path is not None else None,
             }
+        from app.services.crop_process_session import crop_cleanup_pending
+
         status["load_error"] = self._model_error
+        if crop_cleanup_pending():
+            status["healthy"] = False
+            status["reason"] = "runtime_cleanup_unconfirmed"
+            status["load_error"] = (
+                "Crop child cleanup is unconfirmed; new detector launches are blocked until it exits."
+            )
         status["policy"] = "accurate_then_fast"
         status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
         status["last_execution"] = self.last_execution()

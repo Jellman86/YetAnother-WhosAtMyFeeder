@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Crop detectors load and run in owned child processes, including high-quality
+  snapshots and video crop searches. A native detector crash can no longer abort
+  the API through native model or exception cleanup. Failed children are reaped
+  before isolated CPU fallback; exact crop model/device incidents remain blocked
+  across restarts. This contains runtime failures; it does not repair GPU hangs.
+
 - GPU utilisation resumes after a DRM total-cycle clock rolls backwards, instead
   of staying unmeasured until the old timestamp catches up. The discontinuous
   interval stays unknown; cumulative busy counters keep their regression protection.

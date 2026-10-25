@@ -512,6 +512,9 @@ async def _start_cleanup_scheduler_task() -> None:
 async def lifespan(app: FastAPI):
     global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running, accel_caps_task
     test_mode = _is_testing()
+    from app.services.crop_process_session import open_crop_processes
+
+    open_crop_processes()
 
     revalidation_task = None
     # Startup
@@ -788,6 +791,11 @@ async def lifespan(app: FastAPI):
 
         await _run_lifecycle_phase(app, "native_revalidation_stop", native_profile_revalidation.shutdown, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
+        from app.services.crop_process_session import close_crop_processes
+
+        await _run_lifecycle_phase(
+            app, "crop_process_shutdown", lambda: asyncio.to_thread(close_crop_processes), fatal=False
+        )
     await close_db()  # Close database connection pool
 
 

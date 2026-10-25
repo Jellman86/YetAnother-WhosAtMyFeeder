@@ -234,8 +234,12 @@ class NativeCrashQuarantine:
                 blocked = True
             if blocked:
                 raise NativeCrashQuarantinedError(
-                    "Native classifier crash quarantine: this worker configuration is blocked. "
-                    "Choose a different validated provider/model or investigate the saved crash evidence; "
+                    (
+                        "Native crop crash quarantine: this worker configuration is blocked. "
+                        if profile.get("operation") == "crop_detector"
+                        else "Native classifier crash quarantine: this worker configuration is blocked. "
+                    )
+                    + "Choose a different validated provider/model or investigate the saved crash evidence; "
                     "a restart does not clear quarantine."
                 )
         return profile
@@ -342,18 +346,28 @@ class NativeCrashQuarantine:
             return False
         key = self._negative_key(profile)
         self._persist_incident(profile, {"profile": profile, "exit_code": exit_code, "recorded_at": time.time()})
-        log.error("native_classifier_crash_quarantined", fingerprint=key, exit_code=exit_code)
+        log.error(
+            "native_crop_crash_quarantined"
+            if profile.get("operation") == "crop_detector"
+            else "native_classifier_crash_quarantined",
+            fingerprint=key,
+            exit_code=exit_code,
+        )
         with self._lock:
             if key not in self._reported:
                 self._reported.add(key)
                 from .error_diagnostics import error_diagnostics_history
 
                 error_diagnostics_history.record(
-                    source="classifier",
-                    component="classifier_worker",
+                    source="crop_detector" if profile.get("operation") == "crop_detector" else "classifier",
+                    component="crop_worker" if profile.get("operation") == "crop_detector" else "classifier_worker",
                     severity="error",
-                    reason_code="native_classifier_crash",
-                    message="A native classifier process crashed; its launch profile is quarantined.",
+                    reason_code="native_crop_crash"
+                    if profile.get("operation") == "crop_detector"
+                    else "native_classifier_crash",
+                    message="A native crop process crashed; its launch profile is quarantined."
+                    if profile.get("operation") == "crop_detector"
+                    else "A native classifier process crashed; its launch profile is quarantined.",
                     context={
                         "error_type": _native_fault_name(exit_code),
                         "configured_provider": profile.get("provider"),
@@ -384,18 +398,28 @@ class NativeCrashQuarantine:
         self._persist_incident(
             profile, {"profile": profile, "exit_code": None, "retirement": retirement, "recorded_at": time.time()}
         )
-        log.error("native_classifier_gpu_retirement_quarantined", fingerprint=key, error_code=retirement["error_code"])
+        log.error(
+            "native_crop_device_retirement_quarantined"
+            if profile.get("operation") == "crop_detector"
+            else "native_classifier_gpu_retirement_quarantined",
+            fingerprint=key,
+            error_code=retirement["error_code"],
+        )
         with self._lock:
             if key not in self._reported:
                 self._reported.add(key)
                 from .error_diagnostics import error_diagnostics_history
 
                 error_diagnostics_history.record(
-                    source="classifier",
-                    component="classifier_worker",
+                    source="crop_detector" if profile.get("operation") == "crop_detector" else "classifier",
+                    component="crop_worker" if profile.get("operation") == "crop_detector" else "classifier_worker",
                     severity="error",
-                    reason_code="gpu_worker_retired",
-                    message="A GPU classifier worker retired itself after a device failure; its launch profile is quarantined.",
+                    reason_code="crop_worker_retired"
+                    if profile.get("operation") == "crop_detector"
+                    else "gpu_worker_retired",
+                    message="A crop worker retired after a device failure; its launch profile is quarantined."
+                    if profile.get("operation") == "crop_detector"
+                    else "A GPU classifier worker retired itself after a device failure; its launch profile is quarantined.",
                     context={
                         "error_type": retirement["error_code"],
                         "configured_provider": profile.get("provider"),
