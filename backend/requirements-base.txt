@@ -26,7 +26,7 @@ tzdata==2026.5; sys_platform == "win32"
 # added in the same commit as the original NumPy 1 cap. 4.10 is confirmed
 # NumPy 2 compatible, so the cap is not load-bearing for that. Leave it until
 # someone establishes whether it guards something else.
-Pillow>=12.3.0
+Pillow>=13.0.0
 numpy<3.0.0
 opencv-python-headless<4.11
 
