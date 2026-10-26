@@ -6,6 +6,7 @@
      */
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
+    import GardenPhotoPreview from './GardenPhotoPreview.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
@@ -63,7 +64,7 @@
         <!-- The bird preview's size and frame, so the column reads as one. -->
         <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
             {#if photo && failedUrl !== photo}
-                <img src={photo} alt="" loading="lazy" class="h-full w-full object-cover" onerror={() => (failedUrl = photo)} />
+                <GardenPhotoPreview {capture} src={photo} aspect={1} onerror={() => (failedUrl = photo)} />
             {/if}
         </span>
     </div>

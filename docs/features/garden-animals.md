@@ -384,7 +384,9 @@ In **Settings → Detection**, each bird finder shows its recommended device fro
 host comparison. The chosen finder also shows its **Last completed run**, device,
 time and CPU fallback, or explicitly says there is no execution report yet. The
 recommendation can differ from the Detection preference because it selects the fastest
-CPU-agreeing device for that finder. The scoped **Check devices** action remains
+CPU-agreeing device for that finder. **Finder device** can save a different validated
+choice independently of identification. If that choice becomes unavailable, the
+accurate finder uses CPU. The scoped **Check devices** action remains
 available after a successful check and does not change the identification model.
 
 **Settings → Beta features → Garden models** separately shows the automatic check's
@@ -437,3 +439,13 @@ failure, unconfirmed attempts and skipped sends. Acceptance means the channel
 accepted the message, not that its recipient read it. The delivery status refresh
 only reads those counts; it sends no message. Turning off alerts stops subsequent
 sends, but cannot recall messages already dispatched.
+
+
+### Cropped previews
+
+Explorer cards and list previews centre on the saved animal box with a little
+surrounding context. The full photograph and its box remain in the capture record.
+A photograph without valid recorded geometry stays full-frame; no animal box is
+inferred just for display. Cropping changes the preview, not the saved photo or
+species decision. Expired photographs remain unavailable under the existing
+retention policy.

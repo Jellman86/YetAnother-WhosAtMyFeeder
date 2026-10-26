@@ -14,24 +14,24 @@ function bird(id: string, at: string) {
     };
 }
 
-function capture(id: string, at: string, status: 'pending' | 'confirmed', name?: string) {
+function capture(id: string, at: string, status: 'pending' | 'confirmed', name?: string, box?: [number, number, number, number]) {
     return {
         id: id.padEnd(32, '0'), camera: 'patio', frigate_label: 'cat', observed_at: at, status, reviewed_at: null,
         snapshot_url: `/api/garden/${id.padEnd(32, '0')}/snapshot`, source_kind: 'frigate_event', motion_source: null,
         automatic_check: null, automatic_check_overridden: false,
         identification: name ? {
             outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: false, name, rank: 'species', score: 0.93,
-            country: 'GBR', variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 1, input_kind: 'whole_image',
+            country: 'GBR', variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 1, input_kind: box ? 'tracked_crop' : 'whole_image', box_xywh: box ?? null,
             frame_size: [160, 120], identified_at: at
         } : null
     };
 }
 
-async function openExplorer(page: Page, query = '') {
+async function openExplorer(page: Page, query = '', cropped = false) {
     const errors: string[] = [];
     page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
     const visits = [bird('morning', hoursAgo(1)), bird('night', hoursAgo(5))];
-    const garden = [capture('fox', hoursAgo(3), 'confirmed', 'Red fox'), capture('cat', hoursAgo(0.5), 'pending')];
+    const garden = [capture('fox', hoursAgo(3), 'confirmed', 'Red fox', cropped ? [0.05, 0.1, 0.2, 0.3] : undefined), capture('cat', hoursAgo(0.5), 'pending')];
     const timelineQueries: URLSearchParams[] = [];
     const confirmed: string[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
@@ -154,3 +154,20 @@ for (const gardenOnly of [false, true]) {
         expect(errors).toEqual([]);
     });
 }
+
+
+test('Garden cards and list previews crop to saved animal geometry while the record keeps the full photo', async ({ page }) => {
+    const { errors } = await openExplorer(page, '&garden=1', true);
+    const preview = page.locator('[data-garden-card="confirmed"] [data-garden-preview="crop"] img');
+    await expect(preview).toBeVisible();
+    const geometry = await preview.evaluate(img => ({ width: img.getBoundingClientRect().width, container: img.parentElement?.getBoundingClientRect().width }));
+    expect(geometry.width).toBeGreaterThan(geometry.container ?? 0);
+    await expect(page.locator('[data-garden-card="pending"] [data-garden-preview="full"]')).toBeVisible();
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    await expect(page.locator('[data-garden-capture-photo]')).toBeVisible();
+    await expect(page.locator('[data-garden-capture-box]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.locator('[data-explorer-view-toggle="list"]').click();
+    await expect(page.locator('[data-garden-row="confirmed"] [data-garden-preview="crop"]')).toBeVisible();
+    expect(errors).toEqual([]);
+});

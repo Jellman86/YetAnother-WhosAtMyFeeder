@@ -900,6 +900,22 @@ neutral metadata, including in subprocess workers. It receives no date or uncert
 Use `/api/classifier/status` after reload to distinguish saved preference from the
 worker-reported runtime.
 
+`bird_crop_inference_provider` independently selects the accurate bird finder's
+device: `auto` (default), `cpu`, `intel_cpu`, `intel_gpu`, `intel_npu`, or `cuda`.
+New explicit accelerator choices require current validation for the selected finder,
+artifact and host; otherwise the write returns 409 before changing settings. Send
+both fields together to select RF-DETR on an already validated NPU without first
+activating its automatic recommendation:
+
+```json
+{"bird_crop_accurate_detector": "rfdetr_nano", "bird_crop_inference_provider": "intel_npu"}
+```
+
+Changing either field reloads the classifier workers. If a saved explicit device
+later loses its validation or fails, the accurate finder uses CPU instead of another
+accelerator. An unchanged stale preference can remain in an unrelated settings save.
+The fast fallback finder still chooses its own validated device automatically.
+
 `recording_frame_delay_seconds` is an owner-only number from 1 to 120 (default 12).
 It controls the initial wait for new `classification_image_source: recording_snapshot`
 events, including when notifications can first be sent. Later tracked snapshot metadata

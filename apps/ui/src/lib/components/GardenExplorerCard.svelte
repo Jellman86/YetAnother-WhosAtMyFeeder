@@ -6,6 +6,7 @@
      */
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
+    import GardenPhotoPreview from './GardenPhotoPreview.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
@@ -45,14 +46,15 @@
     ></button>
     <div class="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-slate-800">
         {#if photo && failedUrl !== photo}
-            <img
-                src={photo}
-                alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
-                loading="lazy"
-                class="h-full w-full object-cover transition-[opacity,transform] duration-300 ease-out group-hover:scale-[1.025] motion-reduce:transition-none motion-reduce:group-hover:scale-100 {loadedUrl === photo ? 'opacity-100' : 'opacity-0'}"
-                onload={() => (loadedUrl = photo)}
-                onerror={() => (failedUrl = photo)}
-            />
+            <div class="h-full w-full transition-opacity duration-300 {loadedUrl === photo ? 'opacity-100' : 'opacity-0'}">
+                <GardenPhotoPreview
+                    {capture}
+                    src={photo}
+                    alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
+                    onload={() => (loadedUrl = photo)}
+                    onerror={() => (failedUrl = photo)}
+                />
+            </div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
         {:else}
             <p class="absolute inset-0 flex items-center justify-center p-4 text-center text-xs text-slate-600 dark:text-slate-400">

@@ -8,7 +8,7 @@
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
-    import type { BirdFinder } from '../../settings/bird-finder';
+    import type { BirdFinder, BirdFinderProvider } from '../../settings/bird-finder';
     import {
         buildInferenceProviderChoices,
         getProviderPreferenceOrder,
@@ -46,6 +46,7 @@
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         birdFinder = $bindable<BirdFinder>('yolox_tiny'),
+        birdFinderProvider = $bindable<BirdFinderProvider>('auto'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
@@ -70,6 +71,7 @@
         videoClassificationFrames: number;
         birdModelRegionOverride: BirdModelRegionOverride;
         birdFinder: BirdFinder;
+        birdFinderProvider?: BirdFinderProvider;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
         inferenceProvider: 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu';
         classifierStatus: ClassifierStatus | null;
@@ -576,6 +578,7 @@
                 executionMode={imageExecutionMode}
                 autoVideoEnabled={autoVideoClassification}
                 bind:birdFinder
+                bind:birdFinderProvider
                 {classifierStatus}
                 deviceCheckRunning={compatRunning}
                 onruntimechange={onrefreshclassifierstatus}

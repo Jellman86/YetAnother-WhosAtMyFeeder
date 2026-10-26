@@ -172,3 +172,71 @@ async def test_update_settings_reloads_model_when_execution_mode_changes(monkeyp
     finally:
         settings.classification.image_execution_mode = original_mode
         app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("eligible,status_code", [(["cpu", "intel_npu"], 200), (["cpu", "intel_gpu"], 409)])
+async def test_finder_provider_is_checked_for_the_new_finder_before_any_settings_change(
+    monkeypatch, eligible, status_code
+):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    dummy = _DummyClassifier()
+    monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
+    previous = settings.classification.model_copy(deep=True)
+    seen = []
+
+    def providers(model_id, **kwargs):
+        seen.append(model_id)
+        return eligible
+
+    monkeypatch.setattr("app.services.model_validation.host_eligible_providers", providers)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/settings",
+                json={
+                    **_base_payload(),
+                    "bird_crop_accurate_detector": "rfdetr_nano",
+                    "bird_crop_inference_provider": "intel_npu",
+                },
+            )
+            assert response.status_code == status_code
+            assert seen == ["bird_crop_detector_accurate_rfdetr_nano"]
+            if status_code == 200:
+                assert dummy.reload_calls == 1
+                assert settings.classification.bird_crop_inference_provider == "intel_npu"
+                assert (await client.get("/api/settings")).json()["bird_crop_inference_provider"] == "intel_npu"
+            else:
+                assert settings.classification == previous
+    finally:
+        settings.classification = previous
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_partial_finder_device_save_checks_the_saved_model_and_preserves_stale_unchanged_choices(monkeypatch):
+    monkeypatch.setattr(settings, "classification", settings.classification.model_copy(deep=True))
+    settings.classification.bird_crop_accurate_detector = "rfdetr_nano"
+    settings.classification.bird_crop_inference_provider = "auto"
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    dummy = _DummyClassifier()
+    monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
+    seen = []
+
+    def providers(model_id, **kwargs):
+        seen.append(model_id)
+        return ["cpu", "intel_npu"] if model_id.endswith("rfdetr_nano") else ["cpu"]
+
+    monkeypatch.setattr("app.services.model_validation.host_eligible_providers", providers)
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post("/api/settings", json={"bird_crop_inference_provider": "intel_npu"})
+            assert response.status_code == 200, response.text
+            assert seen == ["bird_crop_detector_accurate_rfdetr_nano"]
+            assert settings.classification.bird_crop_accurate_detector == "rfdetr_nano"
+            monkeypatch.setattr("app.services.model_validation.host_eligible_providers", lambda *a, **kw: [])
+            response = await client.post("/api/settings", json={"bird_crop_inference_provider": "intel_npu"})
+            assert response.status_code == 200, response.text
+            assert dummy.reload_calls == 1
+    finally:
+        app.dependency_overrides.clear()

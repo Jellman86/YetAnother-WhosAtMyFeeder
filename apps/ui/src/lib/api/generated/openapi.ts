@@ -1802,6 +1802,7 @@ export interface components {
     beta_garden_animals?: boolean;
     bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
+    bird_crop_inference_provider?: "auto" | "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
     birdnet_enabled?: boolean | null;
@@ -2019,6 +2020,7 @@ export interface components {
     beta_garden_animals?: boolean | null;
     bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
+    bird_crop_inference_provider?: "auto" | "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
     birdnet_enabled?: boolean | null;

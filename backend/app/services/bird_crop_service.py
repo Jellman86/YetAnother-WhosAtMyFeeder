@@ -1043,11 +1043,17 @@ class BirdCropService:
         if self.provider_override:
             return self.provider_override
         try:
-            from app.services.model_validation import activation_provider_recommendation
+            from app.services.model_validation import activation_provider_recommendation, host_eligible_providers
             from app.services.model_manager import model_manager
 
             model_id = self._registry_model_id_for_tier(tier)
             metadata = model_manager._get_registry_model_meta(model_id) or {}
+            preference = settings.classification.bird_crop_inference_provider if tier == "accurate" else "auto"
+            if preference != "auto":
+                if preference == "cpu":
+                    return "cpu"
+                eligible = host_eligible_providers(model_id, artifact_sha256=metadata.get("sha256"))
+                return preference if preference in eligible else "cpu"
             recommendation = activation_provider_recommendation(
                 model_id,
                 artifact_sha256=str(metadata.get("sha256") or "").strip().lower() or None,
@@ -1265,6 +1271,7 @@ class BirdCropService:
             status["load_error"] = (
                 "Crop child cleanup is unconfirmed; new detector launches are blocked until it exits."
             )
+        status["requested_provider"] = settings.classification.bird_crop_inference_provider
         status["policy"] = "accurate_then_fast"
         status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
         status["last_execution"] = self.last_execution()
