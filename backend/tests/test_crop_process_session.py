@@ -176,7 +176,12 @@ def test_native_model_loading_is_not_performed_by_the_api_service(tmp_path, monk
     assert calls[0][1]["provider"] == "intel_gpu"
 
 
-def test_real_cpu_child_loads_and_runs_a_tiny_identity_model(tmp_path):
+@pytest.mark.parametrize("provider,expected", [("cpu", "CPUExecutionProvider"), ("intel_cpu", "OpenVINO:CPU")])
+def test_real_cpu_child_loads_and_runs_a_tiny_identity_model(tmp_path, provider, expected):
+    from importlib.util import find_spec
+
+    if provider == "intel_cpu" and find_spec("openvino") is None:
+        pytest.skip("OpenVINO is supplied by the Intel/full runtime image")
     import base64
     from app.services.crop_process_session import CropProcessSession
 
@@ -189,12 +194,25 @@ def test_real_cpu_child_loads_and_runs_a_tiny_identity_model(tmp_path):
     )
     with pytest.MonkeyPatch.context() as patch:
         patch.setenv("OMP_NUM_THREADS", "1")
-        detector = CropProcessSession(path, provider="cpu", model_id="test-identity")
+        patch.setenv("OPENVINO_CACHE_DIR", str(tmp_path / "compile-cache"))
+        detector = CropProcessSession(path, provider=provider, model_id="test-identity")
+        descendants: set[int] = set()
         try:
             value = np.arange(12, dtype=np.float32).reshape(1, 3, 2, 2)
-            assert detector.get_providers()[0] == "CPUExecutionProvider"
+            assert detector.get_providers()[0] == expected
             assert np.array_equal(detector.run(None, {"images": value})[0], value)
+            if provider == "intel_cpu" and sys.platform == "linux":
+                for thread in (Path("/proc") / str(detector.pid) / "task").iterdir():
+                    descendants.update(int(pid) for pid in (thread / "children").read_text().split())
+                assert not descendants, "Vendor telemetry forked a helper inside the native worker"
         finally:
+            for pid in descendants:
+                try:
+                    import signal
+
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
             detector.close()
 
 
@@ -642,3 +660,66 @@ finally:
         if process.returncode is None:
             process.kill()
             await process.wait()
+
+
+def test_openvino_output_names_without_shapes_cross_the_real_worker_boundary(tmp_path):
+    script = tmp_path / "openvino_ports.py"
+    script.write_text("""import sys
+from contextlib import redirect_stdout
+from types import SimpleNamespace
+with redirect_stdout(sys.stderr):
+ from app.services.bird_crop_service import BirdCropService
+class Native:
+ def get_inputs(self): return [SimpleNamespace(name='images',shape=[1],type='tensor(float)')]
+ def get_outputs(self): return [SimpleNamespace(name='boxes')]
+ def get_providers(self): return ['OpenVINO:NPU']
+ def run(self,names,feeds): return [feeds['images']+1]
+BirdCropService._create_native_session=lambda *args,**kwargs: Native()
+from app.services.crop_process_worker import main
+main()
+""")
+    detector = session(tmp_path, [sys.executable, str(script)], "openvino-ports", provider="intel_npu")
+    try:
+        assert detector.get_outputs()[0].name == "boxes"
+        assert detector.get_outputs()[0].shape == []
+        assert detector.get_providers() == ["OpenVINO:NPU"]
+        assert np.array_equal(detector.run(None, {"images": np.zeros((1,), dtype=np.float32)})[0], [1])
+    finally:
+        detector.close()
+    assert detector.exit_code is not None
+
+
+def test_intel_worker_declines_vendor_telemetry_before_native_loading(tmp_path):
+    script = tmp_path / "vendor_telemetry.py"
+    script.write_text("""import sys
+from types import SimpleNamespace,ModuleType
+from contextlib import redirect_stdout
+module=ModuleType('openvino_telemetry.utils.opt_in_checker')
+class Consent:
+ DECLINED=0
+ ACCEPTED=1
+class Checker:
+ def check(self,*args,**kwargs): return Consent.ACCEPTED
+module.ConsentCheckResult=Consent
+module.OptInChecker=Checker
+sys.modules['openvino_telemetry.utils.opt_in_checker']=module
+with redirect_stdout(sys.stderr):
+ from app.services.bird_crop_service import BirdCropService
+class Native:
+ def get_inputs(self): return [SimpleNamespace(name='images',shape=[1],type='tensor(float)')]
+ def get_outputs(self): return [SimpleNamespace(name='boxes')]
+ def get_providers(self): return ['OpenVINO:NPU']
+ def run(self,names,feeds): return [feeds['images']]
+def load(*args,**kwargs):
+ assert Checker().check(False,False)==Consent.DECLINED, 'vendor telemetry could fork while stdin is locked'
+ return Native()
+BirdCropService._create_native_session=load
+from app.services.crop_process_worker import main
+main()
+""")
+    detector = session(tmp_path, [sys.executable, str(script)], "vendor-telemetry", provider="intel_npu")
+    try:
+        assert np.array_equal(detector.run(None, {"images": np.ones((1,), dtype=np.float32)})[0], [1])
+    finally:
+        detector.close()
+    assert detector.exit_code is not None

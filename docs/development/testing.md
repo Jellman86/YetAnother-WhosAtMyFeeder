@@ -233,6 +233,8 @@ recovery, and bounded numeric tensor exchange. Owner-pipe EOF and a Linux kernel
 parent-death test cover loss of the owning API or classifier worker, including native code holding
 the Python lock. The test's private subreaper collects every descendant. A tiny embedded ONNX
 Identity graph also checks the production CPU child without a model download.
+When OpenVINO is installed, the same graph checks its Intel CPU child and the
+output ports whose adapter exposes names without dimensions.
 The native-exception test aborts if a failed exception is destroyed; the worker
 must instead exit immediately with its recognised device-error evidence intact.
 These checks do not retry a quarantined production accelerator or establish GPU

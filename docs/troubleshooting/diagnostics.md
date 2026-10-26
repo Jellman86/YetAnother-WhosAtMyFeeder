@@ -363,7 +363,10 @@ and classifier workers keep tensor data and crop geometry, without owning the
 native detector session or its exceptions. A failed child is stopped and reaped
 before the existing CPU fallback can load another detector. Normal repeated
 frames reuse a warm child. Each cached detector adds a process and IPC tensor
-copies, so cold loading and memory use can increase.
+copies, so cold loading and memory use can increase. Intel crop workers decline
+OpenVINO vendor telemetry inside their own process: its optional forked helper
+can inherit a locked input pipe and survive detector exit. This does not edit
+host consent files or YA-WAMF's separate telemetry preference.
 
 A native crop crash or recognised GPU device error retains a separate incident
 under `/config/native-crashes`, with `operation: crop_detector` and the actual
