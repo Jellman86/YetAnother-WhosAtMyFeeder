@@ -159,6 +159,35 @@ async def test_saved_crop_endpoint_is_private_and_never_substitutes_for_an_expir
 
 
 @pytest.mark.asyncio
+async def test_saved_crop_loads_with_the_owner_media_cookie_without_authorising_other_routes(captured, monkeypatch):
+    import httpx
+    from app.auth import SESSION_COOKIE, AuthLevel, create_access_token
+    from app.config import settings
+    from app.main import app
+
+    original, image = captured
+    evidence, cropped = crop(image, original)
+    async with get_db() as db:
+        assert await GardenRepository(db).save_crop(original, evidence, cropped)
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings, "api_key", None)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        path = f"/api/garden/{original.id}/crop"
+        assert (await client.get(path)).status_code == 401
+        client.cookies.set(SESSION_COOKIE, create_access_token("owner", AuthLevel.OWNER))
+        response = await client.get(path)
+        assert response.status_code == 200 and response.content == cropped
+        assert response.headers["cache-control"] == "private, no-store"
+        assert (await client.get("/api/garden/crops/storage")).status_code == 401
+        assert (await client.post(f"/api/garden/{original.id}/dismiss")).status_code == 401
+        client.cookies.set(SESSION_COOKIE, create_access_token("guest", AuthLevel.GUEST))
+        assert (await client.get(path)).status_code == 403
+        client.cookies.set(SESSION_COOKIE, "invalid-session")
+        assert (await client.get(path)).status_code == 401
+
+
+@pytest.mark.asyncio
 async def test_a_corrupt_saved_crop_is_never_served(captured):
     from app.repositories.garden_repository import GardenPhotoUnavailable
 

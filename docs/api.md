@@ -88,7 +88,8 @@ Instead, `POST /api/auth/login` (and first-run setup) also sets an `HttpOnly`, `
 cookie named `yawamf_session`, scoped to `/api`, `Secure` when the request arrived over HTTPS,
 with the session's own lifetime. **Only read-only media routes and the live stream honour it**:
 snapshots, thumbnails, clips, recording clips, clip-thumbnail sprites and VTT, snapshot
-candidates, the camera live frame, audio spectrograms and clips, and `GET /api/sse`. The cookie
+candidates, the camera live frame, audio spectrograms and clips, Garden snapshots and saved
+crops, manual-observation media, showcase images and videos, and `GET /api/sse`. The cookie
 cannot authorise other routes or state-changing requests. Use a Bearer header for authenticated
 API calls. `POST /api/auth/logout` clears the cookie.
 
@@ -1299,6 +1300,9 @@ and the saved JPEG checksum.
 
 - `GET /api/garden/{capture_id}/crop` returns the private JPEG, `404` when unavailable
   or no longer confirmed, and `409` if its checksum differs from the evidence.
+  Signed-in browsers may use their owner media session cookie for this read-only
+  image request. Guest cookies are refused; storage statistics and review actions
+  still require API authentication.
 - `GET /api/garden/crops/storage` returns `count`, `bytes`, `limit` and
   `max_bytes_per_crop` for the bounded preview store.
 
