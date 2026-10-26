@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden history updates in an open Explorer as soon as a Frigate event or motion
+  scan saves a new capture, including while automatic identification is waiting.
+  Later Frigate revocations also refresh the view and remove an open revoked
+  record. Duplicate deliveries do not trigger repeated refreshes; updates remain
+  private and contain no capture details.
+
 - Saved Garden crops load in signed-in browsers using the existing private media
   session cookie. Crop storage statistics and review actions still require API
   authentication; guest sessions cannot view Garden crops.

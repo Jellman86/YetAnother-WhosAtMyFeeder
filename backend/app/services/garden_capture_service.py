@@ -14,6 +14,7 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services.frigate_client import frigate_client
+from app.services.broadcaster import broadcaster
 from app.services.garden_capture_policy import garden_collection_cameras, safe_event_id, observation_time
 
 
@@ -44,6 +45,7 @@ class GardenCaptureService:
         if not cameras and not (rejected and self.has_history):
             return
         if rejected or (bird and camera in cameras):
+            changed = False
             if label in {"person", "human"}:
                 from app.services import garden_motion_privacy
 
@@ -58,16 +60,20 @@ class GardenCaptureService:
                 async with garden_motion_privacy.lock:
                     garden_motion_privacy.invalidate()
                     async with get_db() as db:
-                        await GardenRepository(db).block_motion_overlap(camera, start, max(start, end))
+                        changed = await GardenRepository(db).block_motion_overlap(camera, start, max(start, end))
             async with get_db() as db:
-                await GardenRepository(db).block(event_id, create=rejected and camera in cameras)
+                changed = await GardenRepository(db).block(event_id, create=rejected and camera in cameras) or changed
+            if changed:
+                await broadcaster.broadcast({"type": "garden_history_changed"})
             return
         if camera not in cameras:
             return
         if label not in settings.frigate.garden_labels:
             if self.has_history:
                 async with get_db() as db:
-                    await GardenRepository(db).block(event_id, create=False)
+                    changed = await GardenRepository(db).block(event_id, create=False)
+                if changed:
+                    await broadcaster.broadcast({"type": "garden_history_changed"})
             return
         if str(data.get("type", "")).lower() != "end":
             return
@@ -79,7 +85,11 @@ class GardenCaptureService:
             return
         self.has_history = True
         async with get_db() as db:
-            await GardenRepository(db).capture(event_id, camera, label, observed_at, bool(after.get("has_snapshot")))
+            changed = await GardenRepository(db).capture(
+                event_id, camera, label, observed_at, bool(after.get("has_snapshot"))
+            )
+        if changed:
+            await broadcaster.broadcast({"type": "garden_history_changed"})
 
     async def get(self, capture_id: str) -> GardenCapture:
         async with get_db() as db:

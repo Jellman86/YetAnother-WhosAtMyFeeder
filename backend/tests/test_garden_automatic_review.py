@@ -479,6 +479,74 @@ async def test_confident_animal_is_confirmed_and_named_automatically_from_the_sa
 
 
 @pytest.mark.asyncio
+async def test_named_visit_keeps_real_crops_after_restart_and_photo_expiry_while_owner_dismissal_wins(naming):
+    from io import BytesIO
+
+    from PIL import Image
+
+    from app.repositories.garden_visit_repository import GardenVisitRepository
+
+    c = naming
+    output = BytesIO()
+    Image.new("RGB", (640, 480), "green").save(output, format="JPEG")
+    image = output.getvalue()
+    identities = []
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        await repo.block_capture(c.capture_id)
+        birds_before = await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone()
+        for offset in [20, 40]:
+            source = c.source.model_copy(
+                update={
+                    "clip_start": c.source.clip_start + offset,
+                    "clip_end": c.source.clip_end + offset,
+                    "image_sha256": hashlib.sha256(image).hexdigest(),
+                }
+            )
+            identities.append(await repo.capture_motion(source, image))
+    for _ in identities:
+        await c.service.process_once()
+    async with get_db() as db:
+        repo = GardenVisitRepository(db)
+        for identity in identities:
+            named = await repo.get(identity)
+            assert named.status == "confirmed" and named.identification.name == "domestic cat"
+            assert named.crop.source_sha256 == named.identification.image_sha256
+            assert named.crop.box_xywh == named.identification.box_xywh
+            assert await repo.crop_photo(identity)
+        visits, total, count = await repo.visits(
+            start=None, end=None, camera="patio", status="confirmed", newest_first=True, limit=20, offset=0
+        )
+        assert total == 1 and count == 2
+        visit_id = visits[0]["id"]
+    await close_db()
+    await init_db()
+    await c.module.GardenAutomaticReviewService().process_once()
+    assert c.native.await_count == 2
+    async with get_db() as db:
+        repo = GardenVisitRepository(db)
+        await db.execute("UPDATE garden_motion_sources SET expires_at='2000-01-01'")
+        await db.commit()
+        await repo.expire_motion_photos()
+        members, count = await repo.visit_captures(
+            visit_id, start=None, end=None, camera="patio", status="confirmed", limit=20, offset=0
+        )
+        assert count == 2 and {member.id for member in members} == set(identities)
+        for member in members:
+            assert not member.has_snapshot and member.crop is not None
+            assert await repo.crop_photo(member.id)
+        await repo.review(identities[0], "dismissed")
+    await c.module.GardenAutomaticReviewService().process_once()
+    assert c.native.await_count == 2
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert (await repo.get(identities[0])).automation_overridden
+        assert await repo.crop_photo(identities[0]) is None
+        assert await repo.crop_photo(identities[1])
+        assert await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone() == birds_before
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("reason", ["below_threshold", "naming_off", "no_country", "unbound"])
 async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, monkeypatch, reason):
     c = naming
