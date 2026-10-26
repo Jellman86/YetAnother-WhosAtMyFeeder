@@ -1,4 +1,7 @@
+import type { SettingsUpdate } from '../api/settings';
 import type { InstalledModel } from '../api';
+
+export type BirdFinderProvider = NonNullable<SettingsUpdate['bird_crop_inference_provider']>;
 
 export type BirdFinder = 'yolox_tiny' | 'rfdetr_nano';
 

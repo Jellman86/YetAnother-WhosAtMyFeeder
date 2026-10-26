@@ -966,6 +966,12 @@ class SettingsUpdate(BaseModel):
         "yolox_tiny",
         description="Which accurate bird detector finds birds in full frames before identification",
     )
+    bird_crop_inference_provider: Optional[Literal["auto", "cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"]] = (
+        Field(
+            None,
+            description="Accurate bird finder device; explicit accelerators require current validation for this finder",
+        )
+    )
     bird_crop_source_priority: Optional[
         Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]
     ] = Field(
@@ -1424,6 +1430,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.classification.bird_crop_accurate_detector,
+        settings.classification.bird_crop_inference_provider,
         settings.location.latitude,
         settings.location.longitude,
     )
@@ -1457,6 +1465,8 @@ async def import_settings(
         settings.classification.model,
         settings.classification.inference_provider,
         settings.classification.image_execution_mode,
+        settings.classification.bird_crop_accurate_detector,
+        settings.classification.bird_crop_inference_provider,
         settings.location.latitude,
         settings.location.longitude,
     )
@@ -1572,6 +1582,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "inference_provider": settings.classification.inference_provider,
         "bird_crop_detector_tier": settings.classification.bird_crop_detector_tier,
         "bird_crop_accurate_detector": settings.classification.bird_crop_accurate_detector,
+        "bird_crop_inference_provider": settings.classification.bird_crop_inference_provider,
         "bird_crop_source_priority": settings.classification.bird_crop_source_priority,
         "bird_model_region_override": settings.classification.bird_model_region_override,
         "crop_model_overrides": settings.classification.crop_model_overrides,
@@ -1753,6 +1764,10 @@ async def update_settings(
     """Update application settings. Owner only."""
     inference_provider_changed = False
     previous_classifier_location = (settings.location.latitude, settings.location.longitude)
+    previous_finder = (
+        settings.classification.bird_crop_accurate_detector,
+        settings.classification.bird_crop_inference_provider,
+    )
     telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
     telemetry_installation_id = settings.telemetry.installation_id
 
@@ -1800,6 +1815,28 @@ async def update_settings(
                     f"{update.inference_provider} is not validated for the active model "
                     "in this image on this host. Run hardware validation before selecting it."
                 ),
+            )
+
+    finder = (
+        update.bird_crop_accurate_detector
+        if "bird_crop_accurate_detector" in fields_set and update.bird_crop_accurate_detector is not None
+        else settings.classification.bird_crop_accurate_detector
+    )
+    finder_provider = update.bird_crop_inference_provider or settings.classification.bird_crop_inference_provider
+    if finder_provider not in {"auto", "cpu"} and (
+        finder != settings.classification.bird_crop_accurate_detector
+        or finder_provider != settings.classification.bird_crop_inference_provider
+    ):
+        from app.services.model_manager import model_manager
+        from app.services.model_validation import host_eligible_providers
+
+        model_id = f"bird_crop_detector_accurate_{finder}"
+        metadata = model_manager._get_registry_model_meta(model_id) or {}
+        eligible = host_eligible_providers(model_id, artifact_sha256=metadata.get("sha256"))
+        if finder_provider not in eligible:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{finder_provider} is not validated for {finder} on this host. Check this finder's devices first.",
             )
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
@@ -1984,6 +2021,8 @@ async def update_settings(
         settings.classification.bird_crop_detector_tier = update.bird_crop_detector_tier
     if "bird_crop_accurate_detector" in fields_set and update.bird_crop_accurate_detector is not None:
         settings.classification.bird_crop_accurate_detector = update.bird_crop_accurate_detector
+    if "bird_crop_inference_provider" in fields_set and update.bird_crop_inference_provider is not None:
+        settings.classification.bird_crop_inference_provider = update.bird_crop_inference_provider
     if "bird_crop_source_priority" in fields_set and update.bird_crop_source_priority is not None:
         settings.classification.bird_crop_source_priority = update.bird_crop_source_priority
     if "bird_model_region_override" in fields_set and update.bird_model_region_override is not None:
@@ -2411,6 +2450,8 @@ async def update_settings(
     if (
         inference_provider_changed
         or execution_mode_changed
+        or previous_finder
+        != (settings.classification.bird_crop_accurate_detector, settings.classification.bird_crop_inference_provider)
         or previous_classifier_location != (settings.location.latitude, settings.location.longitude)
     ):
         from app.services.classifier_service import reload_classifier_out_of_band

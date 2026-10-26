@@ -145,3 +145,31 @@ test('a checked finder keeps its scoped check and shows actual CPU fallback sepa
     await expect(finder(page)).toContainText('CPU fallback:');
     await expect(finder(page).getByRole('button', { name: /Check .* for RF-DETR Nano/ })).toBeVisible();
 });
+
+
+test('the finder keeps an explicit NPU choice even when GPU benchmarks faster', async ({ page }) => {
+    const state = await openDetectionSettings(page, { savedFinder: 'rfdetr_nano' });
+    const device = finder(page).getByRole('combobox', { name: 'Finder device' });
+    await device.selectOption('intel_npu');
+    await expect(unsaved(page)).toBeVisible();
+    expect(state.saves).toEqual([]);
+    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await expect.poll(() => state.saves.length).toBe(1);
+    expect(state.saves[0]).toMatchObject({ bird_crop_accurate_detector: 'rfdetr_nano', bird_crop_inference_provider: 'intel_npu' });
+    await expect(unsaved(page)).toHaveCount(0);
+    await expect(device).toHaveValue('intel_npu');
+    await expect(device.locator('option[value="cuda"]')).toHaveJSProperty('disabled', true);
+    await page.reload();
+    await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    await expect(finder(page).getByRole('combobox', { name: 'Finder device' })).toHaveValue('intel_npu');
+});
+
+
+test('changing finder explains a saved device that the new finder has not validated', async ({ page }) => {
+    await openDetectionSettings(page, { savedFinder: 'rfdetr_nano', savedFinderProvider: 'intel_npu' });
+    await finder(page).getByRole('radio', { name: /Standard/ }).check();
+    const device = finder(page).getByRole('combobox', { name: 'Finder device' });
+    await expect(device).toHaveValue('intel_npu');
+    await expect(device.locator('option[value="intel_npu"]')).toHaveJSProperty('disabled', true);
+    await expect(finder(page).getByRole('status').filter({ hasText: 'is saved but is not available' })).toBeVisible();
+});

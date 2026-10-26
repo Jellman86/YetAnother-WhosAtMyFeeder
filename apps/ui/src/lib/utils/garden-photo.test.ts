@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
-import { gardenPhotoOutline } from './garden-photo';
+import { gardenPhotoOutline, gardenPreviewStyle } from './garden-photo';
 
 const capture: GardenCapture = {
     id: 'capture', camera: 'patio', frigate_label: 'animal', observed_at: '2026-10-13T18:00:00Z',
@@ -53,4 +53,46 @@ describe('garden photo outlines', () => {
             expect(gardenPhotoOutline({ ...capture, motion_source }, [640, 1000])).toBeNull();
         });
     }
+});
+
+
+describe('Garden preview crops', () => {
+    it('centres the saved animal box, keeps its aspect ratio and fits the whole animal', () => {
+        const style = gardenPreviewStyle(capture, [1000, 500], 4 / 3);
+        expect(style).not.toBeNull();
+        if (!style) throw new Error('Missing saved crop');
+        const { width, height, left, top } = style;
+        expect(width / height * (4 / 3)).toBeCloseTo(2);
+        const x = left + 0.1 * width;
+        const y = top + 0.2 * height;
+        expect(x).toBeGreaterThanOrEqual(0);
+        expect(y).toBeGreaterThanOrEqual(0);
+        expect(x + 0.3 * width).toBeLessThanOrEqual(100);
+        expect(y + 0.4 * height).toBeLessThanOrEqual(100);
+        expect(width).toBeGreaterThan(100);
+    });
+
+    it('uses a full photograph when no trustworthy crop is recorded', () => {
+        expect(gardenPreviewStyle({ ...capture, motion_source: null }, [1000, 500], 1)).toBeNull();
+        expect(gardenPreviewStyle(capture, undefined, 1)).toBeNull();
+        expect(gardenPreviewStyle(capture, [1000, 500], 0)).toBeNull();
+    });
+
+    it('keeps edge animals inside square row previews without stretching', () => {
+        const edge = { ...capture, motion_source: capture.motion_source ? { ...capture.motion_source, box_xywh: [0.8, 0.7, 0.2, 0.3] as [number, number, number, number] } : null };
+        const style = gardenPreviewStyle(edge, [1000, 500], 1);
+        expect(style).not.toBeNull();
+        if (!style) throw new Error('Missing saved crop');
+        expect(style.width / style.height).toBeCloseTo(2);
+        expect(style.left + style.width).toBeGreaterThanOrEqual(99.99);
+        expect(style.top + style.height).toBeGreaterThanOrEqual(99.99);
+    });
+});
+
+
+it('never shrinks a near-full-frame animal below a full-photo fit', () => {
+    const full = { ...capture, motion_source: capture.motion_source ? { ...capture.motion_source, box_xywh: [0, 0, 1, 1] as [number, number, number, number] } : null };
+    const style = gardenPreviewStyle(full, [1000, 500], 4 / 3);
+    expect(style?.width).toBeCloseTo(100);
+    expect(style?.height).toBeCloseTo(100 * (4 / 3) / 2);
 });

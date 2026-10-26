@@ -12701,6 +12701,25 @@
             "default": "fast",
             "title": "Bird Crop Detector Tier"
           },
+          "bird_crop_inference_provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "cpu",
+                  "intel_cpu",
+                  "intel_gpu",
+                  "intel_npu",
+                  "cuda"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bird Crop Inference Provider"
+          },
           "bird_crop_source_priority": {
             "anyOf": [
               {
@@ -14907,6 +14926,26 @@
             "default": "fast",
             "description": "Deprecated compatibility field; crop generation automatically tries accurate then fast",
             "title": "Bird Crop Detector Tier"
+          },
+          "bird_crop_inference_provider": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "cpu",
+                  "intel_cpu",
+                  "intel_gpu",
+                  "intel_npu",
+                  "cuda"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Accurate bird finder device; explicit accelerators require current validation for this finder",
+            "title": "Bird Crop Inference Provider"
           },
           "bird_crop_source_priority": {
             "anyOf": [

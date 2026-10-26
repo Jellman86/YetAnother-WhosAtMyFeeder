@@ -943,3 +943,23 @@ def test_missing_execution_metadata_never_changes_a_successful_finder_result(mon
         {"provider": "intel_npu", "detector_tier": "accurate"}, Image.new("RGB", (64, 64))
     ) == [{"confidence": 0.9}]
     assert service.last_execution() is None
+
+
+@pytest.mark.parametrize(
+    "eligible, expected", [(["cpu", "intel_gpu", "intel_npu"], "intel_npu"), (["cpu", "intel_gpu"], "cpu")]
+)
+def test_saved_finder_provider_never_switches_to_a_faster_gpu(monkeypatch, eligible, expected):
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
+    monkeypatch.setattr("app.services.model_validation.host_eligible_providers", lambda *a, **kw: eligible)
+    monkeypatch.setattr(
+        "app.services.model_validation.activation_provider_recommendation", lambda *a, **kw: "intel_gpu"
+    )
+    service = BirdCropService(accurate_model_id="bird_crop_detector_accurate_rfdetr_nano")
+    assert service._provider_for_tier("accurate") == expected
+    # The fast fallback model has its own device evidence, independent of the accurate finder choice.
+    assert service._provider_for_tier("fast") == "intel_gpu"
+
+
+def test_probe_provider_override_remains_independent_of_saved_finder_choice(monkeypatch):
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
+    assert BirdCropService(provider_override="cpu")._provider_for_tier("accurate") == "cpu"

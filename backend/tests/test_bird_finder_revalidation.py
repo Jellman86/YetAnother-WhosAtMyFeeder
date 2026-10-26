@@ -157,3 +157,36 @@ def test_finder_status_reports_the_automatic_check(monkeypatch):
     status = BirdCropService().get_status()
     assert status["device_check"]["state"] == "waiting"
     assert status["device_check"]["providers"] == ["intel_npu"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider, expected", [("intel_npu", {"cpu", "intel_cpu", "intel_npu"}), ("cpu", None)])
+async def test_explicit_finder_device_never_automatically_rechecks_another_accelerator(
+    environment, monkeypatch, provider, expected
+):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", provider)
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    if expected is None:
+        environment.assert_not_awaited()
+    else:
+        assert environment.await_args.kwargs["only_providers"] == expected
+
+
+@pytest.mark.asyncio
+async def test_only_a_device_change_during_recheck_discards_the_result(environment, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "auto")
+
+    async def changed(*args, **kwargs):
+        settings.classification.bird_crop_inference_provider = "cpu"
+        return {"eligible_providers": ["cpu", "intel_npu"], "providers": [], "image_flavor": "intel"}
+
+    environment.side_effect = changed
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "superseded"
+    assert validation.host_eligible_providers(FINDER, artifact_sha256="abc") == []

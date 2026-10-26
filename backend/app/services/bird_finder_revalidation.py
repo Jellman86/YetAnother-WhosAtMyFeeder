@@ -20,6 +20,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 import structlog
 
+from app.config import settings
 from app.services import model_validation as validation
 from app.services.model_validation import sweep_crop_model_devices
 
@@ -112,6 +113,9 @@ class BirdFinderRevalidation:
         previous = [str(provider) for provider in (data.get("models") or {}).get(model_id) or []]
         current = validation.host_eligible_providers(model_id, artifact_sha256=artifact)
         packaged = validation.packaged_inference_providers(validation.get_image_flavor())
+        preference = settings.classification.bird_crop_inference_provider
+        if preference != "auto":
+            previous = [provider for provider in previous if provider in {"cpu", "intel_cpu", preference}]
         stale = stale_accelerators(previous, current, packaged)
         if not stale:
             return None
@@ -140,6 +144,7 @@ class BirdFinderRevalidation:
                 if finder is None:
                     return
                 model_id, artifact = finder
+                preference = settings.classification.bird_crop_inference_provider
                 prepared = await asyncio.to_thread(self._prepare, model_id, artifact)
                 if prepared is None:
                     return
@@ -166,7 +171,10 @@ class BirdFinderRevalidation:
 
                 result = await sweep_crop_model_devices(model_id, image_paths=photos, only_providers=set(providers))
 
-                if await asyncio.to_thread(selected_finder) != finder:
+                if (
+                    await asyncio.to_thread(selected_finder) != finder
+                    or settings.classification.bird_crop_inference_provider != preference
+                ):
                     self._status.state = "superseded"
                     self._status.reason = "The bird finder changed while the check ran; no result was applied."
                     return

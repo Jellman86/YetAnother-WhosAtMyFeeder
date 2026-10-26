@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Bird finders now have a saved device preference independent of species identification.
+  Choose a validated NPU even when GPU benchmarks faster; an unavailable saved device
+  falls back to CPU. Garden cards and list previews zoom to saved animal boxes while
+  the record retains the full photograph and box for inspection.
+
 - OpenVINO crop workers accept output ports without dimensions, allowing Intel
   detector sessions to start instead of failing over to CPU during the metadata
   handshake. Isolated Intel crop workers also decline vendor telemetry inside

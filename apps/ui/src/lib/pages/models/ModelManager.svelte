@@ -10,17 +10,18 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import { usesSavedFeederLocation } from './model_location_input';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
-    import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, birdFinderDeviceNote, type BirdFinder } from '../../settings/bird-finder';
+    import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, birdFinderDeviceNote, type BirdFinder, type BirdFinderProvider } from '../../settings/bird-finder';
     import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     // The live runtime is owned by the Settings page, so the band, the runtime
     // report and this card always show the same, freshest provider.
-    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
+    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), birdFinderProvider = $bindable<BirdFinderProvider>('auto'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
         /** The finder staged in the settings form; it is saved by Apply Settings with everything else. */
         birdFinder?: BirdFinder;
+        birdFinderProvider?: BirdFinderProvider;
         classifierStatus: ClassifierStatus | null;
         /** A device check owned by the Settings page is running, so another cannot start. */
         deviceCheckRunning?: boolean;
@@ -1150,6 +1151,26 @@
                             {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders, chosenFinder.model)}
                             {@const chosenDeviceNote = birdFinderDeviceNote(chosenDevice, cropDetectorStatus?.device_check, chosenFinder.model.id)}
                             {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && chosenDeviceNote !== 'check_running'}
+                            <label class="block max-w-sm space-y-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                <span>{t('settings.detection.bird_finder_device', 'Finder device')}</span>
+                                <select class="select-base w-full" bind:value={birdFinderProvider} aria-describedby="bird-finder-device-help">
+                                    <option value="auto">{t('settings.detection.bird_finder_device_auto', 'Automatic (fastest validated device)')}</option>
+                                    <option value="cpu">{providerLabel('cpu')}</option>
+                                    {#each ['intel_cpu', 'intel_gpu', 'intel_npu', 'cuda'] as choice}
+                                        <option value={choice} disabled={!(getInstalledModel(chosenFinder.model.id)?.provider_preference_order ?? []).includes(choice)}>
+                                            {providerLabel(choice)}
+                                        </option>
+                                    {/each}
+                                </select>
+                            </label>
+                            {#if birdFinderProvider !== 'auto' && birdFinderProvider !== 'cpu' && !(getInstalledModel(chosenFinder.model.id)?.provider_preference_order ?? []).includes(birdFinderProvider)}
+                                <p class="text-sm text-amber-800 dark:text-amber-300" role="status">
+                                    {t('settings.detection.provider_saved_unavailable', '{provider} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.', { provider: providerLabel(birdFinderProvider) })}
+                                </p>
+                            {/if}
+                            <p id="bird-finder-device-help" class="text-xs text-slate-600 dark:text-slate-400">
+                                {t('settings.detection.bird_finder_device_help', 'Apply settings to save this device. If it becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.')}
+                            </p>
                             <ModelExecutionEvidence execution={cropDetectorStatus?.last_execution?.model_id === chosenFinder.model.id ? cropDetectorStatus.last_execution : null} />
                             <div class="flex flex-wrap items-center gap-3">
                                 {#if canCheckChosen}

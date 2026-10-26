@@ -78,6 +78,7 @@ export type DetectionMockOptions = {
     rfdetrInstalled?: boolean;
     saveFails?: boolean;
     savedProvider?: string;
+    savedFinderProvider?: string;
 };
 
 export type DetectionMockState = {
@@ -85,6 +86,7 @@ export type DetectionMockState = {
     saves: Record<string, unknown>[];
     savedFinder: 'yolox_tiny' | 'rfdetr_nano';
     savedProvider: string;
+    savedFinderProvider: string;
 };
 
 function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, execution?: Record<string, unknown>) {
@@ -116,6 +118,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     const rfdetrInstalled = options.rfdetrInstalled ?? true;
     const state: DetectionMockState = {
         settingsReads: 0, saves: [], savedFinder: options.savedFinder ?? 'yolox_tiny',
+        savedFinderProvider: options.savedFinderProvider ?? 'auto',
         savedProvider: options.savedProvider ?? 'auto'
     };
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
@@ -132,6 +135,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
             if (body.bird_crop_accurate_detector === 'yolox_tiny' || body.bird_crop_accurate_detector === 'rfdetr_nano') {
                 state.savedFinder = body.bird_crop_accurate_detector;
             }
+            if (typeof body.bird_crop_inference_provider === 'string') state.savedFinderProvider = body.bird_crop_inference_provider;
             if (typeof body.inference_provider === 'string') state.savedProvider = body.inference_provider;
             return route.fulfill({ json: { status: 'updated' } });
         }
@@ -142,7 +146,8 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
                 trusted_proxy_hosts: ['*'], notifications_mode: 'standard',
                 classification_threshold: 0.6, classification_min_confidence: 0.4,
                 inference_provider: state.savedProvider, image_execution_mode: 'subprocess',
-                bird_crop_accurate_detector: state.savedFinder
+                bird_crop_accurate_detector: state.savedFinder,
+                bird_crop_inference_provider: state.savedFinderProvider
             } });
         }
         if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled, options.finderExecution) });
@@ -154,7 +159,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
                 // No current evidence for YOLOX-Tiny; RF-DETR passed on the Intel GPU.
                 installed(YOLOX, { validated_inference_providers: [], provider_preference_order: [] }),
                 ...(rfdetrInstalled ? [installed(RFDETR, {
-                    validated_inference_providers: ['cpu', 'intel_gpu'], provider_preference_order: ['intel_gpu', 'cpu']
+                    validated_inference_providers: ['cpu', 'intel_gpu', 'intel_npu'], provider_preference_order: ['intel_gpu', 'intel_npu', 'cpu']
                 })] : [])
             ] });
         }

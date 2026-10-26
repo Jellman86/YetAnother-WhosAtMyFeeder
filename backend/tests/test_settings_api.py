@@ -1739,6 +1739,8 @@ async def test_settings_import_keeps_this_installations_session_and_token_keys(
     ("field", "value", "full_restart"),
     [
         ("inference_provider", "intel_npu", False),
+        ("bird_crop_inference_provider", "intel_npu", False),
+        ("bird_crop_accurate_detector", "rfdetr_nano", False),
         ("model", "some_other_model", False),
         ("image_execution_mode", "in_process", True),
     ],

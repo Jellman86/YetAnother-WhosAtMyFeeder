@@ -361,6 +361,10 @@ class ClassificationSettings(BaseModel):
         default="yolox_tiny",
         description="Which accurate bird detector finds birds in full frames before identification",
     )
+    bird_crop_inference_provider: Literal["auto", "cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"] = Field(
+        default="auto",
+        description="Device preference for the accurate bird finder; unavailable choices fall back to CPU only",
+    )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",
         "crop_model_first",
