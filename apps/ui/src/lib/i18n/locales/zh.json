@@ -3718,6 +3718,8 @@
     "save_error": "无法保存审核结果，请重试。",
     "open_settings": "花园设置",
     "photo_alt": "来自 {camera} 的动物抓拍",
+    "saved_crop_only": "已保存的动物裁剪图。原始照片已不可用。",
+    "saved_crop_count": "已保存的动物裁剪图：{count} / {limit}。完整照片仍按各自期限过期。",
     "snapshot_unavailable": "快照不可用",
     "frigate_suggested": "Frigate 建议：{label}",
     "confirm": "确认有动物",

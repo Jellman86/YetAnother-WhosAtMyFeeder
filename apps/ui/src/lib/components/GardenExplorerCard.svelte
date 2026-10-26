@@ -22,10 +22,14 @@
     } = $props();
 
     let failedUrl = $state<string | null>(null);
+    let failedCropUrl = $state<string | null>(null);
     let loadedUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })));
-    const photo = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
+    const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
+    const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
+    const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
+    const usingSavedCrop = $derived(Boolean(cropPhoto && photo === cropPhoto));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
     const day = $derived(relativeDayLabel(capture.observed_at, $_) || formatDate(capture.observed_at));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
@@ -49,10 +53,10 @@
             <div class="h-full w-full transition-opacity duration-300 {loadedUrl === photo ? 'opacity-100' : 'opacity-0'}">
                 <GardenPhotoPreview
                     {capture}
-                    src={photo}
+                    src={photo} cropped={usingSavedCrop}
                     alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
                     onload={() => (loadedUrl = photo)}
-                    onerror={() => (failedUrl = photo)}
+                    onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }}
                 />
             </div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>

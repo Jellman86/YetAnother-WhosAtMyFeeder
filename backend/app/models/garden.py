@@ -1,6 +1,7 @@
 """Private garden model contracts, distinct from bird classification DTOs."""
 
 from app.models.inference_execution import InferenceExecution, InferenceProvider
+from app.models.garden_crop import GardenCropStorage
 from typing import Literal
 import math
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -140,6 +141,7 @@ class GardenIdentificationStatus(BaseModel):
     models: list[GardenModelStatus]
     preferred_provider: InferenceProvider = "cpu"
     last_execution: InferenceExecution | None = None
+    saved_crops: GardenCropStorage | None = None
     automatic_message: str = "Automatic checks wait for an enabled Garden camera and idle bird inference."
 
 

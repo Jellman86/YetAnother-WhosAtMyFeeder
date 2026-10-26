@@ -7474,6 +7474,27 @@
             "title": "Camera",
             "type": "string"
           },
+          "crop": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenCropEvidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "crop_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop Url"
+          },
           "frigate_label": {
             "title": "Frigate Label",
             "type": "string"
@@ -7557,6 +7578,140 @@
           "snapshot_url"
         ],
         "title": "GardenCaptureResponse",
+        "type": "object"
+      },
+      "GardenCropEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "box_xywh": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Box Xywh",
+            "type": "array"
+          },
+          "crop_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Crop Sha256",
+            "type": "string"
+          },
+          "frame_size": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Frame Size",
+            "type": "array"
+          },
+          "frame_time": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame Time"
+          },
+          "image_size": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "integer"
+              }
+            ],
+            "title": "Image Size",
+            "type": "array"
+          },
+          "source_end": {
+            "title": "Source End",
+            "type": "number"
+          },
+          "source_kind": {
+            "enum": [
+              "motion",
+              "frigate_clean"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "source_start": {
+            "title": "Source Start",
+            "type": "number"
+          }
+        },
+        "required": [
+          "source_kind",
+          "source_sha256",
+          "crop_sha256",
+          "frame_size",
+          "image_size",
+          "box_xywh",
+          "source_start",
+          "source_end"
+        ],
+        "title": "GardenCropEvidence",
+        "type": "object"
+      },
+      "GardenCropStorage": {
+        "properties": {
+          "bytes": {
+            "minimum": 0.0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "limit": {
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_bytes_per_crop": {
+            "minimum": 1.0,
+            "title": "Max Bytes Per Crop",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "bytes",
+          "limit",
+          "max_bytes_per_crop"
+        ],
+        "title": "GardenCropStorage",
         "type": "object"
       },
       "GardenIdentification": {
@@ -7834,6 +7989,16 @@
             ],
             "title": "Preferred Provider",
             "type": "string"
+          },
+          "saved_crops": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenCropStorage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -27061,6 +27226,38 @@
         ]
       }
     },
+    "/api/garden/crops/storage": {
+      "get": {
+        "operationId": "crop_storage_api_garden_crops_storage_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCropStorage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Crop Storage",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
     "/api/garden/identification": {
       "get": {
         "operationId": "identification_status_api_garden_identification_get",
@@ -27883,6 +28080,52 @@
           }
         ],
         "summary": "Confirm Capture",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/crop": {
+      "get": {
+        "operationId": "capture_crop_api_garden__capture_id__crop_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Capture Crop",
         "tags": [
           "garden"
         ]

@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, StringConstraints
 from typing import Annotated, Literal
 
@@ -32,6 +32,8 @@ from app.models.garden import (
     GardenAutomaticCheck,
 )
 from app.models.garden_motion import MotionSource, GardenMotionStatus
+from app.models.garden_crop import GardenCropEvidence, GardenCropStorage
+from app.services.garden_crop_service import garden_crop_service
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_identification import garden_identification_service
 from app.services.species_names import species_name_lookup
@@ -65,6 +67,8 @@ class GardenCaptureResponse(BaseModel):
     status: GardenStatus
     reviewed_at: str | None
     snapshot_url: str | None
+    crop_url: str | None = None
+    crop: GardenCropEvidence | None = None
     identification: GardenIdentification | None = None
     source_kind: Literal["frigate_event", "motion"] = "frigate_event"
     motion_source: MotionSource | None = None
@@ -106,6 +110,8 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
         status=capture.status,
         reviewed_at=capture.reviewed_at + "Z" if capture.reviewed_at else None,
         snapshot_url=f"/api/garden/{capture.id}/snapshot" if capture.has_snapshot else None,
+        crop_url=f"/api/garden/{capture.id}/crop" if capture.status == "confirmed" and capture.crop else None,
+        crop=capture.crop,
         identification=identification,
         source_kind="motion" if capture.motion_source else "frigate_event",
         motion_source=capture.motion_source,
@@ -339,8 +345,10 @@ async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureRespons
 
 
 @router.post("/{capture_id}/confirm", response_model=GardenCaptureResponse)
-async def confirm_capture(capture_id: str) -> GardenCaptureResponse:
-    return await _review(capture_id, "confirmed")
+async def confirm_capture(capture_id: str, background_tasks: BackgroundTasks) -> GardenCaptureResponse:
+    result = await _review(capture_id, "confirmed")
+    background_tasks.add_task(garden_crop_service.collect, capture_id)
+    return result
 
 
 @router.post("/{capture_id}/dismiss", response_model=GardenCaptureResponse)
@@ -361,3 +369,26 @@ async def capture_snapshot(capture_id: str, _auth: AuthContext = Depends(require
         media_type="image/jpeg",
         headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
     )
+
+
+@router.get("/{capture_id}/crop", response_class=Response, response_model=None)
+async def capture_crop(capture_id: str) -> Response:
+    async with garden_motion_privacy.lock:
+        async with get_db() as db:
+            try:
+                image = await GardenRepository(db).crop_photo(capture_id)
+            except GardenPhotoUnavailable as error:
+                raise HTTPException(409, str(error)) from error
+    if image is None:
+        raise HTTPException(404, "No saved animal crop is available")
+    return Response(
+        image,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.get("/crops/storage", response_model=GardenCropStorage)
+async def crop_storage() -> GardenCropStorage:
+    async with get_db() as db:
+        return GardenCropStorage(**await GardenRepository(db).crop_storage())

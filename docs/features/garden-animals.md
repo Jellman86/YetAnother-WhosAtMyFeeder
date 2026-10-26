@@ -274,8 +274,8 @@ Dismissed motion photos can be reclaimed for new captures, so Undo is not perman
 At most 128 motion photos of 512 KiB each are stored in the application database,
 a 64 MiB photo budget. Clips are temporary and removed after each scan. Photos
 expire three days after the recording; unconfirmed and dismissed motion captures
-are then permanently removed. Confirmed history and identification metadata remain
-subject to normal history retention. A recording cannot create another review or
+are then permanently removed. Confirmed history, identification metadata and saved animal crops remain
+subject to normal history retention and the crop budget below. A recording cannot create another review or
 undo a dismissal when the detector changes. Dismissed photos stay available for
 **Return to review** until expiry or until a new candidate needs their space. At
 the photo limit, the oldest dismissed photos are reclaimed first; pending and
@@ -449,3 +449,37 @@ A photograph without valid recorded geometry stays full-frame; no animal box is
 inferred just for display. Cropping changes the preview, not the saved photo or
 species decision. Expired photographs remain unavailable under the existing
 retention policy.
+
+
+### Saved animal crops
+
+Confirmed captures now collect a separate animal preview, rather than relying on
+an upstream photograph or a temporary motion photo remaining available. Automatic
+motion identification saves a valid crop with its name; manual confirmation starts
+best-effort collection without delaying the confirmation. Idle collection also
+fills missing crops for confirmed captures whose original photos are still available.
+Expired source photos are never restored.
+
+Each crop records the exact source checksum, source frame size, box, recording or
+aligned snapshot time, and saved-image checksum. Motion crops use the saved detector
+box and photo. Frigate crops require its clean best frame and matching snapshot
+alignment; a JPEG of unknown crop/resize policy is not treated as a full frame.
+Missing or unaligned source evidence leaves the capture confirmed without a crop.
+
+Crops remain owner-only. Person/false-positive revocation, dismissal and history
+retention remove them. A crop does not make an expired original available for model
+checks, identification or restoring a dismissed capture. The record prefers the
+original full photograph, then shows the saved crop with an explicit explanation
+when the original is unavailable. It draws no full-frame box on an already cropped
+image. Confirmed visits prefer their newest member with a saved crop, while their
+membership, start/end times and per-photo review remain unchanged.
+
+Storage holds at most 2,000 JPEG crops, each no larger than 512 pixels along its
+long edge and 128 KiB (a maximum of 250 MiB of crop pixels). A new crop can reclaim
+the oldest preview while retaining the visit and identification record. Evicted
+previews are not automatically recreated in a loop. **Settings → Beta features →
+Garden models → Collection status** shows the saved-crop count and budget.
+The three-day full-photo expiry and separate 128-photo motion budget still apply.
+
+Downgrading the saved-crop migration removes these derived previews while keeping
+capture history, identifications and the separate temporary full photos.

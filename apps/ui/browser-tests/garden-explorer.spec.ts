@@ -17,7 +17,7 @@ function bird(id: string, at: string) {
 function capture(id: string, at: string, status: 'pending' | 'confirmed', name?: string, box?: [number, number, number, number]) {
     return {
         id: id.padEnd(32, '0'), camera: 'patio', frigate_label: 'cat', observed_at: at, status, reviewed_at: null,
-        snapshot_url: `/api/garden/${id.padEnd(32, '0')}/snapshot`, source_kind: 'frigate_event', motion_source: null,
+        snapshot_url: `/api/garden/${id.padEnd(32, '0')}/snapshot` as string | null, crop_url: null as string | null, source_kind: 'frigate_event', motion_source: null,
         automatic_check: null, automatic_check_overridden: false,
         identification: name ? {
             outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: false, name, rank: 'species', score: 0.93,
@@ -59,7 +59,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
             garden[index] = { ...garden[index], status: 'confirmed' };
             return route.fulfill({ json: garden[index] });
         }
-        if (path.endsWith('/snapshot') || path.endsWith('.jpg')) {
+        if (path.endsWith('/snapshot') || path.endsWith('/crop') || path.endsWith('.jpg')) {
             return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#4d7c0f"/></svg>' });
         }
         if (path.endsWith('/filters')) return route.fulfill({ json: { species: [], cameras: [], camera_counts: {}, totals: { total: 2, favorites: 0, audio_matched: 0 } } });
@@ -170,4 +170,33 @@ test('Garden cards and list previews crop to saved animal geometry while the rec
     await page.locator('[data-explorer-view-toggle="list"]').click();
     await expect(page.locator('[data-garden-row="confirmed"] [data-garden-preview="crop"]')).toBeVisible();
     expect(errors).toEqual([]);
+});
+
+test('a saved animal crop remains visible after full-photo expiry without becoming model input', async ({ page }) => {
+    const { garden, errors } = await openExplorer(page, '&garden=1');
+    const item = garden[0];
+    item.snapshot_url = null;
+    item.crop_url = `/api/garden/${item.id}/crop`;
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    const card = page.locator('[data-garden-card="confirmed"]');
+    await expect(card.locator('img')).toHaveAttribute('src', new RegExp(`${item.id}/crop`));
+    await expect(card.locator('img')).toHaveCSS('object-fit', 'contain');
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('[data-garden-saved-crop]')).toBeVisible();
+    await expect(dialog.locator('[data-garden-capture-box]')).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/crop`));
+    expect(errors).toEqual([]);
+});
+
+
+test('a reclaimed crop falls back to an available full photo', async ({ page }) => {
+    const { garden } = await openExplorer(page, '&garden=1');
+    const item = garden[0];
+    item.crop_url = `/api/garden/${item.id}/crop`;
+    await page.route('**/api/garden/*/crop*', route => route.fulfill({ status: 404, json: { detail: 'Crop unavailable' } }));
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    const image = page.locator('[data-garden-card="confirmed"] img');
+    await expect(image).toHaveAttribute('src', new RegExp(`${item.id}/snapshot`));
+    await expect(image).toBeVisible();
 });

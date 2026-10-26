@@ -1286,3 +1286,24 @@ the field is pacing metadata and grants no extra access.
   audio detection, or `false` to restore its history row. Returns `{ "id": 123, "hidden": true }`;
   unknown IDs return 404. Hiding removes buffered evidence and excludes the row from history,
   summaries and future correlation. This does not write to BirdNET-Go.
+
+
+### Saved Garden animal crops (owner)
+
+Garden capture responses include nullable `crop_url` and `crop` evidence alongside
+`snapshot_url`. A crop is a separate saved preview, never a replacement for the full
+photo used by identification. `crop_url` is emitted only for a confirmed capture with
+saved pixels. Its evidence records source kind/checksum, frame and crop dimensions,
+normalized XYWH box, source time window, aligned Frigate frame time when applicable,
+and the saved JPEG checksum.
+
+- `GET /api/garden/{capture_id}/crop` returns the private JPEG, `404` when unavailable
+  or no longer confirmed, and `409` if its checksum differs from the evidence.
+- `GET /api/garden/crops/storage` returns `count`, `bytes`, `limit` and
+  `max_bytes_per_crop` for the bounded preview store.
+
+Both endpoints require owner authentication and the Garden beta. Media responses
+use `Cache-Control: private, no-store` and `X-Content-Type-Options: nosniff`.
+Person revocation, dismissal and history cleanup remove saved pixels. Preview
+reclamation retains capture/name metadata; crops do not make expired originals
+confirmable, restorable or usable as full-frame model input.

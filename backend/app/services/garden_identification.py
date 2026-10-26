@@ -196,6 +196,7 @@ class GardenIdentificationService:
 
         async with get_db() as db:
             latest = await GardenRepository(db).latest_automatic_check()
+            saved_crops = await GardenRepository(db).crop_storage()
         execution = latest.execution if latest else None
         if latest and execution is None and latest.variant and latest.devices:
             device = latest.devices[0].split(".")[0]
@@ -223,6 +224,7 @@ class GardenIdentificationService:
             busy=self.busy,
             models=models,
             error=self.error,
+            saved_crops=saved_crops,
             automatic_message=self.automatic_message,
         )
 

@@ -22,9 +22,13 @@
     } = $props();
 
     let failedUrl = $state<string | null>(null);
+    let failedCropUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })));
-    const photo = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
+    const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
+    const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
+    const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
+    const usingSavedCrop = $derived(Boolean(cropPhoto && photo === cropPhoto));
     const day = $derived(relativeDayLabel(capture.observed_at, $_));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
@@ -64,7 +68,7 @@
         <!-- The bird preview's size and frame, so the column reads as one. -->
         <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
             {#if photo && failedUrl !== photo}
-                <GardenPhotoPreview {capture} src={photo} aspect={1} onerror={() => (failedUrl = photo)} />
+                <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
             {/if}
         </span>
     </div>
