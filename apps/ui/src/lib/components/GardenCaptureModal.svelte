@@ -60,6 +60,7 @@
     let dialog = $state<HTMLElement | null>(null);
     let size = $state<readonly [number, number] | undefined>(undefined);
     let failedPhoto = $state<string | null>(null);
+    let failedCrop = $state<string | null>(null);
     let saving = $state(false);
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
@@ -75,15 +76,19 @@
 
     const index = $derived(Math.max(0, group.findIndex((item) => item.id === capture.id)));
     const view = $derived(gardenEntryView(capture));
-    const outline = $derived(gardenPhotoOutline(capture, size));
-    const photoFailed = $derived(failedPhoto === capture.id);
-    const photoReady = $derived(Boolean(capture.snapshot_url && size && !photoFailed));
+    const originalFailed = $derived(failedPhoto === capture.id);
+    const showingSavedCrop = $derived(Boolean(capture.crop_url && (!capture.snapshot_url || originalFailed)));
+    const photoUrl = $derived(showingSavedCrop ? capture.crop_url : capture.snapshot_url);
+    const outline = $derived(showingSavedCrop ? null : gardenPhotoOutline(capture, size));
+    const photoFailed = $derived(showingSavedCrop ? failedCrop === capture.id : originalFailed);
+    const photoReady = $derived(Boolean(capture.snapshot_url && size && !originalFailed && !showingSavedCrop));
     const installed = $derived((identification?.models ?? []).filter((model) => model.installed).map((model) => model.variant));
     // Whole image first, as Garden always offered it; the tracked-crop model answers too.
     const variant = $derived<Variant | null>(
         chosenVariant && installed.includes(chosenVariant) ? chosenVariant : installed.includes('4.0.3b') ? '4.0.3b' : installed.includes('4.0.3a') ? '4.0.3a' : null
     );
     const identifyBlocked = $derived.by((): string | null => {
+        if (!capture.snapshot_url || originalFailed) return $_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' });
         if (!identification) return $_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' });
         if (identification.error) return identification.error;
         if (!identification.catalogue_ready) return $_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' });
@@ -277,19 +282,24 @@
         <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
             <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
                 <div class="relative aspect-[4/3] min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
-                    {#if capture.snapshot_url && !photoFailed}
-                        {#key capture.id}
-                            <img src={withAuthParams(capture.snapshot_url)} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
+                    {#if photoUrl && !photoFailed}
+                        {#key `${capture.id}:${photoUrl}`}
+                            <img src={withAuthParams(photoUrl)} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                             <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
                             <img
                                 class="absolute inset-0 h-full w-full object-contain"
-                                src={withAuthParams(capture.snapshot_url)}
+                                src={withAuthParams(photoUrl)}
                                 alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
-                                onload={photoLoaded}
-                                onerror={() => (failedPhoto = capture.id)}
+                                onload={showingSavedCrop ? undefined : photoLoaded}
+                                onerror={() => { if (showingSavedCrop) failedCrop = capture.id; else failedPhoto = capture.id; }}
                                 data-garden-capture-photo
                             />
                         {/key}
+                        {#if showingSavedCrop}
+                            <p class="absolute bottom-3 left-3 right-3 rounded bg-black/70 p-2 text-xs text-white" data-garden-saved-crop>
+                                {$_('garden.saved_crop_only', { default: 'Saved animal crop. The original photo is unavailable.' })}
+                            </p>
+                        {/if}
                         {#if outline}
                             {@const box = outline.box}
                             {@const frame = outline.size}

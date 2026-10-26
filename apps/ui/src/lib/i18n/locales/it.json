@@ -3718,6 +3718,8 @@
     "save_error": "Impossibile salvare la revisione. Riprova.",
     "open_settings": "Impostazioni del giardino",
     "photo_alt": "Cattura animale da {camera}",
+    "saved_crop_only": "Ritaglio dell’animale salvato. La foto originale non è disponibile.",
+    "saved_crop_count": "Ritagli di animali salvati: {count} / {limit}. Le foto complete mantengono la propria scadenza.",
     "snapshot_unavailable": "Foto non disponibile",
     "frigate_suggested": "Suggerimento di Frigate: {label}",
     "confirm": "Conferma presenza di animale",

@@ -3718,6 +3718,8 @@
     "save_error": "確認結果を保存できませんでした。再試行してください。",
     "open_settings": "庭の設定",
     "photo_alt": "{camera} の動物撮影記録",
+    "saved_crop_only": "保存済みの動物の切り抜きです。元の写真は利用できません。",
+    "saved_crop_count": "保存済みの動物の切り抜き: {count} / {limit}。全体写真の有効期限は別に管理されます。",
     "snapshot_unavailable": "写真を利用できません",
     "frigate_suggested": "Frigate の候補：{label}",
     "confirm": "動物がいることを確認",

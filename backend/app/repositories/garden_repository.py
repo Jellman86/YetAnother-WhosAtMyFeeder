@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 import hashlib
@@ -14,6 +14,7 @@ import aiosqlite
 
 from app.utils.api_datetime import utc_naive_now
 from app.models.garden import GardenIdentification, GardenAutomaticCheck
+from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCropEvidence
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 
 MOTION_PHOTO_LIMIT = 128
@@ -43,6 +44,7 @@ class GardenCapture:
     motion_source: MotionSource | None = None
     automatic_check: GardenAutomaticCheck | None = None
     automation_overridden: bool = False
+    crop: GardenCropEvidence | None = None
 
 
 class GardenRepository:
@@ -55,7 +57,8 @@ class GardenRepository:
         (SELECT result_json FROM garden_identifications WHERE capture_id = garden_captures.id),
         (SELECT source_json FROM garden_motion_sources WHERE capture_id=garden_captures.id),
         (SELECT result_json FROM garden_automatic_checks WHERE capture_id=garden_captures.id),
-        automation_overridden"""
+        automation_overridden,
+        (SELECT evidence_json FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL)"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -74,6 +77,7 @@ class GardenRepository:
             MotionSource.model_validate_json(row[9]) if row[9] else None,
             GardenAutomaticCheck.model_validate_json(row[10]) if row[10] else None,
             bool(row[11]),
+            GardenCropEvidence.model_validate_json(row[12]) if row[12] else None,
         )
 
     async def has_history(self) -> bool:
@@ -89,6 +93,10 @@ class GardenRepository:
         await self.db.commit()
 
     async def block(self, event_id: str, *, create: bool) -> None:
+        await self.db.execute(
+            "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
+            (self._key(event_id),),
+        )
         await self.db.execute(
             "DELETE FROM garden_automatic_checks WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
             (self._key(event_id),),
@@ -212,6 +220,7 @@ class GardenRepository:
                 raise GardenPhotoUnavailable("This capture has no available photo. Refresh to review a newer capture.")
             return None
         if status != "confirmed":
+            await self.db.execute("DELETE FROM garden_saved_crops WHERE capture_id=?", (capture_id,))
             await self.db.execute(
                 "UPDATE garden_identifications SET result_json=json_set(result_json,'$.review','dismissed') WHERE capture_id=?",
                 (capture_id,),
@@ -234,6 +243,9 @@ class GardenRepository:
         ) as cursor:
             updated = {row[0] for row in await cursor.fetchall()}
         if updated:
+            await self.db.executemany(
+                "DELETE FROM garden_saved_crops WHERE capture_id=?", [(identity,) for identity in updated]
+            )
             changed = ",".join("?" for _ in updated)
             await self.db.execute(
                 f"""UPDATE garden_identifications SET result_json=json_set(result_json,'$.review','dismissed')
@@ -244,6 +256,10 @@ class GardenRepository:
         return [capture_id for capture_id in ids if capture_id in updated]
 
     async def delete_older_than(self, cutoff: datetime) -> None:
+        await self.db.execute(
+            "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
+            (cutoff.replace(tzinfo=None).isoformat(),),
+        )
         await self.db.execute(
             "DELETE FROM garden_automatic_checks WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
             (cutoff.replace(tzinfo=None).isoformat(),),
@@ -347,7 +363,12 @@ class GardenRepository:
                has_snapshot=0,reviewed_at=NULL WHERE id IN ({placeholders}) AND status!='confirmed'""",
             ids,
         )
-        for table in ("garden_identifications", "garden_motion_sources", "garden_automatic_checks"):
+        for table in (
+            "garden_identifications",
+            "garden_motion_sources",
+            "garden_automatic_checks",
+            "garden_saved_crops",
+        ):
             await self.db.execute(
                 f"DELETE FROM {table} WHERE capture_id IN ({placeholders}) AND capture_id IN (SELECT id FROM garden_captures WHERE status='blocked')",
                 ids,
@@ -364,6 +385,13 @@ class GardenRepository:
             (camera, end + MOTION_PADDING_SECONDS, start - MOTION_PADDING_SECONDS),
         ) as cursor:
             captures = await cursor.fetchall()
+        async with self.db.execute(
+            """SELECT s.capture_id FROM garden_saved_crops s JOIN garden_captures g ON g.id=s.capture_id
+               WHERE g.camera=? AND json_extract(s.evidence_json,'$.source_start') <= ?
+               AND json_extract(s.evidence_json,'$.source_end') >= ?""",
+            (camera, end + MOTION_PADDING_SECONDS, start - MOTION_PADDING_SECONDS),
+        ) as cursor:
+            captures = list(set(captures) | set(await cursor.fetchall()))
         for (capture_id,) in captures:
             await self.block_capture(capture_id)
 
@@ -382,6 +410,7 @@ class GardenRepository:
             await self.db.commit()
 
     async def block_capture(self, capture_id: str) -> None:
+        await self.db.execute("DELETE FROM garden_saved_crops WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_automatic_checks WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_identifications WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_motion_sources WHERE capture_id=?", (capture_id,))
@@ -444,7 +473,12 @@ class GardenRepository:
         return cursor.rowcount > 0
 
     async def save_automatic_naming(
-        self, original: GardenCapture, result: GardenAutomaticCheck, named: GardenIdentification
+        self,
+        original: GardenCapture,
+        result: GardenAutomaticCheck,
+        named: GardenIdentification,
+        *,
+        crop: tuple[GardenCropEvidence, bytes] | None = None,
     ) -> bool:
         """Record the check, confirm presence and name the animal together, or change nothing."""
         if result.outcome != "animal" or not named.automatic or named.review != "accepted":
@@ -467,6 +501,11 @@ class GardenRepository:
                WHERE json_extract(garden_identifications.result_json,'$.review') != 'accepted'""",
             (original.id, named.model_dump_json()),
         )
+        if crop is not None:
+            evidence, image = crop
+            await self.save_crop(
+                replace(original, status="confirmed", identification=named), evidence, image, commit=False
+            )
         await self.db.commit()
         return True
 
@@ -526,3 +565,102 @@ class GardenRepository:
         )
         await self.db.commit()
         return cursor.rowcount > 0
+
+    async def save_crop(
+        self, original: GardenCapture, evidence: GardenCropEvidence, image: bytes, *, commit: bool = True
+    ) -> bool:
+        if not image or len(image) > CROP_BYTES_LIMIT or hashlib.sha256(image).hexdigest() != evidence.crop_sha256:
+            raise ValueError("Saved crop differs from its evidence")
+        if bool(original.motion_source) != (evidence.source_kind == "motion"):
+            raise ValueError("Saved crop source kind differs from its capture")
+        if original.motion_source and (evidence.source_start, evidence.source_end) != (
+            original.motion_source.clip_start,
+            original.motion_source.clip_end,
+        ):
+            raise ValueError("Saved crop window differs from its recording")
+        if original.motion_source and original.motion_source.image_sha256 != evidence.source_sha256:
+            raise ValueError("Saved crop source differs from the motion photo")
+        cursor = await self.db.execute(
+            """INSERT INTO garden_saved_crops(capture_id,image,evidence_json,state,retry_after,updated_at)
+               SELECT id,?,?,'available',NULL,? FROM garden_captures
+               WHERE id=? AND status='confirmed' AND reviewed_at IS ? AND camera=? AND frigate_event IS ?
+               AND json((SELECT result_json FROM garden_identifications WHERE capture_id=id)) IS json(?)
+               AND json((SELECT source_json FROM garden_motion_sources WHERE capture_id=id)) IS json(?)
+               ON CONFLICT(capture_id) DO UPDATE SET image=excluded.image,evidence_json=excluded.evidence_json,
+                   state='available',retry_after=NULL,updated_at=excluded.updated_at
+               WHERE garden_saved_crops.image IS NULL""",
+            (
+                image,
+                evidence.model_dump_json(),
+                utc_naive_now().isoformat(),
+                original.id,
+                original.reviewed_at,
+                original.camera,
+                original.frigate_event,
+                original.identification.model_dump_json() if original.identification else None,
+                original.motion_source.model_dump_json() if original.motion_source else None,
+            ),
+        )
+        if not cursor.rowcount:
+            if commit:
+                await self.db.rollback()
+            return False
+        # The budget is enforced by the same write transaction as the insert.
+        await self.db.execute(
+            """UPDATE garden_saved_crops SET image=NULL,state='evicted',retry_after=NULL WHERE capture_id IN (
+               SELECT c.capture_id FROM garden_saved_crops c JOIN garden_captures g ON g.id=c.capture_id
+               WHERE c.image IS NOT NULL AND c.capture_id != ? ORDER BY g.observed_at,c.capture_id
+               LIMIT (SELECT MAX(0,COUNT(*)-?) FROM garden_saved_crops WHERE image IS NOT NULL))""",
+            (original.id, CROP_COUNT_LIMIT),
+        )
+        if commit:
+            await self.db.commit()
+        return True
+
+    async def crop_photo(self, capture_id: str) -> bytes | None:
+        async with self.db.execute(
+            """SELECT s.image,s.evidence_json FROM garden_saved_crops s JOIN garden_captures g ON g.id=s.capture_id
+               WHERE g.id=? AND g.status='confirmed' AND s.image IS NOT NULL""",
+            (capture_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        evidence = GardenCropEvidence.model_validate_json(row[1])
+        image = bytes(row[0])
+        if hashlib.sha256(image).hexdigest() != evidence.crop_sha256:
+            raise GardenPhotoUnavailable("Saved animal crop differs from its evidence")
+        return image
+
+    async def next_crop(self, cameras: list[str]) -> GardenCapture | None:
+        if not cameras:
+            return None
+        placeholders = ",".join("?" for _ in cameras)
+        async with self.db.execute(
+            f"""SELECT {self._COLUMNS} FROM garden_captures
+                WHERE status='confirmed' AND camera IN ({placeholders}) AND ({self._PHOTO_AVAILABLE})
+                AND NOT EXISTS (SELECT 1 FROM garden_saved_crops WHERE capture_id=id
+                  AND (image IS NOT NULL OR retry_after IS NULL OR retry_after > ?))
+                AND (SELECT COUNT(*) FROM garden_saved_crops WHERE image IS NOT NULL) < ?
+                ORDER BY observed_at DESC,id DESC LIMIT 1""",
+            (*cameras, utc_naive_now().isoformat(), CROP_COUNT_LIMIT),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return self._capture(row) if row else None
+
+    async def crop_unavailable(self, capture_id: str) -> None:
+        await self.db.execute(
+            """INSERT INTO garden_saved_crops(capture_id,image,evidence_json,state,retry_after,updated_at)
+               SELECT id,NULL,NULL,'unavailable',?,? FROM garden_captures WHERE id=? AND status='confirmed'
+               ON CONFLICT(capture_id) DO UPDATE SET retry_after=excluded.retry_after,updated_at=excluded.updated_at
+               WHERE garden_saved_crops.state='unavailable'""",
+            ((utc_naive_now() + timedelta(hours=1)).isoformat(), utc_naive_now().isoformat(), capture_id),
+        )
+        await self.db.commit()
+
+    async def crop_storage(self) -> dict[str, int]:
+        async with self.db.execute(
+            "SELECT COUNT(*),COALESCE(SUM(length(image)),0) FROM garden_saved_crops WHERE image IS NOT NULL"
+        ) as cursor:
+            count, size = await cursor.fetchone()
+        return {"count": count, "bytes": size, "limit": CROP_COUNT_LIMIT, "max_bytes_per_crop": CROP_BYTES_LIMIT}

@@ -3718,6 +3718,8 @@
     "save_error": "No se pudo guardar la revisión. Inténtalo de nuevo.",
     "open_settings": "Ajustes del jardín",
     "photo_alt": "Captura de animal de {camera}",
+    "saved_crop_only": "Recorte del animal guardado. La foto original no está disponible.",
+    "saved_crop_count": "Recortes de animales guardados: {count} / {limit}. Las fotos completas conservan su caducidad independiente.",
     "snapshot_unavailable": "Foto no disponible",
     "frigate_suggested": "Frigate sugirió: {label}",
     "confirm": "Confirmar presencia de animal",

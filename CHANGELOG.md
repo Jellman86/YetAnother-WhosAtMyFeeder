@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Confirmed Garden visitors keep an actual saved animal crop after the temporary
+  full photo expires. Crops remain private, follow history retention and a bounded
+  preview budget, and are removed on privacy revocation or dismissal. Visits prefer
+  a capture with a saved crop; the record clearly distinguishes a saved crop from
+  an available full photo. Collection status shows the saved-crop count.
+
 - Bird finders now have a saved device preference independent of species identification.
   Choose a validated NPU even when GPU benchmarks faster; an unavailable saved device
   falls back to CPU. Garden cards and list previews zoom to saved animal boxes while

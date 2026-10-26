@@ -3718,6 +3718,8 @@
     "save_error": "Impossible d’enregistrer votre vérification. Réessayez.",
     "open_settings": "Réglages du jardin",
     "photo_alt": "Capture animale de {camera}",
+    "saved_crop_only": "Recadrage de l’animal enregistré. La photo originale est indisponible.",
+    "saved_crop_count": "Recadrages d’animaux enregistrés : {count} / {limit}. Les photos complètes conservent leur expiration distincte.",
     "snapshot_unavailable": "Photo indisponible",
     "frigate_suggested": "Suggestion Frigate : {label}",
     "confirm": "Confirmer la présence d’un animal",

@@ -1072,6 +1072,8 @@ export interface components {
     automatic_check?: components['schemas']['GardenAutomaticCheck'] | null;
     automatic_check_overridden?: boolean;
     camera: string;
+    crop?: components['schemas']['GardenCropEvidence'] | null;
+    crop_url?: string | null;
     frigate_label: string;
     id: string;
     identification?: components['schemas']['GardenIdentification'] | null;
@@ -1081,6 +1083,23 @@ export interface components {
     snapshot_url: string | null;
     source_kind?: "frigate_event" | "motion";
     status: "pending" | "confirmed" | "dismissed";
+};
+    GardenCropEvidence: {
+    box_xywh: [number, number, number, number];
+    crop_sha256: string;
+    frame_size: [number, number];
+    frame_time?: number | null;
+    image_size: [number, number];
+    source_end: number;
+    source_kind: "motion" | "frigate_clean";
+    source_sha256: string;
+    source_start: number;
+};
+    GardenCropStorage: {
+    bytes: number;
+    count: number;
+    limit: number;
+    max_bytes_per_crop: number;
 };
     GardenIdentification: {
     automatic?: boolean;
@@ -1115,6 +1134,7 @@ export interface components {
     last_execution?: components['schemas']['InferenceExecution'] | null;
     models: Array<components['schemas']['GardenModelStatus']>;
     preferred_provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    saved_crops?: components['schemas']['GardenCropStorage'] | null;
 };
     GardenIdentifyRequest: {
     provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
@@ -3966,6 +3986,15 @@ export interface paths {
       response: components['schemas']['GardenCapturePage'];
     };
   };
+  "/api/garden/crops/storage": {
+    get: {
+      operationId: "crop_storage_api_garden_crops_storage_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCropStorage'];
+    };
+  };
   "/api/garden/identification": {
     get: {
       operationId: "identification_status_api_garden_identification_get";
@@ -4096,6 +4125,17 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/crop": {
+    get: {
+      operationId: "capture_crop_api_garden__capture_id__crop_get";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/garden/{capture_id}/dismiss": {

@@ -20,7 +20,8 @@ class GardenVisitRepository(GardenRepository):
         where, values = self._timeline_filter(start, end, camera, status)
         source = f"""scoped AS (
             SELECT garden_captures.id, camera, observed_at, status, i.result_json AS identification,
-                   m.source_json AS motion
+                   m.source_json AS motion,
+                   EXISTS (SELECT 1 FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL) AS has_crop
             FROM garden_captures
             LEFT JOIN garden_identifications i ON i.capture_id=garden_captures.id
             LEFT JOIN garden_motion_sources m ON m.capture_id=garden_captures.id
@@ -71,7 +72,7 @@ class GardenVisitRepository(GardenRepository):
             FROM previous
         ), members AS (
             SELECT *, FIRST_VALUE(id) OVER (PARTITION BY camera,identity,number ORDER BY at,id) AS visit_id,
-                ROW_NUMBER() OVER (PARTITION BY camera,identity,number ORDER BY at DESC,id DESC) AS representative
+                ROW_NUMBER() OVER (PARTITION BY camera,identity,number ORDER BY has_crop DESC,at DESC,id DESC) AS representative
             FROM numbered
         ), summaries AS (
             SELECT visit_id, MIN(observed_at) AS start_time, MAX(observed_at) AS end_time,

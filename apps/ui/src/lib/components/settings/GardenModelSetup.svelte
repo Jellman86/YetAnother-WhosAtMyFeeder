@@ -215,6 +215,9 @@
                 {#if identification}
                     {#if identification.preferred_provider}<p class="text-xs">{$_('model_execution.garden_preference', { default: 'Automatic check device preference: {device}. A new accelerator must agree with CPU first.', values: { device: ({ intel_npu: 'NPU', intel_gpu: 'Intel GPU', intel_cpu: 'Intel CPU', cuda: 'NVIDIA GPU', cpu: 'CPU' })[identification.preferred_provider] } })}</p>{/if}
                     <ModelExecutionEvidence execution={identification.last_execution} />
+                    {#if identification.saved_crops}
+                        <p class="text-xs" data-garden-crop-storage>{$_('garden.saved_crop_count', { default: 'Saved animal crops: {count} / {limit}. Full photos keep their separate expiry.', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</p>
+                    {/if}
                 {/if}
                 {#if identification?.automatic_message}<p class="text-xs" data-garden-automatic-status>{identification.automatic_message}</p>{/if}
                 {#if !motion}

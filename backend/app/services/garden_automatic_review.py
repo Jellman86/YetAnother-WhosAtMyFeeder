@@ -23,6 +23,7 @@ from app.services.classifier_service import garden_inference_pressure
 from app.services.frigate_client import frigate_client
 from app.services.garden_capture_policy import garden_collection_cameras
 from app.services.garden_capture_service import garden_capture_service
+from app.services.garden_crop_service import garden_crop_service, build_saved_crop
 from app.services.garden_identification import (
     GardenBusy,
     GardenCleanupFailed,
@@ -60,6 +61,7 @@ class GardenAutomaticReviewService:
         while True:
             try:
                 await self.process_once()
+                await garden_crop_service.collect_one()
             except asyncio.CancelledError:
                 raise
             except Exception as error:
@@ -227,6 +229,19 @@ class GardenAutomaticReviewService:
             current_bundle = await asyncio.to_thread(service.catalog.load)
             if hashlib.sha256(current_image).hexdigest() != image_sha or bundle != current_bundle:
                 raise GardenBusy("Automatic check evidence changed")
+            saved_crop = None
+            if named is not None and original.motion_source:
+                try:
+                    saved_crop = await asyncio.to_thread(
+                        build_saved_crop,
+                        image,
+                        box=box,
+                        expected_sha256=image_sha,
+                        source_start=original.motion_source.clip_start,
+                        source_end=original.motion_source.clip_end,
+                    )
+                except (OSError, ValueError) as error:
+                    log.info("garden_crop_encoding_unavailable", reason=type(error).__name__)
             async with garden_motion_privacy.lock:
                 current = await garden_capture_service.get(original.id)
                 if blocked() or current != original:
@@ -266,7 +281,9 @@ class GardenAutomaticReviewService:
                             devices=native["devices"],
                         )
                         if named is not None:
-                            changed = await repo.save_automatic_naming(original, result, named)
+                            changed = await repo.save_automatic_naming(
+                                original, result, named, **({"crop": saved_crop} if saved_crop else {})
+                            )
                             named_saved = changed
                             service.automatic_message = (
                                 "Automatic check named an animal; it is in Confirmed animals, where you can correct it."
