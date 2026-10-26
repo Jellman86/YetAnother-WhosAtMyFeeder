@@ -107,6 +107,54 @@ async def test_confirmed_crop_survives_full_photo_expiry_but_not_person_revocati
 
 
 @pytest.mark.asyncio
+async def test_person_update_after_restart_refreshes_a_revoked_saved_crop_even_with_collection_disabled(
+    captured, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from app.config import settings
+    from app.services import garden_motion_privacy
+    from app.services.broadcaster import broadcaster
+    from app.services.garden_capture_service import GardenCaptureService
+
+    original, image = captured
+    evidence, cropped = crop(image, original)
+    async with get_db() as db:
+        assert await GardenRepository(db).save_crop(original, evidence, cropped)
+    await close_db()
+    await init_db()
+    service = GardenCaptureService()
+    await service.initialize()
+    monkeypatch.setattr(settings.frigate, "garden_cameras", [])
+    monkeypatch.setattr(settings.system, "beta_garden_animals", False)
+
+    async def refresh(message):
+        assert message == {"type": "garden_history_changed"}
+        assert not garden_motion_privacy.lock.locked()
+        async with get_db() as db:
+            repo = GardenRepository(db)
+            assert await repo.get(original.id) is None
+            assert await repo.crop_photo(original.id) is None
+
+    update = AsyncMock(side_effect=refresh)
+    monkeypatch.setattr(broadcaster, "broadcast", update)
+    person = {
+        "type": "update",
+        "after": {
+            "id": "later-person",
+            "camera": "patio",
+            "label": "person",
+            "start_time": original.motion_source.clip_start,
+            "end_time": original.motion_source.clip_end,
+        },
+    }
+    await service.process(person)
+    update.assert_awaited_once_with({"type": "garden_history_changed"})
+    await service.process(person)
+    assert update.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_a_late_crop_cannot_overwrite_an_owner_dismissal(captured):
     original, image = captured
     evidence, cropped = crop(image, original)

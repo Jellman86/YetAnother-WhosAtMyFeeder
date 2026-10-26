@@ -100,6 +100,24 @@ async def test_one_real_recording_scan_publishes_review_without_bird_writes(coll
 
 
 @pytest.mark.asyncio
+async def test_motion_capture_refreshes_the_explorer_after_commit_without_waiting_for_identification(
+    collector, monkeypatch
+):
+    from app.services.broadcaster import broadcaster
+
+    async def refresh(message):
+        assert message == {"type": "garden_history_changed"}
+        assert not garden_motion_privacy.lock.locked()
+        async with get_db() as db:
+            assert await GardenRepository(db).count("pending") == 1
+
+    update = AsyncMock(side_effect=refresh)
+    monkeypatch.setattr(broadcaster, "broadcast", update)
+    await collector.scan_once()
+    update.assert_awaited_once_with({"type": "garden_history_changed"})
+
+
+@pytest.mark.asyncio
 async def test_bird_work_and_disabled_camera_prevent_native_launch(collector, monkeypatch):
     native = AsyncMock()
     monkeypatch.setattr(collector, "_native", native)

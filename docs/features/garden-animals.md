@@ -62,8 +62,11 @@ page opens the Explorer's Garden review instead.
 
 ## Garden animals in the Explorer
 
-The open Explorer updates when an automatic check saves a name, dismissal or retry
-result. An open record updates with it; a removed capture closes. Reconnecting the
+The open Explorer updates when a Frigate event or motion scan saves a new capture,
+even while automatic identification is waiting. It also updates when an automatic
+check saves a name, dismissal or retry result, or a later Frigate message revokes
+a capture. An open record updates with it; a removed capture closes. Duplicate
+event deliveries do not trigger repeated refreshes. Reconnecting the
 live stream refreshes the current Garden view after a missed update. This private
 update signal carries no capture details and is never delivered to guests.
 

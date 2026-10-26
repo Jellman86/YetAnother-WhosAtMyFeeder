@@ -84,15 +84,16 @@ class GardenRepository:
         async with self.db.execute("SELECT 1 FROM garden_captures LIMIT 1") as cursor:
             return await cursor.fetchone() is not None
 
-    async def capture(self, event_id: str, camera: str, label: str, observed_at: str, has_snapshot: bool) -> None:
-        await self.db.execute(
+    async def capture(self, event_id: str, camera: str, label: str, observed_at: str, has_snapshot: bool) -> bool:
+        inserted = await self.db.execute(
             """INSERT INTO garden_captures (id, event_key, frigate_event, camera, label, observed_at, status, has_snapshot)
                VALUES (?, ?, ?, ?, ?, ?, 'pending', ?) ON CONFLICT(event_key) DO NOTHING""",
             (uuid.uuid4().hex, self._key(event_id), event_id, camera, label, observed_at, has_snapshot),
         )
         await self.db.commit()
+        return inserted.rowcount > 0
 
-    async def block(self, event_id: str, *, create: bool) -> None:
+    async def block(self, event_id: str, *, create: bool) -> bool:
         await self.db.execute(
             "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
             (self._key(event_id),),
@@ -112,12 +113,13 @@ class GardenRepository:
                 (uuid.uuid4().hex, self._key(event_id), utc_naive_now().isoformat()),
             )
         # A hashed tombstone stops delayed delivery resurrecting rejected media.
-        await self.db.execute(
+        updated = await self.db.execute(
             """UPDATE garden_captures SET frigate_event = NULL, camera = '', label = '', status = 'blocked',
-               has_snapshot = 0, reviewed_at = NULL WHERE event_key = ?""",
+               has_snapshot = 0, reviewed_at = NULL WHERE event_key = ? AND status != 'blocked'""",
             (self._key(event_id),),
         )
         await self.db.commit()
+        return updated.rowcount > 0
 
     async def get(self, capture_id: str) -> GardenCapture | None:
         async with self.db.execute(
@@ -376,7 +378,7 @@ class GardenRepository:
         await self.db.execute(f"UPDATE garden_motion_sources SET image=NULL WHERE capture_id IN ({placeholders})", ids)
         await self.db.commit()
 
-    async def block_motion_overlap(self, camera: str, start: float, end: float) -> None:
+    async def block_motion_overlap(self, camera: str, start: float, end: float) -> bool:
         async with self.db.execute(
             """SELECT capture_id FROM garden_motion_sources
                WHERE json_extract(source_json,'$.camera')=?
@@ -392,8 +394,10 @@ class GardenRepository:
             (camera, end + MOTION_PADDING_SECONDS, start - MOTION_PADDING_SECONDS),
         ) as cursor:
             captures = list(set(captures) | set(await cursor.fetchall()))
+        changed = False
         for (capture_id,) in captures:
-            await self.block_capture(capture_id)
+            changed = await self.block_capture(capture_id) or changed
+        return changed
 
     async def motion_cursor(self, camera: str) -> float | None:
         async with self.db.execute("SELECT last_end FROM garden_motion_cursors WHERE camera=?", (camera,)) as cursor:
@@ -409,17 +413,18 @@ class GardenRepository:
         if commit:
             await self.db.commit()
 
-    async def block_capture(self, capture_id: str) -> None:
+    async def block_capture(self, capture_id: str) -> bool:
         await self.db.execute("DELETE FROM garden_saved_crops WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_automatic_checks WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_identifications WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_motion_sources WHERE capture_id=?", (capture_id,))
-        await self.db.execute(
+        updated = await self.db.execute(
             """UPDATE garden_captures SET frigate_event=NULL,camera='',label='',status='blocked',
-               has_snapshot=0,reviewed_at=NULL WHERE id=?""",
+               has_snapshot=0,reviewed_at=NULL WHERE id=? AND status!='blocked'""",
             (capture_id,),
         )
         await self.db.commit()
+        return updated.rowcount > 0
 
     async def latest_automatic_check(self) -> GardenAutomaticCheck | None:
         async with self.db.execute(

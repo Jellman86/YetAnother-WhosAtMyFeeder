@@ -31,6 +31,7 @@ from app.models.garden_motion import (
 from app.repositories.garden_detector_catalog import GardenDetectorCatalog
 from app.repositories.garden_repository import GardenRepository
 from app.services import garden_motion_privacy
+from app.services.broadcaster import broadcaster
 from app.services.classifier_service import garden_inference_pressure
 from app.services.frigate_client import frigate_client, FrigateEventsFetchError
 from app.services.garden_capture_service import garden_capture_service
@@ -400,6 +401,7 @@ class GardenMotionService:
             self.queue_checked_at = utc_naive_now().isoformat() + "Z"
             self.last_outcome = result["outcome"]
             if result["outcome"] == "candidate":
+                await broadcaster.broadcast({"type": "garden_history_changed"})
                 self.message = "Review photo collected. Confirm animal presence before requesting a species suggestion."
             elif result["outcome"] == "still_rejected":
                 self.message = "Recording scanned; the detected shape did not move, so no review photo was retained."

@@ -51,6 +51,52 @@ def event(label="cat", camera="patio", event_type="end", **extra):
     }
 
 
+@pytest.mark.asyncio
+async def test_new_capture_updates_the_open_explorer_after_commit_without_duplicate_refreshes(monkeypatch):
+    from app.services.broadcaster import broadcaster
+
+    committed = []
+
+    async def refresh(message):
+        assert message == {"type": "garden_history_changed"}
+        async with get_db() as db:
+            committed.append(await GardenRepository(db).count("pending"))
+
+    update = AsyncMock(side_effect=refresh)
+    monkeypatch.setattr(broadcaster, "broadcast", update)
+    await garden_capture_service.process(event(event_type="update"))
+    update.assert_not_awaited()
+    await garden_capture_service.process(event())
+    assert committed == [1]
+    await garden_capture_service.process(event())
+    assert committed == [1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "rejection", [{"label": "person"}, {"false_positive": True}, {"label": "bird"}, {"label": "car"}]
+)
+async def test_frigate_revocation_refreshes_an_open_record_only_when_history_changes(monkeypatch, rejection):
+    from app.services.broadcaster import broadcaster
+
+    await garden_capture_service.process(event())
+    async with get_db() as db:
+        original = (await GardenRepository(db).list("pending", 1, 0))[0]
+
+    async def refresh(message):
+        assert message == {"type": "garden_history_changed"}
+        async with get_db() as db:
+            assert await GardenRepository(db).get(original.id) is None
+
+    update = AsyncMock(side_effect=refresh)
+    monkeypatch.setattr(broadcaster, "broadcast", update)
+    await garden_capture_service.process(event(**rejection))
+    update.assert_awaited_once_with({"type": "garden_history_changed"})
+    await garden_capture_service.process(event(**rejection))
+    await garden_capture_service.process(event())
+    assert update.await_count == 1
+
+
 def test_garden_defaults_off_and_rejects_non_animal_labels():
     config = FrigateSettings(frigate_url="http://frigate", garden_labels=[" Cat ", "DOG", "cat"])
     assert config.garden_cameras == []
