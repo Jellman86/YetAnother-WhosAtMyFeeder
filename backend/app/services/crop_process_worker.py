@@ -47,6 +47,22 @@ def _bind_owner() -> None:
         os._exit(0)
 
 
+def _disable_vendor_telemetry() -> None:
+    try:
+        from openvino_telemetry.utils.opt_in_checker import ConsentCheckResult, OptInChecker
+    except ImportError:
+        return
+
+    # OVC telemetry can fork from a background thread while our pipe reader
+    # holds stdin's buffer lock. Its fork then deadlocks in _close_stdin and
+    # outlives the detector. Decline inside this process without editing the
+    # host's consent files or changing YA-WAMF's separate telemetry settings.
+    def decline(_self: Any, *_args: Any, **_kwargs: Any) -> ConsentCheckResult:
+        return ConsentCheckResult.DECLINED
+
+    OptInChecker.check = decline
+
+
 def main() -> None:
     writer = os.fdopen(os.dup(sys.stdout.fileno()), "wb", closefd=True)
     os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
@@ -66,6 +82,8 @@ def main() -> None:
     try:
         _bind_owner()
         request = requests.get()
+        if str(request["provider"]).startswith("intel_"):
+            _disable_vendor_telemetry()
         from app.services.bird_crop_service import BirdCropService
 
         service = BirdCropService()
@@ -77,7 +95,8 @@ def main() -> None:
             return [
                 {
                     "name": str(v.name),
-                    "shape": [int(x) if isinstance(x, int) else str(x) for x in v.shape],
+                    # OpenVINO's crop adapter exposes output names without dimensions.
+                    "shape": [int(x) if isinstance(x, int) else str(x) for x in (getattr(v, "shape", None) or [])],
                     "type": str(getattr(v, "type", "tensor(float)")),
                 }
                 for v in values

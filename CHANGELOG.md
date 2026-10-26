@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- OpenVINO crop workers accept output ports without dimensions, allowing Intel
+  detector sessions to start instead of failing over to CPU during the metadata
+  handshake. Isolated Intel crop workers also decline vendor telemetry inside
+  their own process so its forked helper cannot inherit a locked input pipe and
+  survive detector shutdown. Host consent and YA-WAMF telemetry settings are preserved.
+
 - Crop detectors load and run in owned child processes, including high-quality
   snapshots and video crop searches. A native detector crash can no longer abort
   the API through native model or exception cleanup. Failed children are reaped
