@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Saved Garden crops load in signed-in browsers using the existing private media
+  session cookie. Crop storage statistics and review actions still require API
+  authentication; guest sessions cannot view Garden crops.
+
 - Confirmed Garden visitors keep an actual saved animal crop after the temporary
   full photo expires. Crops remain private, follow history retention and a bounded
   preview budget, and are removed on privacy revocation or dismissal. Visits prefer
