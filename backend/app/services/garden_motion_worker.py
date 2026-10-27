@@ -18,7 +18,10 @@ from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_m
 from app.models.garden_motion import MOTION_PADDING_SECONDS
 
 
-def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
+def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[str, Any]:
+    """Nine samples are an explicit offline comparison, never a payload setting."""
+    if type(samples_per_window) is not int or samples_per_window not in (3, 9):
+        raise ValueError("Motion sampling supports only three live or nine offline samples")
     model, clip, photo = (Path(payload[name]).resolve() for name in ("model", "clip", "photo"))
     duration_limit = float(payload["duration"])
     if not 0.1 <= duration_limit <= 10 or photo.parent != clip.parent:
@@ -40,7 +43,16 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
         runtime = Runtime(model, "cpu")
         best = None
         greys = []
-        for fraction in (0.1, 0.5, 0.9):
+        seen: dict[int, str] = {}
+        decoded = 0
+
+        def finish(result: dict[str, Any]) -> dict[str, Any]:
+            if samples_per_window == 9:
+                result["sampling"] = {"requested": 9, "decoded": decoded, "inferred": len(seen)}
+            return result
+
+        fractions = (0.1, 0.5, 0.9) if samples_per_window == 3 else tuple(i / 10 for i in range(1, 10))
+        for fraction in fractions:
             reader.set(cv2.CAP_PROP_POS_MSEC, min(duration - 0.1, duration_limit) * fraction * 1000)
             ok, frame = reader.read()
             if not ok:
@@ -50,13 +62,23 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
                 raise ValueError("Motion recording did not identify a bounded sample frame")
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             greys.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+            decoded += 1
+            if samples_per_window == 9:
+                rgb_hash = hashlib.sha256(rgb.tobytes()).hexdigest()
+                if int(index) in seen:
+                    if seen[int(index)] != rgb_hash:
+                        raise ValueError("Motion sampling returned inconsistent pixels for one source frame")
+                    # Keep duplicate greys for the still-motion comparison: a single
+                    # decoded frame must not turn an unmeasurable change into admission.
+                    continue
+                seen[int(index)] = rgb_hash
             tensor, meta = detector_input(rgb)
             candidates = decode_candidates(
                 runtime.infer(tensor), meta, payload["names"], payload.get("animal_confidence", 0.5)
             )
             if any(label == "person" for label, _, _ in candidates):
                 # A later person sample revokes earlier animal proposals too.
-                return {"outcome": "person_rejected"}
+                return finish({"outcome": "person_rejected"})
             animals = [candidate for candidate in candidates if candidate[0] == "animal"]
             if animals and (best is None or animals[0][1] > best[0][1]):
                 best = (
@@ -68,12 +90,14 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
                     hashlib.sha256(tensor.tobytes()).hexdigest(),
                 )
         if best is None:
-            return {"outcome": "no_candidate"}
+            return finish({"outcome": "no_candidate"})
         candidate, frame, frame_index, offset, frame_hash, tensor_hash = best
         motion_ratio = box_motion_ratio(greys, candidate[2])
         if motion_ratio is not None and motion_ratio < STILL_PROPOSAL_MOTION_RATIO:
             # Fixtures get re-proposed every few minutes; a visitor changes its box.
-            return {"outcome": "still_rejected", "detector_score": candidate[1], "motion_ratio": round(motion_ratio, 3)}
+            return finish(
+                {"outcome": "still_rejected", "detector_score": candidate[1], "motion_ratio": round(motion_ratio, 3)}
+            )
         # Stored evidence is deliberately small; box coordinates are normalized.
         h, w = frame.shape[:2]
         scale = min(1.0, 1280 / max(w, h))
@@ -84,18 +108,20 @@ def scan_clip(payload: dict[str, Any]) -> dict[str, Any]:
             if ok and encoded.nbytes <= 512 * 1024:
                 image = encoded.tobytes()
                 photo.write_bytes(image)
-                return {
-                    "outcome": "candidate",
-                    "frame_index": frame_index,
-                    "frame_offset": offset,
-                    "detector_score": candidate[1],
-                    "box_xywh": candidate[2],
-                    "image_sha256": hashlib.sha256(image).hexdigest(),
-                    "devices": runtime.actual,
-                    "detector_input_sha256": tensor_hash,
-                    "sampled_frame_sha256": frame_hash,
-                    "motion_ratio": None if motion_ratio is None else round(motion_ratio, 3),
-                }
+                return finish(
+                    {
+                        "outcome": "candidate",
+                        "frame_index": frame_index,
+                        "frame_offset": offset,
+                        "detector_score": candidate[1],
+                        "box_xywh": candidate[2],
+                        "image_sha256": hashlib.sha256(image).hexdigest(),
+                        "devices": runtime.actual,
+                        "detector_input_sha256": tensor_hash,
+                        "sampled_frame_sha256": frame_hash,
+                        "motion_ratio": None if motion_ratio is None else round(motion_ratio, 3),
+                    }
+                )
         raise ValueError("Motion photo could not fit its byte limit")
     finally:
         reader.release()

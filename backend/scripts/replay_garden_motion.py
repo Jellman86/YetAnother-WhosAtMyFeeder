@@ -19,6 +19,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from typing import Any
 
 import cv2
@@ -142,8 +143,22 @@ def write_json(path: Path, value: Any) -> None:
 
 
 def replay_recording(
-    source: Path, model: Path, bundle: dict[str, Any], ffmpeg: Path, thresholds: list[float], root: Path
+    source: Path,
+    model: Path,
+    bundle: dict[str, Any],
+    ffmpeg: Path,
+    thresholds: list[float],
+    root: Path,
+    *,
+    samples_per_window: list[int] | None = None,
 ) -> dict:
+    policies = [3] if samples_per_window is None else samples_per_window
+    if (
+        not 1 <= len(policies) <= 2
+        or any(type(count) is not int or count not in (3, 9) for count in policies)
+        or len(set(policies)) != len(policies)
+    ):
+        raise ValueError("Replay sampling requires distinct three/nine-sample policies")
     cv2.setNumThreads(1)
     reader = cv2.VideoCapture(str(source), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
     try:
@@ -163,7 +178,10 @@ def replay_recording(
         "frames": int(count),
         "size": [int(width), int(height)],
         "thresholds": thresholds,
-        "sampling": "current motion worker: three samples per window, not inference on every frame",
+        "sampling": "current motion worker: three samples per window, not inference on every frame"
+        if policies == [3]
+        else "offline three/nine-sample comparison; live collector remains at three samples",
+        "samples_per_window": policies,
         "scope": "offline detector only; no Frigate person-overlap veto, persistence, identification or visits",
         "windows": [],
     }
@@ -188,12 +206,22 @@ def replay_recording(
             )
             results = []
             for threshold in thresholds:
-                photo.unlink(missing_ok=True)
-                result = scan_clip(payload | {"animal_confidence": threshold})
-                verify_result(result, hashes)
-                if result["outcome"] == "candidate":
-                    result["source_frame_index"] = window.start_frame + result["frame_index"]
-                results.append({"animal_confidence": threshold, **result})
+                for count in policies:
+                    photo.unlink(missing_ok=True)
+                    started = time.monotonic()
+                    result = scan_clip(payload | {"animal_confidence": threshold}, samples_per_window=count)
+                    elapsed = time.monotonic() - started
+                    verify_result(result, hashes)
+                    if result["outcome"] == "candidate":
+                        result["source_frame_index"] = window.start_frame + result["frame_index"]
+                    results.append(
+                        {
+                            "animal_confidence": threshold,
+                            "samples_per_window": count,
+                            "elapsed_seconds": round(elapsed, 6),
+                            **result,
+                        }
+                    )
             row = {
                 "start_frame": window.start_frame,
                 "frames": window.frames,
@@ -215,6 +243,7 @@ def main() -> None:
     parser.add_argument("--bundle", type=Path, default=BACKEND / "app/assets/garden_md1000_cedar.json")
     parser.add_argument("--ffmpeg", type=Path, required=True)
     parser.add_argument("--thresholds", type=float, nargs="+", default=[0.5, 0.6])
+    parser.add_argument("--samples-per-window", type=int, nargs="+", choices=(3, 9), default=[3])
     parser.add_argument("--root", type=Path, required=True)
     args = parser.parse_args()
     source, model = args.source.resolve(), args.model.resolve()
@@ -224,11 +253,21 @@ def main() -> None:
         parser.error("Source checksum differs from the recorded provenance")
     if not 1 <= len(args.thresholds) <= 6 or any(not 0.5 <= v <= 0.95 for v in args.thresholds):
         parser.error("Provide 1 to 6 animal thresholds from 0.5 to 0.95")
+    if len(args.samples_per_window) != len(set(args.samples_per_window)):
+        parser.error("Replay sampling policies must not be repeated")
     bundle = json.loads(args.bundle.read_text())
     if bundle["names"] != ["animal", "person", "vehicle"] or digest(model) != bundle["model_sha256"]:
         parser.error("Model differs from the current Cedar bundle")
     new_output(args.root)
-    report = replay_recording(source, model, bundle, args.ffmpeg.resolve(), args.thresholds, args.root)
+    report = replay_recording(
+        source,
+        model,
+        bundle,
+        args.ffmpeg.resolve(),
+        args.thresholds,
+        args.root,
+        samples_per_window=args.samples_per_window,
+    )
     write_json(args.root / "complete.json", report)
 
 
