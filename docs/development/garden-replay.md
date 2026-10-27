@@ -69,6 +69,11 @@ A public still-image sequence assembled into a video tests ordinal sampling only
 unless its original recording timing is known. Neither that montage nor a few
 successful windows establish field recall or qualify a new live default.
 
+The [27 October native comparison](../reviews/2026-10-27-garden-motion-sampling.md)
+records the public tagged example, exact sampled frames and both thresholds.
+Nine samples recover a proposal only in the separate 0.5 diagnostic; neither
+policy collects it at Quark's 0.63 setting. Live sampling remains unchanged.
+
 ## Compare paired detector evidence
 
 Use `assess_garden_detector_evidence.py` to assess frozen inference results before
