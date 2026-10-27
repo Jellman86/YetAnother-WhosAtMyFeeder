@@ -46,6 +46,29 @@ state. Compare boxes to human annotations and review negatives; confidence is
 not measured accuracy. Public camera-trap results do not establish Patio recall,
 and repeated windows from one animal are correlated observations.
 
+### Compare denser sampling offline
+
+Add `--samples-per-window 3 9` to compare the live three-frame policy with nine
+evenly spaced samples on the same verified recording windows. This option changes
+only this offline replay. The live collector still samples three frames, uses the
+same thresholds and retains its 45-second worker deadline.
+
+Each result records the sampling policy and elapsed scan time, including model
+loading and video decoding. Nine-sample results also report requested and decoded
+samples and distinct frames inferred. Repeated seeks to the same frame reuse its
+inference, but keep the frame in the still-motion comparison. Conflicting pixels
+for one frame index fail the run. Any detected person rejects the whole window,
+including a person found only in an added sample; a failed sample also fails the
+window without saving a photo.
+
+Compare animals with people, empty scenes, fixtures, infrared noise and rain before
+considering a live change. Denser sampling can increase person vetoes, memory and
+runtime. It also changes the adjacent-frame differences used by the 1.4 still-motion
+filter; keeping that threshold unchanged does not establish equivalent behavior.
+A public still-image sequence assembled into a video tests ordinal sampling only
+unless its original recording timing is known. Neither that montage nor a few
+successful windows establish field recall or qualify a new live default.
+
 ## Compare paired detector evidence
 
 Use `assess_garden_detector_evidence.py` to assess frozen inference results before

@@ -103,7 +103,10 @@ def test_private_output_refuses_reuse_and_is_owner_only(tmp_path):
         replay.new_output(root)
 
 
-def test_replay_uses_current_worker_for_every_window_and_threshold_without_retaining_photos(tmp_path, monkeypatch):
+@pytest.mark.parametrize("sampling", [None, [3, 9]])
+def test_replay_uses_current_worker_for_every_window_and_threshold_without_retaining_photos(
+    tmp_path, monkeypatch, sampling
+):
     source, model = tmp_path / "source.mp4", tmp_path / "model.onnx"
     source.write_bytes(b"recording")
     model.write_bytes(b"model")
@@ -121,23 +124,52 @@ def test_replay_uses_current_worker_for_every_window_and_threshold_without_retai
     verified = Mock(side_effect=lambda source, clip, window: ["rgb"] * window.frames)
     monkeypatch.setattr(replay, "verify_window", verified)
 
-    def scan(payload):
+    def scan(payload, *, samples_per_window=3):
         Path(payload["photo"]).write_bytes(b"private photo")
         return {"outcome": "candidate", "frame_index": 1, "sampled_frame_sha256": "rgb"}
 
     worker = Mock(side_effect=scan)
     monkeypatch.setattr(replay, "scan_clip", worker)
     report = replay.replay_recording(
-        source, model, {"model_sha256": "model", "names": []}, Path("ffmpeg"), [0.5, 0.6], root
+        source,
+        model,
+        {"model_sha256": "model", "names": []},
+        Path("ffmpeg"),
+        [0.5, 0.6],
+        root,
+        samples_per_window=sampling,
     )
     assert [row["frames"] for row in report["windows"]] == [300, 300, 15]
-    assert [call.args[0]["duration"] for call in worker.call_args_list] == [10, 10, 10, 10, 0.5, 0.5]
-    assert [call.args[0]["animal_confidence"] for call in worker.call_args_list] == [0.5, 0.6] * 3
+    policies = sampling or [3]
+    assert [call.args[0]["duration"] for call in worker.call_args_list] == [
+        duration for duration in [10, 10, 0.5] for _ in range(2 * len(policies))
+    ]
+    assert [call.args[0]["animal_confidence"] for call in worker.call_args_list] == [
+        threshold for _ in range(3) for threshold in (0.5, 0.6) for _ in policies
+    ]
+    assert [call.kwargs["samples_per_window"] for call in worker.call_args_list] == policies * 6
+    assert report["samples_per_window"] == policies
+    assert [r["samples_per_window"] for r in report["windows"][0]["results"]] == policies * 2
+    assert all(r["elapsed_seconds"] >= 0 for window in report["windows"] for r in window["results"])
     assert [row["results"][0]["source_frame_index"] for row in report["windows"]] == [1, 301, 601]
     assert verified.call_count == 3
     assert not list(root.rglob("*.jpg")) and not list(root.rglob("*.mp4"))
     assert len(list(root.glob("*-result.json"))) == 3
     assert not (root / "complete.json").exists()
+
+
+@pytest.mark.parametrize("sampling", [[3, 3], [3, 9, 9], [], [True], [4], [9.0]])
+def test_replay_rejects_unbounded_or_duplicate_policies_before_reading_any_recording(tmp_path, sampling):
+    with pytest.raises(ValueError, match="sampling"):
+        replay.replay_recording(
+            tmp_path / "absent.mp4",
+            tmp_path / "absent.onnx",
+            {},
+            Path("ffmpeg"),
+            [0.5],
+            tmp_path,
+            samples_per_window=sampling,
+        )
 
 
 @pytest.mark.parametrize("failure", ["source checksum", "model checksum", "threshold nan", "threshold outside range"])

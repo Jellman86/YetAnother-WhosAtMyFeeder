@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The offline Garden recording replay can compare three and nine samples per
+  window, with per-policy timings and frame counts. Live collection still samples
+  three frames; denser sampling has not been qualified for production.
+
 - Garden collection and automatic checks resume during idle periods after bird
   classification successfully recovers on CPU. The failed accelerator profile
   stays quarantined. Active bird work, recovery, shutdown and unconfirmed native

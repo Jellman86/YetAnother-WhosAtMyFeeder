@@ -106,3 +106,118 @@ def test_a_moving_proposal_reports_its_motion_ratio(scan, monkeypatch):
     result = worker.scan_clip(payload)
     assert result["outcome"] == "candidate"
     assert result["motion_ratio"] >= worker.STILL_PROPOSAL_MOTION_RATIO
+
+
+def temporal_reader(scan, animal_frames):
+    """One marked animal interval in a real frame-indexed recording layout."""
+    _, reader, _, _, props = scan
+    index = 0
+
+    def seek(key, value):
+        nonlocal index
+        assert key == worker.cv2.CAP_PROP_POS_MSEC
+        index = round(value / 1000 * props[worker.cv2.CAP_PROP_FPS])
+        return True
+
+    def read():
+        props[worker.cv2.CAP_PROP_POS_FRAMES] = index + 1
+        frame = np.full((100, 100, 3), 20, dtype=np.uint8)
+        if index in animal_frames:
+            frame[10:60, 10:60] = 220
+        return True, frame
+
+    reader.set.side_effect = seek
+    reader.read.side_effect = read
+    return lambda: index
+
+
+def test_offline_nine_sample_comparison_recovers_a_brief_candidate_between_live_samples(scan, monkeypatch):
+    payload, reader, runtime, photo, _ = scan
+    index = temporal_reader(scan, {20})
+    monkeypatch.setattr(
+        worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))] if index() == 20 else []
+    )
+    assert worker.scan_clip(payload)["outcome"] == "no_candidate"
+    assert not photo.exists()
+    runtime.infer.reset_mock()
+    result = worker.scan_clip(payload, samples_per_window=9)
+    assert result["outcome"] == "candidate"
+    assert result["frame_index"] == 20 and result["frame_offset"] == 2
+    assert result["sampling"] == {"requested": 9, "decoded": 9, "inferred": 9}
+    assert runtime.infer.call_count == 9
+    reader.release.assert_called()
+
+
+def test_person_only_in_an_added_sample_vetoes_the_complete_offline_window(scan, monkeypatch):
+    payload, _, _, photo, _ = scan
+    index = temporal_reader(scan, {10})
+
+    def candidates(*args):
+        if index() == 10:
+            return [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))]
+        return [("person", 0.3, (0.1, 0.1, 0.5, 0.5))] if index() == 79 else []
+
+    monkeypatch.setattr(worker, "decode_candidates", candidates)
+    assert worker.scan_clip(payload)["outcome"] == "candidate"
+    photo.unlink()
+    result = worker.scan_clip(payload, samples_per_window=9)
+    assert result["outcome"] == "person_rejected"
+    assert not photo.exists()
+    assert set(result) == {"outcome", "sampling"}
+
+
+def test_offline_sampling_deduplicates_inference_without_turning_one_still_frame_into_a_visitor(scan, monkeypatch):
+    payload, _, runtime, photo, props = scan
+    props[worker.cv2.CAP_PROP_FRAME_COUNT] = 1
+    temporal_reader(scan, set())
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    result = worker.scan_clip(payload, samples_per_window=9)
+    assert result["outcome"] == "still_rejected"
+    assert result["sampling"] == {"requested": 9, "decoded": 9, "inferred": 1}
+    runtime.infer.assert_called_once()
+    assert not photo.exists()
+
+
+def test_live_payload_cannot_enable_the_offline_sampling_policy(scan, monkeypatch):
+    payload, _, runtime, _, _ = scan
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"samples_per_window": 9})
+    assert result == {"outcome": "no_candidate"}
+    assert runtime.infer.call_count == 3
+
+
+def test_offline_samples_remain_inside_the_requested_window_despite_keyframe_padding(scan, monkeypatch):
+    payload, reader, runtime, _, props = scan
+    props[worker.cv2.CAP_PROP_FRAME_COUNT] = 123
+    temporal_reader(scan, set())
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload, samples_per_window=9)
+    assert result["outcome"] == "no_candidate"
+    assert [call.args[1] for call in reader.set.call_args_list] == [i * 1000 for i in range(1, 10)]
+    assert runtime.infer.call_count == 9
+    reader.release.assert_called_once()
+
+
+def test_failed_added_sample_discards_an_earlier_candidate_and_releases_the_reader(scan, monkeypatch):
+    payload, reader, _, photo, _ = scan
+    temporal_reader(scan, {10})
+    read = reader.read.side_effect
+
+    def fail_late():
+        return (False, None) if reader.read.call_count == 4 else read()
+
+    reader.read.side_effect = fail_late
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    with pytest.raises(ValueError, match="could not decode"):
+        worker.scan_clip(payload, samples_per_window=9)
+    assert not photo.exists()
+    reader.release.assert_called_once()
+
+
+@pytest.mark.parametrize("count", [True, 0, 4, 10, 9.0, "9"])
+def test_only_bounded_offline_sampling_policies_are_accepted_before_native_loading(scan, count):
+    payload, reader, runtime, _, _ = scan
+    with pytest.raises(ValueError, match="sampling"):
+        worker.scan_clip(payload, samples_per_window=count)
+    runtime.infer.assert_not_called()
+    reader.read.assert_not_called()
