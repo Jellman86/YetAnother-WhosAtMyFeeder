@@ -1,21 +1,17 @@
 <script lang="ts">
     import FieldLogVisitRow from './FieldLogVisitRow.svelte';
+    import FieldLogGardenRow from './FieldLogGardenRow.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
     import type { Detection } from '../api';
+    import type { GardenServerVisit } from '../api/garden';
     import type { DetectionVisit } from '../utils/visit-grouping';
-    import type { HealthTimelineRow } from '../utils/health-timeline';
-    import { namesCameras } from '../utils/field-log';
+    import { namesCameras, type FieldLogRow } from '../utils/field-log';
     import { formatTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
 
-    type FieldLogRow = Exclude<HealthTimelineRow, { kind: 'fault' }>;
-
     interface Props {
         visits?: DetectionVisit[];
-        /**
-         * Optional pre-merged visit and expected-filter rows for legacy callers.
-         * Operational fault history belongs to HealthActivityTimeline instead.
-         */
+        /** Pre-merged rows: bird visits with Garden visits or expected-filter drops between them. */
         rows?: FieldLogRow[];
         /** Off when the surrounding page already titles the list and states its window. */
         showHeader?: boolean;
@@ -31,9 +27,12 @@
         loading?: boolean;
         /** The read failed before any visit arrived; an empty log would claim a quiet day. */
         unavailable?: boolean;
+        /** Garden visits were asked for and could not be read, so their absence is not a quiet garden. */
+        gardenUnavailable?: boolean;
         onselect?: (detection: Detection) => void;
         onidentify?: (detection: Detection) => void;
         onplay?: (detection: Detection) => void;
+        ongardenopen?: (visit: GardenServerVisit) => void;
         onseeall?: () => void;
         onretry?: () => void;
     }
@@ -48,9 +47,11 @@
         canIdentify = false,
         loading = false,
         unavailable = false,
+        gardenUnavailable = false,
         onselect,
         onidentify,
         onplay,
+        ongardenopen,
         onseeall,
         onretry
     }: Props = $props();
@@ -59,7 +60,9 @@
         rows ?? visits.map((visit) => ({ kind: 'visit' as const, key: `visit:${visit.key}`, at: 0, visit }))
     );
     const showCamera = $derived(
-        namesCameras(renderRows.flatMap((row) => (row.kind === 'visit' ? [row.visit] : [])))
+        namesCameras(renderRows.flatMap((row) =>
+            row.kind === 'visit' ? [row.visit] : row.kind === 'garden' ? [{ camera: row.visit.representative.camera }] : []
+        ))
     );
 
     /**
@@ -208,6 +211,8 @@
 
                         <span class="flex justify-end"></span>
                     </li>
+                {:else if row.kind === 'garden'}
+                    <FieldLogGardenRow visit={row.visit} {grid} {showCamera} onopen={(visit) => ongardenopen?.(visit)} />
                 {:else}
                     <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} {onselect} {onidentify} {onplay} />
                 {/if}
@@ -230,5 +235,13 @@
                 </svg>
             </button>
         {/if}
+    {/if}
+
+    {#if gardenUnavailable && !loading}
+        <p class="px-2 text-xs text-slate-500 dark:text-slate-400" data-field-log-garden-unavailable>
+            {$_('dashboard.field_log.garden_unavailable', {
+                default: 'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
+            })}
+        </p>
     {/if}
 </section>

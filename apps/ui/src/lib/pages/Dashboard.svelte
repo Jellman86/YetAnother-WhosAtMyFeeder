@@ -7,6 +7,11 @@
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
     import FieldLog from '../components/FieldLog.svelte';
+    import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
+    import { fetchGardenVisits, type GardenServerVisit } from '../api/garden';
+    import { gardenHistory } from '../stores/garden_history.svelte';
+    import { GardenVisitViewer } from '../utils/garden-visit-viewer.svelte';
+    import { mergeFieldLog } from '../utils/field-log';
     import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
     import ReviewQueueModal from '../components/ReviewQueueModal.svelte';
@@ -45,6 +50,17 @@
     const VISIT_ROW_LIMIT = 12;
     let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
     let totalVisits = $state(0);
+
+    // Garden captures are owner-only and beta; animals stay a separate record no bird total counts.
+    const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
+    let gardenVisits = $state.raw<GardenServerVisit[]>([]);
+    let gardenTotal = $state(0);
+    let gardenUnavailable = $state(false);
+    let gardenWindow = $state.raw<{ start: string; end: string } | null>(null);
+    const gardenViewer = new GardenVisitViewer(
+        () => ({ start: gardenWindow?.start ?? null, end: gardenWindow?.end, status: 'reviewable' }),
+        () => $_('garden.save_error', { default: 'Could not save your review. Try again.' })
+    );
 
     let summary = $state<DailySummary | null>(null);
     // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
@@ -108,10 +124,12 @@
     let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
-    // The day reads as visits, not frames: repeat frames of one bird fold into one row.
+    // The day reads as visits, not frames: repeat frames of one bird fold into one row, and a
+    // Garden animal's visit sits on the same thread between them.
     let allVisits = $derived(serverVisits);
-    let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
-    let hiddenVisitCount = $derived(Math.max(totalVisits - visits.length, 0));
+    let fieldLogRows = $derived(mergeFieldLog(allVisits, gardenVisits, VISIT_ROW_LIMIT));
+    let visits = $derived(fieldLogRows.flatMap((row) => (row.kind === 'visit' ? [row.visit] : [])));
+    let hiddenVisitCount = $derived(Math.max(totalVisits + gardenTotal - fieldLogRows.length, 0));
 
     // Reviewing is an owner capability: the identify and hide calls require it, so a guest
     // must not be shown the queue, the walk-through, or an Identify button that would 403.
@@ -299,15 +317,32 @@
         fetch: async (signal) => {
             const now = new Date();
             const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
-            const [summaryRes, labelsRes, visitsRes] = await Promise.all([
+            // A Garden failure is stated beside the birds rather than taking the whole log down.
+            const gardenRead = gardenAvailable
+                ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
+                    .then((page) => ({ page }), (error: unknown) => {
+                        if (signal.aborted) throw error;
+                        logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
+                        return { page: null };
+                    })
+                : Promise.resolve(null);
+            const [summaryRes, labelsRes, visitsRes, gardenRes] = await Promise.all([
                 fetchDailySummary(),
                 fetchClassifierLabels().catch(() => ({ labels: [] })),
-                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })
+                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
+                gardenRead
             ]);
-            return { summaryRes, labelsRes, visitsRes, window };
+            return { summaryRes, labelsRes, visitsRes, gardenRes, window };
         },
-        apply: ({ summaryRes, labelsRes, visitsRes, window }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total; },
-        clear: () => { summary = null; topSpeciesInfo = null; serverVisits = []; totalVisits = 0; },
+        apply: ({ summaryRes, labelsRes, visitsRes, gardenRes, window }) => {
+            summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels;
+            serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
+            gardenWindow = { start: window.startTime, end: window.endTime };
+            gardenUnavailable = gardenRes !== null && gardenRes.page === null;
+            if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
+            else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+        },
+        clear: () => { summary = null; topSpeciesInfo = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
         fail: (e) => {
             if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
             if (isTransientRequestError(e)) {
@@ -362,6 +397,37 @@
         const interval = setInterval(() => { if (document.visibilityState === 'visible') void loadSummary(); }, 60_000);
         return () => { clearInterval(interval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
     });
+
+    // Turning Garden on or off, or signing in as the owner, changes what the log may hold.
+    let readGardenAvailable = untrack(() => gardenAvailable);
+    $effect(() => {
+        const available = gardenAvailable;
+        if (available === readGardenAvailable) return;
+        readGardenAvailable = available;
+        if (!available) gardenViewer.close();
+        untrack(() => { void loadSummary(); });
+    });
+
+    // A Garden review here or elsewhere changes the log's rows; quick successive changes read once.
+    let handledGardenHistory = gardenHistory.version;
+    $effect(() => {
+        const version = gardenHistory.version;
+        if (version === handledGardenHistory || !gardenAvailable) return;
+        handledGardenHistory = version;
+        const timer = setTimeout(() => { void loadSummary(); }, 350);
+        return () => clearTimeout(timer);
+    });
+
+    function gardenGroupDismissed(ids: string[], skipped: number): void {
+        gardenViewer.close();
+        void loadSummary();
+        const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
+        if (skipped > 0) {
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
+        } else {
+            toastStore.success(message);
+        }
+    }
 
     let handledVisitMutation = detectionsStore.mutationVersion;
     $effect(() => {
@@ -604,16 +670,18 @@
     >
         <div class="min-w-0" data-dashboard-field-log-column>
             <FieldLog
-                visits={visits}
+                rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
                 loading={summaryPending}
                 unavailable={summaryUnavailable}
+                {gardenUnavailable}
+                ongardenopen={(visit) => gardenViewer.open(visit)}
                 onretry={() => void loadSummary(true)}
                 canIdentify={canReview}
                 onselect={(detection) => selectedEvent = detection}
                 onidentify={(detection) => selectedEvent = detection}
                 onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
-                onseeall={() => onnavigate?.('/events')}
+                onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
             />
         </div>
 
@@ -719,6 +787,23 @@
     />
 {/if}
 
+
+{#if gardenViewer.capture && gardenAvailable}
+    <GardenCaptureModal
+        capture={gardenViewer.capture}
+        group={gardenViewer.group?.items ?? [gardenViewer.capture]}
+        groupKind={gardenViewer.group?.kind ?? 'visit'}
+        groupTotal={gardenViewer.group?.captureCount ?? 1}
+        groupOffset={gardenViewer.offset}
+        groupLoading={gardenViewer.loading}
+        groupError={gardenViewer.error}
+        onpage={(index) => void gardenViewer.page(index)}
+        onclose={() => gardenViewer.close()}
+        onchanged={(next) => { gardenViewer.changed(next); void loadSummary(); }}
+        onselect={(capture) => (gardenViewer.capture = capture)}
+        ongroupdismissed={gardenGroupDismissed}
+    />
+{/if}
 
 {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
 {#if showVideo && videoEventId}

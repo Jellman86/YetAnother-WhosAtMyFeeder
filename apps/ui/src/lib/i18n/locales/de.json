@@ -407,7 +407,9 @@
       "loading": "Besuche werden geladen…",
       "unavailable": "Die Besuche konnten nicht geladen werden. Das Dashboard versucht es jede Minute erneut.",
       "retry": "Erneut versuchen",
-      "open_species": "{species} öffnen"
+      "open_species": "{species} öffnen",
+      "review": "Prüfen",
+      "garden_unavailable": "Gartenbesuche konnten nicht geladen werden, daher werden nur Vögel angezeigt. Das Dashboard versucht es jede Minute erneut."
     },
     "notable_nearby": {
       "title": "Bemerkenswertes in der Nähe",

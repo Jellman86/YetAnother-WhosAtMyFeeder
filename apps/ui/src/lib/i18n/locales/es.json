@@ -407,7 +407,9 @@
       "loading": "Cargando visitas…",
       "unavailable": "No se pudieron cargar las visitas. El panel lo vuelve a intentar cada minuto.",
       "retry": "Intentar de nuevo",
-      "open_species": "Abrir {species}"
+      "open_species": "Abrir {species}",
+      "review": "Revisar",
+      "garden_unavailable": "No se pudieron cargar las visitas del jardín, así que solo se muestran aves. El panel lo intenta de nuevo cada minuto."
     },
     "notable_nearby": {
       "title": "Destacables cercanos",

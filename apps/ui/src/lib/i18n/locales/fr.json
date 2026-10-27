@@ -407,7 +407,9 @@
       "loading": "Chargement des visites…",
       "unavailable": "Les visites n’ont pas pu être chargées. Le tableau de bord réessaie chaque minute.",
       "retry": "Réessayer",
-      "open_species": "Ouvrir {species}"
+      "open_species": "Ouvrir {species}",
+      "review": "Vérifier",
+      "garden_unavailable": "Les visites du jardin n’ont pas pu être chargées, seuls les oiseaux sont donc affichés. Le tableau de bord réessaie chaque minute."
     },
     "notable_nearby": {
       "title": "Observations notables à proximité",

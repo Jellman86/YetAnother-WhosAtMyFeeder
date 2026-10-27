@@ -88,14 +88,14 @@ function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera'
     return params;
 }
 
-export async function fetchGardenVisits(query: GardenVisitQuery): Promise<GardenVisitPage> {
+export async function fetchGardenVisits(query: GardenVisitQuery, signal?: AbortSignal): Promise<GardenVisitPage> {
     const params = gardenScope(query);
     params.set('order', query.order);
     params.set('limit', String(query.limit));
     params.set('offset', String(query.offset ?? 0));
     if (query.pageStart) params.set('page_start', query.pageStart);
     if (query.pageEnd) params.set('page_end', query.pageEnd);
-    return handleResponse<GardenVisitPage>(await apiFetch(`${API_BASE}/garden/visits?${params}`, { timeoutMs: 15000 }));
+    return handleResponse<GardenVisitPage>(await apiFetch(`${API_BASE}/garden/visits?${params}`, { signal, timeoutMs: 15000 }));
 }
 
 export async function fetchGardenVisitCaptures(id: string, query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>, offset: number): Promise<GardenPage> {

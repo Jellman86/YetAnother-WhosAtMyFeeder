@@ -29,7 +29,7 @@ async function open(page: Page, query: string) {
             const total = match[1] === 'blackbird' ? 13 : 3;
             return route.fulfill({ json: { captures: Array.from({ length: total }, (_, index) => capture(match[1], index)), total } });
         }
-        if (url.pathname.endsWith('.jpg')) {
+        if (url.pathname.endsWith('.jpg') || /^\/api\/garden\/[^/]+\/(crop|snapshot)$/.test(url.pathname)) {
             return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#3f6212"/></svg>' });
         }
         return route.fulfill({ status: 503, json: { detail: 'not part of this fixture' } });
@@ -363,3 +363,45 @@ for (const width of [320, 1280]) {
         await noHorizontalOverflow(page);
     });
 }
+
+for (const width of [320, 1280]) {
+    test(`Garden visits sit on the day's thread between bird visits at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1200 });
+        const { errors } = await open(page, '?garden=1&cameras=two');
+        const rows = page.locator('[data-field-log-row]');
+        await expect(rows).toHaveCount(6);
+        const order = await rows.evaluateAll((items) => items.map((item) =>
+            item.getAttribute('data-field-log-garden') ?? item.getAttribute('data-field-log-visit')));
+        expect(order).toEqual(['blackbird', 'fox', 'dunnock', 'cowbird', 'hedgehog', 'unknown']);
+
+        const fox = page.locator('[data-field-log-garden="fox"]');
+        await expect(fox.locator('[data-garden-marker]')).toHaveText('Garden');
+        await expect(fox.locator('[data-field-log-name]')).toHaveText('Red Fox');
+        await expect(fox.locator('[data-field-log-garden-state]')).toHaveText('Named automatically');
+        await expect(fox).toHaveAttribute('data-needs-review', 'false');
+        await expect(fox.locator('[data-field-log-camera]')).toHaveText('patio');
+
+        const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
+        await expect(hedgehog).toHaveAttribute('data-needs-review', 'true');
+        await expect(hedgehog.locator('[data-field-log-garden-state]')).toHaveText('Needs review: suggested species');
+        await hedgehog.getByRole('button', { name: /European Hedgehog/ }).click();
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:hedgehog');
+
+        await fox.getByRole('button', { name: /Red Fox/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:fox');
+
+        await noHorizontalOverflow(page);
+        expect(errors).toEqual([]);
+        await page.screenshot({ path: testInfo.outputPath(`garden-${width}.png`), fullPage: true });
+        if (shots) await page.screenshot({ path: `${shots}/field-log-garden-${width}.png`, fullPage: true });
+    });
+}
+
+test('a Garden read failure is stated beside the birds instead of implying a quiet garden', async ({ page }) => {
+    await open(page, '?garden=failed');
+    await expect(page.locator('[data-field-log-row]')).toHaveCount(4);
+    await expect(page.locator('[data-field-log-garden-unavailable]')).toHaveText(
+        'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
+    );
+});

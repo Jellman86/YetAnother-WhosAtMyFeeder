@@ -407,7 +407,9 @@
       "loading": "Loading visits…",
       "unavailable": "Visits could not be loaded. The dashboard tries again every minute.",
       "retry": "Try again",
-      "open_species": "Open {species}"
+      "open_species": "Open {species}",
+      "review": "Review",
+      "garden_unavailable": "Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute."
     },
     "notable_nearby": {
       "title": "Notable nearby",

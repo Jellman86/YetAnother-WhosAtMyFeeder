@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- With Garden on, the Dashboard's field log shows animal visits between bird
+  visits, in time order. Each is marked **Garden**, says in words when it needs
+  review, and opens its Garden record on the Dashboard. Bird counts on the
+  Dashboard are unchanged, and a failed Garden read is stated rather than shown
+  as an empty garden.
+
 - A confident identification made from the whole camera view is now accepted
   like any other, instead of always waiting in **Needs your call**. Low-confidence
   whole-view names still wait for review, the record still says the name came

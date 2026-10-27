@@ -407,7 +407,9 @@
       "loading": "正在加载到访…",
       "unavailable": "无法加载到访记录。仪表盘每分钟会重试一次。",
       "retry": "重试",
-      "open_species": "打开{species}"
+      "open_species": "打开{species}",
+      "review": "审核",
+      "garden_unavailable": "无法加载花园访问记录，因此仅显示鸟类。仪表板每分钟重试一次。"
     },
     "notable_nearby": {
       "title": "附近的稀有记录",

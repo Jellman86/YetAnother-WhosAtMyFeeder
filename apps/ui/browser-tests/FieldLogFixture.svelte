@@ -5,6 +5,8 @@
     import DeskContextCards from '../src/lib/components/DeskContextCards.svelte';
     import type { Detection } from '../src/lib/api';
     import type { DetectionVisit as ServerVisit } from '../src/lib/api/visits';
+    import type { GardenCapture, GardenServerVisit } from '../src/lib/api/garden';
+    import { mergeFieldLog } from '../src/lib/utils/field-log';
     import { fromServerVisit } from '../src/lib/utils/visit-grouping';
     import { authStore } from '../src/lib/stores/auth.svelte';
     import { settingsStore } from '../src/lib/stores/settings.svelte';
@@ -56,6 +58,28 @@
         visit('unknown', 2, record('unknown', { display_name: 'Unknown Bird', scientific_name: null, common_name: null, detection_time: '2026-10-02T09:40:00Z', score: 0.42 }), { needs_review: true, start_time: '2026-10-02T09:39:30Z' })
     ];
     const visits = phase === 'ready' ? serverVisits.map((item) => fromServerVisit(item, window)) : [];
+    // Garden visits threaded between the birds, as the Dashboard composes them for an owner.
+    const gardenMode = params.get('garden');
+    function gardenCapture(id: string, overrides: Partial<GardenCapture>): GardenCapture {
+        return {
+            id, camera: 'patio', frigate_label: 'fox', observed_at: '2026-10-02T10:30:00Z', status: 'confirmed', reviewed_at: null,
+            snapshot_url: `/api/garden/${id}/snapshot`, crop_url: `/api/garden/${id}/crop`, ...overrides
+        };
+    }
+    function named(name: string, review: 'accepted' | 'pending', automatic: boolean, score: number): GardenCapture['identification'] {
+        return {
+            outcome: 'suggestion', reason: 'confident', review, automatic, name, rank: 'species', score, country: 'GBR',
+            variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 3, input_kind: 'whole_image',
+            frame_size: [1920, 1080], identified_at: '2026-10-02T10:31:00Z'
+        } as GardenCapture['identification'];
+    }
+    const gardenVisits: GardenServerVisit[] = gardenMode === '1' ? [
+        { id: 'fox', kind: 'visit', start_time: '2026-10-02T10:28:00Z', end_time: '2026-10-02T10:30:00Z', capture_count: 4,
+            representative: gardenCapture('fox', { identification: named('Red Fox', 'accepted', true, 0.93) }) },
+        { id: 'hedgehog', kind: 'visit', start_time: '2026-10-02T09:50:00Z', end_time: '2026-10-02T09:50:00Z', capture_count: 1,
+            representative: gardenCapture('hedgehog', { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'pending', false, 0.71) }) }
+    ] : [];
+    const rows = mergeFieldLog(visits, gardenVisits, 12);
     let selected = $state('none');
     let played = $state('none');
     let retried = $state(0);
@@ -80,7 +104,9 @@
         />
     {/if}
     <FieldLog
-        {visits}
+        {rows}
+        gardenUnavailable={gardenMode === 'failed'}
+        ongardenopen={(visit) => (selected = `garden:${visit.id}`)}
         hiddenCount={phase === 'ready' ? 2 : 0}
         loading={phase === 'loading'}
         unavailable={phase === 'unavailable'}

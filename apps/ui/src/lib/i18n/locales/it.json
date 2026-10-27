@@ -407,7 +407,9 @@
       "loading": "Caricamento delle visite…",
       "unavailable": "Impossibile caricare le visite. La dashboard riprova ogni minuto.",
       "retry": "Riprova",
-      "open_species": "Apri {species}"
+      "open_species": "Apri {species}",
+      "review": "Rivedi",
+      "garden_unavailable": "Non è stato possibile caricare le visite del giardino, quindi vengono mostrati solo gli uccelli. La dashboard riprova ogni minuto."
     },
     "notable_nearby": {
       "title": "Avvistamenti notevoli nelle vicinanze",
