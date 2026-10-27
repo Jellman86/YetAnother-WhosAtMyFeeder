@@ -407,7 +407,9 @@
       "loading": "Carregando visitas…",
       "unavailable": "Não foi possível carregar as visitas. O painel tenta novamente a cada minuto.",
       "retry": "Tentar novamente",
-      "open_species": "Abrir {species}"
+      "open_species": "Abrir {species}",
+      "review": "Rever",
+      "garden_unavailable": "Não foi possível carregar as visitas do jardim, por isso só são mostradas aves. O painel tenta novamente a cada minuto."
     },
     "notable_nearby": {
       "title": "Registros notáveis próximos",

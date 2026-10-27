@@ -407,7 +407,9 @@
       "loading": "訪問を読み込み中…",
       "unavailable": "訪問を読み込めませんでした。ダッシュボードは1分ごとに再試行します。",
       "retry": "再試行",
-      "open_species": "{species} を開く"
+      "open_species": "{species} を開く",
+      "review": "確認",
+      "garden_unavailable": "庭の訪問を読み込めなかったため、鳥のみ表示しています。ダッシュボードは毎分再試行します。"
     },
     "notable_nearby": {
       "title": "周辺の注目記録",

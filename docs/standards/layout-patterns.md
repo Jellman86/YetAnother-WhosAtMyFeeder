@@ -338,6 +338,7 @@ off with update checks, and absent rather than zero when unknown.
 | `FieldLog` | The Dashboard's chronological visit log and its identification actions | Use for operational history or search results; Health and Explorer own those |
 | `HealthActivityTimeline` | The Health page's chronological account of recorded visits, expected filtering and fault drops, with each outcome stated explicitly | Turn it into an identification queue; the Dashboard owns outstanding work |
 | `FieldLogVisitRow` | One visit on the field log's thread, opening from its time onto its captures in the same columns | Add a second disclosure control, or colour capture nodes without also changing their shape |
+| `FieldLogGardenRow` | One Garden animal's visit on the field log's thread, in a bird visit's columns, opening the Garden record | Omit the worded **Garden** marker, or let it count towards a bird total |
 | `VisitCaptures` | A visit's chronological captures: `inline` inside a Health row, `footer` closing an Explorer card or row | Render for a single capture, repeat the visit's camera or day on each line, or sum birds across captures |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |

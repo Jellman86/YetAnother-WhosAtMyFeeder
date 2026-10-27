@@ -60,6 +60,18 @@ page opens the Explorer's Garden review instead.
    photograph, and choose **Confirm animal present** or **Dismiss capture**. Under **Dismissed**,
    **Return to review** restores a capture while its photo remains available.
 
+## Garden animals on the Dashboard
+
+With Garden on, the Dashboard's **Field log** shows the last 24 hours of animal visits on the same
+thread as bird visits, placed by their most recent capture. It lists the same Garden entries as the
+Explorer's **Animals and waiting for review**: confirmed animals and captures still waiting, with
+dismissed captures left out. Each row says **Garden** in words, and one that needs you is flagged in
+amber with its reason and a **Review** button. **Open** or **Review** shows the Garden record on the
+Dashboard; a review there updates the log. The log shows the 12 most recent visits of either kind,
+and the count beneath it includes the animal visits it left out. If Garden visits cannot be read,
+the log says so under the birds instead of showing an empty garden. The Dashboard's visit, species
+and review counts still count birds only. Garden rows are shown only to the owner.
+
 ## Garden animals in the Explorer
 
 The open Explorer updates when a Frigate event or motion scan saves a new capture,

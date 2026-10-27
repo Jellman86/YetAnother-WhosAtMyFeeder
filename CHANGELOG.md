@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- With Garden on, the Dashboard's field log shows animal visits between bird
+  visits, in time order. Each is marked **Garden**, says in words when it needs
+  review, and opens its Garden record on the Dashboard. Bird counts on the
+  Dashboard are unchanged, and a failed Garden read is stated rather than shown
+  as an empty garden.
+
 - Garden records open the animal crop first and show selectable crop thumbnails
   for grouped captures. The whole photograph remains available on hover, focus
   or selection. Manual SpeciesNet device settings are clearly separated from
