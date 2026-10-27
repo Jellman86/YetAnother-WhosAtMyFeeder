@@ -156,7 +156,7 @@ for (const gardenOnly of [false, true]) {
 }
 
 
-test('Garden cards and list previews crop to saved animal geometry while the record keeps the full photo', async ({ page }) => {
+test('Garden cards, list previews and records crop to saved animal geometry with a whole-scene peek', async ({ page }) => {
     const { errors } = await openExplorer(page, '&garden=1', true);
     const preview = page.locator('[data-garden-card="confirmed"] [data-garden-preview="crop"] img');
     await expect(preview).toBeVisible();
@@ -165,7 +165,9 @@ test('Garden cards and list previews crop to saved animal geometry while the rec
     await expect(page.locator('[data-garden-card="pending"] [data-garden-preview="full"]')).toBeVisible();
     await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
     await expect(page.locator('[data-garden-capture-photo]')).toBeVisible();
+    await page.getByRole('button', { name: 'Show whole photo', exact: true }).click();
     await expect(page.locator('[data-garden-capture-box]')).toBeVisible();
+    await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.locator('[data-explorer-view-toggle="list"]').click();
     await expect(page.locator('[data-garden-row="confirmed"] [data-garden-preview="crop"]')).toBeVisible();
@@ -199,4 +201,75 @@ test('a reclaimed crop falls back to an available full photo', async ({ page }) 
     const image = page.locator('[data-garden-card="confirmed"] img');
     await expect(image).toHaveAttribute('src', new RegExp(`${item.id}/snapshot`));
     await expect(image).toBeVisible();
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    await expect(page.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/snapshot`));
 });
+
+test('a Garden record opens its saved crop before the available original', async ({ page }) => {
+    const { garden } = await openExplorer(page, '&garden=1');
+    const item = garden[0];
+    item.crop_url = `/api/garden/${item.id}/crop`;
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    await expect(page.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/crop`));
+    await page.getByRole('button', { name: 'Show whole photo', exact: true }).click();
+    await expect(page.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/snapshot`));
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-garden-capture-modal]')).toBeVisible();
+    await expect(page.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/crop`));
+});
+
+test('the manual CPU choice does not describe the saved SpeciesNet result', async ({ page }) => {
+    const { garden } = await openExplorer(page, '&garden=1');
+    garden[0].identification = null;
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await page.getByRole('button', { name: /Open Garden capture: Animal/ }).click();
+    const dialog = page.locator('[data-garden-capture-modal]');
+    await expect(dialog.getByRole('button', { name: 'Suggest species', exact: true })).toBeVisible();
+    await expect(dialog.locator('[data-garden-capture-actions]')).not.toContainText('Runs SpeciesNet');
+    await dialog.locator('[data-garden-capture-model] summary').click();
+    await expect(dialog.locator('[data-garden-capture-model]')).toContainText('New manual suggestion');
+});
+
+test('a Garden visit offers selectable crop thumbnails rather than sequential photo buttons', async ({ page }, testInfo) => {
+    const { garden, errors } = await openExplorer(page, '&garden=1');
+    const first = garden[0];
+    first.crop_url = `/api/garden/${first.id}/crop`;
+    const second = capture('fox2', new Date(Date.parse(first.observed_at) + 10_000).toISOString(), 'confirmed', 'Red fox');
+    second.crop_url = `/api/garden/${second.id}/crop`;
+    garden.push(second);
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await expect(page.locator('[data-garden-card-group]')).toHaveText('2 captures in this visit');
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.locator('[data-garden-capture-modal]');
+    await expect(dialog.locator('[data-garden-capture-choice]')).toHaveCount(2);
+    const choice = dialog.locator(`[data-garden-capture-choice="${first.id}"]`);
+    await expect(choice.locator('img')).toHaveAttribute('src', new RegExp(`${first.id}/crop`));
+    await choice.click();
+    await expect(choice).toHaveAttribute('aria-pressed', 'true');
+    await expect(dialog.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${first.id}/crop`));
+    await expect(dialog.getByRole('button', { name: /^(Previous|Next) photo$/ })).toHaveCount(0);
+    if (shots) await page.screenshot({ path: `${shots}/garden-record-crops-${testInfo.project.name}.png` });
+    expect(errors).toEqual([]);
+});
+
+
+for (const [provider, device] of [['cpu', 'CPU'], ['intel_npu', 'NPU']] as const) {
+    test(`the capture keeps its recorded ${device} evidence independently of the current device preference`, async ({ page }) => {
+        const { garden } = await openExplorer(page, '&garden=1');
+        const identity = garden[0].identification;
+        if (!identity) throw new Error('Expected a saved identification');
+        identity.provider = provider;
+        identity.devices = [device];
+        identity.automatic = true;
+        await page.route('**/api/garden/identification', route => route.fulfill({ json: {
+            country: 'GBR', catalogue_ready: true, busy: false, preferred_provider: 'intel_npu',
+            last_execution: { provider: 'intel_npu', devices: ['NPU'], checked_at: new Date().toISOString() },
+            models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }]
+        } }));
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+        const evidence = page.locator('[data-garden-capture-identification]');
+        await expect(evidence).toContainText(`4.0.3b · ${device} · GBR`);
+    });
+}
