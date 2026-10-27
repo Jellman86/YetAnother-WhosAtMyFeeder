@@ -553,8 +553,8 @@ Each records `source`, optional `is_cropped`, pixel LTRB `box`, `frame_size` (wi
 `frame_time` (recording timestamp), `frame_sha256` and `supporting_frames` when known. The current
 input follows an accepted replacement; the initial input is immutable. A photograph choice never
 rewrites either. Old records remain null. `fields=list` includes current input and `manual_tagged`;
-guest projections exclude input evidence. Whole-view names remain reviewable irrespective of score
-and are excluded from personalization feedback and reranking.
+guest projections exclude input evidence. Whole-view names follow the same confidence threshold as
+other identifications for `needs_review`, and are excluded from personalization feedback and reranking.
 
 ### Media Proxy and Share Links
 

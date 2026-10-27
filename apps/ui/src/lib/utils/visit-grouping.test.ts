@@ -197,11 +197,17 @@ describe('groupDetectionsIntoVisits', () => {
 });
 
 
-it('keeps a confident whole-view identification in Needs your call until an owner names it', () => {
-    const frame = detection({ frigate_event: 'whole-view', score: 0.99,
+it.each([
+    { score: 0.8688878715, threshold: 0.6, manual: false, expected: false },
+    { score: 0.6, threshold: 0.6, manual: false, expected: false },
+    { score: 0.59, threshold: 0.6, manual: false, expected: true },
+    { score: 0.2, threshold: 0.6, manual: true, expected: false },
+    { score: 0.9, threshold: null, manual: false, expected: false }
+])('reviews a whole-view identification by confidence and owner decision: $score/$threshold', ({ score, threshold, manual, expected }) => {
+    const frame = detection({ frigate_event: 'whole-view', score, manual_tagged: manual,
         classification_input: { source: 'full_frame', is_cropped: false } });
-    expect(needsReview(frame, 0.6)).toBe(true);
-    expect(needsReview({ ...frame, classification_input: { source: 'owner_species_choice' } }, 0.6)).toBe(false);
+    expect(needsReview(frame, threshold)).toBe(expected);
+    expect(groupVisits([frame], { reviewThreshold: threshold })[0].needsReview).toBe(expected);
 });
 
 

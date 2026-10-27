@@ -51,8 +51,6 @@ function timestamp(detection: Detection): number {
 export function needsReview(detection: Detection, reviewThreshold: number | null): boolean {
     const label = (detection.display_name ?? '').trim().toLowerCase();
     if (!label || label === UNRESOLVED_LABEL) return true;
-    const input = detection.classification_input;
-    if (input?.is_cropped === false && input.source !== 'frigate_sublabel' && input.source !== 'owner_species_choice') return true;
     if (detection.manual_tagged === true) return false;
     if (reviewThreshold === null || !Number.isFinite(reviewThreshold)) return false;
     return (detection.score ?? 0) < reviewThreshold;

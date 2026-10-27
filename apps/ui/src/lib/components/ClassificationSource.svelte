@@ -6,7 +6,7 @@
     const wholeView = $derived(evidence?.is_cropped === false && evidence.source !== 'frigate_sublabel');
 </script>
 
-<p class="mt-1 text-xs {wholeView ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}" data-classification-source>
+<p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-classification-source>
     {#if evidence?.source === 'owner_species_choice'}
         {$_('detection.named_from.owner', { default: 'Named by you' })}
     {:else if evidence?.source === 'frigate_sublabel'}

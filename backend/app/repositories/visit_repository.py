@@ -63,9 +63,6 @@ class VisitRepository(DetectionRepository):
             SELECT d.id, d.detection_time, d.score, d.display_name, d.category_name,
                    d.frigate_event, d.camera_name, d.scientific_name, d.common_name,
                    d.species_id, d.taxa_id, d.is_hidden, d.manual_tagged, d.audio_confirmed, d.audio_species, d.audio_score,
-                   CASE WHEN json_valid(d.classification_input_json)
-                        THEN COALESCE(json_extract(d.classification_input_json, '$.is_cropped'), 1) = 0
-                        ELSE 0 END AS whole_view_identification,
                    EXISTS (SELECT 1 FROM detection_favorites f WHERE f.detection_id = d.id) AS is_favorite,
                    julianday(d.detection_time) AS at,
                    {finish} AS finish, {finish_at} AS finish_at, LOWER(TRIM(COALESCE(d.scientific_name, ''))) AS name_key
@@ -247,8 +244,7 @@ class VisitRepository(DetectionRepository):
                 COUNT(*) AS capture_count, MAX(v.score) AS best_score,
                 MAX(CASE WHEN v.representative_position = 1 THEN v.frigate_event END) AS representative_event,
                 MAX(CASE WHEN v.latest_position = 1 THEN v.frigate_event END) AS latest_event,
-                MAX(CASE WHEN whole_view_identification = 0 THEN v.score ELSE -1 END) AS trusted_best_score,
-                MAX(CASE WHEN whole_view_identification = 0 THEN v.manual_tagged ELSE 0 END) AS manual_tagged, {peak} AS peak_event,
+                MAX(v.manual_tagged) AS manual_tagged, {peak} AS peak_event,
                 MAX(CASE WHEN v.audio_confirmed = 1 AND {audio_sql} THEN 1 ELSE 0 END) AS audio_confirmed
             FROM header_members v GROUP BY v.visit_id
         )"""

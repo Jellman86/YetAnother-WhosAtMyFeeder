@@ -20,9 +20,9 @@ const detection = {
 
 describe('applyManualTagResult', () => {
     for (const status of ['unchanged', 'updated'] as const) {
-        it(`clears a whole-view review after a saved ${status} owner choice without a page refresh`, () => {
+        it(`clears a low-confidence whole-view review after a saved ${status} owner choice without a page refresh`, () => {
             const initial = { source: 'recording_frame', is_cropped: false };
-            const wholeView = { ...detection, score: 0.98, classification_input: initial, initial_classification_input: initial };
+            const wholeView = { ...detection, score: 0.4, classification_input: initial, initial_classification_input: initial };
             expect(buildReviewQueue([wholeView], { reviewThreshold: 0.6 }).total).toBe(1);
             const updated = applyManualTagResult(wholeView, {
                 status, event_id: detection.frigate_event, new_species: detection.display_name,

@@ -124,7 +124,7 @@ async def get_visits(
                 capture_count=header["capture_count"],
                 best_score=header["best_score"],
                 needs_review=representative.display_name == "Unknown Bird"
-                or (not header["manual_tagged"] and header["trusted_best_score"] < settings.classification.threshold),
+                or (not header["manual_tagged"] and header["best_score"] < settings.classification.threshold),
                 owner_confirmed=bool(header["manual_tagged"])
                 and representative.display_name.strip().casefold() not in {"", "unknown bird"},
                 audio_confirmed=bool(header["audio_confirmed"])
