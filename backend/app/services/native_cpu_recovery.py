@@ -132,6 +132,10 @@ class NativeCpuRecovery:
     def snapshot(self) -> dict[str, dict[str, Any]]:
         return {key: dict(value) for key, value in self._states.items()}
 
+    def has_native_work(self) -> bool:
+        """An idle retained worker is safe; busy, unreaped or closed recovery is not."""
+        return self._closed or self._lock.locked() or self._cleanup_pending
+
     def _state(self, priority: str, status: str, runtime: dict[str, Any] | None = None) -> None:
         self._states[priority] = {
             "status": status,
