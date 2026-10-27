@@ -69,7 +69,7 @@ test('photo check is explicit, country independent and makes no review decision'
     await page.keyboard.press('Escape');
     await expect(check(page)).toHaveCount(0);
     await expect(record(page)).toBeVisible();
-    await record(page).getByRole('button', { name: 'Next photo' }).click();
+    await record(page).locator('[data-garden-capture-choice]').nth(1).click();
     await expect(page.getByText('Model suggests a bird')).toHaveCount(0);
     expect(checks).toBe(1);
 });
@@ -86,7 +86,7 @@ test('closed late check cannot attach its result to the next stack photo', async
     await record(page).getByRole('button', { name: 'Check photo', exact: true }).click();
     await expect.poll(() => requested).toBe(true);
     await page.keyboard.press('Escape');
-    await record(page).getByRole('button', { name: 'Next photo' }).click();
+    await record(page).locator('[data-garden-capture-choice]').nth(1).click();
     release?.();
     await expect(check(page)).toHaveCount(0);
     await expect(page.getByText('Model suggests a bird')).toHaveCount(0);

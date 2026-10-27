@@ -90,8 +90,12 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   and never merge by time, so a real animal is not hidden inside a stack of repeated feeder
   proposals. Every capture is still stored and reviewed on its own; grouping only changes how they
   are shown. There is no capture cooldown, which matches birds.
-- Opening one shows its record, in the bird record's shape: the photograph with the detector's box,
-  the automatic check and its result, and the presence and species decisions. **Suggest species** runs the installed
+- Opening one shows its record, in the bird record's shape: the saved animal crop,
+  or the original framed around trustworthy saved crop geometry, the automatic
+  check and its result, and the presence and species decisions. Hover or focus on
+  the crop to look at the whole photograph with its box; select it to keep that
+  view open, then select again or press Escape to return to the crop. A photograph
+  without trustworthy geometry stays whole. **Suggest species** runs the installed
   SpeciesNet model on the CPU unless you choose another model or device under **Model and device**. Bird actions
   such as scoring again, video scans and audio matching do not apply.
 - Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports
@@ -105,8 +109,12 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   in the previous bird page's time span. Up to 200 Garden entries are shown beside
   a bird page; if there are more, the page says so. Choose **Garden visitors** to
   page through every entry using the page-size control.
-- Records load at most 128 captures at a time. **Next photo** and **Previous photo**
-  cross these boundaries without splitting the visit or resetting the photo number.
+- Records show a selectable strip of crop thumbnails for the visit or position
+  stack, with the current photo marked. Each choice opens that capture and its own
+  decisions. Records load at most 128 captures at a time; **Previous photos** and
+  **More photos** move between these pages without splitting the visit or resetting
+  the photo number. Left and right arrow keys also move between photos when no
+  text field or device selector is being edited.
   A failed read offers **Retry**. Each opening rechecks the current history filters,
   photo availability and review state; removed or regrouped visits can become unavailable.
   Reviewing a photo changes only that original, and position-stack dismissal remains
@@ -116,7 +124,7 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
 
 ![The Explorer with Garden visitors and Needs review chosen in the filter rail: a card for six motion photos at the same position and a single Frigate capture, each marked Garden and flagged Needs review](../images/garden-review.png)
 
-![A Garden record: the photograph with the detector's box, six photos around the same position with Previous and Next photo, and Confirm animal present, Check photo, Dismiss capture and Dismiss remaining 6 photos beside it](../images/garden-record.png)
+![A Garden record showing Red fox, the animal crop, two selectable crop thumbnails from its visit and separate species-review and model controls](../images/garden-record.png)
 
 These screenshots use plain placeholder photographs; real captures stay owner-only.
 
@@ -265,14 +273,14 @@ within 15% of the smaller dimension, and at least 80% overlap along each smaller
 dimension. This also groups repeated feeder proposals whose boxes alternate
 between wide and tall. Comparisons stay against the first photo, so movement
 cannot chain a group across the image. This is a review aid, not animal tracking: different visitors can occupy
-the same position. **Previous photo** and **Next photo** show the original photos,
-times and exact boxes; confirmation always applies only to the displayed photo.
+the same position. Select a crop thumbnail to open its photo, time and decisions;
+the whole-photo peek shows its exact box. Confirmation always applies only to the displayed photo.
 **Dismiss capture** also applies only to that photo. A saved-review notification
 confirms the action; another similar photo can remain in the same review card.
 Frigate events and confirmed/dismissed history remain individual captures. The
 Explorer counts original photos, and pagination advances through photos, not groups.
 
-Open the card, use **Next photo** to scan a stack and **Confirm animal present** to keep individual
+Open the card, select thumbnails to scan a stack and **Confirm animal present** to keep individual
 animal photos. Confirmation advances to the next remaining photo. The visible
 **Dismiss remaining … photos** button dismisses the stack's remaining photos in
 one action, with a notification showing how many were dismissed. Future captures,
@@ -403,7 +411,9 @@ device preference and last completed execution. Open a capture to see the device
 time of its own automatic result. These are completed records, not a promise that a
 model is currently loaded. Garden releases its worker after each operation. The
 **Model and device** selector on a capture controls manual checks only; its CPU default
-does not describe automatic execution. **Motion detector only: CPU** refers to Cedar
+does not describe automatic execution. Its help text describes a new manual request
+inside that section, rather than labelling the saved result. Historical CPU results
+remain CPU results after a later NPU preference change. **Motion detector only: CPU** refers to Cedar
 motion collection, not SpeciesNet animal identification.
 
 When automatic naming is enabled, existing pending automatic checks from the older
@@ -477,10 +487,12 @@ Missing or unaligned source evidence leaves the capture confirmed without a crop
 
 Crops remain owner-only. Person/false-positive revocation, dismissal and history
 retention remove them. A crop does not make an expired original available for model
-checks, identification or restoring a dismissed capture. The record prefers the
-original full photograph, then shows the saved crop with an explicit explanation
-when the original is unavailable. It draws no full-frame box on an already cropped
-image. Confirmed visits prefer their newest member with a saved crop, while their
+checks, identification or restoring a dismissed capture. The record and thumbnail
+strip prefer the saved crop. If it is unavailable, they use trustworthy geometry
+on the original photo when possible, otherwise the whole original. An expired
+original is explained explicitly; it is not replaced as model input by the saved
+crop. The whole-photo peek is unavailable after original expiry. No full-frame box
+is drawn on an already cropped image. Confirmed visits prefer their newest member with a saved crop, while their
 membership, start/end times and per-photo review remain unchanged.
 
 Storage holds at most 2,000 JPEG crops, each no larger than 512 pixels along its

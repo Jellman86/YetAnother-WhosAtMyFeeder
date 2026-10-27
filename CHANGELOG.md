@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden records open the animal crop first and show selectable crop thumbnails
+  for grouped captures. The whole photograph remains available on hover, focus
+  or selection. Manual SpeciesNet device settings are clearly separated from
+  each capture's saved execution evidence.
+
 - The offline Garden recording replay can compare three and nine samples per
   window, with per-policy timings and frame counts. Live collection still samples
   three frames; denser sampling has not been qualified for production.

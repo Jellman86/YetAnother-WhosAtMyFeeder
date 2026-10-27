@@ -1,7 +1,7 @@
 <script lang="ts">
     /**
      * One Garden capture opened from the Explorer, in the record's shape: the photograph with
-     * the detector's box takes the larger half, the decisions the smaller one.
+     * the animal crop takes the larger half, the decisions the smaller one.
      *
      * Presence and species are separate decisions. Photos proposed around the same position
      * open together, one photo at a time, because position does not identify an animal; the
@@ -14,6 +14,7 @@
     import GardenAutomaticAssessment from './GardenAutomaticAssessment.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import GardenPhotoCheckDialog from './GardenPhotoCheckDialog.svelte';
+    import GardenCaptureThumbnail from './GardenCaptureThumbnail.svelte';
     import {
         checkGardenPhoto,
         fetchGardenIdentification,
@@ -27,9 +28,10 @@
         type GardenPhotoCheck
     } from '../api/garden';
     import { withAuthParams } from '../api/core';
-    import { gardenPhotoOutline } from '../utils/garden-photo';
+    import { gardenPhotoOutline, gardenPreviewStyle } from '../utils/garden-photo';
+    import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { gardenEntryText, gardenEntryView } from '../utils/garden-explorer';
-    import { formatDateTime } from '../utils/datetime';
+    import { formatDateTime, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { toastStore } from '../stores/toast.svelte';
@@ -59,8 +61,12 @@
 
     let dialog = $state<HTMLElement | null>(null);
     let size = $state<readonly [number, number] | undefined>(undefined);
+    let sizeCapture = $state<string | null>(null);
     let failedPhoto = $state<string | null>(null);
     let failedCrop = $state<string | null>(null);
+    let mediaWidth = $state(0);
+    let mediaHeight = $state(0);
+    let peekCapture = $state<string | null>(null);
     let saving = $state(false);
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
@@ -77,11 +83,22 @@
     const index = $derived(Math.max(0, group.findIndex((item) => item.id === capture.id)));
     const view = $derived(gardenEntryView(capture));
     const originalFailed = $derived(failedPhoto === capture.id);
-    const showingSavedCrop = $derived(Boolean(capture.crop_url && (!capture.snapshot_url || originalFailed)));
+    const originalSize = $derived(sizeCapture === capture.id ? size : undefined);
+    const canPeek = $derived(Boolean(capture.snapshot_url && !originalFailed && (
+        (capture.crop_url && failedCrop !== capture.id) || gardenPhotoOutline(capture, originalSize)
+    )));
+    const peek = new WholeScenePeek(() => canPeek);
+    const showingWhole = $derived(peekCapture === capture.id && peek.showing);
+    const showingSavedCrop = $derived(Boolean(capture.crop_url && failedCrop !== capture.id && !showingWhole));
     const photoUrl = $derived(showingSavedCrop ? capture.crop_url : capture.snapshot_url);
-    const outline = $derived(showingSavedCrop ? null : gardenPhotoOutline(capture, size));
+    const outline = $derived(showingSavedCrop ? null : gardenPhotoOutline(capture, originalSize));
+    const cropStyle = $derived(!showingSavedCrop && !showingWhole
+        ? gardenPreviewStyle(capture, originalSize, mediaWidth > 0 && mediaHeight > 0 ? mediaWidth / mediaHeight : 4 / 3) : null);
+    const imageStyle = $derived(cropStyle
+        ? `width:${cropStyle.width}%;height:${cropStyle.height}%;left:${cropStyle.left}%;top:${cropStyle.top}%;max-width:none`
+        : 'left:0;top:0');
     const photoFailed = $derived(showingSavedCrop ? failedCrop === capture.id : originalFailed);
-    const photoReady = $derived(Boolean(capture.snapshot_url && size && !originalFailed && !showingSavedCrop));
+    const photoReady = $derived(Boolean(capture.snapshot_url && !originalFailed && (originalSize || showingSavedCrop)));
     const installed = $derived((identification?.models ?? []).filter((model) => model.installed).map((model) => model.variant));
     // Whole image first, as Garden always offered it; the tracked-crop model answers too.
     const variant = $derived<Variant | null>(
@@ -119,6 +136,7 @@
         return () => {
             controller.abort();
             clearPhotoCheck();
+            peek.destroy();
             release();
         };
     });
@@ -131,6 +149,7 @@
         const image = event.currentTarget;
         if (image instanceof HTMLImageElement && image.naturalWidth > 0 && image.naturalHeight > 0) {
             size = [image.naturalWidth, image.naturalHeight];
+            sizeCapture = capture.id;
         }
     }
 
@@ -145,6 +164,7 @@
     }
 
     function move(direction: -1 | 1): void {
+        if (saving || groupLoading) return;
         const next = group[index + direction];
         if (next) select(next);
         else { clearPhotoCheck(); size = undefined; error = null; onpage?.(groupOffset + index + direction); }
@@ -153,9 +173,16 @@
     function select(next: GardenCapture | undefined): void {
         if (!next || saving || groupLoading) return;
         clearPhotoCheck();
+        peek.reset();
         size = undefined;
         error = null;
         onselect?.(next);
+    }
+
+    function peekPhoto(action: 'enter' | 'show' | 'toggle'): void {
+        if (peekCapture !== capture.id) peek.reset();
+        peekCapture = capture.id;
+        peek[action]();
     }
 
     async function act(run: () => Promise<GardenCapture>, message?: string): Promise<void> {
@@ -245,7 +272,13 @@
         // The photo check sits above the record and closes first.
         if (event.key === 'Escape' && !photoCheckOpen) {
             event.preventDefault();
-            onclose();
+            if (showingWhole) peek.reset();
+            else onclose();
+        }
+        if (!photoCheckOpen && groupTotal > 1 && ['ArrowLeft', 'ArrowRight'].includes(event.key)
+            && !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement)) {
+            event.preventDefault();
+            move(event.key === 'ArrowLeft' ? -1 : 1);
         }
     }
 </script>
@@ -281,13 +314,14 @@
 
         <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
             <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
-                <div class="relative aspect-[4/3] min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
+                <div bind:clientWidth={mediaWidth} bind:clientHeight={mediaHeight} class="relative aspect-[4/3] min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
                     {#if photoUrl && !photoFailed}
                         {#key `${capture.id}:${photoUrl}`}
                             <img src={withAuthParams(photoUrl)} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                             <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
                             <img
-                                class="absolute inset-0 h-full w-full object-contain"
+                                class="absolute h-full w-full object-contain"
+                                style={imageStyle}
                                 src={withAuthParams(photoUrl)}
                                 alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })}
                                 onload={showingSavedCrop ? undefined : photoLoaded}
@@ -295,18 +329,30 @@
                                 data-garden-capture-photo
                             />
                         {/key}
-                        {#if showingSavedCrop}
+                        {#if showingSavedCrop && (!capture.snapshot_url || originalFailed)}
                             <p class="absolute bottom-3 left-3 right-3 rounded bg-black/70 p-2 text-xs text-white" data-garden-saved-crop>
                                 {$_('garden.saved_crop_only', { default: 'Saved animal crop. The original photo is unavailable.' })}
                             </p>
                         {/if}
-                        {#if outline}
+                        {#if outline && !cropStyle}
                             {@const box = outline.box}
                             {@const frame = outline.size}
                             <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${frame[0]} ${frame[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-capture-box>
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="black" stroke-width="4" vector-effect="non-scaling-stroke" />
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
                             </svg>
+                        {/if}
+                        {#if canPeek}
+                            <button type="button" class="absolute inset-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+                                aria-label={$_('garden.explorer.show_whole_photo', { default: 'Show whole photo' })} aria-pressed={peek.pinned && showingWhole}
+                                onmouseenter={() => peekPhoto('enter')} onmouseleave={peek.leave}
+                                onfocus={() => peekPhoto('show')} onblur={peek.leave} onclick={() => peekPhoto('toggle')}>
+                                <span class="absolute bottom-3 left-3 right-3 rounded bg-black/70 p-2 text-xs text-white">
+                                    {showingWhole
+                                        ? $_('garden.explorer.whole_photo_hint', { default: 'Whole photo. Select again to return to the crop.' })
+                                        : $_('garden.explorer.crop_photo_hint', { default: 'Animal crop. Open the whole photo for context.' })}
+                                </span>
+                            </button>
                         {/if}
                     {:else}
                         <p class="absolute inset-0 flex items-center justify-center p-4 text-center text-sm text-white/70">
@@ -335,11 +381,24 @@
                                     ? $_('garden.group_help', { default: 'Position does not identify an animal. This group can contain different visitors.' })
                                     : $_('garden.explorer.visit_help', { default: 'Same camera and same animal, captures less than a minute apart, as bird visits are grouped. It can still be more than one animal.' })}
                             </p>
-                            <div class="flex flex-wrap items-center gap-2">
-                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || groupLoading || groupOffset + index === 0} onclick={() => move(-1)}>{$_('garden.previous_photo', { default: 'Previous photo' })}</button>
-                                <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
-                                <button type="button" class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70" disabled={saving || groupLoading || groupOffset + index + 1 >= groupTotal} onclick={() => move(1)}>{$_('garden.next_photo', { default: 'Next photo' })}</button>
+                            <div class="flex gap-2 overflow-x-auto pb-2" role="group" aria-label={$_('garden.explorer.visit_photos', { default: 'Photos in this group' })} aria-busy={groupLoading}>
+                                {#each group as item, choiceIndex (item.id)}
+                                    <button type="button" class="shrink-0 rounded border-2 p-1 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white {item.id === capture.id ? 'border-white' : 'border-transparent hover:border-white/50'}"
+                                        disabled={saving || groupLoading} aria-pressed={item.id === capture.id}
+                                        aria-label={$_('garden.explorer.show_photo', { default: 'Show photo {index} of {count}, {time}', values: { index: groupOffset + choiceIndex + 1, count: groupTotal, time: formatDateTime(item.observed_at) } })}
+                                        data-garden-capture-choice={item.id} onclick={() => select(item)}>
+                                        <GardenCaptureThumbnail capture={item} />
+                                        <span class="mt-1 block text-3xs tabular-nums">{formatTime(item.observed_at)}</span>
+                                    </button>
+                                {/each}
                             </div>
+                            <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
+                            {#if groupOffset > 0 || groupOffset + group.length < groupTotal}
+                                <div class="flex gap-2">
+                                    <button type="button" class="btn btn-secondary min-h-11" disabled={saving || groupLoading || groupOffset === 0} onclick={() => onpage?.(groupOffset - 1)}>{$_('garden.explorer.earlier_photos', { default: 'Previous photos' })}</button>
+                                    <button type="button" class="btn btn-secondary min-h-11" disabled={saving || groupLoading || groupOffset + group.length >= groupTotal} onclick={() => onpage?.(groupOffset + group.length)}>{$_('garden.explorer.later_photos', { default: 'More photos' })}</button>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
                 </div>
@@ -505,7 +564,7 @@
                                 {saving ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}
                             </button>
                             <p id="garden-capture-identify-note" class="text-xs text-slate-600 dark:text-slate-400">
-                                {identifyBlocked ?? $_('garden.explorer.identify_runs_on', { default: 'Runs SpeciesNet {variant} on {device}. The suggestion still needs your confirmation.', values: { variant: variant ?? '', device: providers.find((option) => option.value === provider)?.label ?? provider } })}
+                                {identifyBlocked ?? $_('garden.explorer.manual_suggestion_help', { default: 'Requests a new species suggestion for this photo. Review it before confirming; choose its model and device below.' })}
                             </p>
                         {/if}
                     {/if}
@@ -555,7 +614,8 @@
                                 </select>
                             </label>
                         </div>
-                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.manual_device_note', { default: 'Manual checks only. This CPU default does not describe automatic checks. Automatic checks follow Detection settings; their last execution device is shown with the result. An unavailable manual device fails rather than switching devices.' })}</p>
+                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.identify_runs_on', { default: 'New manual suggestion: SpeciesNet {variant} on {device}. The suggestion still needs your confirmation.', values: { variant: variant ?? '', device: providers.find((option) => option.value === provider)?.label ?? provider } })}</p>
+                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.manual_device_note', { default: 'These settings apply to a new manual check. Saved automatic results report their own device and time above. An unavailable manual device fails rather than switching devices.' })}</p>
                     </details>
                 {/if}
             </div>
