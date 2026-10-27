@@ -32,7 +32,7 @@ class ClassificationEvidence(BaseModel):
         return self
 
     @property
-    def needs_review(self) -> bool:
+    def is_whole_view(self) -> bool:
         return self.is_cropped is False and self.source not in {"frigate_sublabel", "owner_species_choice"}
 
     @property

@@ -1651,7 +1651,7 @@ async def _apply_manual_tag_update(
         predicted_label
         and corrected_label
         and predicted_label != corrected_label
-        and not (detection.classification_input and detection.classification_input.needs_review)
+        and not (detection.classification_input and detection.classification_input.is_whole_view)
     ):
         await repo.insert_classification_feedback(
             frigate_event=event_id,

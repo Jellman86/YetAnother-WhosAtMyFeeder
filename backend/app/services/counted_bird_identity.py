@@ -99,7 +99,7 @@ def resolve_bird_identities(
             evidence = ClassificationEvidence.model_validate(raw_input)
         except ValidationError:
             evidence = None
-        if evidence is not None and evidence.needs_review:
+        if evidence is not None and evidence.is_whole_view:
             parent_usable = False
         if evidence is not None and evidence.box and evidence.frame_sha256:
             frames = {

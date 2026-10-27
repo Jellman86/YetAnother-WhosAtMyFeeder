@@ -12,6 +12,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Dashboard are unchanged, and a failed Garden read is stated rather than shown
   as an empty garden.
 
+- A confident identification made from the whole camera view is now accepted
+  like any other, instead of always waiting in **Needs your call**. Low-confidence
+  whole-view names still wait for review, the record still says the name came
+  from the whole view, and the species can be renamed at any time. Whole-view
+  names still never train personalization.
+
 - Garden records open the animal crop first and show selectable crop thumbnails
   for grouped captures. The whole photograph remains available on hover, focus
   or selection. Manual SpeciesNet device settings are clearly separated from

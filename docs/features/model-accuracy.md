@@ -436,7 +436,9 @@ python3 backend/scripts/pipeline_api_test.py \
 
 Owner records and **Needs your call** show **Named from…** for new identifications: a bird crop,
 Frigate’s sub-label, video frames, an owner choice, or the whole camera view. Whole-view names
-remain in review even at high confidence and never train or use personalization. Confirming the
+follow the same confidence threshold as any other identification: a confident name is accepted,
+a low-confidence one waits in review, and either can be renamed later. Whole-view names never
+train or use personalization. Confirming the
 species records **Named by you**; the original input stays available on the record.
 A saved choice clears that detection from the dashboard review queue immediately,
 including while the separate new-species list refreshes. Skipped or failed choices
