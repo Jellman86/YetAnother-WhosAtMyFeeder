@@ -43,10 +43,12 @@ species accuracy, accelerator execution or camera recall.
 
 ## Next evidence
 
-- Investigate bounded denser sampling with the independently labelled brief-animal
-  case in the [hedgehog follow-up](2026-10-24-garden-automatic-accelerators.md).
-  Keep bird priority, person vetoes and existing thresholds. Finding more animals
-  is separate from naming them correctly.
+- The [bounded native sampling comparison](2026-10-27-garden-motion-sampling.md)
+  now covers the externally tagged brief-animal example. Nine samples recover a
+  proposal at the separate 0.5 diagnostic threshold, but neither policy produces
+  a candidate at Quark's 0.63 setting. Original recordings with independent animal,
+  person, fixture and weather labels are still needed. Keep bird priority, person
+  vetoes and existing thresholds; finding an animal is separate from naming it.
 - Extend deployment-relevant daytime/IR and hard-negative labels. The
   [frozen panel](2026-10-23-garden-labelled-pipeline-validation.md) remains a small
   selected sample, not a general field-accuracy estimate.
