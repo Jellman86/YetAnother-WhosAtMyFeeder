@@ -74,6 +74,29 @@ async def classify(recovery, priority="live", timeout=1):
 
 
 @pytest.mark.asyncio
+async def test_idle_cpu_recovery_is_distinct_from_inference_and_unconfirmed_cleanup(tmp_path):
+    worker = Worker()
+    runner = recovery(tmp_path, worker)
+    try:
+        assert await classify(runner)
+        assert runner.snapshot()["live"]["recovered"]
+        assert runner._worker is worker
+        assert not runner.has_native_work()
+        await runner._lock.acquire("live")
+        try:
+            assert runner.has_native_work()
+        finally:
+            runner._lock.release()
+        runner._cleanup_pending = True
+        assert runner.has_native_work()
+        runner._cleanup_pending = False
+        assert not runner.has_native_work()
+    finally:
+        await runner.shutdown()
+    assert runner.has_native_work()  # Closed recovery cannot authorize new Garden admission.
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("validated,expected", [(["intel_cpu", "cpu"], "intel_cpu"), (["cpu"], "cpu"), ([], "cpu")])
 async def test_recovery_prefers_current_artifact_validated_intel_cpu(tmp_path, monkeypatch, validated, expected):
     from app.services import model_validation

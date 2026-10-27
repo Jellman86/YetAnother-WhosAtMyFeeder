@@ -42,6 +42,82 @@ def test_unknown_or_quarantined_bird_state_fails_closed():
     assert not bird_work_pending({"live": {"queued": 0, "running": 0}, "background": {"queued": 0, "running": 0}})
 
 
+@pytest.fixture
+def idle_cpu_recovery():
+    runtime = {"model_id": "bird-model", "model_sha256": "a" * 64, "active_provider": "intel_cpu"}
+    return {
+        "live": {"queued": 0, "running": 0},
+        "background": {"queued": 0, "running": 0},
+        "native_work_pending": False,
+        "worker_pools": {
+            "live": {
+                "last_exit_reason": "native_runtime_quarantined",
+                "last_runtime_recovery": {"status": "recovered"},
+                "runtime": runtime,
+                "native_cpu_recovery": {
+                    "status": "degraded",
+                    "reason": "native_crash_same_model_cpu",
+                    "recovered": True,
+                    "model_id": "bird-model",
+                    "runtime": runtime,
+                },
+            }
+        },
+    }
+
+
+@pytest.mark.parametrize("provider", ["cpu", "intel_cpu", "tflite"])
+def test_idle_validated_cpu_recovery_allows_garden_without_releasing_accelerator_quarantine(
+    idle_cpu_recovery, provider
+):
+    status = idle_cpu_recovery
+    pool = status["worker_pools"]["live"]
+    pool["native_cpu_recovery"]["runtime"]["active_provider"] = provider
+    assert not bird_work_pending(status)
+    assert pool["last_exit_reason"] == "native_runtime_quarantined"
+    assert pool["last_runtime_recovery"]["status"] == "recovered"
+
+
+@pytest.mark.parametrize(
+    "reason", ["missing", "failed", "recovering", "unproven", "accelerator", "different_model", "no_digest"]
+)
+def test_quarantined_bird_pool_still_blocks_garden_without_a_proven_cpu_result(idle_cpu_recovery, reason):
+    pool = idle_cpu_recovery["worker_pools"]["live"]
+    state = pool["native_cpu_recovery"]
+    if reason == "missing":
+        del pool["native_cpu_recovery"]
+    elif reason in {"failed", "recovering"}:
+        state["status"] = reason
+    elif reason == "unproven":
+        state["recovered"] = False
+    elif reason == "accelerator":
+        state["runtime"]["active_provider"] = "intel_npu"
+    elif reason == "different_model":
+        state["model_id"] = "different-bird-model"
+    else:
+        state["runtime"]["model_sha256"] = None
+    assert bird_work_pending(idle_cpu_recovery)
+
+
+@pytest.mark.parametrize(
+    "kind", ["live_queued", "background_running", "native", "pool_busy", "circuit", "failed", "recovering"]
+)
+def test_recovered_cpu_evidence_never_overrides_bird_work_or_an_unsafe_worker_state(idle_cpu_recovery, kind):
+    if kind == "live_queued":
+        idle_cpu_recovery["live"]["queued"] = 1
+    elif kind == "background_running":
+        idle_cpu_recovery["background"]["running"] = 1
+    elif kind == "native":
+        idle_cpu_recovery["native_work_pending"] = True
+    else:
+        pool = idle_cpu_recovery["worker_pools"]["live"]
+        if kind in {"failed", "recovering"}:
+            pool["last_runtime_recovery"]["status"] = kind
+        else:
+            pool["busy" if kind == "pool_busy" else "circuit_open"] = True
+    assert bird_work_pending(idle_cpu_recovery)
+
+
 @pytest.mark.asyncio
 async def test_worker_is_reaped_before_yielding_to_a_bird():
     from app.services.garden_identification import supervise_worker, GardenBusy
@@ -119,6 +195,28 @@ def test_garden_reads_both_bird_supervisors_without_constructing_classifier(monk
     assert classifier_service.garden_inference_pressure()["native_work_pending"]
     monkeypatch.setattr(classifier_service, "_classifier_instance", None)
     assert classifier_service.garden_inference_pressure() is None
+
+
+@pytest.mark.parametrize("pending", [False, True])
+def test_garden_pressure_also_observes_cpu_recovery_work_and_cleanup(monkeypatch, pending):
+    from types import SimpleNamespace
+    from app.services import classifier_service
+
+    # Supervisors are stored in a set, so use an ordinary hashable object.
+    class Supervisor:
+        def has_native_work(self):
+            return False
+
+    idle_supervisor = Supervisor()
+    service = SimpleNamespace(
+        _image_execution_mode="subprocess",
+        _classifier_supervisor=idle_supervisor,
+        _video_supervisor=idle_supervisor,
+        _native_cpu_recovery=SimpleNamespace(has_native_work=lambda: pending),
+        get_admission_status=lambda: {"live": {}, "background": {}},
+    )
+    monkeypatch.setattr(classifier_service, "_classifier_instance", service)
+    assert classifier_service.garden_inference_pressure()["native_work_pending"] is pending
 
 
 @pytest.mark.asyncio

@@ -62,6 +62,27 @@ def normalize_country(value: str | None) -> str | None:
         return None
 
 
+def _has_recovered_cpu(pool: dict) -> bool:
+    state = pool.get("native_cpu_recovery")
+    if not isinstance(state, dict):
+        return False
+    runtime = state.get("runtime")
+    if not isinstance(runtime, dict):
+        return False
+    model_id = state.get("model_id")
+    return (
+        state.get("status") == "degraded"
+        and state.get("reason") == "native_crash_same_model_cpu"
+        and state.get("recovered") is True
+        and isinstance(model_id, str)
+        and bool(model_id)
+        and runtime.get("model_id") == model_id
+        and isinstance(runtime.get("model_sha256"), str)
+        and bool(runtime.get("model_sha256"))
+        and runtime.get("active_provider") in {"cpu", "intel_cpu", "tflite"}
+    )
+
+
 def bird_work_pending(status: dict | None) -> bool:
     if status is None:
         return True
@@ -76,7 +97,7 @@ def bird_work_pending(status: dict | None) -> bool:
     return any(
         pool.get("busy")
         or pool.get("circuit_open")
-        or pool.get("last_exit_reason") == "native_runtime_quarantined"
+        or (pool.get("last_exit_reason") == "native_runtime_quarantined" and not _has_recovered_cpu(pool))
         or (pool.get("last_runtime_recovery") or {}).get("status") in {"recovering", "failed"}
         for pool in status.get("worker_pools", {}).values()
         if isinstance(pool, dict)

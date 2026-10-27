@@ -141,6 +141,29 @@ async def test_pending_detector_crop_is_checked_without_an_owner_click_and_rejec
 
 
 @pytest.mark.asyncio
+async def test_completed_idle_cpu_recovery_does_not_starve_automatic_garden_checks(context, monkeypatch):
+    c = context
+    runtime = {"active_provider": "intel_cpu", "model_id": "bird-model", "model_sha256": "a" * 64}
+    pool = {
+        "last_exit_reason": "native_runtime_quarantined",
+        "last_runtime_recovery": {"status": "recovered"},
+        "native_cpu_recovery": {
+            "status": "degraded",
+            "reason": "native_crash_same_model_cpu",
+            "recovered": True,
+            "model_id": "bird-model",
+            "runtime": runtime,
+        },
+    }
+    pressure = {"live": {}, "background": {}, "native_work_pending": False, "worker_pools": {"live": pool}}
+    monkeypatch.setattr(c.module, "garden_inference_pressure", lambda: pressure)
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).status == "dismissed"
+    c.native.assert_awaited_once()
+    assert pool["last_exit_reason"] == "native_runtime_quarantined"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "mass",
     [

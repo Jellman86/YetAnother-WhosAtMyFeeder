@@ -1933,6 +1933,10 @@ def garden_inference_pressure() -> dict | None:
         if supervisor is not None
     }
     status["native_work_pending"] = not supervisors or any(supervisor.has_native_work() for supervisor in supervisors)
+    recovery = getattr(service, "_native_cpu_recovery", None)
+    if recovery is not None:
+        pending = getattr(recovery, "has_native_work", None)
+        status["native_work_pending"] = status["native_work_pending"] or not callable(pending) or pending()
     return status
 
 

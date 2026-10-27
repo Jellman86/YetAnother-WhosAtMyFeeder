@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden collection and automatic checks resume during idle periods after bird
+  classification successfully recovers on CPU. The failed accelerator profile
+  stays quarantined. Active bird work, recovery, shutdown and unconfirmed native
+  cleanup continue to pause Garden work.
+
 - Garden history updates in an open Explorer as soon as a Frigate event or motion
   scan saves a new capture, including while automatic identification is waiting.
   Later Frigate revocations also refresh the view and remove an open revoked

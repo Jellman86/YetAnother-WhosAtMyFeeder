@@ -147,6 +147,12 @@ beta. Checks you start from a Garden capture in the Explorer use the device you 
 fail rather than silently switch devices. Automatic naming and species suggestions need a
 country in **Settings → Location**; the view says when it is missing.
 
+If bird classification recovers successfully on its isolated CPU fallback, Garden
+can use idle periods again. The bird pipeline remains visibly degraded and its
+failed accelerator profile stays quarantined. Queued or running bird work, active
+CPU recovery, shutdown, unfinished native cleanup and camera pressure still pause
+Garden. This does not change which devices qualify for Garden's own models.
+
 **Where captures go** in the same view summarises the outcomes:
 
 - **Needs review**: checks waiting to run or retry, missing country/catalogue identity,
