@@ -40,6 +40,19 @@ describe('buildReviewQueue', () => {
         expect(queue.items.map((item) => item.frigate_event)).toEqual(['unknown', 'weak']);
     });
 
+    it('accepts confident whole-view names while keeping low-confidence whole-view names for review', () => {
+        const queue = buildReviewQueue([
+            detection({ frigate_event: 'confident-whole', display_name: 'Dunnock', score: 0.8688878715,
+                classification_input: { source: 'full_frame', is_cropped: false } }),
+            detection({ frigate_event: 'weak-whole', score: 0.59,
+                classification_input: { source: 'full_frame', is_cropped: false } }),
+            detection({ frigate_event: 'owner-whole', score: 0.2, manual_tagged: true,
+                classification_input: { source: 'full_frame', is_cropped: false } })
+        ]);
+        expect(queue.items.map(item => item.frigate_event)).toEqual(['weak-whole']);
+        expect(queue.reasons.get('weak-whole')).toBe('low_score');
+    });
+
     it('puts the longest-waiting detection first so the backlog drains from the back', () => {
         const queue = buildReviewQueue([
             detection({

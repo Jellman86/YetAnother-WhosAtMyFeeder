@@ -8,12 +8,12 @@ def test_missing_evidence_stays_unknown_and_frigate_labels_are_not_model_identif
     assert classification_evidence({"label": "Robin", "score": 0.9}) is None
     evidence = classification_evidence({"source": "frigate_fallback", "input_source": "full_frame"})
     assert evidence.source == "frigate_sublabel"
-    assert not evidence.needs_review
+    assert not evidence.is_whole_view
 
 
-def test_whole_view_identification_needs_review_even_at_high_confidence():
+def test_whole_view_identification_is_recorded_and_never_personalizes():
     evidence = classification_evidence({"input_source": "frigate_recording_snapshot", "input_is_cropped": False})
-    assert evidence.needs_review
+    assert evidence.is_whole_view
     assert not evidence.can_personalize
 
 
@@ -29,7 +29,7 @@ def test_crop_coordinates_require_their_own_frame_geometry():
     )
     assert evidence.box == (20, 30, 90, 100)
     assert evidence.frame_size == (200, 150)
-    assert not evidence.needs_review
+    assert not evidence.is_whole_view
     assert evidence.can_personalize
     assert classification_evidence({"input_source": "provided_crop", "input_is_cropped": True}).box is None
 
@@ -62,4 +62,4 @@ def test_unknown_source_does_not_claim_a_crop():
     evidence = classification_evidence({"input_source": "future_unknown_source"})
     assert evidence.is_cropped is None
     assert not evidence.can_personalize
-    assert classification_evidence({"input_source": "full_frame"}).needs_review
+    assert classification_evidence({"input_source": "full_frame"}).is_whole_view

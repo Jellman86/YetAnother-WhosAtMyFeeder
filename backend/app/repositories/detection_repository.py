@@ -1602,7 +1602,7 @@ class DetectionRepository:
             ) as cursor:
                 row = await cursor.fetchone()
             evidence = _parse_classification_input(row[0]) if row else None
-            if evidence is not None and evidence.needs_review:
+            if evidence is not None and evidence.is_whole_view:
                 return False
 
         if not camera_name or not model_id or not predicted_label or not corrected_label:

@@ -50,7 +50,7 @@ async def test_whole_view_evidence_never_becomes_personalization_feedback_after_
         await repo.confirm_manual_species_tag(frigate_event=first.frigate_event)
         current = await repo.get_by_frigate_event(first.frigate_event)
         assert current.classification_input.source == "owner_species_choice"
-        assert current.initial_classification_input.needs_review
+        assert current.initial_classification_input.is_whole_view
         assert not await repo.insert_classification_feedback(
             frigate_event=first.frigate_event,
             camera_name="birdcam",

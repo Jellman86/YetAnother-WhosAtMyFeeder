@@ -167,7 +167,11 @@ async def test_visit_api_and_expansion_return_complete_visible_membership(repo, 
 
 
 @pytest.mark.asyncio
-async def test_confident_whole_view_visit_still_needs_review(repo, monkeypatch):
+@pytest.mark.parametrize(
+    "score,manual,needs_review",
+    [(0.8688878715, False, False), (0.6, False, False), (0.59, False, True), (0.2, True, False)],
+)
+async def test_whole_view_visit_uses_confidence_and_owner_decisions(repo, monkeypatch, score, manual, needs_review):
     import httpx
     from unittest.mock import AsyncMock
     from app.config import settings
@@ -176,26 +180,23 @@ async def test_confident_whole_view_visit_still_needs_review(repo, monkeypatch):
 
     monkeypatch.setattr(settings.auth, "enabled", False)
     monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings.classification, "threshold", 0.6)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
     event = await capture(repo, 0, 0)
     await repo.db.execute(
-        """UPDATE detections SET score=0.99,
+        """UPDATE detections SET score=?, manual_tagged=?,
         classification_input_json='{"source":"full_frame","is_cropped":false}' WHERE frigate_event=?""",
-        (event,),
+        (score, manual, event),
     )
     await repo.db.commit()
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
         assert response.status_code == 200, response.text
-        assert response.json()["visits"][0]["needs_review"] is True
-        await repo.db.execute(
-            """UPDATE detections SET manual_tagged=1,
-            classification_input_json='{"source":"owner_species_choice"}' WHERE frigate_event=?""",
-            (event,),
-        )
-        await repo.db.commit()
-        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
-        assert response.json()["visits"][0]["needs_review"] is False
+        visit = response.json()["visits"][0]
+        assert visit["needs_review"] is needs_review
+        assert visit["owner_confirmed"] is manual
+        assert visit["representative"]["classification_input"]["source"] == "full_frame"
+        assert visit["representative"]["classification_input"]["is_cropped"] is False
 
 
 @pytest.mark.asyncio
