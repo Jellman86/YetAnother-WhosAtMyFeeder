@@ -58,9 +58,10 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 // on a live install that burst alone produced a dozen 300 to 650 ms waits.
 const speciesInfoGate = createSlotGate(3);
 
-export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal): Promise<SpeciesInfo> {
+export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal, scientificName?: string): Promise<SpeciesInfo> {
     return speciesInfoGate.run(async () => {
-        const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`, {
+        const query = scientificName ? `?${new URLSearchParams({ scientific_name: scientificName })}` : '';
+        const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info${query}`, {
             signal,
             timeoutMs: 15_000
         });

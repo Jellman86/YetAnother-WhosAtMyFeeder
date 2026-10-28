@@ -701,6 +701,12 @@ Notes:
   JPEG/PNG originals and oversized reference thumbnails use a supported 960-pixel rendition;
   smaller renditions and other providers retain their URLs. This also applies to older cache
   rows without a catalogue refresh or database write.
+  An optional `scientific_name` (1–200 characters) binds a reference to that exact
+  taxon. Garden uses this to avoid ambiguous common-name bird searches. These
+  lookups use Wikipedia and iNaturalist, require the scientific identity in the
+  article or exact active taxon name, and have a separate language/identity cache.
+  They never reuse name-only cached articles. If neither source matches, text
+  and photographs stay unavailable. `refresh=true` bypasses either cache.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)

@@ -4812,6 +4812,7 @@ export interface paths {
 };
       query: {
     refresh?: boolean;
+    scientific_name?: string | null;
 };
       requestBody: unknown;
       response: components['schemas']['SpeciesInfo'];
