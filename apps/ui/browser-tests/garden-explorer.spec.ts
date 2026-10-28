@@ -280,6 +280,41 @@ for (const [provider, device] of [['cpu', 'CPU'], ['intel_npu', 'NPU']] as const
     });
 }
 
+test('confirmed visit dismissal sends only the displayed review snapshots and offers return to review', async ({ page }) => {
+    const { garden, errors } = await openExplorer(page, '&garden=1', true);
+    const first = garden[0];
+    first.id = '1'.repeat(32);
+    Object.assign(first, { review_token: 'a'.repeat(64) });
+    const second = capture('2'.repeat(32), new Date(Date.parse(first.observed_at) + 7_000).toISOString(), 'confirmed', 'Red fox');
+    Object.assign(second, { review_token: 'b'.repeat(64) });
+    garden.push(second);
+    let submitted: unknown = null;
+    let release = (): void => {};
+    const complete = new Promise<void>((resolve) => { release = resolve; });
+    await page.route('**/api/garden/dismiss-captures', async route => {
+        submitted = route.request().postDataJSON();
+        await complete;
+        garden.splice(garden.indexOf(first), 1);
+        garden.splice(garden.indexOf(second), 1);
+        return route.fulfill({ json: { updated_ids: [first.id, second.id], skipped_count: 0 } });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.locator('[data-garden-capture-modal]');
+    await dialog.getByRole('button', { name: 'Dismiss 2 captures in this visit' }).click();
+    try {
+        await expect(dialog).toHaveAttribute('aria-busy', 'true');
+        await page.keyboard.press('Escape');
+        await expect(dialog).toBeVisible();
+    } finally { release(); }
+    expect(submitted).toEqual({ captures: [
+        { id: first.id, review_token: 'a'.repeat(64) }, { id: second.id, review_token: 'b'.repeat(64) }
+    ] });
+    await expect(dialog).toBeHidden();
+    await expect(page.locator('[data-explorer-garden-undo]').getByRole('button', { name: 'Return captures to review' })).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
 for (const knownIdentity of [true, false]) {
     test(`a dog's reference is bound to its catalogue identity (${knownIdentity ? 'known' : 'unavailable'})`, async ({ page }) => {
         await page.setViewportSize({ width: 390, height: 1000 });

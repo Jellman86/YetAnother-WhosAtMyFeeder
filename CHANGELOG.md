@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Confirmed Garden visits with up to 128 captures can be dismissed together.
+  Only the loaded, unchanged reviews are affected; later captures and concurrent
+  corrections are kept. Explorer offers **Return captures to review**, which
+  restores available photos without automatically confirming their animal or name.
+
 - Garden reference photographs and species summaries now use the animal's
   scientific identity. A Domestic Dog no longer gets the Cessna Bird Dog's
   aircraft photograph and article from a bird-only common-name search. Old

@@ -3885,7 +3885,13 @@
       "motion_crop": "根据运动录像中的动物裁剪命名",
       "tracked_crop": "根据快照中 Frigate 跟踪的动物命名",
       "whole_image": "根据整张照片命名，因此可能并非指某一只动物"
-    }
+    },
+    "visit_dismiss": "忽略本次到访的 {count} 张照片",
+    "visit_dismiss_help": "一起忽略这些照片。加载后已修改的记录和新增记录将保留。只要照片仍可用，就可以将忽略的记录退回待审核。",
+    "visit_dismiss_limit": "超过 128 张照片的到访需要逐张忽略。",
+    "visit_dismiss_reload": "一起忽略前，请重新加载本次到访的照片。",
+    "visit_return": "将照片退回待审核",
+    "visit_return_help": "退回待审核不会重新确认动物出现或物种名称。被忽略的照片可能会为新照片腾出空间。"
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

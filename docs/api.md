@@ -395,6 +395,16 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   identification, deletes photos, or applies to future captures.
 - `POST /api/garden/{capture_id}/confirm` — move to confirmed history; no body.
   A known unavailable photo returns `409` without changing the review.
+- `POST /api/garden/dismiss-captures` — owner-only explicit dismissal, including confirmed
+  captures. Send `captures: [{"id": "<32 hex characters>", "review_token": "<64 hex characters>"}]`,
+  with 1–128 unique IDs and the opaque `review_token` from each capture response.
+  Only unchanged pending or confirmed reviews are dismissed; changed, blocked, missing
+  and already-dismissed captures are skipped. Returns `updated_ids` in request order and
+  `skipped_count`. Later arrivals are unaffected. History and original model results
+  remain, with species review marked dismissed; saved crop previews are removed as on
+  single-capture dismissal. A successful change refreshes other owner sessions after commit.
+  Returning these captures through `review-batch` with `restore` means pending review,
+  not reconfirmed presence or species. No batch confirmation is offered.
 - `POST /api/garden/{capture_id}/dismiss` — dismiss a false detection; no body.
 - `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
   Frigate captures require an advertised snapshot; motion captures require an

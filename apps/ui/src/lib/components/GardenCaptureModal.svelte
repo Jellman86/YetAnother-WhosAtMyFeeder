@@ -23,6 +23,7 @@
         identifyGarden,
         reviewGarden,
         reviewGardenBatch,
+        dismissGardenCaptures,
         reviewGardenIdentification,
         type GardenCapture,
         type GardenIdentificationStatus,
@@ -59,7 +60,7 @@
         onchanged: (capture: GardenCapture) => void;
         onselect?: (capture: GardenCapture) => void;
         /** Photos dismissed together, for the page to offer Undo. */
-        ongroupdismissed?: (ids: string[], skipped: number) => void;
+        ongroupdismissed?: (ids: string[], skipped: number, restoreMode?: 'review') => void;
     }
     let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
 
@@ -72,6 +73,8 @@
     let mediaHeight = $state(0);
     let peekCapture = $state<string | null>(null);
     let saving = $state(false);
+    const canDismissVisit = $derived(groupTotal <= 128 && groupTotal === group.length
+        && group.every((item) => item.status === 'confirmed' && item.review_token));
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
@@ -299,6 +302,23 @@
         }
     }
 
+    async function dismissVisit(): Promise<void> {
+        if (saving || groupLoading || !canDismissVisit) return;
+        const targets = group.flatMap((item) => item.review_token ? [{ id: item.id, review_token: item.review_token }] : []);
+        clearPhotoCheck();
+        saving = true;
+        error = null;
+        try {
+            const result = await dismissGardenCaptures(targets);
+            ongroupdismissed?.(result.updated_ids, result.skipped_count, 'review');
+        } catch (failure) {
+            error = getErrorMessage(failure);
+            toastStore.error(error);
+        } finally {
+            saving = false;
+        }
+    }
+
     async function checkPhoto(): Promise<void> {
         const source = capture.motion_source;
         const frame = size;
@@ -330,7 +350,7 @@
 
     function onkeydown(event: KeyboardEvent): void {
         // The photo check sits above the record and closes first.
-        if (event.key === 'Escape' && !photoCheckOpen) {
+        if (event.key === 'Escape' && !photoCheckOpen && !saving) {
             event.preventDefault();
             if (showingWhole) peek.reset();
             else onclose();
@@ -646,6 +666,19 @@
                             <button type="button" class="btn btn-secondary min-h-11 w-full whitespace-normal px-4 py-2" disabled={saving} onclick={dismissGroup}>
                                 {$_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: groupTotal } })}
                             </button>
+                        </div>
+                    {/if}
+                    {#if groupKind === 'visit' && groupTotal > 1 && capture.status === 'confirmed'}
+                        <div class="space-y-2 border-t border-line-soft pt-3" data-garden-visit-dismiss>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.visit_dismiss_help', { default: 'Dismiss these captures together. Captures changed since loading and later arrivals are kept. You can return dismissed photos to review while their photos remain.' })}</p>
+                            <button type="button" class="btn btn-ghost min-h-11 w-full whitespace-normal px-4 py-2" disabled={saving || groupLoading || !canDismissVisit} onclick={dismissVisit}>
+                                {$_('garden.visit_dismiss', { default: 'Dismiss {count} captures in this visit', values: { count: groupTotal } })}
+                            </button>
+                            {#if !canDismissVisit}
+                                <p class="text-xs text-slate-600 dark:text-slate-400">{groupTotal > 128
+                                    ? $_('garden.visit_dismiss_limit', { default: 'Visits with more than 128 captures must be dismissed one capture at a time.' })
+                                    : $_('garden.visit_dismiss_reload', { default: 'Load this visit’s captures again before dismissing them together.' })}</p>
+                            {/if}
                         </div>
                     {/if}
                 </div>

@@ -41,6 +41,12 @@ export async function reviewGardenBatch(ids: string[], action: 'dismiss' | 'rest
     }));
 }
 
+export async function dismissGardenCaptures(captures: components['schemas']['GardenDismissTarget'][]): Promise<components['schemas']['GardenBatchReviewResponse']> {
+    return handleResponse<components['schemas']['GardenBatchReviewResponse']>(await apiFetch(`${API_BASE}/garden/dismiss-captures`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ captures }), timeoutMs: 15000
+    }));
+}
+
 export async function reviewGarden(id: string, action: 'confirm' | 'dismiss' | 'restore'): Promise<GardenCapture> {
     const response = await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/${action}`, { method: 'POST', timeoutMs: 15000 });
     return handleResponse<GardenCapture>(response);

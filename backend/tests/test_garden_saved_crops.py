@@ -107,6 +107,23 @@ async def test_confirmed_crop_survives_full_photo_expiry_but_not_person_revocati
 
 
 @pytest.mark.asyncio
+async def test_explicit_dismissal_removes_the_saved_crop_but_keeps_the_capture(captured):
+    original, image = captured
+    evidence, cropped = crop(image, original)
+    evidence = evidence.model_copy(
+        update={"source_start": original.motion_source.clip_start, "source_end": original.motion_source.clip_end}
+    )
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert await repo.save_crop(original, evidence, cropped)
+        # Collecting optional crop evidence must not invalidate an owner's review snapshot.
+        assert await repo.dismiss_captures([(original.id, original.review_token)]) == [original.id]
+        assert await repo.crop_photo(original.id) is None
+        assert (await repo.get(original.id)).status == "dismissed"
+        assert await repo.motion_photo(original.id) is not None
+
+
+@pytest.mark.asyncio
 async def test_person_update_after_restart_refreshes_a_revoked_saved_crop_even_with_collection_disabled(
     captured, monkeypatch
 ):

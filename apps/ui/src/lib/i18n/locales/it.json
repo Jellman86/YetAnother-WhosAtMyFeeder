@@ -3885,7 +3885,13 @@
       "motion_crop": "Denominato dal ritaglio dell’animale nel filmato di movimento",
       "tracked_crop": "Denominato dall’animale tracciato da Frigate nell’istantanea",
       "whole_image": "Denominato dall’intera foto, quindi potrebbe non riferirsi a un solo animale"
-    }
+    },
+    "visit_dismiss": "Scarta {count} acquisizioni di questa visita",
+    "visit_dismiss_help": "Scarta queste acquisizioni insieme. Quelle modificate dopo il caricamento e quelle successive vengono conservate. Le foto scartate possono tornare in revisione finché sono disponibili.",
+    "visit_dismiss_limit": "Le visite con più di 128 acquisizioni devono essere scartate una acquisizione alla volta.",
+    "visit_dismiss_reload": "Ricarica le acquisizioni di questa visita prima di scartarle insieme.",
+    "visit_return": "Riporta le acquisizioni in revisione",
+    "visit_return_help": "Tornare in revisione non conferma nuovamente la presenza o la specie. Le foto scartate possono lasciare spazio a nuove acquisizioni."
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",
