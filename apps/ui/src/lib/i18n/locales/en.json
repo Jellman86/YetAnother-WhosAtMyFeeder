@@ -3868,7 +3868,9 @@
       "details": "Details",
       "source": "Source",
       "status_automatic": "Confirmed and named automatically",
-      "status_confirmed": "Animal and species confirmed by you"
+      "status_confirmed": "Animal and species confirmed by you",
+      "capture_actions": "Open a capture to review it on its own photo.",
+      "capture_motion": "Motion footage"
     },
     "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "confirm_manually": "Confirm animal manually",

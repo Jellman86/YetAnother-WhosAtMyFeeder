@@ -23,6 +23,20 @@ async function open(page: Page, query: string) {
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
+        if (url.pathname === '/api/garden/visits/fox/captures') {
+            captureReads.push('garden:fox');
+            const items = Array.from({ length: 4 }, (_, index) => ({
+                id: index === 0 ? 'fox' : `fox-${index}`, camera: 'patio', frigate_label: 'fox',
+                observed_at: new Date(Date.parse('2026-10-02T10:30:00Z') - index * 5000).toISOString(),
+                status: 'confirmed', reviewed_at: null, snapshot_url: `/api/garden/fox-${index}/snapshot`,
+                scientific_name: 'Vulpes vulpes',
+                identification: { outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: true,
+                    name: 'Red Fox', rank: 'species', score: 0.93, country: 'GBR', variant: '4.0.3b',
+                    provider: 'cpu', devices: ['cpu'], output_index: 3, input_kind: 'whole_image',
+                    frame_size: [1920, 1080], identified_at: '2026-10-02T10:31:00Z' }
+            }));
+            return route.fulfill({ json: { items, total: 4, offset: 0, limit: 20 } });
+        }
         const match = url.pathname.match(/\/api\/visits\/([^/]+)\/captures$/);
         if (match) {
             captureReads.push(match[1]);
@@ -405,3 +419,27 @@ test('a Garden read failure is stated beside the birds instead of implying a qui
         'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
     );
 });
+
+
+for (const width of [390, 1280]) {
+    test(`Garden field-log capture details open the selected photo at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 });
+        if (width === 390) await page.emulateMedia({ reducedMotion: 'reduce' });
+        const { captureReads, errors } = await open(page, `?garden=1&cameras=two${width === 390 ? '&theme=dark' : ''}`);
+        const fox = page.locator('[data-field-log-garden="fox"]');
+        expect(captureReads).toEqual([]);
+        await fox.locator('[data-garden-visit-captures-toggle]').click();
+        await expect(fox.locator('[data-garden-visit-capture]')).toHaveCount(4);
+        const chosen = fox.locator('[data-garden-visit-capture="fox-2"]');
+        await expect(chosen.locator('time')).toHaveText('11:29:50');
+        await expect(chosen).toContainText('Vulpes vulpes');
+        await chosen.getByRole('button').focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:fox:fox-2');
+        expect(captureReads).toEqual(['garden:fox']);
+        await noHorizontalOverflow(page);
+        expect(errors).toEqual([]);
+        await page.screenshot({ path: testInfo.outputPath(`garden-capture-details-${width}.png`), fullPage: true });
+        if (shots) await page.screenshot({ path: `${shots}/garden-capture-details-${width}.png`, fullPage: true });
+    });
+}

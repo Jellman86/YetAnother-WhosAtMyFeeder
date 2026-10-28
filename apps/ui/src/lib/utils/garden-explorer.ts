@@ -222,3 +222,21 @@ export function gardenVisitLabel(visit: GardenVisit | undefined, t: Translate): 
         ? t('garden.explorer.group_photos', '{count} photos, same position', { count })
         : t('garden.explorer.visit_captures', '{count} captures in this visit', { count });
 }
+
+/** What one capture inside an expanded Garden visit says beside its time, as a bird capture does. */
+export interface GardenCaptureFacts {
+    /** The capture the visit uses as its photograph, so the list can be read against the row. */
+    shown: boolean;
+    /** Proposed from retained motion footage rather than a Frigate event. */
+    motion: boolean;
+    /** What this capture still needs from a person, if anything. */
+    review: GardenEntryView['review'];
+}
+
+export function gardenCaptureFacts(capture: GardenCapture, visit: GardenVisit): GardenCaptureFacts {
+    return {
+        shown: capture.id === visit.items[0]?.id,
+        motion: capture.source_kind === 'motion',
+        review: gardenEntryView(capture).review
+    };
+}

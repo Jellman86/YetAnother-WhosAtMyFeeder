@@ -3868,7 +3868,9 @@
       "details": "詳細",
       "source": "出典",
       "status_automatic": "自動で確認・命名済み",
-      "status_confirmed": "動物と種をあなたが確認済み"
+      "status_confirmed": "動物と種をあなたが確認済み",
+      "capture_actions": "個々の写真を開いて、その写真の判定を確認します。",
+      "capture_motion": "動きを記録した映像"
     },
     "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
     "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",

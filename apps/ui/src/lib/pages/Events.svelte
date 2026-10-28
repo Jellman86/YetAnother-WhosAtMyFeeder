@@ -1449,13 +1449,13 @@
         }
     }
 
-    function openGardenCapture(capture: GardenCapture): void {
+    function openGardenCapture(capture: GardenCapture, visit?: GardenVisit, index = 0): void {
         gardenGroupGeneration++;
         selectedGarden = capture;
-        openedGardenGroup = gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
-        gardenGroupOffset = 0;
+        openedGardenGroup = visit ? { ...visit, items: [capture] } : gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
+        gardenGroupOffset = Math.floor(index / 128) * 128;
         gardenGroupError = null;
-        if (openedGardenGroup) void loadGardenCapturePage(0, false);
+        if (openedGardenGroup) void loadGardenCapturePage(index, false);
     }
 
     function setSubjects(next: ExplorerSubjects): void {
@@ -1464,6 +1464,7 @@
 
     /** A capture after a review: kept where it still belongs, otherwise the next photo of its group opens. */
     function gardenChanged(next: GardenCapture): void {
+        gardenHistory.invalidate();
         gardenGroupGeneration++;
         gardenGroupLoading = false;
         gardenGroupError = null;
@@ -1494,6 +1495,7 @@
     }
 
     function gardenGroupDismissed(ids: string[], skipped: number): void {
+        gardenHistory.invalidate();
         const removed = new Set(ids);
         gardenItems = (gardenItems ?? []).filter((item) => !removed.has(item.id));
         gardenUndo = { ids, skipped };
@@ -2068,7 +2070,7 @@
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
                     {:else if entry.kind === 'garden'}
-                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} onopen={openGardenCapture} />
+                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -2099,7 +2101,7 @@
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
                     {:else if entry.kind === 'garden'}
-                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} onopen={openGardenCapture} /></div>
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}

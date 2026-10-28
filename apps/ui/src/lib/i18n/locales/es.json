@@ -3868,7 +3868,9 @@
       "details": "Detalles",
       "source": "Fuente",
       "status_automatic": "Confirmado y nombrado automáticamente",
-      "status_confirmed": "Animal y especie confirmados por ti"
+      "status_confirmed": "Animal y especie confirmados por ti",
+      "capture_actions": "Abre una captura para revisarla en su propia foto.",
+      "capture_motion": "Grabación de movimiento"
     },
     "automatic_animal_manual": "Animal detectado. El nombrado automático está desactivado o este resultado anterior espera una nueva comprobación.",
     "automatic_below_threshold": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",

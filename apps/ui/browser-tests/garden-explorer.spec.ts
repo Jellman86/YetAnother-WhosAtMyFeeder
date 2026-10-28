@@ -33,6 +33,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
     const visits = [bird('morning', hoursAgo(1)), bird('night', hoursAgo(5))];
     const garden = [capture('fox', hoursAgo(3), 'confirmed', 'Red fox', cropped ? [0.05, 0.1, 0.2, 0.3] : undefined), capture('cat', hoursAgo(0.5), 'pending')];
     const timelineQueries: URLSearchParams[] = [];
+    const captureQueries: URLSearchParams[] = [];
     const confirmed: string[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
@@ -47,6 +48,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
         }
         if (path === '/api/garden/visits' || (path.startsWith('/api/garden/visits/') && path.endsWith('/captures'))) {
             if (!path.endsWith('/captures')) timelineQueries.push(url.searchParams);
+            else captureQueries.push(url.searchParams);
             return route.fulfill({ json: gardenVisitResponse(garden, url) });
         }
         if (path === '/api/garden/identification') {
@@ -68,7 +70,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
     });
     await page.goto(`/browser-tests/owner-history.html?surface=explorer${query}`);
     await expect(page.locator('[data-explorer-visit="morning"]')).toBeVisible();
-    return { errors, timelineQueries, confirmed, garden };
+    return { errors, timelineQueries, captureQueries, confirmed, garden };
 }
 
 test('Garden captures sit between the visits they fell between, marked Garden in words', async ({ page }) => {
@@ -335,6 +337,40 @@ for (const width of [390, 1280]) {
 
         await page.screenshot({ path: testInfo.outputPath(`garden-record-${width}.png`), fullPage: true });
         if (shots) await page.screenshot({ path: `${shots}/garden-record-parity-${width}.png` });
+        expect(errors).toEqual([]);
+    });
+}
+
+
+for (const mode of ['cards', 'list']) {
+    test(`Garden ${mode} capture details page independently and open the exact selected photo`, async ({ page }) => {
+        const { garden, errors, captureQueries } = await openExplorer(page, '&garden=1');
+        const at = Date.parse(garden[0].observed_at);
+        garden.splice(0, 1, ...Array.from({ length: 26 }, (_, index) => capture(
+            (index + 1).toString(16).padStart(32, '0'), new Date(at + index * 1000).toISOString(), 'confirmed', 'Red fox'
+        )).map(item => ({ ...item, crop_url: `/api/garden/${item.id}/crop` })));
+        await page.reload();
+        if (mode === 'list') await page.locator('[data-explorer-view-toggle="list"]').click();
+        expect(captureQueries).toHaveLength(0);
+        const toggle = page.locator('[data-garden-visit-captures-toggle]');
+        await toggle.focus();
+        await page.keyboard.press('Enter');
+        const panelId = await toggle.getAttribute('aria-controls');
+        const panel = page.locator(`[id="${panelId}"]`);
+        await expect(panel).toBeVisible();
+        await expect(panel.locator('[data-garden-visit-capture]')).toHaveCount(20);
+        expect(captureQueries[0].get('limit')).toBe('20');
+        await panel.getByRole('button', { name: 'Load more captures', exact: true }).click();
+        await expect(panel.locator('[data-garden-visit-capture]')).toHaveCount(26);
+        expect(captureQueries[1].get('offset')).toBe('20');
+        const chosen = panel.locator('[data-garden-visit-capture]').nth(23);
+        const chosenId = await chosen.getAttribute('data-garden-visit-capture');
+        await expect(chosen.locator('time')).toHaveText(/\d{2}:\d{2}:\d{2}/);
+        await chosen.getByRole('button').click();
+        const modal = page.locator('[data-garden-capture-modal]');
+        await expect(modal).toBeVisible();
+        await expect(modal.locator(`[data-garden-capture-choice="${chosenId}"]`)).toHaveAttribute('aria-pressed', 'true');
+        await expect(modal.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${chosenId}/crop`));
         expect(errors).toEqual([]);
     });
 }

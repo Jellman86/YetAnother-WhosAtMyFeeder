@@ -3868,7 +3868,9 @@
       "details": "详情",
       "source": "来源",
       "status_automatic": "已自动确认并命名",
-      "status_confirmed": "动物和物种已由你确认"
+      "status_confirmed": "动物和物种已由你确认",
+      "capture_actions": "打开抓拍，查看并审核对应的照片。",
+      "capture_motion": "移动录像"
     },
     "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
     "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",

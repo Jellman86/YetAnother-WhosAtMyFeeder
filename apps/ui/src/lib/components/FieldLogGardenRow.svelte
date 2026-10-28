@@ -7,21 +7,25 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import GardenPhotoPreview from './GardenPhotoPreview.svelte';
+    import GardenVisitCaptures from './GardenVisitCaptures.svelte';
+    import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
-    import type { GardenServerVisit } from '../api/garden';
+    import type { GardenCapture, GardenServerVisit } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenVisitLabel } from '../utils/garden-explorer';
     import { formatTime } from '../utils/datetime';
 
     interface Props {
         visit: GardenServerVisit;
+        scope?: GardenCaptureScope;
+        oncapture?: (capture: GardenCapture, index: number) => void;
         /** The log's column template, shared so every row lines up. */
         grid: string;
         showCamera: boolean;
         onopen: (visit: GardenServerVisit) => void;
     }
 
-    let { visit, grid, showCamera, onopen }: Props = $props();
+    let { visit, scope, oncapture, grid, showCamera, onopen }: Props = $props();
 
     const translate = (key: string, fallback: string, values?: Record<string, string>): string =>
         get(_)(key, { values, default: fallback });
@@ -100,7 +104,7 @@
                 <span class="break-words" data-field-log-camera>{capture.camera}</span>
             {/if}
             <span class="font-medium {view.review ? 'text-amber-800 dark:text-amber-300' : ''}" data-field-log-garden-state>{text.state}</span>
-            {#if grouped}<span class="font-medium">{grouped}</span>{/if}
+            {#if grouped && !(scope && oncapture)}<span class="font-medium">{grouped}</span>{/if}
         </p>
     </div>
 
@@ -128,4 +132,10 @@
             </button>
         {/if}
     </span>
+    {#if scope && oncapture}
+        <div class="col-[3/-1] min-w-0">
+            <GardenVisitCaptures visit={{ id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [capture] }}
+                {scope} layout="inline" onselect={oncapture} />
+        </div>
+    {/if}
 </li>

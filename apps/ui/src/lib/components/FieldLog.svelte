@@ -3,7 +3,8 @@
     import FieldLogGardenRow from './FieldLogGardenRow.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
     import type { Detection } from '../api';
-    import type { GardenServerVisit } from '../api/garden';
+    import type { GardenCapture, GardenServerVisit } from '../api/garden';
+    import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
     import type { DetectionVisit } from '../utils/visit-grouping';
     import { namesCameras, type FieldLogRow } from '../utils/field-log';
     import { formatTime } from '../utils/datetime';
@@ -33,6 +34,8 @@
         onidentify?: (detection: Detection) => void;
         onplay?: (detection: Detection) => void;
         ongardenopen?: (visit: GardenServerVisit) => void;
+        gardenScope?: GardenCaptureScope;
+        ongardencapture?: (visit: GardenServerVisit, capture: GardenCapture, index: number) => void;
         onseeall?: () => void;
         onretry?: () => void;
     }
@@ -52,6 +55,8 @@
         onidentify,
         onplay,
         ongardenopen,
+        gardenScope,
+        ongardencapture,
         onseeall,
         onretry
     }: Props = $props();
@@ -212,7 +217,8 @@
                         <span class="flex justify-end"></span>
                     </li>
                 {:else if row.kind === 'garden'}
-                    <FieldLogGardenRow visit={row.visit} {grid} {showCamera} onopen={(visit) => ongardenopen?.(visit)} />
+                    <FieldLogGardenRow visit={row.visit} {grid} {showCamera} scope={gardenScope}
+                        onopen={(visit) => ongardenopen?.(visit)} oncapture={ongardencapture ? (capture, index) => ongardencapture?.(row.visit, capture, index) : undefined} />
                 {:else}
                     <FieldLogVisitRow visit={row.visit} {grid} {showCamera} {canIdentify} {onselect} {onidentify} {onplay} />
                 {/if}

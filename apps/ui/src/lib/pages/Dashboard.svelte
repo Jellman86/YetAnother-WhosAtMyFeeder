@@ -57,8 +57,9 @@
     let gardenTotal = $state(0);
     let gardenUnavailable = $state(false);
     let gardenWindow = $state.raw<{ start: string; end: string } | null>(null);
+    const gardenScope = $derived({ start: gardenWindow?.start ?? null, end: gardenWindow?.end, status: 'reviewable' as const });
     const gardenViewer = new GardenVisitViewer(
-        () => ({ start: gardenWindow?.start ?? null, end: gardenWindow?.end, status: 'reviewable' }),
+        () => gardenScope,
         () => $_('garden.save_error', { default: 'Could not save your review. Try again.' })
     );
 
@@ -419,6 +420,7 @@
     });
 
     function gardenGroupDismissed(ids: string[], skipped: number): void {
+        gardenHistory.invalidate();
         gardenViewer.close();
         void loadSummary();
         const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
@@ -676,6 +678,8 @@
                 unavailable={summaryUnavailable}
                 {gardenUnavailable}
                 ongardenopen={(visit) => gardenViewer.open(visit)}
+                {gardenScope}
+                ongardencapture={(visit, capture, index) => gardenViewer.open(visit, { capture, index })}
                 onretry={() => void loadSummary(true)}
                 canIdentify={canReview}
                 onselect={(detection) => selectedEvent = detection}

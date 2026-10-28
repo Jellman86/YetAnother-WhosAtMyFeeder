@@ -107,6 +107,8 @@
         {rows}
         gardenUnavailable={gardenMode === 'failed'}
         ongardenopen={(visit) => (selected = `garden:${visit.id}`)}
+        gardenScope={{ start: '2026-10-02T00:00:00Z', end: '2026-10-03T00:00:00Z', status: 'reviewable' }}
+        ongardencapture={(visit, capture) => (selected = `garden:${visit.id}:${capture.id}`)}
         hiddenCount={phase === 'ready' ? 2 : 0}
         loading={phase === 'loading'}
         unavailable={phase === 'unavailable'}

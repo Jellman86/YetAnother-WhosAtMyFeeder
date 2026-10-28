@@ -3868,7 +3868,9 @@
       "details": "Dettagli",
       "source": "Fonte",
       "status_automatic": "Confermato e denominato automaticamente",
-      "status_confirmed": "Animale e specie confermati da te"
+      "status_confirmed": "Animale e specie confermati da te",
+      "capture_actions": "Apri una cattura per esaminarla nella sua foto.",
+      "capture_motion": "Filmato di movimento"
     },
     "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
     "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",

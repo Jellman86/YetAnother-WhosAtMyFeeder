@@ -7,6 +7,8 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import GardenPhotoPreview from './GardenPhotoPreview.svelte';
+    import GardenVisitCaptures from './GardenVisitCaptures.svelte';
+    import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
@@ -14,10 +16,12 @@
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, visit, onopen }: {
+    let { capture, visit, scope, onopen, oncapture }: {
         capture: GardenCapture;
         /** The stay or position stack this capture leads, opened together. */
         visit?: GardenVisit;
+        scope?: GardenCaptureScope;
+        oncapture?: (capture: GardenCapture, index: number) => void;
         onopen: (capture: GardenCapture) => void;
     } = $props();
 
@@ -93,3 +97,7 @@
         {/if}
     </div>
 </div>
+
+{#if visit && scope && oncapture}
+    <GardenVisitCaptures {visit} {scope} onselect={oncapture} />
+{/if}

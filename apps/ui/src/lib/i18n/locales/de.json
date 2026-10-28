@@ -3868,7 +3868,9 @@
       "details": "Details",
       "source": "Quelle",
       "status_automatic": "Automatisch bestätigt und benannt",
-      "status_confirmed": "Tier und Art von dir bestätigt"
+      "status_confirmed": "Tier und Art von dir bestätigt",
+      "capture_actions": "Öffne eine Aufnahme, um das Tier auf diesem Foto zu prüfen.",
+      "capture_motion": "Bewegungsaufnahme"
     },
     "automatic_animal_manual": "Tier erkannt. Automatische Benennung ist aus oder dieses ältere Ergebnis wartet auf eine neue automatische Prüfung.",
     "automatic_below_threshold": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",

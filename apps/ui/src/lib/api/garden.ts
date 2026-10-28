@@ -98,11 +98,16 @@ export async function fetchGardenVisits(query: GardenVisitQuery, signal?: AbortS
     return handleResponse<GardenVisitPage>(await apiFetch(`${API_BASE}/garden/visits?${params}`, { signal, timeoutMs: 15000 }));
 }
 
-export async function fetchGardenVisitCaptures(id: string, query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>, offset: number): Promise<GardenPage> {
+export async function fetchGardenVisitCaptures(
+    id: string,
+    query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>,
+    offset: number,
+    options: { limit?: number; signal?: AbortSignal } = {}
+): Promise<GardenPage> {
     const params = gardenScope(query);
-    params.set('limit', '128');
+    params.set('limit', String(options.limit ?? 128));
     params.set('offset', String(offset));
-    return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/visits/${encodeURIComponent(id)}/captures?${params}`, { timeoutMs: 15000 }));
+    return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/visits/${encodeURIComponent(id)}/captures?${params}`, { signal: options.signal, timeoutMs: 15000 }));
 }
 
 
