@@ -3,11 +3,11 @@
     import { _ } from 'svelte-i18n';
     import type { GardenCapture } from '../api/garden';
 
-    let { assessment, overridden = false, named = false }: { assessment: NonNullable<GardenCapture['automatic_check']>; overridden?: boolean; named?: boolean } = $props();
+    let { assessment, overridden = false, named = false, terminal = false }: { assessment: NonNullable<GardenCapture['automatic_check']>; overridden?: boolean; named?: boolean; terminal?: boolean } = $props();
 </script>
 
 <div class="space-y-1 text-sm" data-garden-automatic-check>
-    <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.automatic_check', { default: 'Automatic SpeciesNet check' })}</p>
+    <p class="text-3xs font-semibold uppercase tracking-[0.14em] {terminal ? 'text-slate-400' : 'text-slate-500 dark:text-slate-400'}">{$_('garden.automatic_check', { default: 'Automatic SpeciesNet check' })}</p>
     {#if overridden}
         <p>{$_('garden.automatic_overridden', { default: 'Your review overrides this automatic result. This capture will not be checked again automatically.' })}</p>
     {:else if assessment.decision_reason === 'below_threshold'}
@@ -32,7 +32,7 @@
     {:else}
         <p>{$_('garden.automatic_unavailable', { default: 'The automatic check was unavailable. This photo stays in Needs review; checks retry after five minutes while Garden is enabled.' })}</p>
     {/if}
-    <ModelExecutionEvidence execution={assessment.execution ?? (assessment.variant && assessment.devices?.length ? {
+    <ModelExecutionEvidence {terminal} execution={assessment.execution ?? (assessment.variant && assessment.devices?.length ? {
         devices: assessment.devices, checked_at: `${assessment.checked_at}${assessment.checked_at.endsWith('Z') || assessment.checked_at.includes('+') ? '' : 'Z'}`
     } : null)} />
 </div>

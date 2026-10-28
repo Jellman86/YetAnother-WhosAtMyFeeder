@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden capture records now use the bird record's read-only terminal-style
+  details panel, with capture identity, source, saved model/device and retained
+  evidence. Model and accelerator selectors have been removed from records;
+  manual checks follow the Detection device preference. Species summaries are
+  converted from provider HTML into readable text, including older cached text.
+
 - Confirmed Garden visits with up to 128 captures can be dismissed together.
   Only the loaded, unchanged reviews are affected; later captures and concurrent
   corrections are kept. Explorer offers **Return captures to review**, which

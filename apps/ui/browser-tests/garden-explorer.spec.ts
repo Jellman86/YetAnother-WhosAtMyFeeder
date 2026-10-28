@@ -222,17 +222,30 @@ test('a Garden record opens its saved crop before the available original', async
     await expect(page.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${item.id}/crop`));
 });
 
-test('the manual CPU choice does not describe the saved SpeciesNet result', async ({ page }) => {
+test('the record has read-only technical evidence and suggestions follow Detection settings', async ({ page }) => {
     const { garden } = await openExplorer(page, '&garden=1');
     garden[0].identification = null;
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: {
+        country: 'GBR', catalogue_ready: true, busy: false, preferred_provider: 'intel_npu',
+        models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }]
+    } }));
+    let request: unknown = null;
+    await page.route('**/api/garden/*/identify', route => {
+        request = route.request().postDataJSON();
+        return route.fulfill({ json: garden[0] });
+    });
     await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
     await page.getByRole('button', { name: /Open Garden capture: Animal/ }).click();
     const dialog = page.locator('[data-garden-capture-modal]');
     await expect(dialog.getByRole('button', { name: 'Suggest species', exact: true })).toBeVisible();
     await expect(dialog.locator('[data-garden-capture-actions]')).not.toContainText('Runs SpeciesNet');
-    await expect(dialog.locator('[data-garden-capture-model]')).toBeHidden();
     await dialog.locator('[data-garden-capture-details] summary').click();
-    await expect(dialog.locator('[data-garden-capture-model]')).toContainText('New manual suggestion');
+    await expect(dialog.locator('select')).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-model]')).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-details]')).toContainText(garden[0].id);
+    await expect(dialog.locator('[data-garden-capture-details]')).toContainText('yawamf garden show');
+    await dialog.getByRole('button', { name: 'Suggest species', exact: true }).click();
+    expect(request).toEqual({ variant: '4.0.3b', provider: 'intel_npu' });
 });
 
 test('a Garden visit offers selectable crop thumbnails rather than sequential photo buttons', async ({ page }, testInfo) => {
@@ -359,6 +372,7 @@ for (const width of [390, 1280]) {
         const fox = garden[0];
         if (!fox.identification) throw new Error('Expected a saved identification');
         fox.identification.automatic = true;
+        Object.assign(fox.identification, { model_sha256: 'a'.repeat(64), package_sha256: 'b'.repeat(64), image_sha256: 'c'.repeat(64) });
         Object.assign(fox, { scientific_name: 'Vulpes vulpes', automatic_check: {
             outcome: 'animal', checked_at: fox.observed_at, devices: ['NPU'], variant: '4.0.3a', decision_reason: null
         } });
@@ -402,6 +416,12 @@ for (const width of [390, 1280]) {
         await dialog.locator('[data-garden-capture-details] summary').click();
         await expect(dialog.locator('[data-garden-capture-identification]')).toContainText('SpeciesNet 4.0.3b');
         await expect(dialog.locator('[data-garden-automatic-check]')).toBeVisible();
+        const technical = dialog.locator('[data-garden-capture-details]');
+        await expect(technical).toContainText('a'.repeat(64));
+        await expect(technical.locator('select')).toHaveCount(0);
+        await expect.poll(() => technical.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+        await technical.scrollIntoViewIfNeeded();
+        await technical.screenshot({ path: testInfo.outputPath(`garden-technical-${width}.png`) });
 
         // Captures seconds apart are told apart by their seconds.
         const times = await dialog.locator('[data-garden-capture-choice] span').allInnerTexts();

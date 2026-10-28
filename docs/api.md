@@ -717,6 +717,10 @@ Notes:
   article or exact active taxon name, and have a separate language/identity cache.
   They never reuse name-only cached articles. If neither source matches, text
   and photographs stay unavailable. `refresh=true` bypasses either cache.
+  `extract` and `description` are readable plain text: provider HTML, comments,
+  scripts and styles are removed, entities are decoded and paragraph breaks are
+  retained. This also applies when reading older cached summaries, without a
+  cache refresh or database rewrite.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
