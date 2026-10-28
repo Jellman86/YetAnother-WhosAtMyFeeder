@@ -362,6 +362,10 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `animal` check whose top crop prediction reaches `garden_naming_threshold` also
   confirms the capture and saves an accepted `identification` with `automatic=true`,
   in one transaction. `reviewed_at` stays `null` because no owner reviewed it.
+- Garden capture responses name a standing identification from the species catalogue in the
+  `Accept-Language` language, falling back to English. A lowercase model name is cased like a
+  catalogue name (`domestic dog` becomes `Domestic Dog`); an owner's cased rename is kept as written.
+  `scientific_name` is the catalogue's scientific name for that identification, or null.
 - `GET /api/garden/visits` returns owner-only Garden entries, grouped before pagination.
   `start`/`end`, `camera` and `status` (`reviewable`, `pending`, `confirmed`, `dismissed`)
   scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`

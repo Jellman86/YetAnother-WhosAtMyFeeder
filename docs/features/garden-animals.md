@@ -103,8 +103,16 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   proposals. Every capture is still stored and reviewed on its own; grouping only changes how they
   are shown. There is no capture cooldown, which matches birds.
 - Opening one shows its record, in the bird record's shape: the saved animal crop,
-  or the original framed around trustworthy saved crop geometry, the automatic
-  check and its result, and the presence and species decisions. Hover or focus on
+  or the original framed around trustworthy saved crop geometry, beside the
+  identification. A named animal shows its catalogue name in your language, cased
+  like a bird name, with its scientific name, a reference photograph, what the name
+  was read from, and the species match. Its state is said once, for example
+  **Confirmed and named automatically**, and is amber only when it waits on you.
+  The facts, the presence and species decisions, the family tree and a short
+  species summary follow. **Details**, closed by default, holds the model run, the
+  automatic check for confirmed animals and the choices for a new manual check;
+  until an animal is confirmed, the automatic check's result stays visible because
+  it explains the state. Photos in a visit show their time to the second. Hover or focus on
   the crop to look at the whole photograph with its box; select it to keep that
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed

@@ -7538,6 +7538,17 @@
             ],
             "title": "Reviewed At"
           },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
           "snapshot_url": {
             "anyOf": [
               {
