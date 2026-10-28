@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
-import { gardenBelongs, gardenBlocker, gardenEntryText, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
+import { gardenBelongs, gardenBlocker, gardenCaptureFacts, gardenEntryText, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
 
 function capture(overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -230,5 +230,20 @@ describe('groupGardenVisits', () => {
     it('keeps unconfirmed Frigate events and confirmed animals apart, and keeps the order it was given', () => {
         const visits = groupGardenVisits([capture({ id: 'p', observed_at: at(20) }), fox('f', 10), capture({ id: 'q', observed_at: at(0) })]);
         expect(ids(visits)).toEqual([['p', 'q'], ['f']]);
+    });
+});
+
+describe('gardenCaptureFacts', () => {
+    const lead = capture({ id: 'lead'.padEnd(32, '0'), status: 'confirmed', identification: named('accepted', true) });
+    const visit = { id: 'visit-1', kind: 'visit' as const, captureCount: 3, items: [lead] };
+
+    it('marks the capture the visit shows as its photograph', () => {
+        expect(gardenCaptureFacts(lead, visit)).toEqual({ shown: true, motion: false, review: null });
+        expect(gardenCaptureFacts(capture({ id: 'other'.padEnd(32, '0'), status: 'confirmed' }), visit).shown).toBe(false);
+    });
+
+    it('says when a capture came from motion footage and when it still needs a person', () => {
+        const proposal = capture({ id: 'motion'.padEnd(32, '0'), source_kind: 'motion', status: 'confirmed', identification: named('unreviewed') });
+        expect(gardenCaptureFacts(proposal, visit)).toEqual({ shown: false, motion: true, review: 'species' });
     });
 });

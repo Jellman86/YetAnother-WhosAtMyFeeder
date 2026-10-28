@@ -102,6 +102,15 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   and never merge by time, so a real animal is not hidden inside a stack of repeated feeder
   proposals. Every capture is still stored and reviewed on its own; grouping only changes how they
   are shown. There is no capture cooldown, which matches birds.
+- Expand **N captures** on a Garden visit in the field log, Explorer card or list
+  to inspect its individual photos before opening the record. Cards show the list
+  above neighbouring cards; rows expand in place. Each capture shows its own
+  name, state, score and time to the second. The visit photo and motion-footage
+  captures are marked.
+  Twenty captures load at a time; **Load more captures** continues within the same
+  camera, time and review filters. Choosing one opens that exact photo in the
+  visit, including beyond the record's first page. Failed reads offer **Retry**;
+  saved reviews and live updates refresh open lists. These details remain owner-only.
 - Opening one shows its record, in the bird record's shape: the saved animal crop,
   or the original framed around trustworthy saved crop geometry, beside the
   identification. A named animal shows its catalogue name in your language, cased

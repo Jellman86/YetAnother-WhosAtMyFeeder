@@ -1,4 +1,5 @@
 import { fetchGardenVisitCaptures, type GardenCapture, type GardenServerVisit, type GardenTimelineQuery } from '../api/garden';
+import { gardenHistory } from '../stores/garden_history.svelte';
 import { gardenBelongs, gardenEntryView, type GardenReview, type GardenVisit } from './garden-explorer';
 
 const CAPTURE_PAGE_SIZE = 128;
@@ -25,14 +26,14 @@ export class GardenVisitViewer {
         this.#failure = failure;
     }
 
-    open(visit: GardenServerVisit): void {
+    open(visit: GardenServerVisit, selected?: { capture: GardenCapture; index: number }): void {
         this.#generation++;
-        this.capture = visit.representative;
-        this.group = { id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [visit.representative] };
-        this.offset = 0;
+        this.capture = selected?.capture ?? visit.representative;
+        this.group = { id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [this.capture] };
+        this.offset = Math.floor((selected?.index ?? 0) / CAPTURE_PAGE_SIZE) * CAPTURE_PAGE_SIZE;
         this.loading = false;
         this.error = null;
-        if (visit.capture_count > 1) void this.page(0, false);
+        if (visit.capture_count > 1) void this.page(selected?.index ?? 0, false);
     }
 
     async page(index: number, selectCapture = true): Promise<void> {
@@ -61,6 +62,7 @@ export class GardenVisitViewer {
 
     /** A capture after a review: kept while it still belongs to the log, otherwise the next photo opens. */
     changed(next: GardenCapture): void {
+        gardenHistory.invalidate();
         this.#generation++;
         this.loading = false;
         this.error = null;

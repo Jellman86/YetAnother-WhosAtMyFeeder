@@ -5,6 +5,7 @@ const fetchGardenVisitCaptures = vi.fn();
 vi.mock('../api/garden', () => ({ fetchGardenVisitCaptures: (...args: unknown[]) => fetchGardenVisitCaptures(...args) }));
 
 const { GardenVisitViewer } = await import('./garden-visit-viewer.svelte');
+const { gardenHistory } = await import('../stores/garden_history.svelte');
 
 function capture(id: string, overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -40,6 +41,19 @@ describe('GardenVisitViewer', () => {
         expect(viewer.capture?.id).toBe('b');
     });
 
+    it('opens the selected capture beyond the first record page without jumping to the visit photo', async () => {
+        const chosen = capture('capture-149');
+        const items = Array.from({ length: 22 }, (_, index) => capture(`capture-${128 + index}`));
+        fetchGardenVisitCaptures.mockResolvedValue({ items, total: 150, limit: 128, offset: 128 });
+        const viewer = new GardenVisitViewer(() => scope, () => 'failed');
+        viewer.open(visit(150), { capture: chosen, index: 149 });
+        expect(viewer.capture?.id).toBe(chosen.id);
+        await vi.waitFor(() => expect(viewer.loading).toBe(false));
+        expect(fetchGardenVisitCaptures).toHaveBeenCalledWith('visit-1', scope, 128);
+        expect(viewer.capture?.id).toBe(chosen.id);
+        expect(viewer.offset).toBe(128);
+    });
+
     it('drops a read that finishes after the record was closed', async () => {
         let resolve: (value: unknown) => void = () => undefined;
         fetchGardenVisitCaptures.mockReturnValue(new Promise((done) => (resolve = done)));
@@ -68,7 +82,9 @@ describe('GardenVisitViewer', () => {
         const viewer = new GardenVisitViewer(() => scope, () => 'failed');
         viewer.open(visit(3));
         await vi.waitFor(() => expect(viewer.loading).toBe(false));
+        const historyVersion = gardenHistory.version;
         viewer.changed(capture('b', { status: 'dismissed' }));
+        expect(gardenHistory.version).toBe(historyVersion + 1);
         expect(viewer.capture?.id).toBe('c');
         expect(viewer.group?.items.map((item) => item.id)).toEqual(['a', 'c']);
         expect(viewer.group?.captureCount).toBe(2);

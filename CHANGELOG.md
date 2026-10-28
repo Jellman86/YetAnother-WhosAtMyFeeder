@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden visits in the field log and Explorer have expandable capture details,
+  matching bird visits. Each photo shows its own name, state, score and time to
+  the second, loads in bounded pages, and opens the exact selected photo in the
+  record. Saved reviews, live updates and changes of owner access invalidate
+  cached lists.
+
 - Garden records now read like bird records. A named animal shows a cased name
   in your language, its scientific name, a reference photograph, what the name
   was read from, its family tree and a short species summary. The record states

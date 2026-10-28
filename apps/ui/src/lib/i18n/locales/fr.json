@@ -3868,7 +3868,9 @@
       "details": "Détails",
       "source": "Source",
       "status_automatic": "Confirmé et nommé automatiquement",
-      "status_confirmed": "Animal et espèce confirmés par vous"
+      "status_confirmed": "Animal et espèce confirmés par vous",
+      "capture_actions": "Ouvrez une capture pour l’examiner sur sa propre photo.",
+      "capture_motion": "Séquence de mouvement"
     },
     "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
     "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",
