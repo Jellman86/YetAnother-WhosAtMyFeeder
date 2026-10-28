@@ -17,6 +17,7 @@
     import GardenPhotoCheckDialog from './GardenPhotoCheckDialog.svelte';
     import GardenCaptureThumbnail from './GardenCaptureThumbnail.svelte';
     import TaxonomyLineage from './TaxonomyLineage.svelte';
+    import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
     import {
         checkGardenPhoto,
         fetchGardenIdentification,
@@ -78,8 +79,12 @@
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
     let identification = $state.raw<GardenIdentificationStatus | null>(null);
-    let chosenVariant = $state<Variant | null>(null);
-    let provider = $state<Provider>('cpu');
+    const provider = $derived<Provider>(
+        identification?.preferred_provider === 'intel_npu' ? 'intel_npu'
+        : identification?.preferred_provider === 'intel_gpu' ? 'intel_gpu'
+        : identification?.preferred_provider === 'intel_cpu' ? 'intel_cpu'
+        : identification?.preferred_provider === 'cuda' ? 'cuda' : 'cpu'
+    );
     let photoCheck = $state.raw<GardenPhotoCheck | null>(null);
     let photoCheckOpen = $state(false);
     let photoCheckBusy = $state(false);
@@ -109,7 +114,7 @@
     const installed = $derived((identification?.models ?? []).filter((model) => model.installed).map((model) => model.variant));
     // Whole image first, as Garden always offered it; the tracked-crop model answers too.
     const variant = $derived<Variant | null>(
-        chosenVariant && installed.includes(chosenVariant) ? chosenVariant : installed.includes('4.0.3b') ? '4.0.3b' : installed.includes('4.0.3a') ? '4.0.3a' : null
+        installed.includes('4.0.3b') ? '4.0.3b' : installed.includes('4.0.3a') ? '4.0.3a' : null
     );
     const identifyBlocked = $derived.by((): string | null => {
         if (!capture.snapshot_url || originalFailed) return $_('garden.snapshot_unavailable', { default: 'Snapshot unavailable' });
@@ -163,14 +168,6 @@
         }
         return { text: entry.state, tone: 'neutral' };
     });
-    const providers = $derived<{ value: Provider; label: string }[]>([
-        { value: 'cpu', label: 'CPU' },
-        { value: 'intel_cpu', label: 'Intel CPU' },
-        { value: 'intel_gpu', label: 'Intel GPU' },
-        { value: 'intel_npu', label: 'Intel NPU' },
-        { value: 'cuda', label: 'NVIDIA GPU' }
-    ]);
-
     onMount(() => {
         const release = lockDocumentScroll();
         const controller = new AbortController();
@@ -555,7 +552,7 @@
                 </p>
                 {#if capture.identification?.outcome === 'unknown' && capture.identification.review !== 'dismissed'}
                     <p class="text-sm text-slate-600 dark:text-slate-300" data-garden-identification-unknown>
-                        {$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or try another model.' })}
+                        {$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or request a new suggestion.' })}
                     </p>
                 {/if}
 
@@ -639,7 +636,7 @@
                                 {saving ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}
                             </button>
                             <p id="garden-capture-identify-note" class="text-xs text-slate-600 dark:text-slate-400">
-                                {identifyBlocked ?? $_('garden.explorer.manual_suggestion_help', { default: 'Requests a new species suggestion for this photo. Review it before confirming; choose its model and device below.' })}
+                                {identifyBlocked ?? $_('garden.explorer.manual_suggestion_help', { default: 'Requests a new species suggestion for this photo using your Detection settings. Review it before confirming.' })}
                             </p>
                         {/if}
                     {/if}
@@ -702,7 +699,7 @@
                             <p class="text-xs text-slate-500 dark:text-slate-400">{speciesInfoError}</p>
                         {:else if speciesInfo}
                             {@const summary = speciesInfo.extract || speciesInfo.description}
-                            <p class="line-clamp-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            <p class="line-clamp-4 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                                 {summary || $_('species_detail.no_info', { default: 'No description is available for this species.' })}
                             </p>
                             {#if speciesInfo.summary_source_url}
@@ -715,58 +712,36 @@
                     </section>
                 {/if}
 
-                <!-- How it was named, and the choices for a new manual check: there when wanted, closed by default. -->
-                <details class="group border-t border-line-soft pt-1" data-garden-capture-details>
-                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
-                        <span>{$_('garden.explorer.details', { default: 'Details' })}</span>
-                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
-                    </summary>
-                    <div class="space-y-4 pb-2 pt-1">
-                        {#if capture.identification && capture.identification.review !== 'dismissed'}
-                            <dl class="space-y-1 text-xs text-slate-600 dark:text-slate-400" data-garden-capture-identification>
-                                <div class="flex flex-wrap justify-between gap-x-3">
-                                    <dt>{$_('garden.explorer.detail_model', { default: 'Species model' })}</dt>
-                                    <dd class="font-medium text-slate-800 dark:text-slate-100">SpeciesNet {capture.identification.variant} · {capture.identification.devices.join(', ')}</dd>
-                                </div>
-                                <div class="flex flex-wrap justify-between gap-x-3">
-                                    <dt>{$_('garden.explorer.detail_country', { default: 'Location rule' })}</dt>
-                                    <dd class="font-medium text-slate-800 dark:text-slate-100">{capture.identification.country}</dd>
-                                </div>
-                                <div class="flex flex-wrap justify-between gap-x-3">
-                                    <dt>{$_('garden.explorer.detail_input', { default: 'Model input' })}</dt>
-                                    <dd class="font-medium text-slate-800 dark:text-slate-100">
-                                        {capture.identification.input_kind === 'tracked_crop'
-                                            ? $_('garden.tracked_crop', { default: 'Tracked snapshot crop' })
-                                            : $_('garden.whole_image', { default: 'Whole image with model border trim' })}
-                                    </dd>
-                                </div>
-                            </dl>
-                        {/if}
-                        {#if capture.automatic_check && capture.status === 'confirmed'}
-                            <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={view.nameState === 'automatic'} />
-                        {/if}
-                        {#if capture.status !== 'dismissed'}
-                            <div class="space-y-1" data-garden-capture-model>
-                                <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.explorer.model_and_device', { default: 'Model and device' })}</p>
-                        <div class="grid gap-3 pb-2 pt-1 sm:grid-cols-2">
-                            <label class="space-y-1 text-sm"><span>{$_('garden.model', { default: 'Garden model' })}</span>
-                                <select class="select-base w-full" value={variant ?? ''} onchange={(event) => (chosenVariant = (event.currentTarget as HTMLSelectElement).value as Variant)} disabled={saving || installed.length === 0}>
-                                    {#if installed.includes('4.0.3b')}<option value="4.0.3b">{$_('garden.model_whole', { default: 'SpeciesNet 4.0.3b · Whole image' })}</option>{/if}
-                                    {#if installed.includes('4.0.3a')}<option value="4.0.3a">{$_('garden.model_crop', { default: 'SpeciesNet 4.0.3a · Tracked crop' })}</option>{/if}
-                                </select>
-                            </label>
-                            <label class="space-y-1 text-sm"><span>{$_('garden.provider', { default: 'Run garden model on' })}</span>
-                                <select class="select-base w-full" bind:value={provider} onchange={clearPhotoCheck} disabled={saving}>
-                                    {#each providers as option (option.value)}<option value={option.value}>{option.label}</option>{/each}
-                                </select>
-                            </label>
+                <!-- The saved run and capture evidence, read-only and closed by default. -->
+                <RecordTechnicalDetails title={$_('garden.explorer.details', { default: 'Details' })} command="yawamf garden show" identifier={capture.id} data-garden-capture-details>
+                    <dl class="mt-3 space-y-2">
+                        {#each [['camera', capture.camera], ['source', capture.source_kind ?? 'frigate_event'], ['observed_at', capture.observed_at]] as [key, value] (key)}
+                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
+                        {/each}
+                    </dl>
+                    {#if capture.identification}
+                        {@const evidence = capture.identification}
+                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-capture-identification>
+                            <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">model</dt><dd class="min-w-0 max-w-full break-all">SpeciesNet {evidence.variant} · {evidence.devices.join(', ')}</dd></div>
+                            {#each [['country', evidence.country], ['input_kind', evidence.input_kind], ['identified_at', evidence.identified_at], ['model_sha256', evidence.model_sha256], ['package_sha256', evidence.package_sha256], ['image_sha256', evidence.image_sha256]] as [key, value] (key)}
+                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
+                            {/each}
+                        </dl>
+                    {/if}
+                    {#if capture.motion_source}
+                        {@const motion = capture.motion_source}
+                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3">
+                            {#each [['clip_window', `${motion.clip_start} – ${motion.clip_end}`], ['frame_index', String(motion.frame_index)], ['box_xywh', JSON.stringify(motion.box_xywh)], ['detector_sha256', motion.detector_sha256], ['source_image_sha256', motion.image_sha256]] as [key, value] (key)}
+                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
+                            {/each}
+                        </dl>
+                    {/if}
+                    {#if capture.automatic_check && capture.status === 'confirmed'}
+                        <div class="mt-3 border-t border-slate-700 pt-3">
+                            <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={view.nameState === 'automatic'} terminal />
                         </div>
-                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.identify_runs_on', { default: 'New manual suggestion: SpeciesNet {variant} on {device}. The suggestion still needs your confirmation.', values: { variant: variant ?? '', device: providers.find((option) => option.value === provider)?.label ?? provider } })}</p>
-                        <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.manual_device_note', { default: 'These settings apply to a new manual check. Saved automatic results report their own device and time above. An unavailable manual device fails rather than switching devices.' })}</p>
-                            </div>
-                        {/if}
-                    </div>
-                </details>
+                    {/if}
+                </RecordTechnicalDetails>
             </div>
         </div>
     </div>

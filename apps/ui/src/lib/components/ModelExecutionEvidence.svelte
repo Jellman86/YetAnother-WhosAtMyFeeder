@@ -2,11 +2,11 @@
     import { _ } from 'svelte-i18n';
     import type { components } from '../api/generated/openapi';
 
-    let { execution }: { execution: Pick<components['schemas']['InferenceExecution'], 'devices' | 'checked_at' | 'fallback_reason'> | null | undefined } = $props();
+    let { execution, terminal = false }: { execution: Pick<components['schemas']['InferenceExecution'], 'devices' | 'checked_at' | 'fallback_reason'> | null | undefined; terminal?: boolean } = $props();
     const device = $derived(execution?.devices?.map(value => ({ CPUExecutionProvider: 'CPU', CUDAExecutionProvider: 'NVIDIA GPU' })[value as 'CPUExecutionProvider' | 'CUDAExecutionProvider'] ?? value).join(', ') ?? '');
 </script>
 
-<div class="space-y-1 text-xs text-slate-600 dark:text-slate-400" data-model-execution>
+<div class="space-y-1 text-xs {terminal ? 'text-inherit' : 'text-slate-600 dark:text-slate-400'}" data-model-execution>
     {#if execution}
         <p>{$_('model_execution.completed', { default: 'Last completed run: {device} · {time}', values: { device, time: new Date(execution.checked_at).toLocaleString() } })}</p>
         {#if execution.fallback_reason}

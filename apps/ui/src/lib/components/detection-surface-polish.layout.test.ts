@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import detectionCardSource from './DetectionCard.svelte?raw';
 import detectionModalSource from './DetectionModal.svelte?raw';
+import technicalSource from './RecordTechnicalDetails.svelte?raw';
 
 describe('detection surface polish', () => {
     it('keeps event cards quiet and media-led', () => {
@@ -47,8 +48,8 @@ describe('detection surface polish', () => {
 
     it('keeps implementation identity collapsed until it is requested', () => {
         expect(detectionModalSource).toContain('data-detection-technical-identity');
-        expect(detectionModalSource).toContain('<details');
-        expect(detectionModalSource).toContain('group order-last');
+        expect(technicalSource).toContain('<details');
+        expect(technicalSource).toContain('group order-last');
         expect(detectionModalSource).toContain('{detection.frigate_event}');
     });
 
@@ -145,32 +146,33 @@ describe('detection surface polish', () => {
 
     it('makes the detection id disclosure the terminal chrome itself', () => {
         // The summary is the title bar: clicking the window opens it.
-        expect(detectionModalSource).toContain('@keyframes -global-terminal-blink');
+        expect(technicalSource).toContain('@keyframes -global-terminal-blink');
         expect(detectionModalSource).toContain('yawamf event show');
-        expect(detectionModalSource).toContain('terminal-caret');
-        expect(detectionModalSource).toContain('prefers-reduced-motion');
+        expect(detectionModalSource).toContain('<RecordTechnicalDetails');
+        expect(technicalSource).toContain('terminal-caret');
+        expect(technicalSource).toContain('prefers-reduced-motion');
         // overflow-hidden on a <details> collapses it to its own borders in Chrome, so the
         // corners are rounded on the summary rather than clipped by the parent.
-        expect(detectionModalSource).not.toMatch(
-            /data-detection-technical-identity[\s\S]{0,240}?overflow-hidden/
+        expect(technicalSource).not.toMatch(
+            /data-record-technical-details[\s\S]{0,240}?overflow-hidden/
         );
-        expect(detectionModalSource).toContain('group-open:rounded-b-none');
-        expect(detectionModalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400');
-        expect(detectionModalSource).toContain('font-mono text-xs');
-        expect(detectionModalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
+        expect(technicalSource).toContain('group-open:rounded-b-none');
+        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400');
+        expect(technicalSource).toContain('font-mono text-xs');
+        expect(technicalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
     });
 
     it('borrows the window furniture of the viewer os', () => {
-        expect(detectionModalSource).toContain("): 'mac' | 'windows' | 'linux'");
-        expect(detectionModalSource).toContain("if (platform.includes('win')) return 'windows'");
+        expect(technicalSource).toContain("): 'mac' | 'windows' | 'linux'");
+        expect(technicalSource).toContain("if (platform.includes('win')) return 'windows'");
         // Android reports Linux in its user agent and is not a desktop window manager.
-        expect(detectionModalSource).toContain("!platform.includes('android')");
+        expect(technicalSource).toContain("!platform.includes('android')");
         // Cosmetic only, so an unrecognised platform still gets a complete window.
-        expect(detectionModalSource).toContain("if (typeof navigator === 'undefined') return 'mac'");
+        expect(technicalSource).toContain("if (typeof navigator === 'undefined') return 'mac'");
         // The insides follow the furniture: DOS black, Ubuntu aubergine, plain dark elsewhere.
-        expect(detectionModalSource).toContain("shell: 'bg-[#300a24]'");
-        expect(detectionModalSource).toContain("host: 'yawamf@feeder'");
-        expect(detectionModalSource).toContain("bg-[#000080]");
+        expect(technicalSource).toContain("shell: 'bg-[#300a24]'");
+        expect(technicalSource).toContain("host: 'yawamf@feeder'");
+        expect(technicalSource).toContain("bg-[#000080]");
     });
 
     it('keeps no strip machinery of its own now the strip is a component', () => {

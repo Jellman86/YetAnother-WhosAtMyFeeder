@@ -3,6 +3,7 @@ from pydantic import BaseModel, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
+from app.utils.reference_text import reference_plain_text
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -227,6 +228,11 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+
+    @field_validator("extract", "description")
+    @classmethod
+    def readable_reference_text(cls, value: str | None) -> str | None:
+        return reference_plain_text(value)
 
     @field_validator("thumbnail_url")
     @classmethod

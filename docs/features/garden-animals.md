@@ -126,13 +126,15 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   **Confirmed and named automatically**, and is amber only when it waits on you.
   The facts, the presence and species decisions, the family tree and a short
   species summary follow. **Details**, closed by default, holds the model run, the
-  automatic check for confirmed animals and the choices for a new manual check;
+  automatic check for confirmed animals and retained capture evidence;
   until an animal is confirmed, the automatic check's result stays visible because
   it explains the state. Photos in a visit show their time to the second. Hover or focus on
   the crop to look at the whole photograph with its box; select it to keep that
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed
-  SpeciesNet model on the CPU unless you choose another model or device under **Model and device**. Bird actions
+  SpeciesNet model using the device selected in **Settings → Detection**. Model
+  installation stays under **Settings → Beta features → Garden models**. The
+  record has no model or accelerator selectors. Bird actions
   such as scoring again, video scans and audio matching do not apply.
   Reference photographs and summaries are looked up by the catalogue's scientific
   identity, not a bird-only search for the common name. Previously cached common-name
@@ -343,7 +345,7 @@ Turning collection off does not immediately erase photos.
 
 For a pending motion photo, **Check photo** offers an advisory assessment before
 presence review. Download the **Automatic check model** (4.0.3a) under **Garden models**,
-optionally choose a device under **Model and device** in the capture's record, then check the
+choose the device in **Settings → Detection**, then check the
 displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
 blank and other probability mass; human evidence withholds the suggestion.
@@ -360,7 +362,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
-3. Under **Model and device**, choose a device supported by your image and hardware. CPU, Intel CPU/GPU/NPU
+3. In **Settings → Detection**, choose a device supported by your image and hardware. CPU, Intel CPU/GPU/NPU
    and NVIDIA GPU are supported runtimes; unavailable hardware produces an error
    rather than a CPU fallback.
 4. Under **Garden visitors**, choose **Confirmed animals**, open a capture and select **Suggest species**.
@@ -449,10 +451,10 @@ available after a successful check and does not change the identification model.
 **Settings → Beta features → Garden models** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and
 time of its own automatic result. These are completed records, not a promise that a
-model is currently loaded. Garden releases its worker after each operation. The
-**Model and device** selector on a capture controls manual checks only; its CPU default
-does not describe automatic execution. Its help text describes a new manual request
-inside that section, rather than labelling the saved result. Historical CPU results
+model is currently loaded. Garden releases its worker after each operation.
+Manual checks also follow the Detection device preference. Capture records show
+the model, device, source, timestamps and retained checksums in the same read-only
+terminal-style **Details** panel used by bird records. Historical CPU results
 remain CPU results after a later NPU preference change. **Motion detector only: CPU** refers to Cedar
 motion collection, not SpeciesNet animal identification.
 
