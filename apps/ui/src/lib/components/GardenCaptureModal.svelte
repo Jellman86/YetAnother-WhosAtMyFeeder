@@ -5,8 +5,9 @@
      *
      * Presence and species are separate decisions. Photos proposed around the same position
      * open together, one photo at a time, because position does not identify an animal; the
-     * remaining ones can be dismissed as a group. Nothing here is a bird action: scoring again,
-     * video scans and audio matching do not apply to an animal.
+     * remaining ones can be dismissed as a group. The rail follows the bird record's order: the
+     * identification with its catalogue names and lineage, the state said once, the facts, the
+     * decisions, what the species is, then the technical details closed by default.
      */
     import { onMount } from 'svelte';
     import { get } from 'svelte/store';
@@ -15,6 +16,7 @@
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import GardenPhotoCheckDialog from './GardenPhotoCheckDialog.svelte';
     import GardenCaptureThumbnail from './GardenCaptureThumbnail.svelte';
+    import TaxonomyLineage from './TaxonomyLineage.svelte';
     import {
         checkGardenPhoto,
         fetchGardenIdentification,
@@ -28,6 +30,8 @@
         type GardenPhotoCheck
     } from '../api/garden';
     import { withAuthParams } from '../api/core';
+    import { fetchSpeciesInfo, type SpeciesInfo } from '../api/species';
+    import { getErrorMessage } from '../utils/error-handling';
     import { gardenPhotoOutline, gardenPreviewStyle } from '../utils/garden-photo';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { gardenEntryText, gardenEntryView } from '../utils/garden-explorer';
@@ -119,6 +123,42 @@
         && capture.motion_source && capture.status === 'pending' && photoReady
     ));
     const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).title);
+    // Catalogue context needs a name that stands: one the owner or the check accepted, or a suggestion.
+    const referenceName = $derived(view.name && capture.identification?.rank === 'species' ? view.name : null);
+    const lineageName = $derived(view.name ? capture.scientific_name ?? null : null);
+    let speciesInfo = $state.raw<SpeciesInfo | null>(null);
+    let speciesInfoLoading = $state(false);
+    let speciesInfoError = $state<string | null>(null);
+    let failedReference = $state<string | null>(null);
+    const referenceUrl = $derived(
+        speciesInfo?.thumbnail_url && speciesInfo.thumbnail_url !== failedReference ? speciesInfo.thumbnail_url : null
+    );
+    const namedFrom = $derived.by((): string | null => {
+        const named = capture.identification;
+        if (!view.name || !named) return null;
+        if (named.input_kind === 'whole_image') {
+            return $_('garden.named_from.whole_image', { default: 'Named from the whole photo, so it may not refer to one animal' });
+        }
+        return capture.source_kind === 'motion'
+            ? $_('garden.named_from.motion_crop', { default: 'Named from the animal crop in motion footage' })
+            : $_('garden.named_from.tracked_crop', { default: "Named from Frigate's tracked animal in the snapshot" });
+    });
+    const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
+        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }));
+        if (view.review === 'species') {
+            return { text: $_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' }), tone: 'review' };
+        }
+        if (view.review === 'presence') return { text: entry.state, tone: 'review' };
+        if (capture.status === 'confirmed') {
+            const text = view.nameState === 'automatic'
+                ? $_('garden.explorer.status_automatic', { default: 'Confirmed and named automatically' })
+                : view.nameState === 'confirmed'
+                  ? $_('garden.explorer.status_confirmed', { default: 'Animal and species confirmed by you' })
+                  : $_('garden.explorer.state_unnamed', { default: 'Animal confirmed, species not named' });
+            return { text, tone: 'confirmed' };
+        }
+        return { text: entry.state, tone: 'neutral' };
+    });
     const providers = $derived<{ value: Provider; label: string }[]>([
         { value: 'cpu', label: 'CPU' },
         { value: 'intel_cpu', label: 'Intel CPU' },
@@ -143,6 +183,24 @@
 
     $effect(() => {
         if (dialog) return trapFocus(dialog);
+    });
+
+    // The species summary comes from the same reference service the bird record reads.
+    $effect(() => {
+        const name = referenceName;
+        speciesInfo = null;
+        speciesInfoError = null;
+        if (!name) {
+            speciesInfoLoading = false;
+            return;
+        }
+        const controller = new AbortController();
+        speciesInfoLoading = true;
+        fetchSpeciesInfo(name, controller.signal)
+            .then((info) => { if (!controller.signal.aborted) speciesInfo = info; })
+            .catch((failure: unknown) => { if (!controller.signal.aborted) speciesInfoError = getErrorMessage(failure); })
+            .finally(() => { if (!controller.signal.aborted) speciesInfoLoading = false; });
+        return () => controller.abort();
     });
 
     function photoLoaded(event: Event): void {
@@ -388,7 +446,7 @@
                                         aria-label={$_('garden.explorer.show_photo', { default: 'Show photo {index} of {count}, {time}', values: { index: groupOffset + choiceIndex + 1, count: groupTotal, time: formatDateTime(item.observed_at) } })}
                                         data-garden-capture-choice={item.id} onclick={() => select(item)}>
                                         <GardenCaptureThumbnail capture={item} />
-                                        <span class="mt-1 block text-3xs tabular-nums">{formatTime(item.observed_at)}</span>
+                                        <span class="mt-1 block text-3xs tabular-nums">{formatTime(item.observed_at, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                                     </button>
                                 {/each}
                             </div>
@@ -404,18 +462,42 @@
                 </div>
             </div>
 
-            <div class="min-w-0 space-y-4 p-5 sm:p-6 lg:overflow-y-auto" data-garden-capture-rail>
-                <div class="pr-12">
-                    <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                        {view.nameState === 'confirmed'
-                            ? $_('detection.identified_by_you', { default: 'Identified by you' })
-                            : view.nameState === 'automatic'
-                              ? $_('detection.identified_as', { default: 'Identified as' })
-                              : view.nameState === 'suggested'
-                                ? $_('garden.explorer.suggested_as', { default: 'Suggested as' })
-                                : $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' })}
-                    </p>
-                    <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
+            <div class="min-w-0 space-y-5 p-5 sm:p-6 lg:overflow-y-auto" data-garden-capture-rail>
+                <!-- Identification: what it is, and how sure, in one place, as the bird record states it. -->
+                <div class="pr-12" data-garden-capture-identity>
+                    <div class="flex items-start gap-3">
+                        {#if referenceUrl}
+                            <img
+                                src={referenceUrl}
+                                alt={$_('detection.species_reference_alt', { values: { species: title }, default: 'Reference photograph of {species}' })}
+                                loading="lazy"
+                                onerror={() => (failedReference = referenceUrl)}
+                                class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                                data-garden-species-reference
+                            />
+                        {/if}
+                        <div class="min-w-0">
+                            <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                                {view.nameState === 'confirmed'
+                                    ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                                    : view.nameState === 'automatic'
+                                      ? $_('detection.identified_as', { default: 'Identified as' })
+                                      : view.nameState === 'suggested'
+                                        ? $_('garden.explorer.suggested_as', { default: 'Suggested as' })
+                                        : $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' })}
+                            </p>
+                            <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
+                            {#if view.name && capture.scientific_name && capture.scientific_name !== view.name}
+                                <p class="text-xs italic text-slate-500 dark:text-slate-400" data-garden-scientific-name>{capture.scientific_name}</p>
+                            {/if}
+                            {#if namedFrom}
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-garden-named-from>{namedFrom}</p>
+                            {/if}
+                            {#if view.name && capture.identification?.rank && capture.identification.rank !== 'species'}
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>
+                            {/if}
+                        </div>
+                    </div>
                     {#if view.score !== null}
                         <div class="mt-2 flex flex-wrap items-center gap-2.5" data-garden-capture-score>
                             <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{Math.round(view.score * 100)}%</span>
@@ -434,27 +516,24 @@
                     {/if}
                 </div>
 
-                {#if capture.status === 'pending' && !view.review}
-                    <p class="text-sm" role="status">{gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).state}</p>
-                {/if}
-                {#if view.review === 'presence'}
-                    <p class="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" role="status">
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
-                        {gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).state}
-                    </p>
-                {:else if view.review === 'species'}
-                    <p class="flex items-start gap-2 rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-800 dark:text-amber-200" role="status">
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
-                        {$_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' })}
-                    </p>
-                {:else if capture.status === 'dismissed'}
-                    <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" role="status">
-                        {$_('garden.explorer.state_dismissed', { default: 'Dismissed, not counted as an animal' })}
-                    </p>
-                {:else if capture.status === 'confirmed'}
-                    <p class="flex items-start gap-2 text-sm font-semibold text-success-700 dark:text-success-300" role="status">
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-success-500" aria-hidden="true"></span>
-                        {$_('garden.explorer.confirmed_animal', { default: 'Animal confirmed' })}
+                <!-- The record's state, said once. Amber only when it waits on a person. -->
+                <p
+                    class="flex items-start gap-2 text-sm font-semibold {status.tone === 'review'
+                        ? 'rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-800 dark:text-amber-200'
+                        : status.tone === 'confirmed'
+                          ? 'text-success-700 dark:text-success-300'
+                          : 'text-slate-700 dark:text-slate-200'}"
+                    role="status"
+                    data-garden-capture-status={status.tone}
+                >
+                    {#if status.tone !== 'neutral'}
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {status.tone === 'review' ? 'bg-amber-500' : 'bg-success-500'}" aria-hidden="true"></span>
+                    {/if}
+                    {status.text}
+                </p>
+                {#if capture.identification?.outcome === 'unknown' && capture.identification.review !== 'dismissed'}
+                    <p class="text-sm text-slate-600 dark:text-slate-300" data-garden-identification-unknown>
+                        {$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or try another model.' })}
                     </p>
                 {/if}
 
@@ -462,7 +541,7 @@
                 <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-garden-capture-facts>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                         <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
+                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             {$_('detection.fact_seen', { default: 'Seen' })}
                         </dt>
                         <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
@@ -486,35 +565,9 @@
                     {/if}
                 </dl>
 
-                {#if capture.identification && capture.identification.review !== 'dismissed'}
-                    <section class="space-y-1 text-sm" data-garden-capture-identification>
-                        <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.explorer.species_heading', { default: 'Species' })}</p>
-                        {#if capture.identification.outcome === 'suggestion'}
-                            <p class="text-xs text-slate-600 dark:text-slate-400">
-                                {capture.identification.review === 'accepted'
-                                    ? (capture.identification.automatic
-                                        ? $_('garden.identification_automatic', { default: 'Named automatically. Discard the name if it is wrong.' })
-                                        : $_('garden.identification_confirmed', { default: 'Identification confirmed by you' }))
-                                    : $_('garden.identification_needs_review', { default: 'Suggested identification · Needs your review' })}
-                            </p>
-                            {#if capture.identification.rank !== 'species'}<p class="text-xs">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>{/if}
-                        {:else}
-                            <p>{$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or try another model.' })}</p>
-                        {/if}
-                        <p class="break-words text-xs text-slate-600 dark:text-slate-400">
-                            {capture.identification.variant} · {capture.identification.devices.join(', ')} · {capture.identification.country} · {capture.identification.input_kind === 'tracked_crop'
-                                ? $_('garden.tracked_crop', { default: 'Tracked snapshot crop' })
-                                : $_('garden.whole_image', { default: 'Whole image with model border trim' })}
-                        </p>
-                    </section>
-                {/if}
-
-                {#if capture.automatic_check}
-                    <GardenAutomaticAssessment
-                        assessment={capture.automatic_check}
-                        overridden={capture.automatic_check_overridden}
-                        named={view.nameState === 'automatic'}
-                    />
+                <!-- Until a person or the check has settled it, the check's result is the reason for the state above. -->
+                {#if capture.automatic_check && capture.status !== 'confirmed'}
+                    <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={false} />
                 {/if}
 
                 {#if groupError}
@@ -577,7 +630,8 @@
                             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
                         {/if}
                     {:else}
-                        <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-4 py-2" disabled={saving} onclick={() => review('dismiss')}>
+                        <!-- Deciding presence is the pending record's main question; once confirmed, dismissing is the quiet escape. -->
+                        <button type="button" class="btn {capture.status === 'pending' ? 'btn-secondary' : 'btn-ghost'} min-h-11 whitespace-normal px-4 py-2" disabled={saving} onclick={() => review('dismiss')} data-garden-capture-dismiss>
                             {$_('garden.dismiss', { default: 'Dismiss capture' })}
                         </button>
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.dismiss_effect', { default: 'Dismissing removes it from the animals. It stays under Garden visitors, Dismissed while its photo lasts.' })}</p>
@@ -594,13 +648,71 @@
                     {/if}
                 </div>
 
-                {#if capture.status !== 'dismissed'}
-                    <!-- The defaults suit most installations; the choice is for a model or device you prefer. -->
-                    <details class="group border-t border-line-soft pt-1" data-garden-capture-model>
-                        <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
-                            <span>{$_('garden.explorer.model_and_device', { default: 'Model and device' })}</span>
-                            <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
-                        </summary>
+
+                {#if lineageName}
+                    <TaxonomyLineage scientificName={lineageName} />
+                {/if}
+
+                {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}
+                    <section class="space-y-2" data-garden-species-info>
+                        <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                            {$_('garden.explorer.about_species', { default: 'About {species}', values: { species: title } })}
+                        </h4>
+                        {#if speciesInfoLoading}
+                            <div class="flex flex-col gap-2" aria-hidden="true">
+                                <div class="h-3 w-3/4 animate-pulse rounded bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
+                                <div class="h-3 w-full animate-pulse rounded bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
+                            </div>
+                        {:else if speciesInfoError}
+                            <p class="text-xs text-slate-500 dark:text-slate-400">{speciesInfoError}</p>
+                        {:else if speciesInfo}
+                            {@const summary = speciesInfo.extract || speciesInfo.description}
+                            <p class="line-clamp-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                {summary || $_('species_detail.no_info', { default: 'No description is available for this species.' })}
+                            </p>
+                            {#if speciesInfo.summary_source_url}
+                                <a href={speciesInfo.summary_source_url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-brand-700 hover:underline focus-ring dark:text-brand-300">
+                                    {speciesInfo.summary_source || speciesInfo.source || $_('garden.explorer.source', { default: 'Source' })}
+                                    <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                </a>
+                            {/if}
+                        {/if}
+                    </section>
+                {/if}
+
+                <!-- How it was named, and the choices for a new manual check: there when wanted, closed by default. -->
+                <details class="group border-t border-line-soft pt-1" data-garden-capture-details>
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                        <span>{$_('garden.explorer.details', { default: 'Details' })}</span>
+                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                    </summary>
+                    <div class="space-y-4 pb-2 pt-1">
+                        {#if capture.identification && capture.identification.review !== 'dismissed'}
+                            <dl class="space-y-1 text-xs text-slate-600 dark:text-slate-400" data-garden-capture-identification>
+                                <div class="flex flex-wrap justify-between gap-x-3">
+                                    <dt>{$_('garden.explorer.detail_model', { default: 'Species model' })}</dt>
+                                    <dd class="font-medium text-slate-800 dark:text-slate-100">SpeciesNet {capture.identification.variant} · {capture.identification.devices.join(', ')}</dd>
+                                </div>
+                                <div class="flex flex-wrap justify-between gap-x-3">
+                                    <dt>{$_('garden.explorer.detail_country', { default: 'Location rule' })}</dt>
+                                    <dd class="font-medium text-slate-800 dark:text-slate-100">{capture.identification.country}</dd>
+                                </div>
+                                <div class="flex flex-wrap justify-between gap-x-3">
+                                    <dt>{$_('garden.explorer.detail_input', { default: 'Model input' })}</dt>
+                                    <dd class="font-medium text-slate-800 dark:text-slate-100">
+                                        {capture.identification.input_kind === 'tracked_crop'
+                                            ? $_('garden.tracked_crop', { default: 'Tracked snapshot crop' })
+                                            : $_('garden.whole_image', { default: 'Whole image with model border trim' })}
+                                    </dd>
+                                </div>
+                            </dl>
+                        {/if}
+                        {#if capture.automatic_check && capture.status === 'confirmed'}
+                            <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={view.nameState === 'automatic'} />
+                        {/if}
+                        {#if capture.status !== 'dismissed'}
+                            <div class="space-y-1" data-garden-capture-model>
+                                <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('garden.explorer.model_and_device', { default: 'Model and device' })}</p>
                         <div class="grid gap-3 pb-2 pt-1 sm:grid-cols-2">
                             <label class="space-y-1 text-sm"><span>{$_('garden.model', { default: 'Garden model' })}</span>
                                 <select class="select-base w-full" value={variant ?? ''} onchange={(event) => (chosenVariant = (event.currentTarget as HTMLSelectElement).value as Variant)} disabled={saving || installed.length === 0}>
@@ -616,8 +728,10 @@
                         </div>
                         <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.identify_runs_on', { default: 'New manual suggestion: SpeciesNet {variant} on {device}. The suggestion still needs your confirmation.', values: { variant: variant ?? '', device: providers.find((option) => option.value === provider)?.label ?? provider } })}</p>
                         <p class="pb-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.manual_device_note', { default: 'These settings apply to a new manual check. Saved automatic results report their own device and time above. An unavailable manual device fails rather than switching devices.' })}</p>
-                    </details>
-                {/if}
+                            </div>
+                        {/if}
+                    </div>
+                </details>
             </div>
         </div>
     </div>

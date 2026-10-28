@@ -153,8 +153,8 @@ test('an automatically named animal says so, and its name and presence can each 
     await expect(page.locator('[data-garden-card]')).toContainText('Named automatically');
     await openFirst(page);
     await expect(record(page).getByRole('heading', { name: 'domestic cat', level: 3 })).toBeVisible();
-    await expect(record(page).getByText('Named automatically. Discard the name if it is wrong.')).toBeVisible();
-    await expect(record(page).getByText('Identification confirmed by you')).toHaveCount(0);
+    await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Confirmed and named automatically');
+    await expect(record(page).locator('[data-garden-capture-status]')).not.toHaveText('Animal and species confirmed by you');
     await expect(record(page).locator('[data-garden-automatic-check]')).toContainText('Confident animal. Confirmed and named automatically');
     await expect(record(page).getByRole('button', { name: 'Dismiss capture' })).toBeEnabled();
     await record(page).getByRole('button', { name: 'Discard identification' }).click();
@@ -328,9 +328,9 @@ for (const outcome of ['species', 'group', 'unknown'] as const) {
         } else {
             if (outcome === 'group') await expect(record(page).getByText('Animal group only; species is unresolved.')).toBeVisible();
             await record(page).getByRole('button', { name: `Confirm ${name}`, exact: true }).click();
-            await expect(record(page).getByText('Identification confirmed by you')).toBeVisible();
+            await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal and species confirmed by you');
             await record(page).getByRole('button', { name: 'Discard identification', exact: true }).click();
-            await expect(record(page).getByText('Identification confirmed by you')).toHaveCount(0);
+            await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal confirmed, species not named');
         }
         expect(actions.every(path => path.endsWith('/identify') || path.includes('/identification/'))).toBe(true);
         await fitsNarrowScreen(page);
@@ -373,7 +373,7 @@ test('tracked crop outline stays on the photographed pixels with letterboxing', 
     });
     await openReview(page, 'confirmed');
     await openFirst(page);
-    await expect(record(page).getByText(/Tracked snapshot crop/)).toBeVisible();
+    await expect(record(page).locator('[data-garden-named-from]')).toHaveText("Named from Frigate's tracked animal in the snapshot");
     for (const width of [320, 1280]) {
         await page.setViewportSize({ width, height: 900 });
         const peek = record(page).getByRole('button', { name: 'Show whole photo', exact: true });
@@ -682,11 +682,11 @@ test('a late capture-page read cannot undo the displayed owner confirmation', as
     await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden');
     await openFirst(page);
     await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
-    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(record(page).locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
     const loaded = page.waitForResponse(response => new URL(response.url()).pathname.endsWith('/captures'));
     release();
     await loaded;
-    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(record(page).locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
     await expect(record(page).getByText('Waiting for automatic identification', { exact: true })).toHaveCount(0);
 });
 
@@ -708,7 +708,7 @@ test('confirming one photo in the mixed review state leaves its pending position
     await expect(record(page).locator('[data-garden-capture-choice]')).toHaveCount(2);
     await expect(record(page).locator('[data-garden-capture-choice]').nth(1)).toBeEnabled();
     await record(page).getByRole('button', { name: 'Confirm animal manually' }).click();
-    await expect(record(page).getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(record(page).locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
     await expect(record(page).locator('[data-garden-capture-choice]')).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(1);

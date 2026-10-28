@@ -3860,7 +3860,15 @@
       "show_photo": "Foto {index} von {count} anzeigen, {time}",
       "earlier_photos": "Vorherige Fotos",
       "later_photos": "Weitere Fotos",
-      "manual_suggestion_help": "Fordert einen neuen Artenvorschlag für dieses Foto an. Prüfe ihn vor der Bestätigung; Modell und Gerät wählst du unten."
+      "manual_suggestion_help": "Fordert einen neuen Artenvorschlag für dieses Foto an. Prüfe ihn vor der Bestätigung; Modell und Gerät wählst du unten.",
+      "about_species": "Über {species}",
+      "detail_country": "Standortregel",
+      "detail_input": "Modelleingabe",
+      "detail_model": "Artenmodell",
+      "details": "Details",
+      "source": "Quelle",
+      "status_automatic": "Automatisch bestätigt und benannt",
+      "status_confirmed": "Tier und Art von dir bestätigt"
     },
     "automatic_animal_manual": "Tier erkannt. Automatische Benennung ist aus oder dieses ältere Ergebnis wartet auf eine neue automatische Prüfung.",
     "automatic_below_threshold": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",
@@ -3870,7 +3878,12 @@
     "automatic_uncertain_pending": "Dieses ältere unsichere Ergebnis wartet auf die aktualisierte automatische Prüfung.",
     "confirm_manually": "Tier manuell bestätigen",
     "motion_limits_scoped": "Nur Bewegungsdetektor: CPU · Mindestens {seconds}s zwischen Scans · Bis zu {limit} Fotos · {days} Tage Fotoaufbewahrung",
-    "manual_override": "Manuell eingreifen"
+    "manual_override": "Manuell eingreifen",
+    "named_from": {
+      "motion_crop": "Benannt nach dem Tierausschnitt aus der Bewegungsaufnahme",
+      "tracked_crop": "Benannt nach dem von Frigate verfolgten Tier im Schnappschuss",
+      "whole_image": "Nach dem ganzen Foto benannt, daher bezieht es sich vielleicht nicht auf ein einzelnes Tier"
+    }
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",

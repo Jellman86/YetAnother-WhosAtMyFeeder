@@ -3860,7 +3860,15 @@
       "show_photo": "显示第 {index} 张照片，共 {count} 张，{time}",
       "earlier_photos": "上一批照片",
       "later_photos": "更多照片",
-      "manual_suggestion_help": "为此照片请求新的物种建议。请检查后再确认；可在下方选择模型和设备。"
+      "manual_suggestion_help": "为此照片请求新的物种建议。请检查后再确认；可在下方选择模型和设备。",
+      "about_species": "关于{species}",
+      "detail_country": "位置规则",
+      "detail_input": "模型输入",
+      "detail_model": "物种模型",
+      "details": "详情",
+      "source": "来源",
+      "status_automatic": "已自动确认并命名",
+      "status_confirmed": "动物和物种已由你确认"
     },
     "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
     "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
@@ -3870,7 +3878,12 @@
     "automatic_uncertain_pending": "此旧的不确定结果正在等待更新后的自动检查。",
     "confirm_manually": "手动确认动物",
     "motion_limits_scoped": "仅运动检测器：CPU · 扫描间隔至少{seconds}秒 · 最多{limit}张照片 · 保留{days}天",
-    "manual_override": "手动更改"
+    "manual_override": "手动更改",
+    "named_from": {
+      "motion_crop": "根据运动录像中的动物裁剪命名",
+      "tracked_crop": "根据快照中 Frigate 跟踪的动物命名",
+      "whole_image": "根据整张照片命名，因此可能并非指某一只动物"
+    }
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

@@ -3860,7 +3860,15 @@
       "visit_photos": "Photos in this group",
       "show_photo": "Show photo {index} of {count}, {time}",
       "earlier_photos": "Previous photos",
-      "later_photos": "More photos"
+      "later_photos": "More photos",
+      "about_species": "About {species}",
+      "detail_country": "Location rule",
+      "detail_input": "Model input",
+      "detail_model": "Species model",
+      "details": "Details",
+      "source": "Source",
+      "status_automatic": "Confirmed and named automatically",
+      "status_confirmed": "Animal and species confirmed by you"
     },
     "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "confirm_manually": "Confirm animal manually",
@@ -3870,7 +3878,12 @@
     "automatic_identity_unavailable": "Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.",
     "automatic_animal_manual": "Animal detected. Automatic naming is off or this older result awaits an updated automatic check.",
     "automatic_uncertain_pending": "This older uncertain result is waiting for the updated automatic check.",
-    "manual_override": "Manual override"
+    "manual_override": "Manual override",
+    "named_from": {
+      "motion_crop": "Named from the animal crop in motion footage",
+      "tracked_crop": "Named from Frigate's tracked animal in the snapshot",
+      "whole_image": "Named from the whole photo, so it may not refer to one animal"
+    }
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",

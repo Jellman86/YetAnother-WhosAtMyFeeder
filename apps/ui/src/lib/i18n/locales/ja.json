@@ -3860,7 +3860,15 @@
       "show_photo": "写真 {index}/{count} を表示、{time}",
       "earlier_photos": "前の写真",
       "later_photos": "他の写真",
-      "manual_suggestion_help": "この写真の種を手動で再提案します。確認してから承認してください。モデルとデバイスは下で選べます。"
+      "manual_suggestion_help": "この写真の種を手動で再提案します。確認してから承認してください。モデルとデバイスは下で選べます。",
+      "about_species": "{species}について",
+      "detail_country": "地域ルール",
+      "detail_input": "モデル入力",
+      "detail_model": "種モデル",
+      "details": "詳細",
+      "source": "出典",
+      "status_automatic": "自動で確認・命名済み",
+      "status_confirmed": "動物と種をあなたが確認済み"
     },
     "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
     "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
@@ -3870,7 +3878,12 @@
     "automatic_uncertain_pending": "この古い不確実な結果は、更新された自動チェックを待っています。",
     "confirm_manually": "動物を手動で確認",
     "motion_limits_scoped": "動体検出器のみ：CPU · スキャン間隔は最低{seconds}秒 · 写真は最大{limit}枚 · {days}日間保存",
-    "manual_override": "手動で変更"
+    "manual_override": "手動で変更",
+    "named_from": {
+      "motion_crop": "動き検出映像の動物切り抜きから命名",
+      "tracked_crop": "スナップショット内のFrigateが追跡した動物から命名",
+      "whole_image": "写真全体から命名したため、1匹の動物を指していない可能性があります"
+    }
   },
   "model_execution": {
     "completed": "最後に完了した実行：{device} · {time}",

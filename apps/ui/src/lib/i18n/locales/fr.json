@@ -3860,7 +3860,15 @@
       "show_photo": "Afficher la photo {index} sur {count}, {time}",
       "earlier_photos": "Photos précédentes",
       "later_photos": "Plus de photos",
-      "manual_suggestion_help": "Demande une nouvelle suggestion d’espèce pour cette photo. Vérifiez-la avant de confirmer ; choisissez le modèle et l’appareil ci-dessous."
+      "manual_suggestion_help": "Demande une nouvelle suggestion d’espèce pour cette photo. Vérifiez-la avant de confirmer ; choisissez le modèle et l’appareil ci-dessous.",
+      "about_species": "À propos de {species}",
+      "detail_country": "Règle de localisation",
+      "detail_input": "Entrée du modèle",
+      "detail_model": "Modèle d’espèces",
+      "details": "Détails",
+      "source": "Source",
+      "status_automatic": "Confirmé et nommé automatiquement",
+      "status_confirmed": "Animal et espèce confirmés par vous"
     },
     "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
     "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",
@@ -3870,7 +3878,12 @@
     "automatic_uncertain_pending": "Cet ancien résultat incertain attend la vérification automatique mise à jour.",
     "confirm_manually": "Confirmer l’animal manuellement",
     "motion_limits_scoped": "Détecteur de mouvement uniquement : CPU · Au moins {seconds}s entre analyses · Jusqu’à {limit} photos · Conservation de {days} jours",
-    "manual_override": "Intervention manuelle"
+    "manual_override": "Intervention manuelle",
+    "named_from": {
+      "motion_crop": "Nommé à partir du recadrage de l’animal dans la séquence de mouvement",
+      "tracked_crop": "Nommé à partir de l’animal suivi par Frigate dans l’instantané",
+      "whole_image": "Nommé à partir de la photo entière, il peut donc ne pas désigner un seul animal"
+    }
   },
   "model_execution": {
     "completed": "Dernière exécution terminée : {device} · {time}",

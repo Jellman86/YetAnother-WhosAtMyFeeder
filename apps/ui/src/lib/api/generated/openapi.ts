@@ -1080,6 +1080,7 @@ export interface components {
     motion_source?: components['schemas']['MotionSource'] | null;
     observed_at: string;
     reviewed_at: string | null;
+    scientific_name?: string | null;
     snapshot_url: string | null;
     source_kind?: "frigate_event" | "motion";
     status: "pending" | "confirmed" | "dismissed";

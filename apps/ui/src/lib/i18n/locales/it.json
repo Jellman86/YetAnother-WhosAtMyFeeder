@@ -3860,7 +3860,15 @@
       "show_photo": "Mostra foto {index} di {count}, {time}",
       "earlier_photos": "Foto precedenti",
       "later_photos": "Altre foto",
-      "manual_suggestion_help": "Richiede un nuovo suggerimento sulla specie per questa foto. Verificalo prima di confermare; scegli modello e dispositivo qui sotto."
+      "manual_suggestion_help": "Richiede un nuovo suggerimento sulla specie per questa foto. Verificalo prima di confermare; scegli modello e dispositivo qui sotto.",
+      "about_species": "Informazioni su {species}",
+      "detail_country": "Regola di posizione",
+      "detail_input": "Input del modello",
+      "detail_model": "Modello delle specie",
+      "details": "Dettagli",
+      "source": "Fonte",
+      "status_automatic": "Confermato e denominato automaticamente",
+      "status_confirmed": "Animale e specie confermati da te"
     },
     "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
     "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",
@@ -3870,7 +3878,12 @@
     "automatic_uncertain_pending": "Questo risultato incerto precedente attende la verifica automatica aggiornata.",
     "confirm_manually": "Conferma animale manualmente",
     "motion_limits_scoped": "Solo rilevatore di movimento: CPU · Almeno {seconds}s tra scansioni · Fino a {limit} foto · Conservazione di {days} giorni",
-    "manual_override": "Intervento manuale"
+    "manual_override": "Intervento manuale",
+    "named_from": {
+      "motion_crop": "Denominato dal ritaglio dell’animale nel filmato di movimento",
+      "tracked_crop": "Denominato dall’animale tracciato da Frigate nell’istantanea",
+      "whole_image": "Denominato dall’intera foto, quindi potrebbe non riferirsi a un solo animale"
+    }
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",

@@ -36,7 +36,8 @@ from app.models.garden_crop import GardenCropEvidence, GardenCropStorage
 from app.services.garden_crop_service import garden_crop_service
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_identification import garden_identification_service
-from app.services.species_names import species_name_lookup
+from app.services.species_names import SpeciesIdentityNames, species_name_lookup, vernacular_case
+from app.utils.language import get_user_language
 
 
 def require_garden_beta() -> None:
@@ -70,6 +71,8 @@ class GardenCaptureResponse(BaseModel):
     crop_url: str | None = None
     crop: GardenCropEvidence | None = None
     identification: GardenIdentification | None = None
+    # The standing identification's catalogue name, so the record can show it as birds do.
+    scientific_name: str | None = None
     source_kind: Literal["frigate_event", "motion"] = "frigate_event"
     motion_source: MotionSource | None = None
     automatic_check: GardenAutomaticCheck | None = None
@@ -93,15 +96,19 @@ class GardenBatchReviewResponse(BaseModel):
     skipped_count: int
 
 
-async def _response(capture: GardenCapture, names: dict[int, str] | None = None) -> GardenCaptureResponse:
+async def _response(
+    capture: GardenCapture, language: str, names: dict[int, SpeciesIdentityNames] | None = None
+) -> GardenCaptureResponse:
     identification = capture.identification
+    scientific_name = None
     if identification and identification.species_id:
         if names is None:
-            names = await asyncio.to_thread(
-                species_name_lookup.display_names, [identification.species_id], language="en"
-            )
-        if name := names.get(identification.species_id):
-            identification = identification.model_copy(update={"name": name})
+            names = await asyncio.to_thread(species_name_lookup.resolve, [identification.species_id], language=language)
+        catalogue = names.get(identification.species_id)
+        name = (catalogue.display if catalogue else None) or identification.name
+        if name:
+            identification = identification.model_copy(update={"name": vernacular_case(name)})
+        scientific_name = catalogue.scientific if catalogue else None
     return GardenCaptureResponse(
         id=capture.id,
         camera=capture.camera,
@@ -113,6 +120,7 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
         crop_url=f"/api/garden/{capture.id}/crop" if capture.status == "confirmed" and capture.crop else None,
         crop=capture.crop,
         identification=identification,
+        scientific_name=scientific_name,
         source_kind="motion" if capture.motion_source else "frigate_event",
         motion_source=capture.motion_source,
         automatic_check=capture.automatic_check,
@@ -120,20 +128,21 @@ async def _response(capture: GardenCapture, names: dict[int, str] | None = None)
     )
 
 
-async def _page(items: list[GardenCapture], total: int, limit: int, offset: int) -> GardenCapturePage:
+async def _page(items: list[GardenCapture], total: int, limit: int, offset: int, language: str) -> GardenCapturePage:
     names = await asyncio.to_thread(
-        species_name_lookup.display_names,
+        species_name_lookup.resolve,
         [item.identification.species_id for item in items if item.identification and item.identification.species_id],
-        language="en",
+        language=language,
     )
     return GardenCapturePage(
-        items=[await _response(item, names) for item in items], total=total, limit=limit, offset=offset
+        items=[await _response(item, language, names) for item in items], total=total, limit=limit, offset=offset
     )
 
 
 @router.get("", response_model=GardenCapturePage)
 async def list_captures(
     response: Response,
+    language: str = Depends(get_user_language),
     status: GardenStatus = "pending",
     limit: int = Query(20, ge=1, le=128),
     offset: int = Query(0, ge=0),
@@ -143,7 +152,7 @@ async def list_captures(
         repository = GardenRepository(db)
         items = await repository.list(status, limit, offset)
         total = await repository.count(status)
-    return await _page(items, total, limit, offset)
+    return await _page(items, total, limit, offset, language)
 
 
 def _as_utc(value: datetime | None) -> datetime | None:
@@ -154,6 +163,7 @@ def _as_utc(value: datetime | None) -> datetime | None:
 
 @router.get("/timeline", response_model=GardenCapturePage)
 async def capture_timeline(
+    language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
     camera: str | None = Query(None, max_length=128),
@@ -178,7 +188,7 @@ async def capture_timeline(
             status=status,
         )
         total = await repository.timeline_count(start=start, end=end, camera=camera, status=status)
-    return await _page(items, total, limit, offset)
+    return await _page(items, total, limit, offset, language)
 
 
 class GardenVisitResponse(BaseModel):
@@ -200,6 +210,7 @@ class GardenVisitPage(BaseModel):
 
 @router.get("/visits", response_model=GardenVisitPage)
 async def garden_visits(
+    language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
     camera: str | None = Query(None, max_length=128),
@@ -227,7 +238,7 @@ async def garden_visits(
             page_end=_as_utc(page_end),
         )
         records = await repo.get_many([row["representative"] for row in rows])
-        presented = await _page(records, len(records), limit, offset)
+        presented = await _page(records, len(records), limit, offset, language)
         by_id = {item.id: item for item in presented.items}
         visits = [
             GardenVisitResponse(
@@ -247,6 +258,7 @@ async def garden_visits(
 @router.get("/visits/{visit_id}/captures", response_model=GardenCapturePage)
 async def garden_visit_captures(
     visit_id: str,
+    language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
     camera: str | None = Query(None, max_length=128),
@@ -263,7 +275,7 @@ async def garden_visit_captures(
         )
     if not total:
         raise HTTPException(404, "Garden visit is no longer available. Refresh the history.")
-    return await _page(items, total, limit, offset)
+    return await _page(items, total, limit, offset, language)
 
 
 @router.get("/notifications", response_model=GardenNotificationStatus)
@@ -315,23 +327,27 @@ async def check_photo(capture_id: str, request: GardenPhotoCheckRequest) -> Gard
 
 
 @router.post("/{capture_id}/identify", response_model=GardenCaptureResponse)
-async def identify_capture(capture_id: str, request: GardenIdentifyRequest) -> GardenCaptureResponse:
+async def identify_capture(
+    capture_id: str, request: GardenIdentifyRequest, language: str = Depends(get_user_language)
+) -> GardenCaptureResponse:
     await garden_identification_service.identify(capture_id, request)
-    return await _response(await garden_capture_service.get(capture_id))
+    return await _response(await garden_capture_service.get(capture_id), language)
 
 
 @router.post("/{capture_id}/identification/{action}", response_model=GardenCaptureResponse)
-async def review_identification(capture_id: str, action: Literal["accept", "dismiss"]) -> GardenCaptureResponse:
+async def review_identification(
+    capture_id: str, action: Literal["accept", "dismiss"], language: str = Depends(get_user_language)
+) -> GardenCaptureResponse:
     async with garden_motion_privacy.lock:
         garden_identification_service.invalidate_photo_checks()
         await garden_identification_service.review(capture_id, action)
     capture = await garden_capture_service.get(capture_id)
     if action == "accept":
         await garden_notification_service.schedule(capture_id)
-    return await _response(capture)
+    return await _response(capture, language)
 
 
-async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureResponse:
+async def _review(capture_id: str, status: GardenStatus, language: str) -> GardenCaptureResponse:
     async with garden_motion_privacy.lock:
         garden_identification_service.invalidate_photo_checks()
         async with get_db() as db:
@@ -341,24 +357,26 @@ async def _review(capture_id: str, status: GardenStatus) -> GardenCaptureRespons
                 raise HTTPException(409, str(error)) from error
     if capture is None:
         raise HTTPException(404, "Garden capture not found")
-    return await _response(capture)
+    return await _response(capture, language)
 
 
 @router.post("/{capture_id}/confirm", response_model=GardenCaptureResponse)
-async def confirm_capture(capture_id: str, background_tasks: BackgroundTasks) -> GardenCaptureResponse:
-    result = await _review(capture_id, "confirmed")
+async def confirm_capture(
+    capture_id: str, background_tasks: BackgroundTasks, language: str = Depends(get_user_language)
+) -> GardenCaptureResponse:
+    result = await _review(capture_id, "confirmed", language)
     background_tasks.add_task(garden_crop_service.collect, capture_id)
     return result
 
 
 @router.post("/{capture_id}/dismiss", response_model=GardenCaptureResponse)
-async def dismiss_capture(capture_id: str) -> GardenCaptureResponse:
-    return await _review(capture_id, "dismissed")
+async def dismiss_capture(capture_id: str, language: str = Depends(get_user_language)) -> GardenCaptureResponse:
+    return await _review(capture_id, "dismissed", language)
 
 
 @router.post("/{capture_id}/restore", response_model=GardenCaptureResponse)
-async def restore_capture(capture_id: str) -> GardenCaptureResponse:
-    return await _review(capture_id, "pending")
+async def restore_capture(capture_id: str, language: str = Depends(get_user_language)) -> GardenCaptureResponse:
+    return await _review(capture_id, "pending", language)
 
 
 @router.get("/{capture_id}/snapshot", response_class=Response, response_model=None)

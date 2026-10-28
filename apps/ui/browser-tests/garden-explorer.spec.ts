@@ -101,13 +101,14 @@ test('Garden on its own lists only captures, and its record confirms an animal w
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Waiting for automatic identification');
-    await expect(dialog.getByText('Animal confirmed', { exact: true })).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-status]')).not.toHaveAttribute('data-garden-capture-status', 'confirmed');
     await expect(dialog.getByRole('button', { name: /Reclassify|Play/i })).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-record.png` });
     await expect(dialog.getByRole('button', { name: 'Confirm animal manually' })).not.toBeVisible();
     await dialog.getByText('Manual override', { exact: true }).click();
     await dialog.getByRole('button', { name: 'Confirm animal manually' }).click();
-    await expect(dialog.getByText('Animal confirmed', { exact: true })).toBeVisible();
+    await expect(dialog.locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
+    await expect(dialog.locator('[data-garden-capture-status]')).toContainText('Animal confirmed');
     expect(confirmed).toEqual(['cat'.padEnd(32, '0')]);
 
     await page.keyboard.press('Escape');
@@ -145,7 +146,7 @@ for (const gardenOnly of [false, true]) {
             window.dispatchEvent(new Event('fixture-garden-change'));
         });
         await expect(dialog).toContainText('Domestic cat');
-        await expect(dialog).toContainText('Named automatically');
+        await expect(dialog.locator('[data-garden-capture-status]')).toHaveText('Confirmed and named automatically');
         expect(timelineQueries.length).toBe(previousReads + 1);
         garden.splice(1, 1);
         await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
@@ -227,7 +228,8 @@ test('the manual CPU choice does not describe the saved SpeciesNet result', asyn
     const dialog = page.locator('[data-garden-capture-modal]');
     await expect(dialog.getByRole('button', { name: 'Suggest species', exact: true })).toBeVisible();
     await expect(dialog.locator('[data-garden-capture-actions]')).not.toContainText('Runs SpeciesNet');
-    await dialog.locator('[data-garden-capture-model] summary').click();
+    await expect(dialog.locator('[data-garden-capture-model]')).toBeHidden();
+    await dialog.locator('[data-garden-capture-details] summary').click();
     await expect(dialog.locator('[data-garden-capture-model]')).toContainText('New manual suggestion');
 });
 
@@ -269,7 +271,70 @@ for (const [provider, device] of [['cpu', 'CPU'], ['intel_npu', 'NPU']] as const
         } }));
         await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
         await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+        await page.locator('[data-garden-capture-details] summary').click();
         const evidence = page.locator('[data-garden-capture-identification]');
-        await expect(evidence).toContainText(`4.0.3b · ${device} · GBR`);
+        await expect(evidence).toContainText(`SpeciesNet 4.0.3b · ${device}`);
+        await expect(evidence).toContainText('GBR');
+    });
+}
+
+for (const width of [390, 1280]) {
+    test(`a named animal's record reads like a bird's: catalogue names, lineage, one state and closed details at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 });
+        const { garden, errors } = await openExplorer(page, '&garden=1', true);
+        const fox = garden[0];
+        if (!fox.identification) throw new Error('Expected a saved identification');
+        fox.identification.automatic = true;
+        Object.assign(fox, { scientific_name: 'Vulpes vulpes', automatic_check: {
+            outcome: 'animal', checked_at: fox.observed_at, devices: ['NPU'], variant: '4.0.3a', decision_reason: null
+        } });
+        const companion = capture('fox2', new Date(Date.parse(fox.observed_at) + 7_000).toISOString(), 'confirmed', 'Red fox', [0.05, 0.1, 0.2, 0.3]);
+        garden.push(companion);
+        const speciesReads: string[] = [];
+        await page.route('**/api/species/*/info', route => {
+            speciesReads.push(decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3]));
+            return route.fulfill({ json: {
+                title: 'Red fox', description: null, extract: 'The red fox is the largest of the true foxes.',
+                thumbnail_url: '/api/garden/reference/snapshot', wikipedia_url: null, source: 'Wikipedia', source_url: null,
+                summary_source: 'Wikipedia', summary_source_url: 'https://en.wikipedia.org/wiki/Red_fox',
+                scientific_name: 'Vulpes vulpes', conservation_status: null, cached_at: null
+            } });
+        });
+        await page.route('**/api/taxonomy/lineage?*', route => route.fulfill({ json: { lineage: [
+            { taxon_id: 1, rank: 'class', scientific_name: 'Mammalia', name: 'Mammals', principal: true },
+            { taxon_id: 2, rank: 'order', scientific_name: 'Carnivora', name: 'Carnivores', principal: true },
+            { taxon_id: 3, rank: 'family', scientific_name: 'Canidae', name: 'Dogs', principal: true },
+            { taxon_id: 4, rank: 'genus', scientific_name: 'Vulpes', name: null, principal: true },
+            { taxon_id: 5, rank: 'species', scientific_name: 'Vulpes vulpes', name: 'Red fox', principal: true }
+        ] } }));
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+        const dialog = page.locator('[data-garden-capture-modal]');
+
+        const identity = dialog.locator('[data-garden-capture-identity]');
+        await expect(identity.getByRole('heading', { name: 'Red fox', level: 3 })).toBeVisible();
+        await expect(identity.locator('[data-garden-scientific-name]')).toHaveText('Vulpes vulpes');
+        await expect(identity.locator('[data-garden-named-from]')).toHaveText("Named from Frigate's tracked animal in the snapshot");
+        await expect(identity.locator('[data-garden-species-reference]')).toBeVisible();
+        await expect(dialog.locator('[data-garden-capture-status]')).toHaveText('Confirmed and named automatically');
+        await expect(dialog.locator('[data-taxonomy-ladder]')).toContainText('Canidae');
+        await expect(dialog.locator('[data-garden-species-info]')).toContainText('largest of the true foxes');
+        expect(speciesReads).toContain('Red fox');
+
+        // The state is said once; the model run and manual choices wait behind Details.
+        await expect(dialog.getByText('Confident animal. Confirmed and named automatically', { exact: false })).toBeHidden();
+        await expect(dialog.locator('[data-garden-capture-model]')).toBeHidden();
+        await dialog.locator('[data-garden-capture-details] summary').click();
+        await expect(dialog.locator('[data-garden-capture-identification]')).toContainText('SpeciesNet 4.0.3b');
+        await expect(dialog.locator('[data-garden-automatic-check]')).toBeVisible();
+
+        // Captures seconds apart are told apart by their seconds.
+        const times = await dialog.locator('[data-garden-capture-choice] span').allInnerTexts();
+        expect(new Set(times).size).toBe(2);
+        await expect(dialog.locator('[data-garden-capture-dismiss]')).toHaveClass(/btn-ghost/);
+
+        await page.screenshot({ path: testInfo.outputPath(`garden-record-${width}.png`), fullPage: true });
+        if (shots) await page.screenshot({ path: `${shots}/garden-record-parity-${width}.png` });
+        expect(errors).toEqual([]);
     });
 }

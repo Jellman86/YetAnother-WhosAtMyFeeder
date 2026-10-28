@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden records now read like bird records. A named animal shows a cased name
+  in your language, its scientific name, a reference photograph, what the name
+  was read from, its family tree and a short species summary. The record states
+  its state once, and the model run and manual model choices move behind a closed
+  **Details** section. Photos in a visit show their time to the second.
+
 - With Garden on, the Dashboard's field log shows animal visits between bird
   visits, in time order. Each is marked **Garden**, says in words when it needs
   review, and opens its Garden record on the Dashboard. Bird counts on the
