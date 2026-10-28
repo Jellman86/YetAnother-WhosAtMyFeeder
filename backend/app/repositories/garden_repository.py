@@ -6,6 +6,7 @@ from dataclasses import dataclass, replace
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 import hashlib
+import json
 import sqlite3
 from typing import Literal
 import uuid
@@ -45,6 +46,17 @@ class GardenCapture:
     automatic_check: GardenAutomaticCheck | None = None
     automation_overridden: bool = False
     crop: GardenCropEvidence | None = None
+
+    @property
+    def review_token(self) -> str:
+        state = [
+            self.id,
+            self.status,
+            self.reviewed_at,
+            self.automation_overridden,
+            self.identification.model_dump(mode="json") if self.identification else None,
+        ]
+        return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
 class GardenRepository:
@@ -256,6 +268,40 @@ class GardenRepository:
             )
         await self.db.commit()
         return [capture_id for capture_id in ids if capture_id in updated]
+
+    async def dismiss_captures(self, targets: list[tuple[str, str]]) -> list[str]:
+        """Dismiss exactly the unchanged snapshots the owner selected, never later arrivals."""
+        if not 1 <= len(targets) <= 128 or len({identity for identity, _ in targets}) != len(targets):
+            raise ValueError("Dismissal requires 1 to 128 unique capture snapshots")
+        updated = []
+        for identity, token in targets:
+            async with self.db.execute(
+                f"SELECT {self._COLUMNS} FROM garden_captures WHERE id=? AND status IN ('pending','confirmed')",
+                (identity,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            if row is None or self._capture(row).review_token != token:
+                continue
+            # Comparing the original raw state closes the gap between the read
+            # and write, including a species review that leaves presence alone.
+            changed = await self.db.execute(
+                """UPDATE garden_captures SET status='dismissed',reviewed_at=?,automation_overridden=1
+                   WHERE id=? AND status=? AND reviewed_at IS ? AND automation_overridden=?
+                   AND (SELECT result_json FROM garden_identifications WHERE capture_id=garden_captures.id) IS ?""",
+                (utc_naive_now().isoformat(), identity, row[5], row[7], row[11], row[8]),
+            )
+            if changed.rowcount:
+                updated.append(identity)
+        if updated:
+            placeholders = ",".join("?" for _ in updated)
+            await self.db.execute(f"DELETE FROM garden_saved_crops WHERE capture_id IN ({placeholders})", updated)
+            await self.db.execute(
+                f"""UPDATE garden_identifications SET result_json=json_set(result_json,'$.review','dismissed')
+                    WHERE capture_id IN ({placeholders})""",
+                updated,
+            )
+        await self.db.commit()
+        return updated
 
     async def delete_older_than(self, cutoff: datetime) -> None:
         await self.db.execute(

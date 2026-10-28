@@ -128,7 +128,7 @@
     /** Which Garden captures the Garden view lists; the default is the animals. */
     let gardenReview = $state<GardenReview>('reviewable');
     /** A group just dismissed together, offered back while its photos remain. */
-    let gardenUndo = $state.raw<{ ids: string[]; skipped: number } | null>(null);
+    let gardenUndo = $state.raw<{ ids: string[]; skipped: number; returnToReview: boolean } | null>(null);
     /** The address asked for Garden visitors, as an old Garden page link does. */
     let gardenRequested = $state(false);
     let selectedEventIds = $state<string[]>([]);
@@ -1494,11 +1494,11 @@
         void (gardenOnly ? loadEvents() : loadGarden());
     }
 
-    function gardenGroupDismissed(ids: string[], skipped: number): void {
+    function gardenGroupDismissed(ids: string[], skipped: number, restoreMode?: 'review'): void {
         gardenHistory.invalidate();
         const removed = new Set(ids);
         gardenItems = (gardenItems ?? []).filter((item) => !removed.has(item.id));
-        gardenUndo = { ids, skipped };
+        gardenUndo = ids.length ? { ids, skipped, returnToReview: restoreMode === 'review' } : null;
         selectedGarden = null;
         openedGardenGroup = null;
         void (gardenOnly ? loadEvents() : loadGarden());
@@ -1989,9 +1989,13 @@
                 <span class="min-w-0 flex-1">
                     {$_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: gardenUndo.ids.length } })}
                     {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: gardenUndo.skipped } })}{/if}
-                    {' '}{$_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
+                    {' '}{gardenUndo.returnToReview
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
                 </span>
-                <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{$_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
+                <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
+                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
             </div>
         {/if}
         {#if gardenInTimeline && gardenFailed}

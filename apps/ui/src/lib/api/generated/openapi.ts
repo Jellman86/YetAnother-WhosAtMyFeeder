@@ -1079,6 +1079,7 @@ export interface components {
     identification?: components['schemas']['GardenIdentification'] | null;
     motion_source?: components['schemas']['MotionSource'] | null;
     observed_at: string;
+    review_token?: string | null;
     reviewed_at: string | null;
     scientific_name?: string | null;
     snapshot_url: string | null;
@@ -1101,6 +1102,13 @@ export interface components {
     count: number;
     limit: number;
     max_bytes_per_crop: number;
+};
+    GardenDismissRequest: {
+    captures: Array<components['schemas']['GardenDismissTarget']>;
+};
+    GardenDismissTarget: {
+    id: string;
+    review_token: string;
 };
     GardenIdentification: {
     automatic?: boolean;
@@ -3994,6 +4002,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['GardenCropStorage'];
+    };
+  };
+  "/api/garden/dismiss-captures": {
+    post: {
+      operationId: "dismiss_captures_api_garden_dismiss_captures_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['GardenDismissRequest'];
+      response: components['schemas']['GardenBatchReviewResponse'];
     };
   };
   "/api/garden/identification": {

@@ -622,11 +622,11 @@ test("one animal's repeated captures are one Explorer entry, as a bird's visit i
     const visit = page.locator('[data-garden-card]').filter({ has: page.locator('[data-garden-card-group]') });
     await expect(visit.locator('[data-garden-card-group]')).toHaveText('20 captures in this visit');
     await visit.getByRole('button', { name: /^Open Garden capture/ }).click();
-    await expect(record(page).getByText('20 captures in this visit')).toBeVisible();
+    await expect(record(page).getByText('20 captures in this visit', { exact: true })).toBeVisible();
     await expect(record(page).getByText('Photo 1 of 20', { exact: true })).toBeVisible();
     await nextPhoto(page);
     await expect(record(page).getByText('Photo 2 of 20', { exact: true })).toBeVisible();
-    // Confirmed animals have nothing left to dismiss as a stack.
+    // The pending-only stack action stays separate from explicit visit dismissal.
     await expect(record(page).getByRole('button', { name: /^Dismiss remaining/ })).toHaveCount(0);
 });
 
@@ -652,6 +652,8 @@ test('a 215-photo visit stays on one group page and its photo navigation crosses
     await expect(page.locator('[data-garden-card-group]').first()).toContainText('215 captures');
     await openFirst(page);
     await expect(record(page).getByText('Photo 1 of 215', { exact: true })).toBeVisible();
+    await expect(record(page).getByRole('button', { name: 'Dismiss 215 captures in this visit' })).toBeDisabled();
+    await expect(record(page).getByText('Visits with more than 128 captures must be dismissed one capture at a time.', { exact: true })).toBeVisible();
     await record(page).locator('[data-garden-capture-choice]').last().click();
     await record(page).getByRole('button', { name: 'More photos', exact: true }).click();
     await expect(record(page).getByText('Photo 129 of 215', { exact: true })).toBeVisible();

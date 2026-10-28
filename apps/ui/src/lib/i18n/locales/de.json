@@ -3885,7 +3885,13 @@
       "motion_crop": "Benannt nach dem Tierausschnitt aus der Bewegungsaufnahme",
       "tracked_crop": "Benannt nach dem von Frigate verfolgten Tier im Schnappschuss",
       "whole_image": "Nach dem ganzen Foto benannt, daher bezieht es sich vielleicht nicht auf ein einzelnes Tier"
-    }
+    },
+    "visit_dismiss": "{count} Aufnahmen dieses Besuchs verwerfen",
+    "visit_dismiss_help": "Diese Aufnahmen gemeinsam verwerfen. Seit dem Laden geänderte und später hinzugekommene Aufnahmen bleiben erhalten. Verworfene Fotos können erneut geprüft werden, solange sie verfügbar sind.",
+    "visit_dismiss_limit": "Besuche mit mehr als 128 Aufnahmen müssen einzeln verworfen werden.",
+    "visit_dismiss_reload": "Die Aufnahmen dieses Besuchs erneut laden, bevor sie gemeinsam verworfen werden.",
+    "visit_return": "Aufnahmen erneut prüfen",
+    "visit_return_help": "Die erneute Prüfung bestätigt weder das Tier noch die Art. Verworfene Fotos können Platz für neue Aufnahmen machen."
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",

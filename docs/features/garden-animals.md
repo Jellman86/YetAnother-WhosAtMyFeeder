@@ -111,6 +111,13 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   camera, time and review filters. Choosing one opens that exact photo in the
   visit, including beyond the record's first page. Failed reads offer **Retry**;
   saved reviews and live updates refresh open lists. These details remain owner-only.
+  A confirmed visit with up to 128 captures also offers **Dismiss {count} captures
+  in this visit** once its captures are loaded. This dismisses only those unchanged
+  reviews; newer captures and concurrent owner corrections are kept. Larger visits
+  can be dismissed one capture at a time. In Explorer, **Return captures to review**
+  restores available photos to pending review without reconfirming the animal or
+  species name. Dismissal keeps the history and original model result but removes
+  saved crop previews, following the single-capture privacy behavior.
 - Opening one shows its record, in the bird record's shape: the saved animal crop,
   or the original framed around trustworthy saved crop geometry, beside the
   identification. A named animal shows its catalogue name in your language, cased

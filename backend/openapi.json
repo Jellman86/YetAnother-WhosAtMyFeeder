@@ -7527,6 +7527,18 @@
             "title": "Observed At",
             "type": "string"
           },
+          "review_token": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Token"
+          },
           "reviewed_at": {
             "anyOf": [
               {
@@ -7723,6 +7735,46 @@
           "max_bytes_per_crop"
         ],
         "title": "GardenCropStorage",
+        "type": "object"
+      },
+      "GardenDismissRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "captures": {
+            "items": {
+              "$ref": "#/components/schemas/GardenDismissTarget"
+            },
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Captures",
+            "type": "array"
+          }
+        },
+        "required": [
+          "captures"
+        ],
+        "title": "GardenDismissRequest",
+        "type": "object"
+      },
+      "GardenDismissTarget": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-f0-9]{32}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "review_token": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Review Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "review_token"
+        ],
+        "title": "GardenDismissTarget",
         "type": "object"
       },
       "GardenIdentification": {
@@ -27264,6 +27316,58 @@
           }
         ],
         "summary": "Crop Storage",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/dismiss-captures": {
+      "post": {
+        "operationId": "dismiss_captures_api_garden_dismiss_captures_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GardenDismissRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenBatchReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Dismiss Captures",
         "tags": [
           "garden"
         ]

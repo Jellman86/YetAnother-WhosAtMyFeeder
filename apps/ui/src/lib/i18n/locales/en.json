@@ -3885,7 +3885,13 @@
       "motion_crop": "Named from the animal crop in motion footage",
       "tracked_crop": "Named from Frigate's tracked animal in the snapshot",
       "whole_image": "Named from the whole photo, so it may not refer to one animal"
-    }
+    },
+    "visit_dismiss": "Dismiss {count} captures in this visit",
+    "visit_dismiss_help": "Dismiss these captures together. Captures changed since loading and later arrivals are kept. You can return dismissed photos to review while their photos remain.",
+    "visit_dismiss_limit": "Visits with more than 128 captures must be dismissed one capture at a time.",
+    "visit_dismiss_reload": "Load this visit’s captures again before dismissing them together.",
+    "visit_return": "Return captures to review",
+    "visit_return_help": "Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures."
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",

@@ -3885,7 +3885,13 @@
       "motion_crop": "Nomeado a partir do recorte do animal na gravação de movimento",
       "tracked_crop": "Nomeado a partir do animal seguido pelo Frigate no instantâneo",
       "whole_image": "Nomeado a partir da foto inteira, por isso pode não se referir a um só animal"
-    }
+    },
+    "visit_dismiss": "Descartar {count} capturas desta visita",
+    "visit_dismiss_help": "Descartar estas capturas em conjunto. As alteradas desde o carregamento e as posteriores são mantidas. As fotos descartadas podem voltar à revisão enquanto estiverem disponíveis.",
+    "visit_dismiss_limit": "Visitas com mais de 128 capturas devem ser descartadas uma captura de cada vez.",
+    "visit_dismiss_reload": "Volte a carregar as capturas desta visita antes de as descartar em conjunto.",
+    "visit_return": "Devolver capturas à revisão",
+    "visit_return_help": "Voltar à revisão não reconfirma a presença nem a espécie. As fotos descartadas podem dar lugar a novas capturas."
   },
   "model_execution": {
     "completed": "Última execução concluída: {device} · {time}",

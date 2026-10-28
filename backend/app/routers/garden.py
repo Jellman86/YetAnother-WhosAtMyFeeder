@@ -4,7 +4,7 @@ import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
@@ -77,6 +77,7 @@ class GardenCaptureResponse(BaseModel):
     motion_source: MotionSource | None = None
     automatic_check: GardenAutomaticCheck | None = None
     automatic_check_overridden: bool = False
+    review_token: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
 
 
 class GardenCapturePage(BaseModel):
@@ -94,6 +95,23 @@ class GardenBatchReviewRequest(BaseModel):
 class GardenBatchReviewResponse(BaseModel):
     updated_ids: list[str]
     skipped_count: int
+
+
+class GardenDismissTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    review_token: str = Field(pattern=r"^[a-f0-9]{64}$")
+
+
+class GardenDismissRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    captures: list[GardenDismissTarget] = Field(min_length=1, max_length=128)
+
+    @model_validator(mode="after")
+    def unique_captures(self) -> "GardenDismissRequest":
+        if len({capture.id for capture in self.captures}) != len(self.captures):
+            raise ValueError("Capture snapshots must have unique IDs")
+        return self
 
 
 async def _response(
@@ -125,6 +143,7 @@ async def _response(
         motion_source=capture.motion_source,
         automatic_check=capture.automatic_check,
         automatic_check_overridden=capture.automation_overridden,
+        review_token=capture.review_token,
     )
 
 
@@ -304,6 +323,21 @@ async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewRe
 async def identification_status(response: Response) -> GardenIdentificationStatus:
     response.headers["Cache-Control"] = "private, no-store"
     return await garden_identification_service.status()
+
+
+@router.post("/dismiss-captures", response_model=GardenBatchReviewResponse)
+async def dismiss_captures(request: GardenDismissRequest) -> GardenBatchReviewResponse:
+    async with garden_motion_privacy.lock:
+        garden_identification_service.invalidate_photo_checks()
+        async with get_db() as db:
+            updated = await GardenRepository(db).dismiss_captures(
+                [(capture.id, capture.review_token) for capture in request.captures]
+            )
+    if updated:
+        from app.services.broadcaster import broadcaster
+
+        await broadcaster.broadcast({"type": "garden_history_changed"})
+    return GardenBatchReviewResponse(updated_ids=updated, skipped_count=len(request.captures) - len(updated))
 
 
 @router.post("/models/{variant}/install", response_model=GardenIdentificationStatus)
