@@ -127,6 +127,10 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   without trustworthy geometry stays whole. **Suggest species** runs the installed
   SpeciesNet model on the CPU unless you choose another model or device under **Model and device**. Bird actions
   such as scoring again, video scans and audio matching do not apply.
+  Reference photographs and summaries are looked up by the catalogue's scientific
+  identity, not a bird-only search for the common name. Previously cached common-name
+  articles are bypassed. If the identity or a matching reference is unavailable,
+  the record keeps its identification and capture photo without an unrelated reference.
 - Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports
   and BirdWeather, eBird and iNaturalist reporting never count them.
 - Under **Birds and Garden**, filters that only describe bird visits (a species, **Favourites**, **Hidden**,

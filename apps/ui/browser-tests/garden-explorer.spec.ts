@@ -280,6 +280,43 @@ for (const [provider, device] of [['cpu', 'CPU'], ['intel_npu', 'NPU']] as const
     });
 }
 
+for (const knownIdentity of [true, false]) {
+    test(`a dog's reference is bound to its catalogue identity (${knownIdentity ? 'known' : 'unavailable'})`, async ({ page }) => {
+        await page.setViewportSize({ width: 390, height: 1000 });
+        const { garden, errors } = await openExplorer(page, '&garden=1', true);
+        const dog = garden[0];
+        if (!dog.identification) throw new Error('Expected a saved identification');
+        dog.identification.name = 'Domestic Dog';
+        Object.assign(dog, { scientific_name: knownIdentity ? 'Canis familiaris' : null });
+        const requests: string[] = [];
+        await page.route('**/api/species/*/info*', route => {
+            const scientificName = new URL(route.request().url()).searchParams.get('scientific_name');
+            requests.push(scientificName ?? '');
+            const matches = scientificName === 'Canis familiaris';
+            return route.fulfill({ json: {
+                title: matches ? 'Dog' : 'Cessna O-1 Bird Dog',
+                description: null, extract: matches ? 'The dog is a domesticated mammal.' : 'A liaison and observation aircraft.',
+                thumbnail_url: matches ? '/api/reference-dog.jpg' : '/api/aircraft.jpg', scientific_name: scientificName,
+                source: 'Wikipedia', summary_source: 'Wikipedia'
+            } });
+        });
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await page.getByRole('button', { name: /Open Garden capture: Domestic Dog/ }).click();
+        const dialog = page.locator('[data-garden-capture-modal]');
+        if (knownIdentity) {
+            await expect(dialog.locator('[data-garden-species-info]')).toContainText('domesticated mammal');
+            await expect(dialog.locator('[data-garden-species-reference]')).toHaveAttribute('src', '/api/reference-dog.jpg');
+            expect(requests).toEqual(['Canis familiaris']);
+        } else {
+            await expect(dialog.locator('[data-garden-capture-details] summary')).toBeVisible();
+            await expect(dialog.locator('[data-garden-species-info]')).toHaveCount(0);
+            expect(requests).toEqual([]);
+        }
+        await expect(dialog).not.toContainText('aircraft');
+        expect(errors).toEqual([]);
+    });
+}
+
 for (const width of [390, 1280]) {
     test(`a named animal's record reads like a bird's: catalogue names, lineage, one state and closed details at ${width}px`, async ({ page }, testInfo) => {
         await page.setViewportSize({ width, height: 1000 });
@@ -293,7 +330,8 @@ for (const width of [390, 1280]) {
         const companion = capture('fox2', new Date(Date.parse(fox.observed_at) + 7_000).toISOString(), 'confirmed', 'Red fox', [0.05, 0.1, 0.2, 0.3]);
         garden.push(companion);
         const speciesReads: string[] = [];
-        await page.route('**/api/species/*/info', route => {
+        await page.route('**/api/species/*/info?*', route => {
+            expect(new URL(route.request().url()).searchParams.get('scientific_name')).toBe('Vulpes vulpes');
             speciesReads.push(decodeURIComponent(new URL(route.request().url()).pathname.split('/')[3]));
             return route.fulfill({ json: {
                 title: 'Red fox', description: null, extract: 'The red fox is the largest of the true foxes.',

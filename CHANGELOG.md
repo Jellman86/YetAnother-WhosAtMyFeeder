@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Garden reference photographs and species summaries now use the animal's
+  scientific identity. A Domestic Dog no longer gets the Cessna Bird Dog's
+  aircraft photograph and article from a bird-only common-name search. Old
+  name-only references are bypassed; unmatched references stay unavailable.
+
 - Garden visits in the field log and Explorer have expandable capture details,
   matching bird visits. Each photo shows its own name, state, score and time to
   the second, loads in bounded pages, and opens the exact selected photo in the

@@ -124,7 +124,8 @@
     ));
     const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).title);
     // Catalogue context needs a name that stands: one the owner or the check accepted, or a suggestion.
-    const referenceName = $derived(view.name && capture.identification?.rank === 'species' ? view.name : null);
+    const referenceName = $derived(view.name && capture.scientific_name && capture.identification?.rank === 'species' ? view.name : null);
+    const referenceScientificName = $derived(capture.scientific_name ?? null);
     const lineageName = $derived(view.name ? capture.scientific_name ?? null : null);
     let speciesInfo = $state.raw<SpeciesInfo | null>(null);
     let speciesInfoLoading = $state(false);
@@ -188,15 +189,16 @@
     // The species summary comes from the same reference service the bird record reads.
     $effect(() => {
         const name = referenceName;
+        const scientificName = referenceScientificName;
         speciesInfo = null;
         speciesInfoError = null;
-        if (!name) {
+        if (!name || !scientificName) {
             speciesInfoLoading = false;
             return;
         }
         const controller = new AbortController();
         speciesInfoLoading = true;
-        fetchSpeciesInfo(name, controller.signal)
+        fetchSpeciesInfo(name, controller.signal, scientificName)
             .then((info) => { if (!controller.signal.aborted) speciesInfo = info; })
             .catch((failure: unknown) => { if (!controller.signal.aborted) speciesInfoError = getErrorMessage(failure); })
             .finally(() => { if (!controller.signal.aborted) speciesInfoLoading = false; });
