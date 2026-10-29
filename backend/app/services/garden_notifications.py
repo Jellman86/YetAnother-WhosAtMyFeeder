@@ -19,6 +19,9 @@ Sender = Callable[[str, GardenCapture], Awaitable[bool]]
 def eligible(capture: GardenCapture | None, *, enabled: bool, cameras: list[str], now: datetime) -> bool:
     if not enabled or capture is None or capture.camera not in cameras or capture.status != "confirmed":
         return False
+    # A correction does not replay alerts or send the superseded model name.
+    if capture.owner_identification is not None:
+        return False
     identity = capture.identification
     if not identity or identity.outcome != "suggestion" or identity.review != "accepted" or not identity.name:
         return False

@@ -3891,7 +3891,19 @@
     "visit_dismiss_limit": "超过 128 张照片的到访需要逐张忽略。",
     "visit_dismiss_reload": "一起忽略前，请重新加载本次到访的照片。",
     "visit_return": "将照片退回待审核",
-    "visit_return_help": "退回待审核不会重新确认动物出现或物种名称。被忽略的照片可能会为新照片腾出空间。"
+    "visit_return_help": "退回待审核不会重新确认动物出现或物种名称。被忽略的照片可能会为新照片腾出空间。",
+    "rename": {
+      "search": "搜索动物物种",
+      "help": "输入常用名或学名的至少两个字符，然后选择物种。",
+      "search_failed": "无法搜索物种。请修改搜索内容后重试。",
+      "no_matches": "Garden 目录中没有匹配的动物物种。",
+      "matches": "匹配的动物物种",
+      "scope": "仅更改此条记录。原始模型结果保留在“详情”中。",
+      "save": "保存物种",
+      "change": "更改物种",
+      "revert": "移除我的物种更正",
+      "chosen_by_you": "由你选择的物种"
+    }
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

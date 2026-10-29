@@ -14,7 +14,7 @@ import uuid
 import aiosqlite
 
 from app.utils.api_datetime import utc_naive_now
-from app.models.garden import GardenIdentification, GardenAutomaticCheck
+from app.models.garden import GardenIdentification, GardenAutomaticCheck, GardenOwnerIdentification, GardenSpecies
 from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCropEvidence
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 
@@ -46,6 +46,7 @@ class GardenCapture:
     automatic_check: GardenAutomaticCheck | None = None
     automation_overridden: bool = False
     crop: GardenCropEvidence | None = None
+    owner_identification: GardenOwnerIdentification | None = None
 
     @property
     def review_token(self) -> str:
@@ -55,6 +56,7 @@ class GardenCapture:
             self.reviewed_at,
             self.automation_overridden,
             self.identification.model_dump(mode="json") if self.identification else None,
+            self.owner_identification.model_dump(mode="json") if self.owner_identification else None,
         ]
         return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
@@ -70,7 +72,9 @@ class GardenRepository:
         (SELECT source_json FROM garden_motion_sources WHERE capture_id=garden_captures.id),
         (SELECT result_json FROM garden_automatic_checks WHERE capture_id=garden_captures.id),
         automation_overridden,
-        (SELECT evidence_json FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL)"""
+        (SELECT evidence_json FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL),
+        (SELECT json_object('species_id',species_id,'name',name,'scientific_name',scientific_name,'changed_at',changed_at)
+          FROM garden_owner_identifications WHERE capture_id=garden_captures.id)"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -90,6 +94,7 @@ class GardenRepository:
             GardenAutomaticCheck.model_validate_json(row[10]) if row[10] else None,
             bool(row[11]),
             GardenCropEvidence.model_validate_json(row[12]) if row[12] else None,
+            GardenOwnerIdentification.model_validate_json(row[13]) if row[13] else None,
         )
 
     async def has_history(self) -> bool:
@@ -106,6 +111,10 @@ class GardenRepository:
         return inserted.rowcount > 0
 
     async def block(self, event_id: str, *, create: bool) -> bool:
+        await self.db.execute(
+            "DELETE FROM garden_owner_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
+            (self._key(event_id),),
+        )
         await self.db.execute(
             "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
             (self._key(event_id),),
@@ -305,6 +314,10 @@ class GardenRepository:
 
     async def delete_older_than(self, cutoff: datetime) -> None:
         await self.db.execute(
+            "DELETE FROM garden_owner_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
+            (cutoff.replace(tzinfo=None).isoformat(),),
+        )
+        await self.db.execute(
             "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
             (cutoff.replace(tzinfo=None).isoformat(),),
         )
@@ -412,6 +425,7 @@ class GardenRepository:
             ids,
         )
         for table in (
+            "garden_owner_identifications",
             "garden_identifications",
             "garden_motion_sources",
             "garden_automatic_checks",
@@ -460,6 +474,7 @@ class GardenRepository:
             await self.db.commit()
 
     async def block_capture(self, capture_id: str) -> bool:
+        await self.db.execute("DELETE FROM garden_owner_identifications WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_saved_crops WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_automatic_checks WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_identifications WHERE capture_id=?", (capture_id,))
@@ -576,6 +591,7 @@ class GardenRepository:
                SELECT id, ? FROM garden_captures WHERE id=? AND status=? AND reviewed_at IS ?
                AND status = 'confirmed'
                AND json((SELECT result_json FROM garden_identifications WHERE capture_id=id)) IS json(?)
+               AND NOT EXISTS (SELECT 1 FROM garden_owner_identifications WHERE capture_id=id)
                ON CONFLICT(capture_id) DO UPDATE SET result_json=excluded.result_json
                WHERE json_extract(garden_identifications.result_json,'$.review') != 'accepted'""",
             (
@@ -715,3 +731,39 @@ class GardenRepository:
         ) as cursor:
             count, size = await cursor.fetchone()
         return {"count": count, "bytes": size, "limit": CROP_COUNT_LIMIT, "max_bytes_per_crop": CROP_BYTES_LIMIT}
+
+    async def rename_species(self, capture_id: str, token: str, species: GardenSpecies | None) -> GardenCapture | None:
+        async with self.db.execute(
+            f"SELECT {self._COLUMNS} FROM garden_captures WHERE id=? AND status!='blocked'", (capture_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        current = self._capture(row)
+        if current.status != "confirmed" or current.review_token != token:
+            raise ValueError("This capture changed. Refresh it before changing its species.")
+        now = utc_naive_now().isoformat()
+        # This is the first write: compare the raw owner and model evidence under
+        # SQLite's writer lock, so a second owner or privacy revocation always wins.
+        changed = await self.db.execute(
+            """UPDATE garden_captures SET reviewed_at=?,automation_overridden=1
+               WHERE id=? AND status='confirmed' AND reviewed_at IS ? AND automation_overridden=?
+               AND (SELECT result_json FROM garden_identifications WHERE capture_id=id) IS ?
+               AND (SELECT json_object('species_id',species_id,'name',name,'scientific_name',scientific_name,'changed_at',changed_at)
+                    FROM garden_owner_identifications WHERE capture_id=id) IS ?""",
+            (now, capture_id, row[7], row[11], row[8], row[13]),
+        )
+        if not changed.rowcount:
+            await self.db.rollback()
+            raise ValueError("This capture changed. Refresh it before changing its species.")
+        if species is None:
+            await self.db.execute("DELETE FROM garden_owner_identifications WHERE capture_id=?", (capture_id,))
+        else:
+            await self.db.execute(
+                """INSERT INTO garden_owner_identifications(capture_id,species_id,name,scientific_name,changed_at) VALUES (?,?,?,?,?)
+                   ON CONFLICT(capture_id) DO UPDATE SET species_id=excluded.species_id,name=excluded.name,
+                   scientific_name=excluded.scientific_name,changed_at=excluded.changed_at""",
+                (capture_id, species.species_id, species.name, species.scientific_name, now + "Z"),
+            )
+        await self.db.commit()
+        return await self.get(capture_id)

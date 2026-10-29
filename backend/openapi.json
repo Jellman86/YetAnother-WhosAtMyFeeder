@@ -7527,6 +7527,16 @@
             "title": "Observed At",
             "type": "string"
           },
+          "owner_identification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenOwnerIdentification"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "review_token": {
             "anyOf": [
               {
@@ -8305,6 +8315,40 @@
         "title": "GardenNotificationStatus",
         "type": "object"
       },
+      "GardenOwnerIdentification": {
+        "additionalProperties": false,
+        "properties": {
+          "changed_at": {
+            "title": "Changed At",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "species_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Species Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "species_id",
+          "name",
+          "scientific_name",
+          "changed_at"
+        ],
+        "title": "GardenOwnerIdentification",
+        "type": "object"
+      },
       "GardenPhotoCheck": {
         "additionalProperties": false,
         "properties": {
@@ -8537,6 +8581,56 @@
           "other"
         ],
         "title": "GardenPresenceMass",
+        "type": "object"
+      },
+      "GardenRenameRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "review_token": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Review Token",
+            "type": "string"
+          },
+          "species_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Species Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "species_id",
+          "review_token"
+        ],
+        "title": "GardenRenameRequest",
+        "type": "object"
+      },
+      "GardenSpecies": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "species_id": {
+            "exclusiveMinimum": 0.0,
+            "title": "Species Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "species_id",
+          "name",
+          "scientific_name"
+        ],
+        "title": "GardenSpecies",
         "type": "object"
       },
       "GardenVisitPage": {
@@ -27610,6 +27704,65 @@
         ]
       }
     },
+    "/api/garden/species": {
+      "get": {
+        "operationId": "garden_species_api_garden_species_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 120,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GardenSpecies"
+                  },
+                  "title": "Response Garden Species Api Garden Species Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Garden Species",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
     "/api/garden/timeline": {
       "get": {
         "description": "Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for.",
@@ -28522,6 +28675,130 @@
           }
         ],
         "summary": "Capture Snapshot",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/{capture_id}/species": {
+      "delete": {
+        "operationId": "clear_owner_species_api_garden__capture_id__species_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "review_token",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Review Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Clear Owner Species",
+        "tags": [
+          "garden"
+        ]
+      },
+      "put": {
+        "operationId": "rename_species_api_garden__capture_id__species_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GardenRenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Rename Species",
         "tags": [
           "garden"
         ]

@@ -1079,6 +1079,7 @@ export interface components {
     identification?: components['schemas']['GardenIdentification'] | null;
     motion_source?: components['schemas']['MotionSource'] | null;
     observed_at: string;
+    owner_identification?: components['schemas']['GardenOwnerIdentification'] | null;
     review_token?: string | null;
     reviewed_at: string | null;
     scientific_name?: string | null;
@@ -1180,6 +1181,12 @@ export interface components {
     configured: Record<string, boolean>;
     enabled: boolean;
 };
+    GardenOwnerIdentification: {
+    changed_at: string;
+    name: string;
+    scientific_name: string;
+    species_id: number;
+};
     GardenPhotoCheck: {
     box_xywh: [number, number, number, number];
     capture_id: string;
@@ -1210,6 +1217,15 @@ export interface components {
     human: number;
     non_animal: number;
     other: number;
+};
+    GardenRenameRequest: {
+    review_token: string;
+    species_id: number;
+};
+    GardenSpecies: {
+    name: string;
+    scientific_name: string;
+    species_id: number;
 };
     GardenVisitPage: {
     capture_total: number;
@@ -4069,6 +4085,17 @@ export interface paths {
       response: components['schemas']['GardenBatchReviewResponse'];
     };
   };
+  "/api/garden/species": {
+    get: {
+      operationId: "garden_species_api_garden_species_get";
+      path: never;
+      query: {
+    q: string;
+};
+      requestBody: unknown;
+      response: Array<components['schemas']['GardenSpecies']>;
+    };
+  };
   "/api/garden/timeline": {
     get: {
       operationId: "capture_timeline_api_garden_timeline_get";
@@ -4210,6 +4237,28 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/garden/{capture_id}/species": {
+    put: {
+      operationId: "rename_species_api_garden__capture_id__species_put";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenRenameRequest'];
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+    delete: {
+      operationId: "clear_owner_species_api_garden__capture_id__species_delete";
+      path: {
+    capture_id: string;
+};
+      query: {
+    review_token: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
     };
   };
   "/api/inaturalist/draft": {

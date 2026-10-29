@@ -1,6 +1,6 @@
 import { fetchGardenVisitCaptures, type GardenCapture, type GardenServerVisit, type GardenTimelineQuery } from '../api/garden';
 import { gardenHistory } from '../stores/garden_history.svelte';
-import { gardenBelongs, gardenEntryView, type GardenReview, type GardenVisit } from './garden-explorer';
+import { gardenBelongs, gardenVisitIdentity, type GardenReview, type GardenVisit } from './garden-explorer';
 
 const CAPTURE_PAGE_SIZE = 128;
 
@@ -71,8 +71,8 @@ export class GardenVisitViewer {
             this.capture = next;
             if (!group) return;
             const previous = group.items.find((item) => item.id === next.id);
-            // A changed state or name no longer belongs to the stack it was opened from.
-            if (!previous || previous.status !== next.status || gardenEntryView(previous).name !== gardenEntryView(next).name) {
+            // A changed state or species no longer belongs to the stack it was opened from.
+            if (!previous || previous.status !== next.status || gardenVisitIdentity(previous) !== gardenVisitIdentity(next)) {
                 this.group = { id: next.id, kind: 'visit', captureCount: 1, items: [next] };
                 this.offset = 0;
             } else {

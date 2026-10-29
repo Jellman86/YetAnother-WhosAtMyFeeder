@@ -20,11 +20,12 @@ class GardenVisitRepository(GardenRepository):
         where, values = self._timeline_filter(start, end, camera, status)
         source = f"""scoped AS (
             SELECT garden_captures.id, camera, observed_at, status, i.result_json AS identification,
-                   m.source_json AS motion,
+                   m.source_json AS motion, o.species_id AS owner_species,
                    EXISTS (SELECT 1 FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL) AS has_crop
             FROM garden_captures
             LEFT JOIN garden_identifications i ON i.capture_id=garden_captures.id
             LEFT JOIN garden_motion_sources m ON m.capture_id=garden_captures.id
+            LEFT JOIN garden_owner_identifications o ON o.capture_id=garden_captures.id
             WHERE {where}
         )"""
         # Motion storage retains at most 128 live photos. Compare each proposal with
@@ -54,6 +55,7 @@ class GardenVisitRepository(GardenRepository):
                 CASE WHEN status='pending' AND motion IS NOT NULL THEN 1 ELSE 0 END AS position,
                 CASE WHEN status='pending' AND motion IS NOT NULL THEN 'position:' || COALESCE(p.anchor,s.id)
                      ELSE status || ':' || CASE
+                        WHEN owner_species IS NOT NULL THEN 'species:' || owner_species
                         WHEN json_extract(identification,'$.outcome')='suggestion'
                          AND json_extract(identification,'$.review') != 'dismissed'
                          AND NULLIF(json_extract(identification,'$.name'),'') IS NOT NULL

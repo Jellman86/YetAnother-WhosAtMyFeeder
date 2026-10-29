@@ -247,3 +247,13 @@ describe('gardenCaptureFacts', () => {
         expect(gardenCaptureFacts(proposal, visit)).toEqual({ shown: false, motion: true, review: 'species' });
     });
 });
+
+
+it('owner names replace the display identity without borrowing model confidence', () => {
+    const original = named('accepted', true);
+    const corrected = capture({ status: 'confirmed', identification: original, owner_identification: {
+        species_id: 123, name: 'Domestic Cat', scientific_name: 'Felis catus', changed_at: '2026-10-29T00:00:00Z'
+    }});
+    expect(gardenEntryView(corrected)).toEqual({ name: 'Domestic Cat', nameState: 'confirmed', score: null, review: null });
+    expect(corrected.identification).toBe(original);
+});

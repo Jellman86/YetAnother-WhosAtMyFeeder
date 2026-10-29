@@ -11,6 +11,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any
 
+from app.models.garden import GardenSpecies
 from app.services.species_catalog_migrations import default_catalog_path
 from app.services.species_provenance import load_source_manifest, require_build_source, SourceProvenanceError
 
@@ -185,3 +186,29 @@ class GardenCatalog:
             if set(bundle["bindings"]) != expected_ids:
                 raise ValueError("Garden catalogue bindings are incomplete")
             return bundle
+
+    def owner_species(
+        self, species_id: int | None = None, *, query: str = "", language: str = "en", limit: int = 20
+    ) -> list[GardenSpecies]:
+        """Local complete animal species, never human/background or inferred higher taxa."""
+        from app.services.garden_visitors import Taxon
+        from app.services.species_names import SpeciesNameLookup, vernacular_case
+
+        bundle = self.load()
+        candidates = {}
+        for value in bundle["outputs"]:
+            taxon = Taxon(value["id"], value["name"], tuple(value["ranks"]))
+            identity = taxon_identity(value)
+            canonical = bundle["bindings"][value["id"]]
+            if identity and identity[1] == "species" and taxon.animal and not taxon.human and canonical:
+                if species_id is None or canonical == species_id:
+                    candidates[canonical] = (value["name"], identity[0])
+        names = SpeciesNameLookup(self.path).resolve(candidates, language=language)
+        term = query.casefold().strip()
+        results = []
+        for canonical, (fallback, scientific) in candidates.items():
+            localized = names.get(canonical)
+            name = vernacular_case((localized.display if localized else None) or fallback)
+            if not term or any(term in v.casefold() for v in (name, scientific, fallback)):
+                results.append(GardenSpecies(species_id=canonical, name=name, scientific_name=scientific))
+        return sorted(results, key=lambda v: (v.name.casefold(), v.species_id))[: max(1, min(limit, 50))]

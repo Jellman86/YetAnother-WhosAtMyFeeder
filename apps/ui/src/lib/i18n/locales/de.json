@@ -3891,7 +3891,19 @@
     "visit_dismiss_limit": "Besuche mit mehr als 128 Aufnahmen müssen einzeln verworfen werden.",
     "visit_dismiss_reload": "Die Aufnahmen dieses Besuchs erneut laden, bevor sie gemeinsam verworfen werden.",
     "visit_return": "Aufnahmen erneut prüfen",
-    "visit_return_help": "Die erneute Prüfung bestätigt weder das Tier noch die Art. Verworfene Fotos können Platz für neue Aufnahmen machen."
+    "visit_return_help": "Die erneute Prüfung bestätigt weder das Tier noch die Art. Verworfene Fotos können Platz für neue Aufnahmen machen.",
+    "rename": {
+      "search": "Tierart suchen",
+      "help": "Gib mindestens zwei Buchstaben eines gebräuchlichen oder wissenschaftlichen Namens ein und wähle eine Art.",
+      "search_failed": "Die Artensuche ist fehlgeschlagen. Ändere die Suche und versuche es erneut.",
+      "no_matches": "Keine passende Tierart im Garden-Katalog.",
+      "matches": "Passende Tierarten",
+      "scope": "Ändert nur diese Aufnahme. Das ursprüngliche Modellergebnis bleibt unter Details erhalten.",
+      "save": "Art speichern",
+      "change": "Art ändern",
+      "revert": "Meine Artenkorrektur entfernen",
+      "chosen_by_you": "Art von dir ausgewählt"
+    }
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",

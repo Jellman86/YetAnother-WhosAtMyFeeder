@@ -3891,7 +3891,19 @@
     "visit_dismiss_limit": "Visits with more than 128 captures must be dismissed one capture at a time.",
     "visit_dismiss_reload": "Load this visit’s captures again before dismissing them together.",
     "visit_return": "Return captures to review",
-    "visit_return_help": "Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures."
+    "visit_return_help": "Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.",
+    "rename": {
+      "search": "Search animal species",
+      "help": "Type at least two letters of a common or scientific name, then choose a species.",
+      "search_failed": "Could not search species. Edit the search to try again.",
+      "no_matches": "No matching animal species in the Garden catalogue.",
+      "matches": "Matching animal species",
+      "scope": "Changes this capture only. The original model result is kept in Details.",
+      "save": "Save species",
+      "change": "Change species",
+      "revert": "Remove my species correction",
+      "chosen_by_you": "Species chosen by you"
+    }
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",

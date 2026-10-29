@@ -413,6 +413,28 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
 
+- `GET /api/garden/species?q=fox` — owner-only, beta-gated local species search.
+  `q` is 1–120 characters; returns up to 20 `{species_id, name, scientific_name}`
+  choices. Searches common/scientific names with the reader's locale and English
+  fallback. No model or external service runs. Only complete animal species from
+  the pinned Garden catalogue are offered; human/background/higher taxa are excluded.
+- `PUT /api/garden/{capture_id}/species` — save an owner correction for one confirmed
+  capture. Body: `{"species_id": 123, "review_token": "<64 hex characters>"}`.
+  Use the opaque token from the capture response. A stale token or non-confirmed
+  record returns `409`; missing/blocked returns `404`; an unsupported species returns
+  `422`; an unavailable catalogue returns `503`. Retained crops or an expired original
+  do not prevent correction. The response includes nullable `owner_identification`
+  (`species_id`, `name`, `scientific_name`, `changed_at`) separately from unchanged
+  model `identification`; `scientific_name` describes the current owner identity.
+  No score, model or execution is assigned to the owner's choice. The new identity
+  controls visit grouping, marks automation overridden and emits the private history
+  refresh after commit. No alert is scheduled or replayed by this action.
+- `DELETE /api/garden/{capture_id}/species?review_token=<64 hex characters>` — remove
+  the correction using the current token, returning to the stored model identity
+  without inference. Automation remains overridden. Both write routes require header
+  authentication; the media cookie cannot authorize them. Ordinary dismissal retains
+  owner identity with history, while person revocation and retention purge it.
+
 - `GET /api/garden/notifications` — owner-only, beta-gated delivery status. Returns
   `enabled`, selected `channels`, credential-presence booleans in `configured`, and
   aggregate `attempts` counts (`attempted`, `sent`, `failed`, `skipped`). No secrets

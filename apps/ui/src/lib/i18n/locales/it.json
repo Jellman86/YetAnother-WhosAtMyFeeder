@@ -3891,7 +3891,19 @@
     "visit_dismiss_limit": "Le visite con più di 128 acquisizioni devono essere scartate una acquisizione alla volta.",
     "visit_dismiss_reload": "Ricarica le acquisizioni di questa visita prima di scartarle insieme.",
     "visit_return": "Riporta le acquisizioni in revisione",
-    "visit_return_help": "Tornare in revisione non conferma nuovamente la presenza o la specie. Le foto scartate possono lasciare spazio a nuove acquisizioni."
+    "visit_return_help": "Tornare in revisione non conferma nuovamente la presenza o la specie. Le foto scartate possono lasciare spazio a nuove acquisizioni.",
+    "rename": {
+      "search": "Cerca una specie animale",
+      "help": "Digita almeno due lettere del nome comune o scientifico, poi scegli una specie.",
+      "search_failed": "Impossibile cercare le specie. Modifica la ricerca per riprovare.",
+      "no_matches": "Nessuna specie animale corrispondente nel catalogo Garden.",
+      "matches": "Specie animali corrispondenti",
+      "scope": "Modifica solo questa acquisizione. Il risultato originale del modello resta in Dettagli.",
+      "save": "Salva specie",
+      "change": "Cambia specie",
+      "revert": "Rimuovi la mia correzione della specie",
+      "chosen_by_you": "Specie scelta da te"
+    }
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",
