@@ -100,3 +100,15 @@ describe('GardenVisitViewer', () => {
         expect(viewer.group).toEqual({ id: 'a', kind: 'visit', captureCount: 1, items: [capture('a', { status: 'confirmed' })] });
     });
 });
+
+it('detaches a corrected capture when canonical species changes even if its common name is unchanged', async () => {
+    const owner = { species_id: 1, name: 'Fox', scientific_name: 'Vulpes vulpes', changed_at: '2026-10-29T00:00:00Z' };
+    const first = capture('a', { owner_identification: owner });
+    fetchGardenVisitCaptures.mockResolvedValue({ items: [first, capture('b', { owner_identification: owner })], total: 2, limit: 128, offset: 0 });
+    const viewer = new GardenVisitViewer(() => scope, () => 'failed');
+    viewer.open({ ...visit(2), representative: first });
+    await vi.waitFor(() => expect(viewer.loading).toBe(false));
+    viewer.changed({ ...first, owner_identification: { ...owner, species_id: 2, scientific_name: 'Vulpes lagopus' } });
+    expect(viewer.group?.captureCount).toBe(1);
+    expect(viewer.capture?.owner_identification?.species_id).toBe(2);
+});

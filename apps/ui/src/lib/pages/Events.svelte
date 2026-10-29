@@ -9,9 +9,9 @@
     import GardenExplorerRow from '../components/GardenExplorerRow.svelte';
     import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
     import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
-    import { fetchGardenVisits, fetchGardenVisitCaptures, type GardenServerVisit, type GardenCapture } from '../api/garden';
+    import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, type GardenServerVisit, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
-    import { gardenEntryView, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
+    import { gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -681,8 +681,19 @@
                         openedGardenGroup = { ...openedGardenGroup, captureCount: refreshed.capture_count };
                         await loadGardenCapturePage(gardenGroupOffset, false);
                     } else {
-                        selectedGarden = null;
-                        openedGardenGroup = null;
+                        // A species correction can change the visit ID. Re-read this
+                        // capture before closing it; a revoked capture is still removed.
+                        const selected = selectedGarden;
+                        const generation = ++gardenGroupGeneration;
+                        try {
+                            const current = await fetchGardenCaptureAtTime(selected, gardenOnly ? gardenReview : 'reviewable');
+                            if (generation !== gardenGroupGeneration || selectedGarden?.id !== selected.id) return;
+                            selectedGarden = current;
+                            openedGardenGroup = current ? { id: current.id, kind: 'visit', captureCount: 1, items: [current] } : null;
+                            gardenGroupOffset = 0;
+                        } catch (failure) {
+                            if (generation === gardenGroupGeneration) gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
+                        }
                     }
                 }
             }, 350);
@@ -1474,7 +1485,7 @@
             selectedGarden = next;
             if (openedGardenGroup) {
                 const previous = openedGardenGroup.items.find((item) => item.id === next.id);
-                if (!previous || previous.status !== next.status || gardenEntryView(previous).name !== gardenEntryView(next).name) {
+                if (!previous || previous.status !== next.status || gardenVisitIdentity(previous) !== gardenVisitIdentity(next)) {
                     // A changed identity/state no longer belongs to the cached stack.
                     openedGardenGroup = { id: next.id, kind: 'visit', captureCount: 1, items: [next] };
                     gardenGroupOffset = 0;

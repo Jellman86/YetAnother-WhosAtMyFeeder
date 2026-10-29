@@ -150,3 +150,20 @@ class GardenNotificationStatus(BaseModel):
     channels: list[Literal["discord", "telegram", "pushover", "email"]]
     configured: dict[str, bool]
     attempts: dict[str, int]
+
+
+class GardenSpecies(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    species_id: int = Field(gt=0)
+    name: str = Field(min_length=1, max_length=256)
+    scientific_name: str = Field(min_length=1, max_length=256)
+
+
+class GardenOwnerIdentification(GardenSpecies):
+    changed_at: str
+
+
+class GardenRenameRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    species_id: int = Field(gt=0)
+    review_token: str = Field(pattern=r"^[a-f0-9]{64}$")

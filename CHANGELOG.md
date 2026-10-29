@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Confirmed Garden captures can be renamed with **Change species**, including
+  captures whose original photograph has expired. Choose a species from the local
+  Garden catalogue; the owner correction is shown without a model confidence and
+  visits regroup by its identity. The original prediction, crop and execution
+  evidence stay in Details. Corrections survive restarts, can be removed explicitly,
+  and do not replay notifications or change bird history.
+
 - Garden capture records now use the bird record's read-only terminal-style
   details panel, with capture identity, source, saved model/device and retained
   evidence. Model and accelerator selectors have been removed from records;

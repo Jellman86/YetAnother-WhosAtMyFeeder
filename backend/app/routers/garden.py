@@ -1,6 +1,7 @@
 """Private, paginated animal reviews. Confirmation records presence, not species."""
 
 import asyncio
+import sqlite3
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
@@ -23,6 +24,9 @@ from app.services.garden_capture_service import garden_capture_service
 from app.services import garden_motion_privacy
 from app.models.garden import (
     GardenIdentification,
+    GardenOwnerIdentification,
+    GardenSpecies,
+    GardenRenameRequest,
     GardenNotificationStatus,
     GardenIdentificationStatus,
     GardenIdentifyRequest,
@@ -71,6 +75,7 @@ class GardenCaptureResponse(BaseModel):
     crop_url: str | None = None
     crop: GardenCropEvidence | None = None
     identification: GardenIdentification | None = None
+    owner_identification: GardenOwnerIdentification | None = None
     # The standing identification's catalogue name, so the record can show it as birds do.
     scientific_name: str | None = None
     source_kind: Literal["frigate_event", "motion"] = "frigate_event"
@@ -127,6 +132,15 @@ async def _response(
         if name:
             identification = identification.model_copy(update={"name": vernacular_case(name)})
         scientific_name = catalogue.scientific if catalogue else None
+    owner = capture.owner_identification
+    if owner:
+        if names is None or owner.species_id not in names:
+            names = await asyncio.to_thread(species_name_lookup.resolve, [owner.species_id], language=language)
+        catalogue = names.get(owner.species_id)
+        owner = owner.model_copy(
+            update={"name": vernacular_case((catalogue.display if catalogue else None) or owner.name)}
+        )
+        scientific_name = owner.scientific_name
     return GardenCaptureResponse(
         id=capture.id,
         camera=capture.camera,
@@ -138,6 +152,7 @@ async def _response(
         crop_url=f"/api/garden/{capture.id}/crop" if capture.status == "confirmed" and capture.crop else None,
         crop=capture.crop,
         identification=identification,
+        owner_identification=owner,
         scientific_name=scientific_name,
         source_kind="motion" if capture.motion_source else "frigate_event",
         motion_source=capture.motion_source,
@@ -150,7 +165,15 @@ async def _response(
 async def _page(items: list[GardenCapture], total: int, limit: int, offset: int, language: str) -> GardenCapturePage:
     names = await asyncio.to_thread(
         species_name_lookup.resolve,
-        [item.identification.species_id for item in items if item.identification and item.identification.species_id],
+        [
+            value
+            for item in items
+            for value in (
+                item.identification.species_id if item.identification else None,
+                item.owner_identification.species_id if item.owner_identification else None,
+            )
+            if value
+        ],
         language=language,
     )
     return GardenCapturePage(
@@ -444,3 +467,49 @@ async def capture_crop(capture_id: str) -> Response:
 async def crop_storage() -> GardenCropStorage:
     async with get_db() as db:
         return GardenCropStorage(**await GardenRepository(db).crop_storage())
+
+
+@router.get("/species", response_model=list[GardenSpecies])
+async def garden_species(
+    q: str = Query(min_length=1, max_length=120), language: str = Depends(get_user_language)
+) -> list[GardenSpecies]:
+    try:
+        return await asyncio.to_thread(garden_identification_service.catalog.owner_species, query=q, language=language)
+    except (OSError, ValueError, sqlite3.Error) as error:
+        raise HTTPException(503, "Garden species data is unavailable. Check startup diagnostics.") from error
+
+
+async def _rename(capture_id: str, token: str, species: GardenSpecies | None, language: str) -> GardenCaptureResponse:
+    async with garden_motion_privacy.lock:
+        garden_identification_service.invalidate_photo_checks()
+        async with get_db() as db:
+            try:
+                capture = await GardenRepository(db).rename_species(capture_id, token, species)
+            except ValueError as error:
+                raise HTTPException(409, str(error)) from error
+    if capture is None:
+        raise HTTPException(404, "Garden capture not found")
+    from app.services.broadcaster import broadcaster
+
+    await broadcaster.broadcast({"type": "garden_history_changed"})
+    return await _response(capture, language)
+
+
+@router.put("/{capture_id}/species", response_model=GardenCaptureResponse)
+async def rename_species(
+    capture_id: str, request: GardenRenameRequest, language: str = Depends(get_user_language)
+) -> GardenCaptureResponse:
+    try:
+        choices = await asyncio.to_thread(garden_identification_service.catalog.owner_species, request.species_id)
+    except (OSError, ValueError, sqlite3.Error) as error:
+        raise HTTPException(503, "Garden species data is unavailable. Check startup diagnostics.") from error
+    if not choices:
+        raise HTTPException(422, "Choose a complete animal species from the Garden catalogue.")
+    return await _rename(capture_id, request.review_token, choices[0], language)
+
+
+@router.delete("/{capture_id}/species", response_model=GardenCaptureResponse)
+async def clear_owner_species(
+    capture_id: str, review_token: str = Query(pattern=r"^[a-f0-9]{64}$"), language: str = Depends(get_user_language)
+) -> GardenCaptureResponse:
+    return await _rename(capture_id, review_token, None, language)

@@ -140,6 +140,22 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   identity, not a bird-only search for the common name. Previously cached common-name
   articles are bypassed. If the identity or a matching reference is unavailable,
   the record keeps its identification and capture photo without an unrelated reference.
+- On a confirmed capture, **Change species** searches common and scientific names
+  in the local Garden catalogue. Choose a complete animal species, then **Save species**.
+  This changes only the open capture, including when its original photo has expired;
+  the other captures in its visit are unaffected. The name says **Identified by you**
+  and has no model confidence. Visit grouping and species references use the corrected
+  identity. The original model name, score, devices and image evidence remain in
+  **Details**, and the saved crop stays unchanged.
+- **Remove my species correction** returns to the stored model identification, if
+  it has a standing name; it does not run the model again. Corrections and removals
+  prevent automatic renaming, survive restarts and refresh other open owner views.
+  A changed capture returns a conflict rather than overwriting another decision.
+  Dismissing keeps the correction with its history; later person evidence removes it
+  with the capture's private evidence. Corrections do not replay notifications, and
+  a queued alert for the superseded model name is skipped. No model download or
+  accelerator is needed; an unavailable local catalogue prevents a new correction.
+  Human, background and higher-taxon entries cannot be chosen as species.
 - Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports
   and BirdWeather, eBird and iNaturalist reporting never count them.
 - Under **Birds and Garden**, filters that only describe bird visits (a species, **Favourites**, **Hidden**,
@@ -546,3 +562,12 @@ The three-day full-photo expiry and separate 128-photo motion budget still apply
 
 Downgrading the saved-crop migration removes these derived previews while keeping
 capture history, identifications and the separate temporary full photos.
+
+
+### Owner-correction storage and rollback
+
+Owner corrections are stored separately from model output in the history database.
+The migration is idempotent and leaves existing captures, settings and original
+predictions intact. Downgrading past the owner-correction migration drops those new
+corrections; it retains the original capture and model history. Export a recovery
+backup before deliberately downgrading a database that contains owner corrections.

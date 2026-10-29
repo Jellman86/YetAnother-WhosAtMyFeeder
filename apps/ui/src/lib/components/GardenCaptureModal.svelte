@@ -18,8 +18,11 @@
     import GardenCaptureThumbnail from './GardenCaptureThumbnail.svelte';
     import TaxonomyLineage from './TaxonomyLineage.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
+    import GardenSpeciesPicker from './GardenSpeciesPicker.svelte';
     import {
         checkGardenPhoto,
+        renameGardenSpecies,
+        clearGardenSpecies,
         fetchGardenIdentification,
         identifyGarden,
         reviewGarden,
@@ -74,6 +77,7 @@
     let mediaHeight = $state(0);
     let peekCapture = $state<string | null>(null);
     let saving = $state(false);
+    let editCapture = $state<string | null>(null);
     const canDismissVisit = $derived(groupTotal <= 128 && groupTotal === group.length
         && group.every((item) => item.status === 'confirmed' && item.review_token));
     let manualOverride = $state(false);
@@ -132,7 +136,7 @@
     ));
     const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).title);
     // Catalogue context needs a name that stands: one the owner or the check accepted, or a suggestion.
-    const referenceName = $derived(view.name && capture.scientific_name && capture.identification?.rank === 'species' ? view.name : null);
+    const referenceName = $derived(view.name && capture.scientific_name && (capture.owner_identification || capture.identification?.rank === 'species') ? view.name : null);
     const referenceScientificName = $derived(capture.scientific_name ?? null);
     const lineageName = $derived(view.name ? capture.scientific_name ?? null : null);
     let speciesInfo = $state.raw<SpeciesInfo | null>(null);
@@ -143,6 +147,7 @@
         speciesInfo?.thumbnail_url && speciesInfo.thumbnail_url !== failedReference ? speciesInfo.thumbnail_url : null
     );
     const namedFrom = $derived.by((): string | null => {
+        if (capture.owner_identification) return $_('garden.rename.chosen_by_you', { default: 'Species chosen by you' });
         const named = capture.identification;
         if (!view.name || !named) return null;
         if (named.input_kind === 'whole_image') {
@@ -512,7 +517,7 @@
                             {#if namedFrom}
                                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-garden-named-from>{namedFrom}</p>
                             {/if}
-                            {#if view.name && capture.identification?.rank && capture.identification.rank !== 'species'}
+                            {#if view.name && !capture.owner_identification && capture.identification?.rank && capture.identification.rank !== 'species'}
                                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>
                             {/if}
                         </div>
@@ -550,7 +555,7 @@
                     {/if}
                     {status.text}
                 </p>
-                {#if capture.identification?.outcome === 'unknown' && capture.identification.review !== 'dismissed'}
+                {#if !capture.owner_identification && capture.identification?.outcome === 'unknown' && capture.identification.review !== 'dismissed'}
                     <p class="text-sm text-slate-600 dark:text-slate-300" data-garden-identification-unknown>
                         {$_('garden.identification_unknown', { default: 'No reliable identification. Leave this animal unidentified or request a new suggestion.' })}
                     </p>
@@ -620,7 +625,11 @@
                         {/if}
                         </details>
                     {:else if capture.status === 'confirmed'}
-                        {#if view.nameState === 'suggested' && view.name}
+                        {#if capture.owner_identification}
+                            <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-4 py-2" disabled={saving || !capture.review_token} onclick={() => act(() => clearGardenSpecies(capture.id, capture.review_token ?? ''))}>
+                                {$_('garden.rename.revert', { default: 'Remove my species correction' })}
+                            </button>
+                        {:else if view.nameState === 'suggested' && view.name}
                             <button type="button" class="btn btn-primary min-h-11 whitespace-normal px-4 py-2" disabled={saving || !photoReady} onclick={() => reviewName('accept')}>
                                 {$_('garden.explorer.confirm_name', { default: 'Confirm {name}', values: { name: view.name } })}
                             </button>
@@ -638,6 +647,20 @@
                             <p id="garden-capture-identify-note" class="text-xs text-slate-600 dark:text-slate-400">
                                 {identifyBlocked ?? $_('garden.explorer.manual_suggestion_help', { default: 'Requests a new species suggestion for this photo using your Detection settings. Review it before confirming.' })}
                             </p>
+                        {/if}
+                    {/if}
+
+                    {#if capture.status === 'confirmed' && capture.review_token}
+                        {#if editCapture === capture.id}
+                            {#key capture.id}
+                                <GardenSpeciesPicker busy={saving} oncancel={() => { editCapture = null; }} onsave={(species) => {
+                                    void act(() => renameGardenSpecies(capture.id, species, capture.review_token ?? '')).then(() => { if (!error) editCapture = null; });
+                                }} />
+                            {/key}
+                        {:else}
+                            <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-4 py-2" disabled={saving} onclick={() => { editCapture = capture.id; }}>
+                                {$_('garden.rename.change', { default: 'Change species' })}
+                            </button>
                         {/if}
                     {/if}
 
@@ -723,8 +746,15 @@
                         {@const evidence = capture.identification}
                         <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-capture-identification>
                             <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">model</dt><dd class="min-w-0 max-w-full break-all">SpeciesNet {evidence.variant} · {evidence.devices.join(', ')}</dd></div>
-                            {#each [['country', evidence.country], ['input_kind', evidence.input_kind], ['identified_at', evidence.identified_at], ['model_sha256', evidence.model_sha256], ['package_sha256', evidence.package_sha256], ['image_sha256', evidence.image_sha256]] as [key, value] (key)}
+                            {#each [['model_species', evidence.name ?? ''], ['model_score', evidence.score == null ? '' : `${Math.round(evidence.score * 100)}%`], ['country', evidence.country], ['input_kind', evidence.input_kind], ['identified_at', evidence.identified_at], ['model_sha256', evidence.model_sha256], ['package_sha256', evidence.package_sha256], ['image_sha256', evidence.image_sha256]] as [key, value] (key)}
                                 {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
+                            {/each}
+                        </dl>
+                    {/if}
+                    {#if capture.owner_identification}
+                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-owner-identity>
+                            {#each [['owner_species', capture.owner_identification.name], ['owner_species_id', String(capture.owner_identification.species_id)], ['owner_changed_at', capture.owner_identification.changed_at]] as [key, value] (key)}
+                                <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
                             {/each}
                         </dl>
                     {/if}

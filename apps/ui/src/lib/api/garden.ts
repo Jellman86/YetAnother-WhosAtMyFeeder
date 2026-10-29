@@ -123,3 +123,27 @@ export type GardenNotificationChannel = GardenNotificationStatus['channels'][num
 export async function fetchGardenNotifications(signal?: AbortSignal): Promise<GardenNotificationStatus> {
     return handleResponse<GardenNotificationStatus>(await apiFetch(`${API_BASE}/garden/notifications`, { signal }));
 }
+
+
+export type GardenSpecies = components['schemas']['GardenSpecies'];
+
+export async function searchGardenSpecies(query: string, signal: AbortSignal): Promise<GardenSpecies[]> {
+    return handleResponse<GardenSpecies[]>(await apiFetch(`${API_BASE}/garden/species?${new URLSearchParams({ q: query })}`, { signal, timeoutMs: 15000 }));
+}
+
+export async function renameGardenSpecies(id: string, speciesId: number, token: string): Promise<GardenCapture> {
+    const request: components['schemas']['GardenRenameRequest'] = { species_id: speciesId, review_token: token };
+    return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/species`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request), timeoutMs: 15000
+    }));
+}
+
+export async function clearGardenSpecies(id: string, token: string): Promise<GardenCapture> {
+    return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/species?${new URLSearchParams({ review_token: token })}`, { method: 'DELETE', timeoutMs: 15000 }));
+}
+
+/** Re-read a selected capture when a correction moved it out of its former visit. */
+export async function fetchGardenCaptureAtTime(capture: Pick<GardenCapture, 'id' | 'camera' | 'observed_at'>, status: GardenTimelineQuery['status']): Promise<GardenCapture | null> {
+    const page = await fetchGardenTimeline({ start: capture.observed_at, end: capture.observed_at, camera: capture.camera, status, order: 'newest', limit: 200 });
+    return page.items?.find(item => item.id === capture.id) ?? null;
+}

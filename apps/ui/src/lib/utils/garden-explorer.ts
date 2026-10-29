@@ -24,6 +24,9 @@ export interface GardenEntryView {
 }
 
 export function gardenEntryView(capture: GardenCapture): GardenEntryView {
+    if (capture.owner_identification && capture.status === 'confirmed') {
+        return { name: capture.owner_identification.name, nameState: 'confirmed', score: null, review: null };
+    }
     const identification = capture.identification;
     const standing =
         identification && identification.outcome === 'suggestion' && identification.review !== 'dismissed' && identification.name
@@ -172,8 +175,10 @@ export interface GardenVisit {
 }
 
 /** What a capture is, for visit grouping: its name, or what is known before one is given. */
-function identity(capture: GardenCapture): string {
+export function gardenVisitIdentity(capture: GardenCapture): string {
     const view = gardenEntryView(capture);
+    const species = capture.owner_identification?.species_id ?? capture.identification?.species_id;
+    if (view.name && species) return `species:${species}`;
     if (view.name) return `name:${view.name.trim().toLocaleLowerCase()}`;
     return capture.status === 'confirmed' ? 'animal' : `${capture.status}:${capture.frigate_label}`;
 }
@@ -197,7 +202,7 @@ export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVis
             visits.push({ id: `position:${unit.id}`, kind: unit.items.length > 1 ? 'position' : 'visit', items: unit.items });
             continue;
         }
-        const key = `${first.camera}\u0000${identity(first)}`;
+        const key = `${first.camera}\u0000${gardenVisitIdentity(first)}`;
         const at = time(first);
         const current = open.get(key);
         if (current && at - current.latest <= GARDEN_VISIT_GAP_MS) {

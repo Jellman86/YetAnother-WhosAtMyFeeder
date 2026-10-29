@@ -1,3 +1,4 @@
+import type { GardenCapture } from '../src/lib/api/garden';
 import { gardenVisitResponse } from './garden-visits-fixture';
 import { test, expect, type Page } from '@playwright/test';
 
@@ -18,7 +19,8 @@ function capture(id: string, at: string, status: 'pending' | 'confirmed', name?:
     return {
         id: id.padEnd(32, '0'), camera: 'patio', frigate_label: 'cat', observed_at: at, status, reviewed_at: null,
         snapshot_url: `/api/garden/${id.padEnd(32, '0')}/snapshot` as string | null, crop_url: null as string | null, source_kind: 'frigate_event', motion_source: null,
-        automatic_check: null, automatic_check_overridden: false,
+        automatic_check: null, automatic_check_overridden: false, review_token: 'a'.repeat(64),
+        owner_identification: null as GardenCapture['owner_identification'],
         identification: name ? {
             outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: false, name, rank: 'species', score: 0.93,
             country: 'GBR', variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 1, input_kind: box ? 'tracked_crop' : 'whole_image', box_xywh: box ?? null,
@@ -50,6 +52,13 @@ async function openExplorer(page: Page, query = '', cropped = false) {
             if (!path.endsWith('/captures')) timelineQueries.push(url.searchParams);
             else captureQueries.push(url.searchParams);
             return route.fulfill({ json: gardenVisitResponse(garden, url) });
+        }
+        if (path === '/api/garden/timeline') {
+            const status = url.searchParams.get('status') ?? 'reviewable';
+            const items = garden.filter(item => item.camera === url.searchParams.get('camera')
+                && item.observed_at === url.searchParams.get('start')
+                && (status === 'reviewable' || item.status === status));
+            return route.fulfill({ json: { items, total: items.length, limit: 200, offset: 0 } });
         }
         if (path === '/api/garden/identification') {
             return route.fulfill({ json: { country: 'GBR', catalogue_ready: true, busy: false, models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }] } });
@@ -467,3 +476,65 @@ for (const mode of ['cards', 'list']) {
         expect(errors).toEqual([]);
     });
 }
+
+
+for (const width of [320, 1280]) {
+    test(`owner species correction keeps original evidence and works after photo expiry at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const { garden, errors } = await openExplorer(page, '&garden=1');
+        const item = garden[0];
+        item.snapshot_url = null;
+        item.crop_url = `/api/garden/${item.id}/crop`;
+        const requests: object[] = [];
+        await page.route('**/api/garden/species?**', route => route.fulfill({ json: [{ species_id: 123, name: 'Domestic Cat', scientific_name: 'Felis catus' }] }));
+        await page.route(`**/api/garden/${item.id}/species**`, route => {
+            requests.push({ method: route.request().method(), body: route.request().postDataJSON(), query: new URL(route.request().url()).searchParams.get('review_token') });
+            if (route.request().method() === 'PUT') {
+                item.owner_identification = { species_id: 123, name: 'Domestic Cat', scientific_name: 'Felis catus', changed_at: '2026-10-29T00:00:00Z' };
+            } else item.owner_identification = null;
+            item.review_token = 'b'.repeat(64);
+            return route.fulfill({ json: { ...item, scientific_name: item.owner_identification?.scientific_name ?? 'Vulpes vulpes' } });
+        });
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByRole('button', { name: 'Change species', exact: true }).click();
+        const picker = dialog.locator('[data-garden-species-picker]');
+        await expect(picker.getByRole('button', { name: 'Save species', exact: true })).toBeDisabled();
+        await picker.getByRole('textbox', { name: 'Search animal species' }).fill('Felis');
+        await picker.getByRole('button', { name: 'Domestic Cat Felis catus' }).focus();
+        await page.keyboard.press('Enter');
+        const ownerRefresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
+        await picker.getByRole('button', { name: 'Save species', exact: true }).click();
+        await ownerRefresh;
+        await expect(dialog.getByRole('heading', { name: 'Domestic Cat', exact: true, level: 3 })).toBeVisible();
+        await expect(dialog.locator('[data-garden-capture-score]')).toHaveCount(0);
+        await expect(dialog.getByText('Species chosen by you', { exact: true })).toBeVisible();
+        await dialog.locator('[data-garden-capture-details] summary').click();
+        await expect(dialog.locator('[data-garden-capture-identification]')).toContainText('Red fox');
+        await expect(dialog.locator('[data-garden-capture-identification]')).toContainText('93%');
+        await expect(dialog.locator('[data-garden-owner-identity]')).toContainText('Domestic Cat');
+        expect(requests[0]).toEqual({ method: 'PUT', body: { species_id: 123, review_token: 'a'.repeat(64) }, query: null });
+        expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        const restoredRefresh = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
+        await dialog.getByRole('button', { name: 'Remove my species correction' }).click();
+        await restoredRefresh;
+        await expect(dialog.getByRole('heading', { name: 'Red fox', exact: true, level: 3 })).toBeVisible();
+        expect(errors).toEqual([]);
+    });
+}
+
+test('a stale correction reports the conflict and preserves the selected species for review', async ({ page }) => {
+    const { garden } = await openExplorer(page, '&garden=1');
+    await page.route('**/api/garden/species?**', route => route.fulfill({ json: [{ species_id: 123, name: 'Domestic Cat', scientific_name: 'Felis catus' }] }));
+    await page.route(`**/api/garden/${garden[0].id}/species**`, route => route.fulfill({ status: 409, json: { detail: 'This capture changed. Refresh it before changing its species.' } }));
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Change species', exact: true }).click();
+    await dialog.getByRole('textbox', { name: 'Search animal species' }).fill('Felis');
+    await dialog.getByRole('button', { name: 'Domestic Cat Felis catus' }).click();
+    await dialog.getByRole('button', { name: 'Save species', exact: true }).click();
+    await expect(dialog).toContainText('This capture changed. Refresh it before changing its species.');
+    await expect(dialog.getByRole('textbox', { name: 'Search animal species' })).toHaveValue('Domestic Cat');
+    await expect(dialog.getByRole('heading', { name: 'Red fox', exact: true, level: 3 })).toBeVisible();
+});
