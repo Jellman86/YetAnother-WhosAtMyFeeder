@@ -163,11 +163,20 @@ describe('gardenEntryText', () => {
 
     it('names nothing a model has not named, and says what still needs a person', () => {
         const pending = capture();
-        expect(gardenEntryText(pending, gardenEntryView(pending), t)).toEqual({ title: 'Possible animal', state: 'Waiting for automatic identification' });
+        expect(gardenEntryText(pending, gardenEntryView(pending), t, 'owner')).toEqual({ title: 'Possible animal', state: 'Waiting for automatic identification' });
         const suggested = capture({ status: 'confirmed', identification: named('unreviewed') });
-        expect(gardenEntryText(suggested, gardenEntryView(suggested), t)).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
+        expect(gardenEntryText(suggested, gardenEntryView(suggested), t, 'owner')).toEqual({ title: 'Red fox', state: 'Needs review: suggested species' });
         const unnamed = capture({ status: 'confirmed' });
-        expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t)).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
+        expect(gardenEntryText(unnamed, gardenEntryView(unnamed), t, 'owner')).toEqual({ title: 'Animal, not named', state: 'Animal confirmed, species not named' });
+    });
+
+    it('credits a confirmed species to the person reading only when that person is the owner', () => {
+        const confirmed = capture({ status: 'confirmed', identification: named('accepted') });
+        const view = gardenEntryView(confirmed);
+        expect(gardenEntryText(confirmed, view, t, 'owner')).toEqual({ title: 'Red fox', state: 'Species confirmed by you' });
+        // A public visitor did not confirm anything, so the owner is named instead.
+        expect(gardenEntryText(confirmed, view, t, 'visitor')).toEqual({ title: 'Red fox', state: 'Owner confirmed' });
+        expect(gardenEntryText(confirmed, view, t, 'visitor').state).not.toContain('by you');
     });
 });
 
@@ -177,7 +186,7 @@ describe('dismissed captures', () => {
     it('read as dismissed, never as a confirmed or unnamed animal, and ask nothing of a person', () => {
         const dismissed = capture({ status: 'dismissed' });
         expect(gardenEntryView(dismissed).review).toBeNull();
-        expect(gardenEntryText(dismissed, gardenEntryView(dismissed), t))
+        expect(gardenEntryText(dismissed, gardenEntryView(dismissed), t, 'owner'))
             .toEqual({ title: 'Dismissed capture', state: 'Dismissed, not counted as an animal' });
     });
 });

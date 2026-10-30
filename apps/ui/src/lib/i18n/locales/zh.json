@@ -2629,7 +2629,8 @@
       "legend_moderate": "50% 至 79%",
       "legend_weak": "低于 50%",
       "frames_unit": "帧"
-    }
+    },
+    "identified_by_owner": "由所有者识别"
   },
   "events": {
     "title": "事件",
@@ -2681,7 +2682,7 @@
     },
     "empty_title": "暂无事件",
     "empty_desc": "运行回填或等待新的检测。",
-    "load_failed": "加载事件失败",
+    "load_failed": "无法加载到访记录。您的历史记录没有变化。",
     "bulk_tag_partial": "{count} 个已选事件未能更新。",
     "bulk_delete_confirm": "删除 {count} 条检测？此操作无法撤销。",
     "bulk_delete_success": "已删除 {count} 条检测。",
@@ -2736,7 +2737,12 @@
       "pause_call": "暂停 {species} 的鸣叫",
       "clip_unavailable": "BirdNET-Go 无法播放此片段。",
       "strongest_call": "最强鸣叫"
-    }
+    },
+    "load_failed_captures": "无法加载拍摄记录。您的历史记录没有变化。",
+    "try_again": "重试",
+    "count_unavailable": "数量不可用",
+    "results_loading": "正在加载结果…",
+    "selection_count": "{count, plural, =0 {未选择拍摄} other {已选择 # 次拍摄}}"
   },
   "audio": {
     "chart": {
@@ -3859,7 +3865,7 @@
       "no_cameras_title": "没有摄像头开启花园动物",
       "no_cameras_desc": "为摄像头开启花园动物后，其已确认的动物和待审核的拍摄会显示在这里。",
       "empty_title": "还没有花园拍摄",
-      "empty_desc": "已确认的动物和待审核的拍摄会显示在这里。已驳回的拍摄留在花园页面。",
+      "empty_desc": "已确认的动物和待审核的拍摄会显示在这里。已忽略的拍摄位于“审核”中的“已忽略”。",
       "empty_guest_desc": "在花园摄像头上确认的动物会显示在这里。",
       "visitors": "访客",
       "subjects_all_visitors": "鸟类和花园",
@@ -3939,7 +3945,8 @@
       "save": "保存物种",
       "revert": "移除我的物种更正",
       "chosen_by_you": "由你选择的物种",
-      "pick": "选择物种"
+      "pick": "选择物种",
+      "chosen_by_owner": "由所有者选择的物种"
     },
     "entry_dismiss_mixed": "这里的捕获处于不同的审核状态。请逐个忽略。"
   },

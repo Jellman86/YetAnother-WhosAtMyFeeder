@@ -30,6 +30,30 @@ choose a single species to see its calls. The page explains the active restricti
 truncated, narrow the date range. If a spectrogram or clip has expired upstream, the visit and
 stored call information remain available. A call-loading failure does not remove camera visits.
 
+## Loading, failures and empty pages
+
+The Explorer never reports an empty history or a count it has not measured:
+
+- While the first page loads, placeholder cards or rows stand where the results will appear, and
+  the count stays blank. They stand still when your device asks for reduced motion.
+- While a newer page or filter loads, the results already shown are dimmed and marked busy until
+  the new ones arrive.
+- If the visits cannot be loaded, the page says **The visits could not be loaded. Your history is
+  unchanged.** with **Try again**, and the count reads **Count unavailable**. Results already on
+  screen stay, dimmed, beneath the message.
+- An empty page under filters says the filters match nothing and offers **Clear all filters**;
+  only an unfiltered empty page says no visits are recorded yet.
+- Changing page returns to the top of the results and moves focus to the count, which a screen
+  reader announces.
+
+## Select several captures
+
+Owners can choose **Multi-select** to act on several captures at once. Selection works on
+individual captures, so visits are shown as captures while it is on. Each card shows an empty
+circle that fills with a check, and a ring, when chosen; the photo and name stay clear. A screen
+reader hears each card as a toggle such as "Select Dunnock, 21:40, pressed". The bar above the
+results counts what is chosen, for example **2 captures selected**.
+
 Public visitors see only the audio, camera labels, photographs and history that the owner shares.
 Turning **Heard calls** on cannot bypass those [public-access settings](authentication.md#public-access-the-guest-view).
 Media is proxied; a BirdNET-Go token is not sent to the browser.

@@ -91,6 +91,8 @@ test('Garden captures sit between the visits they fell between, marked Garden in
     const kinds = await order.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-explorer-visit') ?? `garden:${node.getAttribute('data-garden-card')}`));
     expect(kinds).toEqual(['garden:pending', 'morning', 'garden:confirmed', 'night']);
     await expect(page.locator('[data-garden-card="confirmed"]')).toContainText('Red fox');
+    // The owner did confirm it, so the owner reads it in the second person.
+    await expect(page.locator('[data-garden-card="confirmed"]')).toContainText('Species confirmed by you');
     await expect(page.locator('[data-garden-card="pending"]')).toContainText('Waiting for automatic identification');
     await expect(page.locator('[data-garden-card] [data-garden-marker]').first()).toHaveText(/Garden/);
     expect(timelineQueries[0]?.get('order')).toBe('newest');
@@ -142,10 +144,17 @@ test('a visitor browses confirmed Garden animals beside birds and opens a record
     await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(1);
     // Visitors have no review state to choose.
     await expect(page.locator('[data-explorer-garden-review-facet]')).toHaveCount(0);
+    // A visitor confirmed nothing, so the card credits the owner, never "you".
+    await expect(page.locator('[data-garden-card="confirmed"]')).toContainText('Owner confirmed');
+    await expect(page.locator('body')).not.toContainText('by you');
 
     await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
+    await expect(dialog.locator('[data-garden-capture-identity]')).toContainText('Identified by the owner');
+    await expect(dialog.locator('[data-garden-capture-status]')).toContainText('Owner confirmed');
+    await expect(dialog).not.toContainText('by you');
+    if (shots) await page.screenshot({ path: `${shots}/garden-explorer-guest-record.png` });
     await expect(dialog.locator('[data-garden-capture-actions]')).toHaveCount(0);
     await expect(dialog.locator('[data-garden-capture-bottom-actions]')).toHaveCount(0);
     await expect(dialog.locator('[data-garden-capture-dismiss]')).toHaveCount(0);

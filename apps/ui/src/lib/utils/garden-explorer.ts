@@ -140,7 +140,10 @@ export function gardenRowDetail(capture: GardenCapture, view: GardenEntryView): 
     return { scientific, showState: scientific === null };
 }
 
-export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t: Translate): { title: string; state: string } {
+/** Who is reading: only the owner confirmed anything, so only the owner is told "by you". */
+export type GardenViewer = 'owner' | 'visitor';
+
+export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t: Translate, viewer: GardenViewer): { title: string; state: string } {
     if (capture.status === 'dismissed') {
         return {
             title: t('garden.explorer.dismissed_title', 'Dismissed capture'),
@@ -160,7 +163,9 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
     }
     if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs review: suggested species') };
     if (view.nameState === 'automatic') return { title, state: t('garden.explorer.state_automatic', 'Named automatically') };
-    if (view.nameState === 'confirmed') return { title, state: t('garden.explorer.state_confirmed', 'Species confirmed by you') };
+    if (view.nameState === 'confirmed') {
+        return { title, state: viewer === 'owner' ? t('garden.explorer.state_confirmed', 'Species confirmed by you') : t('visits.owner_confirmed', 'Owner confirmed') };
+    }
     return { title, state: t('garden.explorer.state_unnamed', 'Animal confirmed, species not named') };
 }
 

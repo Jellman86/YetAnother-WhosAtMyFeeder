@@ -398,6 +398,10 @@ Loading never claims a state. Until the day has been read, the field log shows p
 in the anatomy and height of real rows, the day bar shows placeholders instead of zeros, the review
 queue does not say "Nothing waiting", and the camera list does not say none are reporting. A first
 read that fails says so with a retry. Every placeholder stands still under reduced motion.
+The Explorer follows the same rule through one tested decision, `explorerPane()` in
+`utils/explorer-results.ts`: first load, error, empty, filtered empty or results. A failed read is
+never an empty state and its count reads "Count unavailable", earlier results stay dimmed under the
+alert, and a refetch dims what it replaces with `aria-busy` until the new page arrives.
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (summary adapters, fixture grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),

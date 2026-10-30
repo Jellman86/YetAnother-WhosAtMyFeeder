@@ -2639,7 +2639,9 @@
                             <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
                             </svg>
-                            {$_('detection.identified_by_you', { default: 'Identified by you' })}
+                            {authStore.hasOwnerAccess
+                                ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                                : $_('detection.identified_by_owner', { default: 'Identified by the owner' })}
                         {:else}
                             {$_('detection.identified_as', { default: 'Identified as' })}
                         {/if}
