@@ -268,7 +268,7 @@ async def test_invalid_ids_never_reach_history(identifier):
 
 
 @pytest.mark.asyncio
-async def test_guest_cannot_read_history_act_or_request_media():
+async def test_guest_cannot_review_or_open_an_unreviewed_photo():
     from app.auth import create_access_token
 
     await garden_capture_service.process(event())
@@ -287,11 +287,12 @@ async def test_guest_cannot_read_history_act_or_request_media():
             ("POST", f"/api/garden/{capture.id}/check-photo"),
             ("POST", f"/api/garden/{capture.id}/identification/accept"),
             ("POST", f"/api/garden/{capture.id}/identification/dismiss"),
-            ("GET", f"/api/garden/{capture.id}/snapshot"),
             ("POST", f"/api/garden/{capture.id}/confirm"),
             ("POST", "/api/garden/review-batch"),
         ):
             assert (await client.request(method, path)).status_code == 403
+        # Shared history holds confirmed animals only; an unreviewed photo stays private.
+        assert (await client.get(f"/api/garden/{capture.id}/snapshot")).status_code == 404
 
 
 def test_mqtt_schedules_animals_and_preserves_person_rejection():

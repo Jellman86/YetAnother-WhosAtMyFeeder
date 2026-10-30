@@ -3830,6 +3830,7 @@
       "no_cameras_desc": "Ative os animais do jardim numa câmara e os seus animais confirmados e capturas por rever aparecem aqui.",
       "empty_title": "Ainda não há capturas do jardim",
       "empty_desc": "Os animais confirmados e as capturas por rever aparecem aqui. As capturas descartadas ficam na página Jardim.",
+      "empty_guest_desc": "Os animais confirmados nas câmaras do jardim aparecem aqui.",
       "visitors": "Visitantes",
       "subjects_all_visitors": "Aves e jardim",
       "subjects_all_hint": "Animais do jardim entre as visitas de aves.",

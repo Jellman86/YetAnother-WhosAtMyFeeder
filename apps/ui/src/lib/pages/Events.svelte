@@ -483,7 +483,8 @@
         if (visitors === 'garden' || visitors === 'birds' || visitors === 'all') explorerSubjectsStore.set(visitors);
         gardenRequested = visitors === 'garden';
         const review = params.get('review');
-        if (review === 'pending' || review === 'confirmed' || review === 'dismissed') gardenReview = review;
+        // Visitors see confirmed animals only, so a shared review link cannot label their view.
+        if (authStore.hasOwnerAccess && (review === 'pending' || review === 'confirmed' || review === 'dismissed')) gardenReview = review;
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
@@ -1286,7 +1287,9 @@
     );
 
     // Garden captures are owner-only and beta, so a guest or an installation without Garden sees birds.
-    const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
+    const gardenAvailable = $derived(
+        (authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true) || authStore.guestCanViewGarden
+    );
     const subjects = $derived<ExplorerSubjects>(gardenAvailable ? explorerSubjectsStore.value : 'birds');
     const gardenOnly = $derived(subjects === 'garden');
     // Page size counts complete server groups, including position stacks.
@@ -1838,6 +1841,7 @@
             canSeeHidden={authStore.hasOwnerAccess}
             refreshing={refreshingFilterOptions}
             {gardenAvailable}
+            gardenReviewAvailable={authStore.hasOwnerAccess}
             {subjects}
             {gardenReview}
             onchange={(next) => {
@@ -2028,7 +2032,7 @@
             </p>
         {/if}
 
-        {#if !loading && entries.length === 0 && gardenOnly && gardenCameraCount === 0 && !hasActiveExplorerFilters}
+        {#if !loading && entries.length === 0 && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0 && !hasActiveExplorerFilters}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h3>
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
@@ -2045,7 +2049,9 @@
                             ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
                 </h3>
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.' })}</p>
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.' })
+                    : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
         {:else if !loading && entries.length === 0}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">

@@ -1,6 +1,6 @@
 # Review garden animals
 
-**Garden animals** is an owner-only beta feature. It collects
+**Garden animals** is a beta feature. It collects
 completed Frigate animal events separately from bird history. Confident animals are
 confirmed and named automatically, as a bird above the naming threshold is; every
 automatic name is marked as automatic and can be discarded. Owner-requested SpeciesNet
@@ -193,14 +193,17 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   photo availability and review state; removed or regrouped visits can become unavailable.
   Reviewing a photo changes only that original, and position-stack dismissal remains
   an explicit action on the complete loaded stack.
-- Garden photos stay owner-only, because Frigate can miss a person in an animal photograph. Guests
-  see birds only.
+- With **Public access** on, guests also see confirmed Garden animals beside the birds, under the
+  same history window, photograph, video and camera-name switches as bird detections. Guests never
+  see captures waiting for review, dismissed captures, automatic check details or any review
+  control. Frigate can miss a person in an animal photograph, so check a photo before you confirm
+  it if you share photographs.
 
 ![The Explorer with Garden visitors and Needs review chosen in the filter rail: a card for six motion photos at the same position and a single Frigate capture, each marked Garden and flagged Needs review](../images/garden-review.png)
 
 ![A Garden record showing Red fox, the animal crop, two selectable crop thumbnails from its visit and separate species-review and model controls](../images/garden-record.png)
 
-These screenshots use plain placeholder photographs; real captures stay owner-only.
+These screenshots use plain placeholder photographs.
 
 ### Garden models
 
@@ -259,7 +262,8 @@ ingest labels, take precedence. People and vehicles cannot be configured as gard
 labels. A later person or false-positive update removes its Frigate event capture from all views
 and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
-an animal photograph, so the view and its media are always owner-only.
+an animal photograph, so captures waiting for review and dismissed captures, with their
+media, are always owner-only. Guests see confirmed animals only.
 
 Frigate events without an advertised snapshot are skipped. **Needs review** omits
 captures whose photo is known to be unavailable, without deleting or changing
@@ -336,7 +340,8 @@ also reject it, and later person updates erase overlapping motion evidence.
 Person checks include the bounded padding around the requested recording window.
 An unrelated false-positive bird, animal or vehicle event cannot erase an independent
 motion review. Missing or overfull person history stops that scan. Recognition can miss
-people; these photographs remain owner-only.
+people; unreviewed motion photographs remain owner-only. Once confirmed, a motion photograph is
+shared with guests when public access shares photographs.
 
 The Explorer groups motion proposals around the same position on a camera into
 one card, within a page of up to 128 captures under **Needs review**, and within the page's captures elsewhere. The group compares each box with the
@@ -559,7 +564,8 @@ box and photo. Frigate crops require its clean best frame and matching snapshot
 alignment; a JPEG of unknown crop/resize policy is not treated as a full frame.
 Missing or unaligned source evidence leaves the capture confirmed without a crop.
 
-Crops remain owner-only. Person/false-positive revocation, dismissal and history
+A crop follows its capture: owner-only until confirmed, then shared with guests as the
+capture's photograph is. Person/false-positive revocation, dismissal and history
 retention remove them. A crop does not make an expired original available for model
 checks, identification or restoring a dismissed capture. The record and thumbnail
 strip prefer the saved crop. If it is unavailable, they use trustworthy geometry

@@ -170,15 +170,14 @@ async def test_motion_stacks_compare_fixed_boxes_and_never_swallow_other_positio
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("path", ["/api/garden/visits", "/api/garden/visits/unknown/captures"])
-async def test_visits_stay_owner_only_and_beta_gated(history, monkeypatch, path):
+async def test_visits_need_a_login_or_public_access_and_are_beta_gated(history, monkeypatch, path):
     monkeypatch.setattr(settings.system, "beta_garden_animals", False)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         assert (await client.get(path)).status_code == 404
     monkeypatch.setattr(settings.system, "beta_garden_animals", True)
-    monkeypatch.setattr(settings.public_access, "enabled", True)
     monkeypatch.setattr(settings.auth, "enabled", True)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        assert (await client.get(path)).status_code in {401, 403}
+        assert (await client.get(path)).status_code == 401
 
 
 @pytest.mark.parametrize(

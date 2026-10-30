@@ -8,6 +8,7 @@
         fetchLatestCameraSnapshot,
         type CameraStatusResponse
     } from '../api/media';
+    import { viewerCameraNames } from '../utils/camera-viewer';
 
     type CameraHealth = CameraStatusResponse['cameras'][number];
     type HealthState = CameraHealth['status'];
@@ -87,12 +88,20 @@
         selectedIndex = previousIndex >= 0 ? previousIndex : Math.min(selectedIndex, Math.max(unique.length - 1, 0));
     }
 
+    function cameraNames(value: unknown): string[] {
+        return Array.isArray(value)
+            ? value.filter((camera: unknown): camera is string => typeof camera === 'string' && camera.length > 0)
+            : [];
+    }
+
     async function loadCameras(): Promise<void> {
         try {
             const settings = await fetchSettings();
-            const configured = Array.isArray(settings.cameras)
-                ? settings.cameras.filter((camera: unknown): camera is string => typeof camera === 'string' && camera.length > 0)
-                : [];
+            const configured = viewerCameraNames({
+                cameras: cameraNames(settings.cameras),
+                garden_cameras: cameraNames(settings.garden_cameras),
+                beta_garden_animals: settings.beta_garden_animals
+            });
             monitorAllCameras = configured.length === 0;
             replaceCameraList(configured);
         } catch {

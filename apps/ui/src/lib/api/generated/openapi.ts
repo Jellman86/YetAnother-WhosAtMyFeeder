@@ -229,6 +229,7 @@ export interface components {
     enrichment_sightings_source?: string;
     enrichment_single_provider?: string;
     enrichment_summary_source?: string;
+    garden_animals_enabled?: boolean;
     https_warning?: boolean;
     inaturalist_enabled?: boolean;
     is_authenticated: boolean;

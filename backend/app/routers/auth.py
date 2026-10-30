@@ -81,6 +81,8 @@ class AuthStatusResponse(BaseModel):
     public_access_show_audio: bool = True
     public_access_show_snapshots: bool = True
     public_access_show_clips: bool = True
+    # Whether visitors may browse confirmed Garden animals beside bird detections.
+    garden_animals_enabled: bool = False
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
@@ -347,6 +349,7 @@ async def get_auth_status(request: Request):
         public_access_show_audio=settings.public_access.show_audio,
         public_access_show_snapshots=settings.public_access.show_snapshots,
         public_access_show_clips=settings.public_access.show_clips,
+        garden_animals_enabled=settings.system.beta_garden_animals,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,

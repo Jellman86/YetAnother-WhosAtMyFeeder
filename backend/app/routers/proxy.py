@@ -46,6 +46,7 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.garden_repository import GardenRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
@@ -950,10 +951,14 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
         if media == "clip" and not settings.public_access.show_clips:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
+    garden_seen: str | None = None
     try:
         async with get_db() as db:
             repo = DetectionRepository(db)
             detection = await repo.get_by_frigate_event(event_id)
+            # A confirmed Garden animal's event is shared as a bird detection's is.
+            if detection is None and settings.system.beta_garden_animals and settings.public_access.enabled:
+                garden_seen = await GardenRepository(db).confirmed_observed_at(event_id)
     except sqlite3.OperationalError as exc:
         log = structlog.get_logger()
         log.warning("Failed to check event access; refusing media", error_type=type(exc).__name__)
@@ -963,12 +968,16 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
             headers={"Retry-After": "5"},
         ) from exc
 
-    if not detection or detection.is_hidden or not detection.detection_time:
+    if garden_seen is not None:
+        seen_at = datetime.fromisoformat(garden_seen)
+    elif not detection or detection.is_hidden or not detection.detection_time:
         raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
+    else:
+        seen_at = detection.detection_time
 
     if settings.public_access.enabled:
         cutoff, end = public_media_window()
-        stamp = utc_naive_datetime(detection.detection_time)
+        stamp = utc_naive_datetime(seen_at)
         if stamp < cutoff.replace(tzinfo=None) or (end is not None and stamp >= end.replace(tzinfo=None)):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
