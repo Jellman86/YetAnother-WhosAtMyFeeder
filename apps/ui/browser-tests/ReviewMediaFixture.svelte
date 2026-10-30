@@ -74,7 +74,6 @@
 {#if surface !== 'record' && open}
     <ReviewQueueModal
         {queue}
-        labels={Object.values(NAMES).map((name) => params.get('labels') === 'scientific' ? name.scientific : name.common)}
         onidentify={(detection, species) => { events = [...events, `identify ${detection.frigate_event} ${species}`]; }}
         onhide={(detection) => { events = [...events, `hide ${detection.frigate_event}`]; }}
         onopen={(detection) => {
@@ -87,7 +86,6 @@
 {#if surface === 'record' || handedOff}
     <DetectionModal
         detection={record}
-        classifierLabels={[]}
         llmReady={false}
         showVideoButton={false}
         onClose={() => { handedOff = false; }}

@@ -31,6 +31,7 @@
     "browser-tests/setup-wizard.ts",
     "browser-tests/documentation.ts",
     "browser-tests/frame-scan.ts",
-    "browser-tests/map-popup.ts"
+    "browser-tests/map-popup.ts",
+    "browser-tests/lazy-modal.ts"
   ]
 }

@@ -109,7 +109,7 @@ describe('Explorer page layout', () => {
     it('does not ask a guest for the owner-only hidden count', () => {
         // A guest is always refused this endpoint and never sees the value, so the
         // request only ever produced a console 403 on every Explorer load.
-        expect(eventsSource).toContain('authStore.hasOwnerAccess ? fetchHiddenCount()');
+        expect(eventsSource).toContain('authStore.hasOwnerAccess ? await fetchHiddenCount()');
         expect(eventsSource).not.toMatch(/\n\s+fetchHiddenCount\(\)\.catch/);
     });
 

@@ -23,7 +23,7 @@ async function open(page: Page, response?: (query: string) => Promise<{ status?:
         if (url.pathname.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
         return route.fulfill({ json: [] });
     });
-    await page.goto('/browser-tests/review-media.html?surface=queue&labels=scientific');
+    await page.goto('/browser-tests/review-media.html?surface=queue');
     await expect(page.getByRole('searchbox', { name: 'Search species' })).toBeVisible();
 }
 

@@ -28,7 +28,8 @@ describe('Garden captures in the Explorer', () => {
         expect(eventsSource).not.toContain('groupGardenVisits(shownGarden)');
         expect(eventsSource).toContain('<GardenExplorerRow capture={entry.capture}');
         expect(eventsSource).toContain('<GardenExplorerCard capture={entry.capture}');
-        expect(eventsSource).toContain('<GardenCaptureModal\n        capture={selectedGarden}');
+        expect(eventsSource).toContain('<LazyModal loader={loadGardenCaptureModal}');
+        expect(eventsSource).toContain('<GardenCaptureModal\n                    capture={selectedGarden}');
         expect(eventsSource).toContain('group={selectedGardenVisit?.items ?? [selectedGarden]}');
     });
 
