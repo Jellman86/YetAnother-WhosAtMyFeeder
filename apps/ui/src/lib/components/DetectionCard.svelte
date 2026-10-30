@@ -522,7 +522,7 @@
              the state for assistive technology. -->
         <span
             class="pointer-events-none absolute right-3 top-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-md
-                   {selected ? 'border-white bg-brand-600 text-white dark:border-slate-900 dark:bg-brand-500' : 'border-white bg-black/35 text-transparent'}"
+                   {selected ? 'border-white bg-brand-700 text-white dark:border-slate-900' : 'border-white bg-black/35 text-transparent'}"
             aria-hidden="true"
             data-detection-card-check={selected ? 'selected' : 'unselected'}
         >
