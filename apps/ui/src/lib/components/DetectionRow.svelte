@@ -12,6 +12,7 @@
      * score) rather than inventing a second list shape for the same data.
      */
     import { _ } from 'svelte-i18n';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { Detection } from '../api';
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -135,25 +136,18 @@
     );
     const needsAttention = $derived(needsReview(detection, reviewThreshold));
 
-    /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */
-    const scoreTone = $derived(
-        (detection.score ?? 0) < 0.6
-            ? 'text-accent-700 dark:text-accent-300'
-            : (detection.score ?? 0) < 0.85
-              ? 'text-brand-700 dark:text-brand-300'
-              : 'text-success-700 dark:text-success-300'
-    );
+    const scoreTone = $derived(SCORE_TEXT[scoreBand(detection.score)]);
 </script>
 
 <div
     class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
-           {needsAttention ? 'bg-accent-500/10' : ''}
+           {needsAttention ? 'bg-attention-500/10' : ''}
            {selected ? 'bg-brand-500/10 ring-2 ring-inset ring-brand-500 dark:ring-brand-400' : ''}"
     data-detection-row
     data-frigate-event={detection.frigate_event}
 >
     {#if needsAttention}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-accent-500" aria-hidden="true"></span>
+        <span class="absolute inset-y-0 left-0 w-[3px] bg-attention-500" aria-hidden="true"></span>
     {/if}
 
     {#if scanProgress && !scanFromSnapshot}
@@ -211,7 +205,7 @@
             {#if scan}
                 <span class="shrink-0 text-brand-800 dark:text-brand-200">{scanStatus}</span>
             {:else if needsAttention}
-                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-accent-700 dark:text-accent-300">
+                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-attention-800 dark:text-attention-300">
                     {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
                 </BadgeHint>
             {:else if subName && subName !== primaryName}
@@ -225,7 +219,7 @@
                 </BadgeHint>
             {/if}
             {#if upstreamMissing}
-                <BadgeHint text={$_('detection.upstream_missing.card_title')} class="shrink-0 text-accent-700 dark:text-accent-300">
+                <BadgeHint text={$_('detection.upstream_missing.card_title')} class="shrink-0 text-orange-700 dark:text-orange-300">
                     {$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
                 </BadgeHint>
             {/if}
@@ -301,6 +295,7 @@
             <div class="pointer-events-none min-w-[2.75rem] text-right">
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
                     class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
+                    data-detection-score
                 >
                     {score}%
                 </BadgeHint>
@@ -311,7 +306,7 @@
             <span
                 class="pointer-events-none inline-flex h-6 w-6 items-center justify-center rounded-full border-2
                        {selected
-                    ? 'border-brand-600 bg-brand-600 text-white dark:border-brand-500 dark:bg-brand-500'
+                    ? 'border-brand-700 bg-brand-700 text-white'
                     : 'border-slate-400 dark:border-slate-500'}"
                 aria-hidden="true"
                 data-detection-row-check={selected ? 'selected' : 'unselected'}

@@ -31,7 +31,17 @@ describe('mobile overlay clearance', () => {
         expect(toastSource).toContain('top: 1rem;');
         expect(toastSource).toContain('aria-live="polite"');
         expect(toastSource).toContain('aria-atomic="true"');
-        expect(toastSource).toContain('bg-accent-700 border-accent-800');
-        expect(toastSource).not.toContain('bg-accent-500 border-accent-600');
+    });
+
+    it('keeps success green and warnings amber in every theme, each dark enough under white text', () => {
+        // NT-02: success used the theme accent, which bluetit paints amber, so a success and
+        // a warning toast were the same colour. layout-patterns §1.3: success means confirmed,
+        // amber (attention) means a person is needed.
+        expect(toastSource).toContain("return 'bg-success-700 border-success-800'");
+        expect(toastSource).toContain("return 'bg-attention-700 border-attention-800'");
+        expect(toastSource).not.toMatch(/\baccent-\d/);
+        // Icons are drawn, not text glyphs that change shape with the font.
+        expect(toastSource).not.toMatch(/'[✓⚠✕]'/);
+        expect(toastSource).toContain('data-toast-icon');
     });
 });

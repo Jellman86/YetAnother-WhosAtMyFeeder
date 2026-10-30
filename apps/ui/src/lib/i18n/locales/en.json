@@ -3451,7 +3451,32 @@
     "system_ram_usage": "System RAM Usage",
     "circuit_open_detail": "{queued} queued items are waiting. Recent failures: {failures}.",
     "more_lanes": "+{count} more work lanes",
-    "kind_favorite_archive": "Favourite archive"
+    "kind_favorite_archive": "Favourite archive",
+    "status": {
+      "running": "Running",
+      "processing": "Processing",
+      "queued": "Queued",
+      "recovering": "Recovering",
+      "elevated": "Elevated load",
+      "warning": "Warning",
+      "degraded": "Degraded",
+      "high": "High load",
+      "critical": "Critical",
+      "error": "Error",
+      "failing": "Failing",
+      "failed": "Failed",
+      "open": "Open",
+      "ok": "Healthy",
+      "healthy": "Healthy",
+      "normal": "Normal",
+      "idle": "Idle",
+      "clear": "Clear",
+      "resolved": "Resolved",
+      "recovered": "Recovered",
+      "unknown": "Unknown"
+    },
+    "errors_no_reconnect_reason": "None recorded",
+    "errors_unknown_phase": "Unknown phase"
   },
   "footer": {
     "did_you_know": "Did you know?",

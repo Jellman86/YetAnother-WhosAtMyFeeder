@@ -45,6 +45,7 @@
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { toastStore } from '../stores/toast.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
 
     type Variant = NonNullable<GardenIdentifyRequest['variant']>;
     type Provider = NonNullable<GardenIdentifyRequest['provider']>;
@@ -570,14 +571,14 @@
                             <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{Math.round(view.score * 100)}%</span>
                             <span class="text-xs text-slate-500 dark:text-slate-400">
                                 {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
-                                {view.score >= 0.85
+                                {scoreBand(view.score) === 'high'
                                     ? $_('detection.confidence_high', { default: 'confident' })
-                                    : view.score >= 0.6
+                                    : scoreBand(view.score) === 'mid'
                                       ? $_('detection.confidence_mid', { default: 'likely' })
                                       : $_('detection.confidence_low', { default: 'uncertain' })}
                             </span>
                             <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                <span class="block h-full rounded-full {view.score >= 0.85 ? 'bg-success-500' : view.score >= 0.6 ? 'bg-brand-500' : 'bg-amber-500'}" style="width: {view.score * 100}%"></span>
+                                <span class="block h-full rounded-full {SCORE_FILL[scoreBand(view.score)]}" style="width: {view.score * 100}%"></span>
                             </span>
                         </div>
                     {/if}
@@ -586,7 +587,7 @@
                 <!-- The record's state, said once. Amber only when it waits on a person. -->
                 <p
                     class="flex items-start gap-2 text-sm font-semibold {status.tone === 'review'
-                        ? 'rounded-xl border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-amber-800 dark:text-amber-200'
+                        ? 'rounded-xl border border-attention-500/50 bg-attention-500/10 px-3 py-2 text-attention-800 dark:text-attention-200'
                         : status.tone === 'confirmed'
                           ? 'text-success-700 dark:text-success-300'
                           : 'text-slate-700 dark:text-slate-200'}"
@@ -594,7 +595,7 @@
                     data-garden-capture-status={status.tone}
                 >
                     {#if status.tone !== 'neutral'}
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {status.tone === 'review' ? 'bg-amber-500' : 'bg-success-500'}" aria-hidden="true"></span>
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full {status.tone === 'review' ? 'bg-attention-500' : 'bg-success-500'}" aria-hidden="true"></span>
                     {/if}
                     {status.text}
                 </p>

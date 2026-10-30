@@ -18,6 +18,7 @@
     import { formatTime } from '../utils/datetime';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     interface Props {
         visit: DetectionVisit;
@@ -85,18 +86,6 @@
         return Math.round((value ?? 0) * 100);
     }
 
-    /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */
-    function scoreTone(value: number): string {
-        if (value < 0.6) return 'text-accent-700 dark:text-accent-300';
-        if (value < 0.85) return 'text-brand-700 dark:text-brand-300';
-        return 'text-success-700 dark:text-success-300';
-    }
-
-    function barTone(value: number): string {
-        if (value < 0.6) return 'bg-accent-500';
-        if (value < 0.85) return 'bg-brand-500';
-        return 'bg-success-500';
-    }
 
     function birdsText(marker: VisitBirdMarker): string {
         const { counted, unknown, excluded } = marker.summary;
@@ -149,8 +138,8 @@
 
 <li
     class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40"
-    class:bg-accent-50={visit.needsReview}
-    class:dark:bg-accent-950={visit.needsReview}
+    class:bg-attention-50={visit.needsReview}
+    class:dark:bg-attention-950={visit.needsReview}
     data-field-log-row
     data-field-log-visit={visit.key}
     data-needs-review={visit.needsReview ? 'true' : 'false'}
@@ -178,7 +167,7 @@
         <span class="relative my-auto grid h-5 w-5 shrink-0 cursor-help place-items-center" title={visitHint} data-field-log-node-hint>
             <span
                 class="h-2 w-2 rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
-                    ? 'bg-accent-500'
+                    ? 'bg-attention-500'
                     : 'bg-brand-500'}"
             ></span>
         </span>
@@ -200,12 +189,12 @@
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
         <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
-            <span class="font-bold tabular-nums sm:hidden {scoreTone(score)}">{percent(score)}%</span>
+            <span class="font-bold tabular-nums sm:hidden {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</span>
             {#if showCamera}
                 <span class="break-words" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
-                <span class="font-medium text-accent-700 dark:text-accent-300">
+                <span class="font-medium text-attention-800 dark:text-attention-300">
                     {$_('dashboard.field_log.needs_name', { default: 'Below the naming threshold' })}
                 </span>
             {:else if naming.secondary}
@@ -260,9 +249,9 @@
     </div>
 
     <span class="hidden flex-col items-end gap-1 sm:flex">
-        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {scoreTone(score)}">{percent(score)}%</BadgeHint>
+        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-            <span class="block h-full rounded-full {barTone(score)}" style="width: {percent(score)}%"></span>
+            <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {percent(score)}%"></span>
         </span>
         {#if captureCount > 1}
             <!-- A visit's score is its best capture's, the one its photo comes from. -->
@@ -379,13 +368,13 @@
                             {#if captureNaming.secondary}<span class="block break-words text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
                         </button>
                         <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
-                            <span class="font-bold tabular-nums sm:hidden {scoreTone(captureScore)}" data-visit-capture-score>{percent(captureScore)}%</span>
+                            <span class="font-bold tabular-nums sm:hidden {SCORE_TEXT[scoreBand(captureScore)]}" data-visit-capture-score>{percent(captureScore)}%</span>
                             {#each notes as note (note.text)}
                                 <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
                             {/each}
                         </p>
                     </div>
-                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {scoreTone(captureScore)}">
+                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums sm:flex {SCORE_TEXT[scoreBand(captureScore)]}">
                         {percent(captureScore)}%
                     </BadgeHint>
                     <span class="flex justify-end">

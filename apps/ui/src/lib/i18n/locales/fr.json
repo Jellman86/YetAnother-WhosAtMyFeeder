@@ -3584,7 +3584,32 @@
     "system_ram_usage": "Utilisation RAM système",
     "circuit_open_detail": "{queued} éléments en file d'attente. Échecs récents : {failures}.",
     "more_lanes": "+{count} files de travail supplémentaires",
-    "kind_favorite_archive": "Archive des favoris"
+    "kind_favorite_archive": "Archive des favoris",
+    "status": {
+      "running": "En cours",
+      "processing": "En traitement",
+      "queued": "En file d’attente",
+      "recovering": "En rétablissement",
+      "elevated": "Charge accrue",
+      "warning": "Avertissement",
+      "degraded": "Dégradé",
+      "high": "Charge élevée",
+      "critical": "Critique",
+      "error": "Erreur",
+      "failing": "En échec",
+      "failed": "Échoué",
+      "open": "Ouvert",
+      "ok": "Opérationnel",
+      "healthy": "Opérationnel",
+      "normal": "Habituel",
+      "idle": "Inactif",
+      "clear": "Dégagé",
+      "resolved": "Résolu",
+      "recovered": "Rétabli",
+      "unknown": "Inconnu"
+    },
+    "errors_no_reconnect_reason": "Aucun enregistré",
+    "errors_unknown_phase": "Phase inconnue"
   },
   "errors": {
     "stack_trace": "Trace de pile :"
