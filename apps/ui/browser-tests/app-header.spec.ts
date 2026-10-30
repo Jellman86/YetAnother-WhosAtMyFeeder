@@ -8,7 +8,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
         const path = new URL(route.request().url()).pathname;
         const responses: Record<string, unknown> = {
             '/api/auth/status': { auth_required: false, is_authenticated: true, needs_initial_setup: false },
-            '/api/settings': { cameras: ['patio'], garden_cameras: ['patio'], beta_garden_animals: true },
+            '/api/settings': { cameras: ['patio'], garden_cameras: ['patio', 'greenhouse'], beta_garden_animals: true },
             '/api/garden/visits': { visits: [], total: 0, capture_total: 0, limit: 24, offset: 0 },
             '/api/visits': { total: 0, gap_seconds: 60, visits: [] },
             '/api/garden/identification': { models: [], busy: false, catalogue_ready: false },
@@ -65,7 +65,14 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
     const camera = page.locator('main header button[aria-haspopup="dialog"]');
     await camera.focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('dialog', { name: 'Live camera viewer', exact: true })).toBeVisible();
+    const viewer = page.getByRole('dialog', { name: 'Live camera viewer', exact: true });
+    await expect(viewer).toBeVisible();
+    await expect(viewer).toContainText('patio');
+    await expect(viewer).toContainText('1 / 2');
+    // A camera watched only for Garden animals is still one the viewer can cycle to.
+    await page.keyboard.press('ArrowRight');
+    await expect(viewer).toContainText('greenhouse');
+    await expect(viewer).toContainText('2 / 2');
     await page.keyboard.press('Escape');
     await expect(camera).toBeFocused();
     await page.evaluate(() => window.scrollTo(0, 0));
