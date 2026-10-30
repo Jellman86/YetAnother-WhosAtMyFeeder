@@ -167,7 +167,7 @@
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
                     <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">

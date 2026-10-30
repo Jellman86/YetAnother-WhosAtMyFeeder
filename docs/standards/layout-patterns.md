@@ -96,11 +96,24 @@ Amber is reserved for "this needs a person". It is not decoration and it is not 
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to
 mean "recent" or "interesting".
 
-Success is therefore its own semantic scale, `success-*`, and never the theme's secondary accent.
-`accent-*` is a brand colour: the classic theme paints it emerald and the shipped bluetit theme
-paints it amber. Anything meaning confirmed, passed, healthy, connected or verified must use
-`success-*` so it stays green in every theme. A theme may repaint `--accent-*`; it must never
-define `--success-*`.
+Success and attention are therefore semantic scales of their own, `success-*` and `attention-*`,
+and never the theme's secondary accent. `accent-*` is a brand colour: the classic theme paints it
+emerald and the shipped bluetit theme paints it amber. Anything meaning confirmed, passed, healthy,
+connected or verified must use `success-*` so it stays green in every theme. Anything meaning "this
+needs a person" (a flagged row, the review queue, a warning toast, a degraded subsystem) must use
+`attention-*`, which is amber in every theme. Both are defined once in `app.css`; a theme may
+repaint `--accent-*` but must never define `--success-*` or `--attention-*`. Score and state code
+never names `accent-*` at all (`colour-language.layout.test.ts`).
+
+Work in flight needs nobody, so a running or queued job takes the brand colour, not amber. A
+reported status (healthy, running, degraded, failed, unknown) takes its tone and its translated,
+sentence-case label from `utils/status-tone.ts`: brand for running, amber for attention, rose for a
+failure, green for healthy and slate for a state that was not measured. The raw backend word
+appears only in a `title`.
+
+White text needs a fill of `brand-700` or darker. `brand-500` under white is 2.49:1 in classic and
+3.68:1 in bluetit, so a chosen option filled with brand colour uses `bg-brand-700` (as `btn-primary`
+does) or the kit button itself.
 
 ### 1.4 Density is affordable only with a way to look closer
 
@@ -488,9 +501,12 @@ build something better."*
   detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
-- **Flagged rows**: an amber tint plus a state dot plus a worded reason. All three.
-- **Score**: a percentage in a tone band (under 60 amber, under 85 brand, above 85 green) and a
-  3px bar. Never the bar alone. **Exception:** a frame the filter rejected scores under 60 by
+- **Flagged rows**: an amber (`attention-*`) tint plus a state dot plus a worded reason. All three.
+- **Score**: a percentage in a tone band (under 60 amber, under 85 brand, from 85 green) and a
+  3px bar. Never the bar alone. Take the band and its classes from `utils/score-tone.ts`
+  (`scoreBand()` with `SCORE_TEXT`, `SCORE_TEXT_ON_MEDIA` and `SCORE_FILL`), never local
+  thresholds: the helper bands the whole percentage a person reads, so a card, a list row, the
+  record and the field log draw one score in one colour in every theme. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.

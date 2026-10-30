@@ -6,6 +6,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
     import BadgeHint from './BadgeHint.svelte';
     import { explanation } from '../utils/explanation';
     import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte';
@@ -152,18 +153,6 @@
         }
     }
 
-    function getConfidenceColor(score: number): string {
-        if (score >= 0.9) return 'text-accent-500';
-        if (score >= 0.7) return 'text-amber-500';
-        return 'text-red-500';
-    }
-
-    function getConfidenceBg(score: number): string {
-        if (score >= 0.9) return 'border-accent-500/30';
-        if (score >= 0.7) return 'border-amber-500/30';
-        return 'border-red-500/30';
-    }
-
     const weatherConditionSummary = $derived.by(() => summarizeWeatherCondition(detection.weather_condition));
     const hasWeatherCondition = $derived(weatherConditionSummary.length > 0);
     const weatherUnitSystem = $derived(
@@ -290,7 +279,7 @@
                 {/if}
                 {#if isVerified}
                     <BadgeHint
-                        class="w-7 h-7 rounded-full bg-accent-500/90 text-white flex items-center justify-center shadow-lg shadow-accent-500/40"
+                        class="w-7 h-7 rounded-full bg-success-700/95 text-white flex items-center justify-center shadow-lg shadow-success-700/40"
                         text={$_('detection.audio_evidence_hint')}
                         label={$_('detection.verified')}
                     >
@@ -301,7 +290,7 @@
                 {/if}
                 {#if hasAudioConfirmed && !isVerified}
                     <BadgeHint
-                        class="w-7 h-7 rounded-full bg-brand-500/90 text-white flex items-center justify-center shadow-lg shadow-brand-500/30"
+                        class="w-7 h-7 rounded-full bg-brand-700/95 text-white flex items-center justify-center shadow-lg shadow-brand-700/30"
                         text={$_('detection.audio_evidence_hint')}
                         label={$_('detection.audio_match')}
                     >
@@ -312,7 +301,7 @@
                 {/if}
                 {#if detection.observation_source === 'manual_upload'}
                     <BadgeHint
-                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-lg shadow-brand-500/30"
+                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-700/95 text-white shadow-lg shadow-brand-700/30"
                         text={$_('detection.manual_upload', { default: 'Added from an upload' })}
                         label={$_('detection.manual_upload', { default: 'Added from an upload' })}
                     >
@@ -354,7 +343,7 @@
                 </BadgeHint>
                 {#if !mixed}
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score: (detection.score * 100).toFixed(0) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
-                    <span class="h-2 w-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
+                    <span class="h-2 w-2 rounded-full {SCORE_FILL[scoreBand(detection.score)]}" data-detection-score></span>
                     {(detection.score * 100).toFixed(0)}%
                 </BadgeHint>
                 {/if}
@@ -371,7 +360,7 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
@@ -379,7 +368,7 @@
                     </button>
                     {#if fullVisitFetched}
                         <BadgeHint
-                            class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-500 text-white shadow-md"
+                            class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-700 text-white shadow-md"
                             text={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                             label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                         >
@@ -409,7 +398,7 @@
                         }}
                         aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
-                               hover:bg-brand-500 hover:text-white transition-all duration-200
+                               hover:bg-brand-700 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">

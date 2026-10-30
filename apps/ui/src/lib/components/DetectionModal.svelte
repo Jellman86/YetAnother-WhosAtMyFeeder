@@ -91,6 +91,7 @@
     import { applyManualTagResult } from '../utils/manual-tag';
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -2471,7 +2472,7 @@
                                                 }}
                                                 title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-500/95 px-3 hover:bg-brand-500' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-500/90'}"
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95 px-3 hover:bg-brand-700' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-700/90'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
@@ -2501,7 +2502,7 @@
                                                 }}
                                                 disabled={fullVisitFetchState === 'fetching'}
                                                 aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-700/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
                                             >
                                                 {#if fullVisitFetchState === 'fetching'}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -2639,7 +2640,7 @@
                     <div class="min-w-0">
                         <p class="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         {#if currentClassificationSource === 'manual'}
-                            <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
                             </svg>
                             {$_('detection.identified_by_you', { default: 'Identified by you' })}
@@ -2670,19 +2671,16 @@
                         </span>
                         <span class="text-xs text-slate-500 dark:text-slate-400">
                             {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
-                            {(detection.score || 0) >= 0.85
+                            {scoreBand(detection.score) === 'high'
                                 ? $_('detection.confidence_high', { default: 'confident' })
-                                : (detection.score || 0) >= 0.6
+                                : scoreBand(detection.score) === 'mid'
                                   ? $_('detection.confidence_mid', { default: 'likely' })
                                   : $_('detection.confidence_low', { default: 'uncertain' })}
                         </span>
                         <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                             <span
-                                class="block h-full rounded-full {(detection.score || 0) >= 0.85
-                                    ? 'bg-emerald-500'
-                                    : (detection.score || 0) >= 0.6
-                                      ? 'bg-brand-500'
-                                      : 'bg-accent-500'}"
+                                class="block h-full rounded-full {SCORE_FILL[scoreBand(detection.score)]}"
+                                data-record-score-bar
                                 style="width: {(detection.score || 0) * 100}%"
                             ></span>
                         </span>
@@ -3600,7 +3598,7 @@
                                 type="button"
                                 onclick={sendConversation}
                                 disabled={!conversationInput.trim() || conversationSending}
-                                class="w-full py-2 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold disabled:opacity-50"
+                                class="w-full py-2 px-4 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold disabled:opacity-50"
                             >
                                 {conversationSending ? $_('detection.ai.sending') : $_('detection.ai.send')}
                             </button>
@@ -3649,7 +3647,7 @@
                                 type="button"
                                 onclick={saveCommonNameOverride}
                                 disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
-                                class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                class="rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                             >
                                 {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
                             </button>

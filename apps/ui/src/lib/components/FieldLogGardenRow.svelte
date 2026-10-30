@@ -14,6 +14,7 @@
     import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenVisitLabel } from '../utils/garden-explorer';
     import { formatTime } from '../utils/datetime';
+    import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     interface Props {
         visit: GardenServerVisit;
@@ -50,28 +51,22 @@
     const usingSavedCrop = $derived(Boolean(cropPhoto && photo === cropPhoto));
 
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
-    const scoreTone = $derived(
-        (view.score ?? 0) < 0.6
-            ? 'text-amber-800 dark:text-amber-300'
-            : (view.score ?? 0) < 0.85
-              ? 'text-brand-700 dark:text-brand-300'
-              : 'text-success-700 dark:text-success-300'
-    );
-    const barTone = $derived((view.score ?? 0) < 0.6 ? 'bg-amber-500' : (view.score ?? 0) < 0.85 ? 'bg-brand-500' : 'bg-success-500');
+    const scoreTone = $derived(SCORE_TEXT[scoreBand(view.score)]);
+    const barTone = $derived(SCORE_FILL[scoreBand(view.score)]);
     const openLabel = $derived(
         $_('garden.explorer.open', { values: { subject: `${text.title}, ${span}` }, default: 'Open Garden capture: {subject}' })
     );
 </script>
 
 <li
-    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-amber-500/10' : ''}"
+    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/10' : ''}"
     data-field-log-row
     data-row-kind="garden"
     data-field-log-garden={visit.id}
     data-needs-review={view.review ? 'true' : 'false'}
 >
     {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-amber-500" aria-hidden="true"></span>
+        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-attention-500" aria-hidden="true"></span>
     {/if}
 
     <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
@@ -79,7 +74,7 @@
     <span class="relative flex h-full justify-center" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
-        <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {view.review ? 'bg-amber-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
+        <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {view.review ? 'bg-attention-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
     </span>
 
     <!-- The bird preview's size and frame, so the photo column reads as one. -->
@@ -103,7 +98,7 @@
             {#if showCamera}
                 <span class="break-words" data-field-log-camera>{capture.camera}</span>
             {/if}
-            <span class="font-medium {view.review ? 'text-amber-800 dark:text-amber-300' : ''}" data-field-log-garden-state>{text.state}</span>
+            <span class="font-medium {view.review ? 'text-attention-800 dark:text-attention-300' : ''}" data-field-log-garden-state>{text.state}</span>
             {#if grouped && !(scope && oncapture)}<span class="font-medium">{grouped}</span>{/if}
         </p>
     </div>
