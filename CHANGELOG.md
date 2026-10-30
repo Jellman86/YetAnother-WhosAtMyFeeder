@@ -6,6 +6,28 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer is honest about loading and failure:
+  - A failed load no longer says "No events yet" and "0 visits". It says the
+    visits could not be loaded and your history is unchanged, with a **Try
+    again** button, and the count reads **Count unavailable**. Results already
+    on screen stay, dimmed, beneath the message.
+  - The first load shows placeholder cards or rows in the shape of the real
+    ones, and no count until one is measured. A refresh dims the results it is
+    replacing and marks them busy for screen readers, and the count is
+    announced when it changes.
+  - Changing page returns to the top of the results, with focus on the count.
+  - Cards no longer overflow a 320px phone at the largest text size.
+  - Multi-select no longer blurs the chosen cards. Each card shows a ring and a
+    filled check when chosen and an empty circle when not, and cards and list
+    rows tell a screen reader they are pressed, for example "Select Dunnock,
+    21:40". The bar reads "No captures selected", "1 capture selected" or "2
+    captures selected" in every language.
+  - An empty Garden view now points to **Review**, **Dismissed** instead of the
+    retired Garden page.
+- Public visitors no longer read "Identified by you" or "Species confirmed by
+  you" on records they did not confirm. They read **Identified by the owner**
+  and **Owner confirmed** on bird records, Garden cards, rows and records.
+
 - The Explorer filter rail is easier to scan:
   - **Visitors** (Birds, Both, Garden) and **Show** (Visits, Captures) are
     compact switches that explain only the chosen option.

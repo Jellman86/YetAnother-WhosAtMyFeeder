@@ -39,7 +39,7 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { gardenPhotoOutline, gardenPreviewStyle } from '../utils/garden-photo';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
-    import { gardenEntryText, gardenEntryView } from '../utils/garden-explorer';
+    import { gardenEntryText, gardenEntryView, type GardenViewer } from '../utils/garden-explorer';
     import { formatDateTime, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
@@ -81,6 +81,7 @@
     let editCapture = $state<string | null>(null);
     // Visitors read the record; every decision on it is the owner's.
     const canReview = $derived(authStore.hasOwnerAccess);
+    const viewer = $derived<GardenViewer>(authStore.hasOwnerAccess ? 'owner' : 'visitor');
     const canDismissVisit = $derived(groupTotal <= 128 && groupTotal === group.length
         && group.every((item) => item.status === 'confirmed' && item.review_token));
     // The hide control dismisses what the Explorer shows as one entry, as a bird's hides its visit.
@@ -152,7 +153,7 @@
         identification?.catalogue_ready && !identification.error && !identification.busy && installed.includes('4.0.3a')
         && capture.motion_source && capture.status === 'pending' && photoReady
     ));
-    const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })).title);
+    const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer).title);
     // Catalogue context needs a name that stands: one the owner or the check accepted, or a suggestion.
     const referenceName = $derived(view.name && capture.scientific_name && (capture.owner_identification || capture.identification?.rank === 'species') ? view.name : null);
     const referenceScientificName = $derived(capture.scientific_name ?? null);
@@ -165,7 +166,11 @@
         speciesInfo?.thumbnail_url && speciesInfo.thumbnail_url !== failedReference ? speciesInfo.thumbnail_url : null
     );
     const namedFrom = $derived.by((): string | null => {
-        if (capture.owner_identification) return $_('garden.rename.chosen_by_you', { default: 'Species chosen by you' });
+        if (capture.owner_identification) {
+            return viewer === 'owner'
+                ? $_('garden.rename.chosen_by_you', { default: 'Species chosen by you' })
+                : $_('garden.rename.chosen_by_owner', { default: 'Species chosen by the owner' });
+        }
         const named = capture.identification;
         if (!view.name || !named) return null;
         if (named.input_kind === 'whole_image') {
@@ -176,7 +181,7 @@
             : $_('garden.named_from.tracked_crop', { default: "Named from Frigate's tracked animal in the snapshot" });
     });
     const status = $derived.by((): { text: string; tone: 'review' | 'confirmed' | 'neutral' } => {
-        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }));
+        const entry = gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer);
         if (view.review === 'species') {
             return { text: $_('garden.explorer.review_species', { default: 'Needs review: the species was suggested, not confirmed.' }), tone: 'review' };
         }
@@ -185,7 +190,9 @@
             const text = view.nameState === 'automatic'
                 ? $_('garden.explorer.status_automatic', { default: 'Confirmed and named automatically' })
                 : view.nameState === 'confirmed'
-                  ? $_('garden.explorer.status_confirmed', { default: 'Animal and species confirmed by you' })
+                  ? viewer === 'owner'
+                    ? $_('garden.explorer.status_confirmed', { default: 'Animal and species confirmed by you' })
+                    : $_('visits.owner_confirmed', { default: 'Owner confirmed' })
                   : $_('garden.explorer.state_unnamed', { default: 'Animal confirmed, species not named' });
             return { text, tone: 'confirmed' };
         }
@@ -537,7 +544,9 @@
                         <div class="min-w-0">
                             <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                                 {view.nameState === 'confirmed'
-                                    ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                                    ? viewer === 'owner'
+                                        ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                                        : $_('detection.identified_by_owner', { default: 'Identified by the owner' })
                                     : view.nameState === 'automatic'
                                       ? $_('detection.identified_as', { default: 'Identified as' })
                                       : view.nameState === 'suggested'

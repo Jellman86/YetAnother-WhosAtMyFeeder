@@ -109,7 +109,8 @@
                 </svg>
             </button>
 
-            <span class="min-w-24 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 sm:hidden">
+            <!-- No minimum width: at 320px with the largest text a fixed width pushed Next off the screen. -->
+            <span class="min-w-0 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 sm:hidden">
                 {$_('pagination.page_number', { values: { number: currentPage }, default: `Page ${currentPage}` })} / {totalPages}
             </span>
 

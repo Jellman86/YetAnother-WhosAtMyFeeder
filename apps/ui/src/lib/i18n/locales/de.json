@@ -2624,7 +2624,8 @@
       "legend_moderate": "50 bis 79%",
       "legend_weak": "Unter 50%",
       "frames_unit": "Bilder"
-    }
+    },
+    "identified_by_owner": "Vom Eigentümer bestimmt"
   },
   "events": {
     "title": "Ereignisse",
@@ -2676,7 +2677,7 @@
     },
     "empty_title": "Noch keine Ereignisse",
     "empty_desc": "Starte ein Backfill oder warte auf neue Erkennungen.",
-    "load_failed": "Ereignisse konnten nicht geladen werden",
+    "load_failed": "Die Besuche konnten nicht geladen werden. Ihr Verlauf ist unverändert.",
     "bulk_tag_partial": "{count} ausgewählte Ereignisse wurden nicht aktualisiert.",
     "bulk_delete_confirm": "{count} Erkennungen löschen? Dies kann nicht rückgängig gemacht werden.",
     "bulk_delete_success": "{count} Erkennungen gelöscht.",
@@ -2731,7 +2732,12 @@
       "pause_call": "Ruf anhalten: {species}",
       "clip_unavailable": "BirdNET-Go konnte diesen Clip nicht abspielen.",
       "strongest_call": "Stärkster Ruf"
-    }
+    },
+    "load_failed_captures": "Die Aufnahmen konnten nicht geladen werden. Ihr Verlauf ist unverändert.",
+    "try_again": "Erneut versuchen",
+    "count_unavailable": "Anzahl nicht verfügbar",
+    "results_loading": "Ergebnisse werden geladen…",
+    "selection_count": "{count, plural, =0 {Keine Aufnahmen ausgewählt} one {# Aufnahme ausgewählt} other {# Aufnahmen ausgewählt}}"
   },
   "audio": {
     "chart": {
@@ -3829,7 +3835,7 @@
       "no_cameras_title": "Keine Kamera hat Gartentiere eingeschaltet",
       "no_cameras_desc": "Schalte Gartentiere für eine Kamera ein, dann erscheinen ihre bestätigten Tiere und zu prüfenden Aufnahmen hier.",
       "empty_title": "Noch keine Gartenaufnahmen",
-      "empty_desc": "Bestätigte Tiere und zu prüfende Aufnahmen erscheinen hier. Verworfene Aufnahmen bleiben auf der Gartenseite.",
+      "empty_desc": "Bestätigte Tiere und zu prüfende Aufnahmen erscheinen hier. Verworfene Aufnahmen finden Sie unter Prüfung, Verworfen.",
       "empty_guest_desc": "Auf den Gartenkameras bestätigte Tiere erscheinen hier.",
       "visitors": "Besucher",
       "subjects_all_visitors": "Vögel und Garten",
@@ -3909,7 +3915,8 @@
       "save": "Art speichern",
       "revert": "Meine Artenkorrektur entfernen",
       "chosen_by_you": "Art von dir ausgewählt",
-      "pick": "Art auswählen"
+      "pick": "Art auswählen",
+      "chosen_by_owner": "Art vom Eigentümer ausgewählt"
     },
     "entry_dismiss_mixed": "Die Aufnahmen hier haben unterschiedliche Prüfstatus. Verwerfen Sie sie einzeln."
   },

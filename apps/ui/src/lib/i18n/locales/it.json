@@ -2634,7 +2634,8 @@
       "legend_moderate": "Da 50 a 79%",
       "legend_weak": "Sotto il 50%",
       "frames_unit": "fotogrammi"
-    }
+    },
+    "identified_by_owner": "Identificato dal proprietario"
   },
   "events": {
     "title": "Eventi",
@@ -2686,7 +2687,7 @@
     },
     "empty_title": "Nessun evento ancora",
     "empty_desc": "Esegui backfill o attendi nuovi rilevamenti per vederli qui.",
-    "load_failed": "Caricamento eventi fallito",
+    "load_failed": "Non è stato possibile caricare le visite. La tua cronologia è invariata.",
     "bulk_tag_partial": "{count} eventi selezionati non sono stati aggiornati.",
     "bulk_delete_confirm": "Eliminare {count} rilevamenti? Questa azione non può essere annullata.",
     "bulk_delete_success": "Eliminati {count} rilevamenti.",
@@ -2741,7 +2742,12 @@
       "pause_call": "Metti in pausa il canto di {species}",
       "clip_unavailable": "BirdNET-Go non è riuscito a riprodurre questa clip.",
       "strongest_call": "Canto più forte"
-    }
+    },
+    "load_failed_captures": "Non è stato possibile caricare le acquisizioni. La tua cronologia è invariata.",
+    "try_again": "Riprova",
+    "count_unavailable": "Conteggio non disponibile",
+    "results_loading": "Caricamento dei risultati…",
+    "selection_count": "{count, plural, =0 {Nessuna acquisizione selezionata} one {# acquisizione selezionata} other {# acquisizioni selezionate}}"
   },
   "audio": {
     "chart": {
@@ -3829,7 +3835,7 @@
       "no_cameras_title": "Nessuna telecamera ha gli animali del giardino attivi",
       "no_cameras_desc": "Attiva gli animali del giardino per una telecamera e i suoi animali confermati e le catture da verificare compariranno qui.",
       "empty_title": "Ancora nessuna cattura del giardino",
-      "empty_desc": "Qui compaiono gli animali confermati e le catture da verificare. Le catture scartate restano nella pagina Giardino.",
+      "empty_desc": "Qui compaiono gli animali confermati e le catture da verificare. Le catture scartate si trovano in Verifica, Scartate.",
       "empty_guest_desc": "Qui compaiono gli animali confermati dalle telecamere del giardino.",
       "visitors": "Visitatori",
       "subjects_all_visitors": "Uccelli e giardino",
@@ -3909,7 +3915,8 @@
       "save": "Salva specie",
       "revert": "Rimuovi la mia correzione della specie",
       "chosen_by_you": "Specie scelta da te",
-      "pick": "Scegli una specie"
+      "pick": "Scegli una specie",
+      "chosen_by_owner": "Specie scelta dal proprietario"
     },
     "entry_dismiss_mixed": "Le catture qui hanno stati di revisione diversi. Scartale una alla volta."
   },

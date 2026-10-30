@@ -285,15 +285,18 @@ test('owner confirms presence only after the photo loads', async ({ page }) => {
     expect(confirmed).toBe(true);
 });
 
-test('a failed read is visible and Retry recovers', async ({ page }) => {
+test('a failed read is visible and Try again recovers', async ({ page }) => {
     let failed = true;
     await mockGarden(page, { items: () => [] });
     await page.route('**/api/garden/visits?**', route => route.fulfill(failed
         ? { status: 503, json: { detail: 'History temporarily unavailable' } }
         : { json: { visits: [], total: 0, capture_total: 0, limit: 24, offset: 0 } }));
     await openReview(page);
-    const retry = page.getByRole('button', { name: 'Retry', exact: true });
+    const alert = page.getByRole('alert').filter({ hasText: 'The visits could not be loaded. Your history is unchanged.' });
+    const retry = alert.getByRole('button', { name: 'Try again', exact: true });
     await expect(retry).toBeVisible();
+    // A failed read is never an empty review queue.
+    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
     failed = false;
     await retry.click();
     await expect(page.getByText('No Garden captures need review')).toBeVisible();
