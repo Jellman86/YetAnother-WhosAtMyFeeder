@@ -583,6 +583,11 @@
     "error_description": "O arquivo da página não chegou. Verifique sua conexão e tente novamente.",
     "retry": "Tentar abrir novamente"
   },
+  "lazy_modal": {
+    "loading": "A abrir…",
+    "error_title": "Não foi possível abrir",
+    "error_description": "Uma parte do aplicativo não chegou. Verifique sua conexão e tente novamente."
+  },
   "settings": {
     "title": "Configurações",
     "subtitle": "Configure e gerencie sua instância YA-WAMF",
@@ -3950,5 +3955,8 @@
     "fallback": "Alternativa CPU: o acelerador pedido não concluiu corretamente a verificação ou inferência atual.",
     "garden_preference": "Dispositivo preferido para verificações automáticas: {device}. Um acelerador novo deve primeiro concordar com a CPU.",
     "unreported": "Nenhuma execução concluída indicou o dispositivo. Uma recomendação não comprova uma execução."
+  },
+  "system_telemetry": {
+    "last_reading": "Última leitura"
   }
 }

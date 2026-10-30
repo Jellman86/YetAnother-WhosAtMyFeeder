@@ -23,7 +23,8 @@
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
@@ -683,6 +684,10 @@
 </div>
 
 {#if selectedSpecies}
-    <SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 {/if}

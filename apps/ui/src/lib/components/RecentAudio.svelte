@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import { fetchRecentAudio, fetchAudioSummary, type AudioDetection, type AudioSummaryResponse } from '../api';
+    import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
     import { fetchSettings } from '../api/settings';
     import { detectionsStore } from '../stores/detections.svelte';
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
@@ -14,24 +14,31 @@
     /**
      * What the microphone heard over the window: the totals, the species heard most, the latest
      * call, and how many camera visits a call confirmed. The raw call-by-call feed lives on the
-     * audio history page; this card summarises, and keeps itself current by polling within the
-     * guest refresh budget.
+     * audio history page; this card summarises. The window's summary is the Dashboard's, shared
+     * with the day bar; the latest call is polled here within the guest refresh budget.
      */
-    let { onNavigate, matchedCalls = null }: { onNavigate?: (path: string) => void; matchedCalls?: number | null } = $props();
+    let {
+        onNavigate,
+        summary,
+        summaryLoading,
+        matchedCalls = null
+    }: {
+        onNavigate?: (path: string) => void;
+        summary: AudioSummaryResponse | null;
+        summaryLoading: boolean;
+        matchedCalls?: number | null;
+    } = $props();
 
     const RECENT_AUDIO_LIMIT = 1;
     const MOST_HEARD_LIMIT = 4;
     const RECENT_AUDIO_POLL_MS = 5_000;
-    const AUDIO_SUMMARY_POLL_MS = 60_000;
 
 
     let audioDetections = $state<AudioDetection[]>([]);
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
-    let summaryTimer: ReturnType<typeof setTimeout> | undefined;
     let stopped = false;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
-    let summary = $state<AudioSummaryResponse | null>(null);
 
 
     const audioLoader = createObservationProjectionLoader({
@@ -45,19 +52,8 @@
         },
         settled: () => { loading = false; }
     });
-    const summaryLoader = createObservationProjectionLoader({
-        fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
-        apply: (value) => { summary = value; },
-        clear: () => { summary = null; },
-        fail: (e) => {
-            if (authStore.isGuest) summary = null;
-            if (isTransientRequestError(e)) logger.warn('Audio summary fetch failed (transient)', { message: getErrorMessage(e) });
-            else logger.error('Failed to fetch audio summary', e);
-        }
-    });
 
     async function loadAudio() { await audioLoader.load(); }
-    async function loadSummary() { await summaryLoader.load(); }
 
     let handledPublicHistoryVersion = detectionsStore.publicHistoryVersion;
     $effect(() => {
@@ -67,9 +63,7 @@
         untrack(() => {
             loading = true;
             audioLoader.invalidate();
-            summaryLoader.invalidate();
             void audioLoader.load();
-            void summaryLoader.load();
         });
     });
 
@@ -100,31 +94,16 @@
         }, delay);
     }
 
-    function scheduleSummaryPoll(delay = authStore.isGuest ? Math.max(AUDIO_SUMMARY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute)) : AUDIO_SUMMARY_POLL_MS): void {
-        if (stopped) return;
-        if (summaryTimer) clearTimeout(summaryTimer);
-        summaryTimer = setTimeout(async () => {
-            summaryTimer = undefined;
-            if (!document.hidden) {
-                await loadSummary();
-            }
-            scheduleSummaryPoll();
-        }, delay);
-    }
-
     onMount(() => {
         stopped = false;
         void loadAudio().finally(() => scheduleAudioPoll());
-        void loadSummary().finally(() => scheduleSummaryPoll());
         void loadBirdnetUrl();
     });
 
     onDestroy(() => {
         stopped = true;
         audioLoader.dispose();
-        summaryLoader.dispose();
         if (pollTimer) clearTimeout(pollTimer);
-        if (summaryTimer) clearTimeout(summaryTimer);
     });
 
     const latestCall = $derived(audioDetections[0] ?? null);
@@ -144,7 +123,7 @@
         <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
-    {#if loading && !summary}
+    {#if (loading || summaryLoading) && !summary}
         <div class="h-24 animate-pulse rounded-lg bg-slate-100/70 dark:bg-slate-800/40"></div>
     {:else if !summary || summary.total === 0}
         <p class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>

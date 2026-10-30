@@ -6,11 +6,11 @@
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
     import { onMount } from 'svelte';
-    import { fetchClassifierLabels, fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
+    import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
     import FeederPortrait from '../components/FeederPortrait.svelte';
-    import DetectionModal from '../components/DetectionModal.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadDetectionModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -52,7 +52,6 @@
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let openingEvent = $state<string | null>(null);
-    let classifierLabels = $state<string[]>([]);
     let portraitRefresh = $state(0);
     let portraitGeneration = 0;
 
@@ -60,13 +59,7 @@
         if (openingEvent) return;
         openingEvent = frigateEvent;
         try {
-            const [labels, rows] = await Promise.all([
-                authStore.hasOwnerAccess && classifierLabels.length === 0
-                    ? fetchClassifierLabels().catch(() => ({ labels: [] as string[] }))
-                    : Promise.resolve({ labels: classifierLabels }),
-                fetchEvents({ eventId: frigateEvent, limit: 1 })
-            ]);
-            classifierLabels = labels.labels ?? [];
+            const rows = await fetchEvents({ eventId: frigateEvent, limit: 1 });
             const detection = rows[0] ?? null;
             if (!detection) {
                 toastStore.error($_('about.portrait.gone', { default: 'That visit is no longer in the history.' }));
@@ -305,18 +298,29 @@
 </div>
 
 {#if selectedEvent}
-    <DetectionModal
-        detection={selectedEvent}
-        {classifierLabels}
-        llmReady={settingsStore.llmReady}
-        showVideoButton={false}
-        readOnly={!authStore.hasOwnerAccess}
-        onClose={() => (selectedEvent = null)}
-        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-        onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
-        onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
-            if (isHidden) forgetVisit(frigateEvent);
-        }}
-    />
+    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
+        {#snippet children(DetectionModal)}
+            {#if selectedEvent}
+                <DetectionModal
+                    detection={selectedEvent}
+                    llmReady={settingsStore.llmReady}
+                    showVideoButton={false}
+                    readOnly={!authStore.hasOwnerAccess}
+                    onClose={() => (selectedEvent = null)}
+                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
+                    onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
+                    onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
+                        if (isHidden) forgetVisit(frigateEvent);
+                    }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
-{#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+{#if selectedSpecies}
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
+{/if}

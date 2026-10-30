@@ -583,6 +583,11 @@
     "error_description": "Il file della pagina non è arrivato. Controlla la connessione e riprova.",
     "retry": "Prova ad aprire di nuovo"
   },
+  "lazy_modal": {
+    "loading": "Apertura…",
+    "error_title": "Impossibile aprire",
+    "error_description": "Una parte dell’app non è arrivata. Controlla la connessione e riprova."
+  },
   "settings": {
     "title": "Impostazioni",
     "subtitle": "Configura e gestisci la tua istanza YA-WAMF",
@@ -3950,5 +3955,8 @@
     "fallback": "Ripiego CPU: l’acceleratore richiesto non ha completato correttamente la verifica o l’inferenza corrente.",
     "garden_preference": "Preferenza dispositivo per verifiche automatiche: {device}. Un nuovo acceleratore deve prima concordare con la CPU.",
     "unreported": "Nessuna esecuzione completata ha indicato il dispositivo. Una raccomandazione non è prova di esecuzione."
+  },
+  "system_telemetry": {
+    "last_reading": "Ultima lettura"
   }
 }

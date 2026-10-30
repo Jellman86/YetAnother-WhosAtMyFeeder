@@ -52,6 +52,7 @@
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import MediaImage from './MediaImage.svelte';
+    import MarkdownText from './MarkdownText.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
@@ -60,6 +61,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { getBirdNames } from '../naming';
@@ -84,7 +86,6 @@
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
-    import { renderMarkdown } from '../utils/markdown';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
@@ -97,7 +98,6 @@
 
     interface Props {
         detection: Detection;
-        classifierLabels: string[];
         llmReady: boolean;
         showVideoButton?: boolean;
         onClose: () => void;
@@ -116,7 +116,6 @@
 
     let {
         detection,
-        classifierLabels,
         llmReady,
         showVideoButton = false,
         onClose,
@@ -1361,9 +1360,10 @@
         }
     }
 
-    // Handle search input
+    // Searching starts when the owner opens the species picker, not when a record opens.
     let searchTimeout: ReturnType<typeof setTimeout> | undefined;
     $effect(() => {
+        if (!hasOwnerDetectionActions || !showTagDropdown) return;
         const query = tagSearchQuery.trim();
         if (query.length === 0) {
             clearTimeout(searchTimeout);
@@ -1373,9 +1373,8 @@
                     searchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error("Search failed", e);
-                    searchResults = classifierLabels.slice(0, 20).map(l => ({
-                        id: l, display_name: l, common_name: null, scientific_name: null
-                    }));
+                    // The raw classifier labels stand in only when the catalogue search fails, so they are read then.
+                    searchResults = await classifierLabelsStore.searchFallback('', 20);
                 } finally {
                     isSearching = false;
                 }
@@ -1392,10 +1391,7 @@
                 searchResults = await searchSpecies(query, searchOptions.limit, searchOptions.hydrateMissing);
             } catch (e) {
                 console.error("Search failed", e);
-                // Fallback to local filtering
-                searchResults = classifierLabels
-                    .filter(l => String(l).toLowerCase().includes(query.toLowerCase()))
-                    .map(l => ({ id: String(l), display_name: String(l), common_name: null, scientific_name: null }));
+                searchResults = await classifierLabelsStore.searchFallback(query);
             } finally {
                 isSearching = false;
             }
@@ -3511,7 +3507,7 @@
                     <div class="ai-panel ai-surface">
                         <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
                         <div class="ai-panel__content ai-markdown ai-markdown-surface">
-                            {@html renderMarkdown(aiAnalysis)}
+                            <MarkdownText text={aiAnalysis} />
                         </div>
                     </div>
                     {#if authStore.canModify && llmReady}
@@ -3578,7 +3574,7 @@
                                     </div>
                                     {#if turn.role === 'assistant'}
                                         <div class="ai-bubble__content ai-markdown ai-markdown-surface">
-                                            {@html renderMarkdown(turn.content)}
+                                            <MarkdownText text={turn.content} />
                                         </div>
                                     {:else}
                                         <div class="ai-bubble__content">{turn.content}</div>

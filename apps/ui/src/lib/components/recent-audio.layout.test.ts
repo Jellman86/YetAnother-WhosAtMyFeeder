@@ -21,11 +21,14 @@ describe('RecentAudio dashboard widget layout', () => {
 
     it('serializes background refreshes and stops them with the component lifecycle', () => {
         expect(recentAudioSource).toContain('scheduleAudioPoll();');
-        expect(recentAudioSource).toContain('scheduleSummaryPoll();');
         expect(recentAudioSource).toContain('if (!document.hidden)');
         expect(recentAudioSource).not.toContain('setInterval(loadAudio');
-        expect(recentAudioSource).not.toContain('setInterval(loadSummary');
         expect(recentAudioSource).toContain('audioLoader.dispose();');
-        expect(recentAudioSource).toContain('summaryLoader.dispose();');
+    });
+
+    it('shows the window summary the Dashboard read for the day bar instead of reading it again', () => {
+        expect(recentAudioSource).not.toContain('fetchAudioSummary');
+        expect(recentAudioSource).toContain('summary: AudioSummaryResponse | null;');
+        expect(recentAudioSource).toContain('{#if (loading || summaryLoading) && !summary}');
     });
 });

@@ -107,6 +107,44 @@ describe('DetectionsStore loading', () => {
         expect(store.historyStatus).toBe('pending');
     });
 
+    it('treats the first read as loaded history, not as an edit pages must reload after', async () => {
+        const row = { frigate_event: 'first', display_name: 'Dunnock' };
+        fetchEvents.mockResolvedValue([row]);
+        fetchEventsCount.mockResolvedValue({ count: 1 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        store.resetForAccessChange();
+        await store.loadInitial();
+        expect(store.historyStatus).toBe('ready');
+        expect(store.detections).toEqual([row]);
+        expect(store.mutationVersion).toBe(0);
+    });
+
+    it('counts a later read as a change only when it brings different history', async () => {
+        const row = { frigate_event: 'first', display_name: 'Dunnock' };
+        fetchEvents.mockResolvedValueOnce([row]).mockResolvedValueOnce([row]).mockResolvedValueOnce([row, { frigate_event: 'second' }]);
+        fetchEventsCount.mockResolvedValue({ count: 1 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        await store.loadInitial();
+        await store.loadInitial();
+        expect(store.mutationVersion).toBe(0);
+        await store.loadInitial();
+        expect(store.mutationVersion).toBe(1);
+    });
+
+    it('leaves the first read of an access to the app instead of starting a second one when asked to refresh', async () => {
+        fetchEvents.mockResolvedValue([]);
+        fetchEventsCount.mockResolvedValue({ count: 0 });
+        const { DetectionsStore } = await import('./detections.svelte');
+        const store = new DetectionsStore();
+        await store.refreshIfStale();
+        expect(fetchEvents).not.toHaveBeenCalled();
+        await store.loadInitial();
+        await store.refreshIfStale();
+        expect(fetchEvents).toHaveBeenCalledTimes(1);
+    });
+
     it('reports a first read that failed rather than an empty history', async () => {
         fetchEvents.mockRejectedValueOnce(new Error('offline'));
         fetchEventsCount.mockResolvedValue({ count: 0 });

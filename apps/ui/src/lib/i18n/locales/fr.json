@@ -573,6 +573,11 @@
     "error_description": "Le fichier de la page n’est pas arrivé. Vérifiez votre connexion et réessayez.",
     "retry": "Réessayer d’ouvrir"
   },
+  "lazy_modal": {
+    "loading": "Ouverture…",
+    "error_title": "Ouverture impossible",
+    "error_description": "Une partie de l’application n’est pas arrivée. Vérifiez votre connexion et réessayez."
+  },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Configurez et gérez votre instance YA-WAMF",
@@ -3950,5 +3955,8 @@
     "fallback": "Repli sur CPU : l’accélérateur demandé n’a pas terminé correctement sa vérification ou son inférence actuelle.",
     "garden_preference": "Appareil préféré pour les vérifications automatiques : {device}. Un nouvel accélérateur doit d’abord correspondre au CPU.",
     "unreported": "Aucune exécution terminée n’a indiqué son appareil. Une recommandation ne prouve pas une exécution."
+  },
+  "system_telemetry": {
+    "last_reading": "Dernière mesure"
   }
 }

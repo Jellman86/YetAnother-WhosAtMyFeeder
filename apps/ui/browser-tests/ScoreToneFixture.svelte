@@ -59,7 +59,6 @@
 {#if Number.isFinite(recordScore) && recordScore > 0}
     <DetectionModal
         detection={capture(recordScore)}
-        classifierLabels={[]}
         llmReady={false}
         showVideoButton={false}
         onClose={() => {}}
