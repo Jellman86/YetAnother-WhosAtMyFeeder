@@ -378,7 +378,9 @@ export interface components {
     updated_at?: string | null;
 };
     BirdSpeciesCount: {
+    common_name?: string | null;
     count: number;
+    scientific_name?: string | null;
     species: string;
 };
     BirdWeatherTestRequest: {
@@ -1072,6 +1074,7 @@ export interface components {
     automatic_check?: components['schemas']['GardenAutomaticCheck'] | null;
     automatic_check_overridden?: boolean;
     camera: string;
+    clip_event?: string | null;
     crop?: components['schemas']['GardenCropEvidence'] | null;
     crop_url?: string | null;
     frigate_label: string;

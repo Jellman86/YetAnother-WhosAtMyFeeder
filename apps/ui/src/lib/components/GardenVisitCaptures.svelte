@@ -39,6 +39,13 @@
     const count = $derived(visit.captureCount ?? visit.items.length);
     const inline = $derived(layout === 'inline');
     const countText = $derived($_('visits.captures', { values: { count }, default: '{count} captures' }));
+    // The bird toggle's span, so a Garden stay says when it was as a bird visit does.
+    const span = $derived.by((): string | null => {
+        if (!visit.startTime || !visit.endTime) return null;
+        const start = formatTime(visit.startTime);
+        const end = formatTime(visit.endTime);
+        return start === end ? start : `${start}–${end}`;
+    });
 
     // Opening reads the first page once; the list's key alone decides when it is stale.
     $effect(() => {
@@ -110,7 +117,10 @@
                 <rect x="3" y="7" width="13" height="13" rx="2" />
                 <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a2 2 0 0 1 2 2v11" />
             </svg>
-            <span class="min-w-0 {inline ? '' : 'flex-1'}">{countText}</span>
+            <span class="min-w-0 {inline ? '' : 'flex-1'}">
+                <span>{countText}</span>
+                {#if !inline && span}<span class="font-normal tabular-nums text-slate-500 dark:text-slate-400" data-garden-visit-captures-span>&middot; {span}</span>{/if}
+            </span>
             <svg class="h-3.5 w-3.5 shrink-0 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
                 <path d="m5 7 5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>

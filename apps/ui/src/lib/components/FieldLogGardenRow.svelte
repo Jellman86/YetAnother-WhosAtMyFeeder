@@ -86,7 +86,7 @@
     <span class="grid min-h-11 min-w-11 place-items-center" aria-hidden="true">
         <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
             {#if photo && failedUrl !== photo}
-                <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
+                <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} fill aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
             {/if}
         </span>
     </span>

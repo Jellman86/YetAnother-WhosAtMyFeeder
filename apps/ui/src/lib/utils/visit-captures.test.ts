@@ -101,8 +101,18 @@ describe('visitSpeciesMix', () => {
 
     it('names every species in the busiest capture, busiest first', () => {
         expect(visitSpeciesMix(withSpecies([{ species: 'European Robin', count: 1 }, { species: 'Dunnock', count: 2 }]))).toEqual([
-            { species: 'Dunnock', count: 2 },
-            { species: 'European Robin', count: 1 }
+            { species: 'Dunnock', count: 2, common_name: null, scientific_name: null },
+            { species: 'European Robin', count: 1, common_name: null, scientific_name: null }
+        ]);
+    });
+
+    it('keeps the catalogue names a species was given, for the row to name it as it names a visit', () => {
+        expect(visitSpeciesMix(withSpecies([
+            { species: 'Prunella modularis', count: 1, common_name: 'Dunnock', scientific_name: 'Prunella modularis' },
+            { species: 'Rattus norvegicus', count: 1, common_name: 'Brown Rat', scientific_name: 'Rattus norvegicus' }
+        ]))).toEqual([
+            { species: 'Prunella modularis', count: 1, common_name: 'Dunnock', scientific_name: 'Prunella modularis' },
+            { species: 'Rattus norvegicus', count: 1, common_name: 'Brown Rat', scientific_name: 'Rattus norvegicus' }
         ]);
     });
 

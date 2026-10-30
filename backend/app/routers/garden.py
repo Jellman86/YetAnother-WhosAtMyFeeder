@@ -10,6 +10,7 @@ from typing import Annotated, Literal
 
 from app.auth import AuthContext, require_owner
 from app.config import settings
+from app.routers.proxy import validate_event_id
 from app.database import get_db
 from app.repositories.garden_visit_repository import GardenVisitRepository
 from app.repositories.garden_repository import (
@@ -83,6 +84,9 @@ class GardenCaptureResponse(BaseModel):
     automatic_check: GardenAutomaticCheck | None = None
     automatic_check_overridden: bool = False
     review_token: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    clip_event: str | None = Field(
+        None, description="The Frigate event whose clip plays for this capture, while clips are enabled"
+    )
 
 
 class GardenCapturePage(BaseModel):
@@ -159,6 +163,13 @@ async def _response(
         automatic_check=capture.automatic_check,
         automatic_check_overridden=capture.automation_overridden,
         review_token=capture.review_token,
+        # The clip proxy's own identifier rule, so a capture never offers a clip it would refuse.
+        clip_event=capture.frigate_event
+        if settings.frigate.clips_enabled
+        and not capture.motion_source
+        and capture.frigate_event
+        and validate_event_id(capture.frigate_event)
+        else None,
     )
 
 

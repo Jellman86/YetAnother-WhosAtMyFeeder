@@ -90,6 +90,8 @@ def history(monkeypatch, tmp_path):
 
     monkeypatch.setattr(events, "get_db", history_db)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    # Catalogue naming is covered with its own catalogue; these tests read the stored decisions.
+    monkeypatch.setattr(events, "resolve_label_names", lambda labels, language: {})
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.auth, "initial_setup_complete", True)
     monkeypatch.setattr(settings.auth, "username", "owner")
@@ -120,7 +122,7 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "counted": 4,
         "unknown": 2,
         "excluded": 1,
-        "species": [{"species": "House Finch", "count": 2}],
+        "species": [{"species": "House Finch", "count": 2, "common_name": None, "scientific_name": None}],
         "hint_only": False,
     }
     # No stored observations is not a measured zero.
@@ -132,10 +134,37 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "species": [],
         "hint_only": False,
     }
-    assert rows["corrected"]["bird_summary"]["species"] == [{"species": "Blue Jay", "count": 1}]
+    assert rows["corrected"]["bird_summary"]["species"] == [
+        {"species": "Blue Jay", "count": 1, "common_name": None, "scientific_name": None}
+    ]
     assert rows["corrected"]["bird_summary"]["unknown"] == 0
     assert rows["hint-only"]["bird_summary"]["hint_only"] is True
     assert rows["hidden-parent"]["bird_summary"]["counted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_owner_summary_names_each_species_in_the_reader_language(history, monkeypatch):
+    from app.services.species_names import SpeciesIdentityNames
+
+    asked: list[tuple[list[str], str]] = []
+
+    def resolve(labels, language):
+        asked.append((list(labels), language))
+        return {"house finch": SpeciesIdentityNames(display="Roselin du Mexique", scientific="Haemorhous mexicanus")}
+
+    monkeypatch.setattr(events, "resolve_label_names", resolve)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        response = await client.get("/api/events", headers={**OWNER, "Accept-Language": "fr-FR"})
+    rows = _by_event(response.json())
+    assert rows["flock"]["bird_summary"]["species"] == [
+        {
+            "species": "House Finch",
+            "count": 2,
+            "common_name": "Roselin du Mexique",
+            "scientific_name": "Haemorhous mexicanus",
+        }
+    ]
+    assert asked and asked[0][1] == "fr"
 
 
 @pytest.mark.asyncio

@@ -2498,11 +2498,36 @@
       },
       "BirdSpeciesCount": {
         "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue name in the reader's language, when the label resolves",
+            "title": "Common Name"
+          },
           "count": {
             "title": "Count",
             "type": "integer"
           },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Catalogue scientific name, when the label resolves",
+            "title": "Scientific Name"
+          },
           "species": {
+            "description": "The stored label, usually the classifier's scientific name",
             "title": "Species",
             "type": "string"
           }
@@ -7473,6 +7498,18 @@
           "camera": {
             "title": "Camera",
             "type": "string"
+          },
+          "clip_event": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Frigate event whose clip plays for this capture, while clips are enabled",
+            "title": "Clip Event"
           },
           "crop": {
             "anyOf": [
