@@ -130,6 +130,16 @@ export function gardenWindow(input: {
 type Translate = (key: string, fallback: string, values?: Record<string, string>) => string;
 
 /** The title and one state line an Explorer entry shows, so a row, a card and a record agree. */
+/**
+ * The line under a Garden row's name, as a bird row's: a settled animal shows its scientific
+ * name; the state is said in words only while the entry needs a person or has no name.
+ */
+export function gardenRowDetail(capture: GardenCapture, view: GardenEntryView): { scientific: string | null; showState: boolean } {
+    const settled = capture.status === 'confirmed' && view.review === null && (view.nameState === 'automatic' || view.nameState === 'confirmed');
+    const scientific = settled ? capture.scientific_name ?? null : null;
+    return { scientific, showState: scientific === null };
+}
+
 export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t: Translate): { title: string; state: string } {
     if (capture.status === 'dismissed') {
         return {
@@ -168,6 +178,9 @@ const GARDEN_VISIT_GAP_MS = 60_000;
 export interface GardenVisit {
     id: string;
     captureCount?: number;
+    /** The stay's first and last capture, when the server grouped it; a span reads as a bird visit's. */
+    startTime?: string;
+    endTime?: string;
     /** `position`: unconfirmed motion proposals around one spot. `visit`: one animal's stay, by time. */
     kind: 'position' | 'visit';
     /** In the order they were given, which is the page's display order. */

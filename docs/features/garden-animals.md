@@ -96,6 +96,11 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   capture that needs you is flagged in amber with its reason: whether an animal is there, or a
   suggested species that nobody has confirmed. The score is the species model's, and only appears
   once a species is named.
+- Garden cards and rows read like bird ones: the animal crop fills the thumbnail, a
+  named animal that needs nothing from you shows its scientific name, and the state is
+  said in words only while it waits on you or has no name. A capture that came from a
+  Frigate event has the bird rows' play control, which opens Frigate's clip in the same
+  player while clips are enabled. Motion captures have no clip.
 - Garden pages count complete entries, with the capture total shown separately.
   Grouping happens on the server before pagination. An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
   animal (the same name, or both unnamed in the same review state), less than a minute apart, open

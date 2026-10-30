@@ -71,11 +71,9 @@
     let analysisActive = $derived(!!reclassifyProgress);
 
     // Dynamic Naming Logic
-    let naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
-        return getBirdNames(detection, showCommon, preferSci);
-    });
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
+    let naming = $derived(getBirdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     let subName = $derived(mixed ? null : naming.secondary);
@@ -458,7 +456,7 @@
                 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                     {#each speciesMix as entry (entry.species)}
                         <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                            {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                            {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                         </li>
                     {/each}
                 </ul>

@@ -1,5 +1,5 @@
 from app.models.classification_evidence import ClassificationEvidence
-from pydantic import BaseModel, field_serializer, field_validator
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
@@ -97,8 +97,12 @@ class Detection(APIModel):
 
 
 class BirdSpeciesCount(BaseModel):
-    species: str
+    species: str = Field(..., description="The stored label, usually the classifier's scientific name")
     count: int
+    common_name: str | None = Field(
+        None, description="Catalogue name in the reader's language, when the label resolves"
+    )
+    scientific_name: str | None = Field(None, description="Catalogue scientific name, when the label resolves")
 
 
 class DetectionBirdSummary(BaseModel):

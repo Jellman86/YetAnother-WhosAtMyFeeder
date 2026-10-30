@@ -11,6 +11,7 @@ from PIL import Image
 from app.database import get_db
 from app.models import DetectionBirdSummary, DetectionListItemResponse, DetectionResponse
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.bird_summary_names import name_summaries, resolve_label_names, summary_labels
 from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
 from app.config import settings
 from app.services.classifier_service import get_classifier
@@ -793,6 +794,9 @@ async def present_events(
             localized_names = {taxa_id: name for taxa_id, name in results if name}
 
         bird_summaries = await BirdObservationRepository(db).summaries_for_events(event_ids) if auth.is_owner else {}
+        if bird_summaries:
+            label_names = await asyncio.to_thread(resolve_label_names, summary_labels(bird_summaries), lang)
+            bird_summaries = name_summaries(bird_summaries, label_names)
 
         public_audio = {}
         if not auth.is_owner:

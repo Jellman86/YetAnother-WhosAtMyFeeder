@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
-import { gardenBelongs, gardenBlocker, gardenCaptureFacts, gardenEntryText, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
+import { gardenBelongs, gardenBlocker, gardenCaptureFacts, gardenEntryText, gardenRowDetail, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
 
 function capture(overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -256,4 +256,27 @@ it('owner names replace the display identity without borrowing model confidence'
     }});
     expect(gardenEntryView(corrected)).toEqual({ name: 'Domestic Cat', nameState: 'confirmed', score: null, review: null });
     expect(corrected.identification).toBe(original);
+});
+
+describe('gardenRowDetail', () => {
+    it('names a settled animal by its scientific name, as a settled bird row does', () => {
+        const fox = capture({ status: 'confirmed', identification: named('accepted', true), scientific_name: 'Vulpes vulpes' });
+        expect(gardenRowDetail(fox, gardenEntryView(fox))).toEqual({ scientific: 'Vulpes vulpes', showState: false });
+        const chosen = capture({ status: 'confirmed', identification: named('accepted'), scientific_name: 'Vulpes vulpes' });
+        expect(gardenRowDetail(chosen, gardenEntryView(chosen))).toEqual({ scientific: 'Vulpes vulpes', showState: false });
+    });
+
+    it('keeps the state in words while the entry waits on a person or has no name', () => {
+        const suggested = capture({ status: 'confirmed', identification: named('unreviewed'), scientific_name: 'Vulpes vulpes' });
+        expect(gardenRowDetail(suggested, gardenEntryView(suggested)).showState).toBe(true);
+        const unnamed = capture({ status: 'confirmed' });
+        expect(gardenRowDetail(unnamed, gardenEntryView(unnamed))).toEqual({ scientific: null, showState: true });
+        const pending = capture();
+        expect(gardenRowDetail(pending, gardenEntryView(pending)).showState).toBe(true);
+    });
+
+    it('never claims a scientific name the catalogue did not give', () => {
+        const fox = capture({ status: 'confirmed', identification: named('accepted', true), scientific_name: null });
+        expect(gardenRowDetail(fox, gardenEntryView(fox))).toEqual({ scientific: null, showState: true });
+    });
 });

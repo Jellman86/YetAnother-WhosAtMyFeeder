@@ -580,3 +580,57 @@ test("an animal's family tree follows its lineage and makes no bird-feeder claim
     if (shots) await page.screenshot({ path: `${shots}/garden-family-tree.png` });
     expect(errors).toEqual([]);
 });
+
+test('a list row with several species stacks its photos and names each species as the visit is named', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const { errors } = await openExplorer(page, '&garden=1');
+    const at = hoursAgo(1);
+    const peak = {
+        ...bird('busy', at),
+        bird_summary: { counted: 3, unknown: 0, excluded: 0, hint_only: false, species: [
+            { species: 'Prunella modularis', count: 2, common_name: 'Dunnock', scientific_name: 'Prunella modularis' },
+            { species: 'Rattus norvegicus', count: 1, common_name: 'Brown Rat', scientific_name: 'Rattus norvegicus' }
+        ] }
+    };
+    await page.route(url => url.pathname === '/api/visits', route => route.fulfill({ json: { total: 1, gap_seconds: 60, visits: [{
+        visit_id: 'mixed', start_time: at, end_time: at, capture_count: 2, best_score: 0.91, needs_review: false, audio_confirmed: false,
+        representative: bird('mixed', at), latest: bird('mixed', at), peak_capture: peak
+    }] } }));
+    await page.reload();
+    await page.locator('[data-explorer-view-toggle="list"]').click();
+    const row = page.locator('[data-explorer-visit="mixed"] [data-detection-row]');
+    await expect(row).toContainText('Multiple species');
+    await expect(row.locator('[data-detection-row-photo="stack"] [data-detection-preview-stack]')).toHaveAttribute('src', /busy/);
+    const chips = row.getByRole('list', { name: 'Species in this capture' });
+    await expect(chips).toContainText('Dunnock');
+    await expect(chips).toContainText('Brown Rat');
+    await expect(chips).not.toContainText('Rattus norvegicus');
+    if (shots) await page.screenshot({ path: `${shots}/explorer-mixed-row.png` });
+    expect(errors).toEqual([]);
+});
+
+test('a Garden row reads like a bird row and plays its Frigate clip', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const { garden, errors } = await openExplorer(page, '&garden=1', true);
+    const fox = garden[0];
+    Object.assign(fox, { scientific_name: 'Vulpes vulpes', clip_event: '1729000000.123-fox', crop_url: `/api/garden/${fox.id}/crop` });
+    if (fox.identification) fox.identification.automatic = true;
+    garden.push(capture('fox2', new Date(Date.parse(fox.observed_at) + 7_000).toISOString(), 'confirmed', 'Red fox', [0.05, 0.1, 0.2, 0.3]));
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await page.locator('[data-explorer-view-toggle="list"]').click();
+    const row = page.locator('[data-garden-row="confirmed"]').filter({ hasText: 'Red fox' }).first();
+    await expect(row.locator('[data-garden-row-scientific]')).toHaveText('Vulpes vulpes');
+    await expect(row).not.toContainText('Named automatically');
+    await expect(row.locator('[data-garden-preview] img')).toHaveClass(/object-cover/);
+    await expect(page.locator('[data-garden-visit-captures-span]').first()).toContainText(/\d{2}:\d{2}/);
+
+    const pending = page.locator('[data-garden-row="pending"]');
+    await expect(pending.locator('[data-garden-row-play]')).toHaveCount(0);
+
+    await row.locator('[data-garden-row-play]').click();
+    const player = page.getByRole('dialog', { name: 'Video player' });
+    await expect(player).toBeVisible();
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
+    if (shots) await page.screenshot({ path: `${shots}/garden-list-row.png` });
+    expect(errors).toEqual([]);
+});

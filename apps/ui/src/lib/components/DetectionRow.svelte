@@ -35,6 +35,8 @@
         selected?: boolean;
         /** Species in the visit's busiest capture, when there is more than one. */
         speciesMix?: SpeciesInCapture[] | null;
+        /** That busiest capture, stacked behind the visit's photo so the row reads as several birds. */
+        stackFrame?: Detection | null;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
         /** Opens the capture the species were counted in. */
@@ -43,7 +45,7 @@
         hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, matchedCalls = 0, onopenCapture, hideProgress = false }: Props = $props();
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, stackFrame = null, matchedCalls = 0, onopenCapture, hideProgress = false }: Props = $props();
     const uid = $props.id();
     let speciesOpen = $state(false);
     const mixed = $derived((speciesMix?.length ?? 0) >= 2);
@@ -63,11 +65,9 @@
         }
     });
 
-    const naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
-        return getBirdNames(detection, showCommon, preferSci);
-    });
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
+    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
 
     const primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     const subName = $derived(mixed ? null : naming.secondary);
@@ -185,14 +185,12 @@
     <!-- The same pop-out the field log uses, so a row and a log entry answer
          "which bird is that" the same way. It reuses the image already fetched,
          opens on focus as well as hover, and closes on Escape. -->
-    <div class="relative z-10 flex justify-center">
-        {#if mixed}
-            <!-- Layered like a heard band: one capture, more than one species in it. -->
-            <span class="absolute left-1.5 top-1.5 h-11 w-11 rounded-lg bg-slate-200 ring-1 ring-slate-300 dark:bg-slate-700 dark:ring-slate-600" aria-hidden="true"></span>
-        {/if}
+    <div class="relative z-10 flex justify-center" data-detection-row-photo={mixed ? 'stack' : 'single'}>
+        <!-- A capture with several species stacks its busiest capture behind, as a heard band does. -->
         <DetectionPreview
             interactive={!selectionMode}
             {detection}
+            stackBehind={mixed ? (stackFrame ?? detection) : null}
             primaryName={primaryName}
             secondaryName={subName}
             onopen={() => onclick?.()}
@@ -236,7 +234,7 @@
             <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                 {#each speciesMix as entry (entry.species)}
                     <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                        {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                        {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                     </li>
                 {/each}
             </ul>
@@ -328,7 +326,7 @@
             <ul class="divide-y divide-slate-200/70 dark:divide-slate-800/80">
                 {#each speciesMix as entry (entry.species)}
                     <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
-                        <span class="font-semibold text-slate-800 dark:text-slate-100">{entry.species}</span>
+                        <span class="font-semibold text-slate-800 dark:text-slate-100">{getBirdNames(entry, showCommon, preferSci).primary}</span>
                         <span class="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
                     </li>
                 {/each}

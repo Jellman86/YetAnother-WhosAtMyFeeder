@@ -1107,6 +1107,16 @@
         selectedEvent = event;
     }
 
+    /** A Garden capture's Frigate clip plays in the bird player; the capture carries it only while clips are on. */
+    function playGardenClip(capture: GardenCapture): void {
+        if (!capture.clip_event) return;
+        videoEventId = capture.clip_event;
+        videoShareToken = null;
+        videoPlayIntent = 'user';
+        showVideo = true;
+        selectedEvent = null;
+    }
+
     function playClip(detection: Detection) {
         videoEventId = detection.frigate_event;
         videoShareToken = null;
@@ -1563,7 +1573,7 @@
     const gardenGroups = $derived(serverGardenVisits
         .filter((visit) => shownGarden.some((item) => item.id === visit.representative.id))
         .map((visit): GardenVisit => ({ id: visit.id, kind: visit.kind,
-            captureCount: visit.capture_count, items: [visit.representative] })));
+            captureCount: visit.capture_count, startTime: visit.start_time, endTime: visit.end_time, items: [visit.representative] })));
 
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
@@ -2085,7 +2095,7 @@
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
                     {:else if entry.kind === 'garden'}
-                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} />
+                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onplay={playGardenClip} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -2097,6 +2107,7 @@
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
                             speciesMix={visitSpeciesMix(visit)}
+                            stackFrame={visit?.peak_capture ?? null}
                             matchedCalls={entry.matchedCalls}
                             onopenCapture={openPeakCapture(visit)}
                             hideProgress={selectedEvent?.frigate_event === event.frigate_event}
@@ -2116,7 +2127,7 @@
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
                     {:else if entry.kind === 'garden'}
-                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} /></div>
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onplay={playGardenClip} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}

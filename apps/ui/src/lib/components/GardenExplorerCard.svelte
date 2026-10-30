@@ -12,12 +12,14 @@
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
-    import { gardenEntryText, gardenEntryView, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
+    import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { formatDate, formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
 
-    let { capture, visit, scope, onopen, oncapture }: {
+    let { capture, visit, scope, onopen, oncapture, onplay }: {
         capture: GardenCapture;
+        /** Plays the capture's Frigate clip, as a bird card's play control does. */
+        onplay?: (capture: GardenCapture) => void;
         /** The stay or position stack this capture leads, opened together. */
         visit?: GardenVisit;
         scope?: GardenCaptureScope;
@@ -30,6 +32,8 @@
     let loadedUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })));
+    const detail = $derived(gardenRowDetail(capture, view));
+    const canPlay = $derived(Boolean(onplay && capture.clip_event));
     const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
     const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
     const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
@@ -91,15 +95,31 @@
                     {score}%<span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
                 </span>
             {/if}
+            {#if canPlay}
+                <!-- Above the card's open control, so it plays the clip rather than opening the record. -->
+                <button
+                    type="button"
+                    onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
+                    aria-label={$_('detection.play_video', { values: { species: text.title } })}
+                    class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    data-garden-card-play
+                >
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                </button>
+            {/if}
         </div>
     </div>
     <div class="flex flex-1 flex-col gap-2 p-4">
         <div>
             <h3 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={text.title}>{text.title}</h3>
-            <p class="mt-1 flex items-start gap-1.5 text-2xs font-semibold {view.review ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}">
-                {#if view.review}<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>{/if}
-                {text.state}
-            </p>
+            {#if detail.showState}
+                <p class="mt-1 flex items-start gap-1.5 text-2xs font-semibold {view.review ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}">
+                    {#if view.review}<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>{/if}
+                    {text.state}
+                </p>
+            {:else}
+                <p class="mt-1 truncate text-2xs font-semibold italic text-slate-600 dark:text-slate-400" data-garden-card-scientific>{detail.scientific}</p>
+            {/if}
         </div>
         <div class="mt-auto flex items-center gap-1.5 truncate text-2xs font-medium text-slate-500 dark:text-slate-400">
             <span>{day}</span>

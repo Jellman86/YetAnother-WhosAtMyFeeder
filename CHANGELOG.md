@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Explorer rows are more consistent between birds and Garden animals. A visit
+  with several species shows a stack of its photos instead of a grey frame, and
+  names each species in your language (for example Dunnock and Brown Rat)
+  instead of its scientific label. Garden rows fill their thumbnail with the
+  animal crop, show the scientific name under a settled animal as bird rows do,
+  give their capture toggle a time span, and offer the same play control for
+  captures that came from a Frigate event.
+
 - Garden records now follow the bird record. The family tree and species summary
   sit above the decisions, which share one row (**Confirm {name}**, **Pick a
   different species**, **Discard identification** and so on). The bird record's

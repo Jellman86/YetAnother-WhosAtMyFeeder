@@ -126,3 +126,14 @@ async def test_unnamed_capture_claims_no_scientific_name(history):
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         item = (await client.get("/api/garden/timeline")).json()["items"][0]
     assert item["scientific_name"] is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("clips_enabled", [True, False])
+async def test_a_frigate_capture_offers_its_clip_only_while_clips_are_enabled(history, monkeypatch, clips_enabled):
+    monkeypatch.setattr(settings.frigate, "clips_enabled", clips_enabled)
+    at = datetime(2026, 10, 24, tzinfo=timezone.utc).replace(tzinfo=None).isoformat()
+    await history.capture("1729000000.123-dog", "patio", "dog", at, True)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        item = (await client.get("/api/garden/timeline")).json()["items"][0]
+    assert item["clip_event"] == ("1729000000.123-dog" if clips_enabled else None)
