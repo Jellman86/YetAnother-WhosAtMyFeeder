@@ -583,6 +583,11 @@
     "error_description": "O arquivo da página não chegou. Verifique sua conexão e tente novamente.",
     "retry": "Tentar abrir novamente"
   },
+  "lazy_modal": {
+    "loading": "A abrir…",
+    "error_title": "Não foi possível abrir",
+    "error_description": "Uma parte do aplicativo não chegou. Verifique sua conexão e tente novamente."
+  },
   "settings": {
     "title": "Configurações",
     "subtitle": "Configure e gerencie sua instância YA-WAMF",
@@ -3947,5 +3952,8 @@
     "title": "Esta página não existe",
     "body": "O endereço pode ser de uma versão anterior.",
     "action": "Abrir o painel"
+  },
+  "system_telemetry": {
+    "last_reading": "Última leitura"
   }
 }

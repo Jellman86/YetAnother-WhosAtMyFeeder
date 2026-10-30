@@ -78,8 +78,18 @@ describe('Sidebar hybrid refresh', () => {
 
     it('samples telemetry only while the status card is actually visible', () => {
         expect(telemetryGraphSource).toContain('IntersectionObserver');
-        expect(telemetryGraphSource).toContain('!inViewport');
-        expect(telemetryGraphSource).toContain('document.hidden');
+        expect(telemetryGraphSource).toContain('return inViewport && !document.hidden;');
         expect(telemetryGraphSource).toContain('history = []');
+        expect(telemetryGraphSource).not.toContain('setInterval');
+    });
+
+    it('paces telemetry to the visitor budget and keeps a failed reading marked as not current', () => {
+        expect(telemetryGraphSource).toContain('telemetrySampleDelayMs({');
+        expect(telemetryGraphSource).toContain('guest: authStore.isGuest');
+        expect(telemetryGraphSource).toContain('cap: authStore.publicAccessRateLimitPerMinute');
+        const failure = telemetryGraphSource.slice(telemetryGraphSource.indexOf('} catch {'), telemetryGraphSource.indexOf('} finally {'));
+        expect(failure).toContain('stale = history.length > 0;');
+        expect(failure).not.toContain('history = []');
+        expect(telemetryGraphSource).toContain("system_telemetry.last_reading");
     });
 });

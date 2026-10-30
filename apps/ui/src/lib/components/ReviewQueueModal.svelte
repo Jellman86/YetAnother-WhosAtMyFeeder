@@ -34,8 +34,6 @@
 
     interface Props {
         queue: Detection[];
-        /** Species the classifier knows, offered when correcting a counted bird. */
-        labels?: string[];
         /** Why each detection is queued; absent means a low score. */
         reasons?: Map<string, ReviewReason>;
         onidentify: (detection: Detection, species: string) => Promise<void> | void;
@@ -49,7 +47,7 @@
         onbirdschanged?: () => void;
     }
 
-    let { queue, labels = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
+    let { queue, reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // The photograph is the record's own saved snapshot, the picture already chosen for it. The

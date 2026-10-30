@@ -583,6 +583,11 @@
     "error_description": "The page file did not arrive. Check your connection, then try again.",
     "retry": "Try opening again"
   },
+  "lazy_modal": {
+    "loading": "Opening…",
+    "error_title": "This could not be opened",
+    "error_description": "Part of the app did not arrive. Check your connection, then try again."
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Configure and manage your YA-WAMF instance",
@@ -3947,5 +3952,8 @@
     "title": "This page does not exist",
     "body": "The address may be from an older version.",
     "action": "Open the dashboard"
+  },
+  "system_telemetry": {
+    "last_reading": "Last reading"
   }
 }

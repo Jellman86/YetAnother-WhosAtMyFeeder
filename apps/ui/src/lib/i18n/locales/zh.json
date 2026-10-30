@@ -573,6 +573,11 @@
     "error_description": "页面文件未能加载。请检查网络连接后重试。",
     "retry": "重新打开"
   },
+  "lazy_modal": {
+    "loading": "正在打开…",
+    "error_title": "无法打开",
+    "error_description": "应用的部分内容未能加载。请检查网络连接后重试。"
+  },
   "settings": {
     "title": "设置",
     "subtitle": "配置和管理您的 YA-WAMF 实例",
@@ -3947,5 +3952,8 @@
     "title": "此页面不存在",
     "body": "该地址可能来自旧版本。",
     "action": "打开仪表板"
+  },
+  "system_telemetry": {
+    "last_reading": "最近一次读数"
   }
 }

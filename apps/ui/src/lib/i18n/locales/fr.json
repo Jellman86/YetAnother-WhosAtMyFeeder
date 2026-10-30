@@ -573,6 +573,11 @@
     "error_description": "Le fichier de la page n’est pas arrivé. Vérifiez votre connexion et réessayez.",
     "retry": "Réessayer d’ouvrir"
   },
+  "lazy_modal": {
+    "loading": "Ouverture…",
+    "error_title": "Ouverture impossible",
+    "error_description": "Une partie de l’application n’est pas arrivée. Vérifiez votre connexion et réessayez."
+  },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Configurez et gérez votre instance YA-WAMF",
@@ -3947,5 +3952,8 @@
     "title": "Cette page n'existe pas",
     "body": "L'adresse provient peut-être d'une version antérieure.",
     "action": "Ouvrir le tableau de bord"
+  },
+  "system_telemetry": {
+    "last_reading": "Dernière mesure"
   }
 }

@@ -61,6 +61,11 @@ export class DetectionsStore {
      * reacting to every progress tick, and even after its overlay was dismissed or pruned.
      */
     settledReclassifications = $state<Map<string, number>>(new Map());
+    /**
+     * Advanced when the recent history changes after it was first read: an edit, a live update,
+     * or a later read that brought different rows. Reading the history the first time is not a
+     * change, so pages that reload after edits do not read twice on every cold load.
+     */
     mutationVersion = $state(0);
     publicHistoryVersion = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
@@ -118,7 +123,8 @@ export class DetectionsStore {
     }
 
     async refreshIfStale(): Promise<void> {
-        if (this.isLoading || !this.staleTracker.isStale()) return;
+        // The first read of an access is the app's to start; a refresh sweep must not race it.
+        if (this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
         await this.loadInitial();
     }
 
@@ -137,10 +143,11 @@ export class DetectionsStore {
     }
 
     private clearHistory(): void {
+        const hadHistory = this.detections.length > 0 || this.totalToday > 0 || this.patchMap.size > 0;
         this.detections = [];
         this.totalToday = 0;
         this.patchMap = new Map();
-        this.markMutated();
+        if (hadHistory) this.markMutated();
     }
 
     async refreshPublicHistory(): Promise<void> {
@@ -214,10 +221,12 @@ export class DetectionsStore {
                         this.rememberPatch(detection);
                     }
                 }
+                const changed = this.historyStatus === 'ready'
+                    && (countResult.count !== this.totalToday || JSON.stringify(recent) !== JSON.stringify(this.detections));
                 this.detections = recent;
                 this.totalToday = countResult.count;
                 this.historyStatus = 'ready';
-                this.markMutated();
+                if (changed) this.markMutated();
                 this.staleTracker.touch();
                 return true;
             } catch (e) {

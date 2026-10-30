@@ -147,7 +147,9 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 - `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
-  graph). Guest rate limits apply; the response is not cacheable.
+  graph). Guest rate limits apply; the response is not cacheable. The UI samples every 2.5 s for
+  the owner and, for a visitor, at a fifth of the public rate limit (every 10 s at the default 30
+  a minute). It pauses while the tab is hidden and backs off after failed samples.
 - `GET /api/system-telemetry/history` (owner): the last thirty minutes of host CPU and accelerator
   load, sampled every five seconds while the app runs, with what this container's own processes
   (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
@@ -1312,6 +1314,15 @@ accelerator keeps its CPU fallback rather than retrying every frame.
 The public `/api/auth/status` response advertises `public_access_rate_limit_per_minute`
 so clients can pace history refreshes. Limits apply per endpoint and client address;
 the field is pacing metadata and grants no extra access.
+
+## Compression
+
+The bundled nginx gzips `application/json` responses of 1 KiB or more under `/api/`, including
+`GET /api/classifier/labels` (about 214 kB uncompressed and 72 kB compressed). Compression is
+off for `/api/sse`, video clips and HLS, and images and audio are never compressed. JSON
+responses carry no secret beside reflected request input, and JSON reads authenticate with a
+Bearer header that a cross-site page cannot send, so compression does not create a BREACH
+length oracle.
 
 ## Best Practices
 
