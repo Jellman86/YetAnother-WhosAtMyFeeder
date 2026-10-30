@@ -1,7 +1,8 @@
 """Checksum-bound garden outputs and geofences live in the species catalogue.
 
 These synchronous SQLite operations run only in worker threads/processes.
-Existing catalogue names, parents, releases and owner overrides are never rewritten.
+Existing catalogue names, parents, releases and owner overrides are never rewritten;
+a bound taxon with no parent at all is given the one its pinned taxonomy records.
 """
 
 import gzip
@@ -43,6 +44,36 @@ def taxon_identity(value: dict[str, Any]) -> tuple[str, str] | None:
     return None
 
 
+def _link_missing_parents(db: sqlite3.Connection, package: dict[str, Any], bindings: dict[str, int | None]) -> None:
+    """Give each bound taxon without a parent the nearest bound taxon above it in the package.
+
+    Species another source added first (Catalogue of Life holds a few hundred animals with no
+    higher ranks) would otherwise end their lineage at themselves.
+    """
+    taxa = {taxon["id"]: taxon for taxon in [*package["taxonomy"], *package["outputs"]]}
+    by_key = {tuple(taxon["ranks"]): bindings.get(taxon["id"]) for taxon in taxa.values() if taxon_identity(taxon)}
+    for taxon in taxa.values():
+        species_id = bindings.get(taxon["id"])
+        ranks = taxon["ranks"]
+        if species_id is None or not any(ranks):
+            continue
+        depth = max(index for index, value in enumerate(ranks) if value)
+        parent = next(
+            (
+                by_key[key]
+                for size in range(depth, -1, -1)
+                if (key := tuple(ranks[:size] + [""] * (5 - size))) in by_key and by_key[key] is not None
+            ),
+            None,
+        )
+        if parent is None or parent == species_id:
+            continue
+        db.execute(
+            "UPDATE species SET parent_species_id=? WHERE species_id=? AND parent_species_id IS NULL",
+            (parent, species_id),
+        )
+
+
 class GardenCatalog:
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or default_catalog_path()
@@ -56,10 +87,15 @@ class GardenCatalog:
             db.execute("PRAGMA foreign_keys = ON")
             db.execute("BEGIN IMMEDIATE")
             if db.execute("SELECT 1 FROM garden_model_packages WHERE sha256=?", (checksum,)).fetchone():
+                stored = dict(
+                    db.execute(
+                        "SELECT taxon_id,species_id FROM garden_taxon_bindings WHERE package_sha256=?", (checksum,)
+                    )
+                )
+                _link_missing_parents(db, package, stored)
                 return
             db.execute("INSERT INTO garden_model_packages(sha256,payload) VALUES (?,?)", (checksum, raw.decode()))
             bindings: dict[str, int | None] = {}
-            created: set[int] = set()
             # Three upstream output UUIDs differ from the taxonomy UUID for the
             # same full lineage. Preserve both source identities and resolve
             # their canonical identity by the same exact-name/rank rule.
@@ -94,7 +130,6 @@ class GardenCatalog:
                         species_id = db.execute(
                             "INSERT INTO species(rank,status) VALUES (?,'accepted')", (rank,)
                         ).lastrowid
-                        created.add(species_id)
                     if species_id is not None:
                         db.execute(
                             "INSERT INTO species_concepts(species_id,provider,provider_taxon_id,source_release,scientific_name) "
@@ -113,22 +148,7 @@ class GardenCatalog:
                     "INSERT INTO garden_taxon_bindings(package_sha256,taxon_id,species_id) VALUES (?,?,?)",
                     (checksum, taxon["id"], species_id),
                 )
-            by_key = {tuple(taxon["ranks"]): bindings[taxon["id"]] for taxon in taxa.values() if taxon_identity(taxon)}
-            for taxon in taxa.values():
-                species_id = bindings[taxon["id"]]
-                ranks = taxon["ranks"]
-                if species_id not in created or not any(ranks):
-                    continue
-                depth = max(index for index, value in enumerate(ranks) if value)
-                parent = next(
-                    (
-                        by_key[key]
-                        for size in range(depth, -1, -1)
-                        if (key := tuple(ranks[:size] + [""] * (5 - size))) in by_key and by_key[key] is not None
-                    ),
-                    None,
-                )
-                db.execute("UPDATE species SET parent_species_id=? WHERE species_id=?", (parent, species_id))
+            _link_missing_parents(db, package, bindings)
             mapping_hash = hashlib.sha256(json.dumps(package["outputs"], sort_keys=True).encode()).hexdigest()
             for variant, model_hash in package["model_sha256"].items():
                 existing = db.execute(

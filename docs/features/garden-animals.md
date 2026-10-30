@@ -57,8 +57,9 @@ page opens the Explorer's Garden review instead.
    if a camera collects motion review photos.
 5. Open the **Explorer**, or choose **Review Garden visitors** in **Settings → Beta features**. In
    the filter rail choose **Garden visitors**, then **Needs review**. Open a capture, inspect the
-   photograph, and choose **Confirm animal present** or **Dismiss capture**. Under **Dismissed**,
-   **Return to review** restores a capture while its photo remains available.
+   photograph, and either open **Manual override** and choose **Confirm animal manually**, or
+   dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
+   Under **Dismissed**, **Return to review** restores a capture while its photo remains available.
 
 ## Garden animals on the Dashboard
 
@@ -111,8 +112,8 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   camera, time and review filters. Choosing one opens that exact photo in the
   visit, including beyond the record's first page. Failed reads offer **Retry**;
   saved reviews and live updates refresh open lists. These details remain owner-only.
-  A confirmed visit with up to 128 captures also offers **Dismiss {count} captures
-  in this visit** once its captures are loaded. This dismisses only those unchanged
+  On a confirmed visit with up to 128 captures, the record's crossed-out eye is
+  **Dismiss {count} captures in this visit** once its captures are loaded. This dismisses only those unchanged
   reviews; newer captures and concurrent owner corrections are kept. Larger visits
   can be dismissed one capture at a time. In Explorer, **Return captures to review**
   restores available photos to pending review without reconfirming the animal or
@@ -124,8 +125,17 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   like a bird name, with its scientific name, a reference photograph, what the name
   was read from, and the species match. Its state is said once, for example
   **Confirmed and named automatically**, and is amber only when it waits on you.
-  The facts, the presence and species decisions, the family tree and a short
-  species summary follow. **Details**, closed by default, holds the model run, the
+  The facts, the family tree and a short species summary follow, then the decisions in
+  one row as on a bird record (for example **Confirm {name}**, **Pick a different species**
+  and **Dismiss suggestion**), then the crossed-out eye. As a bird record's hides its whole
+  visit, it dismisses the whole entry: **Dismiss capture** for a single capture, **Dismiss
+  {count} captures in this visit** for a visit, **Dismiss remaining {count} photos** for a
+  stack. When the captures are not all loaded, there are more than 128, or they are in
+  different review states, it is disabled and says why. One capture from a visit or stack
+  is dismissed with **Dismiss capture** beside its photo position, as a bird's photo is
+  removed from its strip. The family tree
+  runs from the animal's class to its species using the SpeciesNet taxonomy; it does not
+  count species worldwide or sightings at the feeder, because those figures are birds'. **Details**, closed by default, holds the model run, the
   automatic check for confirmed animals and retained capture evidence;
   until an animal is confirmed, the automatic check's result stays visible because
   it explains the state. Photos in a visit show their time to the second. Hover or focus on
@@ -140,7 +150,8 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   identity, not a bird-only search for the common name. Previously cached common-name
   articles are bypassed. If the identity or a matching reference is unavailable,
   the record keeps its identification and capture photo without an unrelated reference.
-- On a confirmed capture, **Change species** searches common and scientific names
+- On a confirmed capture, **Pick a different species** (or **Pick a species** when it has
+  no name) searches common and scientific names
   in the local Garden catalogue. Choose a complete animal species, then **Save species**.
   This changes only the open capture, including when its original photo has expired;
   the other captures in its visit are unaffected. The name says **Identified by you**

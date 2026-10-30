@@ -3700,7 +3700,10 @@
     "reference_photo": "Photo de référence",
     "no_reference_photo": "Pas de photo de référence",
     "not_seen_here": "Pas encore vu à cette mangeoire",
-    "group_summary": "{total} espèces dans le monde, {seen} vues ici"
+    "group_summary": "{total} espèces dans le monde, {seen} vues ici",
+    "this_animal": "cet animal",
+    "legend_path_animal": "Chemin vers cet animal",
+    "source_note_animal": "Classification issue de la taxonomie SpeciesNet pour les animaux du jardin. Elle montre comment les espèces sont regroupées, pas quand elles ont divergé."
   },
   "garden": {
     "check_photo": "Vérifier la photo",
@@ -3767,8 +3770,6 @@
     "previous_photo": "Photo précédente",
     "photo_count": "Photo {index} sur {count}",
     "next_photo": "Photo suivante",
-    "group_review": "Examiner cette pile",
-    "group_dismiss_help": "Confirmez les photos avec des animaux, puis écartez les autres photos de cette pile. Les photos confirmées sont conservées ; les captures futures restent inchangées.",
     "group_dismiss": "Écarter les {count} photos restantes",
     "confidence": "Seuil des propositions animales",
     "confidence_help": "Une valeur plus élevée réduit les propositions mais peut manquer des animaux. Concerne uniquement les nouvelles photos de mouvement ; la détection des oiseaux et la protection des personnes restent inchangées.",
@@ -3809,7 +3810,6 @@
       "species_heading": "Espèce",
       "confirm_needs_photo": "Un animal ne peut être confirmé que pendant que sa photo est affichée.",
       "confirm_name": "Confirmer {name}",
-      "dismiss_effect": "L'écarter la retire des animaux. Elle reste dans Visiteurs du jardin, Écartées tant que sa photo existe.",
       "total": "{count, plural, one {# capture du jardin} other {# captures du jardin}}",
       "count_on_page": "{count, plural, one {# capture du jardin sur cette page} other {# captures du jardin sur cette page}}",
       "subjects_birds": "Oiseaux",
@@ -3835,7 +3835,6 @@
       "group_photos": "{count} photos, même position",
       "dismissed_title": "Capture écartée",
       "state_dismissed": "Écartée, ne compte pas comme un animal",
-      "check_effect": "Interroge le modèle de recadrage sur cette photo uniquement. Rien n'est enregistré ; la décision vous revient.",
       "check_needs_model": "Les vérifications de photo nécessitent le modèle de vérification automatique. Téléchargez-le dans Modèles du jardin, dans Réglages → Fonctions bêta.",
       "identify_runs_on": "Nouvelle suggestion manuelle : SpeciesNet {variant} sur {device}. La suggestion nécessite encore votre confirmation.",
       "model_and_device": "Modèle et appareil",
@@ -3860,7 +3859,6 @@
       "show_photo": "Afficher la photo {index} sur {count}, {time}",
       "earlier_photos": "Photos précédentes",
       "later_photos": "Plus de photos",
-      "manual_suggestion_help": "Demande une nouvelle suggestion d’espèce pour cette photo avec vos réglages de Détection. Vérifiez-la avant de confirmer.",
       "about_species": "À propos de {species}",
       "detail_country": "Règle de localisation",
       "detail_input": "Entrée du modèle",
@@ -3887,7 +3885,6 @@
       "whole_image": "Nommé à partir de la photo entière, il peut donc ne pas désigner un seul animal"
     },
     "visit_dismiss": "Écarter {count} captures de cette visite",
-    "visit_dismiss_help": "Écarter ces captures ensemble. Les captures modifiées depuis le chargement et les nouvelles sont conservées. Les photos écartées peuvent revenir en révision tant qu’elles sont disponibles.",
     "visit_dismiss_limit": "Les visites de plus de 128 captures doivent être écartées capture par capture.",
     "visit_dismiss_reload": "Rechargez les captures de cette visite avant de les écarter ensemble.",
     "visit_return": "Remettre les captures en révision",
@@ -3900,10 +3897,11 @@
       "matches": "Espèces animales correspondantes",
       "scope": "Modifie uniquement cette capture. Le résultat initial du modèle reste dans Détails.",
       "save": "Enregistrer l’espèce",
-      "change": "Changer d’espèce",
       "revert": "Supprimer ma correction d’espèce",
-      "chosen_by_you": "Espèce choisie par vous"
-    }
+      "chosen_by_you": "Espèce choisie par vous",
+      "pick": "Choisir une espèce"
+    },
+    "entry_dismiss_mixed": "Ces captures ont des états de vérification différents. Écartez-les une par une."
   },
   "model_execution": {
     "completed": "Dernière exécution terminée : {device} · {time}",

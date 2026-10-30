@@ -3700,7 +3700,10 @@
     "reference_photo": "Referenzfoto",
     "no_reference_photo": "Kein Referenzfoto",
     "not_seen_here": "An diesem Futterhaus noch nicht gesehen",
-    "group_summary": "{total} Arten weltweit, {seen} hier gesehen"
+    "group_summary": "{total} Arten weltweit, {seen} hier gesehen",
+    "this_animal": "dieses Tier",
+    "legend_path_animal": "Pfad zu diesem Tier",
+    "source_note_animal": "Klassifikation aus der SpeciesNet-Taxonomie für Gartentiere. Sie zeigt, wie Arten gruppiert sind, nicht wann sie sich getrennt haben."
   },
   "garden": {
     "check_photo": "Foto prüfen",
@@ -3767,8 +3770,6 @@
     "previous_photo": "Vorheriges Foto",
     "photo_count": "Foto {index} von {count}",
     "next_photo": "Nächstes Foto",
-    "group_review": "Diesen Stapel prüfen",
-    "group_dismiss_help": "Bestätige zuerst Fotos mit Tieren und verwirf dann die übrigen Fotos dieses Stapels. Bestätigte Fotos bleiben erhalten; zukünftige Aufnahmen sind nicht betroffen.",
     "group_dismiss": "Verbleibende {count} Fotos verwerfen",
     "confidence": "Schwelle für Tiervorschläge",
     "confidence_help": "Höhere Werte reduzieren Vorschläge, können aber Tiere übersehen. Gilt nur für neue Bewegungsfotos; Vogelerkennung und Personenprüfung bleiben unverändert.",
@@ -3809,7 +3810,6 @@
       "species_heading": "Art",
       "confirm_needs_photo": "Ein Tier kann nur bestätigt werden, solange sein Foto angezeigt wird.",
       "confirm_name": "{name} bestätigen",
-      "dismiss_effect": "Verwerfen entfernt die Aufnahme aus den Tieren. Sie bleibt unter Gartenbesucher, Verworfen, solange ihr Foto besteht.",
       "total": "{count, plural, one {# Gartenaufnahme} other {# Gartenaufnahmen}}",
       "count_on_page": "{count, plural, one {# Gartenaufnahme auf dieser Seite} other {# Gartenaufnahmen auf dieser Seite}}",
       "subjects_birds": "Vögel",
@@ -3835,7 +3835,6 @@
       "group_photos": "{count} Fotos, gleiche Position",
       "dismissed_title": "Verworfene Aufnahme",
       "state_dismissed": "Verworfen, zählt nicht als Tier",
-      "check_effect": "Fragt das Ausschnittmodell nur zu diesem Foto. Nichts wird gespeichert; die Entscheidung bleibt bei dir.",
       "check_needs_model": "Fotoprüfungen brauchen das Modell für automatische Prüfungen. Lade es unter Gartenmodelle in Einstellungen → Beta-Funktionen herunter.",
       "identify_runs_on": "Neuer manueller Vorschlag: SpeciesNet {variant} auf {device}. Der Vorschlag muss noch bestätigt werden.",
       "model_and_device": "Modell und Gerät",
@@ -3860,7 +3859,6 @@
       "show_photo": "Foto {index} von {count} anzeigen, {time}",
       "earlier_photos": "Vorherige Fotos",
       "later_photos": "Weitere Fotos",
-      "manual_suggestion_help": "Fordert mit Ihren Erkennungseinstellungen einen neuen Artvorschlag für dieses Foto an. Prüfen Sie ihn vor dem Bestätigen.",
       "about_species": "Über {species}",
       "detail_country": "Standortregel",
       "detail_input": "Modelleingabe",
@@ -3887,7 +3885,6 @@
       "whole_image": "Nach dem ganzen Foto benannt, daher bezieht es sich vielleicht nicht auf ein einzelnes Tier"
     },
     "visit_dismiss": "{count} Aufnahmen dieses Besuchs verwerfen",
-    "visit_dismiss_help": "Diese Aufnahmen gemeinsam verwerfen. Seit dem Laden geänderte und später hinzugekommene Aufnahmen bleiben erhalten. Verworfene Fotos können erneut geprüft werden, solange sie verfügbar sind.",
     "visit_dismiss_limit": "Besuche mit mehr als 128 Aufnahmen müssen einzeln verworfen werden.",
     "visit_dismiss_reload": "Die Aufnahmen dieses Besuchs erneut laden, bevor sie gemeinsam verworfen werden.",
     "visit_return": "Aufnahmen erneut prüfen",
@@ -3900,10 +3897,11 @@
       "matches": "Passende Tierarten",
       "scope": "Ändert nur diese Aufnahme. Das ursprüngliche Modellergebnis bleibt unter Details erhalten.",
       "save": "Art speichern",
-      "change": "Art ändern",
       "revert": "Meine Artenkorrektur entfernen",
-      "chosen_by_you": "Art von dir ausgewählt"
-    }
+      "chosen_by_you": "Art von dir ausgewählt",
+      "pick": "Art auswählen"
+    },
+    "entry_dismiss_mixed": "Die Aufnahmen hier haben unterschiedliche Prüfstatus. Verwerfen Sie sie einzeln."
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",

@@ -3700,7 +3700,10 @@
     "reference_photo": "Reference photo",
     "no_reference_photo": "No reference photo",
     "not_seen_here": "Not seen at this feeder yet",
-    "group_summary": "{total} species worldwide, {seen} seen here"
+    "group_summary": "{total} species worldwide, {seen} seen here",
+    "this_animal": "this animal",
+    "legend_path_animal": "Path to this animal",
+    "source_note_animal": "Classification from the SpeciesNet taxonomy for Garden animals. It shows how species are grouped, not when they diverged."
   },
   "garden": {
     "check_photo": "Check photo",
@@ -3767,8 +3770,6 @@
     "previous_photo": "Previous photo",
     "photo_count": "Photo {index} of {count}",
     "next_photo": "Next photo",
-    "group_review": "Review this stack",
-    "group_dismiss_help": "Confirm any animal photos first, then dismiss the remaining photos in this stack. Confirmed photos are kept; future captures are unaffected.",
     "group_dismiss": "Dismiss remaining {count} photos",
     "confidence": "Animal proposal threshold",
     "confidence_help": "Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.",
@@ -3809,7 +3810,6 @@
       "species_heading": "Species",
       "confirm_needs_photo": "An animal can be confirmed only while its photo is shown.",
       "confirm_name": "Confirm {name}",
-      "dismiss_effect": "Dismissing removes it from the animals. It stays under Garden visitors, Dismissed while its photo lasts.",
       "total": "{count, plural, one {# Garden capture} other {# Garden captures}}",
       "count_on_page": "{count, plural, one {# Garden capture on this page} other {# Garden captures on this page}}",
       "subjects_birds": "Birds",
@@ -3835,7 +3835,6 @@
       "group_photos": "{count} photos, same position",
       "dismissed_title": "Dismissed capture",
       "state_dismissed": "Dismissed, not counted as an animal",
-      "check_effect": "Asks the tracked-crop model about this photo only. Nothing is saved; the decision stays yours.",
       "check_needs_model": "Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.",
       "identify_runs_on": "New manual suggestion: SpeciesNet {variant} on {device}. The suggestion still needs your confirmation.",
       "model_and_device": "Model and device",
@@ -3853,7 +3852,6 @@
       "state_manual": "Manual review: automatic naming is off or an owner override is active",
       "state_waiting_automatic": "Waiting for automatic identification",
       "entry_total": "Garden entries: {count} · captures: {captures}",
-      "manual_suggestion_help": "Requests a new species suggestion for this photo using your Detection settings. Review it before confirming.",
       "show_whole_photo": "Show whole photo",
       "whole_photo_hint": "Whole photo. Select again to return to the crop.",
       "crop_photo_hint": "Animal crop. Open the whole photo for context.",
@@ -3887,7 +3885,6 @@
       "whole_image": "Named from the whole photo, so it may not refer to one animal"
     },
     "visit_dismiss": "Dismiss {count} captures in this visit",
-    "visit_dismiss_help": "Dismiss these captures together. Captures changed since loading and later arrivals are kept. You can return dismissed photos to review while their photos remain.",
     "visit_dismiss_limit": "Visits with more than 128 captures must be dismissed one capture at a time.",
     "visit_dismiss_reload": "Load this visit’s captures again before dismissing them together.",
     "visit_return": "Return captures to review",
@@ -3900,10 +3897,11 @@
       "matches": "Matching animal species",
       "scope": "Changes this capture only. The original model result is kept in Details.",
       "save": "Save species",
-      "change": "Change species",
       "revert": "Remove my species correction",
-      "chosen_by_you": "Species chosen by you"
-    }
+      "chosen_by_you": "Species chosen by you",
+      "pick": "Pick a species"
+    },
+    "entry_dismiss_mixed": "Captures here are in different review states. Dismiss them one capture at a time."
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",

@@ -61,7 +61,33 @@ describe('Garden captures in the Explorer', () => {
         expect(modalSource).toContain('lockDocumentScroll()');
         expect(modalSource).toContain("event.key === 'Escape'");
         expect(en.garden.explorer.confirm_name).toBe('Confirm {name}');
-        expect(en.garden.explorer.dismiss_effect).toMatch(/removes it from the animals/);
+    });
+
+    it("orders the rail as the bird record does and dismisses from the bird's bottom row", () => {
+        const at = (marker: string): number => {
+            const index = modalSource.indexOf(marker);
+            expect(index, marker).toBeGreaterThan(-1);
+            return index;
+        };
+        // Facts, the family tree, the species, then the decisions, then hide-style dismissal, then Details.
+        expect(at('data-garden-capture-facts')).toBeLessThan(at('<TaxonomyLineage'));
+        expect(at('<TaxonomyLineage')).toBeLessThan(at('data-garden-species-info'));
+        expect(at('data-garden-species-info')).toBeLessThan(at('data-garden-capture-actions'));
+        expect(at('data-garden-capture-actions')).toBeLessThan(at('data-garden-capture-bottom-actions'));
+        expect(at('data-garden-capture-bottom-actions')).toBeLessThan(at('data-garden-capture-details'));
+        expect(modalSource).toContain('subject="animal"');
+        expect(modalSource).toContain("actions.pick_species");
+        // The dismiss control is the bird record's hide tile, named by its effect rather than explained beneath.
+        const bottomRow = modalSource.slice(at('data-garden-capture-bottom-actions'), at('data-garden-capture-details'));
+        // As a bird's hide control hides its visit, the tile dismisses the whole entry; one capture goes beside its photo.
+        expect(bottomRow).toContain('data-garden-entry-dismiss');
+        expect(bottomRow).toContain('onclick={dismissEntry}');
+        expect(bottomRow).not.toContain('data-garden-capture-dismiss');
+        expect(at('data-garden-capture-group')).toBeLessThan(at('data-garden-capture-dismiss'));
+        expect(at('data-garden-capture-dismiss')).toBeLessThan(at('data-garden-capture-rail'));
+        for (const retired of ['dismiss_effect', 'group_dismiss_help', 'visit_dismiss_help', 'garden.group_review', 'check_effect', 'manual_suggestion_help']) {
+            expect(modalSource).not.toContain(retired);
+        }
     });
 
     it("follows the bird record's shape and the bird row's alignment", () => {
