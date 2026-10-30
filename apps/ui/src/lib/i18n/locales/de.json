@@ -3583,7 +3583,32 @@
     "system_ram_usage": "System-RAM-Auslastung",
     "circuit_open_detail": "{queued} Elemente warten in der Warteschlange. Letzte Fehler: {failures}.",
     "more_lanes": "+{count} weitere Arbeitslinien",
-    "kind_favorite_archive": "Favoriten-Archiv"
+    "kind_favorite_archive": "Favoriten-Archiv",
+    "status": {
+      "running": "Läuft",
+      "processing": "In Bearbeitung",
+      "queued": "In der Warteschlange",
+      "recovering": "Erholt sich",
+      "elevated": "Erhöhte Last",
+      "warning": "Warnung",
+      "degraded": "Eingeschränkt",
+      "high": "Hohe Last",
+      "critical": "Kritisch",
+      "error": "Fehler",
+      "failing": "Fehlerhaft",
+      "failed": "Fehlgeschlagen",
+      "open": "Offen",
+      "ok": "Fehlerfrei",
+      "healthy": "Fehlerfrei",
+      "normal": "Unauffällig",
+      "idle": "Untätig",
+      "clear": "Frei",
+      "resolved": "Behoben",
+      "recovered": "Wiederhergestellt",
+      "unknown": "Unbekannt"
+    },
+    "errors_no_reconnect_reason": "Keiner erfasst",
+    "errors_unknown_phase": "Unbekannte Phase"
   },
   "errors": {
     "stack_trace": "Stack-Trace:"

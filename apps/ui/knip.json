@@ -32,6 +32,7 @@
     "browser-tests/documentation.ts",
     "browser-tests/frame-scan.ts",
     "browser-tests/map-popup.ts",
-    "browser-tests/lazy-modal.ts"
+    "browser-tests/lazy-modal.ts",
+    "browser-tests/score-tone.ts"
   ]
 }

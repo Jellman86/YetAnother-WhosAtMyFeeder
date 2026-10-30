@@ -23,6 +23,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     default rate limit, not every 2.5 seconds. It pauses in hidden tabs. When a
     sample fails, it keeps the last reading, labelled as such.
 
+- Colours mean the same thing on every screen and in every colour theme:
+  - A score is one colour wherever it appears: amber under 60%, the theme's
+    brand colour under 85%, and green from 85%. Cards, the list, the record,
+    the field log, Garden entries and Audio history previously disagreed, so a
+    55% match could be green in one view and red in another.
+  - Anything that needs you (flagged rows, the review queue, warnings) is amber
+    in every theme. In the classic theme it was green, the same colour as
+    "confirmed".
+  - Success and warning notifications are no longer the same colour in the
+    Blue tit theme, and their icons are drawn instead of text symbols.
+  - The Errors panel shows running work in the brand colour rather than amber,
+    healthy states in green, and statuses as translated words in sentence case
+    instead of raw backend values in capitals.
+  - Chosen options and buttons filled with the brand colour use a darker shade,
+    so their white text meets WCAG AA contrast in both themes.
+  - Audio history chart labels are darker on a light background.
+
 - The Explorer filter rail is easier to scan:
   - **Visitors** (Birds, Both, Garden) and **Show** (Visits, Captures) are
     compact switches that explain only the chosen option.

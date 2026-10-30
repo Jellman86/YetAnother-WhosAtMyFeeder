@@ -26,6 +26,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { portal } from '../utils/portal';
+    import { SCORE_TEXT_ON_MEDIA, scoreBand } from '../utils/score-tone';
     import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import type { ReviewReason } from '../utils/review-queue';
@@ -323,13 +324,6 @@
               ]
             : []
     );
-
-    /** The bands the visual standard sets, in their tones for the dark media surface. */
-    function scoreTone(score: number): string {
-        if (score < 0.6) return 'text-accent-300';
-        if (score < 0.85) return 'text-brand-300';
-        return 'text-success-300';
-    }
 
     function withVersion(url: string, version: number, settledVersion: number): string {
         if (version === 0 && settledVersion === 0) return url;
@@ -636,7 +630,7 @@
                                 <span aria-hidden="true">&middot;</span>
                                 <span>{current.camera_name}</span>
                                 <span aria-hidden="true">&middot;</span>
-                                <span class="font-semibold tabular-nums {scoreTone(current.score ?? 0)}">
+                                <span class="font-semibold tabular-nums {SCORE_TEXT_ON_MEDIA[scoreBand(current.score)]}">
                                     <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
                                     {Math.round((current.score ?? 0) * 100)}%
                                 </span>
@@ -685,8 +679,8 @@
                 <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
                     <!-- Why this needs a person, in words, with the amber wash flagged rows carry elsewhere.
                          The header already asks for the call, so there is no second heading over it. -->
-                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-amber-50 px-4 py-3 text-sm text-slate-700 dark:bg-amber-500/10 dark:text-slate-200" data-review-reason>
-                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
+                    <p class="-mx-4 -mt-4 flex items-start gap-2 bg-attention-50 px-4 py-3 text-sm text-slate-700 dark:bg-attention-500/10 dark:text-slate-200" data-review-reason>
+                        <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
                         <span>
                             {#if isNewSpecies}
                                 {$_('dashboard.review_session.new_species_note', {

@@ -57,7 +57,7 @@
                         ? 'flex flex-col items-center gap-2 p-4'
                         : 'flex items-center gap-4 p-4 text-left'}
                    {active
-                        ? 'bg-brand-500 border-brand-500 text-white shadow-lg shadow-brand-500/20'
+                        ? 'bg-brand-700 border-brand-700 text-white shadow-lg shadow-brand-700/20'
                         : 'bg-white dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50 text-slate-700 dark:text-slate-200 hover:border-brand-500/30'}"
         >
             {#if layout === 'tile'}

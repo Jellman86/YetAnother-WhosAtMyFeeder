@@ -22,9 +22,11 @@ describe('the Explorer list row', () => {
     });
 
     it('flags a detection needing a person with all three signals', () => {
-        // Never colour alone: a wash, a rule and a worded reason.
-        expect(detectionRowSource).toContain('bg-accent-500/10');
-        expect(detectionRowSource).toContain('bg-accent-500');
+        // Never colour alone: a wash, a rule and a worded reason. The amber is attention-*,
+        // because "amber is reserved for 'this needs a person'" (layout-patterns §1.3) and the
+        // theme accent is emerald in the classic theme.
+        expect(detectionRowSource).toContain('bg-attention-500/10');
+        expect(detectionRowSource).toContain('w-[3px] bg-attention-500');
         expect(detectionRowSource).toContain('events.row_below_threshold');
     });
 
@@ -52,7 +54,7 @@ describe('the Explorer list row', () => {
     it('lets the camera name give way before a status word does', () => {
         // On a narrow row something has to go. The status words are why a row
         // is worth reading; the camera is the least of it.
-        expect(detectionRowSource).toMatch(/shrink-0 text-accent-700/);
+        expect(detectionRowSource).toMatch(/shrink-0 text-attention-800/);
         expect(detectionRowSource).toMatch(/shrink-0 text-brand-600/);
         expect(detectionRowSource).toContain('min-w-0 truncate">{detection.camera_name}');
     });

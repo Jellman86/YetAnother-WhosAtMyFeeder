@@ -351,7 +351,7 @@
                             <div in:scale={{ delay: 300 }} class="mt-4 w-full max-w-sm space-y-2">
                                 <button 
                                     onclick={handleDismiss}
-                                    class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
+                                    class="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                                 >
                                     {$_('detection.reclassification.done')}
                                 </button>
@@ -475,7 +475,7 @@
                 <div in:scale={{ delay: 300 }} class="mt-4 w-full">
                     <button 
                         onclick={handleDismiss}
-                        class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
+                        class="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                     >
                         {$_('detection.reclassification.done')}
                     </button>

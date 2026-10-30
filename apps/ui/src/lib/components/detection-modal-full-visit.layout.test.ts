@@ -14,7 +14,8 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('Full visit');
         expect(detectionModalSource).toContain('getSnapshotUrl(detection.frigate_event)');
         expect(detectionModalSource).toContain("title={fullVisitFetched ? $_('video_player.full_visit_ready'");
-        expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-500/95");
+        // brand-700 under white text: brand-500 fails AA in both themes (KIT-02).
+        expect(detectionModalSource).toContain("fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95");
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).not.toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
         expect(detectionModalSource).not.toContain('{#if fullVisitFetched}\n                                    <div');

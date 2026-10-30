@@ -26,6 +26,7 @@
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     const PAGE_SIZE = 25;
 
@@ -103,6 +104,8 @@
     let canNext = $derived(Boolean(history && offset + history.limit < history.total));
 
     let isDark = $derived(themeStore.isDark);
+    // slate-500 on a light page and slate-400 on a dark one: slate-400 on white is 2.56:1, too faint for axis labels.
+    let chartTickColor = $derived(isDark ? '#94a3b8' : '#64748b');
     let hasDaily = $derived((summary?.daily_counts?.length ?? 0) > 0);
     let hasHourly = $derived((summary?.hourly_counts?.length ?? 0) > 0);
     let hasSpecies = $derived((summary?.top_species?.length ?? 0) > 0);
@@ -272,8 +275,8 @@
                     tooltip: { callbacks: { title: (items) => points[items[0]?.dataIndex]?.date ?? '' } },
                 },
                 scales: {
-                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                    x: { ticks: { color: chartTickColor, maxTicksLimit: 6 }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
                 },
             },
         };
@@ -308,8 +311,8 @@
                     tooltip: { callbacks: { title: (items) => `${labels[items[0]?.dataIndex] ?? '00'}:00` } },
                 },
                 scales: {
-                    x: { ticks: { color: '#94a3b8', autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                    x: { ticks: { color: chartTickColor, autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
                 },
             },
         };
@@ -535,7 +538,7 @@
                                 {detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}
                             </td>
                             <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right md:table-cell md:py-3">
-                                <span class="font-bold tabular-nums {detection.confidence > 0.7 ? 'text-green-600 dark:text-green-300' : 'text-amber-600 dark:text-amber-300'}">{confidencePercent(detection.confidence)}</span>
+                                <span class="font-bold tabular-nums {SCORE_TEXT[scoreBand(detection.confidence)]}">{confidencePercent(detection.confidence)}</span>
                             </td>
                             {#if authStore.canModify}
                                 <td class="col-span-3 text-right md:table-cell md:py-3 md:pl-3">
