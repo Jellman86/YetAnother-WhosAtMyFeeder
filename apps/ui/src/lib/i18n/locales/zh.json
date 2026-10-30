@@ -2631,6 +2631,7 @@
     "total_count": "共 {count} 条",
     "filters": {
       "all_time": "所有时间",
+      "today": "今天",
       "week": "本周",
       "month": "本月",
       "custom": "自定义",
@@ -2661,7 +2662,12 @@
       "show_captures_hint": "每次拍摄单独显示。",
       "show_locked": "选择针对单次拍摄。",
       "audio_matches": "音频匹配",
-      "cameras": "摄像头"
+      "cameras": "摄像头",
+      "show_visits_short": "到访",
+      "show_captures_short": "拍摄",
+      "show_all_species": "显示全部 {count} 个物种",
+      "show_fewer_species": "收起",
+      "only_active": "已开启 {count} 项"
     },
     "sort": {
       "newest": "最新",
@@ -3868,7 +3874,10 @@
       "status_automatic": "已自动确认并命名",
       "status_confirmed": "动物和物种已由你确认",
       "capture_actions": "打开抓拍，查看并审核对应的照片。",
-      "capture_motion": "移动录像"
+      "capture_motion": "移动录像",
+      "subjects_short_birds": "鸟类",
+      "subjects_short_all": "全部",
+      "subjects_short_garden": "花园"
     },
     "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
     "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",

@@ -19,19 +19,25 @@ describe('Explorer page layout', () => {
 
     it('passes naming-aware species labels to the responsive filter panel', () => {
         expect(eventsSource).toContain('let displaySpecies = $derived(');
-        expect(eventsSource).toContain('display_name: formatSpeciesLabel(item)');
+        // The rail names a species as the cards do, the other name on its own line beneath.
+        expect(eventsSource).toContain('display_name: names.primary, display_secondary: names.secondary');
         expect(eventsSource).toContain('species={displaySpecies}');
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
-    it('shows the complete species facet before the collapsible filters', () => {
+    it('puts the window first and keeps every species reachable in one scrolling rail', () => {
         expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
-        expect(filtersSource).not.toContain('.slice(0, 12)');
+        // The short list hides nothing for good: Show all and search reach every species.
+        expect(filtersSource).toContain('shownExplorerSpecies(');
+        expect(filtersSource).toContain('data-explorer-species-more');
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-date-facet'));
         expect(filtersSource).toContain('lg:overflow-y-auto');
+        // A list scrolling inside the scrolling rail trapped the wheel.
+        expect(filtersSource).not.toContain('max-h-64');
+        expect(filtersSource.indexOf('data-explorer-date-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-species-facet'));
+        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-camera-facet'));
     });
 
     it('separates the timeline and pagination with space, not rules', () => {

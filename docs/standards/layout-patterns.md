@@ -132,10 +132,14 @@ by a badge.
 
 Four shapes cover the app. Pick one; do not blend them.
 
-Explorer's filter rail puts species search and its scrollable list first. Date, other
-filters and cameras use native collapsible sections, initially closed. Applied filters
-stay visible as removable tokens. The rail scrolls when expanded sections exceed the
-available height, so selecting a species never shrinks its list to zero. Phones use the
+Explorer's filter rail orders filters by how often they change. Choices set once and
+left (**Visitors**, **Show**) are compact switches that explain only the chosen option
+beneath them. **When** follows, always open. The species list shows the eight most
+recorded species, plus any chosen one, then **Show all N species**; search lists every
+match. Cameras and **Only** stay in native collapsible sections, initially closed, and
+their summaries name what is chosen inside. A chosen row carries a bar and weight as
+well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
+visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
 same ordering behind the Filters button.
 
 Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off

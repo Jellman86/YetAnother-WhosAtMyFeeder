@@ -205,25 +205,23 @@
         ].join('|');
     }
 
-    function formatSpeciesLabel(item: EventFilterSpecies) {
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
+    function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
         const naming = getBirdNames({
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
-        }, showCommon, preferSci);
-        return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
+        }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
+        return { primary: naming.primary, secondary: naming.secondary || null };
     }
 
     // The API's display name is a stable fallback, not necessarily the owner's chosen
     // naming presentation. Keep the canonical filter value intact while deriving the
     // visible label from the same common/scientific-name policy as detection cards.
     let displaySpecies = $derived(
-        availableSpecies.map((item) => ({
-            ...item,
-            display_name: formatSpeciesLabel(item)
-        }))
+        availableSpecies.map((item) => {
+            const names = speciesOptionNames(item);
+            return { ...item, display_name: names.primary, display_secondary: names.secondary };
+        })
     );
 
     let dateRange = $derived.by(() => {
@@ -1815,7 +1813,7 @@
     <div
         class="grid gap-4 lg:items-start lg:gap-6 {explorerFiltersStore.collapsed
             ? ''
-            : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
+            : 'lg:grid-cols-[16rem_minmax(0,1fr)]'}"
         data-explorer-layout
     >
         <div id="explorer-filter-rail" class={explorerFiltersStore.collapsed ? '' : 'lg:sticky lg:top-4'}>

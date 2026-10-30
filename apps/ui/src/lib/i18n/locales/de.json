@@ -2631,6 +2631,7 @@
     "total_count": "{count} insgesamt",
     "filters": {
       "all_time": "Gesamte Zeit",
+      "today": "Heute",
       "week": "Woche",
       "month": "Monat",
       "custom": "Benutzerdefiniert",
@@ -2661,7 +2662,12 @@
       "show_captures_hint": "Jede Aufnahme für sich.",
       "show_locked": "Die Auswahl arbeitet mit einzelnen Aufnahmen.",
       "audio_matches": "Audio-Übereinstimmungen",
-      "cameras": "Kameras"
+      "cameras": "Kameras",
+      "show_visits_short": "Besuche",
+      "show_captures_short": "Aufnahmen",
+      "show_all_species": "Alle {count} Arten zeigen",
+      "show_fewer_species": "Weniger zeigen",
+      "only_active": "{count} aktiv"
     },
     "sort": {
       "newest": "Neueste",
@@ -3868,7 +3874,10 @@
       "status_automatic": "Automatisch bestätigt und benannt",
       "status_confirmed": "Tier und Art von dir bestätigt",
       "capture_actions": "Öffne eine Aufnahme, um das Tier auf diesem Foto zu prüfen.",
-      "capture_motion": "Bewegungsaufnahme"
+      "capture_motion": "Bewegungsaufnahme",
+      "subjects_short_birds": "Vögel",
+      "subjects_short_all": "Beides",
+      "subjects_short_garden": "Garten"
     },
     "automatic_animal_manual": "Tier erkannt. Automatische Benennung ist aus oder dieses ältere Ergebnis wartet auf eine neue automatische Prüfung.",
     "automatic_below_threshold": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",

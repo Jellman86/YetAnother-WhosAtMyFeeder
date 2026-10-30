@@ -2641,6 +2641,7 @@
     "total_count": "{count} всего",
     "filters": {
       "all_time": "За все время",
+      "today": "Сегодня",
       "week": "Неделя",
       "month": "Месяц",
       "custom": "Пользовательский",
@@ -2671,7 +2672,12 @@
       "show_captures_hint": "Каждый снимок отдельно.",
       "show_locked": "Выбор работает с отдельными снимками.",
       "audio_matches": "Совпадения аудио",
-      "cameras": "Камеры"
+      "cameras": "Камеры",
+      "show_visits_short": "Визиты",
+      "show_captures_short": "Снимки",
+      "show_all_species": "Показать все виды ({count})",
+      "show_fewer_species": "Показать меньше",
+      "only_active": "включено: {count}"
     },
     "sort": {
       "newest": "Сначала новые",
@@ -3868,7 +3874,10 @@
       "status_automatic": "Подтверждено и названо автоматически",
       "status_confirmed": "Животное и вид подтверждены вами",
       "capture_actions": "Откройте снимок, чтобы проверить результат по его фотографии.",
-      "capture_motion": "Запись движения"
+      "capture_motion": "Запись движения",
+      "subjects_short_birds": "Птицы",
+      "subjects_short_all": "Все",
+      "subjects_short_garden": "Сад"
     },
     "automatic_animal_manual": "Животное обнаружено. Автоматическое определение вида отключено либо этот старый результат ожидает новой проверки.",
     "automatic_below_threshold": "Ниже автоматического порога. Перемещено в отклонённые; фотографию можно восстановить для проверки.",

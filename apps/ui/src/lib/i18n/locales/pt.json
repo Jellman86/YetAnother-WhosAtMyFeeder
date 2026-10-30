@@ -2641,6 +2641,7 @@
     "total_count": "{count} total",
     "filters": {
       "all_time": "Todo o tempo",
+      "today": "Hoje",
       "week": "Semana",
       "month": "Mês",
       "custom": "Personalizado",
@@ -2671,7 +2672,12 @@
       "show_captures_hint": "Cada captura separadamente.",
       "show_locked": "A seleção funciona com capturas individuais.",
       "audio_matches": "Correspondências de áudio",
-      "cameras": "Câmeras"
+      "cameras": "Câmeras",
+      "show_visits_short": "Visitas",
+      "show_captures_short": "Capturas",
+      "show_all_species": "Mostrar as {count} espécies",
+      "show_fewer_species": "Mostrar menos",
+      "only_active": "{count} ativos"
     },
     "sort": {
       "newest": "Mais recente",
@@ -3868,7 +3874,10 @@
       "status_automatic": "Confirmado e nomeado automaticamente",
       "status_confirmed": "Animal e espécie confirmados por si",
       "capture_actions": "Abra uma captura para analisá-la na respetiva fotografia.",
-      "capture_motion": "Gravação de movimento"
+      "capture_motion": "Gravação de movimento",
+      "subjects_short_birds": "Aves",
+      "subjects_short_all": "Ambos",
+      "subjects_short_garden": "Jardim"
     },
     "automatic_animal_manual": "Animal detetado. A identificação automática está desativada ou este resultado antigo aguarda nova verificação.",
     "automatic_below_threshold": "Abaixo do limiar automático. Movido para Descartados; restaure a fotografia para a rever.",

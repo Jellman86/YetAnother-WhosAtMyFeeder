@@ -2641,6 +2641,7 @@
     "total_count": "{count} total",
     "filters": {
       "all_time": "All Time",
+      "today": "Today",
       "week": "Week",
       "month": "Month",
       "custom": "Custom",
@@ -2671,7 +2672,12 @@
       "show_captures_hint": "Every capture on its own.",
       "show_locked": "Selecting works on individual captures.",
       "audio_matches": "Audio matches",
-      "cameras": "Cameras"
+      "cameras": "Cameras",
+      "show_visits_short": "Visits",
+      "show_captures_short": "Captures",
+      "show_all_species": "Show all {count} species",
+      "show_fewer_species": "Show fewer",
+      "only_active": "{count} on"
     },
     "sort": {
       "newest": "Newest",
@@ -3868,7 +3874,10 @@
       "status_automatic": "Confirmed and named automatically",
       "status_confirmed": "Animal and species confirmed by you",
       "capture_actions": "Open a capture to review it on its own photo.",
-      "capture_motion": "Motion footage"
+      "capture_motion": "Motion footage",
+      "subjects_short_birds": "Birds",
+      "subjects_short_all": "Both",
+      "subjects_short_garden": "Garden"
     },
     "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "confirm_manually": "Confirm animal manually",

@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Explorer filter rail is easier to scan:
+  - **Visitors** (Birds, Both, Garden) and **Show** (Visits, Captures) are
+    compact switches that explain only the chosen option.
+  - **When** comes first after them and is always open. **Today** is now
+    labelled properly instead of reading "today".
+  - The species list shows each common name over its scientific name, starts
+    with the eight most recorded species and grows in place with **Show all**.
+    The second scrollbar inside the rail is gone.
+  - Chosen options carry a bar as well as colour.
+  - **Cameras** and **Only** name what is chosen inside them while folded.
+  - **Clear all** sits beside the rail's title.
+  - The rail is a little wider, so names fit on one line.
+
 - Explorer rows are more consistent between birds and Garden animals. A visit
   with several species shows a stack of its photos instead of a grey frame, and
   names each species in your language (for example Dunnock and Brown Rat)

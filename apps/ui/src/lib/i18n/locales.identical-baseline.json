@@ -227,6 +227,7 @@
     "detection.inat.longitude",
     "detection.inat.notes",
     "detection.inat.title",
+    "events.filters.show_captures_short",
     "garden.explorer.source",
     "jobs.errors_count",
     "jobs.pipeline_title",

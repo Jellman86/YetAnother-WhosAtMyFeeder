@@ -56,7 +56,7 @@ page opens the Explorer's Garden review instead.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
 5. Open the **Explorer**, or choose **Review Garden visitors** in **Settings → Beta features**. In
-   the filter rail choose **Garden visitors**, then **Needs review**. Open a capture, inspect the
+   the filter rail choose **Garden** under **Visitors**, then **Needs review**. Open a capture, inspect the
    photograph, and either open **Manual override** and choose **Confirm animal manually**, or
    dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
    Under **Dismissed**, **Return to review** restores a capture while its photo remains available.
@@ -85,7 +85,7 @@ update signal carries no capture details and is never delivered to guests.
 
 With Garden on, the **Explorer** shows each opted-in camera's animals beside its birds, placed by
 time between the visits they fell between. **Visitors** at the top of the filter rail chooses
-**Birds and Garden** (the default), **Birds** or **Garden visitors**, and this device remembers the
+**Both** (the default), **Birds** or **Garden**, and this device remembers the
 choice like **Cards** and **List**. Under **Garden visitors**, **Review** chooses **Animals and
 waiting for review**, **Needs review**, **Confirmed animals** or **Dismissed**. Both appear as
 removable filters, and bird-only filters step aside while Garden visitors is chosen.

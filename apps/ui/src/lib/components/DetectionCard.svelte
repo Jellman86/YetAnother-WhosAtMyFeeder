@@ -344,7 +344,8 @@
                  where the card is full width, but the densest desktop grid, so
                  the guard fired on an ordinary laptop and covered the bird. The
                  grid now keeps a card wide enough for one line instead. -->
-            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2">
+            <!-- While selecting, the card owns every click, as a list row does; the readings stay readable. -->
+            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2 {selectionMode ? 'pointer-events-none' : ''}">
                 <BadgeHint text={$_('detection.captured_at_hint', { values: { date: formatDateValue(detection.detection_time), time: formatTime(detection.detection_time) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

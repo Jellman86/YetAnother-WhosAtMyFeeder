@@ -2631,6 +2631,7 @@
     "total_count": "合計 {count} 件",
     "filters": {
       "all_time": "全期間",
+      "today": "今日",
       "week": "今週",
       "month": "今月",
       "custom": "カスタム",
@@ -2661,7 +2662,12 @@
       "show_captures_hint": "撮影を 1 件ずつ。",
       "show_locked": "選択は個別の撮影に対して行います。",
       "audio_matches": "音声一致",
-      "cameras": "カメラ"
+      "cameras": "カメラ",
+      "show_visits_short": "訪問",
+      "show_captures_short": "撮影",
+      "show_all_species": "全{count}種を表示",
+      "show_fewer_species": "表示を減らす",
+      "only_active": "{count}件オン"
     },
     "sort": {
       "newest": "新しい順",
@@ -3868,7 +3874,10 @@
       "status_automatic": "自動で確認・命名済み",
       "status_confirmed": "動物と種をあなたが確認済み",
       "capture_actions": "個々の写真を開いて、その写真の判定を確認します。",
-      "capture_motion": "動きを記録した映像"
+      "capture_motion": "動きを記録した映像",
+      "subjects_short_birds": "鳥",
+      "subjects_short_all": "両方",
+      "subjects_short_garden": "庭"
     },
     "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
     "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
