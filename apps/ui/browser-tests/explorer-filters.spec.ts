@@ -54,25 +54,27 @@ for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 
     });
 }
 
-test('other filters fold away and stay reachable with custom dates and several selections', async ({ page, browserName }) => {
+test('the window is always open, rarer filters fold away and name what is chosen inside them', async ({ page, browserName }) => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await openFilters(page);
     const when = page.locator('[data-explorer-date-facet]');
     const only = page.locator('[data-explorer-only-facet]');
     const cameras = page.locator('[data-explorer-camera-facet]');
-    for (const section of [when, only, cameras]) await expect(section).not.toHaveAttribute('open');
-    await when.locator('summary').click();
-    await page.getByRole('button', { name: 'Custom', exact: true }).click();
+    for (const section of [only, cameras]) await expect(section).not.toHaveAttribute('open');
+    // The most changed filter sits first and needs no opening.
+    await expect(when.getByRole('button', { name: 'Custom', exact: true })).toBeVisible();
+    await when.getByRole('button', { name: 'Custom', exact: true }).click();
     await page.getByLabel('Start date').fill('2026-10-01');
     await page.getByLabel('End date').fill('2026-10-04');
-    await when.locator('summary').click();
     await only.locator('summary').click();
     await page.getByRole('button', { name: 'Favorites 3', exact: true }).click();
     await page.getByRole('button', { name: 'Multiple bird species', exact: true }).click();
     await only.locator('summary').click();
+    await expect(only.locator('summary')).toContainText('2 on');
     await cameras.locator('summary').click();
     await page.getByRole('button', { name: 'garden 8', exact: true }).click();
     await cameras.locator('summary').click();
+    await expect(cameras.locator('summary')).toContainText('garden');
     const search = page.getByRole('searchbox', { name: 'Search species' });
     await search.scrollIntoViewIfNeeded();
     await search.fill('Robin');
@@ -86,19 +88,28 @@ test('other filters fold away and stay reachable with custom dates and several s
     await expect(page.locator('[data-explorer-token]')).toHaveCount(0);
 });
 
-test('scrolling past the species list reaches the other filter sections', async ({ page, browserName, isMobile }) => {
+test('the species list grows in place inside one scrolling rail', async ({ page, browserName, isMobile }) => {
     test.skip(browserName === 'webkit' && isMobile, 'Mobile WebKit has no mouse wheel; touch access is covered by the filter selection tests.');
     await page.setViewportSize({ width: 1280, height: 600 });
     await openFilters(page);
-    await page.locator('[data-explorer-date-facet] summary').click();
     const facets = page.locator('[data-explorer-facets]');
     const list = page.locator('[data-explorer-species-list]');
+    const more = page.locator('[data-explorer-species-more]');
+    // The most recorded species first; the rest wait behind one named control.
+    await expect(list.getByRole('button')).toHaveCount(8);
+    await expect(more).toHaveText('Show all 26 species');
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click();
+    await expect(list.getByRole('button')).toHaveCount(26);
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    // No scroller inside the scroller: the wheel always moves the rail.
+    expect(await list.evaluate(node => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(1);
     await list.hover();
-    await page.mouse.wheel(0, 2000);
-    await expect.poll(() => list.evaluate(node => node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThanOrEqual(1);
     const before = await facets.evaluate(node => node.scrollTop);
-    await page.mouse.wheel(0, 300);
+    await page.mouse.wheel(0, 600);
     await expect.poll(() => facets.evaluate(node => node.scrollTop)).toBeGreaterThan(before);
+    await page.locator('[data-explorer-camera-facet] summary').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-explorer-camera-facet] summary')).toBeInViewport();
 });
 
 test('how results are shown is chosen in the filters, explained in words, and kept by Clear all', async ({ page }) => {
@@ -107,16 +118,20 @@ test('how results are shown is chosen in the filters, explained in words, and ke
     const show = page.getByRole('group', { name: 'Show' });
     const visits = show.locator('[data-explorer-show="visits"]');
     const captures = show.locator('[data-explorer-show="captures"]');
+    const hint = page.locator('#explorer-show-hint');
     await expect(visits).toHaveAttribute('aria-pressed', 'true');
-    await expect(visits).toContainText("Visits of one species");
-    await expect(visits).toContainText("One bird's stay: its captures less than a minute apart.");
-    await expect(captures).toContainText('Every capture on its own.');
+    await expect(visits).toHaveText('Visits');
+    await expect(captures).toHaveText('Captures');
+    // The chosen option is explained once, beneath the switch, rather than every option twice.
+    await expect(hint).toHaveText("One bird's stay: its captures less than a minute apart.");
+    await expect(visits).toHaveAccessibleDescription("One bird's stay: its captures less than a minute apart.");
     // The toolbar no longer carries a second switch for the same choice.
     await expect(page.getByRole('group', { name: 'Group captures' })).toHaveCount(0);
 
     const before = requests.length;
     await captures.click();
     await expect(captures).toHaveAttribute('aria-pressed', 'true');
+    await expect(hint).toHaveText('Every capture on its own.');
     await expect.poll(() => requests.slice(before).some(url => url.pathname === '/api/events')).toBe(true);
 
     await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();

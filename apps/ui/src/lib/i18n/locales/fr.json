@@ -2631,6 +2631,7 @@
     "total_count": "{count} au total",
     "filters": {
       "all_time": "Tout le temps",
+      "today": "Aujourd’hui",
       "week": "Semaine",
       "month": "Mois",
       "custom": "Personnalisé",
@@ -2661,7 +2662,12 @@
       "show_captures_hint": "Chaque capture séparément.",
       "show_locked": "La sélection porte sur les captures individuelles.",
       "audio_matches": "Correspondances audio",
-      "cameras": "Caméras"
+      "cameras": "Caméras",
+      "show_visits_short": "Visites",
+      "show_captures_short": "Captures",
+      "show_all_species": "Afficher les {count} espèces",
+      "show_fewer_species": "Afficher moins",
+      "only_active": "{count} actifs"
     },
     "sort": {
       "newest": "Plus récent",
@@ -3869,7 +3875,10 @@
       "status_automatic": "Confirmé et nommé automatiquement",
       "status_confirmed": "Animal et espèce confirmés par vous",
       "capture_actions": "Ouvrez une capture pour l’examiner sur sa propre photo.",
-      "capture_motion": "Séquence de mouvement"
+      "capture_motion": "Séquence de mouvement",
+      "subjects_short_birds": "Oiseaux",
+      "subjects_short_all": "Les deux",
+      "subjects_short_garden": "Jardin"
     },
     "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
     "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",

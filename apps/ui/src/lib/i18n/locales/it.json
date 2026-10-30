@@ -2641,6 +2641,7 @@
     "total_count": "{count} totali",
     "filters": {
       "all_time": "Tutto il tempo",
+      "today": "Oggi",
       "week": "Settimana",
       "month": "Mese",
       "custom": "Personalizzato",
@@ -2671,7 +2672,12 @@
       "show_captures_hint": "Ogni acquisizione da sola.",
       "show_locked": "La selezione funziona sulle acquisizioni singole.",
       "audio_matches": "Corrispondenze audio",
-      "cameras": "Telecamere"
+      "cameras": "Telecamere",
+      "show_visits_short": "Visite",
+      "show_captures_short": "Catture",
+      "show_all_species": "Mostra tutte le {count} specie",
+      "show_fewer_species": "Mostra meno",
+      "only_active": "{count} attivi"
     },
     "sort": {
       "newest": "Più recenti",
@@ -3869,7 +3875,10 @@
       "status_automatic": "Confermato e denominato automaticamente",
       "status_confirmed": "Animale e specie confermati da te",
       "capture_actions": "Apri una cattura per esaminarla nella sua foto.",
-      "capture_motion": "Filmato di movimento"
+      "capture_motion": "Filmato di movimento",
+      "subjects_short_birds": "Uccelli",
+      "subjects_short_all": "Entrambi",
+      "subjects_short_garden": "Giardino"
     },
     "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
     "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",

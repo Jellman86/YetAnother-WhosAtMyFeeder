@@ -7,9 +7,9 @@ import previewSource from '../components/DetectionPreview.svelte?raw';
 
 describe('collapsing the Explorer filter rail', () => {
     it('gives the rail width back to the detections when it is collapsed', () => {
-        // The 14rem column is only worth holding while the rail is showing.
+        // The 16rem column, wide enough for a species name on one line, is held only while the rail shows.
         expect(eventsPageSource).toContain("explorerFiltersStore.collapsed");
-        expect(eventsPageSource).toContain("'lg:grid-cols-[14rem_minmax(0,1fr)]'");
+        expect(eventsPageSource).toContain("'lg:grid-cols-[16rem_minmax(0,1fr)]'");
     });
 
     it('sits in the header toolbar beside the view switch and Multi-select', () => {
