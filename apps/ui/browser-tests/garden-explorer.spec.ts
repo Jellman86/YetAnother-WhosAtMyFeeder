@@ -37,11 +37,13 @@ async function openExplorer(page: Page, query = '', cropped = false) {
     const timelineQueries: URLSearchParams[] = [];
     const captureQueries: URLSearchParams[] = [];
     const confirmed: string[] = [];
+    const requested: string[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
+        requested.push(path);
         if (path === '/api/visits') {
             return route.fulfill({ json: { total: 2, gap_seconds: 60, visits: visits.map(record => ({
                 visit_id: record.frigate_event, start_time: record.detection_time, end_time: record.detection_time, capture_count: 1,
@@ -79,7 +81,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
     });
     await page.goto(`/browser-tests/owner-history.html?surface=explorer${query}`);
     await expect(page.locator('[data-explorer-visit="morning"]')).toBeVisible();
-    return { errors, timelineQueries, captureQueries, confirmed, garden };
+    return { errors, timelineQueries, captureQueries, confirmed, garden, requested };
 }
 
 test('Garden captures sit between the visits they fell between, marked Garden in words', async ({ page }) => {
@@ -125,6 +127,30 @@ test('Garden on its own lists only captures, and its record confirms an animal w
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(2);
+    expect(errors).toEqual([]);
+});
+
+test('a visitor browses confirmed Garden animals beside birds and opens a record without owner decisions', async ({ page }) => {
+    const { errors, requested, garden } = await openExplorer(page, '&guest=1');
+    // The server shares confirmed animals only and gives a visitor no review snapshot.
+    garden.splice(garden.findIndex(item => item.status === 'pending'), 1);
+    garden[0] = { ...garden[0], review_token: null as unknown as string };
+    const option = page.locator('[data-explorer-subjects-option="garden"]');
+    if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
+    await option.click();
+    await expect(page.locator('[data-explorer-visit]')).toHaveCount(0);
+    await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(1);
+    // Visitors have no review state to choose.
+    await expect(page.locator('[data-explorer-garden-review-facet]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
+    await expect(dialog.locator('[data-garden-capture-actions]')).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-bottom-actions]')).toHaveCount(0);
+    await expect(dialog.locator('[data-garden-capture-dismiss]')).toHaveCount(0);
+    expect(requested).not.toContain('/api/garden/identification');
+    expect(requested.some(path => path.startsWith('/api/garden/') && /\/(confirm|dismiss|identify)$/.test(path))).toBe(false);
     expect(errors).toEqual([]);
 });
 

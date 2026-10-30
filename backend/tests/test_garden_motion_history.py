@@ -414,7 +414,8 @@ async def test_owner_reads_motion_photo_without_calling_frigate_and_guest_is_den
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer " + token}
     ) as client:
-        assert (await client.get(f"/api/garden/{capture_id}/snapshot")).status_code == 403
+        # An unreviewed motion photo is never shared with visitors.
+        assert (await client.get(f"/api/garden/{capture_id}/snapshot")).status_code == 404
 
 
 @pytest.mark.asyncio

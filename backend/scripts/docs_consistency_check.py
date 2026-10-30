@@ -20,9 +20,11 @@ DOC_FILES = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
 API_DOC = ROOT / "docs" / "api.md"
 
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-ROUTE_RE = re.compile(r"@router\.(get|post|put|patch|delete)\(\s*[\"']([^\"']*)[\"']")
+ROUTE_RE = re.compile(r"@(\w*router)\.(get|post|put|patch|delete)\(\s*[\"']([^\"']*)[\"']")
 APP_ROUTE_RE = re.compile(r"@app\.(get|post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']")
-ROUTER_PREFIX_RE = re.compile(r"APIRouter\([^\)]*prefix\s*=\s*[\"']([^\"']+)[\"']")
+# A module can hold several routers (an owner-only and a public one); each keeps its own prefix.
+ROUTER_DEF_RE = re.compile(r"^(\w*router)\s*=\s*APIRouter\(([^\)]*)\)", re.MULTILINE)
+ROUTER_PREFIX_RE = re.compile(r"prefix\s*=\s*[\"']([^\"']+)[\"']")
 DOC_ENDPOINT_RE = re.compile(r"`(GET|POST|PUT|PATCH|DELETE)\s+(/[^`\s]+)`")
 
 
@@ -46,11 +48,13 @@ def collect_actual_routes() -> set[tuple[str, str]]:
     routers_dir = ROOT / "backend" / "app" / "routers"
     for py in sorted(routers_dir.glob("*.py")):
         text = py.read_text(encoding="utf-8")
-        prefix_match = ROUTER_PREFIX_RE.search(text)
-        router_prefix = prefix_match.group(1) if prefix_match else ""
+        prefixes = {
+            name: (match.group(1) if (match := ROUTER_PREFIX_RE.search(arguments)) else "")
+            for name, arguments in ROUTER_DEF_RE.findall(text)
+        }
 
-        for method, route_path in ROUTE_RE.findall(text):
-            full = normalize_path("/api" + router_prefix + route_path)
+        for router_name, method, route_path in ROUTE_RE.findall(text):
+            full = normalize_path("/api" + prefixes.get(router_name, "") + route_path)
             routes.add((method.upper(), full))
 
     main_py = ROOT / "backend" / "app" / "main.py"

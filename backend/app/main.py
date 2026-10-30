@@ -930,6 +930,7 @@ app.include_router(
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(garden.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(garden.public_router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_oauth_router_auth_context)])
 app.include_router(

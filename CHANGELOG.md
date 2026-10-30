@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Public visitors now see confirmed Garden animals beside the birds, with the
+  same permissions as bird detections. The public history window, photograph,
+  video and camera-name switches, and the guest rate limit, apply as they do to
+  birds. Visitors open a read-only record. Captures waiting for review,
+  dismissed captures, automatic check details and every review control stay
+  owner-only.
+
 - Explorer rows are more consistent between birds and Garden animals. A visit
   with several species shows a stack of its photos instead of a grey frame, and
   names each species in your language (for example Dunnock and Brown Rat)

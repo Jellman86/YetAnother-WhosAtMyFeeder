@@ -1514,6 +1514,11 @@
             "title": "Enrichment Summary Source",
             "type": "string"
           },
+          "garden_animals_enabled": {
+            "default": false,
+            "title": "Garden Animals Enabled",
+            "type": "boolean"
+          },
           "https_warning": {
             "default": false,
             "title": "Https Warning",

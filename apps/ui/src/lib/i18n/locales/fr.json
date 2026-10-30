@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "Activez les animaux du jardin pour une caméra, et ses animaux confirmés et captures à vérifier apparaîtront ici.",
       "empty_title": "Pas encore de captures du jardin",
       "empty_desc": "Les animaux confirmés et les captures à vérifier apparaissent ici. Les captures écartées restent sur la page Jardin.",
+      "empty_guest_desc": "Les animaux confirmés sur les caméras du jardin apparaissent ici.",
       "visitors": "Visiteurs",
       "subjects_all_visitors": "Oiseaux et jardin",
       "subjects_all_hint": "Les animaux du jardin entre les visites d'oiseaux.",

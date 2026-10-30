@@ -83,6 +83,10 @@ medium is not shared rather than shown a broken image or an error.
 | **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
 | **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
+While the **Garden animals** beta is on, guests also see confirmed Garden animals, under the same
+switches and windows as bird detections. Captures waiting for review, dismissed captures and every
+Garden review action stay owner-only.
+
 Public history and media windows use **UTC calendar days**, regardless of the server’s `TZ`
 setting. “Today only” starts at 00:00 UTC and excludes the next midnight; a custom `N`-day
 window starts at 00:00 UTC `N` days ago. Capture times can still be displayed in your local

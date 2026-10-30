@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.",
       "empty_title": "No Garden captures yet",
       "empty_desc": "Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.",
+      "empty_guest_desc": "Animals confirmed on the Garden cameras appear here.",
       "visitors": "Visitors",
       "subjects_all_visitors": "Birds and Garden",
       "subjects_all_hint": "Garden animals between the bird visits.",

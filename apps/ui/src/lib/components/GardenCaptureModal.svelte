@@ -44,6 +44,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import { toastStore } from '../stores/toast.svelte';
+    import { authStore } from '../stores/auth.svelte';
 
     type Variant = NonNullable<GardenIdentifyRequest['variant']>;
     type Provider = NonNullable<GardenIdentifyRequest['provider']>;
@@ -78,6 +79,8 @@
     let peekCapture = $state<string | null>(null);
     let saving = $state(false);
     let editCapture = $state<string | null>(null);
+    // Visitors read the record; every decision on it is the owner's.
+    const canReview = $derived(authStore.hasOwnerAccess);
     const canDismissVisit = $derived(groupTotal <= 128 && groupTotal === group.length
         && group.every((item) => item.status === 'confirmed' && item.review_token));
     // The hide control dismisses what the Explorer shows as one entry, as a bird's hides its visit.
@@ -191,9 +194,11 @@
     onMount(() => {
         const release = lockDocumentScroll();
         const controller = new AbortController();
-        fetchGardenIdentification(controller.signal)
-            .then((status) => (identification = status))
-            .catch(() => (identification = null));
+        if (canReview) {
+            fetchGardenIdentification(controller.signal)
+                .then((status) => (identification = status))
+                .catch(() => (identification = null));
+        }
         return () => {
             controller.abort();
             clearPhotoCheck();
@@ -497,7 +502,7 @@
                             </div>
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <span class="text-xs tabular-nums text-white/80" aria-live="polite">{$_('garden.photo_count', { default: 'Photo {index} of {count}', values: { index: groupOffset + index + 1, count: groupTotal } })}</span>
-                                {#if capture.status !== 'dismissed'}
+                                {#if canReview && capture.status !== 'dismissed'}
                                     <!-- One capture out of the group, as a bird's photo is removed from its strip. -->
                                     <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs text-white hover:bg-white/10" disabled={saving} onclick={() => review('dismiss')} data-garden-capture-dismiss>
                                         {$_('garden.dismiss', { default: 'Dismiss capture' })}
@@ -661,83 +666,85 @@
                 {/if}
 
                 <!-- The decisions, in the bird record's row: the main one first, each named by its effect. -->
-                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
-                    {#if capture.status === 'pending'}
-                        <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
-                            <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
-                                <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
-                                <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
-                            </summary>
-                            <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => review('confirm')}>
-                                    {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
-                                </button>
-                                {#if capture.motion_source}
-                                    <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving || !canCheckPhoto} onclick={checkPhoto} aria-describedby={canCheckPhoto ? undefined : 'garden-capture-check-note'}>
-                                        {$_('garden.check_photo', { default: 'Check photo' })}
+                {#if canReview}
+                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
+                        {#if capture.status === 'pending'}
+                            <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
+                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                                    <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
+                                    <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
+                                </summary>
+                                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                    <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => review('confirm')}>
+                                        {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
                                     </button>
+                                    {#if capture.motion_source}
+                                        <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving || !canCheckPhoto} onclick={checkPhoto} aria-describedby={canCheckPhoto ? undefined : 'garden-capture-check-note'}>
+                                            {$_('garden.check_photo', { default: 'Check photo' })}
+                                        </button>
+                                    {/if}
+                                </div>
+                                {#if !photoReady}
+                                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' })}</p>
                                 {/if}
-                            </div>
-                            {#if !photoReady}
-                                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' })}</p>
+                                {#if capture.motion_source && !canCheckPhoto}
+                                    <p id="garden-capture-check-note" class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.check_needs_model', { default: 'Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.' })}</p>
+                                {/if}
+                            </details>
+                        {:else if capture.status === 'confirmed'}
+                            {#if view.nameState === 'suggested' && view.name && !capture.owner_identification}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => reviewName('accept')}>
+                                    <span class="min-w-0 [overflow-wrap:anywhere]">{$_('garden.explorer.confirm_name', { default: 'Confirm {name}', values: { name: view.name } })}</span>
+                                </button>
                             {/if}
-                            {#if capture.motion_source && !canCheckPhoto}
-                                <p id="garden-capture-check-note" class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.check_needs_model', { default: 'Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.' })}</p>
+                            {#if capture.review_token}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving} aria-expanded={editCapture === capture.id} onclick={() => { editCapture = editCapture === capture.id ? null : capture.id; }} data-garden-pick-species>
+                                    <span class="min-w-0 [overflow-wrap:anywhere]">{view.name
+                                        ? $_('actions.pick_species', { default: 'Pick a different species' })
+                                        : $_('garden.rename.pick', { default: 'Pick a species' })}</span>
+                                </button>
                             {/if}
-                        </details>
-                    {:else if capture.status === 'confirmed'}
-                        {#if view.nameState === 'suggested' && view.name && !capture.owner_identification}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => reviewName('accept')}>
-                                <span class="min-w-0 [overflow-wrap:anywhere]">{$_('garden.explorer.confirm_name', { default: 'Confirm {name}', values: { name: view.name } })}</span>
-                            </button>
-                        {/if}
-                        {#if capture.review_token}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving} aria-expanded={editCapture === capture.id} onclick={() => { editCapture = editCapture === capture.id ? null : capture.id; }} data-garden-pick-species>
-                                <span class="min-w-0 [overflow-wrap:anywhere]">{view.name
-                                    ? $_('actions.pick_species', { default: 'Pick a different species' })
-                                    : $_('garden.rename.pick', { default: 'Pick a species' })}</span>
-                            </button>
-                        {/if}
-                        {#if capture.owner_identification}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving || !capture.review_token} onclick={() => act(() => clearGardenSpecies(capture.id, capture.review_token ?? ''))}>
-                                {$_('garden.rename.revert', { default: 'Remove my species correction' })}
-                            </button>
-                        {:else if view.nameState === 'suggested' && view.name}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
-                                {$_('garden.dismiss_suggestion', { default: 'Dismiss suggestion' })}
-                            </button>
-                        {:else if view.nameState === 'confirmed' || view.nameState === 'automatic'}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
-                                {$_('garden.discard_identification', { default: 'Discard identification' })}
-                            </button>
+                            {#if capture.owner_identification}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving || !capture.review_token} onclick={() => act(() => clearGardenSpecies(capture.id, capture.review_token ?? ''))}>
+                                    {$_('garden.rename.revert', { default: 'Remove my species correction' })}
+                                </button>
+                            {:else if view.nameState === 'suggested' && view.name}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
+                                    {$_('garden.dismiss_suggestion', { default: 'Dismiss suggestion' })}
+                                </button>
+                            {:else if view.nameState === 'confirmed' || view.nameState === 'automatic'}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
+                                    {$_('garden.discard_identification', { default: 'Discard identification' })}
+                                </button>
+                            {:else}
+                                <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving || !photoReady || identifyBlocked !== null} onclick={suggestSpecies} aria-describedby={identifyBlocked ? 'garden-capture-identify-note' : undefined}>
+                                    {saving ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}
+                                </button>
+                            {/if}
                         {:else}
-                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving || !photoReady || identifyBlocked !== null} onclick={suggestSpecies} aria-describedby={identifyBlocked ? 'garden-capture-identify-note' : undefined}>
-                                {saving ? $_('garden.working', { default: 'Working…' }) : $_('garden.suggest_species', { default: 'Suggest species' })}
+                            <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !capture.snapshot_url} onclick={() => review('restore')}>
+                                {$_('garden.restore', { default: 'Return to review' })}
                             </button>
                         {/if}
-                    {:else}
-                        <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !capture.snapshot_url} onclick={() => review('restore')}>
-                            {$_('garden.restore', { default: 'Return to review' })}
-                        </button>
+                    </div>
+                    {#if capture.status === 'confirmed' && !capture.owner_identification && view.nameState !== 'suggested' && view.nameState !== 'confirmed' && view.nameState !== 'automatic' && identifyBlocked}
+                        <p id="garden-capture-identify-note" class="text-xs text-slate-600 dark:text-slate-400">{identifyBlocked}</p>
                     {/if}
-                </div>
-                {#if capture.status === 'confirmed' && !capture.owner_identification && view.nameState !== 'suggested' && view.nameState !== 'confirmed' && view.nameState !== 'automatic' && identifyBlocked}
-                    <p id="garden-capture-identify-note" class="text-xs text-slate-600 dark:text-slate-400">{identifyBlocked}</p>
-                {/if}
-                {#if capture.status === 'dismissed' && !capture.snapshot_url}
-                    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
-                {/if}
-                {#if capture.status === 'confirmed' && capture.review_token && editCapture === capture.id}
-                    {#key capture.id}
-                        <GardenSpeciesPicker busy={saving} oncancel={() => { editCapture = null; }} onsave={(species) => {
-                            void act(() => renameGardenSpecies(capture.id, species, capture.review_token ?? '')).then(() => { if (!error) editCapture = null; });
-                        }} />
-                    {/key}
+                    {#if capture.status === 'dismissed' && !capture.snapshot_url}
+                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.photo_restore_unavailable', { default: 'Photo unavailable. It cannot return to review.' })}</p>
+                    {/if}
+                    {#if capture.status === 'confirmed' && capture.review_token && editCapture === capture.id}
+                        {#key capture.id}
+                            <GardenSpeciesPicker busy={saving} oncancel={() => { editCapture = null; }} onsave={(species) => {
+                                void act(() => renameGardenSpecies(capture.id, species, capture.review_token ?? '')).then(() => { if (!error) editCapture = null; });
+                            }} />
+                        {/key}
+                    {/if}
                 {/if}
 
                 <!-- The bird record's bottom row: the hide control dismisses the whole entry, reversible
                      from Garden visitors, Dismissed; one capture is dismissed beside its photo. -->
-                {#if capture.status !== 'dismissed'}
+                {#if canReview && capture.status !== 'dismissed'}
                     <div class="flex flex-wrap items-center gap-2 pt-2" data-garden-capture-bottom-actions>
                         <button
                             type="button"
