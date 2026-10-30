@@ -159,7 +159,7 @@ thumbnail, a chip per species with its count and **Show species**, and no single
 ### Desk (Dashboard)
 
 ```
-day bar: eyebrow, the window as the page heading, live indicator
+day bar: eyebrow, the window as the page heading (the page's only h1), live indicator
          then every figure for that window in one ruled band (label above figure, scope beneath)
 [ primary log, 1.55fr ]        [ context rail, 0.75fr ]
                                 what needs you and what is happening:
@@ -495,6 +495,18 @@ build something better."*
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
 - **Review overlay**: the queue pins the underlying page at its current scroll position while open and restores it on close. Its backdrop covers the viewport even when the page has scrollbars. Opening the full record releases the queue lock before the record takes its own lock; closing the record returns to the same page position.
+- **Page headings**: every route has exactly one h1, and it uses the label of the route's menu
+  item, so the Explorer page is titled **Explorer** and the species page **Leaderboard**. The
+  sidebar wordmark is not a heading. On the Dashboard the day bar holds the h1, so the page header
+  above it keeps only the owner's controls. Public visitors get the page title without those
+  controls. The browser tab reads `<page> · YA-WAMF`. An address no page answers shows a
+  not-found card with its own h1 and a button back to the Dashboard, never an empty page.
+  `browser-tests/app-header.spec.ts` holds the shell to this.
+- **Phone drawer**: closed, the sidebar is `inert`, so its controls take no tab stops behind the
+  page. Open, it traps focus, starts on the current page's item, and closes on Escape with focus
+  back on the menu button, which carries `aria-expanded` and `aria-controls`.
+- **Toasts**: errors go into a `role="alert"` region and stay until closed; other toasts are polite
+  and leave on their own, but never while pointed at or focused.
 - **App headers**: page actions wrap onto another row when needed. The mobile wordmark yields to the app icon when space is tight; menu and theme controls keep their hit targets. Test the full App after a settled desktop-to-320px resize at 200% text, including keyboard refresh and camera disclosure.
 - **Text reflow**: capture detail sheets fit 320px at 200% text. Media flex items need `min-w-0` so an aspect ratio plus a minimum height cannot widen the sheet in Safari. Fact labels, technical disclosure chrome and footer controls wrap when enlarged text no longer fits; complete names remain readable and controls retain their touch-target floor. Check the actual modal in Chromium and WebKit, including a full-resolution whole-scene peek and its outline geometry.
 - **Settings save bar and notifications**: both stack by their own width in rem (a container query), not the screen width, so enlarged text on a phone moves Apply Settings onto a full-width row and puts a notification's words below its icon and close button. Wider screens keep the single row. `browser-tests/settings-save-footer.spec.ts` checks 320px and 393px at 200% text, including keyboard activation of Apply Settings.

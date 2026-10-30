@@ -2040,7 +2040,8 @@
     "status_unavailable_auto_retry": "YA-WAMF vuelve a comprobar la conexión automáticamente cada cinco segundos.",
     "status_unavailable_help": "Si sigue sin conexión, comprueba el estado del contenedor y los registros de inicio.",
     "status_checking_again": "Comprobando de nuevo…",
-    "status_check_again": "Comprobar de nuevo"
+    "status_check_again": "Comprobar de nuevo",
+    "login_failed": "No se pudo iniciar sesión. Comprueba el usuario y la contraseña."
   },
   "status": {
     "title": "Estado del sistema",
@@ -2049,10 +2050,6 @@
     "offline": "Desconectado",
     "audio_analysis": "Análisis de audio",
     "notifications": "Notificaciones",
-    "audio_active": "Análisis de audio activo",
-    "notifications_enabled": "Notificaciones habilitadas",
-    "system_online": "Sistema en línea",
-    "system_offline": "Sistema desconectado",
     "open_health": "Estado del sistema",
     "tile_live": "En vivo",
     "tile_audio": "Sonido",
@@ -2126,7 +2123,9 @@
     "empty_filtered": "Nada coincide con este filtro.",
     "clear_notifications": "Borrar notificaciones",
     "system_media_storage_unavailable_title": "Almacenamiento de medios no disponible",
-    "system_media_storage_unavailable_message": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Abre Ajustes → Datos para ver los detalles."
+    "system_media_storage_unavailable_message": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Abre Ajustes → Datos para ver los detalles.",
+    "bell_unread": "{title}, {count} sin leer",
+    "filter_group": "Filtrar notificaciones"
   },
   "actions": {
     "confirm_delete": "¿Eliminar toda esta visita de {species}? El registro y sus medios desaparecen de la historia permanentemente. Ocultarla, en cambio, conserva el registro.",
@@ -3056,7 +3055,6 @@
       "online": "en línea",
       "degraded": "revisar",
       "loaded": "cargado",
-      "not_loaded": "no cargado",
       "enabled": "activo",
       "off": "desactivado",
       "streaming": "transmitiendo",
@@ -3075,7 +3073,8 @@
       "not_checked": "sin comprobar",
       "no_reading": "sin lectura desde aquí",
       "owner_only": "solo propietario",
-      "owner_only_detail": "lectura visible para el propietario"
+      "owner_only_detail": "lectura visible para el propietario",
+      "standby": "se carga con la primera detección"
     },
     "storage": {
       "title": "Qué almacena",
@@ -3918,5 +3917,10 @@
     "fallback": "Alternativa CPU: el acelerador solicitado no completó correctamente su comprobación o inferencia actual.",
     "garden_preference": "Preferencia para comprobaciones automáticas: {device}. Un acelerador nuevo debe coincidir primero con la CPU.",
     "unreported": "Ninguna ejecución completada ha indicado su dispositivo. Una recomendación no demuestra una ejecución."
+  },
+  "not_found": {
+    "title": "Esta página no existe",
+    "body": "Es posible que la dirección sea de una versión anterior.",
+    "action": "Abrir el panel"
   }
 }

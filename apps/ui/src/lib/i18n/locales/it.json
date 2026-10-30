@@ -2050,7 +2050,8 @@
     "status_unavailable_auto_retry": "YA-WAMF ricontrolla automaticamente la connessione ogni cinque secondi.",
     "status_unavailable_help": "Se resta offline, controlla lo stato del container e i log di avvio.",
     "status_checking_again": "Nuova verifica…",
-    "status_check_again": "Controlla di nuovo"
+    "status_check_again": "Controlla di nuovo",
+    "login_failed": "Accesso non riuscito. Controlla nome utente e password."
   },
   "status": {
     "title": "Stato del sistema",
@@ -2059,10 +2060,6 @@
     "offline": "Disconnesso",
     "audio_analysis": "Analisi audio",
     "notifications": "Notifiche",
-    "audio_active": "Analisi Audio Attiva",
-    "notifications_enabled": "Notifiche Abilitate",
-    "system_online": "Sistema Online",
-    "system_offline": "Sistema Offline",
     "open_health": "Stato del sistema",
     "tile_live": "Diretta",
     "tile_audio": "Audio",
@@ -2136,7 +2133,9 @@
     "empty_filtered": "Nessun risultato per questo filtro.",
     "clear_notifications": "Cancella notifiche",
     "system_media_storage_unavailable_title": "Archivio media non disponibile",
-    "system_media_storage_unavailable_message": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Apri Impostazioni → Dati per i dettagli."
+    "system_media_storage_unavailable_message": "Non è possibile scrivere nella cartella dei media, quindi foto e video non vengono conservati. Apri Impostazioni → Dati per i dettagli.",
+    "bell_unread": "{title}, {count} non letti",
+    "filter_group": "Filtra notifiche"
   },
   "actions": {
     "confirm_delete": "Eliminare l'intera visita di {species}? Il record e i suoi contenuti multimediali escono dalla cronologia definitivamente. Nasconderla invece conserva il record.",
@@ -3066,7 +3065,6 @@
       "online": "online",
       "degraded": "da controllare",
       "loaded": "caricato",
-      "not_loaded": "non caricato",
       "enabled": "attivo",
       "off": "disattivo",
       "streaming": "in streaming",
@@ -3085,7 +3083,8 @@
       "not_checked": "non verificato",
       "no_reading": "nessuna lettura da qui",
       "owner_only": "solo proprietario",
-      "owner_only_detail": "lettura visibile al proprietario"
+      "owner_only_detail": "lettura visibile al proprietario",
+      "standby": "si carica al primo rilevamento"
     },
     "storage": {
       "title": "Cosa memorizza",
@@ -3918,5 +3917,10 @@
     "fallback": "Ripiego CPU: l’acceleratore richiesto non ha completato correttamente la verifica o l’inferenza corrente.",
     "garden_preference": "Preferenza dispositivo per verifiche automatiche: {device}. Un nuovo acceleratore deve prima concordare con la CPU.",
     "unreported": "Nessuna esecuzione completata ha indicato il dispositivo. Una raccomandazione non è prova di esecuzione."
+  },
+  "not_found": {
+    "title": "Questa pagina non esiste",
+    "body": "L'indirizzo potrebbe provenire da una versione precedente.",
+    "action": "Apri la dashboard"
   }
 }

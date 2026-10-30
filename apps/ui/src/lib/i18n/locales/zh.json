@@ -2040,7 +2040,8 @@
     "status_unavailable_auto_retry": "YA-WAMF 每五秒自动重新检查一次。",
     "status_unavailable_help": "如果仍然离线，请检查容器健康状态和启动日志。",
     "status_checking_again": "正在重新检查…",
-    "status_check_again": "重新检查"
+    "status_check_again": "重新检查",
+    "login_failed": "无法登录。请检查用户名和密码。"
   },
   "status": {
     "title": "系统状态",
@@ -2049,10 +2050,6 @@
     "offline": "离线",
     "audio_analysis": "音频分析",
     "notifications": "通知",
-    "audio_active": "音频分析活跃",
-    "notifications_enabled": "通知已启用",
-    "system_online": "系统在线",
-    "system_offline": "系统离线",
     "open_health": "系统状态",
     "tile_live": "实时",
     "tile_audio": "音频",
@@ -2126,7 +2123,9 @@
     "empty_filtered": "没有符合此筛选条件的内容。",
     "clear_notifications": "清除通知",
     "system_media_storage_unavailable_title": "媒体存储不可用",
-    "system_media_storage_unavailable_message": "无法写入媒体文件夹，因此没有保留照片和视频。请打开 设置 → 数据 查看详情。"
+    "system_media_storage_unavailable_message": "无法写入媒体文件夹，因此没有保留照片和视频。请打开 设置 → 数据 查看详情。",
+    "bell_unread": "{title}，{count} 条未读",
+    "filter_group": "筛选通知"
   },
   "actions": {
     "confirm_delete": "删除这次{species}的完整到访记录？该记录及其媒体将永久从历史中消失。改为隐藏则会保留记录。",
@@ -3056,7 +3055,6 @@
       "online": "在线",
       "degraded": "需检查",
       "loaded": "已加载",
-      "not_loaded": "未加载",
       "enabled": "已启用",
       "off": "关闭",
       "streaming": "推送中",
@@ -3075,7 +3073,8 @@
       "not_checked": "未检查",
       "no_reading": "无法从此处读取",
       "owner_only": "仅所有者",
-      "owner_only_detail": "仅所有者可见的读数"
+      "owner_only_detail": "仅所有者可见的读数",
+      "standby": "首次检测时加载"
     },
     "storage": {
       "title": "存储了什么",
@@ -3918,5 +3917,10 @@
     "fallback": "已回退至CPU：所选加速器未能成功完成当前检查或推理。",
     "garden_preference": "自动检查的首选设备：{device}。新加速器必须先通过与CPU的一致性检查。",
     "unreported": "尚无已完成运行报告其设备。推荐设备不等于执行记录。"
+  },
+  "not_found": {
+    "title": "此页面不存在",
+    "body": "该地址可能来自旧版本。",
+    "action": "打开仪表板"
   }
 }

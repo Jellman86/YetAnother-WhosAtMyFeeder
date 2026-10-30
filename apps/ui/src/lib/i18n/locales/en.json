@@ -2050,7 +2050,8 @@
     "status_unavailable_auto_retry": "YA-WAMF checks again automatically every five seconds.",
     "status_unavailable_help": "If it stays offline, check the container health and startup logs.",
     "status_checking_again": "Checking again…",
-    "status_check_again": "Check again"
+    "status_check_again": "Check again",
+    "login_failed": "Could not sign in. Check your username and password."
   },
   "status": {
     "title": "System status",
@@ -2059,10 +2060,6 @@
     "offline": "Offline",
     "audio_analysis": "Audio analysis",
     "notifications": "Notifications",
-    "audio_active": "Audio Analysis Active",
-    "notifications_enabled": "Notifications Enabled",
-    "system_online": "System Online",
-    "system_offline": "System Offline",
     "open_health": "System health",
     "tile_live": "Live",
     "tile_audio": "Audio",
@@ -2136,7 +2133,9 @@
     "empty_filtered": "Nothing matches this filter.",
     "clear_notifications": "Clear notifications",
     "system_media_storage_unavailable_title": "Media storage unavailable",
-    "system_media_storage_unavailable_message": "The media folder can't be written, so photos and video are not being kept. Open Settings → Data for details."
+    "system_media_storage_unavailable_message": "The media folder can't be written, so photos and video are not being kept. Open Settings → Data for details.",
+    "bell_unread": "{title}, {count} unread",
+    "filter_group": "Filter notifications"
   },
   "actions": {
     "confirm_delete": "Delete this whole {species} visit? The record and its media leave the history permanently. Hiding it instead keeps the record.",
@@ -3066,7 +3065,6 @@
       "online": "online",
       "degraded": "check",
       "loaded": "loaded",
-      "not_loaded": "not loaded",
       "enabled": "enabled",
       "off": "off",
       "streaming": "streaming",
@@ -3085,7 +3083,8 @@
       "not_checked": "not checked",
       "no_reading": "no reading from here",
       "owner_only": "owner only",
-      "owner_only_detail": "reading visible to the owner"
+      "owner_only_detail": "reading visible to the owner",
+      "standby": "loads on first detection"
     },
     "storage": {
       "title": "What it stores",
@@ -3918,5 +3917,10 @@
     "fallback": "CPU fallback: the requested accelerator did not complete its current check or inference successfully.",
     "unreported": "No completed run has reported its device yet. A recommendation is not an execution record.",
     "garden_preference": "Automatic check device preference: {device}. A new accelerator must agree with CPU first."
+  },
+  "not_found": {
+    "title": "This page does not exist",
+    "body": "The address may be from an older version.",
+    "action": "Open the dashboard"
   }
 }

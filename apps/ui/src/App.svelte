@@ -57,6 +57,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
+  import { documentTitle, routeIdFor, type RouteId } from './lib/app/route-title';
 
   const loadDashboardPage = createRetryablePageLoader(() => import('./lib/pages/Dashboard.svelte'));
   const loadEventsPage = createRetryablePageLoader(() => import('./lib/pages/Events.svelte'));
@@ -76,31 +77,55 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
 
+  const routeId = $derived(routeIdFor(currentRoute));
+  // Each title is the label its navigation item carries, so the heading names the page you chose.
   let pageTitle = $derived.by(() => {
-      if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
-      if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
-      if (currentRoute.startsWith('/observations/new')) return $_('nav.add_observation', { default: 'Add observation' });
-      if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
-      if (currentRoute.startsWith('/audio')) return $_('nav.audio_history', { default: 'Audio History' });
-      if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
-      if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
-      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Model Evaluation';
-      if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
-      return '';
+      switch (routeId) {
+          case 'dashboard': return $_('nav.dashboard', { default: 'Dashboard' });
+          case 'explorer': return $_('nav.explorer', { default: 'Explorer' });
+          case 'add_observation': return $_('nav.add_observation', { default: 'Add observation' });
+          case 'leaderboard': return $_('nav.leaderboard', { default: 'Leaderboard' });
+          case 'audio_history': return $_('nav.audio_history', { default: 'Audio History' });
+          case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
+          case 'settings': return $_('settings.title', { default: 'Settings' });
+          case 'model_evaluation': return 'Model Evaluation';
+          case 'about': return $_('nav.about', { default: 'About' });
+          default: return '';
+      }
   });
   let pageSubtitle = $derived.by(() => {
-      if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
-      if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
-      if (currentRoute.startsWith('/observations/new')) return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
-      if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
-      if (currentRoute.startsWith('/audio')) return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
-      if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
-      if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
-      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Benchmark every installed classifier against verified bird images.';
-      if (currentRoute.startsWith('/about')) return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
-      return '';
+      switch (routeId) {
+          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
+          case 'explorer': return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
+          case 'add_observation': return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
+          case 'leaderboard': return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
+          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
+          case 'notifications': return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
+          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
+          case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
+          case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
+          default: return '';
+      }
   });
-  let showPageHeader = $derived(!authStore.isGuest && pageTitle.length > 0);
+  // One h1 per page. The Dashboard's day bar carries its own, so there the header keeps only
+  // the owner's controls; a guest has none of those controls but still needs the page named.
+  let pageHeaderTitle = $derived(routeId === 'dashboard' ? undefined : pageTitle);
+  const GUEST_TITLED_ROUTES: ReadonlySet<RouteId> = new Set(['explorer', 'leaderboard', 'audio_history', 'about']);
+  let showPageHeader = $derived(
+      routeId !== null && (!authStore.isGuest || GUEST_TITLED_ROUTES.has(routeId))
+  );
+  let notFoundTitle = $derived($_('not_found.title', { default: 'This page does not exist' }));
+
+  // The tab names the page too, so a reader with several tabs open can tell them apart.
+  $effect(() => {
+      document.title = documentTitle(
+          requiresLogin
+              ? $_('auth.login', { default: 'Log In' })
+              : routeId === null
+                ? notFoundTitle
+                : pageTitle
+      );
+  });
 
   function syncGlobalProgressSticky() {
       if (typeof window === 'undefined') return;
@@ -229,9 +254,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       )
   );
 
-  let notificationsActive = $derived.by(() => {
+  // Null until the owner's settings are read; a guest never reads them, so a guest is never
+  // told notifications are off when nobody has measured that.
+  let notificationsActive = $derived.by((): boolean | null => {
       const s = settingsStore.settings;
-      if (!s) return false;
+      if (!s) return null;
       const active = s.notifications_discord_enabled ||
       s.notifications_pushover_enabled ||
       s.notifications_telegram_enabled ||
@@ -240,7 +267,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       s.notifications?.pushover?.enabled ||
       s.notifications?.telegram?.enabled ||
       s.notifications?.email?.enabled;
-      return active;
+      return Boolean(active);
   });
 
   type TranslationValue = string | number | boolean | Date | null | undefined;
@@ -748,6 +775,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       {#if isMobile}
           <MobileTopBar
               onToggleMenu={() => mobileSidebarOpen = !mobileSidebarOpen}
+              menuOpen={mobileSidebarOpen}
+              menuControls="app-sidebar"
               onToggleTheme={() => themeStore.toggle()}
               theme={themeStore.theme}
               appTitle={$_('app.title')}
@@ -759,13 +788,12 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       {/if}
 
-      <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+      <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status()}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
                   connected={detectionsStore.connected}
-                  variant="sidebar"
               />
               <div class="mt-1 flex justify-end">
                   <UpdateIndicator />
@@ -799,10 +827,16 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           {/if}
           <main id="main-content" class="flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
               {#if showPageHeader}
-                  <PageHeader title={pageTitle} subtitle={pageSubtitle} onNavigate={navigate} />
+                  <PageHeader
+                      title={pageHeaderTitle}
+                      subtitle={pageSubtitle}
+                      onNavigate={navigate}
+                      showOwnerActions={!authStore.isGuest}
+                      notificationsCurrent={routeId === 'notifications'}
+                  />
               {/if}
               {#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}
-              {#if currentRoute === '/'}
+              {#if routeId === 'dashboard'}
                   {#key dashboardRefreshKey}
                       <LazyRoute
                           loader={loadDashboardPage}
@@ -811,14 +845,14 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                           onLoadError={handleRouteLoadError}
                       />
                   {/key}
-              {:else if currentRoute.startsWith('/events')}
+              {:else if routeId === 'explorer'}
                   <LazyRoute
                       loader={loadEventsPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/observations/new')}
+              {:else if routeId === 'add_observation'}
                   {#if authStore.showSettings}
                       <LazyRoute
                           loader={loadManualObservationPage}
@@ -829,21 +863,21 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                   {:else}
                       <div class="h-24"></div>
                   {/if}
-              {:else if currentRoute.startsWith('/species')}
+              {:else if routeId === 'leaderboard'}
                   <LazyRoute
                       loader={loadSpeciesPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/audio')}
+              {:else if routeId === 'audio_history'}
                   <LazyRoute
                       loader={loadAudioHistoryPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/settings')}
+              {:else if routeId === 'settings'}
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadSettingsPage}
@@ -855,14 +889,14 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>
                    {/if}
-              {:else if currentRoute.startsWith('/notifications')}
+              {:else if routeId === 'notifications'}
                   <LazyRoute
                       loader={loadNotificationsPage}
                       props={{ onNavigate: navigate }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/diagnostics/model-eval')}
+              {:else if routeId === 'model_evaluation'}
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadModelEvaluationPage}
@@ -873,13 +907,26 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                    {:else}
                        <div class="h-24"></div>
                    {/if}
-              {:else if currentRoute.startsWith('/about')}
+              {:else if routeId === 'about'}
                    <LazyRoute
                        loader={loadAboutPage}
                        props={{}}
                        label={pageTitle}
                        onLoadError={handleRouteLoadError}
                    />
+              {:else}
+                  <!-- An address no page answers, often an old bookmark: say so rather than show an empty page. -->
+                  <section class="card-base mx-auto mt-8 max-w-xl space-y-4 p-8 text-center" aria-labelledby="not-found-heading" data-not-found>
+                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                          {notFoundTitle}
+                      </h1>
+                      <p class="text-base text-slate-600 dark:text-slate-400">
+                          {$_('not_found.body', { default: 'The address may be from an older version.' })}
+                      </p>
+                      <button type="button" class="btn btn-primary min-h-11 px-4 py-2" onclick={() => navigate('/')}>
+                          {$_('not_found.action', { default: 'Open the dashboard' })}
+                      </button>
+                  </section>
               {/if}
               {/key}
           </main>

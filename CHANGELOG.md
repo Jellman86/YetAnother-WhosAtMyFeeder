@@ -6,6 +6,34 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The app frame is more honest and works better with a keyboard and a screen
+  reader:
+  - About no longer says the classifier is "not loaded" on an install that is
+    classifying. In the default worker mode the classifier step reads
+    **loaded** from inference health and the model, **loads on first
+    detection** before the first worker starts, **check** when inference is
+    degraded, and **unknown** when nothing can be read.
+  - The closed phone menu no longer holds about a dozen invisible tab stops
+    ahead of the page. While open it keeps focus inside, starts on the page you
+    are on, and closes with Escape, returning focus to the menu button, which
+    now reports whether it is open.
+  - Every page has one main heading, named as its menu item: the Explorer page
+    is titled **Explorer** and the species page **Leaderboard**. On the
+    Dashboard the day bar is the heading. Public visitors see the page title
+    too. The browser tab names the page, for example "Explorer · YA-WAMF".
+  - An unknown address shows "This page does not exist" with a button to open
+    the Dashboard, instead of an empty page.
+  - Public visitors are no longer told notifications are disabled. The Alerts
+    tile only appears for the owner, who can see that setting.
+  - Error messages stay until you close them, and are announced straight away.
+    Other messages pause while you point at or focus them.
+  - The notification bell's name includes the unread count, its badge meets
+    contrast guidelines, it is marked as the current page on Notifications, and
+    unread notifications say "unread" to a screen reader.
+  - Sign-in failures are announced and linked to the username and password
+    fields, and the cursor returns to the password. The sign-in page has a
+    proper main heading, translated text, and a readable footer.
+
 - The Explorer filter rail is easier to scan:
   - **Visitors** (Birds, Both, Garden) and **Show** (Visits, Captures) are
     compact switches that explain only the chosen option.

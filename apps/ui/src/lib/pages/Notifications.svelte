@@ -168,7 +168,7 @@
     </div>
 
     <!-- Chips rather than tabs: a failed job belongs in the same list as everything else. -->
-    <div class="flex flex-wrap gap-2" role="group" aria-label={$_('notifications.filter_all', { default: 'Everything' })}>
+    <div class="flex flex-wrap gap-2" role="group" aria-label={$_('notifications.filter_group', { default: 'Filter notifications' })}>
         {#each visibleFilters as name (name)}
             <button
                 type="button"
@@ -304,6 +304,7 @@
                                         {item.title}
                                         {#if !item.read}
                                             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true"></span>
+                                            <span class="sr-only">{$_('notifications.count_unread', { default: 'unread' })}</span>
                                         {/if}
                                     </p>
                                     {#if isStoppedJob(item)}
