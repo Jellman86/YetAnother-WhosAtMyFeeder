@@ -61,6 +61,8 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
+    import { explorerPane } from '../utils/explorer-results';
+    import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { getBirdNames } from '../naming';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
@@ -68,6 +70,9 @@
     let events = $state<Detection[]>([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
+    /** A read has finished since the results were last cleared, so a count and an empty page mean something. */
+    let measured = $state(false);
+    let countElement = $state<HTMLElement | null>(null);
     let deleting = $state(false);
     let hiding = $state(false);
 
@@ -263,6 +268,7 @@
                 gardenCaptureTotal = page.capture_total;
                 gardenTotal = page.total;
                 gardenFailed = false;
+                measured = true;
                 void loadHeard();
                 return;
             }
@@ -319,6 +325,7 @@
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
             totalCount = nextTotal;
+            measured = true;
             void loadHeard();
             void loadGarden();
             if (pendingEventId) {
@@ -342,7 +349,9 @@
                 events = [];
                 totalCount = 0;
             }
-            error = $_('events.load_failed');
+            error = gardenOnly || (groupVisits && !selectionMode)
+                ? $_('events.load_failed', { default: 'The visits could not be loaded. Your history is unchanged.' })
+                : $_('events.load_failed_captures', { default: 'The captures could not be loaded. Your history is unchanged.' });
             console.error('Failed to load events', e);
         } finally {
             if (loadGeneration === eventsLoadGeneration) loading = false;
@@ -451,6 +460,16 @@
     function handlePageChange(page: number) {
         currentPage = page;
         void loadEvents();
+        revealResultsTop();
+    }
+
+    /** A new page starts at its top, with focus on the count that will announce it, not at the old page's foot. */
+    function revealResultsTop(): void {
+        const count = countElement;
+        if (!count) return;
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        count.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+        count.focus({ preventScroll: true });
     }
 
     function handlePageSizeChange(size: number) {
@@ -702,6 +721,7 @@
             pageVisits = [];
             totalCount = 0;
             loading = true;
+            measured = false;
             error = null;
             clearEventMetadata();
             void refreshCurrentEventsPage(version);
@@ -1626,6 +1646,8 @@
         return eventKey(entry.event);
     }
 
+    const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
+
     function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
         const capture = visit?.peak_capture;
         return capture ? () => handleEventCardClick(capture) : undefined;
@@ -1639,17 +1661,31 @@
         <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. -->
         <p class="hidden text-xs text-slate-500 sm:block dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
-            <div class="mr-1 basis-full text-sm text-slate-500 sm:basis-auto dark:text-slate-400" data-explorer-count>
+            <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
+            <div
+                bind:this={countElement}
+                class="mr-1 basis-full rounded text-sm text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
+                role="status"
+                tabindex="-1"
+                data-explorer-count={pane.count}
+            >
+                {#if pane.count === 'pending'}
+                    <span class="sr-only">{$_('events.results_loading', { default: 'Loading results…' })}</span>
+                    <span class="inline-block h-3 w-20 rounded bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                {:else if pane.count === 'unavailable'}
+                    <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
+                {:else}
                 <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
                     ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: 'Garden entries: {count} · captures: {captures}' })
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
-                {#if gardenInTimeline && gardenItems !== null}
+                {/if}
+                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
                     <span aria-hidden="true">&middot;</span>
                     {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count} Garden captures on this page' })}
                 {/if}
-                {#if heardActive && heardGroups !== null}
+                {#if pane.count === 'measured' && heardActive && heardGroups !== null}
                     <span aria-hidden="true">&middot;</span>
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
@@ -1751,10 +1787,11 @@
                 <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-brand-700/80 dark:text-brand-100/80">
-                    {selectedEventIds.length
-                        ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
-                        : $_('common.select', { default: 'Select' }) + ' events to act on.'}
+                <p class="text-xs text-brand-700/80 dark:text-brand-100/80" role="status" data-explorer-selection-count>
+                    {$_('events.selection_count', {
+                        values: { count: selectedEventIds.length },
+                        default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
+                    })}
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -1866,15 +1903,28 @@
 
 
 
-        {#if error}
-            <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
-                {error}
-                <button onclick={loadEvents} class="ml-2 underline">{$_('common.retry')}</button>
+        {#if error && (pane.state === 'error' || pane.state === 'results')}
+            <!-- With nothing to show the failure takes the pane; earlier results stay, dimmed, beneath it. -->
+            <div
+                role="alert"
+                class="card-base flex rounded-2xl border border-red-200 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/30
+                    {pane.state === 'error' ? 'flex-col items-center px-6 py-10 text-center' : 'mb-4 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3'}"
+                data-explorer-error={pane.state}
+            >
+                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-red-800 dark:text-red-200 {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
+                    <svg class="{pane.state === 'error' ? 'h-8 w-8' : 'mt-0.5 h-4 w-4'} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                    </svg>
+                    <span>{error}</span>
+                </span>
+                <button type="button" class="btn btn-secondary min-h-11 px-4 {pane.state === 'error' ? 'mt-4' : ''}" onclick={() => void loadEvents()} data-explorer-retry>
+                    {$_('events.try_again', { default: 'Try again' })}
+                </button>
             </div>
         {/if}
 
-        {#if !loading && timelineBuckets.length > 0}
-            <section data-events-timeline class="pb-4 pt-1">
+        {#if pane.state === 'results' && timelineBuckets.length > 0}
+            <section data-events-timeline class="pb-4 pt-1 transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}">
                 <!--
                     These chips group the loaded page, and clicking one narrows to that
                     day within the page. The heading beside them counts the whole filter,
@@ -2013,13 +2063,21 @@
             </p>
         {/if}
 
-        {#if !loading && entries.length === 0 && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0 && !hasActiveExplorerFilters}
+        <div
+            class="transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}"
+            aria-busy={loading}
+            data-explorer-results={pane.state}
+            data-explorer-stale={pane.stale}
+        >
+        {#if pane.state === 'error' || pane.state === 'idle'}
+            <!-- The failure is stated above; with no read asked for, nothing is claimed. -->
+        {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h3>
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
-        {:else if !loading && entries.length === 0 && gardenOnly && !hasActiveExplorerFilters}
+        {:else if pane.state === 'empty' && gardenOnly}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
                     {gardenReview === 'pending'
@@ -2031,19 +2089,20 @@
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
                 </h3>
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
-                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.' })
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
-        {:else if !loading && entries.length === 0}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
+        {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}
+            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-empty={pane.state}>
                 <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
                 </svg>
-                {#if hasActiveExplorerFilters}
+                {#if pane.state === 'empty-filtered'}
                     <!-- An empty page under active filters is a statement about the
                          filters, never about the feeder (#301): saying "no events
-                         yet" here told an owner their history was gone. -->
+                         yet" here told an owner their history was gone. A failed read
+                         is neither; explorerPane() keeps it out of both empty states. -->
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
                     <button
@@ -2055,7 +2114,7 @@
                             cameraFilter = '';
                             favoritesOnly = false;
                             audioConfirmedOnly = false;
-                multipleSpeciesOnly = false;
+                            multipleSpeciesOnly = false;
                             showHidden = false;
                             customStartDate = '';
                             customEndDate = '';
@@ -2076,6 +2135,9 @@
             <!-- The list takes the page's width like every other surface (#663); a capped column left
                  half of a large display empty beside it. -->
             <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+                {#if pane.state === 'first-load'}
+                    <ExplorerPlaceholders view="list" />
+                {/if}
                 {#each entries as entry (entryKey(entry))}
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
@@ -2107,7 +2169,11 @@
                  structural: fixed column counts measured 141-227px cards beside
                  the open sidebar and filter rail, clipping the play button. -->
             <!-- Capture panels float above the grid; every card keeps its place. -->
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+            <!-- min() lets one card fill a phone narrower than the minimum, as at 320px with the largest text. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-4" data-explorer-grid>
+                {#if pane.state === 'first-load'}
+                    <ExplorerPlaceholders view="cards" />
+                {/if}
                 {#each entries as entry, index (entryKey(entry))}
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
@@ -2142,16 +2208,20 @@
                 {/each}
             </div>
         {/if}
+        </div>
 
-        <Pagination
-            {currentPage}
-            {totalPages}
-            totalItems={totalCount}
-            itemsPerPage={effectivePageSize}
-            showPageSize={effectivePageSize === pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-        />
+        <!-- An emptied later page keeps its way back. -->
+        {#if pane.state === 'results' || ((pane.state === 'empty' || pane.state === 'empty-filtered') && totalCount > 0)}
+            <Pagination
+                {currentPage}
+                {totalPages}
+                totalItems={totalCount}
+                itemsPerPage={effectivePageSize}
+                showPageSize={effectivePageSize === pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+            />
+        {/if}
         </div>
     </div>
 </div>
@@ -2263,7 +2333,10 @@
                         {$_('actions.manual_tag')}
                     </h4>
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {selectedEventIds.length} {$_('common.selected', { default: 'selected' })}
+                        {$_('events.selection_count', {
+                            values: { count: selectedEventIds.length },
+                            default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
+                        })}
                     </p>
                 </div>
                 <button

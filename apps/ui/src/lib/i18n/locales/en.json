@@ -2660,7 +2660,8 @@
       "legend_moderate": "50 to 79%",
       "legend_weak": "Under 50%",
       "frames_unit": "frames"
-    }
+    },
+    "identified_by_owner": "Identified by the owner"
   },
   "events": {
     "title": "Events",
@@ -2712,7 +2713,7 @@
     },
     "empty_title": "No events yet",
     "empty_desc": "Backfill or wait for new detections to see them here.",
-    "load_failed": "Failed to load events",
+    "load_failed": "The visits could not be loaded. Your history is unchanged.",
     "bulk_tag_partial": "{count} selected events were not updated.",
     "bulk_delete_confirm": "Delete {count} detections? This cannot be undone.",
     "bulk_delete_success": "Deleted {count} detections.",
@@ -2767,7 +2768,12 @@
       "pause_call": "Pause the {species} call",
       "clip_unavailable": "BirdNET-Go could not play this clip.",
       "strongest_call": "Strongest call"
-    }
+    },
+    "load_failed_captures": "The captures could not be loaded. Your history is unchanged.",
+    "try_again": "Try again",
+    "count_unavailable": "Count unavailable",
+    "results_loading": "Loading results…",
+    "selection_count": "{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}"
   },
   "audio": {
     "chart": {
@@ -3882,7 +3888,7 @@
       "no_cameras_title": "No camera has Garden animals turned on",
       "no_cameras_desc": "Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.",
       "empty_title": "No Garden captures yet",
-      "empty_desc": "Confirmed animals and captures waiting for review appear here. Dismissed captures stay on the Garden page.",
+      "empty_desc": "Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.",
       "empty_guest_desc": "Animals confirmed on the Garden cameras appear here.",
       "visitors": "Visitors",
       "subjects_all_visitors": "Birds and Garden",
@@ -3962,7 +3968,8 @@
       "save": "Save species",
       "revert": "Remove my species correction",
       "chosen_by_you": "Species chosen by you",
-      "pick": "Pick a species"
+      "pick": "Pick a species",
+      "chosen_by_owner": "Species chosen by the owner"
     },
     "entry_dismiss_mixed": "Captures here are in different review states. Dismiss them one capture at a time."
   },

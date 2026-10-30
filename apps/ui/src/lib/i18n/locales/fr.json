@@ -2650,7 +2650,8 @@
       "legend_moderate": "50 à 79%",
       "legend_weak": "Moins de 50%",
       "frames_unit": "images"
-    }
+    },
+    "identified_by_owner": "Identifié par le propriétaire"
   },
   "events": {
     "title": "Événements",
@@ -2702,7 +2703,7 @@
     },
     "empty_title": "Aucun événement pour le moment",
     "empty_desc": "Lancez un backfill ou attendez de nouvelles détections.",
-    "load_failed": "Échec du chargement des événements",
+    "load_failed": "Les visites n’ont pas pu être chargées. Votre historique est inchangé.",
     "bulk_tag_partial": "{count} événements sélectionnés n’ont pas été mis à jour.",
     "bulk_delete_confirm": "Supprimer {count} détections ? Cette action est irréversible.",
     "bulk_delete_success": "{count} détections supprimées.",
@@ -2757,7 +2758,12 @@
       "pause_call": "Mettre en pause le chant de {species}",
       "clip_unavailable": "BirdNET-Go n’a pas pu lire cet extrait.",
       "strongest_call": "Chant le plus fort"
-    }
+    },
+    "load_failed_captures": "Les captures n’ont pas pu être chargées. Votre historique est inchangé.",
+    "try_again": "Réessayer",
+    "count_unavailable": "Nombre indisponible",
+    "results_loading": "Chargement des résultats…",
+    "selection_count": "{count, plural, =0 {Aucune capture sélectionnée} one {# capture sélectionnée} other {# captures sélectionnées}}"
   },
   "audio": {
     "chart": {
@@ -3882,7 +3888,7 @@
       "no_cameras_title": "Aucune caméra n'a les animaux du jardin activés",
       "no_cameras_desc": "Activez les animaux du jardin pour une caméra, et ses animaux confirmés et captures à vérifier apparaîtront ici.",
       "empty_title": "Pas encore de captures du jardin",
-      "empty_desc": "Les animaux confirmés et les captures à vérifier apparaissent ici. Les captures écartées restent sur la page Jardin.",
+      "empty_desc": "Les animaux confirmés et les captures à vérifier apparaissent ici. Les captures écartées se trouvent sous Vérification, Écartées.",
       "empty_guest_desc": "Les animaux confirmés sur les caméras du jardin apparaissent ici.",
       "visitors": "Visiteurs",
       "subjects_all_visitors": "Oiseaux et jardin",
@@ -3962,7 +3968,8 @@
       "save": "Enregistrer l’espèce",
       "revert": "Supprimer ma correction d’espèce",
       "chosen_by_you": "Espèce choisie par vous",
-      "pick": "Choisir une espèce"
+      "pick": "Choisir une espèce",
+      "chosen_by_owner": "Espèce choisie par le propriétaire"
     },
     "entry_dismiss_mixed": "Ces captures ont des états de vérification différents. Écartez-les une par une."
   },

@@ -13,6 +13,7 @@
     import type { GardenCapture, GardenServerVisit } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenVisitLabel } from '../utils/garden-explorer';
+    import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
@@ -33,7 +34,7 @@
 
     const capture = $derived(visit.representative);
     const view = $derived(gardenEntryView(capture));
-    const text = $derived(gardenEntryText(capture, view, translate));
+    const text = $derived(gardenEntryText(capture, view, translate, authStore.hasOwnerAccess ? 'owner' : 'visitor'));
     const grouped = $derived(
         gardenVisitLabel({ id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [capture] }, translate)
     );

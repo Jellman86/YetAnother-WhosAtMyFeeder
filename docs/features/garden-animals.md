@@ -91,7 +91,10 @@ waiting for review**, **Needs review**, **Confirmed animals** or **Dismissed**. 
 removable filters, and bird-only filters step aside while Garden visitors is chosen.
 
 - The Explorer shows confirmed animals and captures still waiting for review. Dismissed captures,
-  whether you or the automatic check dismissed them, are listed under **Garden visitors**, **Dismissed**.
+  whether you or the automatic check dismissed them, are listed under **Review**, **Dismissed**, as
+  an empty Garden view says.
+- Wording follows who is reading. You read **Identified by you** and **Species confirmed by you**;
+  a public visitor confirmed nothing, so reads **Identified by the owner** and **Owner confirmed**.
 - Every Garden card and row says **Garden** in words, so an animal is never read as a bird. A
   capture that needs you is flagged in amber with its reason: whether an animal is there, or a
   suggested species that nobody has confirmed. The score is the species model's, and only appears

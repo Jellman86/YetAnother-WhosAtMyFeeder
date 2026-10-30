@@ -13,6 +13,7 @@
     import type { GardenCapture } from '../api/garden';
     import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
+    import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
     import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
@@ -31,7 +32,7 @@
     let failedUrl = $state<string | null>(null);
     let failedCropUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
-    const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback })));
+    const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), authStore.hasOwnerAccess ? 'owner' : 'visitor'));
     const detail = $derived(gardenRowDetail(capture, view));
     const canPlay = $derived(Boolean(onplay && capture.clip_event));
     const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
