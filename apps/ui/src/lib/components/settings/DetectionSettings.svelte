@@ -601,7 +601,7 @@
             >
                 <div class="space-y-2">
                     <div class="flex justify-end">
-                        <output for="confidence-threshold-slider" class="rounded-lg bg-brand-500 px-2 py-1 text-xs font-bold text-white">{(threshold * 100).toFixed(0)}%</output>
+                        <output for="confidence-threshold-slider" class="rounded-lg bg-brand-700 px-2 py-1 text-xs font-bold text-white">{(threshold * 100).toFixed(0)}%</output>
                     </div>
                     <input
                         id="confidence-threshold-slider"

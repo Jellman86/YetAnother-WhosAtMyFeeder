@@ -3578,7 +3578,32 @@
     "system_ram_usage": "Utilizzo RAM di sistema",
     "circuit_open_detail": "{queued} elementi in coda sono in attesa. Errori recenti: {failures}.",
     "more_lanes": "+{count} corsie di lavoro in più",
-    "kind_favorite_archive": "Archivio preferiti"
+    "kind_favorite_archive": "Archivio preferiti",
+    "status": {
+      "running": "In esecuzione",
+      "processing": "In elaborazione",
+      "queued": "In coda",
+      "recovering": "In ripristino",
+      "elevated": "Carico elevato",
+      "warning": "Avviso",
+      "degraded": "Degradato",
+      "high": "Carico alto",
+      "critical": "Critico",
+      "error": "Errore",
+      "failing": "In errore",
+      "failed": "Non riuscito",
+      "open": "Aperto",
+      "ok": "Funzionante",
+      "healthy": "Funzionante",
+      "normal": "Nella norma",
+      "idle": "Inattivo",
+      "clear": "Libero",
+      "resolved": "Risolto",
+      "recovered": "Ripristinato",
+      "unknown": "Sconosciuto"
+    },
+    "errors_no_reconnect_reason": "Nessuno registrato",
+    "errors_unknown_phase": "Fase sconosciuta"
   },
   "errors": {
     "stack_trace": "Traccia dello stack:"

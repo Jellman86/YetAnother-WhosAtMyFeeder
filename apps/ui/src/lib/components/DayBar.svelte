@@ -71,7 +71,7 @@
                 <dd class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span
                         class="figure text-3xl {tone === 'attention'
-                            ? 'text-accent-700 dark:text-accent-300'
+                            ? 'text-attention-700 dark:text-attention-300'
                             : 'text-slate-950 dark:text-white'}"
                     >
                         {#if value === null}{@render unmeasured()}{:else}{value}{/if}
@@ -108,7 +108,7 @@
             {@render figure(
                 $_('dashboard.day_bar.cross_confirmed', { default: 'cross-confirmed' }),
                 audioConfirmations,
-                audioConfirmations === 0 ? 'attention' : 'plain',
+                'plain',
                 $_('dashboard.day_bar.seen_and_heard', { default: 'seen and heard' })
             )}
         {/if}
