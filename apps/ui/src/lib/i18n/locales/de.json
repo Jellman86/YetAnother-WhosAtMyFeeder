@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "Schalte Gartentiere für eine Kamera ein, dann erscheinen ihre bestätigten Tiere und zu prüfenden Aufnahmen hier.",
       "empty_title": "Noch keine Gartenaufnahmen",
       "empty_desc": "Bestätigte Tiere und zu prüfende Aufnahmen erscheinen hier. Verworfene Aufnahmen bleiben auf der Gartenseite.",
+      "empty_guest_desc": "Auf den Gartenkameras bestätigte Tiere erscheinen hier.",
       "visitors": "Besucher",
       "subjects_all_visitors": "Vögel und Garten",
       "subjects_all_hint": "Gartentiere zwischen den Vogelbesuchen.",

@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "Activa los animales del jardín en una cámara y sus animales confirmados y capturas pendientes de revisión aparecerán aquí.",
       "empty_title": "Todavía no hay capturas del jardín",
       "empty_desc": "Aquí aparecen los animales confirmados y las capturas pendientes de revisión. Las capturas descartadas se quedan en la página Jardín.",
+      "empty_guest_desc": "Aquí aparecen los animales confirmados en las cámaras del jardín.",
       "visitors": "Visitantes",
       "subjects_all_visitors": "Aves y jardín",
       "subjects_all_hint": "Animales del jardín entre las visitas de aves.",

@@ -150,6 +150,15 @@ class GardenRepository:
             row = await cursor.fetchone()
         return self._capture(row) if row else None
 
+    async def confirmed_observed_at(self, frigate_event: str) -> str | None:
+        """When a confirmed Frigate event capture was seen; None for any other state or event."""
+        async with self.db.execute(
+            "SELECT observed_at FROM garden_captures WHERE frigate_event = ? AND status = 'confirmed'",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return str(row[0]) if row else None
+
     async def list(self, status: GardenStatus, limit: int, offset: int) -> list[GardenCapture]:
         available = f" AND ({self._PHOTO_AVAILABLE})" if status == "pending" else ""
         async with self.db.execute(

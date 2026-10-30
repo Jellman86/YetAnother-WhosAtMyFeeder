@@ -4,11 +4,11 @@ import asyncio
 import sqlite3
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 from typing import Annotated, Literal
 
-from app.auth import AuthContext, require_owner
+from app.auth import AuthContext, get_auth_context_with_legacy, require_owner
 from app.config import settings
 from app.routers.proxy import validate_event_id
 from app.database import get_db
@@ -23,6 +23,8 @@ from app.repositories.garden_repository import (
 from app.services.garden_notifications import garden_notification_service
 from app.services.garden_capture_service import garden_capture_service
 from app.services import garden_motion_privacy
+from app.services import garden_public
+from app.ratelimit import guest_rate_limit
 from app.models.garden import (
     GardenIdentification,
     GardenOwnerIdentification,
@@ -62,6 +64,12 @@ router = APIRouter(
     prefix="/garden",
     tags=["garden"],
     dependencies=[Depends(require_owner), Depends(require_garden_beta), Depends(private_response)],
+)
+# Confirmed history and its photos, readable by public visitors under the bird detection rules.
+public_router = APIRouter(
+    prefix="/garden",
+    tags=["garden"],
+    dependencies=[Depends(require_garden_beta), Depends(private_response)],
 )
 
 
@@ -173,7 +181,25 @@ async def _response(
     )
 
 
-async def _page(items: list[GardenCapture], total: int, limit: int, offset: int, language: str) -> GardenCapturePage:
+def _guest_view(capture: GardenCaptureResponse) -> GardenCaptureResponse:
+    """A visitor's copy: no review controls or check internals, and media only as the owner shares it."""
+    photo = garden_public.guest_photo_visible(capture.observed_at)
+    return capture.model_copy(
+        update={
+            "camera": garden_public.guest_camera(capture.camera),
+            "review_token": None,
+            "automatic_check": None,
+            "automatic_check_overridden": False,
+            "snapshot_url": capture.snapshot_url if photo else None,
+            "crop_url": capture.crop_url if photo else None,
+            "clip_event": capture.clip_event if garden_public.guest_clip_visible(capture.observed_at) else None,
+        }
+    )
+
+
+async def _page(
+    items: list[GardenCapture], total: int, limit: int, offset: int, language: str, *, guest: bool = False
+) -> GardenCapturePage:
     names = await asyncio.to_thread(
         species_name_lookup.resolve,
         [
@@ -187,9 +213,10 @@ async def _page(items: list[GardenCapture], total: int, limit: int, offset: int,
         ],
         language=language,
     )
-    return GardenCapturePage(
-        items=[await _response(item, language, names) for item in items], total=total, limit=limit, offset=offset
-    )
+    presented = [await _response(item, language, names) for item in items]
+    if guest:
+        presented = [_guest_view(item) for item in presented]
+    return GardenCapturePage(items=presented, total=total, limit=limit, offset=offset)
 
 
 @router.get("", response_model=GardenCapturePage)
@@ -214,8 +241,45 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=timezone.utc)
 
 
-@router.get("/timeline", response_model=GardenCapturePage)
+class _HistoryScope(BaseModel):
+    start: datetime | None
+    end: datetime | None
+    camera: str | None
+    status: GardenTimelineStatus
+    guest: bool
+
+
+def _require_public_access(auth: AuthContext) -> None:
+    """A visitor's session reads nothing once the owner has switched public access off."""
+    if not auth.is_owner and not settings.public_access.enabled:
+        raise HTTPException(403, "Public access is switched off.")
+
+
+def _history_scope(
+    auth: AuthContext,
+    start: datetime | None,
+    end: datetime | None,
+    camera: str | None,
+    status: GardenTimelineStatus,
+) -> _HistoryScope:
+    """Validate the window, then hold a visitor to confirmed animals in the public history window."""
+    start, end = _as_utc(start), _as_utc(end)
+    if start is not None and end is not None and start > end:
+        raise HTTPException(422, "The window starts after it ends.")
+    if auth.is_owner:
+        return _HistoryScope(start=start, end=end, camera=camera, status=status, guest=False)
+    _require_public_access(auth)
+    start, end = garden_public.guest_history_window(start, end)
+    if not settings.public_access.show_camera_names:
+        camera = None
+    return _HistoryScope(start=start, end=end, camera=camera, status="confirmed", guest=True)
+
+
+@public_router.get("/timeline", response_model=GardenCapturePage)
+@guest_rate_limit()
 async def capture_timeline(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
@@ -226,22 +290,24 @@ async def capture_timeline(
     offset: int = Query(0, ge=0),
 ) -> GardenCapturePage:
     """Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for."""
-    start, end = _as_utc(start), _as_utc(end)
-    if start is not None and end is not None and start > end:
-        raise HTTPException(422, "The window starts after it ends.")
+    scope = _history_scope(auth, start, end, camera, status)
+    if scope.guest:
+        limit = min(limit, 50)
     async with get_db() as db:
         repository = GardenRepository(db)
         items = await repository.timeline(
-            start=start,
-            end=end,
-            camera=camera,
+            start=scope.start,
+            end=scope.end,
+            camera=scope.camera,
             newest_first=order == "newest",
             limit=limit,
             offset=offset,
-            status=status,
+            status=scope.status,
         )
-        total = await repository.timeline_count(start=start, end=end, camera=camera, status=status)
-    return await _page(items, total, limit, offset, language)
+        total = await repository.timeline_count(
+            start=scope.start, end=scope.end, camera=scope.camera, status=scope.status
+        )
+    return await _page(items, total, limit, offset, language, guest=scope.guest)
 
 
 class GardenVisitResponse(BaseModel):
@@ -261,8 +327,11 @@ class GardenVisitPage(BaseModel):
     offset: int
 
 
-@router.get("/visits", response_model=GardenVisitPage)
+@public_router.get("/visits", response_model=GardenVisitPage)
+@guest_rate_limit()
 async def garden_visits(
+    request: Request,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
@@ -274,24 +343,24 @@ async def garden_visits(
     page_start: datetime | None = None,
     page_end: datetime | None = None,
 ) -> GardenVisitPage:
-    start, end = _as_utc(start), _as_utc(end)
-    if start is not None and end is not None and start > end:
-        raise HTTPException(422, "The window starts after it ends.")
+    scope = _history_scope(auth, start, end, camera, status)
+    if scope.guest:
+        limit = min(limit, 50)
     async with get_db() as db:
         repo = GardenVisitRepository(db)
         rows, total, captures = await repo.visits(
-            start=start,
-            end=end,
-            camera=camera,
+            start=scope.start,
+            end=scope.end,
+            camera=scope.camera,
             newest_first=order == "newest",
-            status=status,
+            status=scope.status,
             limit=limit,
             offset=offset,
             page_start=_as_utc(page_start),
             page_end=_as_utc(page_end),
         )
         records = await repo.get_many([row["representative"] for row in rows])
-        presented = await _page(records, len(records), limit, offset, language)
+        presented = await _page(records, len(records), limit, offset, language, guest=scope.guest)
         by_id = {item.id: item for item in presented.items}
         visits = [
             GardenVisitResponse(
@@ -308,9 +377,12 @@ async def garden_visits(
     return GardenVisitPage(visits=visits, total=total, capture_total=captures, limit=limit, offset=offset)
 
 
-@router.get("/visits/{visit_id}/captures", response_model=GardenCapturePage)
+@public_router.get("/visits/{visit_id}/captures", response_model=GardenCapturePage)
+@guest_rate_limit()
 async def garden_visit_captures(
+    request: Request,
     visit_id: str,
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
     language: str = Depends(get_user_language),
     start: datetime | None = None,
     end: datetime | None = None,
@@ -319,16 +391,20 @@ async def garden_visit_captures(
     limit: int = Query(128, ge=1, le=128),
     offset: int = Query(0, ge=0),
 ) -> GardenCapturePage:
-    start, end = _as_utc(start), _as_utc(end)
-    if start is not None and end is not None and start > end:
-        raise HTTPException(422, "The window starts after it ends.")
+    scope = _history_scope(auth, start, end, camera, status)
     async with get_db() as db:
         items, total = await GardenVisitRepository(db).visit_captures(
-            visit_id, start=start, end=end, camera=camera, status=status, limit=limit, offset=offset
+            visit_id,
+            start=scope.start,
+            end=scope.end,
+            camera=scope.camera,
+            status=scope.status,
+            limit=limit,
+            offset=offset,
         )
     if not total:
         raise HTTPException(404, "Garden visit is no longer available. Refresh the history.")
-    return await _page(items, total, limit, offset, language)
+    return await _page(items, total, limit, offset, language, guest=scope.guest)
 
 
 @router.get("/notifications", response_model=GardenNotificationStatus)
@@ -447,8 +523,28 @@ async def restore_capture(capture_id: str, language: str = Depends(get_user_lang
     return await _review(capture_id, "pending", language)
 
 
-@router.get("/{capture_id}/snapshot", response_class=Response, response_model=None)
-async def capture_snapshot(capture_id: str, _auth: AuthContext = Depends(require_owner)) -> Response:
+async def _require_shared_photo(capture_id: str, auth: AuthContext) -> None:
+    """A visitor's photo request succeeds only for a confirmed capture whose photo the owner shares."""
+    if auth.is_owner:
+        return
+    _require_public_access(auth)
+    async with get_db() as db:
+        capture = await GardenRepository(db).get(capture_id)
+    if (
+        capture is None
+        or capture.status != "confirmed"
+        or not garden_public.guest_history_visible(capture.observed_at)
+        or not garden_public.guest_photo_visible(capture.observed_at)
+    ):
+        raise HTTPException(404, "Garden photo not found")
+
+
+@public_router.get("/{capture_id}/snapshot", response_class=Response, response_model=None)
+@guest_rate_limit()
+async def capture_snapshot(
+    request: Request, capture_id: str, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> Response:
+    await _require_shared_photo(capture_id, auth)
     image = await garden_capture_service.snapshot(capture_id)
     return Response(
         image,
@@ -457,8 +553,12 @@ async def capture_snapshot(capture_id: str, _auth: AuthContext = Depends(require
     )
 
 
-@router.get("/{capture_id}/crop", response_class=Response, response_model=None)
-async def capture_crop(capture_id: str) -> Response:
+@public_router.get("/{capture_id}/crop", response_class=Response, response_model=None)
+@guest_rate_limit()
+async def capture_crop(
+    request: Request, capture_id: str, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> Response:
+    await _require_shared_photo(capture_id, auth)
     async with garden_motion_privacy.lock:
         async with get_db() as db:
             try:

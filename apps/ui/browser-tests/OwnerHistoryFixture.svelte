@@ -13,12 +13,16 @@
     authStore.statusLoaded = true;
     authStore.statusHealthy = true;
     authStore.authRequired = true;
-    authStore.isAuthenticated = true;
     const params = new URLSearchParams(location.search);
+    // guest=1: a public visitor while the owner has Garden animals on; visitors never read settings.
+    const guest = params.get('guest') === '1';
+    authStore.isAuthenticated = !guest;
+    authStore.publicAccessEnabled = guest;
+    authStore.gardenAnimalsEnabled = guest;
     // garden=1: the owner has the Garden beta on for one camera.
     // garden=0: switched off, as a saved setting says it.
     const garden = params.get('garden') === '1' ? { beta_garden_animals: true, garden_cameras: ['patio'] } : params.get('garden') === '0' ? { beta_garden_animals: false } : {};
-    settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
+    if (!guest) settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
     // The app's global Escape handler must not consume native capture-panel dismissal.
     onMount(() => {

@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "Attiva gli animali del giardino per una telecamera e i suoi animali confermati e le catture da verificare compariranno qui.",
       "empty_title": "Ancora nessuna cattura del giardino",
       "empty_desc": "Qui compaiono gli animali confermati e le catture da verificare. Le catture scartate restano nella pagina Giardino.",
+      "empty_guest_desc": "Qui compaiono gli animali confermati dalle telecamere del giardino.",
       "visitors": "Visitatori",
       "subjects_all_visitors": "Uccelli e giardino",
       "subjects_all_hint": "Animali del giardino tra le visite degli uccelli.",

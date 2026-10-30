@@ -343,7 +343,15 @@ can change their framing. Full-frame Frigate coordinates must not be reapplied t
 
 ### Garden animal review
 
-All garden routes require owner access and use `private, no-store`. Presence and
+Garden routes use `private, no-store`. All of them require owner access except the read-only
+history and photo routes (`visits`, `visits/{visit_id}/captures`, `timeline`, `{capture_id}/snapshot`
+and `{capture_id}/crop`). With public access on, a guest reads those under the bird detection rules.
+A guest sees confirmed captures only, within the public history window. Camera names read `Hidden`
+when they are not shared. `review_token` and `automatic_check` are null. Snapshot, crop and
+`clip_event` are null outside the public media window or when photographs or video are not shared.
+Photo requests outside those rules return `404`, and guest requests are rate-limited. `GET
+/api/auth/status` reports `garden_animals_enabled`. The Frigate clip proxy admits a confirmed Garden
+capture's event as it does a bird detection's. Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..128` (default 20),
@@ -366,7 +374,7 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   `Accept-Language` language, falling back to English. A lowercase model name is cased like a
   catalogue name (`domestic dog` becomes `Domestic Dog`); an owner's cased rename is kept as written.
   `scientific_name` is the catalogue's scientific name for that identification, or null.
-- `GET /api/garden/visits` returns owner-only Garden entries, grouped before pagination.
+- `GET /api/garden/visits` returns Garden entries, grouped before pagination.
   `start`/`end`, `camera` and `status` (`reviewable`, `pending`, `confirmed`, `dismissed`)
   scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`
   count groups. The response has `visits`, group `total`, `capture_total`, `limit` and
@@ -409,7 +417,7 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
   Frigate captures require an advertised snapshot; motion captures require an
   unexpired stored photo. Known unavailable photos return `409`.
-- `GET /api/garden/{capture_id}/snapshot` — owner-only Frigate or retained motion photograph, `404` when
+- `GET /api/garden/{capture_id}/snapshot` — Frigate or retained motion photograph, `404` when
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
 

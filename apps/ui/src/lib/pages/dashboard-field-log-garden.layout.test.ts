@@ -5,9 +5,9 @@ import fieldLogSource from '../components/FieldLog.svelte?raw';
 import gardenRowSource from '../components/FieldLogGardenRow.svelte?raw';
 
 describe('Garden visits on the dashboard field log', () => {
-    it('reads Garden visits only for an owner with Garden turned on, in the same window as the birds', () => {
+    it('reads Garden visits while Garden is on, for the owner or a visitor, in the same window as the birds', () => {
         expect(dashboardSource).toContain(
-            "const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);"
+            "(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true) || authStore.guestCanViewGarden"
         );
         expect(dashboardSource).toContain('const gardenRead = gardenAvailable');
         expect(dashboardSource).toContain("fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)");

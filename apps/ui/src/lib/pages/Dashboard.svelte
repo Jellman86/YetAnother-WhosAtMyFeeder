@@ -51,8 +51,10 @@
     let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
     let totalVisits = $state(0);
 
-    // Garden captures are owner-only and beta; animals stay a separate record no bird total counts.
-    const gardenAvailable = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
+    // Garden captures are beta, and visitors see confirmed animals; animals stay a separate record no bird total counts.
+    const gardenAvailable = $derived(
+        (authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true) || authStore.guestCanViewGarden
+    );
     let gardenVisits = $state.raw<GardenServerVisit[]>([]);
     let gardenTotal = $state(0);
     let gardenUnavailable = $state(false);

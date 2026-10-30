@@ -86,11 +86,11 @@ async def test_timeline_rejects_a_reversed_window():
 
 
 @pytest.mark.asyncio
-async def test_timeline_is_owner_only_and_follows_the_beta_switch(monkeypatch):
+async def test_timeline_needs_a_login_or_public_access_and_follows_the_beta_switch(monkeypatch):
     await seed()
-    monkeypatch.setattr(settings.public_access, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
     monkeypatch.setattr(settings.auth, "enabled", True)
-    assert (await timeline()).status_code in {401, 403}
+    assert (await timeline()).status_code == 401
 
     monkeypatch.setattr(settings.public_access, "enabled", False)
     monkeypatch.setattr(settings.auth, "enabled", False)

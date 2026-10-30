@@ -30,8 +30,10 @@
         customStartDate: string;
         customEndDate: string;
         refreshing?: boolean;
-        /** Owner with the Garden beta on: the rail can show Garden visitors instead of, or beside, birds. */
+        /** Garden animals are on and readable here: the rail can show Garden visitors instead of, or beside, birds. */
         gardenAvailable?: boolean;
+        /** Owner-only: visitors see confirmed animals, so there is no review state to choose. */
+        gardenReviewAvailable?: boolean;
         subjects?: ExplorerSubjects;
         gardenReview?: GardenReview;
         onchange: (next: {
@@ -73,6 +75,7 @@
         customEndDate,
         refreshing = false,
         gardenAvailable = false,
+        gardenReviewAvailable = true,
         subjects = 'birds',
         gardenReview = 'reviewable',
         onchange,
@@ -129,7 +132,7 @@
                 clear: () => onchange({ subjects: 'all', gardenReview: 'reviewable' })
             });
         }
-        if (gardenOnly && gardenReview !== 'reviewable') {
+        if (gardenOnly && gardenReviewAvailable && gardenReview !== 'reviewable') {
             applied.push({
                 key: 'garden-review',
                 label: reviewOptions.find((option) => option.value === gardenReview)?.label ?? gardenReview,
@@ -259,7 +262,7 @@
                         {/each}
                     </div>
                 </div>
-                {#if gardenOnly}
+                {#if gardenOnly && gardenReviewAvailable}
                     <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-garden-review-heading" data-explorer-garden-review-facet>
                         <p id="explorer-garden-review-heading" class="eyebrow">{$_('garden.explorer.review_heading', { default: 'Review' })}</p>
                         <div class="mt-2 space-y-0.5">

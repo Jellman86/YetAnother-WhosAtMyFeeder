@@ -3824,6 +3824,7 @@
       "no_cameras_desc": "为摄像头开启花园动物后，其已确认的动物和待审核的拍摄会显示在这里。",
       "empty_title": "还没有花园拍摄",
       "empty_desc": "已确认的动物和待审核的拍摄会显示在这里。已驳回的拍摄留在花园页面。",
+      "empty_guest_desc": "在花园摄像头上确认的动物会显示在这里。",
       "visitors": "访客",
       "subjects_all_visitors": "鸟类和花园",
       "subjects_all_hint": "在鸟类到访之间显示花园动物。",
