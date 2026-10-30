@@ -78,6 +78,13 @@
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     let subName = $derived(mixed ? null : naming.secondary);
+    // While selecting, the card is a toggle named by what it picks, as a list row is.
+    const selectSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
+    const recordLabel = $derived(
+        selectionMode
+            ? $_('events.row_select', { values: { species: selectSubject }, default: `Select ${selectSubject}` })
+            : $_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })
+    );
 
     let isManualObservation = $derived(detection.observation_source === 'manual_upload');
     let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
@@ -210,14 +217,15 @@
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
                {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
-               {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
+               {selectionMode && selected && !analysisActive ? 'border-2 border-brand-600 ring-2 ring-brand-500/60 dark:border-brand-400 dark:ring-brand-400/50' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <!-- The record: everything above the footer opens it, and nothing in the footer does. -->
     <div class="relative flex flex-1 flex-col">
     <button
         type="button"
-        aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
+        aria-label={recordLabel}
+        aria-pressed={selectionMode ? selected : undefined}
         onclick={onclick}
         class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
@@ -508,16 +516,20 @@
     {#if footer}
         <div class="relative z-20" data-detection-card-footer>{@render footer()}</div>
     {/if}
-    {#if selectionMode && selected && !analysisActive}
-        <div class="absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none">
-            <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>
-            <div class="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/22"></div>
-            <div class="absolute inset-0 z-50 flex items-center justify-center">
-                <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-                    <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-            </div>
-        </div>
+    {#if selectionMode && !analysisActive}
+        <!-- Selection is a ring and a filled check, never a veil over the bird: the photo and name
+             stay readable, and an empty circle shows the card can be chosen. The button carries
+             the state for assistive technology. -->
+        <span
+            class="pointer-events-none absolute right-3 top-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-md
+                   {selected ? 'border-white bg-brand-700 text-white dark:border-slate-900' : 'border-white bg-black/35 text-transparent'}"
+            aria-hidden="true"
+            data-detection-card-check={selected ? 'selected' : 'unselected'}
+        >
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6">
+                <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </span>
     {/if}
     </div>
 </div>

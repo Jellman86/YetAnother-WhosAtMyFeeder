@@ -63,9 +63,36 @@ describe('Explorer page layout', () => {
     it('keeps selection wording in the bulk toolbar instead of inside each card', () => {
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && selectionMode}');
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && showBulkTagModal}');
-        expect(eventsSource).toContain("selectedEventIds.length");
-        expect(eventsSource).toContain("$_('common.selected', { default: 'selected' })");
-        expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to act on.'");
+        // One plural message, not a number glued to a word and a hard-coded English sentence.
+        expect(eventsSource).toContain("$_('events.selection_count', {");
+        expect(eventsSource).toContain('values: { count: selectedEventIds.length }');
+        expect(eventsSource).not.toContain("$_('common.selected', { default: 'selected' })");
+        expect(eventsSource).not.toContain("' events to act on.'");
+    });
+
+    it('decides the results pane in one tested place, so a failure never reads as an empty history', () => {
+        expect(eventsSource).toContain('const pane = $derived(explorerPane({ loading, failed: error !== null, measured,');
+        // Each empty state is reached only through the decision, never from an unchecked length.
+        expect(eventsSource).not.toContain('!loading && entries.length === 0');
+        expect(eventsSource).toContain("{:else if pane.state === 'empty' || pane.state === 'empty-filtered'}");
+        // The failure is announced, worded, and offers a real button.
+        expect(eventsSource).toMatch(/role="alert"[\s\S]{0,400}data-explorer-error=\{pane\.state\}/);
+        expect(eventsSource).toContain("$_('events.try_again', { default: 'Try again' })");
+        expect(eventsSource).not.toContain('class="ml-2 underline"');
+    });
+
+    it('states the count only once measured, as a status, and dims stale results while busy', () => {
+        expect(eventsSource).toMatch(/role="status"\s+tabindex="-1"\s+data-explorer-count=\{pane\.count\}/);
+        expect(eventsSource).toContain("$_('events.count_unavailable', { default: 'Count unavailable' })");
+        expect(eventsSource).toContain('aria-busy={loading}');
+        expect(eventsSource).toContain("{pane.stale ? 'opacity-60' : ''}");
+        expect(eventsSource).toContain('<ExplorerPlaceholders view="cards" />');
+        expect(eventsSource).toContain('<ExplorerPlaceholders view="list" />');
+    });
+
+    it('starts a new page at its top with focus on the count', () => {
+        expect(eventsSource).toMatch(/function handlePageChange\(page: number\) \{[\s\S]*?revealResultsTop\(\);/);
+        expect(eventsSource).toContain('count.focus({ preventScroll: true });');
     });
 
     it('treats AI analysis fields as part of selected-event sync state', () => {

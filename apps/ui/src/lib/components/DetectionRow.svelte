@@ -142,7 +142,7 @@
 <div
     class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
            {needsAttention ? 'bg-attention-500/10' : ''}
-           {selected ? 'bg-brand-500/10' : ''}"
+           {selected ? 'bg-brand-500/10 ring-2 ring-inset ring-brand-500 dark:ring-brand-400' : ''}"
     data-detection-row
     data-frigate-event={detection.frigate_event}
 >
@@ -163,6 +163,7 @@
         {onclick}
         class="absolute inset-0 z-0 cursor-pointer rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
         aria-label={selectionMode ? selectLabel : openLabel}
+        aria-pressed={selectionMode ? selected : undefined}
     ></button>
 
     <div class="pointer-events-none relative z-10 py-2">
@@ -301,15 +302,17 @@
             </div>
         {/if}
         {#if selectionMode}
+            <!-- The card's check: filled when chosen, an empty circle when it can be. -->
             <span
-                class="pointer-events-none inline-flex h-5 w-5 items-center justify-center rounded-md border-2
+                class="pointer-events-none inline-flex h-6 w-6 items-center justify-center rounded-full border-2
                        {selected
                     ? 'border-brand-700 bg-brand-700 text-white'
-                    : 'border-slate-300 dark:border-slate-600'}"
+                    : 'border-slate-400 dark:border-slate-500'}"
                 aria-hidden="true"
+                data-detection-row-check={selected ? 'selected' : 'unselected'}
             >
                 {#if selected}
-                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 {/if}

@@ -135,9 +135,12 @@ test('selection switches to individual captures and keeps one card outline', asy
     const raw = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events');
     await page.getByRole('button', { name: 'Multi-select' }).click();
     await raw;
-    const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: 'Dunnock detected at birdcam' }) }).first().locator('..').locator('..');
+    // While selecting, each card is a toggle named by the capture it picks.
+    const item = page.locator('[data-detection-card]').filter({ has: page.getByRole('button', { name: /^Select Dunnock, / }) }).first().locator('..').locator('..');
     const frame = item.locator('[data-detection-card]');
-    await frame.getByRole('button', { name: /Select|Dunnock detected at birdcam/ }).first().click();
+    const toggle = frame.getByRole('button', { name: /^Select Dunnock, / });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => frame.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('2px');
     await expectOneOutline(item);
     await expect(frame.locator('[data-visit-captures-toggle]')).toHaveCount(0);

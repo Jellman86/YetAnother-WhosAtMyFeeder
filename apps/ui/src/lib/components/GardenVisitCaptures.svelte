@@ -12,6 +12,7 @@
     import { withAuthParams } from '../api/core';
     import { formatTime } from '../utils/datetime';
     import { gardenCaptureFacts, gardenEntryText, gardenEntryView, type GardenVisit } from '../utils/garden-explorer';
+    import { authStore } from '../stores/auth.svelte';
     import { GardenVisitCaptureList } from '../utils/garden-visit-capture-list.svelte';
     import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
 
@@ -154,7 +155,7 @@
                 <ol class={inline ? '' : 'border-y border-slate-200/70 dark:border-slate-700/50'}>
                     {#each list.captures as capture, index (capture.id)}
                         {@const view = gardenEntryView(capture)}
-                        {@const text = gardenEntryText(capture, view, translate)}
+                        {@const text = gardenEntryText(capture, view, translate, authStore.hasOwnerAccess ? 'owner' : 'visitor')}
                         {@const facts = gardenCaptureFacts(capture, visit)}
                         {@const time = captureTime(capture)}
                         {@const image = photo(capture)}

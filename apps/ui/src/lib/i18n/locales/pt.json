@@ -2638,7 +2638,8 @@
       "legend_moderate": "50 a 79%",
       "legend_weak": "Abaixo de 50%",
       "frames_unit": "quadros"
-    }
+    },
+    "identified_by_owner": "Identificado pelo proprietário"
   },
   "events": {
     "title": "Eventos",
@@ -2690,7 +2691,7 @@
     },
     "empty_title": "Nenhum evento ainda",
     "empty_desc": "Faça backfill ou aguarde novas detecções para vê-las aqui.",
-    "load_failed": "Falha ao carregar eventos",
+    "load_failed": "Não foi possível carregar as visitas. Seu histórico não foi alterado.",
     "bulk_tag_partial": "{count} eventos selecionados não foram atualizados.",
     "bulk_delete_confirm": "Excluir {count} detecções? Esta ação não pode ser desfeita.",
     "bulk_delete_success": "{count} detecções excluídas.",
@@ -2745,7 +2746,12 @@
       "pause_call": "Pausar o canto de {species}",
       "clip_unavailable": "O BirdNET-Go não conseguiu tocar este clipe.",
       "strongest_call": "Canto mais forte"
-    }
+    },
+    "load_failed_captures": "Não foi possível carregar as capturas. Seu histórico não foi alterado.",
+    "try_again": "Tentar novamente",
+    "count_unavailable": "Contagem indisponível",
+    "results_loading": "Carregando resultados…",
+    "selection_count": "{count, plural, =0 {Nenhuma captura selecionada} one {# captura selecionada} other {# capturas selecionadas}}"
   },
   "audio": {
     "chart": {
@@ -3858,7 +3864,7 @@
       "no_cameras_title": "Nenhuma câmara tem os animais do jardim ativados",
       "no_cameras_desc": "Ative os animais do jardim numa câmara e os seus animais confirmados e capturas por rever aparecem aqui.",
       "empty_title": "Ainda não há capturas do jardim",
-      "empty_desc": "Os animais confirmados e as capturas por rever aparecem aqui. As capturas descartadas ficam na página Jardim.",
+      "empty_desc": "Os animais confirmados e as capturas por rever aparecem aqui. As capturas descartadas estão em Revisão, Descartadas.",
       "empty_guest_desc": "Os animais confirmados nas câmaras do jardim aparecem aqui.",
       "visitors": "Visitantes",
       "subjects_all_visitors": "Aves e jardim",
@@ -3938,7 +3944,8 @@
       "save": "Salvar espécie",
       "revert": "Remover minha correção de espécie",
       "chosen_by_you": "Espécie escolhida por você",
-      "pick": "Escolher uma espécie"
+      "pick": "Escolher uma espécie",
+      "chosen_by_owner": "Espécie escolhida pelo proprietário"
     },
     "entry_dismiss_mixed": "As capturas aqui têm estados de revisão diferentes. Dispense-as uma de cada vez."
   },

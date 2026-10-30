@@ -2628,7 +2628,8 @@
       "legend_moderate": "50 a 79%",
       "legend_weak": "Menos del 50%",
       "frames_unit": "fotogramas"
-    }
+    },
+    "identified_by_owner": "Identificado por el propietario"
   },
   "events": {
     "title": "Eventos",
@@ -2680,7 +2681,7 @@
     },
     "empty_title": "Sin eventos todavía",
     "empty_desc": "Ejecuta un backfill o espera nuevas detecciones.",
-    "load_failed": "Error al cargar los eventos",
+    "load_failed": "No se pudieron cargar las visitas. Tu historial no ha cambiado.",
     "bulk_tag_partial": "{count} eventos seleccionados no se actualizaron.",
     "bulk_delete_confirm": "¿Eliminar {count} detecciones? Esta acción no se puede deshacer.",
     "bulk_delete_success": "Se eliminaron {count} detecciones.",
@@ -2735,7 +2736,12 @@
       "pause_call": "Pausar el canto de {species}",
       "clip_unavailable": "BirdNET-Go no pudo reproducir este clip.",
       "strongest_call": "Canto más fuerte"
-    }
+    },
+    "load_failed_captures": "No se pudieron cargar las capturas. Tu historial no ha cambiado.",
+    "try_again": "Volver a intentar",
+    "count_unavailable": "Recuento no disponible",
+    "results_loading": "Cargando resultados…",
+    "selection_count": "{count, plural, =0 {Ninguna captura seleccionada} one {# captura seleccionada} other {# capturas seleccionadas}}"
   },
   "audio": {
     "chart": {
@@ -3858,7 +3864,7 @@
       "no_cameras_title": "Ninguna cámara tiene activados los animales del jardín",
       "no_cameras_desc": "Activa los animales del jardín en una cámara y sus animales confirmados y capturas pendientes de revisión aparecerán aquí.",
       "empty_title": "Todavía no hay capturas del jardín",
-      "empty_desc": "Aquí aparecen los animales confirmados y las capturas pendientes de revisión. Las capturas descartadas se quedan en la página Jardín.",
+      "empty_desc": "Aquí aparecen los animales confirmados y las capturas pendientes de revisión. Las capturas descartadas están en Revisión, Descartadas.",
       "empty_guest_desc": "Aquí aparecen los animales confirmados en las cámaras del jardín.",
       "visitors": "Visitantes",
       "subjects_all_visitors": "Aves y jardín",
@@ -3938,7 +3944,8 @@
       "save": "Guardar especie",
       "revert": "Eliminar mi corrección de especie",
       "chosen_by_you": "Especie elegida por ti",
-      "pick": "Elegir una especie"
+      "pick": "Elegir una especie",
+      "chosen_by_owner": "Especie elegida por el propietario"
     },
     "entry_dismiss_mixed": "Las capturas tienen distintos estados de revisión. Descártelas de una en una."
   },
