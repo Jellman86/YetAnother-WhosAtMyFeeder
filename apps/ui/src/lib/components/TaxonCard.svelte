@@ -13,9 +13,11 @@
      */
     interface Props {
         peek: TaxonPeek;
+        /** A Garden animal: what was seen here counts bird visits, so the card does not claim it. */
+        subject?: 'bird' | 'animal';
     }
 
-    let { peek }: Props = $props();
+    let { peek, subject = 'bird' }: Props = $props();
 
     const WIDTH = 240;
     const GAP = 8;
@@ -99,7 +101,7 @@
     });
 
     function seenLine(): string | null {
-        if (!taxon) return null;
+        if (!taxon || subject === 'animal') return null;
         if (taxon.rank === 'species') {
             return (taxon.seen_count ?? 0) > 0
                 ? $_('taxonomy.captures_here', { values: { count: taxon.seen_count }, default: '{count} captures here' })

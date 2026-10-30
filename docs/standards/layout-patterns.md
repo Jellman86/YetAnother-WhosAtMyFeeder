@@ -218,7 +218,9 @@ own Close, because there is no hover to lose.
 Beneath the identification, `TaxonomyLineage` shows where the bird sits: one line from class to
 species with each rank named, the family's species worldwide against those seen here, and "Open
 the family tree". It shows nothing when the catalogue does not hold the bird; a missing lineage is
-not an error worth the space. `FamilyTreeDialog` is the full view: a horizontal tree centred on
+not an error worth the space. A Garden record passes `subject="animal"`: the ladder and tree come
+from the SpeciesNet taxonomy, so they drop the worldwide and seen-here counts (those count bird
+visits) and say "this animal" rather than "this bird". `FamilyTreeDialog` is the full view: a horizontal tree centred on
 the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a breadcrumb rather
 than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
 everything else in an open group is summed in one "more" node. A group's label sits above its node

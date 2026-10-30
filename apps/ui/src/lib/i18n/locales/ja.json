@@ -3700,7 +3700,10 @@
     "reference_photo": "参考写真",
     "no_reference_photo": "参考写真なし",
     "not_seen_here": "この給餌台ではまだ確認されていません",
-    "group_summary": "世界で{total}種、ここで{seen}種を確認"
+    "group_summary": "世界で{total}種、ここで{seen}種を確認",
+    "this_animal": "この動物",
+    "legend_path_animal": "この動物までの経路",
+    "source_note_animal": "庭の動物の分類は SpeciesNet の分類体系によるものです。種のまとまりを示すもので、分岐した時期を示すものではありません。"
   },
   "garden": {
     "check_photo": "写真を確認",
@@ -3767,8 +3770,6 @@
     "previous_photo": "前の写真",
     "photo_count": "写真{index} / {count}",
     "next_photo": "次の写真",
-    "group_review": "この写真の束を確認",
-    "group_dismiss_help": "動物が写っている写真を先に確認し、この束の残りの写真を却下してください。確認済みの写真は保持され、今後の撮影には影響しません。",
     "group_dismiss": "残りの写真{count}枚を却下",
     "confidence": "動物候補のしきい値",
     "confidence_help": "値を上げると候補は減りますが、動物を見逃す可能性があります。新しい動体写真だけに適用され、鳥の検出と人物のプライバシー確認は変わりません。",
@@ -3809,7 +3810,6 @@
       "species_heading": "種",
       "confirm_needs_photo": "動物を確認できるのは写真が表示されている間だけです。",
       "confirm_name": "{name} を確認",
-      "dismiss_effect": "却下すると動物から外れます。写真がある間は「庭の訪問者」の「却下済み」に残ります。",
       "total": "{count, plural, other {庭の撮影 # 件}}",
       "count_on_page": "{count, plural, other {このページの庭の撮影 # 件}}",
       "subjects_birds": "鳥",
@@ -3835,7 +3835,6 @@
       "group_photos": "同じ位置の写真 {count} 枚",
       "dismissed_title": "却下した撮影",
       "state_dismissed": "却下済み、動物として数えません",
-      "check_effect": "この写真だけについて切り抜きモデルに尋ねます。何も保存されず、判断はあなたのものです。",
       "check_needs_model": "写真チェックには自動チェックモデルが必要です。設定 → ベータ機能 の庭のモデルからダウンロードしてください。",
       "identify_runs_on": "新しい手動提案：SpeciesNet {variant} を {device} で実行します。提案は確認と承認が必要です。",
       "model_and_device": "モデルとデバイス",
@@ -3860,7 +3859,6 @@
       "show_photo": "写真 {index}/{count} を表示、{time}",
       "earlier_photos": "前の写真",
       "later_photos": "他の写真",
-      "manual_suggestion_help": "検出設定を使って、この写真の新しい種候補を取得します。確定する前に確認してください。",
       "about_species": "{species}について",
       "detail_country": "地域ルール",
       "detail_input": "モデル入力",
@@ -3887,7 +3885,6 @@
       "whole_image": "写真全体から命名したため、1匹の動物を指していない可能性があります"
     },
     "visit_dismiss": "この訪問の{count}件の記録を除外",
-    "visit_dismiss_help": "これらの記録をまとめて除外します。読み込み後に変更された記録や新しい記録は保持されます。写真が残っている間は、除外した記録を再確認できます。",
     "visit_dismiss_limit": "128件を超える訪問記録は、1件ずつ除外してください。",
     "visit_dismiss_reload": "まとめて除外する前に、この訪問の記録を再読み込みしてください。",
     "visit_return": "記録を確認待ちに戻す",
@@ -3900,10 +3897,11 @@
       "matches": "一致する動物の種",
       "scope": "この記録だけを変更します。元のモデル結果は「詳細」に保持されます。",
       "save": "種を保存",
-      "change": "種を変更",
       "revert": "自分による種の修正を削除",
-      "chosen_by_you": "あなたが選んだ種"
-    }
+      "chosen_by_you": "あなたが選んだ種",
+      "pick": "種を選ぶ"
+    },
+    "entry_dismiss_mixed": "ここにあるキャプチャはレビュー状態が異なります。1件ずつ却下してください。"
   },
   "model_execution": {
     "completed": "最後に完了した実行：{device} · {time}",

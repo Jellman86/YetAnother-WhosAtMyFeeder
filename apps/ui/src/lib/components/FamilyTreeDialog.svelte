@@ -21,10 +21,12 @@
     interface Props {
         /** The bird's lineage, root first, as the lineage route returns it. */
         lineage: Taxon[];
+        /** A Garden animal: what is seen here counts bird visits, so the tree does not claim it. */
+        subject?: 'bird' | 'animal';
         onclose: () => void;
     }
 
-    let { lineage, onclose }: Props = $props();
+    let { lineage, subject = 'bird', onclose }: Props = $props();
 
     type Mode = 'tree' | 'fan' | 'outline';
     const MODE_KEY = 'yawamf_family_tree_mode';
@@ -161,6 +163,7 @@
     }
 
     function seenText(taxon: Taxon): string | null {
+        if (subject === 'animal') return null;
         if (taxon.rank === 'species') {
             return (taxon.seen_count ?? 0) > 0
                 ? $_('taxonomy.captures_here', { values: { count: taxon.seen_count }, default: '{count} captures here' })
@@ -176,7 +179,11 @@
         const parts = [taxonLabel(item.taxon), $_(`taxonomy.rank.${item.taxon.rank}`, { default: item.taxon.rank })];
         const seen = seenText(item.taxon);
         if (seen) parts.push(seen);
-        if (item.current) parts.push($_('taxonomy.this_bird', { default: 'this bird' }));
+        if (item.current) {
+            parts.push(subject === 'animal'
+                ? $_('taxonomy.this_animal', { default: 'this animal' })
+                : $_('taxonomy.this_bird', { default: 'this bird' }));
+        }
         return parts.join(', ');
     }
 
@@ -285,8 +292,12 @@
         </header>
 
         <div class="flex flex-wrap gap-x-4 gap-y-1 px-4 pt-2 text-2xs text-slate-500 dark:text-slate-400 sm:px-6">
-            <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-400 align-middle"></span>{$_('taxonomy.legend_path', { default: 'Path to this bird' })}</span>
-            <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 align-middle"></span>{$_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
+            <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-amber-400 align-middle"></span>{subject === 'animal'
+                ? $_('taxonomy.legend_path_animal', { default: 'Path to this animal' })
+                : $_('taxonomy.legend_path', { default: 'Path to this bird' })}</span>
+            {#if subject === 'bird'}
+                <span><span class="mr-1 inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 align-middle"></span>{$_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
+            {/if}
             <span>{$_('taxonomy.legend_open', { default: 'Select a group to open or close it' })}</span>
         </div>
 
@@ -393,12 +404,14 @@
             {#if failed}
                 <span class="mr-2 font-semibold text-amber-700 dark:text-amber-300">{$_('taxonomy.branch_failed', { default: 'Part of the tree could not load. Open it again to retry.' })}</span>
             {/if}
-            {$_('taxonomy.source_note', { default: 'Classification from the IOC World Bird List for birds and the Catalogue of Life above them. It shows how species are grouped, not when they diverged.' })}
+            {subject === 'animal'
+                ? $_('taxonomy.source_note_animal', { default: 'Classification from the SpeciesNet taxonomy for Garden animals. It shows how species are grouped, not when they diverged.' })
+                : $_('taxonomy.source_note', { default: 'Classification from the IOC World Bird List for birds and the Catalogue of Life above them. It shows how species are grouped, not when they diverged.' })}
         </footer>
     </div>
 </div>
 
-<TaxonCard {peek} />
+<TaxonCard {peek} {subject} />
 
 
 <style>

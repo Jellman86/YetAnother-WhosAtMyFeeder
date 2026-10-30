@@ -19,7 +19,7 @@ from typing import Mapping, Optional
 
 import structlog
 
-from app.services.species_names import DEFAULT_LANGUAGE, normalize_language
+from app.services.species_names import DEFAULT_LANGUAGE, normalize_language, vernacular_case
 
 log = structlog.get_logger()
 
@@ -45,6 +45,19 @@ class Taxon:
     #: Species beneath this taxon (or this species itself) with a detection here, and how many detections.
     seen_species: Optional[int] = None
     seen_count: Optional[int] = None
+
+
+def _display_name(name: Optional[str], scientific_name: str) -> Optional[str]:
+    """A common name as a reader should see it.
+
+    SpeciesNet calls a genus "<genus> species", a placeholder for an unidentified member
+    rather than a name; the genus reads better as itself.
+    """
+    if not name:
+        return None
+    if scientific_name and name.casefold() == f"{scientific_name} species".casefold():
+        return None
+    return name
 
 
 def _with_seen(taxon: "Taxon", seen: Optional[dict[int, tuple[int, int]]]) -> "Taxon":
@@ -79,11 +92,13 @@ class TaxonomyTree:
         placeholders = ",".join("?" * len(ids))
         found: dict[int, dict[str, str]] = {}
         for row in connection.execute(
-            f"SELECT species_id, language_tag, name FROM species_names"
+            f"SELECT species_id, language_tag, name, provider FROM species_names"
             f" WHERE species_id IN ({placeholders}) AND language_tag IN (?, ?)",
             [*ids, language, DEFAULT_LANGUAGE],
         ):
-            found.setdefault(int(row["species_id"]), {})[str(row["language_tag"])] = str(row["name"])
+            # SpeciesNet names its taxa in lowercase; other sources' casing is their own.
+            name = vernacular_case(str(row["name"])) if row["provider"] == "google-speciesnet" else str(row["name"])
+            found.setdefault(int(row["species_id"]), {})[str(row["language_tag"])] = name
         for row in connection.execute(
             f"SELECT species_id, language_tag, name FROM species_name_overrides WHERE species_id IN ({placeholders})",
             ids,
@@ -205,7 +220,9 @@ class TaxonomyTree:
                     taxon_id=int(row["species_id"]),
                     rank=str(row["rank"]),
                     scientific_name=concepts.get(int(row["species_id"]), ("", ""))[0],
-                    name=names.get(int(row["species_id"])),
+                    name=_display_name(
+                        names.get(int(row["species_id"])), concepts.get(int(row["species_id"]), ("", ""))[0]
+                    ),
                     source=concepts.get(int(row["species_id"]), ("", None))[1],
                     principal=str(row["rank"]) in PRINCIPAL_RANKS,
                     parent_id=row["parent_species_id"],
@@ -251,7 +268,9 @@ class TaxonomyTree:
                     taxon_id=int(row["species_id"]),
                     rank=str(row["rank"]),
                     scientific_name=concepts.get(int(row["species_id"]), ("", ""))[0],
-                    name=names.get(int(row["species_id"])),
+                    name=_display_name(
+                        names.get(int(row["species_id"])), concepts.get(int(row["species_id"]), ("", ""))[0]
+                    ),
                     source=concepts.get(int(row["species_id"]), ("", None))[1],
                     principal=str(row["rank"]) in PRINCIPAL_RANKS,
                     parent_id=row["parent_species_id"],

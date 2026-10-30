@@ -131,3 +131,72 @@ def test_catalogue_migration_roundtrip_reuses_durable_species_and_model_identiti
     with sqlite3.connect(catalogue.path) as db:
         assert db.execute("PRAGMA foreign_key_check").fetchall() == []
         assert db.execute("SELECT COUNT(*) FROM model_artifacts").fetchone() == (2,)
+
+
+def _ranks_up(path, species_id):
+    with sqlite3.connect(path) as db:
+        return db.execute(
+            """WITH RECURSIVE lineage(id,parent,rank) AS (
+            SELECT species_id,parent_species_id,rank FROM species WHERE species_id=? UNION ALL
+            SELECT s.species_id,s.parent_species_id,s.rank FROM species s JOIN lineage l ON s.species_id=l.parent)
+            SELECT rank FROM lineage""",
+            (species_id,),
+        ).fetchall()
+
+
+def _existing_species_without_parent(path, species_id, scientific_name):
+    with sqlite3.connect(path) as db:
+        db.execute("INSERT INTO species(species_id,rank,status) VALUES (?,'species','accepted')", (species_id,))
+        db.execute(
+            "INSERT INTO species_concepts(species_id,provider,provider_taxon_id,source_release,scientific_name) "
+            "VALUES (?,'catalogue-of-life',?,'COL26.7',?)",
+            (species_id, str(species_id), scientific_name),
+        )
+
+
+def test_existing_species_without_a_parent_joins_its_garden_lineage(catalogue):
+    _existing_species_without_parent(catalogue.path, 123, "Vulpes vulpes")
+    catalogue.initialize()
+    assert _ranks_up(catalogue.path, 123) == [
+        ("species",),
+        ("genus",),
+        ("family",),
+        ("order",),
+        ("class",),
+        ("kingdom",),
+    ]
+
+
+def test_an_initialised_catalogue_repairs_a_missing_parent_on_the_next_start(catalogue):
+    catalogue.initialize()
+    bundle = catalogue.load()
+    fox = next(t for t in bundle["taxonomy"] if t["ranks"][3:] == ["vulpes", "vulpes"])
+    fox_id = bundle["bindings"][fox["id"]]
+    with sqlite3.connect(catalogue.path) as db:
+        db.execute("UPDATE species SET parent_species_id=NULL WHERE species_id=?", (fox_id,))
+    catalogue.initialize()
+    assert _ranks_up(catalogue.path, fox_id)[:2] == [("species",), ("genus",)]
+    assert catalogue.load() == bundle
+
+
+def test_an_existing_parent_is_never_rewritten(catalogue):
+    _existing_species_without_parent(catalogue.path, 123, "Vulpes vulpes")
+    with sqlite3.connect(catalogue.path) as db:
+        db.execute("INSERT INTO species(species_id,rank,status) VALUES (900,'genus','accepted')")
+        db.execute("UPDATE species SET parent_species_id=900 WHERE species_id=123")
+    catalogue.initialize()
+    with sqlite3.connect(catalogue.path) as db:
+        assert db.execute("SELECT parent_species_id FROM species WHERE species_id=123").fetchone() == (900,)
+
+
+def test_a_garden_animal_lineage_reads_with_cased_names_and_no_placeholder_genus_name(catalogue):
+    from app.services.taxonomy_tree import TaxonomyTree
+
+    catalogue.initialize()
+    bundle = catalogue.load()
+    fox = next(t for t in bundle["taxonomy"] if t["ranks"][3:] == ["vulpes", "vulpes"])
+    lineage = TaxonomyTree(catalogue.path).lineage(bundle["bindings"][fox["id"]], language="en")
+    labels = {taxon.rank: (taxon.scientific_name, taxon.name) for taxon in lineage}
+    assert labels["class"] == ("Mammalia", "Mammal")
+    assert labels["genus"] == ("Vulpes", None)
+    assert labels["species"] == ("Vulpes vulpes", "Red Fox")

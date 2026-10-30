@@ -6,7 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-- Confirmed Garden captures can be renamed with **Change species**, including
+- Garden records now follow the bird record. The family tree and species summary
+  sit above the decisions, which share one row (**Confirm {name}**, **Pick a
+  different species**, **Discard identification** and so on). The bird record's
+  crossed-out eye now dismisses the whole Garden entry (visit, stack or single
+  capture), and one capture is dismissed beside its photo, instead of a stack of
+  full-width dismiss buttons with explanations.
+
+- Garden animals now show their family tree. 176 SpeciesNet species that
+  the catalogue already held without higher ranks (including the red fox,
+  European hedgehog and domestic cat) are linked to their genus, family, order
+  and class at startup; existing parents are never changed. SpeciesNet names in
+  the tree are cased like other names, and a genus shows its scientific name
+  rather than "vulpes species". An animal's tree makes no worldwide or
+  seen-at-this-feeder claims, since those counts are birds'.
+
+- Confirmed Garden captures can be renamed with **Pick a different species**, including
   captures whose original photograph has expired. Choose a species from the local
   Garden catalogue; the owner correction is shown without a model confidence and
   visits regroup by its identity. The original prediction, crop and execution

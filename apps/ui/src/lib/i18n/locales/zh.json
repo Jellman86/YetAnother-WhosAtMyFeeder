@@ -3700,7 +3700,10 @@
     "reference_photo": "参考照片",
     "no_reference_photo": "没有参考照片",
     "not_seen_here": "此喂食器尚未观察到",
-    "group_summary": "全球 {total} 个物种，此处已见 {seen} 个"
+    "group_summary": "全球 {total} 个物种，此处已见 {seen} 个",
+    "this_animal": "这只动物",
+    "legend_path_animal": "通往这只动物的路径",
+    "source_note_animal": "花园动物的分类来自 SpeciesNet 分类体系。它显示物种如何归类，而不是何时分化。"
   },
   "garden": {
     "check_photo": "检查照片",
@@ -3767,8 +3770,6 @@
     "previous_photo": "上一张照片",
     "photo_count": "第{index}张，共{count}张",
     "next_photo": "下一张照片",
-    "group_review": "审核这组照片",
-    "group_dismiss_help": "先确认有动物的照片，再忽略本组剩余的照片。已确认的照片会保留，未来的抓拍不受影响。",
     "group_dismiss": "忽略剩余的 {count} 张照片",
     "confidence": "动物候选阈值",
     "confidence_help": "较高的值会减少候选，但可能漏掉动物。仅适用于新的动态照片；鸟类检测和人物隐私检查不变。",
@@ -3809,7 +3810,6 @@
       "species_heading": "物种",
       "confirm_needs_photo": "只有在显示照片时才能确认动物。",
       "confirm_name": "确认为 {name}",
-      "dismiss_effect": "驳回后它不再算作动物。只要照片还在，它会留在 花园访客，已驳回 中。",
       "total": "{count, plural, other {# 条花园拍摄}}",
       "count_on_page": "{count, plural, other {本页 # 条花园拍摄}}",
       "subjects_birds": "鸟类",
@@ -3835,7 +3835,6 @@
       "group_photos": "{count} 张照片，同一位置",
       "dismissed_title": "已驳回的拍摄",
       "state_dismissed": "已驳回，不算作动物",
-      "check_effect": "仅就这张照片询问裁剪模型。不会保存任何内容；决定仍由你做出。",
       "check_needs_model": "照片检查需要自动检查模型。请在 设置 → 测试版功能 的花园模型中下载。",
       "identify_runs_on": "新的手动建议：在 {device} 上运行 SpeciesNet {variant}。建议仍需您确认。",
       "model_and_device": "模型和设备",
@@ -3860,7 +3859,6 @@
       "show_photo": "显示第 {index} 张照片，共 {count} 张，{time}",
       "earlier_photos": "上一批照片",
       "later_photos": "更多照片",
-      "manual_suggestion_help": "使用您的检测设置为这张照片请求新的物种建议。请先审核再确认。",
       "about_species": "关于{species}",
       "detail_country": "位置规则",
       "detail_input": "模型输入",
@@ -3887,7 +3885,6 @@
       "whole_image": "根据整张照片命名，因此可能并非指某一只动物"
     },
     "visit_dismiss": "忽略本次到访的 {count} 张照片",
-    "visit_dismiss_help": "一起忽略这些照片。加载后已修改的记录和新增记录将保留。只要照片仍可用，就可以将忽略的记录退回待审核。",
     "visit_dismiss_limit": "超过 128 张照片的到访需要逐张忽略。",
     "visit_dismiss_reload": "一起忽略前，请重新加载本次到访的照片。",
     "visit_return": "将照片退回待审核",
@@ -3900,10 +3897,11 @@
       "matches": "匹配的动物物种",
       "scope": "仅更改此条记录。原始模型结果保留在“详情”中。",
       "save": "保存物种",
-      "change": "更改物种",
       "revert": "移除我的物种更正",
-      "chosen_by_you": "由你选择的物种"
-    }
+      "chosen_by_you": "由你选择的物种",
+      "pick": "选择物种"
+    },
+    "entry_dismiss_mixed": "这里的捕获处于不同的审核状态。请逐个忽略。"
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

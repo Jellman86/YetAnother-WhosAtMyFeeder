@@ -3700,7 +3700,10 @@
     "reference_photo": "Foto di riferimento",
     "no_reference_photo": "Nessuna foto di riferimento",
     "not_seen_here": "Non ancora visto a questa mangiatoia",
-    "group_summary": "{total} specie nel mondo, {seen} viste qui"
+    "group_summary": "{total} specie nel mondo, {seen} viste qui",
+    "this_animal": "questo animale",
+    "legend_path_animal": "Percorso fino a questo animale",
+    "source_note_animal": "Classificazione dalla tassonomia SpeciesNet per gli animali del giardino. Mostra come sono raggruppate le specie, non quando si sono separate."
   },
   "garden": {
     "check_photo": "Controlla foto",
@@ -3767,8 +3770,6 @@
     "previous_photo": "Foto precedente",
     "photo_count": "Foto {index} di {count}",
     "next_photo": "Foto successiva",
-    "group_review": "Esamina questa pila",
-    "group_dismiss_help": "Conferma prima le foto con animali, poi scarta le altre foto di questa pila. Le foto confermate vengono conservate; le acquisizioni future non cambiano.",
     "group_dismiss": "Scarta le {count} foto rimanenti",
     "confidence": "Soglia delle proposte di animali",
     "confidence_help": "Valori più alti riducono le proposte ma possono perdere animali. Si applica solo alle nuove foto di movimento; il rilevamento degli uccelli e la tutela delle persone restano invariati.",
@@ -3809,7 +3810,6 @@
       "species_heading": "Specie",
       "confirm_needs_photo": "Un animale si può confermare solo mentre la sua foto è visibile.",
       "confirm_name": "Conferma {name}",
-      "dismiss_effect": "Scartarla la toglie dagli animali. Resta in Visitatori del giardino, Scartate finché dura la sua foto.",
       "total": "{count, plural, one {# cattura del giardino} other {# catture del giardino}}",
       "count_on_page": "{count, plural, one {# cattura del giardino in questa pagina} other {# catture del giardino in questa pagina}}",
       "subjects_birds": "Uccelli",
@@ -3835,7 +3835,6 @@
       "group_photos": "{count} foto, stessa posizione",
       "dismissed_title": "Cattura scartata",
       "state_dismissed": "Scartata, non conta come animale",
-      "check_effect": "Interroga il modello del ritaglio solo su questa foto. Non viene salvato nulla; la decisione resta tua.",
       "check_needs_model": "I controlli delle foto richiedono il modello di controllo automatico. Scaricalo in Modelli del giardino, in Impostazioni → Funzioni beta.",
       "identify_runs_on": "Nuovo suggerimento manuale: SpeciesNet {variant} su {device}. Il suggerimento richiede ancora la tua conferma.",
       "model_and_device": "Modello e dispositivo",
@@ -3860,7 +3859,6 @@
       "show_photo": "Mostra foto {index} di {count}, {time}",
       "earlier_photos": "Foto precedenti",
       "later_photos": "Altre foto",
-      "manual_suggestion_help": "Richiede un nuovo suggerimento di specie per questa foto usando le impostazioni di Rilevamento. Controllalo prima di confermare.",
       "about_species": "Informazioni su {species}",
       "detail_country": "Regola di posizione",
       "detail_input": "Input del modello",
@@ -3887,7 +3885,6 @@
       "whole_image": "Denominato dall’intera foto, quindi potrebbe non riferirsi a un solo animale"
     },
     "visit_dismiss": "Scarta {count} acquisizioni di questa visita",
-    "visit_dismiss_help": "Scarta queste acquisizioni insieme. Quelle modificate dopo il caricamento e quelle successive vengono conservate. Le foto scartate possono tornare in revisione finché sono disponibili.",
     "visit_dismiss_limit": "Le visite con più di 128 acquisizioni devono essere scartate una acquisizione alla volta.",
     "visit_dismiss_reload": "Ricarica le acquisizioni di questa visita prima di scartarle insieme.",
     "visit_return": "Riporta le acquisizioni in revisione",
@@ -3900,10 +3897,11 @@
       "matches": "Specie animali corrispondenti",
       "scope": "Modifica solo questa acquisizione. Il risultato originale del modello resta in Dettagli.",
       "save": "Salva specie",
-      "change": "Cambia specie",
       "revert": "Rimuovi la mia correzione della specie",
-      "chosen_by_you": "Specie scelta da te"
-    }
+      "chosen_by_you": "Specie scelta da te",
+      "pick": "Scegli una specie"
+    },
+    "entry_dismiss_mixed": "Le catture qui hanno stati di revisione diversi. Scartale una alla volta."
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",

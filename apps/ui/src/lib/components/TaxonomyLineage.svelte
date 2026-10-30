@@ -8,15 +8,17 @@
     import TaxonCard from './TaxonCard.svelte';
 
     /**
-     * Where this bird belongs, in a line from its class down to it, with one line of context and
-     * the way into the full family tree. Quiet when the catalogue does not know the bird: nothing
-     * is shown rather than a gap that looks like an error.
+     * Where this bird or animal belongs, in a line from its class down to it, with one line of
+     * context and the way into the full family tree. Quiet when the catalogue does not know it:
+     * nothing is shown rather than a gap that looks like an error.
      */
     interface Props {
         scientificName: string;
+        /** A Garden animal: the catalogue holds only the model's animals and the counts are birds'. */
+        subject?: 'bird' | 'animal';
     }
 
-    let { scientificName }: Props = $props();
+    let { scientificName, subject = 'bird' }: Props = $props();
 
     let lineage = $state.raw<Taxon[] | null>(null);
     let loading = $state(true);
@@ -99,7 +101,7 @@
                 </li>
             {/each}
         </ol>
-        {#if family && family.species_count}
+        {#if subject === 'bird' && family && family.species_count}
             <p class="text-xs text-slate-500 dark:text-slate-400" data-taxonomy-lineage-context>
                 {$_('taxonomy.context', {
                     values: { group: taxonLabel(family), total: family.species_count, seen: family.seen_species ?? 0 },
@@ -116,8 +118,8 @@
     </section>
 {/if}
 
-<TaxonCard {peek} />
+<TaxonCard {peek} {subject} />
 
 {#if open && lineage}
-    <FamilyTreeDialog {lineage} onclose={() => (open = false)} />
+    <FamilyTreeDialog {lineage} {subject} onclose={() => (open = false)} />
 {/if}

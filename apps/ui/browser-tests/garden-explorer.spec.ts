@@ -323,7 +323,12 @@ test('confirmed visit dismissal sends only the displayed review snapshots and of
     await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
     await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
     const dialog = page.locator('[data-garden-capture-modal]');
-    await dialog.getByRole('button', { name: 'Dismiss 2 captures in this visit' }).click();
+    // The hide control dismisses the whole visit, as a bird's does; one capture is dismissed beside its photo.
+    const bottomRow = dialog.locator('[data-garden-capture-bottom-actions]');
+    await expect(bottomRow.getByRole('button')).toHaveCount(1);
+    await expect(dialog.locator('[data-garden-capture-group]').getByRole('button', { name: 'Dismiss capture', exact: true })).toBeVisible();
+    await expect(dialog).not.toContainText('Dismiss these captures together');
+    await bottomRow.getByRole('button', { name: 'Dismiss 2 captures in this visit' }).click();
     try {
         await expect(dialog).toHaveAttribute('aria-busy', 'true');
         await page.keyboard.press('Escape');
@@ -416,6 +421,8 @@ for (const width of [390, 1280]) {
         await expect(identity.locator('[data-garden-species-reference]')).toBeVisible();
         await expect(dialog.locator('[data-garden-capture-status]')).toHaveText('Confirmed and named automatically');
         await expect(dialog.locator('[data-taxonomy-ladder]')).toContainText('Canidae');
+        // The catalogue holds only the model's animals and its counts are bird visits: no worldwide or feeder claim.
+        await expect(dialog.locator('[data-taxonomy-lineage-context]')).toHaveCount(0);
         await expect(dialog.locator('[data-garden-species-info]')).toContainText('largest of the true foxes');
         expect(speciesReads).toContain('Red fox');
 
@@ -435,7 +442,8 @@ for (const width of [390, 1280]) {
         // Captures seconds apart are told apart by their seconds.
         const times = await dialog.locator('[data-garden-capture-choice] span').allInnerTexts();
         expect(new Set(times).size).toBe(2);
-        await expect(dialog.locator('[data-garden-capture-dismiss]')).toHaveClass(/btn-ghost/);
+        await expect(dialog.locator('[data-garden-capture-bottom-actions] [data-garden-entry-dismiss="visit"]')).toBeVisible();
+        await expect(dialog.locator('[data-garden-capture-group] [data-garden-capture-dismiss]')).toBeVisible();
 
         await page.screenshot({ path: testInfo.outputPath(`garden-record-${width}.png`), fullPage: true });
         if (shots) await page.screenshot({ path: `${shots}/garden-record-parity-${width}.png` });
@@ -498,7 +506,7 @@ for (const width of [320, 1280]) {
         await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
         await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
         const dialog = page.getByRole('dialog');
-        await dialog.getByRole('button', { name: 'Change species', exact: true }).click();
+        await dialog.getByRole('button', { name: 'Pick a different species', exact: true }).click();
         const picker = dialog.locator('[data-garden-species-picker]');
         await expect(picker.getByRole('button', { name: 'Save species', exact: true })).toBeDisabled();
         await picker.getByRole('textbox', { name: 'Search animal species' }).fill('Felis');
@@ -530,11 +538,45 @@ test('a stale correction reports the conflict and preserves the selected species
     await page.route(`**/api/garden/${garden[0].id}/species**`, route => route.fulfill({ status: 409, json: { detail: 'This capture changed. Refresh it before changing its species.' } }));
     await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Change species', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Pick a different species', exact: true }).click();
     await dialog.getByRole('textbox', { name: 'Search animal species' }).fill('Felis');
     await dialog.getByRole('button', { name: 'Domestic Cat Felis catus' }).click();
     await dialog.getByRole('button', { name: 'Save species', exact: true }).click();
     await expect(dialog).toContainText('This capture changed. Refresh it before changing its species.');
     await expect(dialog.getByRole('textbox', { name: 'Search animal species' })).toHaveValue('Domestic Cat');
     await expect(dialog.getByRole('heading', { name: 'Red fox', exact: true, level: 3 })).toBeVisible();
+});
+
+test("an animal's family tree follows its lineage and makes no bird-feeder claims", async ({ page }) => {
+    const { garden, errors } = await openExplorer(page, '&garden=1', true);
+    Object.assign(garden[0], { scientific_name: 'Vulpes vulpes' });
+    const lineage = [
+        { taxon_id: 1, rank: 'kingdom', scientific_name: 'Animalia', name: 'Animal', principal: true, parent_id: null },
+        { taxon_id: 2, rank: 'class', scientific_name: 'Mammalia', name: 'Mammal', principal: true, parent_id: 1, seen_species: 0, seen_count: 0 },
+        { taxon_id: 3, rank: 'order', scientific_name: 'Carnivora', name: 'Carnivorous Mammal', principal: true, parent_id: 2, seen_species: 0 },
+        { taxon_id: 4, rank: 'family', scientific_name: 'Canidae', name: 'Canine Family', principal: true, parent_id: 3, species_count: 12, seen_species: 0 },
+        { taxon_id: 5, rank: 'genus', scientific_name: 'Vulpes', name: null, principal: true, parent_id: 4, seen_species: 0 },
+        { taxon_id: 6, rank: 'species', scientific_name: 'Vulpes vulpes', name: 'Red Fox', principal: true, parent_id: 5, seen_count: 0 }
+    ];
+    await page.route('**/api/taxonomy/lineage?*', route => route.fulfill({ json: { lineage } }));
+    await page.route(/\/api\/taxonomy\/\d+\/children/, route => {
+        const parent = Number(new URL(route.request().url()).pathname.split('/')[3]);
+        return route.fulfill({ json: { parent_id: parent, children: lineage.filter(taxon => taxon.parent_id === parent) } });
+    });
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const dialog = page.locator('[data-garden-capture-modal]');
+    const ladder = dialog.locator('[data-taxonomy-ladder]');
+    await expect(ladder).toContainText('Mammal');
+    await expect(ladder).toContainText('Vulpes');
+    await expect(dialog.locator('[data-taxonomy-lineage-context]')).toHaveCount(0);
+
+    await dialog.locator('[data-taxonomy-open-tree]').click();
+    const tree = page.locator('[data-family-tree]');
+    await expect(tree).toContainText('Path to this animal');
+    await expect(tree).toContainText('SpeciesNet taxonomy');
+    await expect(tree).not.toContainText('Seen at this feeder');
+    await expect(tree).not.toContainText('IOC World Bird List');
+    if (shots) await page.screenshot({ path: `${shots}/garden-family-tree.png` });
+    expect(errors).toEqual([]);
 });
