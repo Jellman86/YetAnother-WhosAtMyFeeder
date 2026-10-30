@@ -689,7 +689,7 @@
                                                 ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
                                                 : sourceValue}
                                         >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-700 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
                                             <span class="min-w-0 flex-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
                                             <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                         </button>

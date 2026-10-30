@@ -15,6 +15,7 @@
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     let { capture, visit, scope, onopen, oncapture, onplay }: {
         capture: GardenCapture;
@@ -40,24 +41,18 @@
     const day = $derived(relativeDayLabel(capture.observed_at, $_));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
-    const scoreTone = $derived(
-        (view.score ?? 0) < 0.6
-            ? 'text-amber-800 dark:text-amber-300'
-            : (view.score ?? 0) < 0.85
-              ? 'text-brand-700 dark:text-brand-300'
-              : 'text-success-700 dark:text-success-300'
-    );
+    const scoreTone = $derived(SCORE_TEXT[scoreBand(view.score)]);
     const openLabel = $derived(
         $_('garden.explorer.open', { values: { subject: `${text.title}, ${formatTime(capture.observed_at)}` }, default: 'Open Garden capture: {subject}' })
     );
 </script>
 
 <div
-    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-amber-500/10' : ''}"
+    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/10' : ''}"
     data-garden-row={capture.status}
 >
     {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-amber-500" aria-hidden="true"></span>
+        <span class="absolute inset-y-0 left-0 w-[3px] bg-attention-500" aria-hidden="true"></span>
     {/if}
     <!-- The whole row opens the record, where the photograph is shown at the size the decision needs. -->
     <button
@@ -89,7 +84,7 @@
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if detail.showState}
-                <span class="shrink-0 {view.review ? 'text-amber-800 dark:text-amber-300' : ''}">{text.state}</span>
+                <span class="shrink-0 {view.review ? 'text-attention-800 dark:text-attention-300' : ''}">{text.state}</span>
             {:else if detail.scientific}
                 <span class="min-w-0 truncate italic" data-garden-row-scientific>{detail.scientific}</span>
             {/if}

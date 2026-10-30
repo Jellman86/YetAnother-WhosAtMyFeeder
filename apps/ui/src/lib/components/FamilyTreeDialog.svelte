@@ -278,7 +278,7 @@
                     {#each [['tree', $_('taxonomy.layout_tree', { default: 'Tree' })], ['fan', $_('taxonomy.layout_fan', { default: 'Fan' })], ['outline', $_('taxonomy.layout_outline', { default: 'Outline' })]] as [value, text] (value)}
                         <button
                             type="button"
-                            class="px-3 py-1.5 text-xs font-semibold transition-colors {mode === value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'}"
+                            class="px-3 py-1.5 text-xs font-semibold transition-colors {mode === value ? 'bg-brand-700 text-white' : 'bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800'}"
                             aria-pressed={mode === value}
                             onclick={() => setMode(value as Mode)}
                             data-family-tree-mode={value}

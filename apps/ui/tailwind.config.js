@@ -61,6 +61,22 @@ export default {
                     900: 'rgb(var(--success-900) / <alpha-value>)',
                     950: 'rgb(var(--success-950) / <alpha-value>)',
                 },
+                // Semantic attention: amber for "this needs a person", in every theme.
+                // Not theme-driven for the same reason as success: classic paints
+                // `accent` emerald, which read waiting work as healthy (layout-patterns.md §1.3).
+                attention: {
+                    50: 'rgb(var(--attention-50) / <alpha-value>)',
+                    100: 'rgb(var(--attention-100) / <alpha-value>)',
+                    200: 'rgb(var(--attention-200) / <alpha-value>)',
+                    300: 'rgb(var(--attention-300) / <alpha-value>)',
+                    400: 'rgb(var(--attention-400) / <alpha-value>)',
+                    500: 'rgb(var(--attention-500) / <alpha-value>)',
+                    600: 'rgb(var(--attention-600) / <alpha-value>)',
+                    700: 'rgb(var(--attention-700) / <alpha-value>)',
+                    800: 'rgb(var(--attention-800) / <alpha-value>)',
+                    900: 'rgb(var(--attention-900) / <alpha-value>)',
+                    950: 'rgb(var(--attention-950) / <alpha-value>)',
+                },
                 // Page ground for full-screen states (the setup wizard, the backend status screen).
                 surface: {
                     light: '#f8fafc',

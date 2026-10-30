@@ -53,6 +53,13 @@ html[data-theme='dark'] {
   --success-300: 110 231 183;--success-400: 52 211 153; --success-500: 16 185 129;
   --success-600: 5 150 105;  --success-700: 4 120 87;   --success-800: 6 95 70;
   --success-900: 6 78 59;    --success-950: 2 44 34;
+
+  /* Attention is the amber that says "this needs a person", in every theme.
+     A theme may repaint --accent-*; it may not repaint attention. */
+  --attention-50: 255 251 235; --attention-100: 254 243 199; --attention-200: 253 230 138;
+  --attention-300: 252 211 77; --attention-400: 251 191 36;  --attention-500: 245 158 11;
+  --attention-600: 217 119 6;  --attention-700: 180 83 9;    --attention-800: 146 64 14;
+  --attention-900: 120 53 15;  --attention-950: 69 26 3;
 }
 
 html.theme-bluetit {
@@ -526,8 +533,11 @@ html.high-contrast.high-contrast.high-contrast {
   /* Yellow text for emphasis */
 }
 
+/* Chosen-state fills moved from brand-500 to brand-700 for contrast under white text; they keep
+   the same high-contrast treatment. */
 .high-contrast .bg-teal-500,
 .high-contrast .bg-brand-500,
+.high-contrast .bg-brand-700,
 .high-contrast .bg-indigo-500 {
   background-color: #ffff00 !important;
   color: #000000 !important;

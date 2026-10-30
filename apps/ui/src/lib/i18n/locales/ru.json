@@ -3577,7 +3577,32 @@
     "system_ram_usage": "Использование ОЗУ системы",
     "circuit_open_detail": "В очереди ожидает {queued} элементов. Недавних сбоев: {failures}.",
     "more_lanes": "+{count} дополнительных линий работы",
-    "kind_favorite_archive": "Архив избранного"
+    "kind_favorite_archive": "Архив избранного",
+    "status": {
+      "running": "Выполняется",
+      "processing": "Обрабатывается",
+      "queued": "В очереди",
+      "recovering": "Восстанавливается",
+      "elevated": "Повышенная нагрузка",
+      "warning": "Предупреждение",
+      "degraded": "Снижена работоспособность",
+      "high": "Высокая нагрузка",
+      "critical": "Критично",
+      "error": "Ошибка",
+      "failing": "Сбоит",
+      "failed": "Сбой",
+      "open": "Открыто",
+      "ok": "Исправно",
+      "healthy": "Исправно",
+      "normal": "Обычно",
+      "idle": "Простаивает",
+      "clear": "Свободно",
+      "resolved": "Устранено",
+      "recovered": "Восстановлено",
+      "unknown": "Неизвестно"
+    },
+    "errors_no_reconnect_reason": "Не зафиксировано",
+    "errors_unknown_phase": "Неизвестный этап"
   },
   "errors": {
     "stack_trace": "Трассировка стека:"

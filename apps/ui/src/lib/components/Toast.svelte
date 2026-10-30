@@ -6,28 +6,22 @@
     const errorToasts = $derived(toastStore.toasts.filter((toast) => toast.type === 'error'));
     const statusToasts = $derived(toastStore.toasts.filter((toast) => toast.type !== 'error'));
 
-    function getIcon(type: Toast['type']) {
-        switch (type) {
-            case 'success':
-                return '✓';
-            case 'error':
-                return '✕';
-            case 'warning':
-                return '⚠';
-            case 'info':
-            default:
-                return 'i';
-        }
-    }
+    /** An outline path per toast type, drawn as an icon rather than a text glyph. */
+    const ICON_PATH: Record<Toast['type'], string> = {
+        success: 'm5 13 4 4L19 7',
+        error: 'M6 18 18 6M6 6l12 12',
+        warning: 'M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
+        info: 'M12 17v-6m0-4h.01'
+    };
 
     function getColorClasses(type: Toast['type']) {
         switch (type) {
             case 'success':
-                return 'bg-accent-700 border-accent-800';
+                return 'bg-success-700 border-success-800';
             case 'error':
                 return 'bg-red-700 border-red-800';
             case 'warning':
-                return 'bg-amber-700 border-amber-800';
+                return 'bg-attention-700 border-attention-800';
             case 'info':
             default:
                 return 'bg-brand-700 border-brand-800';
@@ -52,8 +46,10 @@
     >
         <div class="toast-row flex items-center gap-3 p-4">
             <!-- Icon -->
-            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold" aria-hidden="true">
-                {getIcon(toast.type)}
+            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center" data-toast-icon={toast.type}>
+                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d={ICON_PATH[toast.type]} />
+                </svg>
             </div>
 
             <!-- Message -->

@@ -122,15 +122,15 @@
     }
 
     const TONE_DOT: Record<string, string> = {
-        attention: 'bg-accent-500 border-accent-500',
+        attention: 'bg-attention-500 border-attention-500',
         running: 'bg-brand-500 border-brand-500',
-        done: 'bg-emerald-500 border-emerald-500',
+        done: 'bg-success-500 border-success-500',
         info: 'bg-slate-300 border-slate-300 dark:bg-slate-600 dark:border-slate-600'
     };
     const TONE_ICON: Record<string, string> = {
-        attention: 'text-accent-700 bg-accent-50 border-accent-200 dark:text-accent-300 dark:bg-accent-950/40 dark:border-accent-900',
+        attention: 'text-attention-800 bg-attention-50 border-attention-200 dark:text-attention-300 dark:bg-attention-950/40 dark:border-attention-900',
         running: 'text-brand-700 bg-brand-50 border-brand-200 dark:text-brand-300 dark:bg-brand-950/40 dark:border-brand-900',
-        done: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900',
+        done: 'text-success-700 bg-success-50 border-success-200 dark:text-success-300 dark:bg-success-950/40 dark:border-success-900',
         info: 'text-slate-500 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700'
     };
 </script>

@@ -21,6 +21,7 @@
         keyedPipelineDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
+    import { STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone } from '../utils/status-tone';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -297,57 +298,38 @@
         return Number.isFinite(parsed) ? parsed : 0;
     }
 
-    function asText(value: unknown, fallback = 'Unknown'): string {
+    function asText(value: unknown, fallback: string): string {
         if (typeof value !== 'string') return fallback;
         const trimmed = value.trim();
         return trimmed.length > 0 ? trimmed : fallback;
     }
 
     /**
-     * The hero carries the verdict, so the whole card takes the colour rather than
-     * a pill on a neutral ground. Green is healthy, amber is work waiting, rose is
-     * a failure, slate is a state we have not measured (layout-patterns 1.3, 1.5).
+     * The hero carries the verdict, so the whole card takes the colour rather than a pill on
+     * a neutral ground. The tones come from one helper: brand for work in flight, amber for a
+     * state a person should look at, rose for a failure, green for healthy and slate for a
+     * state we have not measured (layout-patterns 1.3, 1.5).
      */
     function heroToneClass(value: string): string {
-        const normalized = value.trim().toLowerCase();
-        if (['ok', 'healthy', 'normal'].includes(normalized)) {
-            return 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-800/50 dark:bg-emerald-950/30';
-        }
-        if (['degraded', 'warning', 'recovering', 'high'].includes(normalized)) {
-            // Literal amber, not the accent token: accent is emerald in the classic
-            // theme, which would paint a degraded instance green.
-            return 'border-amber-200/80 bg-amber-50/70 dark:border-amber-800/50 dark:bg-amber-950/30';
-        }
-        if (['critical', 'error', 'failing', 'failed'].includes(normalized)) {
-            return 'border-rose-200/80 bg-rose-50/70 dark:border-rose-800/50 dark:bg-rose-950/30';
-        }
-        return 'border-slate-200/80 bg-slate-50/70 dark:border-slate-700/60 dark:bg-slate-900/60';
+        return STATUS_SURFACE[statusTone(value)];
     }
 
     function toneClass(value: string): string {
-        const normalized = value.trim().toLowerCase();
-        if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
-            return 'border-brand-200/80 bg-brand-50 text-brand-700 dark:border-brand-800/60 dark:bg-brand-900/30 dark:text-brand-300';
-        }
-        if (['warning', 'degraded', 'high', 'recovering', 'queued', 'processing', 'running'].includes(normalized)) {
-            return 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200';
-        }
-        if (['critical', 'error', 'failing', 'failed', 'open'].includes(normalized)) {
-            return 'border-rose-200/80 bg-rose-50 text-rose-700 dark:border-rose-800/60 dark:bg-rose-950/30 dark:text-rose-200';
-        }
-        return 'border-slate-200/80 bg-slate-50 text-slate-700 dark:border-slate-700/60 dark:bg-slate-900/50 dark:text-slate-200';
+        return STATUS_PILL[statusTone(value)];
     }
 
-    function severityToneClass(severity: string): string {
-        return toneClass(severity);
+    /** A reported status in words, in sentence case; a word we do not know is shown as sent. */
+    function statusLabel(value: string): string {
+        const key = statusLabelKey(value);
+        return key ? $_(key, { default: value }) : value.trim();
     }
 
-    function overallStatusLabel(): string {
-        return asText(health?.status, 'Unknown');
+    function overallStatus(): string {
+        return asText(health?.status, 'unknown');
     }
 
     function overallSummary(): string {
-        const status = overallStatusLabel().toLowerCase();
+        const status = overallStatus().toLowerCase();
         if (status === 'ok' || status === 'healthy') {
             return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
         }
@@ -361,7 +343,7 @@
         if (!workspaceCapturedAt) return 'No recent workspace snapshot yet.';
         return $_('jobs.errors_latest_health', {
             values: {
-                status: overallStatusLabel(),
+                status: statusLabel(overallStatus()),
                 at: formatDateTime(workspaceCapturedAt)
             },
             default: 'Latest health: {status} at {at}'
@@ -369,7 +351,7 @@
     }
 
     function eventPipelineStatus(): string {
-        return eventPipelineVerdict(health?.event_pipeline, overallStatusLabel());
+        return eventPipelineVerdict(health?.event_pipeline, overallStatus());
     }
 
     function eventPipelineSummary(): string {
@@ -491,7 +473,7 @@
             return $_('jobs.errors_startup_ok', { default: 'No startup warnings are currently recorded.' });
         }
         const first = startupWarnings[0] ?? {};
-        const phase = asText((first as Record<string, unknown>).phase, 'unknown phase');
+        const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }));
         return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
     }
 
@@ -640,9 +622,9 @@
 
         {#snippet status()}
             <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(overallStatusLabel())}">
-                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-widest ${toneClass(overallStatusLabel())}`}>
-                        {overallStatusLabel()}
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(overallStatus())}">
+                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(overallStatus())}`} title={overallStatus()} data-health-status-pill>
+                        {statusLabel(overallStatus())}
                     </span>
                     <div class="min-w-0 flex-1">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
@@ -657,7 +639,7 @@
                 {/if}
                 {#if frigateMediaAdvisory.elevated}
                     <!-- ── Frigate media-unavailability advisory (Event Not Found guidance) ── -->
-                    <div class="rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                    <div class="rounded-2xl border border-attention-300/70 bg-attention-50/80 p-4 text-attention-900 dark:border-attention-500/40 dark:bg-attention-950/30 dark:text-attention-200">
                         <div class="flex items-start gap-3">
                             <div class="mt-0.5 shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -665,7 +647,7 @@
                                 </svg>
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
+                                <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
                                 <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
                                 <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-bold uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
                                     {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
@@ -680,7 +662,7 @@
         {#snippet details()}
         <!-- ── Subsystem detail ────────────────────────────────── -->
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
-            <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+            <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
                 <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
                 <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
@@ -696,8 +678,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{eventPipelineStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={eventPipelineStatus()}>{statusLabel(eventPipelineStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -720,7 +702,7 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
                             <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
@@ -765,14 +747,14 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">MQTT</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{mqttStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">MQTT</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
                             <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
                             <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_reconnects', { default: 'Reconnects' })}</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
-                            <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, 'None')}</span></div>
+                            <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' }))}</span></div>
                         </div>
                     </div>
                 </div>
@@ -788,8 +770,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{liveClassificationStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={liveClassificationStatus()}>{statusLabel(liveClassificationStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -812,8 +794,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{videoClassifierCard.status}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={videoClassifierCard.status}>{statusLabel(videoClassifierCard.status)}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -836,8 +818,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{backgroundStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={backgroundStatus()}>{statusLabel(backgroundStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -860,8 +842,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{dispatcherStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={dispatcherStatus()}>{statusLabel(dispatcherStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -884,8 +866,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{namingStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={namingStatus()}>{statusLabel(namingStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -926,8 +908,8 @@
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
-                            <h4 class="text-sm font-bold uppercase tracking-[0.18em]">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{startupStatus()}</span>
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={startupStatus()}>{statusLabel(startupStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
                         <div class="mt-4 space-y-2 text-xs font-semibold">
@@ -936,8 +918,8 @@
                             {:else}
                                 {#each startupWarnings.slice(0, 2) as warning}
                                     <div class="rounded-2xl bg-white/70 px-3 py-2 dark:bg-slate-950/40">
-                                        <p class="text-xs uppercase tracking-wider opacity-80">{asText((warning as Record<string, unknown>).phase, 'unknown phase')}</p>
-                                        <p class="mt-1">{asText((warning as Record<string, unknown>).error, 'Unknown warning')}</p>
+                                        <p class="text-xs uppercase tracking-wider opacity-80">{asText((warning as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }))}</p>
+                                        <p class="mt-1">{asText((warning as Record<string, unknown>).error, $_('jobs.errors_unknown_warning', { default: 'Unknown warning' }))}</p>
                                     </div>
                                 {/each}
                             {/if}
@@ -1015,8 +997,8 @@
                     {#each currentIssues as incident (incident.id)}
                         <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
                             <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
-                                    {incident.status}
+                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
+                                    {statusLabel(incident.status)}
                                 </span>
                                 <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                             </div>
@@ -1033,8 +1015,8 @@
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
                                     <div class="flex items-center justify-between gap-2">
-                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
-                                            {incident.status}
+                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
+                                            {statusLabel(incident.status)}
                                         </span>
                                         <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                                     </div>
@@ -1060,13 +1042,13 @@
             {:else}
                 <div class="space-y-3">
                     {#each backendEvents.slice(0, 8) as event (event.id)}
-                        <article class={`rounded-2xl border px-4 py-3 ${severityToneClass(event.severity ?? 'warning')}`}>
+                        <article class={`rounded-2xl border px-4 py-3 ${toneClass(event.severity ?? 'warning')}`}>
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-bold uppercase tracking-[0.2em]">
-                                        {event.severity}
+                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-bold" title={event.severity}>
+                                        {statusLabel(event.severity ?? 'warning')}
                                     </span>
-                                    <span class="text-xs font-bold uppercase tracking-[0.2em] opacity-80">
+                                    <span class="font-mono text-xs opacity-80">
                                         {event.component} · {event.reason_code}
                                     </span>
                                 </div>
