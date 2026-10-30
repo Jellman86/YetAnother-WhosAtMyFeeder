@@ -13,6 +13,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   dismissed captures, automatic check details and every review control stay
   owner-only.
 
+- The header camera viewer now includes Garden-only cameras when Garden animals
+  is on. It previously listed only bird cameras, so a camera watched just for
+  Garden animals could not be selected.
+
 - Explorer rows are more consistent between birds and Garden animals. A visit
   with several species shows a stack of its photos instead of a grey frame, and
   names each species in your language (for example Dunnock and Brown Rat)
