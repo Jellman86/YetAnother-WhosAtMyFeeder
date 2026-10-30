@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRetryablePageLoader } from './page-loader';
+import { lazyComponent } from './lazy-component';
 
-describe('createRetryablePageLoader', () => {
-    it('shares one in-flight and resolved page import', async () => {
+describe('lazyComponent', () => {
+    it('shares one in-flight and resolved import', async () => {
         const pageModule = { default: vi.fn() };
         const importer = vi.fn().mockResolvedValue(pageModule);
-        const load = createRetryablePageLoader(importer);
+        const load = lazyComponent(importer);
 
         const first = load();
         const second = load();
@@ -23,7 +23,7 @@ describe('createRetryablePageLoader', () => {
         const importer = vi.fn()
             .mockRejectedValueOnce(failure)
             .mockResolvedValueOnce(pageModule);
-        const load = createRetryablePageLoader(importer);
+        const load = lazyComponent(importer);
 
         await expect(load()).rejects.toBe(failure);
         await expect(load()).resolves.toBe(pageModule);

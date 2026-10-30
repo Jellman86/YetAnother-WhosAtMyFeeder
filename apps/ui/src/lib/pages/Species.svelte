@@ -26,7 +26,8 @@
         type SpeciesInfo
     } from '../api';
     import { chartjs, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
     import {
@@ -2296,10 +2297,11 @@
 
 <!-- Species Detail Modal -->
 {#if selectedSpecies}
-    <SpeciesDetailModal
-        speciesName={selectedSpecies}
-        onclose={() => selectedSpecies = null}
-    />
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 
 {#if checkStart !== null}

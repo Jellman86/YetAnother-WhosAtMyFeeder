@@ -1,6 +1,6 @@
 import { _, init, locale, register } from 'svelte-i18n';
 
-import { createRetryablePageLoader } from '../app/page-loader';
+import { lazyComponent } from '../app/lazy-component';
 
 const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'] as const;
 type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -38,7 +38,7 @@ function registerLocaleWithRetry(
     localeCode: SupportedLocale,
     importLocale: () => Promise<LocaleModule>
 ): void {
-    const loadLocale = createRetryablePageLoader(importLocale);
+    const loadLocale = lazyComponent(importLocale);
     const registeredLoader = async (): Promise<LocaleModule> => {
         try {
             return await loadLocale();

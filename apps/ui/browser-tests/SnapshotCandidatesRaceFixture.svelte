@@ -37,7 +37,6 @@
 
 <DetectionModal
     {detection}
-    classifierLabels={[]}
     llmReady={false}
     showVideoButton={false}
     onClose={() => {}}

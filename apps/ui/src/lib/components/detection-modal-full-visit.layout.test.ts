@@ -27,7 +27,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92');
         expect(detectionModalSource).not.toContain("<span>{$_('detection.frigate_badge', { default: 'Frigate' })}</span>");
 
-        expect(eventsPageSource).toContain('fullVisitAvailable={selectedEvent ?');
+        expect(eventsPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
         expect(eventsPageSource).toContain('selectedEventFullVisitHandler');
         expect(eventsPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
         expect(eventsPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');
@@ -35,7 +35,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(eventsPageSource).toContain("autoFetch: true");
         expect(dashboardPageSource).toContain("autoFetch: true");
 
-        expect(dashboardPageSource).toContain('fullVisitAvailable={selectedEvent ?');
+        expect(dashboardPageSource).toContain("fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}");
         expect(dashboardPageSource).toContain('selectedEventFullVisitHandler');
         expect(dashboardPageSource).toContain('onFetchFullVisit={selectedEventFullVisitHandler}');
         expect(dashboardPageSource).toContain('initialFullVisitPromoted={fullVisitFetchState[videoEventId] === \'ready\'}');

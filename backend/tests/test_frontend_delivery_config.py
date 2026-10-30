@@ -179,3 +179,48 @@ def test_monolith_compose_rotates_container_logs() -> None:
     assert 'max-size: "${CONTAINER_LOG_MAX_SIZE:-10m}"' in compose
     assert 'max-file: "${CONTAINER_LOG_MAX_FILES:-3}"' in compose
     assert "DB_PRE_MIGRATION_BACKUP_RETENTION=${DB_PRE_MIGRATION_BACKUP_RETENTION:-10}" in compose
+
+
+def _location_block(config: str, location: str) -> str:
+    block_start = config.index(location)
+    block_end = config.index("\n    }", block_start)
+    return config[block_start:block_end]
+
+
+@pytest.mark.parametrize("config_path", FRONTEND_NGINX_CONFIGS)
+def test_api_json_is_compressed_without_touching_streams_or_media(config_path: Path) -> None:
+    config = config_path.read_text(encoding="utf-8")
+
+    api = _location_block(config, "location /api/ {")
+    assert "gzip on;" in api
+    assert "gzip_vary on;" in api
+    # Behind a reverse proxy the request carries Via; nginx would otherwise skip compression.
+    assert "gzip_proxied any;" in api
+    assert "gzip_min_length 1024;" in api
+    assert "gzip_types application/json;" in api
+
+    # The label list is the largest JSON read and has its own buffered location.
+    media = _location_block(
+        config,
+        r"location ~ ^/api/(?:frigate/.+\.jpg|about/showcase/[^/]+\.jpg|"
+        r"audio/(?:clip|spectrogram)/[0-9]+|classifier/labels)$ {",
+    )
+    assert "gzip_types application/json;" in media
+
+    sse = _location_block(config, "location /api/sse {")
+    assert "gzip off;" in sse
+    assert "proxy_buffering off;" in sse
+    for streamed in (
+        r"location ~ ^/api/frigate/[^/]+/(?:hls|recording-hls)/[^/]+$ {",
+        r"location ~ ^/api/frigate/.+/clip\.mp4$ {",
+    ):
+        assert "gzip off;" in _location_block(config, streamed)
+
+    for line in config.splitlines():
+        if line.strip().startswith("gzip_types"):
+            assert "event-stream" not in line
+            assert "video/" not in line
+            assert "image/jpeg" not in line
+            assert "image/png" not in line
+            assert "audio/" not in line
+            assert "mpegurl" not in line
