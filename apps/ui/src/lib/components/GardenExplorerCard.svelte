@@ -15,6 +15,7 @@
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { formatDate, formatTime } from '../utils/datetime';
     import { relativeDayLabel } from '../utils/day-label';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
 
     let { capture, visit, scope, onopen, oncapture, onplay }: {
         capture: GardenCapture;
@@ -41,13 +42,12 @@
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
     const day = $derived(relativeDayLabel(capture.observed_at, $_) || formatDate(capture.observed_at));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
-    // The bird card's score dot bands, with confirmed in the success scale (layout-patterns 1.3).
-    const scoreDot = $derived((view.score ?? 0) >= 0.9 ? 'bg-success-500' : (view.score ?? 0) >= 0.7 ? 'bg-amber-500' : 'bg-red-500');
+    const scoreDot = $derived(SCORE_FILL[scoreBand(view.score)]);
 </script>
 
 <article
     class="group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-[border-color,box-shadow] duration-200 ease-out animate-entrance hover:border-brand-500/40 hover:shadow-md dark:bg-slate-800/75
-           {view.review ? 'border-amber-500/60' : 'border-slate-200/80 dark:border-slate-700/60'}"
+           {view.review ? 'border-attention-500/60' : 'border-slate-200/80 dark:border-slate-700/60'}"
     data-garden-card={capture.status}
 >
     <button
@@ -101,7 +101,7 @@
                     type="button"
                     onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
                     aria-label={$_('detection.play_video', { values: { species: text.title } })}
-                    class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     data-garden-card-play
                 >
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
@@ -113,8 +113,8 @@
         <div>
             <h3 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={text.title}>{text.title}</h3>
             {#if detail.showState}
-                <p class="mt-1 flex items-start gap-1.5 text-2xs font-semibold {view.review ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}">
-                    {#if view.review}<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>{/if}
+                <p class="mt-1 flex items-start gap-1.5 text-2xs font-semibold {view.review ? 'text-attention-800 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">
+                    {#if view.review}<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>{/if}
                     {text.state}
                 </p>
             {:else}

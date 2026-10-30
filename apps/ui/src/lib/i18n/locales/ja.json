@@ -574,6 +574,11 @@
     "error_description": "ページファイルを取得できませんでした。接続を確認して、もう一度お試しください。",
     "retry": "もう一度開く"
   },
+  "lazy_modal": {
+    "loading": "開いています…",
+    "error_title": "開けませんでした",
+    "error_description": "アプリの一部を取得できませんでした。接続を確認して、もう一度お試しください。"
+  },
   "settings": {
     "title": "設定",
     "subtitle": "YA-WAMFインスタンスの構成と管理",
@@ -3601,7 +3606,32 @@
     "system_ram_usage": "システムRAM使用率",
     "circuit_open_detail": "{queued} 件のキュー項目が待機中です。最近の失敗: {failures}。",
     "more_lanes": "他に {count} 件のワークレーン",
-    "kind_favorite_archive": "お気に入りの保管"
+    "kind_favorite_archive": "お気に入りの保管",
+    "status": {
+      "running": "実行中",
+      "processing": "処理中",
+      "queued": "待機中",
+      "recovering": "回復中",
+      "elevated": "負荷やや高",
+      "warning": "警告",
+      "degraded": "低下",
+      "high": "負荷高",
+      "critical": "重大",
+      "error": "エラー",
+      "failing": "失敗中",
+      "failed": "失敗",
+      "open": "オープン",
+      "ok": "正常",
+      "healthy": "正常",
+      "normal": "通常",
+      "idle": "アイドル",
+      "clear": "問題なし",
+      "resolved": "解決済み",
+      "recovered": "回復済み",
+      "unknown": "不明"
+    },
+    "errors_no_reconnect_reason": "記録なし",
+    "errors_unknown_phase": "不明なフェーズ"
   },
   "errors": {
     "stack_trace": "スタックトレース:"
@@ -3941,5 +3971,8 @@
     "fallback": "CPUへフォールバック：要求されたアクセラレーターで現在のチェックまたは推論を正常に完了できませんでした。",
     "garden_preference": "自動チェックの優先デバイス：{device}。新しいアクセラレーターはまずCPUとの一致確認が必要です。",
     "unreported": "完了した実行からのデバイス報告はまだありません。推奨は実行記録ではありません。"
+  },
+  "system_telemetry": {
+    "last_reading": "最後の測定値"
   }
 }

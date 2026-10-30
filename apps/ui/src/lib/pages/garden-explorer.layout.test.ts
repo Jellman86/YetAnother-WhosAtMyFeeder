@@ -28,7 +28,8 @@ describe('Garden captures in the Explorer', () => {
         expect(eventsSource).not.toContain('groupGardenVisits(shownGarden)');
         expect(eventsSource).toContain('<GardenExplorerRow capture={entry.capture}');
         expect(eventsSource).toContain('<GardenExplorerCard capture={entry.capture}');
-        expect(eventsSource).toContain('<GardenCaptureModal\n        capture={selectedGarden}');
+        expect(eventsSource).toContain('<LazyModal loader={loadGardenCaptureModal}');
+        expect(eventsSource).toContain('<GardenCaptureModal\n                    capture={selectedGarden}');
         expect(eventsSource).toContain('group={selectedGardenVisit?.items ?? [selectedGarden]}');
     });
 
@@ -47,7 +48,8 @@ describe('Garden captures in the Explorer', () => {
             expect(source).toContain('view.review');
         }
         // Amber means a person is needed in every theme; accent is a brand colour (layout-patterns 1.3).
-        expect(rowSource).toContain('bg-amber-500/10');
+        // That amber is the attention-* scale, which no theme repaints.
+        expect(rowSource).toContain('bg-attention-500/10');
         for (const source of [rowSource, cardSource, modalSource]) expect(source).not.toMatch(/accent-\d/);
         expect(en.garden.explorer.state_presence).toMatch(/Needs review/);
     });

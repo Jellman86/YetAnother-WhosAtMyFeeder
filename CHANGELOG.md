@@ -36,6 +36,40 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   A spectrogram that fails to load shows the waveform placeholder instead of a
   broken image.
 
+- Pages load with less data:
+  - The Dashboard no longer downloads the classifier's 10,000-name label list
+    (about 214 kB) on every refresh. Only the owner's species pickers read it,
+    and only when the species search fails.
+  - Opening the Dashboard or Explorer reads each summary and visit list once,
+    instead of twice. The first history read no longer counts as an edit.
+  - The day bar and the Heard card share one audio summary.
+  - Record dialogs, the video player, the setup wizard and the AI text renderer
+    load the first time they open, so first visits download less script.
+    Dashboard script drops from about 200 kB to 47 kB compressed, and Explorer
+    script from 212 kB to 74 kB. A dialog that takes a moment says it is
+    opening. If its code does not arrive, it says so and offers a retry.
+  - API JSON is compressed. Live updates, video and images are not.
+  - The sidebar's CPU graph samples every 10 seconds for public visitors at the
+    default rate limit, not every 2.5 seconds. It pauses in hidden tabs. When a
+    sample fails, it keeps the last reading, labelled as such.
+
+- Colours mean the same thing on every screen and in every colour theme:
+  - A score is one colour wherever it appears: amber under 60%, the theme's
+    brand colour under 85%, and green from 85%. Cards, the list, the record,
+    the field log, Garden entries and Audio history previously disagreed, so a
+    55% match could be green in one view and red in another.
+  - Anything that needs you (flagged rows, the review queue, warnings) is amber
+    in every theme. In the classic theme it was green, the same colour as
+    "confirmed".
+  - Success and warning notifications are no longer the same colour in the
+    Blue tit theme, and their icons are drawn instead of text symbols.
+  - The Errors panel shows running work in the brand colour rather than amber,
+    healthy states in green, and statuses as translated words in sentence case
+    instead of raw backend values in capitals.
+  - Chosen options and buttons filled with the brand colour use a darker shade,
+    so their white text meets WCAG AA contrast in both themes.
+  - Audio history chart labels are darker on a light background.
+
 - The Explorer filter rail is easier to scan:
   - **Visitors** (Birds, Both, Garden) and **Show** (Visits, Captures) are
     compact switches that explain only the chosen option.

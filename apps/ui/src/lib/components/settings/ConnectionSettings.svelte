@@ -631,7 +631,7 @@
                                     onclick={() => toggleCamera(camera)}
                                 >
                                     <span class="min-w-0 truncate text-sm font-bold">{camera}</span>
-                                    <span class="w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-brand-500 border-brand-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand-500/50'}" aria-hidden="true">
+                                    <span class="w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-brand-700 border-brand-700 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand-500/50'}" aria-hidden="true">
                                     {#if selected}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
                                     </span>
                                 </button>
@@ -660,7 +660,7 @@
                                                 delete next[camera];
                                                 cameraRoles = next;
                                             }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-700 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'feeder'}
                                             title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam: every Frigate event is treated as a fresh visit (default).' })}
                                         >
@@ -671,7 +671,7 @@
                                             onclick={() => {
                                                 cameraRoles = { ...cameraRoles, [camera]: 'nest' };
                                             }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-700 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'nest'}
                                             title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
                                         >

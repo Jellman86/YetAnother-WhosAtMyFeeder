@@ -574,6 +574,11 @@
     "error_description": "Le fichier de la page n’est pas arrivé. Vérifiez votre connexion et réessayez.",
     "retry": "Réessayer d’ouvrir"
   },
+  "lazy_modal": {
+    "loading": "Ouverture…",
+    "error_title": "Ouverture impossible",
+    "error_description": "Une partie de l’application n’est pas arrivée. Vérifiez votre connexion et réessayez."
+  },
   "settings": {
     "title": "Paramètres",
     "subtitle": "Configurez et gérez votre instance YA-WAMF",
@@ -3601,7 +3606,32 @@
     "system_ram_usage": "Utilisation RAM système",
     "circuit_open_detail": "{queued} éléments en file d'attente. Échecs récents : {failures}.",
     "more_lanes": "+{count} files de travail supplémentaires",
-    "kind_favorite_archive": "Archive des favoris"
+    "kind_favorite_archive": "Archive des favoris",
+    "status": {
+      "running": "En cours",
+      "processing": "En traitement",
+      "queued": "En file d’attente",
+      "recovering": "En rétablissement",
+      "elevated": "Charge accrue",
+      "warning": "Avertissement",
+      "degraded": "Dégradé",
+      "high": "Charge élevée",
+      "critical": "Critique",
+      "error": "Erreur",
+      "failing": "En échec",
+      "failed": "Échoué",
+      "open": "Ouvert",
+      "ok": "Opérationnel",
+      "healthy": "Opérationnel",
+      "normal": "Habituel",
+      "idle": "Inactif",
+      "clear": "Dégagé",
+      "resolved": "Résolu",
+      "recovered": "Rétabli",
+      "unknown": "Inconnu"
+    },
+    "errors_no_reconnect_reason": "Aucun enregistré",
+    "errors_unknown_phase": "Phase inconnue"
   },
   "errors": {
     "stack_trace": "Trace de pile :"
@@ -3941,5 +3971,8 @@
     "fallback": "Repli sur CPU : l’accélérateur demandé n’a pas terminé correctement sa vérification ou son inférence actuelle.",
     "garden_preference": "Appareil préféré pour les vérifications automatiques : {device}. Un nouvel accélérateur doit d’abord correspondre au CPU.",
     "unreported": "Aucune exécution terminée n’a indiqué son appareil. Une recommandation ne prouve pas une exécution."
+  },
+  "system_telemetry": {
+    "last_reading": "Dernière mesure"
   }
 }

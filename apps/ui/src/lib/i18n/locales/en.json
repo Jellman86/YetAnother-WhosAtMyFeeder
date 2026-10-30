@@ -584,6 +584,11 @@
     "error_description": "The page file did not arrive. Check your connection, then try again.",
     "retry": "Try opening again"
   },
+  "lazy_modal": {
+    "loading": "Opening…",
+    "error_title": "This could not be opened",
+    "error_description": "Part of the app did not arrive. Check your connection, then try again."
+  },
   "settings": {
     "title": "Settings",
     "subtitle": "Configure and manage your YA-WAMF instance",
@@ -3468,7 +3473,32 @@
     "system_ram_usage": "System RAM Usage",
     "circuit_open_detail": "{queued} queued items are waiting. Recent failures: {failures}.",
     "more_lanes": "+{count} more work lanes",
-    "kind_favorite_archive": "Favourite archive"
+    "kind_favorite_archive": "Favourite archive",
+    "status": {
+      "running": "Running",
+      "processing": "Processing",
+      "queued": "Queued",
+      "recovering": "Recovering",
+      "elevated": "Elevated load",
+      "warning": "Warning",
+      "degraded": "Degraded",
+      "high": "High load",
+      "critical": "Critical",
+      "error": "Error",
+      "failing": "Failing",
+      "failed": "Failed",
+      "open": "Open",
+      "ok": "Healthy",
+      "healthy": "Healthy",
+      "normal": "Normal",
+      "idle": "Idle",
+      "clear": "Clear",
+      "resolved": "Resolved",
+      "recovered": "Recovered",
+      "unknown": "Unknown"
+    },
+    "errors_no_reconnect_reason": "None recorded",
+    "errors_unknown_phase": "Unknown phase"
   },
   "footer": {
     "did_you_know": "Did you know?",
@@ -3941,5 +3971,8 @@
     "fallback": "CPU fallback: the requested accelerator did not complete its current check or inference successfully.",
     "unreported": "No completed run has reported its device yet. A recommendation is not an execution record.",
     "garden_preference": "Automatic check device preference: {device}. A new accelerator must agree with CPU first."
+  },
+  "system_telemetry": {
+    "last_reading": "Last reading"
   }
 }

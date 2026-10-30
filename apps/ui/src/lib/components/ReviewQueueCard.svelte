@@ -31,7 +31,7 @@
 
 <section
     class="rounded-2xl border p-5 {queue.total > 0
-        ? 'border-accent-300 bg-accent-50/70 dark:border-accent-800/70 dark:bg-accent-950/25'
+        ? 'border-attention-300 bg-attention-50/70 dark:border-attention-800/70 dark:bg-attention-950/25'
         : 'border-line-soft bg-surface'}"
     data-dashboard-review-queue
     aria-labelledby="review-queue-title"
@@ -39,7 +39,7 @@
     <header class="flex items-center gap-2">
         <svg
             class="h-4 w-4 {queue.total > 0
-                ? 'text-accent-700 dark:text-accent-300'
+                ? 'text-attention-700 dark:text-attention-300'
                 : 'text-slate-400 dark:text-slate-500'}"
             viewBox="0 0 24 24"
             fill="none"
@@ -54,7 +54,7 @@
         </h2>
         {#if queue.total > 0}
             <span
-                class="ml-auto rounded-full bg-accent-500 px-2 py-0.5 text-xs font-bold text-accent-950"
+                class="ml-auto rounded-full bg-attention-500 px-2 py-0.5 text-xs font-bold text-attention-950"
                 data-review-queue-count
             >
                 {queue.total}
@@ -115,7 +115,7 @@
                             </span>
                             <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
                                 {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
-                                    <span class="font-semibold text-accent-700 dark:text-accent-300">
+                                    <span class="font-semibold text-attention-800 dark:text-attention-300">
                                         {$_('dashboard.review_queue.new_species_tag', {
                                             values: { count: queue.newSpeciesSightings.get(detection.frigate_event) ?? 1 },
                                             default: 'New species · {count} sighting(s)'
@@ -126,7 +126,7 @@
                                 {when(detection)} · {detection.camera_name}
                             </span>
                         </span>
-                        <span class="shrink-0 text-2xs font-bold tabular-nums text-accent-700 dark:text-accent-300">
+                        <span class="shrink-0 text-2xs font-bold tabular-nums text-attention-800 dark:text-attention-300">
                             {Math.round((detection.score ?? 0) * 100)}%
                         </span>
                     </button>

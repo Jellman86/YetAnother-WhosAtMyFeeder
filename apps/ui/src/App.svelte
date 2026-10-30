@@ -15,9 +15,8 @@
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import LazyRoute from './lib/components/LazyRoute.svelte';
+  import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
-  import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import WizardShell from './lib/components/setup/WizardShell.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { createStreamTicket } from './lib/api/auth';
@@ -46,7 +45,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
-  import { createRetryablePageLoader } from './lib/app/page-loader';
+  import { lazyComponent } from './lib/app/lazy-component';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -58,15 +57,18 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
 
-  const loadDashboardPage = createRetryablePageLoader(() => import('./lib/pages/Dashboard.svelte'));
-  const loadEventsPage = createRetryablePageLoader(() => import('./lib/pages/Events.svelte'));
-  const loadSpeciesPage = createRetryablePageLoader(() => import('./lib/pages/Species.svelte'));
-  const loadAudioHistoryPage = createRetryablePageLoader(() => import('./lib/pages/AudioHistory.svelte'));
-  const loadSettingsPage = createRetryablePageLoader(() => import('./lib/pages/Settings.svelte'));
-  const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
-  const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
-  const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
-  const loadManualObservationPage = createRetryablePageLoader(() => import('./lib/pages/ManualObservation.svelte'));
+  const loadDashboardPage = lazyComponent(() => import('./lib/pages/Dashboard.svelte'));
+  const loadEventsPage = lazyComponent(() => import('./lib/pages/Events.svelte'));
+  const loadSpeciesPage = lazyComponent(() => import('./lib/pages/Species.svelte'));
+  const loadAudioHistoryPage = lazyComponent(() => import('./lib/pages/AudioHistory.svelte'));
+  const loadSettingsPage = lazyComponent(() => import('./lib/pages/Settings.svelte'));
+  const loadAboutPage = lazyComponent(() => import('./lib/pages/About.svelte'));
+  const loadNotificationsPage = lazyComponent(() => import('./lib/pages/Notifications.svelte'));
+  const loadModelEvaluationPage = lazyComponent(() => import('./lib/pages/ModelEvaluation.svelte'));
+  const loadManualObservationPage = lazyComponent(() => import('./lib/pages/ManualObservation.svelte'));
+  // The setup wizard runs once per install, so every later visit skips downloading it.
+  const loadFirstRunWizard = lazyComponent(() => import('./lib/pages/FirstRunWizard.svelte'));
+  const loadWizardShell = lazyComponent(() => import('./lib/components/setup/WizardShell.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -728,14 +730,19 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   {#snippet children()}
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <!-- Skip to content for accessibility -->
-  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
     {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
 
   {#if !authStore.statusLoaded}
       <BackendStatusScreen mode="loading" />
   {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
-      <FirstRunWizard />
+      <LazyRoute
+          loader={loadFirstRunWizard}
+          props={{}}
+          label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
+          onLoadError={handleRouteLoadError}
+      />
   {:else if !authStore.statusHealthy}
       <BackendStatusScreen
           mode="unavailable"
@@ -888,7 +895,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       </div>
 
       {#if setupWizardStore.active && setupWizardStore.mode === 'rerun'}
-          <WizardShell />
+          <LazyModal loader={loadWizardShell} onclose={() => setupWizardStore.close()}>
+              {#snippet children(WizardShell)}
+                  <WizardShell />
+              {/snippet}
+          </LazyModal>
       {/if}
   {/if}
 

@@ -8,6 +8,7 @@
     import { VisitCaptureList } from '../utils/visit-capture-list.svelte';
     import { getBirdNames } from '../naming';
     import { formatTime } from '../utils/datetime';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { captureFacts, hasCaptureTimeline, type CaptureFacts } from '../utils/visit-captures';
     import type { Detection } from '../api';
 
@@ -117,12 +118,6 @@
         return found;
     }
 
-    /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */
-    function scoreTone(score: number): string {
-        if (score < 0.6) return 'text-accent-700 dark:text-accent-300';
-        if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
-        return 'text-success-700 dark:text-success-300';
-    }
 </script>
 
 {#if hasCaptureTimeline(visit)}
@@ -264,7 +259,7 @@
                                         </svg>
                                     </button>
                                 {/if}
-                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {scoreTone(score)}">
+                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">
                                     {Math.round(score * 100)}%
                                 </BadgeHint>
                             </div>

@@ -574,6 +574,11 @@
     "error_description": "Die Seitendatei ist nicht angekommen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     "retry": "Erneut öffnen"
   },
+  "lazy_modal": {
+    "loading": "Wird geöffnet…",
+    "error_title": "Dies konnte nicht geöffnet werden",
+    "error_description": "Ein Teil der App ist nicht angekommen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut."
+  },
   "settings": {
     "title": "Einstellungen",
     "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
@@ -3601,7 +3606,32 @@
     "system_ram_usage": "System-RAM-Auslastung",
     "circuit_open_detail": "{queued} Elemente warten in der Warteschlange. Letzte Fehler: {failures}.",
     "more_lanes": "+{count} weitere Arbeitslinien",
-    "kind_favorite_archive": "Favoriten-Archiv"
+    "kind_favorite_archive": "Favoriten-Archiv",
+    "status": {
+      "running": "Läuft",
+      "processing": "In Bearbeitung",
+      "queued": "In der Warteschlange",
+      "recovering": "Erholt sich",
+      "elevated": "Erhöhte Last",
+      "warning": "Warnung",
+      "degraded": "Eingeschränkt",
+      "high": "Hohe Last",
+      "critical": "Kritisch",
+      "error": "Fehler",
+      "failing": "Fehlerhaft",
+      "failed": "Fehlgeschlagen",
+      "open": "Offen",
+      "ok": "Fehlerfrei",
+      "healthy": "Fehlerfrei",
+      "normal": "Unauffällig",
+      "idle": "Untätig",
+      "clear": "Frei",
+      "resolved": "Behoben",
+      "recovered": "Wiederhergestellt",
+      "unknown": "Unbekannt"
+    },
+    "errors_no_reconnect_reason": "Keiner erfasst",
+    "errors_unknown_phase": "Unbekannte Phase"
   },
   "errors": {
     "stack_trace": "Stack-Trace:"
@@ -3941,5 +3971,8 @@
     "fallback": "CPU-Ausweichbetrieb: Der angeforderte Beschleuniger konnte die aktuelle Prüfung oder Inferenz nicht erfolgreich abschließen.",
     "garden_preference": "Gerätepräferenz für automatische Prüfungen: {device}. Ein neuer Beschleuniger muss zuerst mit der CPU übereinstimmen.",
     "unreported": "Noch kein abgeschlossener Lauf mit Geräteangabe. Eine Empfehlung ist kein Ausführungsnachweis."
+  },
+  "system_telemetry": {
+    "last_reading": "Letzter Messwert"
   }
 }

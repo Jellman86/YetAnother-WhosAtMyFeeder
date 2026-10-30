@@ -8,7 +8,6 @@
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
     import GardenExplorerRow from '../components/GardenExplorerRow.svelte';
     import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
-    import GardenCaptureModal from '../components/GardenCaptureModal.svelte';
     import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, type GardenServerVisit, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
     import { gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
@@ -23,7 +22,6 @@
         hideDetection,
         deleteDetection,
         bulkDeleteDetections,
-        fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
         bulkUpdateDetectionSpecies,
@@ -47,6 +45,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toAppPath } from '../app/url-base';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -54,9 +53,8 @@
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import VideoPlayer from '../components/VideoPlayer.svelte';
-    import DetectionModal from '../components/DetectionModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadDetectionModal, loadGardenCaptureModal, loadSpeciesDetailModal, loadVideoPlayer } from '../components/lazy-dialogs';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
@@ -97,7 +95,6 @@
     let selectedSpecies = $state<string | null>(null);
     let pendingEventId = $state<string | null>(null);
     let lastModalEventId = $state<string | null>(null);
-    let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
@@ -396,11 +393,7 @@
             if (includeAuxiliary) {
                 // The hidden count is only ever shown behind owner access, and the
                 // endpoint refuses a guest, so asking as a guest just logs a 403.
-                const [labels, hidden] = await Promise.all([
-                    fetchClassifierLabels().catch(() => ({ labels: [] })),
-                    authStore.hasOwnerAccess ? fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 }
-                ]);
-                classifierLabels = labels.labels;
+                const hidden = authStore.hasOwnerAccess ? await fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 };
                 hiddenCount = hidden.hidden_count;
             }
 
@@ -581,12 +574,7 @@
                     bulkSearchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error('Bulk species search failed', e);
-                    bulkSearchResults = classifierLabels.slice(0, 20).map((label) => ({
-                        id: label,
-                        display_name: label,
-                        common_name: null,
-                        scientific_name: null
-                    }));
+                    bulkSearchResults = await classifierLabelsStore.searchFallback('', 20);
                 } finally {
                     bulkSearching = false;
                 }
@@ -600,14 +588,7 @@
                 bulkSearchResults = await searchSpecies(query);
             } catch (e) {
                 console.error('Bulk species search failed', e);
-                bulkSearchResults = classifierLabels
-                    .filter((label) => String(label).toLowerCase().includes(query.toLowerCase()))
-                    .map((label) => ({
-                        id: String(label),
-                        display_name: String(label),
-                        common_name: null,
-                        scientific_name: null
-                    }));
+                bulkSearchResults = await classifierLabelsStore.searchFallback(query);
             } finally {
                 bulkSearching = false;
             }
@@ -1738,7 +1719,7 @@
                         data-explorer-view-toggle={option.value}
                         class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
                                {explorerView === option.value
-                            ? 'bg-brand-500 text-white'
+                            ? 'bg-brand-700 text-white'
                             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
                     >
                         {#if option.value === 'cards'}
@@ -2176,71 +2157,88 @@
 </div>
 
 {#if selectedEvent}
-    <DetectionModal
-        detection={selectedEvent}
-        {classifierLabels}
-        llmReady={llmReady}
-        showVideoButton={true}
-        fullVisitAvailable={selectedEvent ? fullVisitAvailability[selectedEvent.frigate_event] === 'available' : false}
-        fullVisitFetched={selectedEvent ? fullVisitFetchState[selectedEvent.frigate_event] === 'ready' : false}
-        fullVisitFetchState={selectedEvent ? (fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle') : 'idle'}
-        onClose={() => selectedEvent = null}
-        onReclassify={handleReclassify}
-        onFetchFullVisit={selectedEventFullVisitHandler}
-        onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
-            events = events.filter((event) => event.frigate_event !== deletedEventId);
-            detectionsStore.removeDetection(deletedEventId, detectionTime);
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-            await loadEvents();
-        }}
-        onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
-            if (isHidden) {
-                if (showHidden) {
-                    events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
-                } else {
-                    events = events.filter((event) => event.frigate_event !== hiddenEventId);
-                    detectionsStore.removeDetection(hiddenEventId, detectionTime);
-                }
-                hiddenCount++;
-            } else {
-                // In the hidden-only view an unhidden row no longer qualifies.
-                events = showHidden
-                    ? events.filter((event) => event.frigate_event !== hiddenEventId)
-                    : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
-                hiddenCount = Math.max(0, hiddenCount - 1);
-            }
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-            await loadEvents();
-        }}
-        onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
-            videoEventId = frigateEvent;
-            videoShareToken = null;
-            videoPlayIntent = playIntent;
-            showVideo = true;
-            selectedEvent = null;
-        }}
-        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-    />
+    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
+        {#snippet children(DetectionModal)}
+            {#if selectedEvent}
+                <DetectionModal
+                    detection={selectedEvent}
+                    llmReady={llmReady}
+                    showVideoButton={true}
+                    fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}
+                    fullVisitFetched={fullVisitFetchState[selectedEvent.frigate_event] === 'ready'}
+                    fullVisitFetchState={fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle'}
+                    onClose={() => selectedEvent = null}
+                    onReclassify={handleReclassify}
+                    onFetchFullVisit={selectedEventFullVisitHandler}
+                    onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
+                        events = events.filter((event) => event.frigate_event !== deletedEventId);
+                        detectionsStore.removeDetection(deletedEventId, detectionTime);
+                        selectedEvent = null;
+                        await refreshEventMetadata(true, false);
+                        await loadEvents();
+                    }}
+                    onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
+                        if (isHidden) {
+                            if (showHidden) {
+                                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
+                            } else {
+                                events = events.filter((event) => event.frigate_event !== hiddenEventId);
+                                detectionsStore.removeDetection(hiddenEventId, detectionTime);
+                            }
+                            hiddenCount++;
+                        } else {
+                            // In the hidden-only view an unhidden row no longer qualifies.
+                            events = showHidden
+                                ? events.filter((event) => event.frigate_event !== hiddenEventId)
+                                : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+                            hiddenCount = Math.max(0, hiddenCount - 1);
+                        }
+                        selectedEvent = null;
+                        await refreshEventMetadata(true, false);
+                        await loadEvents();
+                    }}
+                    onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
+                        videoEventId = frigateEvent;
+                        videoShareToken = null;
+                        videoPlayIntent = playIntent;
+                        showVideo = true;
+                        selectedEvent = null;
+                    }}
+                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 {#if selectedGarden && gardenAvailable}
-    <GardenCaptureModal
-        capture={selectedGarden}
-        group={selectedGardenVisit?.items ?? [selectedGarden]}
-        groupKind={selectedGardenVisit?.kind ?? 'visit'}
-        groupTotal={selectedGardenVisit?.captureCount ?? 1}
-        groupOffset={gardenGroupOffset}
-        groupLoading={gardenGroupLoading}
-        groupError={gardenGroupError}
-        onpage={(index) => void loadGardenCapturePage(index)}
-        onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}
-        onchanged={gardenChanged}
-        onselect={(capture) => (selectedGarden = capture)}
-        ongroupdismissed={gardenGroupDismissed}
-    />
+    <LazyModal loader={loadGardenCaptureModal} onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}>
+        {#snippet children(GardenCaptureModal)}
+            {#if selectedGarden}
+                <GardenCaptureModal
+                    capture={selectedGarden}
+                    group={selectedGardenVisit?.items ?? [selectedGarden]}
+                    groupKind={selectedGardenVisit?.kind ?? 'visit'}
+                    groupTotal={selectedGardenVisit?.captureCount ?? 1}
+                    groupOffset={gardenGroupOffset}
+                    groupLoading={gardenGroupLoading}
+                    groupError={gardenGroupError}
+                    onpage={(index) => void loadGardenCapturePage(index)}
+                    onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}
+                    onchanged={gardenChanged}
+                    onselect={(capture) => (selectedGarden = capture)}
+                    ongroupdismissed={gardenGroupDismissed}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
-{#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+{#if selectedSpecies}
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+        {/snippet}
+    </LazyModal>
+{/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
@@ -2320,15 +2318,21 @@
     </div>
 {/if}
 {#if showVideo && videoEventId}
-    <VideoPlayer
-        frigateEvent={videoEventId}
-        shareToken={videoShareToken}
-        playIntent={videoPlayIntent}
-        initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
-        onClose={() => {
-            showVideo = false;
-            videoEventId = null;
-            videoShareToken = null;
-        }}
-    />
+    <LazyModal loader={loadVideoPlayer} onclose={() => { showVideo = false; videoEventId = null; videoShareToken = null; }}>
+        {#snippet children(VideoPlayer)}
+            {#if videoEventId}
+                <VideoPlayer
+                    frigateEvent={videoEventId}
+                    shareToken={videoShareToken}
+                    playIntent={videoPlayIntent}
+                    initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
+                    onClose={() => {
+                        showVideo = false;
+                        videoEventId = null;
+                        videoShareToken = null;
+                    }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}

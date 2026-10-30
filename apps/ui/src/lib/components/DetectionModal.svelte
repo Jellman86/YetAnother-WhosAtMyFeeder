@@ -52,6 +52,7 @@
     import CountedBirds from './CountedBirds.svelte';
     import BirdScanControl from './BirdScanControl.svelte';
     import MediaImage from './MediaImage.svelte';
+    import MarkdownText from './MarkdownText.svelte';
     import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import { photoFitFor, type PhotoFit } from '../utils/photo-fit';
@@ -60,6 +61,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { getBirdNames } from '../naming';
@@ -84,19 +86,18 @@
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
-    import { renderMarkdown } from '../utils/markdown';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
     interface Props {
         detection: Detection;
-        classifierLabels: string[];
         llmReady: boolean;
         showVideoButton?: boolean;
         onClose: () => void;
@@ -115,7 +116,6 @@
 
     let {
         detection,
-        classifierLabels,
         llmReady,
         showVideoButton = false,
         onClose,
@@ -1360,9 +1360,10 @@
         }
     }
 
-    // Handle search input
+    // Searching starts when the owner opens the species picker, not when a record opens.
     let searchTimeout: ReturnType<typeof setTimeout> | undefined;
     $effect(() => {
+        if (!hasOwnerDetectionActions || !showTagDropdown) return;
         const query = tagSearchQuery.trim();
         if (query.length === 0) {
             clearTimeout(searchTimeout);
@@ -1372,9 +1373,8 @@
                     searchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error("Search failed", e);
-                    searchResults = classifierLabels.slice(0, 20).map(l => ({
-                        id: l, display_name: l, common_name: null, scientific_name: null
-                    }));
+                    // The raw classifier labels stand in only when the catalogue search fails, so they are read then.
+                    searchResults = await classifierLabelsStore.searchFallback('', 20);
                 } finally {
                     isSearching = false;
                 }
@@ -1391,10 +1391,7 @@
                 searchResults = await searchSpecies(query, searchOptions.limit, searchOptions.hydrateMissing);
             } catch (e) {
                 console.error("Search failed", e);
-                // Fallback to local filtering
-                searchResults = classifierLabels
-                    .filter(l => String(l).toLowerCase().includes(query.toLowerCase()))
-                    .map(l => ({ id: String(l), display_name: String(l), common_name: null, scientific_name: null }));
+                searchResults = await classifierLabelsStore.searchFallback(query);
             } finally {
                 isSearching = false;
             }
@@ -2471,7 +2468,7 @@
                                                 }}
                                                 title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-500/95 px-3 hover:bg-brand-500' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-500/90'}"
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95 px-3 hover:bg-brand-700' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-700/90'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
@@ -2501,7 +2498,7 @@
                                                 }}
                                                 disabled={fullVisitFetchState === 'fetching'}
                                                 aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-700/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
                                             >
                                                 {#if fullVisitFetchState === 'fetching'}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -2639,7 +2636,7 @@
                     <div class="min-w-0">
                         <p class="flex items-center gap-1.5 text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
                         {#if currentClassificationSource === 'manual'}
-                            <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
                             </svg>
                             {$_('detection.identified_by_you', { default: 'Identified by you' })}
@@ -2670,19 +2667,16 @@
                         </span>
                         <span class="text-xs text-slate-500 dark:text-slate-400">
                             {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
-                            {(detection.score || 0) >= 0.85
+                            {scoreBand(detection.score) === 'high'
                                 ? $_('detection.confidence_high', { default: 'confident' })
-                                : (detection.score || 0) >= 0.6
+                                : scoreBand(detection.score) === 'mid'
                                   ? $_('detection.confidence_mid', { default: 'likely' })
                                   : $_('detection.confidence_low', { default: 'uncertain' })}
                         </span>
                         <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                             <span
-                                class="block h-full rounded-full {(detection.score || 0) >= 0.85
-                                    ? 'bg-emerald-500'
-                                    : (detection.score || 0) >= 0.6
-                                      ? 'bg-brand-500'
-                                      : 'bg-accent-500'}"
+                                class="block h-full rounded-full {SCORE_FILL[scoreBand(detection.score)]}"
+                                data-record-score-bar
                                 style="width: {(detection.score || 0) * 100}%"
                             ></span>
                         </span>
@@ -3511,7 +3505,7 @@
                     <div class="ai-panel ai-surface">
                         <div class="ai-panel__label">{$_('detection.ai.insight')}</div>
                         <div class="ai-panel__content ai-markdown ai-markdown-surface">
-                            {@html renderMarkdown(aiAnalysis)}
+                            <MarkdownText text={aiAnalysis} />
                         </div>
                     </div>
                     {#if authStore.canModify && llmReady}
@@ -3578,7 +3572,7 @@
                                     </div>
                                     {#if turn.role === 'assistant'}
                                         <div class="ai-bubble__content ai-markdown ai-markdown-surface">
-                                            {@html renderMarkdown(turn.content)}
+                                            <MarkdownText text={turn.content} />
                                         </div>
                                     {:else}
                                         <div class="ai-bubble__content">{turn.content}</div>
@@ -3600,7 +3594,7 @@
                                 type="button"
                                 onclick={sendConversation}
                                 disabled={!conversationInput.trim() || conversationSending}
-                                class="w-full py-2 px-4 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold disabled:opacity-50"
+                                class="w-full py-2 px-4 rounded-xl bg-brand-700 hover:bg-brand-800 text-white text-xs font-semibold disabled:opacity-50"
                             >
                                 {conversationSending ? $_('detection.ai.sending') : $_('detection.ai.send')}
                             </button>
@@ -3649,7 +3643,7 @@
                                 type="button"
                                 onclick={saveCommonNameOverride}
                                 disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
-                                class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                                class="rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
                             >
                                 {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
                             </button>

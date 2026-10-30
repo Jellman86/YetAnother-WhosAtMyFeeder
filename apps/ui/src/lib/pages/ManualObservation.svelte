@@ -4,7 +4,6 @@
     import {
         confirmManualObservation,
         discardManualObservation,
-        fetchClassifierLabels,
         fetchManualObservation,
         retryManualObservation,
         uploadManualObservation,
@@ -13,6 +12,7 @@
     } from '../api';
     import { withAuthParams } from '../api/core';
     import LocationPicker from '../components/LocationPicker.svelte';
+    import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
@@ -33,7 +33,6 @@
     let dragActive = $state(false);
     let errorMessage = $state<string | null>(null);
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
-    let speciesLabels = $state<string[]>([]);
     let selectedLabel = $state('');
     let cameraName = $state('Manual upload');
     let notes = $state('');
@@ -326,7 +325,7 @@
     }
 
     onMount(() => {
-        void fetchClassifierLabels().then((result) => speciesLabels = result.labels).catch(() => undefined);
+        void classifierLabelsStore.load();
         const remembered = sessionStorage.getItem('manual_observation_draft');
         if (remembered) {
             void fetchManualObservation(remembered).then((value) => {
@@ -497,7 +496,7 @@
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.review.body', { default: 'Choose a suggestion or correct it before this becomes part of your observation history.' })}</p>
                         {#if severalSpeciesPictured}<p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300" data-manual-observation-several-species>{$_('manual_observation.review.several_species', { default: 'Each suggestion shows the bird it was scored on. If the video has more than one bird, choose the one this observation is for and its photo follows.' })}</p>{/if}
                         <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedPrediction === prediction ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} checked={selectedPrediction === prediction} onchange={() => { selectedLabel = prediction.label; wholeFrameShownFor = null; }} />{#if showsSuggestionPhotos}<span class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800" data-manual-observation-suggestion-photo>{#if prediction.photo_url}<img src={withAuthParams(prediction.photo_url)} alt="" loading="lazy" class="h-full w-full object-cover" onerror={(event) => event.currentTarget.classList.add('invisible')} />{:else}<span class="px-1 text-center text-3xs font-semibold leading-tight text-slate-500 dark:text-slate-400">{$_('manual_observation.review.no_frame', { default: 'No frame' })}</span>{/if}</span>{/if}<span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
-                        <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2 min-h-11" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each speciesLabels as label}<option value={label}></option>{/each}</datalist></label>
+                        <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2 min-h-11" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each classifierLabelsStore.labels as label}<option value={label}></option>{/each}</datalist></label>
                         <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5 min-h-11" type="datetime-local" bind:value={observedAt} aria-describedby="manual-observation-when-help" /><span id="manual-observation-when-help" class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.review.when_help', { default: 'Leave empty to use the time you save it.' })}</span></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
                         <section class="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700" aria-labelledby="manual-observation-location-title">
                             <div class="flex flex-wrap items-start justify-between gap-3">

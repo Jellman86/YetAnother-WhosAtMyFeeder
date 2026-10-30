@@ -584,6 +584,11 @@
     "error_description": "O arquivo da página não chegou. Verifique sua conexão e tente novamente.",
     "retry": "Tentar abrir novamente"
   },
+  "lazy_modal": {
+    "loading": "A abrir…",
+    "error_title": "Não foi possível abrir",
+    "error_description": "Uma parte do aplicativo não chegou. Verifique sua conexão e tente novamente."
+  },
   "settings": {
     "title": "Configurações",
     "subtitle": "Configure e gerencie sua instância YA-WAMF",
@@ -3601,7 +3606,32 @@
     "system_ram_usage": "Uso de RAM do sistema",
     "circuit_open_detail": "{queued} itens na fila estão aguardando. Falhas recentes: {failures}.",
     "more_lanes": "+{count} pistas de trabalho adicionais",
-    "kind_favorite_archive": "Arquivo de favoritos"
+    "kind_favorite_archive": "Arquivo de favoritos",
+    "status": {
+      "running": "Em execução",
+      "processing": "Processando",
+      "queued": "Na fila",
+      "recovering": "Recuperando",
+      "elevated": "Carga elevada",
+      "warning": "Aviso",
+      "degraded": "Degradado",
+      "high": "Carga alta",
+      "critical": "Crítico",
+      "error": "Erro",
+      "failing": "Falhando",
+      "failed": "Falhou",
+      "open": "Aberto",
+      "ok": "Saudável",
+      "healthy": "Saudável",
+      "normal": "Sem alterações",
+      "idle": "Ocioso",
+      "clear": "Livre",
+      "resolved": "Resolvido",
+      "recovered": "Recuperado",
+      "unknown": "Desconhecido"
+    },
+    "errors_no_reconnect_reason": "Nenhum registrado",
+    "errors_unknown_phase": "Fase desconhecida"
   },
   "errors": {
     "stack_trace": "Rastreamento de pilha:"
@@ -3941,5 +3971,8 @@
     "fallback": "Alternativa CPU: o acelerador pedido não concluiu corretamente a verificação ou inferência atual.",
     "garden_preference": "Dispositivo preferido para verificações automáticas: {device}. Um acelerador novo deve primeiro concordar com a CPU.",
     "unreported": "Nenhuma execução concluída indicou o dispositivo. Uma recomendação não comprova uma execução."
+  },
+  "system_telemetry": {
+    "last_reading": "Última leitura"
   }
 }

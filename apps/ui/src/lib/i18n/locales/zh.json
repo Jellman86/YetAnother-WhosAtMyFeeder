@@ -574,6 +574,11 @@
     "error_description": "页面文件未能加载。请检查网络连接后重试。",
     "retry": "重新打开"
   },
+  "lazy_modal": {
+    "loading": "正在打开…",
+    "error_title": "无法打开",
+    "error_description": "应用的部分内容未能加载。请检查网络连接后重试。"
+  },
   "settings": {
     "title": "设置",
     "subtitle": "配置和管理您的 YA-WAMF 实例",
@@ -3601,7 +3606,32 @@
     "system_ram_usage": "系统内存使用率",
     "circuit_open_detail": "队列中有 {queued} 项正在等待。最近失败次数:{failures}。",
     "more_lanes": "另有 {count} 条工作通道",
-    "kind_favorite_archive": "收藏归档"
+    "kind_favorite_archive": "收藏归档",
+    "status": {
+      "running": "运行中",
+      "processing": "处理中",
+      "queued": "排队中",
+      "recovering": "恢复中",
+      "elevated": "负载偏高",
+      "warning": "警告",
+      "degraded": "性能下降",
+      "high": "负载高",
+      "critical": "严重",
+      "error": "错误",
+      "failing": "持续失败",
+      "failed": "失败",
+      "open": "已打开",
+      "ok": "正常",
+      "healthy": "健康",
+      "normal": "平常",
+      "idle": "空闲",
+      "clear": "畅通",
+      "resolved": "已解决",
+      "recovered": "已恢复",
+      "unknown": "未知"
+    },
+    "errors_no_reconnect_reason": "无记录",
+    "errors_unknown_phase": "未知阶段"
   },
   "errors": {
     "stack_trace": "堆栈跟踪："
@@ -3941,5 +3971,8 @@
     "fallback": "已回退至CPU：所选加速器未能成功完成当前检查或推理。",
     "garden_preference": "自动检查的首选设备：{device}。新加速器必须先通过与CPU的一致性检查。",
     "unreported": "尚无已完成运行报告其设备。推荐设备不等于执行记录。"
+  },
+  "system_telemetry": {
+    "last_reading": "最近一次读数"
   }
 }

@@ -61,28 +61,25 @@ describe('the health verdict', () => {
         expect(errorsSource.indexOf('{#snippet status()}')).toBeLessThan(errorsSource.indexOf('{heroToneClass('));
     });
 
-    it('is green when healthy and amber only when something wants a person', () => {
-        const fn = errorsSource.slice(
-            errorsSource.indexOf('function heroToneClass'),
-            errorsSource.indexOf('function toneClass')
-        );
-        const healthy = fn.slice(fn.indexOf("'ok', 'healthy', 'normal'"), fn.indexOf("'degraded'"));
-        expect(healthy).toContain('emerald');
-        const degraded = fn.slice(fn.indexOf("'degraded'"), fn.indexOf("'critical'"));
-        expect(degraded).toContain('amber-');
-        // accent-* is emerald in the classic theme, which would paint degraded green.
-        expect(degraded).not.toContain('accent-');
+    it('takes every tone from the one status helper, so running work is never amber', () => {
+        // NT-04: running work was amber here while Notifications says a job in flight needs
+        // nobody, and healthy was emerald in the verdict but brand on the cards. The mapping
+        // itself is unit-tested in utils/status-tone.test.ts.
+        expect(errorsSource).toContain("from '../utils/status-tone'");
+        expect(errorsSource).toContain('STATUS_SURFACE[statusTone(value)]');
+        expect(errorsSource).toContain('STATUS_PILL[statusTone(value)]');
+        expect(errorsSource).not.toMatch(/emerald-|amber-|accent-/);
     });
 
-    it('leaves a state it has not measured in slate rather than claiming health', () => {
-        // The fallback branch is what an unknown status hits, and it must not be green.
-        const fn = errorsSource.slice(
-            errorsSource.indexOf('function heroToneClass'),
-            errorsSource.indexOf('function toneClass')
-        );
-        const fallback = fn.slice(fn.lastIndexOf('return '));
-        expect(fallback).toContain('slate');
-        expect(fallback).not.toContain('emerald');
+    it('prints statuses in translated sentence case, keeping the raw word in a title', () => {
+        expect(errorsSource).toContain('statusLabelKey(value)');
+        expect(errorsSource).toContain('{statusLabel(overallStatus())}');
+        expect(errorsSource).toContain('title={overallStatus()}');
+        expect(errorsSource).not.toMatch(/text-xs font-bold uppercase tracking-(widest|wider|\[0\.2em\])[^"`]*"?>?\s*\{(overallStatus|incident\.status|event\.severity)/);
+        expect(errorsSource).not.toContain('tracking-[0.18em]');
+        // English fallbacks no longer leak into other languages.
+        expect(errorsSource).not.toContain("fallback = 'Unknown'");
+        expect(errorsSource).not.toContain("last_reconnect_reason, 'None')");
     });
 
     it('keeps export plumbing out of the health reading', () => {

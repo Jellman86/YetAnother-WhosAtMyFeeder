@@ -5,6 +5,7 @@
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { formatTime } from '../utils/datetime';
+    import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { HealthTimelineRow } from '../utils/health-timeline';
     import DetectionPreview from './DetectionPreview.svelte';
     import FilteredFramePreview from './FilteredFramePreview.svelte';
@@ -39,18 +40,6 @@
         const start = formatTime(row.visit.startTime);
         const end = formatTime(row.visit.endTime);
         return start === end ? end : `${start}–${end}`;
-    }
-
-    function scoreTone(score: number): string {
-        if (score < 0.6) return 'text-accent-700 dark:text-accent-300';
-        if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
-        return 'text-success-700 dark:text-success-300';
-    }
-
-    function barTone(score: number): string {
-        if (score < 0.6) return 'bg-accent-500';
-        if (score < 0.85) return 'bg-brand-500';
-        return 'bg-success-500';
     }
 
     function reasonFallback(reason: string): string {
@@ -131,7 +120,7 @@
                         <div class="min-w-0 pr-12 sm:pr-0">
                             <p class="flex min-w-0 items-baseline justify-between gap-2">
                                 <span class="truncate text-sm font-semibold text-slate-950 dark:text-white">{naming.primary}</span>
-                                <span class="shrink-0 text-xs font-bold tabular-nums sm:hidden {scoreTone(score)}">{Math.round(score * 100)}%</span>
+                                <span class="shrink-0 text-xs font-bold tabular-nums sm:hidden {SCORE_TEXT[scoreBand(score)]}">{Math.round(score * 100)}%</span>
                             </p>
                             <p class="flex flex-wrap items-center gap-x-1.5 text-2xs text-slate-500 dark:text-slate-400">
                                 <span class="font-semibold text-brand-700 dark:text-brand-300">
@@ -152,9 +141,9 @@
                             </p>
                         </div>
                         <span class="hidden flex-col items-end gap-1 sm:flex">
-                            <span class="text-xs font-bold tabular-nums {scoreTone(score)}">{Math.round(score * 100)}%</span>
+                            <span class="text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{Math.round(score * 100)}%</span>
                             <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                <span class="block h-full rounded-full {barTone(score)}" style="width: {Math.round(score * 100)}%"></span>
+                                <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {Math.round(score * 100)}%"></span>
                             </span>
                         </span>
                         <button
