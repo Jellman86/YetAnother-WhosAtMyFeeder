@@ -374,8 +374,20 @@ class TimezoneRepairApplyResponse(BaseModel):
 class MaintenanceStatsResponse(BaseModel):
     total_detections: int
     oldest_detection: Optional[str] = None
-    retention_days: int
-    detections_to_cleanup: int
+    retention_days: int = Field(description="The saved history retention in days (0 keeps everything).")
+    detections_to_cleanup: int = Field(description="Detections the saved retention deletes at the next cleanup.")
+    kept_newest_per_species: int = Field(
+        0, description="The newest detections of each species kept regardless of age (0 = none)."
+    )
+    automatic_cleanup: bool = Field(
+        True, description="Whether the scheduled cleanup runs (on start, then every 24 hours)."
+    )
+    preview_retention_days: Optional[int] = Field(
+        None, description="The retention window asked for in `retention_days`, echoed back."
+    )
+    preview_detections_to_cleanup: Optional[int] = Field(
+        None, description="Detections that window would delete under the same rules. Nothing is deleted."
+    )
 
 
 class CleanupResponse(BaseModel):
@@ -2481,28 +2493,41 @@ async def update_settings(
 
 
 @router.get("/maintenance/stats", response_model=MaintenanceStatsResponse)
-async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
+async def get_maintenance_stats(
+    retention_days: Optional[int] = Query(
+        None,
+        ge=0,
+        # A century; far larger windows overflow the cutoff date arithmetic.
+        le=36500,
+        description="Preview how many detections this retention window would delete. Read-only.",
+    ),
+    auth: AuthContext = Depends(require_owner),
+):
     """Get database maintenance statistics. Owner only."""
+    species_floor = settings.media_cache.per_species_minimum
+
+    async def count_due(repo: DetectionRepository, days: int) -> int:
+        if days <= 0:
+            return 0
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        return await repo.count_older_than(cutoff, preserve_favorites=True, species_floor=species_floor)
+
     async with get_db() as db:
         repo = DetectionRepository(db)
         total_count = await repo.get_count()
         oldest_date = await repo.get_oldest_detection_date()
-
-        # Calculate how many would be deleted with current retention
-        to_delete = 0
-        if settings.maintenance.retention_days > 0:
-            cutoff = datetime.now(timezone.utc) - timedelta(days=settings.maintenance.retention_days)
-            to_delete = await repo.get_count(
-                end_date=cutoff,
-                exclude_favorites=True,
-                exclude_species_floor=settings.media_cache.per_species_minimum,
-            )
+        to_delete = await count_due(repo, settings.maintenance.retention_days)
+        preview_to_delete = await count_due(repo, retention_days) if retention_days is not None else None
 
         return {
             "total_detections": total_count,
             "oldest_detection": oldest_date.isoformat() if oldest_date else None,
             "retention_days": settings.maintenance.retention_days,
             "detections_to_cleanup": to_delete,
+            "kept_newest_per_species": species_floor,
+            "automatic_cleanup": settings.maintenance.cleanup_enabled,
+            "preview_retention_days": retention_days,
+            "preview_detections_to_cleanup": preview_to_delete,
         }
 
 

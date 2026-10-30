@@ -12,6 +12,19 @@ describe('Connection camera selection semantics', () => {
         expect(connectionSettingsSource).toContain('h-11 w-11');
     });
 
+    it('names each camera in its buttons, and keeps the toggle name steady as it is pressed', () => {
+        // WCAG 2.5.3: the visible camera name is in the accessible name. A toggle with
+        // aria-pressed keeps one name; "pressed" carries the state.
+        expect(connectionSettingsSource).toContain("aria-label={$_('settings.cameras.select', { default: 'Watch {camera} for birds', values: { camera } })}");
+        expect(connectionSettingsSource).not.toContain('settings.cameras.deselect');
+        expect(connectionSettingsSource).toContain("$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })");
+    });
+
+    it('says why Preview is unavailable without a Frigate URL', () => {
+        expect(connectionSettingsSource).toContain("aria-describedby={frigateUrl ? undefined : 'camera-preview-needs-url'}");
+        expect(connectionSettingsSource).toContain('id="camera-preview-needs-url"');
+    });
+
     it('announces preview state and describes the preview image', () => {
         expect(connectionSettingsSource).toContain('<div role="status"');
         expect(connectionSettingsSource).toContain('<div role="alert"');

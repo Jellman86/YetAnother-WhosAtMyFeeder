@@ -23,20 +23,19 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
 
 ## 2. The look (shared visual language)
 
-- **Shell:** `rounded-3xl`, `max-w-2xl`, `border border-white/10`, `shadow-2xl`,
+- **Shell:** `rounded-2xl`, `max-w-2xl`, `bg-surface`, `border border-white/10`, `shadow-2xl`,
   on a `fixed inset-0` dimmed + `backdrop-blur-sm` scrim.
-- **Header band:** `bg-gradient-to-r from-teal-50 via-emerald-50 to-white`
-  (dark: teal/emerald → slate). A `YA-WAMF` eyebrow in
-  `text-[10px] font-black uppercase tracking-[0.22em] text-teal-700`, then a
-  `text-2xl font-black` title and a calm `text-sm` subtitle.
-- **Progress:** a row of equal-width segments — teal for passed, amber for warnings,
-  red for failed, pulsing teal for the running step, slate for pending/skipped. A visually-hidden
+- **Header band:** `bg-surface-raised`, so it follows the active theme. A `YA-WAMF` eyebrow in
+  `text-3xs font-bold uppercase tracking-[0.22em] text-brand-700` (dark: `text-brand-300`), then a
+  `text-2xl font-bold` title and a calm `text-sm` subtitle.
+- **Progress:** a row of equal-width segments — brand for passed, amber for warnings,
+  red for failed, pulsing brand for the running step, slate for pending/skipped. A visually-hidden
   `role="progressbar"` mirrors it for assistive tech.
 - **Checklist:** one bordered container with `divide-y` rows — **not** a stack of
   separate cards. Each row is a small status disc (number → ✓ / ! / –) plus a
-  bold label and a plain-language message.
+  bold label and a plain-language message. A passed disc is success green.
 - **Footer:** `border-t`, right-aligned, using the shared button kit (`btn` +
-  `btn-ghost` / `btn-primary`).
+  `btn-ghost` / `btn-primary`) with a `min-h-11` (44px) target.
 
 ## 3. The behaviour
 
@@ -54,7 +53,13 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   plain language (Nielsen #9) — not an error code. Warning and skipped outcomes
   remain terminal but must not be promoted to a pass or produce a green summary.
 - **Keyboard & focus:** `Escape` closes, focus is trapped while open, and body
-  scroll is locked. Bump `runId` on each run so the reveal restarts.
+  scroll is locked. `trapFocus` alone returns focus to the opener on close; the dialog does not
+  add a second restore. Bump `runId` on each run so the reveal restarts; the reveal timer stops
+  once the run is over and every stage is on show.
+- **One announcement line.** Assistive tech hears a single visually-hidden `role="status"` line:
+  "Step 2 of 4: Reach the broker" while a step runs, then the result message and hint. The
+  checklist itself is not a live region, because it re-renders on every reveal tick.
+  `aria-describedby` points at the subtitle only when there is one.
 
 ## 4. Adding a new test flow
 

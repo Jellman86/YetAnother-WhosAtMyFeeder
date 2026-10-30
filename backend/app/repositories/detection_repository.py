@@ -3560,6 +3560,37 @@ class DetectionRepository:
             "match_names": match_names,
         }
 
+    def _retention_eligible_sql(self, preserve_favorites: bool, species_floor: int) -> str:
+        """The rows an age cleanup removes: older than the cutoff (the one bound parameter),
+        hidden or not, less favourites when kept and the per-species floor.
+
+        The delete and its read-only preview share this, so the count a user is shown before
+        saving a shorter retention is the count the cleanup deletes.
+        """
+        query = """
+            SELECT d.id
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE d.detection_time < ?
+        """
+        if preserve_favorites:
+            query += " AND f.detection_id IS NULL"
+        if species_floor > 0:
+            query += f" AND d.id NOT IN ({self._species_floor_sql(species_floor)})"
+        return query
+
+    async def count_older_than(
+        self,
+        cutoff_date: datetime,
+        preserve_favorites: bool = False,
+        species_floor: int = 0,
+    ) -> int:
+        """How many detections ``delete_older_than`` would remove with the same arguments. Read-only."""
+        query = f"SELECT COUNT(*) FROM ({self._retention_eligible_sql(preserve_favorites, species_floor)})"
+        async with self.db.execute(query, (cutoff_date.isoformat(sep=" "),)) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
     async def delete_older_than(
         self,
         cutoff_date: datetime,
@@ -3573,28 +3604,16 @@ class DetectionRepository:
         """
         total_deleted = 0
         cutoff_str = cutoff_date.isoformat(sep=" ")
-        floor_condition = f" AND d.id NOT IN ({self._species_floor_sql(species_floor)})" if species_floor > 0 else ""
+        # SQLite's DELETE ... LIMIT needs a compile-time option, so each chunk is chosen by subquery.
+        query = f"""
+            DELETE FROM detections
+            WHERE id IN (
+                {self._retention_eligible_sql(preserve_favorites, species_floor)}
+                LIMIT ?
+            )
+        """
 
         while True:
-            # Delete a chunk of rows
-            # We use the rowid (implicit or explicit) or limit if supported by the build
-            # Standard SQLite DELETE LIMIT requires compilation option, so we use subquery
-            query = """
-                DELETE FROM detections
-                WHERE id IN (
-                    SELECT d.id
-                    FROM detections d
-                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
-                    WHERE d.detection_time < ?
-            """
-            if preserve_favorites:
-                query += " AND f.detection_id IS NULL"
-            query += floor_condition
-            query += """
-                    LIMIT ?
-                )
-            """
-
             async with self.db.execute(query, (cutoff_str, chunk_size)) as cursor:
                 if cursor.rowcount == 0:
                     break

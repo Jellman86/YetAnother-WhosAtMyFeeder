@@ -73,7 +73,7 @@ medium is not shared rather than shown a broken image or an error.
 
 | Control | Default | What it decides |
 |---|---|---|
-| **Show camera names** | On | Whether camera labels appear, or are blanked out. |
+| **Show camera names** | On | Guests see each camera's name. Off shows a generic label instead. |
 | **Share audio with visitors** | On | BirdNET-Go detections, spectrograms, and audio clips. Off means no audio surfaces at all. |
 | **Share photographs with visitors** | On | Snapshots and thumbnails. Off means visitors see placeholders instead of images. |
 | **Share video with visitors** | On | Clip playback. |

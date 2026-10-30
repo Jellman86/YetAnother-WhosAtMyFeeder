@@ -565,7 +565,8 @@
     "working": "処理中…",
     "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。",
     "undo": "元に戻す",
-    "unknown": "不明"
+    "unknown": "不明",
+    "diagnostic_step_status": "ステップ {step}/{total}: {label}"
   },
   "route_load": {
     "loading": "{page} を開いています…",
@@ -604,7 +605,6 @@
       "records": "総レコード数",
       "oldest": "最古の記録",
       "retention": "保持期間",
-      "pending_gc": "保留中の GC",
       "retention_title": "保持ポリシー",
       "history_duration": "履歴期間",
       "keep_everything": "すべて保持 (∞)",
@@ -780,11 +780,25 @@
       "cache_unavailable": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。フォルダーの権限を確認してください。エラーはシステムチェックに表示されます。",
       "cache_high_quality_storage_note": "各訪問でフル解像度のフレームも保持され、数MBになることがよくあります。容量が限られる場合は保存容量の上限を設定してください。",
       "automatic_multi_bird_scan": "ほかの鳥を自動で探す",
-      "automatic_multi_bird_scan_help": "処理を減らすため、初期設定ではオフです。通常の鳥の識別と対象の鳥の切り抜きは継続し、既存の結果も保持します。必要なときに写真の「ほかの鳥を探す」を使ってください。有効にすると、保存されたフレーム全体をスキャンします。"
+      "automatic_multi_bird_scan_help": "処理を減らすため、初期設定ではオフです。通常の鳥の識別と対象の鳥の切り抜きは継続し、既存の結果も保持します。必要なときに写真の「ほかの鳥を探す」を使ってください。有効にすると、保存されたフレーム全体をスキャンします。",
+      "due_for_deletion": "削除予定",
+      "purge_disabled_forever": "削除するものはありません。履歴は無期限に保存されます。",
+      "purge_disabled_none": "{days} 日より古い検出はありません。",
+      "retention_shrink_counting": "{days} 日より古い検出を数えています…",
+      "retention_shrink_note": "保存すると、次回のクリーンアップ（再起動時、その後は 24 時間ごと）で {days} 日より古い検出 {count, plural, other {# 件}} が完全に削除されます。",
+      "retention_shrink_uncounted": "保存すると、次回のクリーンアップ（再起動時、その後は 24 時間ごと）で {days} 日より古い検出がすべて完全に削除されます。",
+      "retention_shrink_manual": "自動クリーンアップがオフのため、保存だけでは何も削除されません。その後「古いレコードを削除」を実行すると、{days} 日より古い検出 {count, plural, other {# 件}} が削除されます。",
+      "retention_shrink_manual_uncounted": "自動クリーンアップがオフのため、保存だけでは何も削除されません。その後「古いレコードを削除」を実行すると、{days} 日より古い検出がすべて削除されます。",
+      "retention_shrink_kept_floor": "お気に入りと、各種の最新の検出 {floor, plural, other {# 件}} は残ります。古い BirdNET-Go の音声と庭の動物の記録も削除されます。",
+      "retention_shrink_kept": "お気に入りは残ります。古い BirdNET-Go の音声と庭の動物の記録も削除されます。",
+      "retention_confirm_title": "古い履歴を削除しますか？",
+      "retention_confirm_button": "保存して {count, plural, other {# 件}}の検出を削除",
+      "retention_confirm_uncounted": "保存して古い履歴を削除"
     },
     "security": {
       "title": "セキュリティ",
-      "https_warning": "セキュリティ警告: HTTP で認証が有効になっています。認証情報が漏洩する可能性があります。安全なアクセスには HTTPS を使用してください。"
+      "https_warning": "サインインは有効ですが、このページは HTTP で配信されているため、パスワードとセッションがネットワーク上で読み取られる可能性があります。リバースプロキシの背後に置くなどして、YA-WAMF を HTTPS で配信してください。",
+      "https_warning_title": "パスワードが暗号化されずに送信されています。"
     },
     "connection": {
       "frigate_success": "Frigate v{version} に {url} で接続しました",
@@ -1087,7 +1101,7 @@
       "enable": "公開アクセスを有効化",
       "enable_desc": "ゲストが検出を閲覧できます",
       "show_camera_names": "カメラ名を表示",
-      "show_camera_names_desc": "公開閲覧でカメラ名を隠す",
+      "show_camera_names_desc": "ゲストに各カメラの名前が表示されます。オフにすると汎用のラベルが表示されます。",
       "show_ai_conversation": "AI会話を表示",
       "show_ai_conversation_desc": "ゲストが検出のAIチャット履歴を表示できるようにします",
       "history_days": "履歴（日）",
@@ -1198,14 +1212,13 @@
       "garden_moved": "庭の動物のカメラは 設定 → ベータ機能 で設定します。",
       "syncing": "スキャン中…",
       "preview_close": "プレビューを閉じる",
-      "deselect": "選択解除",
-      "preview": "プレビュー",
+      "preview": "{camera} をプレビュー",
       "preview_failed": "プレビューに失敗しました",
       "preview_label": "{camera} のカメラプレビュー",
       "preview_live": "ライブ",
       "preview_loading": "プレビューを読み込み中…",
       "preview_missing_url": "このカメラではプレビュー URL を利用できません。",
-      "select": "選択",
+      "select": "{camera} で鳥を検出する",
       "nest_dedupe_help": "巣箱カメラで同じ種の繰り返し検出を N 分ごとに 1 回にまとめます。",
       "nest_dedupe_label": "巣箱の重複排除ウィンドウ",
       "nest_dedupe_unit": "分",
@@ -1213,7 +1226,8 @@
       "role_feeder_help": "給餌台カメラ: Frigate のイベントごとに新しい訪問として扱われます (既定)。",
       "role_label": "役割",
       "role_nest": "巣箱",
-      "role_nest_help": "巣箱カメラ: 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。"
+      "role_nest_help": "巣箱カメラ: 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。",
+      "preview_needs_url": "カメラをプレビューするには、上で Frigate の URL を入力してください。"
     },
     "telemetry": {
       "title": "テレメトリ",
@@ -1306,7 +1320,8 @@
       "outlook_client_secret": "Outlookクライアントシークレット",
       "outlook_client_secret_placeholder": "Microsoft OAuthクライアントシークレット",
       "test_email_sent": "テストメールを送信しました。",
-      "advanced_title": "配信タイミングとダッシュボードリンク"
+      "advanced_title": "配信タイミングとダッシュボードリンク",
+      "test_needs": "テストを送信するには宛先アドレスを入力してください。"
     },
     "notifications": {
       "global_filters": "通知の全体フィルター",
@@ -1423,7 +1438,8 @@
       "bot_username": "ボット名",
       "test_notification": "テスト通知を送信",
       "test_sending": "送信中…",
-      "bot_placeholder": "YA-WAMF Bird Bot"
+      "bot_placeholder": "YA-WAMF Bird Bot",
+      "test_needs": "テストを送信するには Webhook URL を入力してください。"
     },
     "pushover": {
       "title": "Pushover通知",
@@ -1442,7 +1458,8 @@
       "device_hint": "デバイス名をカンマで区切ります。全てのアクティブなデバイスに送信するには空欄にしてください。",
       "test_notification": "テスト通知を送信",
       "test_sending": "送信中…",
-      "advanced_title": "優先度とデバイスターゲット"
+      "advanced_title": "優先度とデバイスターゲット",
+      "test_needs": "テストを送信するにはユーザーキーと API トークンを入力してください。"
     },
     "telegram": {
       "title": "Telegram通知",
@@ -1451,7 +1468,8 @@
       "chat_id": "チャットID",
       "chat_id_placeholder": "123456789",
       "test_notification": "テスト通知を送信",
-      "test_sending": "送信中…"
+      "test_sending": "送信中…",
+      "test_needs": "テストを送信するにはボットトークンとチャット ID を入力してください。"
     },
     "location": {
       "title": "位置情報",
@@ -1498,7 +1516,10 @@
       "clear_feedback_desc": "パーソナライズ用フィードバックを消去すると、AI が信頼度スコアの調整に使用している手動タグ修正がすべて削除されます。これにより分類器は初期精度に戻ります。",
       "clear_feedback_hint": "検出やメディアは削除されません。新しい手動修正を行うと再ランキングは再び学習を始めます。",
       "clearing_feedback": "消去中…",
-      "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。"
+      "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。",
+      "feedback_title": "パーソナライズデータ",
+      "favorites_title": "お気に入り",
+      "reset_title": "データベースとメディアキャッシュ"
     },
     "detection": {
       "fine_tuning": "微調整",
@@ -2762,7 +2783,8 @@
       "1y": "1年",
       "species": "種",
       "source": "音源",
-      "min_confidence": "最低信頼度"
+      "min_confidence": "最低信頼度",
+      "changed": "フィルターが変更されました。一覧を更新するには適用してください。"
     },
     "top_species": "最も多く聞かれた種",
     "card": {
@@ -2788,7 +2810,8 @@
       "confidence": "信頼度",
       "open_birdnet": "BirdNET-Go で開く",
       "open_visual_match": "一致する映像検出を開く",
-      "unknown_source": "不明な音源"
+      "unknown_source": "不明な音源",
+      "spectrogram_alt": "{species} の鳴き声のスペクトログラム"
     },
     "sources": {
       "title": "音源",

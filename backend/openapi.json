@@ -10429,8 +10429,21 @@
       },
       "MaintenanceStatsResponse": {
         "properties": {
+          "automatic_cleanup": {
+            "default": true,
+            "description": "Whether the scheduled cleanup runs (on start, then every 24 hours).",
+            "title": "Automatic Cleanup",
+            "type": "boolean"
+          },
           "detections_to_cleanup": {
+            "description": "Detections the saved retention deletes at the next cleanup.",
             "title": "Detections To Cleanup",
+            "type": "integer"
+          },
+          "kept_newest_per_species": {
+            "default": 0,
+            "description": "The newest detections of each species kept regardless of age (0 = none).",
+            "title": "Kept Newest Per Species",
             "type": "integer"
           },
           "oldest_detection": {
@@ -10444,7 +10457,32 @@
             ],
             "title": "Oldest Detection"
           },
+          "preview_detections_to_cleanup": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Detections that window would delete under the same rules. Nothing is deleted.",
+            "title": "Preview Detections To Cleanup"
+          },
+          "preview_retention_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The retention window asked for in `retention_days`, echoed back.",
+            "title": "Preview Retention Days"
+          },
           "retention_days": {
+            "description": "The saved history retention in days (0 keeps everything).",
             "title": "Retention Days",
             "type": "integer"
           },
@@ -29833,6 +29871,28 @@
       "get": {
         "description": "Get database maintenance statistics. Owner only.",
         "operationId": "get_maintenance_stats_api_maintenance_stats_get",
+        "parameters": [
+          {
+            "description": "Preview how many detections this retention window would delete. Read-only.",
+            "in": "query",
+            "name": "retention_days",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 36500,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Preview how many detections this retention window would delete. Read-only.",
+              "title": "Retention Days"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -29843,6 +29903,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [

@@ -273,12 +273,20 @@ Retention, caching, imports, and the destructive tools.
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
   startup and then every 24 hours from that point, so the time of day it lands on follows when the
-  container last started. **Purge Old Records** runs the same cleanup now, after asking with the
-  number of detections it will remove. Cleanup **permanently deletes** both visual detections and
-  BirdNET-Go audio older than the window. Purged history cannot be recovered. Favourited
+  container last started. Choosing a shorter window (or any window after **Keep Everything**)
+  shows, under the picker, how many detections the next cleanup would delete, and **Apply
+  Settings** asks once more (**Save and delete _N_ detections**) before saving it. Cancelling
+  saves nothing. The stat tiles above show the saved policy: **Retention** and **Due for deletion**
+  change only after you apply. **Purge Old Records** runs the same cleanup now, after asking with the
+  number of detections it will remove; while it has nothing to do, the line beneath it says why.
+  Cleanup **permanently deletes** visual detections, hidden ones included, and BirdNET-Go audio
+  older than the window. Purged history cannot be recovered. Favourited
   detections stay. The optional per-species minimum also protects the newest configured
   number of detections per species and their photographs from age cleanup; its default
   is `0`, so there is no species floor until you set one. It does not protect clips.
+  **Danger Zone** lists one action per row, narrowest first, each with its consequence beside
+  its button: **Clear Personalization Data**, **Delete All Favorites**, then **Reset Database &
+  Cache**.
   The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
   Frigate and what to do when upstream media has gone.
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,

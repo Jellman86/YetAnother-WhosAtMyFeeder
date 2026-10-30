@@ -565,7 +565,8 @@
     "working": "处理中…",
     "language_load_error": "无法加载该语言。请检查网络连接后重试。",
     "undo": "撤销",
-    "unknown": "未知"
+    "unknown": "未知",
+    "diagnostic_step_status": "第 {step} 步，共 {total} 步：{label}"
   },
   "route_load": {
     "loading": "正在打开{page}…",
@@ -604,7 +605,6 @@
       "records": "记录总数",
       "oldest": "最早记录",
       "retention": "保留期",
-      "pending_gc": "待处理 GC",
       "retention_title": "保留策略",
       "history_duration": "历史时长",
       "keep_everything": "全部保留 (∞)",
@@ -780,11 +780,25 @@
       "cache_unavailable": "无法写入媒体文件夹，因此没有保留照片和视频。请检查文件夹权限；系统检查会显示错误。",
       "cache_high_quality_storage_note": "每次到访还会保留全分辨率画面，通常有几 MB；如果空间紧张，请设置存储上限。",
       "automatic_multi_bird_scan": "自动查找其他鸟类",
-      "automatic_multi_bird_scan_help": "默认关闭以减少处理量。正常的鸟类识别和目标鸟类裁剪会继续，已有结果也会保留。需要时可在照片上使用“查找更多鸟类”。启用后，将扫描保留的完整画面。"
+      "automatic_multi_bird_scan_help": "默认关闭以减少处理量。正常的鸟类识别和目标鸟类裁剪会继续，已有结果也会保留。需要时可在照片上使用“查找更多鸟类”。启用后，将扫描保留的完整画面。",
+      "due_for_deletion": "待删除",
+      "purge_disabled_forever": "无需清理：历史记录永久保留。",
+      "purge_disabled_none": "没有超过 {days} 天的检测记录。",
+      "retention_shrink_counting": "正在统计超过 {days} 天的检测记录…",
+      "retention_shrink_note": "保存后，下次清理时（重启时，之后每 24 小时一次）将永久删除 {count, plural, other {# 条}}超过 {days} 天的检测记录。",
+      "retention_shrink_uncounted": "保存后，下次清理时（重启时，之后每 24 小时一次）将永久删除所有超过 {days} 天的检测记录。",
+      "retention_shrink_manual": "自动清理已关闭，因此仅保存不会删除任何内容。之后“清除旧记录”将删除 {count, plural, other {# 条}}超过 {days} 天的检测记录。",
+      "retention_shrink_manual_uncounted": "自动清理已关闭，因此仅保存不会删除任何内容。之后“清除旧记录”将删除所有超过 {days} 天的检测记录。",
+      "retention_shrink_kept_floor": "收藏和每个物种最新的 {floor, plural, other {# 条}}检测记录会保留。较早的 BirdNET-Go 音频和花园动物记录也会被删除。",
+      "retention_shrink_kept": "收藏会保留。较早的 BirdNET-Go 音频和花园动物记录也会被删除。",
+      "retention_confirm_title": "删除较早的历史记录？",
+      "retention_confirm_button": "保存并删除 {count, plural, other {# 条}}检测记录",
+      "retention_confirm_uncounted": "保存并删除较早的历史记录"
     },
     "security": {
       "title": "安全",
-      "https_warning": "安全警告：认证已通过 HTTP 启用。您的凭据可能会暴露。请使用 HTTPS 进行安全访问。"
+      "https_warning": "已启用登录，但此页面通过 HTTP 提供，密码和会话可能在网络上被读取。请通过 HTTPS 提供 YA-WAMF，例如放在您的反向代理之后。",
+      "https_warning_title": "密码以未加密方式传输。"
     },
     "connection": {
       "frigate_success": "已连接到位于 {url} 的 Frigate v{version}",
@@ -1087,7 +1101,7 @@
       "enable": "启用公开访问",
       "enable_desc": "访客可查看检测结果",
       "show_camera_names": "显示摄像头名称",
-      "show_camera_names_desc": "对公开访问隐藏摄像头名称",
+      "show_camera_names_desc": "访客可以看到每个摄像头的名称。关闭后显示通用标签。",
       "show_ai_conversation": "显示 AI 对话",
       "show_ai_conversation_desc": "允许访客查看检测记录中的 AI 聊天内容",
       "history_days": "历史范围（天）",
@@ -1198,14 +1212,13 @@
       "garden_moved": "花园动物摄像头在 设置 → 测试版功能 中设置。",
       "syncing": "扫描中…",
       "preview_close": "关闭预览",
-      "deselect": "取消选择",
-      "preview": "预览",
+      "preview": "预览 {camera}",
       "preview_failed": "预览失败",
       "preview_label": "{camera} 的摄像头预览",
       "preview_live": "实时",
       "preview_loading": "正在加载预览…",
       "preview_missing_url": "此摄像头没有可用的预览 URL。",
-      "select": "选择",
+      "select": "在 {camera} 上识别鸟类",
       "nest_dedupe_help": "将巢箱摄像头上同一物种的重复检测合并为每 N 分钟一次。",
       "nest_dedupe_label": "巢箱去重窗口",
       "nest_dedupe_unit": "分钟",
@@ -1213,7 +1226,8 @@
       "role_feeder_help": "喂食器摄像头：每个 Frigate 事件视为一次全新到访（默认）。",
       "role_label": "角色",
       "role_nest": "巢箱",
-      "role_nest_help": "巢箱摄像头：将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。"
+      "role_nest_help": "巢箱摄像头：将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。",
+      "preview_needs_url": "请先在上方输入 Frigate 地址，才能预览摄像头。"
     },
     "telemetry": {
       "title": "遥测",
@@ -1306,7 +1320,8 @@
       "outlook_client_secret": "Outlook客户端密钥",
       "outlook_client_secret_placeholder": "Microsoft OAuth客户端密钥",
       "test_email_sent": "测试邮件已发送。",
-      "advanced_title": "送达时间与仪表板链接"
+      "advanced_title": "送达时间与仪表板链接",
+      "test_needs": "请输入收件人地址以发送测试。"
     },
     "notifications": {
       "global_filters": "全局通知筛选",
@@ -1423,7 +1438,8 @@
       "bot_username": "机器人名称",
       "test_notification": "发送测试通知",
       "test_sending": "发送中…",
-      "bot_placeholder": "YA-WAMF Bird Bot"
+      "bot_placeholder": "YA-WAMF Bird Bot",
+      "test_needs": "请输入 Webhook 地址以发送测试。"
     },
     "pushover": {
       "title": "Pushover 通知",
@@ -1442,7 +1458,8 @@
       "device_hint": "设备名称用逗号分隔。留空则发送至所有活跃设备。",
       "test_notification": "发送测试通知",
       "test_sending": "发送中…",
-      "advanced_title": "优先级与设备定向"
+      "advanced_title": "优先级与设备定向",
+      "test_needs": "请输入用户密钥和 API 令牌以发送测试。"
     },
     "telegram": {
       "title": "Telegram 通知",
@@ -1451,7 +1468,8 @@
       "chat_id": "聊天 ID",
       "chat_id_placeholder": "123456789",
       "test_notification": "发送测试通知",
-      "test_sending": "发送中…"
+      "test_sending": "发送中…",
+      "test_needs": "请输入机器人令牌和聊天 ID 以发送测试。"
     },
     "location": {
       "title": "位置",
@@ -1498,7 +1516,10 @@
       "clear_feedback_desc": "清除个性化反馈将删除 AI 用于调整置信度分数的所有手动标签修正。这会让分类器恢复到基础精度。",
       "clear_feedback_hint": "这不会删除检测或媒体。随着你进行新的手动修正，重新排序会重新开始学习。",
       "clearing_feedback": "清除中…",
-      "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。"
+      "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。",
+      "feedback_title": "个性化数据",
+      "favorites_title": "收藏",
+      "reset_title": "数据库和媒体缓存"
     },
     "detection": {
       "fine_tuning": "精细调优",
@@ -2762,7 +2783,8 @@
       "1y": "1 年",
       "species": "物种",
       "source": "来源",
-      "min_confidence": "最低置信度"
+      "min_confidence": "最低置信度",
+      "changed": "筛选条件已更改。请应用以更新列表。"
     },
     "top_species": "听测次数最多的物种",
     "card": {
@@ -2788,7 +2810,8 @@
       "confidence": "置信度",
       "open_birdnet": "在 BirdNET-Go 中打开",
       "open_visual_match": "打开匹配的视觉检测",
-      "unknown_source": "未知来源"
+      "unknown_source": "未知来源",
+      "spectrogram_alt": "{species} 叫声的声谱图"
     },
     "sources": {
       "title": "来源",

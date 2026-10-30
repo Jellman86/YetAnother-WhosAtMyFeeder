@@ -210,6 +210,11 @@ html[data-theme='dark'] {
     @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
   }
 
+  /* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
+  .btn-danger-solid {
+    @apply bg-red-700 text-white hover:bg-red-800;
+  }
+
   .btn-icon {
     @apply p-2.5 rounded-xl;
   }
@@ -503,7 +508,8 @@ html.high-contrast.high-contrast.high-contrast {
   color: #ffffff !important;
 }
 
-.high-contrast text-slate-500,
+.high-contrast .text-slate-400,
+.high-contrast .text-slate-500,
 .high-contrast .dark\:text-slate-400,
 .high-contrast .text-slate-600,
 .high-contrast .dark\:text-slate-300 {
