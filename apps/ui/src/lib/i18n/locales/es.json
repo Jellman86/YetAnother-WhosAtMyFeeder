@@ -565,7 +565,8 @@
     "working": "Trabajando…",
     "language_load_error": "No se ha podido cargar ese idioma. Comprueba la conexión e inténtalo de nuevo.",
     "undo": "Deshacer",
-    "unknown": "desconocido"
+    "unknown": "desconocido",
+    "diagnostic_step_status": "Paso {step} de {total}: {label}"
   },
   "route_load": {
     "loading": "Abriendo {page}…",
@@ -609,7 +610,6 @@
       "records": "Registros totales",
       "oldest": "Más antiguo",
       "retention": "Retención",
-      "pending_gc": "GC pendiente",
       "retention_title": "Política de retención",
       "history_duration": "Duración del historial",
       "keep_everything": "Conservar todo (∞)",
@@ -785,11 +785,25 @@
       "cache_unavailable": "No se puede escribir en la carpeta de medios, así que no se están guardando fotos ni vídeo. Revisa los permisos de la carpeta; las comprobaciones del sistema muestran el error.",
       "cache_high_quality_storage_note": "Cada visita guarda además fotogramas a resolución completa, a menudo varios MB; fija un límite de almacenamiento si falta espacio.",
       "automatic_multi_bird_scan": "Buscar aves adicionales automáticamente",
-      "automatic_multi_bird_scan_help": "Desactivado por defecto para reducir el procesamiento. La identificación normal y el recorte del ave principal continúan, y se conservan los resultados existentes. Usa Buscar más aves en una fotografía cuando necesites analizarla. Al activarse, se analizan los fotogramas completos guardados."
+      "automatic_multi_bird_scan_help": "Desactivado por defecto para reducir el procesamiento. La identificación normal y el recorte del ave principal continúan, y se conservan los resultados existentes. Usa Buscar más aves en una fotografía cuando necesites analizarla. Al activarse, se analizan los fotogramas completos guardados.",
+      "due_for_deletion": "Pendientes de borrar",
+      "purge_disabled_forever": "Nada que borrar: el historial se conserva para siempre.",
+      "purge_disabled_none": "Ninguna detección tiene más de {days} días.",
+      "retention_shrink_counting": "Contando las detecciones de más de {days} días…",
+      "retention_shrink_note": "Al guardar, se borrarán de forma permanente {count, plural, one {# detección} other {# detecciones}} de más de {days} días en la próxima limpieza (al reiniciar y luego cada 24 horas).",
+      "retention_shrink_uncounted": "Al guardar, se borrarán de forma permanente todas las detecciones de más de {days} días en la próxima limpieza (al reiniciar y luego cada 24 horas).",
+      "retention_shrink_manual": "La limpieza automática está desactivada, así que guardar no borra nada por sí solo. Después, «Purgar registros antiguos» borraría {count, plural, one {# detección} other {# detecciones}} de más de {days} días.",
+      "retention_shrink_manual_uncounted": "La limpieza automática está desactivada, así que guardar no borra nada por sí solo. Después, «Purgar registros antiguos» borraría todas las detecciones de más de {days} días.",
+      "retention_shrink_kept_floor": "Se conservan los favoritos y {floor, plural, one {la detección más reciente} other {las # detecciones más recientes}} de cada especie. También se borran el audio de BirdNET-Go y los registros de animales del jardín más antiguos.",
+      "retention_shrink_kept": "Los favoritos se conservan. También se borran el audio de BirdNET-Go y los registros de animales del jardín más antiguos.",
+      "retention_confirm_title": "¿Borrar el historial antiguo?",
+      "retention_confirm_button": "Guardar y borrar {count, plural, one {# detección} other {# detecciones}}",
+      "retention_confirm_uncounted": "Guardar y borrar el historial antiguo"
     },
     "security": {
       "title": "Seguridad",
-      "https_warning": "Advertencia de seguridad: la autenticación está habilitada sobre HTTP. Sus credenciales pueden quedar expuestas. Use HTTPS para un acceso seguro."
+      "https_warning": "El inicio de sesión está activado, pero esta página se sirve por HTTP, así que las contraseñas y las sesiones pueden leerse en la red. Sirva YA-WAMF por HTTPS, por ejemplo detrás de su proxy inverso.",
+      "https_warning_title": "Las contraseñas viajan sin cifrar."
     },
     "connection": {
       "frigate_success": "Conectado a Frigate v{version} en {url}",
@@ -1092,7 +1106,7 @@
       "enable": "Habilitar acceso público",
       "enable_desc": "Los invitados pueden ver detecciones",
       "show_camera_names": "Mostrar nombres de cámara",
-      "show_camera_names_desc": "Ocultar cámaras para visitantes",
+      "show_camera_names_desc": "Los invitados ven el nombre de cada cámara. Desactivado muestra una etiqueta genérica.",
       "show_ai_conversation": "Mostrar conversaciones de IA",
       "show_ai_conversation_desc": "Permitir que los visitantes vean chats de IA en las detecciones",
       "history_days": "Historial (días)",
@@ -1203,14 +1217,13 @@
       "garden_moved": "Las cámaras de Animales del jardín se configuran en Ajustes → Funciones beta.",
       "syncing": "Escaneando…",
       "preview_close": "Cerrar vista previa",
-      "deselect": "Deseleccionar",
-      "preview": "Vista previa",
+      "preview": "Vista previa de {camera}",
       "preview_failed": "La vista previa falló",
       "preview_label": "Vista previa de la cámara {camera}",
       "preview_live": "En directo",
       "preview_loading": "Cargando vista previa…",
       "preview_missing_url": "No hay URL de vista previa disponible para esta cámara.",
-      "select": "Seleccionar",
+      "select": "Vigilar aves en {camera}",
       "nest_dedupe_help": "Agrupa las detecciones repetidas de la misma especie en una cámara de nido en una por N minutos.",
       "nest_dedupe_label": "Ventana de deduplicación de nido",
       "nest_dedupe_unit": "min",
@@ -1218,7 +1231,8 @@
       "role_feeder_help": "Cámara de comedero: cada evento de Frigate se trata como una visita nueva (predeterminado).",
       "role_label": "Rol",
       "role_nest": "Nido",
-      "role_nest_help": "Cámara de caja nido: agrupa las detecciones repetidas de la misma especie en una por ventana de deduplicación para que un ave en plena nidificación no inunde el feed."
+      "role_nest_help": "Cámara de caja nido: agrupa las detecciones repetidas de la misma especie en una por ventana de deduplicación para que un ave en plena nidificación no inunde el feed.",
+      "preview_needs_url": "Introduzca arriba la URL de Frigate para ver la vista previa de una cámara."
     },
     "telemetry": {
       "title": "Telemetría",
@@ -1311,7 +1325,8 @@
       "outlook_client_secret": "Secreto de cliente de Outlook",
       "outlook_client_secret_placeholder": "Secreto de cliente OAuth de Microsoft",
       "test_email_sent": "Correo de prueba enviado.",
-      "advanced_title": "Tiempos de entrega y enlace al panel"
+      "advanced_title": "Tiempos de entrega y enlace al panel",
+      "test_needs": "Introduzca la dirección del destinatario para enviar una prueba."
     },
     "notifications": {
       "global_filters": "Filtros globales de notificaciones",
@@ -1428,7 +1443,8 @@
       "bot_username": "Nombre del bot",
       "test_notification": "Enviar notificación de prueba",
       "test_sending": "Enviando…",
-      "bot_placeholder": "YA-WAMF Bird Bot"
+      "bot_placeholder": "YA-WAMF Bird Bot",
+      "test_needs": "Introduzca la URL del webhook para enviar una prueba."
     },
     "pushover": {
       "title": "Notificaciones de Pushover",
@@ -1447,7 +1463,8 @@
       "device_hint": "Nombres de dispositivos separados por comas. Dejar en blanco para enviar a todos los dispositivos activos.",
       "test_notification": "Enviar notificación de prueba",
       "test_sending": "Enviando…",
-      "advanced_title": "Prioridad y selección de dispositivos"
+      "advanced_title": "Prioridad y selección de dispositivos",
+      "test_needs": "Introduzca la clave de usuario y el token de la API para enviar una prueba."
     },
     "telegram": {
       "title": "Notificaciones de Telegram",
@@ -1456,7 +1473,8 @@
       "chat_id": "ID de chat",
       "chat_id_placeholder": "123456789",
       "test_notification": "Enviar notificación de prueba",
-      "test_sending": "Enviando…"
+      "test_sending": "Enviando…",
+      "test_needs": "Introduzca el token del bot y el ID del chat para enviar una prueba."
     },
     "location": {
       "title": "Ubicación",
@@ -1503,7 +1521,10 @@
       "clear_feedback_desc": "Borrar la retroalimentación de personalización eliminará todas las correcciones manuales de etiquetas que la IA usa para ajustar las puntuaciones de confianza. Esto devolverá el clasificador a su precisión base.",
       "clear_feedback_hint": "Esto no elimina detecciones ni medios. El reordenamiento volverá a aprender a medida que hagas nuevas correcciones manuales.",
       "clearing_feedback": "Borrando…",
-      "clear_feedback_confirm": "¿Seguro que quieres borrar todos los datos de re-ranking personalizado? Esto devolverá a la IA a su precisión de referencia y no se puede deshacer."
+      "clear_feedback_confirm": "¿Seguro que quieres borrar todos los datos de re-ranking personalizado? Esto devolverá a la IA a su precisión de referencia y no se puede deshacer.",
+      "feedback_title": "Datos de personalización",
+      "favorites_title": "Favoritos",
+      "reset_title": "Base de datos y caché multimedia"
     },
     "detection": {
       "fine_tuning": "Ajuste fino",
@@ -2772,7 +2793,8 @@
       "1y": "1 año",
       "species": "Especie",
       "source": "Fuente",
-      "min_confidence": "Confianza mínima"
+      "min_confidence": "Confianza mínima",
+      "changed": "Filtros cambiados. Aplique para actualizar la lista."
     },
     "top_species": "Especies más oídas",
     "card": {
@@ -2798,7 +2820,8 @@
       "confidence": "Confianza",
       "open_birdnet": "Abrir en BirdNET-Go",
       "open_visual_match": "Abrir detección visual coincidente",
-      "unknown_source": "Fuente desconocida"
+      "unknown_source": "Fuente desconocida",
+      "spectrogram_alt": "Espectrograma del canto de {species}"
     },
     "sources": {
       "title": "Fuentes",

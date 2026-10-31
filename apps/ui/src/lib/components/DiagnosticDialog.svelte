@@ -49,7 +49,6 @@
     }: Props = $props();
 
     let modalElement = $state<HTMLElement | null>(null);
-    let previouslyFocused: HTMLElement | null = null;
 
     // Auto-progress: results may arrive from the backend all at once, but we
     // reveal them one check at a time so the dialog visibly steps forward like
@@ -70,6 +69,8 @@
         tick = 0;
         const timer = setInterval(() => {
             tick += 1;
+            // The run is over and every row is on show; ticking on would only wake the page.
+            if (!busy && tick >= stages.length) clearInterval(timer);
         }, 350);
         return () => clearInterval(timer);
     });
@@ -91,16 +92,29 @@
         ).length
     );
     const progress = $derived(stages.length === 0 ? 0 : Math.round((completed / stages.length) * 100));
+    const resultShown = $derived(Boolean(result) && revealed >= resolvedCount);
+
+    // The one line assistive tech hears: the step in progress, then the outcome. The checklist
+    // re-renders on every reveal tick, so announcing the whole body repeated it each time.
+    const statusText = $derived.by(() => {
+        if (result && resultShown) return [result.message, result.hint].filter(Boolean).join(' ');
+        const runningIndex = displayStages.findIndex((stage) => stage.state === 'running');
+        if (runningIndex < 0) return '';
+        return $_('common.diagnostic_step_status', {
+            values: { step: runningIndex + 1, total: stages.length, label: stages[runningIndex].label },
+            default: 'Step {step} of {total}: {label}'
+        });
+    });
 
     onMount(() => {
         const previousOverflow = document.body.style.overflow;
-        previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         document.body.style.overflow = 'hidden';
+        // trapFocus returns focus to the opener on release; a second restore here would
+        // override a deliberate move to another control.
         const releaseFocus = modalElement ? trapFocus(modalElement) : () => {};
         return () => {
             releaseFocus();
             document.body.style.overflow = previousOverflow;
-            previouslyFocused?.focus();
         };
     });
 
@@ -129,7 +143,7 @@
         role="dialog"
         aria-modal="true"
         aria-labelledby="diagnostic-title"
-        aria-describedby="diagnostic-description"
+        aria-describedby={subtitle ? 'diagnostic-description' : undefined}
         tabindex="-1"
         class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
     >
@@ -157,7 +171,9 @@
             <span class="sr-only" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
         </header>
 
-        <div class="max-h-[68vh] space-y-4 overflow-y-auto p-6" aria-live="polite">
+        <p class="sr-only" role="status">{statusText}</p>
+
+        <div class="max-h-[68vh] space-y-4 overflow-y-auto p-6">
             {#if summary}
                 <div class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
                     {@render summary()}
@@ -185,8 +201,8 @@
                 {/each}
             </ol>
 
-            {#if result && revealed >= resolvedCount}
-                <div role="status" class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
+            {#if result && resultShown}
+                <div class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
                     <p class="font-bold">{result.message}</p>
                     {#if result.hint}
                         <p class="mt-1 text-sm">{result.hint}</p>
@@ -200,9 +216,9 @@
         </div>
 
         <footer class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
-            <button type="button" class="btn btn-ghost px-4 py-2.5" onclick={onClose}>{closeLabel ?? $_('common.close', { default: 'Close' })}</button>
+            <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" onclick={onClose}>{closeLabel ?? $_('common.close', { default: 'Close' })}</button>
             {#if onRetry}
-                <button type="button" class="btn btn-primary px-5 py-2.5" disabled={busy} onclick={onRetry}>
+                <button type="button" class="btn btn-primary min-h-11 px-5 py-2.5" disabled={busy} onclick={onRetry}>
                     {busy ? (runningLabel ?? $_('common.testing', { default: 'Testing' })) : (retryLabel ?? $_('common.test', { default: 'Test' }))}
                 </button>
             {/if}

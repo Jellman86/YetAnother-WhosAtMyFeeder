@@ -12,6 +12,7 @@
 
     let {
         maintenanceStats,
+        retentionNote = null,
         retentionDays = $bindable(0),
         maintenanceMaxConcurrent = $bindable(1),
         frigateMissingBehavior = $bindable<'mark_missing' | 'keep' | 'delete'>('mark_missing'),
@@ -75,6 +76,8 @@
         handleClearFeedback,
     }: {
         maintenanceStats: MaintenanceStats | null;
+        /** What saving a shorter retention deletes; null when the choice deletes nothing new. */
+        retentionNote?: string | null;
         retentionDays: number;
         maintenanceMaxConcurrent: number;
         frigateMissingBehavior: 'mark_missing' | 'keep' | 'delete';
@@ -225,10 +228,27 @@
         autoPurgeMissingSnapshots = enabled;
     };
 
+    // Stat tiles and Purge follow the saved policy; the picker above them may hold an unsaved one.
+    const savedRetentionDays = $derived(maintenanceStats?.retention_days ?? 0);
+    const dueForDeletion = $derived(safeCount(maintenanceStats?.detections_to_cleanup));
+    const purgeDisabledReason = $derived.by(() => {
+        if (!maintenanceStats) return null;
+        if (savedRetentionDays === 0) {
+            return $_('settings.data.purge_disabled_forever', { default: 'Nothing to purge: history is kept forever.' });
+        }
+        if (dueForDeletion === 0) {
+            return $_('settings.data.purge_disabled_none', {
+                values: { days: savedRetentionDays },
+                default: 'No detections are older than {days} days.'
+            });
+        }
+        return null;
+    });
+
     const buttonPrimaryClass = 'btn btn-primary min-h-11 px-4 py-3';
     const buttonNeutralClass = 'btn btn-secondary min-h-11 px-4 py-3';
-    const buttonAmberClass = 'btn btn-danger min-h-11 px-4 py-3';
-    const buttonDangerClass = 'btn min-h-11 px-4 py-3 bg-red-700 text-white hover:bg-red-800';
+    const buttonDangerOutlineClass = 'btn btn-danger min-h-11 px-4 py-3';
+    const buttonDangerSolidClass = 'btn btn-danger-solid min-h-11 px-4 py-3';
 </script>
 
 {#snippet spinner()}
@@ -244,8 +264,8 @@
             {#each [
                 { label: $_('settings.data.records'), val: fmtCount(maintenanceStats.total_detections) },
                 { label: $_('settings.data.oldest'), val: maintenanceStats.oldest_detection ? formatDate(maintenanceStats.oldest_detection) : 'N/A' },
-                { label: $_('settings.data.retention'), val: retentionDays === 0 ? '∞' : `${retentionDays} ${$_('leaderboard.days')}` },
-                { label: $_('settings.data.pending_gc'), val: fmtCount(maintenanceStats.detections_to_cleanup), highlight: safeCount(maintenanceStats.detections_to_cleanup) > 0 }
+                { label: $_('settings.data.retention'), val: savedRetentionDays === 0 ? '∞' : `${savedRetentionDays} ${$_('leaderboard.days')}` },
+                { label: $_('settings.data.due_for_deletion', { default: 'Due for deletion' }), val: fmtCount(dueForDeletion), highlight: dueForDeletion > 0 }
             ] as stat}
                 <div class="card-base rounded-2xl p-6 text-center">
                     <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
@@ -273,6 +293,7 @@
                     id="retention-days"
                     value={String(retentionDays)}
                     ariaLabel={$_('settings.data.history_duration')}
+                    ariaDescribedBy={retentionNote ? 'retention-deletion-note' : undefined}
                     options={[
                         { value: '0', label: $_('settings.data.keep_everything') },
                         { value: '7', label: $_('settings.data.retention_week') },
@@ -283,17 +304,25 @@
                     ]}
                     onchange={(v) => (retentionDays = Number(v) || 0)}
                 />
+                {#if retentionNote}
+                    <p id="retention-deletion-note" class="text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-retention-deletion-note>
+                        {retentionNote}
+                    </p>
+                {/if}
             </SettingsRow>
 
             <button
                 type="button"
                 onclick={handleCleanup}
-                disabled={cleaningUp || retentionDays === 0 || (maintenanceStats?.detections_to_cleanup ?? 0) === 0}
-                aria-label={$_('settings.data.purge_button')}
-                class="w-full {buttonAmberClass}"
+                disabled={cleaningUp || purgeDisabledReason !== null}
+                aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}
+                class="w-full {buttonDangerOutlineClass}"
             >
                 {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
             </button>
+            {#if purgeDisabledReason}
+                <p id="purge-disabled-reason" class="text-xs text-center text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
+            {/if}
             <p class="text-xs text-center text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
 
             <AdvancedSection
@@ -341,7 +370,7 @@
                     onclick={handlePurgeMissingMedia}
                     disabled={purgingMissingMedia}
                     aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-                    class="w-full {buttonAmberClass}"
+                    class="w-full {buttonDangerOutlineClass}"
                 >
                     {purgingMissingMedia
                         ? $_('settings.data.cleaning', { default: 'Cleaning...' })
@@ -616,7 +645,7 @@
                 onclick={openConfigImportPicker}
                 disabled={exportingConfigBackup || importingConfigBackup}
                 aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
-                class="w-full {buttonAmberClass}"
+                class="w-full {buttonDangerOutlineClass}"
             >
                 {#if importingConfigBackup}
                     {@render spinner()}
@@ -759,7 +788,7 @@
                 onclick={handleApplyTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
                 aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
-                class="flex-1 {buttonAmberClass}"
+                class="flex-1 {buttonDangerOutlineClass}"
             >
                 {applyingTimezoneRepair
                     ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
@@ -999,51 +1028,59 @@
         description={$_('settings.danger.subtitle')}
         openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
     >
-        <div class="space-y-4 rounded-2xl border-2 border-red-500/20 bg-red-500/5 p-4">
-            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">{$_('settings.danger.reset_desc')}</p>
-            <button
-                type="button"
-                onclick={handleClearFavorites}
-                disabled={clearingFavorites}
-                aria-label={$_('settings.data.clear_favorites_button')}
-                class="w-full {buttonDangerClass}"
-            >
-                {#if clearingFavorites}{@render spinner()}{/if}
-                {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
-            </button>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold">{$_('settings.data.clear_favorites_desc')}</p>
-
-            <div class="h-px bg-red-500/10"></div>
-
-            <p class="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
-            </p>
-            <button
-                type="button"
-                onclick={handleClearFeedback}
-                disabled={clearingFeedback}
-                aria-label={$_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
-                class="w-full {buttonAmberClass}"
-            >
-                {#if clearingFeedback}{@render spinner()}{/if}
-                {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
-            </button>
-            <p class="text-xs text-slate-500 dark:text-slate-400 font-bold">
-                {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
-            </p>
-
-            <div class="h-px bg-red-500/10"></div>
-
-            <button
-                type="button"
-                onclick={handleResetDatabase}
-                disabled={resettingDatabase}
-                aria-label={$_('settings.danger.reset_button')}
-                class="w-full {buttonDangerClass}"
-            >
-                {#if resettingDatabase}{@render spinner()}{/if}
-                {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
-            </button>
-        </div>
+        <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
+        <ul class="divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
+            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="feedback">
+                <div class="min-w-0 space-y-1">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h4>
+                    <p id="danger-feedback-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">
+                        {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
+                        {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onclick={handleClearFeedback}
+                    disabled={clearingFeedback}
+                    aria-describedby="danger-feedback-consequence"
+                    class="shrink-0 {buttonDangerOutlineClass}"
+                >
+                    {#if clearingFeedback}{@render spinner()}{/if}
+                    {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
+                </button>
+            </li>
+            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="favorites">
+                <div class="min-w-0 space-y-1">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h4>
+                    <p id="danger-favorites-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.data.clear_favorites_desc')}</p>
+                </div>
+                <button
+                    type="button"
+                    onclick={handleClearFavorites}
+                    disabled={clearingFavorites}
+                    aria-describedby="danger-favorites-consequence"
+                    class="shrink-0 {buttonDangerOutlineClass}"
+                >
+                    {#if clearingFavorites}{@render spinner()}{/if}
+                    {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
+                </button>
+            </li>
+            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="reset">
+                <div class="min-w-0 space-y-1">
+                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h4>
+                    <p id="danger-reset-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.danger.reset_desc')}</p>
+                </div>
+                <button
+                    type="button"
+                    onclick={handleResetDatabase}
+                    disabled={resettingDatabase}
+                    aria-describedby="danger-reset-consequence"
+                    class="shrink-0 {buttonDangerSolidClass}"
+                >
+                    {#if resettingDatabase}{@render spinner()}{/if}
+                    {resettingDatabase ? $_('settings.danger.resetting') : $_('settings.danger.reset_button')}
+                </button>
+            </li>
+        </ul>
     </AdvancedSection>
 </div>

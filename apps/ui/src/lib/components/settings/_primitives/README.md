@@ -5,7 +5,10 @@ instead of rolling its own card chrome, switch markup, or padding scale.
 
 A build-time guard (`settings-style-audit.test.ts`) fails if a migrated tab
 reintroduces inline `role="switch"` markup or bypasses the standard chrome —
-adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard.
+adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard. In every
+settings tab it also fails a `<label>` that wraps an `sr-only` radio or checkbox
+without `focus-within:ring` classes, because the tile is then the only place
+keyboard focus can show.
 
 ## When to reach for what
 

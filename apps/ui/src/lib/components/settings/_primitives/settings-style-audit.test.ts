@@ -55,6 +55,24 @@ describe('settings primitives — style audit', () => {
         expect(offenders, `Migrated settings tabs must use SettingsToggle, not inline role="switch" markup. Offenders: ${offenders.join(', ')}`).toEqual([]);
     });
 
+    it('option tiles that hide their radio show keyboard focus on the tile', () => {
+        // A visually hidden radio still takes focus, but nothing on screen shows it unless
+        // the wrapping label draws a ring when focus is inside it (WCAG 2.4.7).
+        const offenders: string[] = [];
+        for (const path of listSettingsComponents()) {
+            const name = path.split('/').pop()!;
+            const src = readFileSync(path, 'utf8');
+            for (const label of src.matchAll(/<label\b([^>]*)>([\s\S]*?)<\/label>/g)) {
+                const [, attributes, body] = label;
+                const hiddenChoice = /<input\b(?=[^>]*\bclass="[^"]*\bsr-only\b)(?=[^>]*\btype="(?:radio|checkbox)")[^>]*>/.test(body);
+                if (hiddenChoice && !attributes.includes('focus-within:ring')) {
+                    offenders.push(`${name}: ${attributes.trim().slice(0, 60)}`);
+                }
+            }
+        }
+        expect(offenders, 'A label wrapping an sr-only radio or checkbox needs focus-within:ring classes').toEqual([]);
+    });
+
     it('SettingsToggle primitive is the only role="switch" source', () => {
         const togglePath = join(PRIMITIVES_DIR, 'SettingsToggle.svelte');
         expect(readFileSync(togglePath, 'utf8')).toContain('role="switch"');

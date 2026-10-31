@@ -42,7 +42,7 @@ describe('BirdNET history listening-log layout', () => {
     it('keeps the spectrogram as the meaningful per-detection artifact', () => {
         expect(audioHistorySource).toContain('data-audio-spectrogram');
         expect(audioHistorySource).toContain('loading="lazy"');
-        expect(audioHistorySource).toContain('alt={detection.species}');
+        expect(audioHistorySource).toContain('alt={specAlt}');
     });
 
     it('opens the existing species detail modal from each top-species row', () => {

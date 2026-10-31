@@ -1009,7 +1009,14 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   mode or saved feeder coordinates change, and forgetting the telemetry installation when telemetry is turned off.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
-- `GET /api/maintenance/stats` (owner)
+- `GET /api/maintenance/stats` (owner) — total detections, the oldest one, the saved
+  `retention_days`, and `detections_to_cleanup`: how many the saved retention deletes at the next
+  cleanup. `kept_newest_per_species` is the per-species floor and `automatic_cleanup` says whether
+  the scheduled cleanup runs (on start, then every 24 hours). The optional `retention_days` query
+  parameter (0 to 36500) previews another window without changing anything:
+  `preview_detections_to_cleanup` is how many detections that window would delete, counted with the
+  cleanup's own rule (hidden detections count; favourites and the per-species floor are kept), and
+  `preview_retention_days` echoes the window. Both are `null` without the parameter.
 - `POST /api/maintenance/cleanup` (owner)
 - `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)

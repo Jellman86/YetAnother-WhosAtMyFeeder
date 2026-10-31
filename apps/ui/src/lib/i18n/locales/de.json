@@ -565,7 +565,8 @@
     "working": "Arbeite…",
     "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     "undo": "Rückgängig",
-    "unknown": "unbekannt"
+    "unknown": "unbekannt",
+    "diagnostic_step_status": "Schritt {step} von {total}: {label}"
   },
   "route_load": {
     "loading": "{page} wird geöffnet…",
@@ -609,7 +610,6 @@
       "records": "Gesamtdatensätze",
       "oldest": "Ältester Eintrag",
       "retention": "Aufbewahrung",
-      "pending_gc": "Ausstehende GC",
       "retention_title": "Aufbewahrungsrichtlinie",
       "history_duration": "Verlaufsdauer",
       "keep_everything": "Alles behalten (∞)",
@@ -785,11 +785,25 @@
       "cache_unavailable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Prüfe die Ordnerrechte; die Systemprüfungen zeigen den Fehler.",
       "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz eine Speichergrenze fest.",
       "automatic_multi_bird_scan": "Automatisch weitere Vögel suchen",
-      "automatic_multi_bird_scan_help": "Standardmäßig aus, um die Verarbeitung zu reduzieren. Die normale Vogelbestimmung und der Ausschnitt des Zielvogels bleiben aktiv; vorhandene Ergebnisse bleiben erhalten. Mit „Weitere Vögel suchen“ kannst du ein Foto jederzeit scannen. Wenn aktiviert, werden gespeicherte vollständige Bilder durchsucht."
+      "automatic_multi_bird_scan_help": "Standardmäßig aus, um die Verarbeitung zu reduzieren. Die normale Vogelbestimmung und der Ausschnitt des Zielvogels bleiben aktiv; vorhandene Ergebnisse bleiben erhalten. Mit „Weitere Vögel suchen“ kannst du ein Foto jederzeit scannen. Wenn aktiviert, werden gespeicherte vollständige Bilder durchsucht.",
+      "due_for_deletion": "Zur Löschung fällig",
+      "purge_disabled_forever": "Nichts zu löschen: Der Verlauf wird unbegrenzt aufbewahrt.",
+      "purge_disabled_none": "Keine Erkennungen sind älter als {days} Tage.",
+      "retention_shrink_counting": "Erkennungen älter als {days} Tage werden gezählt…",
+      "retention_shrink_note": "Beim Speichern werden bei der nächsten Bereinigung (beim Neustart, danach alle 24 Stunden) {count, plural, one {# Erkennung} other {# Erkennungen}} älter als {days} Tage endgültig gelöscht.",
+      "retention_shrink_uncounted": "Beim Speichern werden bei der nächsten Bereinigung (beim Neustart, danach alle 24 Stunden) alle Erkennungen älter als {days} Tage endgültig gelöscht.",
+      "retention_shrink_manual": "Die automatische Bereinigung ist aus, daher löscht das Speichern allein nichts. „Alte Datensätze löschen“ würde danach {count, plural, one {# Erkennung} other {# Erkennungen}} älter als {days} Tage löschen.",
+      "retention_shrink_manual_uncounted": "Die automatische Bereinigung ist aus, daher löscht das Speichern allein nichts. „Alte Datensätze löschen“ würde danach alle Erkennungen älter als {days} Tage löschen.",
+      "retention_shrink_kept_floor": "Favoriten und {floor, plural, one {die neueste Erkennung} other {die neuesten # Erkennungen}} jeder Art bleiben erhalten. Ältere BirdNET-Go-Audiodaten und Gartentier-Einträge werden ebenfalls gelöscht.",
+      "retention_shrink_kept": "Favoriten bleiben erhalten. Ältere BirdNET-Go-Audiodaten und Gartentier-Einträge werden ebenfalls gelöscht.",
+      "retention_confirm_title": "Älteren Verlauf löschen?",
+      "retention_confirm_button": "Speichern und {count, plural, one {# Erkennung} other {# Erkennungen}} löschen",
+      "retention_confirm_uncounted": "Speichern und älteren Verlauf löschen"
     },
     "security": {
       "title": "Sicherheit",
-      "https_warning": "Sicherheitshinweis: Die Authentifizierung ist über HTTP aktiviert. Ihre Anmeldedaten könnten offengelegt werden. Verwenden Sie HTTPS in der Produktion."
+      "https_warning": "Die Anmeldung ist aktiv, aber diese Seite wird über HTTP ausgeliefert, sodass Passwörter und Sitzungen im Netzwerk mitgelesen werden können. Stellen Sie YA-WAMF über HTTPS bereit, zum Beispiel hinter Ihrem Reverse-Proxy.",
+      "https_warning_title": "Passwörter werden unverschlüsselt übertragen."
     },
     "connection": {
       "frigate_success": "Mit Frigate v{version} unter {url} verbunden",
@@ -1092,7 +1106,7 @@
       "enable": "Öffentlichen Zugriff aktivieren",
       "enable_desc": "Gäste können Erkennungen ohne Login sehen",
       "show_camera_names": "Kameranamen anzeigen",
-      "show_camera_names_desc": "Kameranamen für Gäste ausblenden",
+      "show_camera_names_desc": "Gäste sehen den Namen jeder Kamera. Aus zeigt eine allgemeine Bezeichnung.",
       "show_ai_conversation": "KI-Konversationen anzeigen",
       "show_ai_conversation_desc": "Gästen erlauben, KI-Chatverläufe zu Erkennungen zu sehen",
       "history_days": "Historie (Tage)",
@@ -1203,14 +1217,13 @@
       "garden_moved": "Kameras für Gartentiere werden unter Einstellungen → Beta-Funktionen festgelegt.",
       "syncing": "Scannen…",
       "preview_close": "Vorschau schließen",
-      "deselect": "Abwählen",
-      "preview": "Vorschau",
+      "preview": "Vorschau von {camera}",
       "preview_failed": "Vorschau fehlgeschlagen",
       "preview_label": "Kameravorschau für {camera}",
       "preview_live": "Live",
       "preview_loading": "Vorschau wird geladen…",
       "preview_missing_url": "Für diese Kamera ist keine Vorschau-URL verfügbar.",
-      "select": "Auswählen",
+      "select": "{camera} auf Vögel überwachen",
       "nest_dedupe_help": "Fasst wiederholte Erkennungen derselben Art an einer Nest-Kamera auf eine pro N Minuten zusammen.",
       "nest_dedupe_label": "Dedupe-Fenster für Nestkameras",
       "nest_dedupe_unit": "Min.",
@@ -1218,7 +1231,8 @@
       "role_feeder_help": "Futterstellen-Kamera: Jedes Frigate-Ereignis wird als neuer Besuch behandelt (Standard).",
       "role_label": "Rolle",
       "role_nest": "Nest",
-      "role_nest_help": "Nestkasten-Kamera: Wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt."
+      "role_nest_help": "Nestkasten-Kamera: Wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt.",
+      "preview_needs_url": "Geben Sie oben die Frigate-URL ein, um eine Kamera-Vorschau zu sehen."
     },
     "telemetry": {
       "title": "Telemetrie",
@@ -1311,7 +1325,8 @@
       "outlook_client_id_placeholder": "Microsoft OAuth Anwendungs-ID (Client)",
       "outlook_client_secret": "Outlook Client-Secret",
       "outlook_client_secret_placeholder": "Microsoft OAuth Client-Secret",
-      "advanced_title": "Zustellzeit & Dashboard-Link"
+      "advanced_title": "Zustellzeit & Dashboard-Link",
+      "test_needs": "Geben Sie die Empfängeradresse ein, um einen Test zu senden."
     },
     "notifications": {
       "global_filters": "Globale Benachrichtigungsfilter",
@@ -1428,7 +1443,8 @@
       "bot_username": "Bot-Name",
       "test_notification": "Testbenachrichtigung senden",
       "test_sending": "Senden…",
-      "bot_placeholder": "YA-WAMF Bird Bot"
+      "bot_placeholder": "YA-WAMF Bird Bot",
+      "test_needs": "Geben Sie die Webhook-URL ein, um einen Test zu senden."
     },
     "pushover": {
       "title": "Pushover-Benachrichtigungen",
@@ -1447,7 +1463,8 @@
       "device_hint": "Kommagetrennte Gerätenamen. Leer lassen, um an alle aktiven Geräte zu senden.",
       "test_notification": "Testbenachrichtigung senden",
       "test_sending": "Senden…",
-      "advanced_title": "Priorität & Geräte-Targeting"
+      "advanced_title": "Priorität & Geräte-Targeting",
+      "test_needs": "Geben Sie den Benutzerschlüssel und das API-Token ein, um einen Test zu senden."
     },
     "telegram": {
       "title": "Telegram-Benachrichtigungen",
@@ -1456,7 +1473,8 @@
       "chat_id": "Chat-ID",
       "chat_id_placeholder": "123456789",
       "test_notification": "Testbenachrichtigung senden",
-      "test_sending": "Senden…"
+      "test_sending": "Senden…",
+      "test_needs": "Geben Sie das Bot-Token und die Chat-ID ein, um einen Test zu senden."
     },
     "location": {
       "title": "Standort",
@@ -1503,7 +1521,10 @@
       "clear_feedback_desc": "Das Löschen des Personalisierungs-Feedbacks entfernt alle manuellen Tag-Korrekturen, die die KI zum Anpassen der Konfidenzwerte nutzt. Dadurch wird der Klassifikator auf seine Basisgenauigkeit zurückgesetzt.",
       "clear_feedback_hint": "Dadurch werden weder Erkennungen noch Medien gelöscht. Das Re-Ranking beginnt erneut zu lernen, sobald Sie neue manuelle Korrekturen vornehmen.",
       "clearing_feedback": "Wird gelöscht…",
-      "clear_feedback_confirm": "Möchten Sie wirklich alle personalisierten Re-Ranking-Daten löschen? Damit kehrt die KI zur Basisgenauigkeit zurück und der Vorgang kann nicht rückgängig gemacht werden."
+      "clear_feedback_confirm": "Möchten Sie wirklich alle personalisierten Re-Ranking-Daten löschen? Damit kehrt die KI zur Basisgenauigkeit zurück und der Vorgang kann nicht rückgängig gemacht werden.",
+      "feedback_title": "Personalisierungsdaten",
+      "favorites_title": "Favoriten",
+      "reset_title": "Datenbank und Medien-Cache"
     },
     "detection": {
       "fine_tuning": "Feineinstellung",
@@ -2772,7 +2793,8 @@
       "1y": "1 Jahr",
       "species": "Art",
       "source": "Quelle",
-      "min_confidence": "Mindestkonfidenz"
+      "min_confidence": "Mindestkonfidenz",
+      "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren."
     },
     "top_species": "Am häufigsten gehörte Arten",
     "card": {
@@ -2798,7 +2820,8 @@
       "confidence": "Konfidenz",
       "open_birdnet": "In BirdNET-Go öffnen",
       "open_visual_match": "Passende visuelle Erkennung öffnen",
-      "unknown_source": "Unbekannte Quelle"
+      "unknown_source": "Unbekannte Quelle",
+      "spectrogram_alt": "Spektrogramm des Rufs von {species}"
     },
     "sources": {
       "title": "Quellen",

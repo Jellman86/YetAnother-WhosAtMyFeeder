@@ -604,6 +604,9 @@
         <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.garden_moved', { default: 'Garden animal cameras are set in Settings → Beta features.' })}</p>
         {/if}
         <div class="space-y-3" data-camera-list>
+            {#if availableCameras.length > 0 && !frigateUrl}
+                <p id="camera-preview-needs-url" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.cameras.preview_needs_url', { default: 'Enter the Frigate URL above to preview a camera.' })}</p>
+            {/if}
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
@@ -623,7 +626,7 @@
                                 <button
                                     type="button"
                                     aria-pressed={selected}
-                                    aria-label={selected ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}
+                                    aria-label={$_('settings.cameras.select', { default: 'Watch {camera} for birds', values: { camera } })}
                                     class="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                                     onclick={() => toggleCamera(camera)}
                                 >
@@ -637,6 +640,7 @@
                                     class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                                     aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
                                     aria-expanded={previewVisible && previewCamera === camera}
+                                    aria-describedby={frigateUrl ? undefined : 'camera-preview-needs-url'}
                                     disabled={!frigateUrl}
                                     onclick={() => togglePreview(camera)}
                                 >

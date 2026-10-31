@@ -1492,8 +1492,12 @@ export interface components {
     username?: string | null;
 };
     MaintenanceStatsResponse: {
+    automatic_cleanup?: boolean;
     detections_to_cleanup: number;
+    kept_newest_per_species?: number;
     oldest_detection?: string | null;
+    preview_detections_to_cleanup?: number | null;
+    preview_retention_days?: number | null;
     retention_days: number;
     total_detections: number;
 };
@@ -4479,7 +4483,9 @@ export interface paths {
     get: {
       operationId: "get_maintenance_stats_api_maintenance_stats_get";
       path: never;
-      query: never;
+      query: {
+    retention_days?: number | null;
+};
       requestBody: unknown;
       response: components['schemas']['MaintenanceStatsResponse'];
     };

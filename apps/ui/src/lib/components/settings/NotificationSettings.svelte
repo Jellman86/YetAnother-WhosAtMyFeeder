@@ -178,6 +178,11 @@
 
     const linkPreview = $derived(notificationLinkPreview(linkTarget, instanceUrl, frigateExternalUrl));
     const frigateUrlMissing = $derived(linkTarget === 'frigate' && frigateExternalUrl.trim() === '');
+    // A channel can send a test once it has what delivery needs, typed or already saved.
+    const discordReady = $derived(Boolean(discordWebhook || discordWebhookSaved));
+    const pushoverReady = $derived(Boolean((pushoverUserKey || pushoverUserSaved) && (pushoverApiToken || pushoverTokenSaved)));
+    const telegramReady = $derived(Boolean((telegramBotToken || telegramTokenSaved) && (telegramChatId || telegramChatIdSaved)));
+    const emailReady = $derived(Boolean(emailToEmail));
 
     // Channel tests use the shared DiagnosticDialog (see
     // docs/standards/diagnostics-and-dialogs.md). Each is a single real delivery
@@ -486,13 +491,13 @@
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
                 <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.link_opens')}</h4>
                 <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
                         <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
                         <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
                         <span class="mt-1 block text-xs leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_req')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
                         <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
                         <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_frigate_desc')}</span>
@@ -522,17 +527,17 @@
             <div id={speciesFilterSectionId} class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30 scroll-mt-24">
                 <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.species_filter')}</h4>
                 <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
                         <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
                         <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_none_desc')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
                         <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
                         <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
                         <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
                         <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
@@ -664,13 +669,17 @@
                     />
                 </div>
                 <button
+                    type="button"
                     onclick={runDiscordTest}
-                    disabled={ntRunning || (!discordWebhook && !discordWebhookSaved)}
-                    aria-label={$_('settings.discord.test_notification')}
-                    class="w-full px-4 py-3 text-xs font-bold uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                    disabled={ntRunning || !discordReady}
+                    aria-describedby={discordReady ? undefined : 'discord-test-reason'}
+                    class="btn btn-primary min-h-11 w-full px-4 py-3"
                 >
                     {$_('settings.discord.test_notification')}
                 </button>
+                {#if !discordReady}
+                    <p id="discord-test-reason" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.discord.test_needs', { default: 'Enter the webhook URL to send a test.' })}</p>
+                {/if}
             </div>
             {/if}
         </section>
@@ -719,13 +728,17 @@
                     />
                 </div>
                 <button
+                    type="button"
                     onclick={runPushoverTest}
-                    disabled={ntRunning || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
-                    aria-label={$_('settings.pushover.test_notification')}
-                    class="w-full px-4 py-3 text-xs font-bold uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
+                    disabled={ntRunning || !pushoverReady}
+                    aria-describedby={pushoverReady ? undefined : 'pushover-test-reason'}
+                    class="btn btn-primary min-h-11 w-full px-4 py-3"
                 >
                     {$_('settings.pushover.test_notification')}
                 </button>
+                {#if !pushoverReady}
+                    <p id="pushover-test-reason" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.pushover.test_needs', { default: 'Enter the user key and API token to send a test.' })}</p>
+                {/if}
 
                 <AdvancedSection
                     id="notifications-pushover-advanced"
@@ -808,13 +821,17 @@
                     />
                 </div>
                 <button
+                    type="button"
                     onclick={runTelegramTest}
-                    disabled={ntRunning || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
-                    aria-label={$_('settings.telegram.test_notification')}
-                    class="w-full px-4 py-3 text-xs font-bold uppercase tracking-widest rounded-2xl bg-sky-500 hover:bg-sky-600 text-white transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50"
+                    disabled={ntRunning || !telegramReady}
+                    aria-describedby={telegramReady ? undefined : 'telegram-test-reason'}
+                    class="btn btn-primary min-h-11 w-full px-4 py-3"
                 >
                     {$_('settings.telegram.test_notification')}
                 </button>
+                {#if !telegramReady}
+                    <p id="telegram-test-reason" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.telegram.test_needs', { default: 'Enter the bot token and chat ID to send a test.' })}</p>
+                {/if}
             </div>
             {/if}
         </section>
@@ -1109,13 +1126,17 @@
                 </AdvancedSection>
 
                 <button
+                    type="button"
                     onclick={runEmailTest}
-                    disabled={ntRunning || !emailToEmail}
-                    aria-label={$_('settings.email.test_email')}
-                    class="w-full px-4 py-3 text-xs font-bold uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                    disabled={ntRunning || !emailReady}
+                    aria-describedby={emailReady ? undefined : 'email-test-reason'}
+                    class="btn btn-primary min-h-11 w-full px-4 py-3"
                 >
                     {$_('settings.email.test_email')}
                 </button>
+                {#if !emailReady}
+                    <p id="email-test-reason" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.email.test_needs', { default: 'Enter the recipient address to send a test.' })}</p>
+                {/if}
             </div>
             {/if}
         </section>

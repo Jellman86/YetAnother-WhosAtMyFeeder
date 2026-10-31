@@ -90,6 +90,7 @@
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import GardenBetaSettings from '../components/settings/GardenBetaSettings.svelte';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { retentionShrinks } from '../settings/retention-change';
     import {
         inferenceProviderForSave,
         parseInferenceProvider,
@@ -1990,6 +1991,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let downloadingModel = $state(false);
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
+    // Shortening retention deletes history at the next cleanup, so the count is read from the
+    // server (read-only) before saving, for the note under the picker and the confirmation.
+    const savedRetentionDays = $derived(settingsStore.settings ? (settingsStore.settings.retention_days || 0) : null);
+    const retentionShrinking = $derived(savedRetentionDays !== null && retentionShrinks(savedRetentionDays, retentionDays));
+    let retentionPreview = $state<{ days: number; count: number | null; counting: boolean } | null>(null);
+    const retentionNote = $derived(
+        retentionShrinking && retentionPreview?.days === retentionDays
+            ? retentionDeletionText(retentionPreview.days, retentionPreview.count, retentionPreview.counting)
+            : null
+    );
     let cleaningUp = $state(false);
     let clearingFavorites = $state(false);
     let purgingMissingMedia = $state(false);
@@ -2356,6 +2367,93 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         } catch (e) {
             console.error('Failed to load maintenance stats', e);
         }
+    }
+
+    async function countRetentionDeletions(days: number): Promise<number | null> {
+        try {
+            return (await fetchMaintenanceStats(days)).preview_detections_to_cleanup ?? null;
+        } catch (e) {
+            console.error('Failed to count detections for the new retention', e);
+            return null;
+        }
+    }
+
+    $effect(() => {
+        if (!retentionShrinking) {
+            retentionPreview = null;
+            return;
+        }
+        const days = retentionDays;
+        let current = true;
+        retentionPreview = { days, count: null, counting: true };
+        void countRetentionDeletions(days).then((count) => {
+            if (current) retentionPreview = { days, count, counting: false };
+        });
+        return () => {
+            current = false;
+        };
+    });
+
+    /** What saving `days` of history deletes, worded for the cleanup rule the server applies. */
+    function retentionDeletionText(days: number, count: number | null, counting: boolean): string {
+        if (counting) {
+            return $_('settings.data.retention_shrink_counting', {
+                values: { days },
+                default: 'Counting the detections older than {days} days…'
+            });
+        }
+        const automatic = maintenanceStats?.automatic_cleanup !== false;
+        let consequence: string;
+        if (!automatic) {
+            consequence = count === null
+                ? $_('settings.data.retention_shrink_manual_uncounted', {
+                    values: { days },
+                    default: 'Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete every detection older than {days} days.'
+                })
+                : $_('settings.data.retention_shrink_manual', {
+                    values: { count, days },
+                    default: 'Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete {count, plural, one {# detection} other {# detections}} older than {days} days.'
+                });
+        } else {
+            consequence = count === null
+                ? $_('settings.data.retention_shrink_uncounted', {
+                    values: { days },
+                    default: 'Saving this permanently deletes every detection older than {days} days at the next cleanup (on restart, then every 24 hours).'
+                })
+                : $_('settings.data.retention_shrink_note', {
+                    values: { count, days },
+                    default: 'Saving this permanently deletes {count, plural, one {# detection} other {# detections}} older than {days} days at the next cleanup (on restart, then every 24 hours).'
+                });
+        }
+        const floor = maintenanceStats?.kept_newest_per_species ?? 0;
+        const kept = floor > 0
+            ? $_('settings.data.retention_shrink_kept_floor', {
+                values: { floor },
+                default: 'Favourites and the newest {floor, plural, one {# detection} other {# detections}} of each species are kept. Older BirdNET-Go audio and Garden animal records are deleted too.'
+            })
+            : $_('settings.data.retention_shrink_kept', {
+                default: 'Favourites are kept. Older BirdNET-Go audio and Garden animal records are deleted too.'
+            });
+        return `${consequence} ${kept}`;
+    }
+
+    /** Asks before a save that deletes history. False means the owner kept what they have. */
+    async function confirmRetentionChange(): Promise<boolean> {
+        if (!retentionShrinking || maintenanceStats?.automatic_cleanup === false) return true;
+        const days = retentionDays;
+        // Counted again at the moment of asking, so the number is not minutes stale.
+        const count = await countRetentionDeletions(days);
+        if (count === 0) return true;
+        return confirmAction({
+            title: $_('settings.data.retention_confirm_title', { default: 'Delete older history?' }),
+            message: retentionDeletionText(days, count, false),
+            confirmLabel: count === null
+                ? $_('settings.data.retention_confirm_uncounted', { default: 'Save and delete older history' })
+                : $_('settings.data.retention_confirm_button', {
+                    values: { count },
+                    default: 'Save and delete {count, plural, one {# detection} other {# detections}}'
+                })
+        });
     }
 
     async function handleCleanup() {
@@ -3353,6 +3451,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             saving = false;
             return;
         }
+        if (!(await confirmRetentionChange())) {
+            saving = false;
+            return;
+        }
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
@@ -3873,13 +3975,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Security Tab -->
             {#if activeTab === 'security'}
                 {#if authStore.httpsWarning}
-                    <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-                        <div class="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <span><strong>Security Warning:</strong> Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production.</span>
-                        </div>
+                    <div class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100" data-https-warning>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p>
+                            <strong class="font-semibold">{$_('settings.security.https_warning_title', { default: 'Passwords travel unencrypted.' })}</strong>
+                            {$_('settings.security.https_warning', { default: 'Sign-in is on, but this page is served over HTTP, so passwords and sessions can be read on the network. Serve YA-WAMF over HTTPS, for example behind your reverse proxy.' })}
+                        </p>
                     </div>
                 {/if}
                 <AuthenticationSettings
@@ -3937,6 +4040,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {backfillCustomError}
                     {backfillCustomValid}
                     {maintenanceStats}
+                    {retentionNote}
                     {cacheStats}
                     {cacheStatsError}
                     {cacheStatsLoading}

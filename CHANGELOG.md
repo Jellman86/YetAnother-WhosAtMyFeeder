@@ -6,6 +6,36 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Settings is safer and easier to use with a keyboard or screen reader:
+  - Choosing a shorter **History Duration** now says, under the picker, how
+    many detections the next cleanup will permanently delete, and **Apply
+    Settings** asks first (**Save and delete _N_ detections**). Cancelling saves
+    nothing. Previously the change was saved without a warning or a count.
+  - The Data stat tiles show the saved policy only. **Pending GC** is now **Due
+    for deletion**. The count now includes hidden detections, which the cleanup
+    deletes too.
+  - `GET /api/maintenance/stats` takes an optional, read-only `retention_days`
+    to count what another window would delete, and reports the per-species
+    floor and whether automatic cleanup runs.
+  - The Active Cameras buttons name their camera ("Watch Front feeder for
+    birds", "Preview Front feeder") instead of a bare "Select" or "Preview".
+  - Disabled controls say why: **Purge Old Records**, camera **Preview**
+    without a Frigate URL, and each notification **Send test** button.
+  - The notification test buttons use the standard button, which passes
+    contrast, and the option tiles show keyboard focus.
+  - **Danger Zone** has one row per action, narrowest first, with each
+    consequence beside its own button. The reset warning no longer sits above
+    **Delete All Favorites**.
+  - The HTTPS warning is translated, works in dark mode and says what to do.
+  - **Show camera names** is described the right way round.
+  - High contrast now lifts the quiet grey text it was meant to.
+  - Test dialogs announce one status line instead of rereading the checklist,
+    return focus once, and have 44px footer buttons.
+- Audio history filters apply on Enter, and say "Filters changed. Apply to
+  update the list." until applied. Paging no longer picks up unapplied edits.
+  A spectrogram that fails to load shows the waveform placeholder instead of a
+  broken image.
+
 - The app frame is more honest and works better with a keyboard and a screen
   reader:
   - About no longer says the classifier is "not loaded" on an install that is

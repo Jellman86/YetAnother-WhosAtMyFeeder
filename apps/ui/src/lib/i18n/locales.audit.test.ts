@@ -103,7 +103,6 @@ const REQUIRED_ACTIVE_KEYS = [
     'nav.close_language_selector',
     'nav.close_menu',
     'notifications.close_toast',
-    'settings.cameras.deselect',
     'settings.cameras.preview',
     'settings.cameras.preview_failed',
     'settings.cameras.preview_label',

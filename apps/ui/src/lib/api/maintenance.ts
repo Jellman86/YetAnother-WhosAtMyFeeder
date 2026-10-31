@@ -30,8 +30,10 @@ export type TimezoneRepairPreview = paths['/api/maintenance/timezone-repair/prev
 
 export type TimezoneRepairApplyResult = paths['/api/maintenance/timezone-repair/apply']['post']['response'];
 
-export async function fetchMaintenanceStats(): Promise<MaintenanceStats> {
-    const response = await apiFetch(`${API_BASE}/maintenance/stats`);
+/** With `previewRetentionDays`, the stats also count what that window would delete. Read-only. */
+export async function fetchMaintenanceStats(previewRetentionDays?: number): Promise<MaintenanceStats> {
+    const query = previewRetentionDays === undefined ? '' : `?retention_days=${encodeURIComponent(previewRetentionDays)}`;
+    const response = await apiFetch(`${API_BASE}/maintenance/stats${query}`);
     return handleResponse<MaintenanceStats>(response);
 }
 

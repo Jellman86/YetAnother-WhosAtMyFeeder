@@ -565,7 +565,8 @@
     "working": "Working…",
     "language_load_error": "That language could not be loaded. Check your connection and try again.",
     "undo": "Undo",
-    "unknown": "unknown"
+    "unknown": "unknown",
+    "diagnostic_step_status": "Step {step} of {total}: {label}"
   },
   "error": {
     "boundary_title": "Something went wrong",
@@ -619,7 +620,6 @@
       "records": "Total Records",
       "oldest": "Oldest Seen",
       "retention": "Retention",
-      "pending_gc": "Pending GC",
       "retention_title": "Retention Policy",
       "history_duration": "History Duration",
       "keep_everything": "Keep Everything (∞)",
@@ -795,11 +795,25 @@
       "cache_unavailable": "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error.",
       "cache_high_quality_storage_note": "Each visit then also keeps full-resolution frames, often several MB, so set a storage limit if space is tight.",
       "automatic_multi_bird_scan": "Automatically find additional birds",
-      "automatic_multi_bird_scan_help": "Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames."
+      "automatic_multi_bird_scan_help": "Off by default to reduce processing. Normal bird identification and the target bird’s crop continue, and existing findings are kept. Use Find more birds on a photograph whenever you need a scan. When enabled, scans run on retained whole frames.",
+      "due_for_deletion": "Due for deletion",
+      "purge_disabled_forever": "Nothing to purge: history is kept forever.",
+      "purge_disabled_none": "No detections are older than {days} days.",
+      "retention_shrink_counting": "Counting the detections older than {days} days…",
+      "retention_shrink_note": "Saving this permanently deletes {count, plural, one {# detection} other {# detections}} older than {days} days at the next cleanup (on restart, then every 24 hours).",
+      "retention_shrink_uncounted": "Saving this permanently deletes every detection older than {days} days at the next cleanup (on restart, then every 24 hours).",
+      "retention_shrink_manual": "Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete {count, plural, one {# detection} other {# detections}} older than {days} days.",
+      "retention_shrink_manual_uncounted": "Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete every detection older than {days} days.",
+      "retention_shrink_kept_floor": "Favourites and the newest {floor, plural, one {# detection} other {# detections}} of each species are kept. Older BirdNET-Go audio and Garden animal records are deleted too.",
+      "retention_shrink_kept": "Favourites are kept. Older BirdNET-Go audio and Garden animal records are deleted too.",
+      "retention_confirm_title": "Delete older history?",
+      "retention_confirm_button": "Save and delete {count, plural, one {# detection} other {# detections}}",
+      "retention_confirm_uncounted": "Save and delete older history"
     },
     "security": {
       "title": "Security",
-      "https_warning": "Security Warning: Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production."
+      "https_warning": "Sign-in is on, but this page is served over HTTP, so passwords and sessions can be read on the network. Serve YA-WAMF over HTTPS, for example behind your reverse proxy.",
+      "https_warning_title": "Passwords travel unencrypted."
     },
     "connection": {
       "frigate_success": "Connected to Frigate v{version} at {url}",
@@ -1102,7 +1116,7 @@
       "enable": "Enable public access",
       "enable_desc": "Guests can view detections without logging in",
       "show_camera_names": "Show camera names",
-      "show_camera_names_desc": "Hide camera labels for public visitors",
+      "show_camera_names_desc": "Guests see each camera’s name. Off shows a generic label.",
       "show_ai_conversation": "Show AI conversation threads",
       "show_ai_conversation_desc": "Allow guests to view AI chat threads on detections",
       "history_days": "History window (days)",
@@ -1213,14 +1227,13 @@
       "garden_moved": "Garden animal cameras are set in Settings → Beta features.",
       "syncing": "Scanning…",
       "preview_close": "Close preview",
-      "preview": "Preview",
+      "preview": "Preview {camera}",
       "preview_label": "Camera preview for {camera}",
       "preview_live": "Live",
       "preview_loading": "Loading preview…",
       "preview_failed": "Preview failed",
       "preview_missing_url": "No preview URL available for this camera.",
-      "select": "Select",
-      "deselect": "Deselect",
+      "select": "Watch {camera} for birds",
       "nest_dedupe_help": "Collapses repeat detections of the same species on a nest cam to one per N minutes.",
       "nest_dedupe_label": "Nest dedupe window",
       "nest_dedupe_unit": "min",
@@ -1228,7 +1241,8 @@
       "role_feeder_help": "Feeder cam: every Frigate event is treated as a fresh visit (default).",
       "role_label": "Role",
       "role_nest": "Nest",
-      "role_nest_help": "Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed."
+      "role_nest_help": "Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.",
+      "preview_needs_url": "Enter the Frigate URL above to preview a camera."
     },
     "telemetry": {
       "title": "Telemetry",
@@ -1301,7 +1315,7 @@
       "include_snapshot": "Include Snapshot Image",
       "only_on_end": "Only send on event end",
       "only_on_end_desc": "Send email notifications only when Frigate publishes the end event (treated as an update).",
-      "test_email": "Send Test Email",
+      "test_email": "Send test email",
       "test_email_sending": "Sending…",
       "test_email_sent": "Test email sent",
       "test_email_success": "Test email sent successfully to {email}!",
@@ -1321,7 +1335,8 @@
       "outlook_client_id_placeholder": "Microsoft OAuth Application (client) ID",
       "outlook_client_secret": "Outlook Client Secret",
       "outlook_client_secret_placeholder": "Microsoft OAuth Client Secret",
-      "advanced_title": "Delivery timing & dashboard link"
+      "advanced_title": "Delivery timing & dashboard link",
+      "test_needs": "Enter the recipient address to send a test."
     },
     "notifications": {
       "global_filters": "Global Notification Filters",
@@ -1438,7 +1453,8 @@
       "bot_username": "Bot username",
       "test_notification": "Send test notification",
       "test_sending": "Sending…",
-      "bot_placeholder": "YA-WAMF Bird Bot"
+      "bot_placeholder": "YA-WAMF Bird Bot",
+      "test_needs": "Enter the webhook URL to send a test."
     },
     "pushover": {
       "title": "Pushover Notifications",
@@ -1457,7 +1473,8 @@
       "device_hint": "Comma-separated device names. Leave blank to send to all active devices.",
       "test_notification": "Send test notification",
       "test_sending": "Sending…",
-      "advanced_title": "Priority & device targeting"
+      "advanced_title": "Priority & device targeting",
+      "test_needs": "Enter the user key and API token to send a test."
     },
     "telegram": {
       "title": "Telegram Notifications",
@@ -1466,7 +1483,8 @@
       "chat_id": "Chat ID",
       "chat_id_placeholder": "123456789",
       "test_notification": "Send test notification",
-      "test_sending": "Sending…"
+      "test_sending": "Sending…",
+      "test_needs": "Enter the bot token and chat ID to send a test."
     },
     "location": {
       "title": "Location",
@@ -1513,7 +1531,10 @@
       "clear_feedback_desc": "Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.",
       "clear_feedback_hint": "This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.",
       "clearing_feedback": "Clearing…",
-      "clear_feedback_confirm": "Are you sure you want to clear all personalized re-ranking data? This will revert the AI back to its baseline accuracy and cannot be undone."
+      "clear_feedback_confirm": "Are you sure you want to clear all personalized re-ranking data? This will revert the AI back to its baseline accuracy and cannot be undone.",
+      "feedback_title": "Personalization data",
+      "favorites_title": "Favourites",
+      "reset_title": "Database and media cache"
     },
     "detection": {
       "fine_tuning": "Fine Tuning",
@@ -2782,7 +2803,8 @@
       "1y": "1 year",
       "species": "Species",
       "source": "Source",
-      "min_confidence": "Min confidence"
+      "min_confidence": "Min confidence",
+      "changed": "Filters changed. Apply to update the list."
     },
     "top_species": "Top heard species",
     "card": {
@@ -2808,7 +2830,8 @@
       "confidence": "Confidence",
       "open_birdnet": "Open in BirdNET-Go",
       "open_visual_match": "Open matching visual detection",
-      "unknown_source": "Unknown source"
+      "unknown_source": "Unknown source",
+      "spectrogram_alt": "Spectrogram of the {species} call"
     },
     "sources": {
       "title": "Sources",

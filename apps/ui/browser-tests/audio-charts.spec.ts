@@ -122,3 +122,35 @@ test('a full species legend leaves the donut readable on phones', async ({ page,
     })).toBeGreaterThan(70);
     await page.screenshot({ path: testInfo.outputPath('audio-charts-full-legend.png'), fullPage: true });
 });
+
+test('filters apply on Enter and say when the form differs from the list', async ({ page }) => {
+    const requests: URLSearchParams[] = [];
+    await page.route('**/api/audio/history?*', route => {
+        requests.push(new URL(route.request().url()).searchParams);
+        return route.fulfill({ json: { items: [], total: 0, limit: 25, offset: 0 } });
+    });
+    const changed = page.locator('[data-audio-filters-changed]');
+    await expect(changed).toHaveText('');
+
+    const species = page.getByRole('textbox', { name: 'Species' });
+    await species.fill('Dunnock');
+    await expect(changed).toHaveText('Filters changed. Apply to update the list.');
+    // Typing alone fetches nothing for the new species; only applying does.
+    expect(requests.filter(params => params.has('species'))).toEqual([]);
+
+    await species.press('Enter');
+    await expect.poll(() => requests.at(-1)?.get('species')).toBe('Dunnock');
+    await expect(changed).toHaveText('');
+});
+
+test('a spectrogram that fails to load falls back to the placeholder', async ({ page }) => {
+    await page.route('**/api/audio/history?*', route => route.fulfill({ json: {
+        items: [{ id: 1, birdnet_id: 501, species: 'Dunnock', confidence: 0.91, timestamp: '2026-09-26T08:15:00Z', source_name: 'BirdCam' }],
+        total: 1, limit: 25, offset: 0,
+    } }));
+    await page.route('**/api/audio/spectrogram/**', route => route.fulfill({ status: 404, body: 'Not found' }));
+    await page.reload();
+    await expect(page.locator('[data-audio-history-table]')).toContainText('Dunnock');
+    await expect(page.locator('[data-audio-spectrogram]')).toHaveCount(0);
+    await expect(page.locator('[data-audio-history-table] svg[aria-hidden="true"]').first()).toBeVisible();
+});
