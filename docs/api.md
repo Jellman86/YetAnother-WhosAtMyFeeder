@@ -353,7 +353,11 @@ when they are not shared. `review_token` and `automatic_check` are null. Snapsho
 `clip_event` are null outside the public media window or when photographs or video are not shared.
 Photo requests outside those rules return `404`, and guest requests are rate-limited. `GET
 /api/auth/status` reports `garden_animals_enabled`. The Frigate clip proxy admits a confirmed Garden
-capture's event as it does a bird detection's. Presence and
+capture's event as it does a bird detection's, and serves its kept clip first when one exists. A
+pending or dismissed Garden capture's clip is streamed from Frigate and never written to the clip
+cache. Capture responses include `photo_kept` and `clip_kept`: whether YA-WAMF holds its own
+checksummed copy of the full photograph or Frigate clip (false for a guest when that media is not
+shared). See [Kept photographs and clips](features/garden-animals.md#kept-photographs-and-clips). Presence and
 species identification have separate reviews; `frigate_label` remains an upstream suggestion.
 
 - `GET /api/garden` — `status=pending|confirmed|dismissed`, `limit=1..128` (default 20),
@@ -419,7 +423,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `POST /api/garden/{capture_id}/restore` — return to pending review; no body.
   Frigate captures require an advertised snapshot; motion captures require an
   unexpired stored photo. Known unavailable photos return `409`.
-- `GET /api/garden/{capture_id}/snapshot` — Frigate or retained motion photograph, `404` when
+- `GET /api/garden/{capture_id}/snapshot` — a confirmed capture's kept photograph when its bytes
+  still match the recorded checksum, otherwise the Frigate or retained motion photograph, `404` when
   missing or rejected. The exact read-only route accepts the owner session cookie
   and uses `private, no-store`; review writes still require an authorization header.
 
@@ -1070,7 +1075,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   id for Retry. Slow filesystem I/O continues independently of the request.
 - `GET /api/cache/stats` (owner). Includes `storage_available` (false when the media folder cannot
   be written, so nothing is being kept), `archive_count`, `archive_size_bytes` and the favourite
-  counts by archive state. `cache_enabled` and `cache_snapshots` were removed with their settings.
+  counts by archive state. `garden_count`, `garden_size_bytes` and `garden_size_mb` describe the kept
+  photos and clips of confirmed Garden animals; they are included in `total_size_bytes`. `cache_enabled` and `cache_snapshots` were removed with their settings.
 - `GET /api/leaderboard/portraits?span=&limit=` (guest-rate-limited). This feeder's newest stored
   crop of each leading species, for the leaderboard's reel and spotlight; a species without one is
   absent. `film_url` is set once a film of that visit is made; for the six leading species a film
@@ -1104,7 +1110,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
   cached for an hour; `enabled` is false when update checks are off.
 - `POST /api/cache/cleanup` (owner) — applies age retention, removes orphaned media and enforces
-  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Limits preserve
+  optional `media_cache_per_species_maximum` and `media_cache_max_size_mb` limits. Garden's kept
+  media follows the same age retention and storage limit. Limits preserve
   detection history and favourites. `media_cache_bird_scan_mode` accepts `standard` or `intensive`.
 
 Published ordinary cache files left after a capture deletion are retried every five

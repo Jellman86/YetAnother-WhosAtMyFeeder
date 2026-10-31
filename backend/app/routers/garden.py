@@ -22,6 +22,7 @@ from app.repositories.garden_repository import (
 )
 from app.services.garden_notifications import garden_notification_service
 from app.services.garden_capture_service import garden_capture_service
+from app.services.garden_media_cache import garden_media_cache
 from app.services import garden_motion_privacy
 from app.services import garden_public
 from app.ratelimit import guest_rate_limit
@@ -94,6 +95,12 @@ class GardenCaptureResponse(BaseModel):
     review_token: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
     clip_event: str | None = Field(
         None, description="The Frigate event whose clip plays for this capture, while clips are enabled"
+    )
+    photo_kept: bool = Field(
+        False, description="YA-WAMF holds its own copy of the full photograph, so it outlasts Frigate's retention"
+    )
+    clip_kept: bool = Field(
+        False, description="YA-WAMF holds its own copy of the Frigate clip, so it outlasts Frigate's retention"
     )
 
 
@@ -178,12 +185,15 @@ async def _response(
         and capture.frigate_event
         and validate_event_id(capture.frigate_event)
         else None,
+        photo_kept=bool(capture.kept_photo_sha256),
+        clip_kept=capture.clip_kept,
     )
 
 
 def _guest_view(capture: GardenCaptureResponse) -> GardenCaptureResponse:
     """A visitor's copy: no review controls or check internals, and media only as the owner shares it."""
     photo = garden_public.guest_photo_visible(capture.observed_at)
+    clip = garden_public.guest_clip_visible(capture.observed_at)
     return capture.model_copy(
         update={
             "camera": garden_public.guest_camera(capture.camera),
@@ -192,7 +202,9 @@ def _guest_view(capture: GardenCaptureResponse) -> GardenCaptureResponse:
             "automatic_check_overridden": False,
             "snapshot_url": capture.snapshot_url if photo else None,
             "crop_url": capture.crop_url if photo else None,
-            "clip_event": capture.clip_event if garden_public.guest_clip_visible(capture.observed_at) else None,
+            "clip_event": capture.clip_event if clip else None,
+            "photo_kept": capture.photo_kept and photo,
+            "clip_kept": capture.clip_kept and clip,
         }
     )
 
@@ -426,6 +438,7 @@ async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewRe
         garden_identification_service.invalidate_photo_checks()
         async with get_db() as db:
             updated = await GardenRepository(db).review_batch(ids, request.action)
+    await garden_media_cache.sweep()
     return GardenBatchReviewResponse(updated_ids=updated, skipped_count=len(ids) - len(updated))
 
 
@@ -444,6 +457,7 @@ async def dismiss_captures(request: GardenDismissRequest) -> GardenBatchReviewRe
                 [(capture.id, capture.review_token) for capture in request.captures]
             )
     if updated:
+        await garden_media_cache.sweep()
         from app.services.broadcaster import broadcaster
 
         await broadcaster.broadcast({"type": "garden_history_changed"})
@@ -501,6 +515,8 @@ async def _review(capture_id: str, status: GardenStatus, language: str) -> Garde
                 raise HTTPException(409, str(error)) from error
     if capture is None:
         raise HTTPException(404, "Garden capture not found")
+    if status != "confirmed":
+        await garden_media_cache.sweep()
     return await _response(capture, language)
 
 
@@ -510,6 +526,8 @@ async def confirm_capture(
 ) -> GardenCaptureResponse:
     result = await _review(capture_id, "confirmed", language)
     background_tasks.add_task(garden_crop_service.collect, capture_id)
+    # Frigate drops the snapshot and clip within days; keep them while they still exist.
+    background_tasks.add_task(garden_media_cache.collect, capture_id)
     return result
 
 

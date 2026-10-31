@@ -13,6 +13,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services import media_cache as cache_module
 from app.utils.tasks import create_background_task
 from app.services.media_storage_policy import CachedVisit, select_media_evictions
+from app.services.garden_media_policy import capture_id_from_eviction_key, eviction_key
 
 log = structlog.get_logger()
 
@@ -184,6 +185,22 @@ class MediaStorageService:
             raise cancellation
         return task.result()
 
+    @staticmethod
+    async def _garden_visits() -> list[CachedVisit]:
+        """Garden's kept media shares the byte budget, oldest first. A per-species maximum counts birds only."""
+        from app.services.garden_media_cache import garden_media_cache
+
+        return [
+            CachedVisit(
+                event_id=eviction_key(entry.capture_id),
+                species_key=eviction_key(entry.capture_id),
+                # Bird detection times read 'YYYY-MM-DD HH:MM:SS'; compare like with like.
+                detected_at=entry.observed_at.replace("T", " "),
+                bytes_on_disk=entry.bytes_on_disk,
+            )
+            for entry in await garden_media_cache.entries()
+        ]
+
     async def enforce_limits(self) -> dict[str, int]:
         result = {"visits_evicted": 0, "bytes_freed": 0}
         options = settings.media_cache
@@ -200,6 +217,7 @@ class MediaStorageService:
                 )
             rows = [row for row in all_rows if row["event_id"] in sizes]
             visits = [CachedVisit(**row, bytes_on_disk=sizes[row["event_id"]]) for row in rows]
+            visits.extend(await self._garden_visits())
             # In-flight clip/frame commits must finish before their visit can be evicted.
             protected = self._protected_event_ids()
             live_ids = {row["event_id"] for row in all_rows}
@@ -214,7 +232,17 @@ class MediaStorageService:
                 max_bytes=options.max_size_mb * 1024 * 1024,
                 protected_event_ids=protected,
             )
+            garden_evictions = [capture_id for capture_id in map(capture_id_from_eviction_key, evictions) if capture_id]
+            if garden_evictions:
+                from app.services.garden_media_cache import garden_media_cache
+
+                await garden_media_cache.evict(garden_evictions)
+                evicted_keys = {eviction_key(capture_id) for capture_id in garden_evictions}
+                result["visits_evicted"] += len(garden_evictions)
+                result["bytes_freed"] += sum(visit.bytes_on_disk for visit in visits if visit.event_id in evicted_keys)
             for event_id in evictions:
+                if capture_id_from_eviction_key(event_id):
+                    continue
                 async with (
                     cache_module.media_cache._snapshot_commit_lock(event_id),
                     cache_module.media_cache._recording_clip_commit_lock(event_id),

@@ -650,6 +650,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "HQ スナップショット JPEG 品質",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "値を高くすると詳細が保持されますが、生成されるスナップショットファイルは大きくなります。",
       "cache_size": "使用容量",
+      "cache_garden_share": "確認済みの庭の動物のために保存した {size} を含みます",
       "cache_size_loading": "測定中…",
       "cache_size_unavailable": "読み込めませんでした",
       "cache_size_retry": "再試行",

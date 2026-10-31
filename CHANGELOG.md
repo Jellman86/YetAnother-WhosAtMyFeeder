@@ -6,6 +6,34 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Confirmed Garden animals keep their full photograph and clip, as bird visits do.
+  Until now a Garden capture's photo and video lived only in Frigate: on one
+  install no Frigate-event photo older than seven days survived, and 220 of 231
+  confirmed motion photos had expired three days after their recording, leaving
+  only the 73 saved animal crops.
+  - When a capture is confirmed (by you, or named automatically), YA-WAMF copies
+    its full photograph into the media folder under `garden/`: Frigate's
+    uncropped snapshot, or the stored motion photo. The copy records its SHA-256
+    and is served only while it still matches. A Frigate snapshot that differs
+    from the photo a recorded check or suggestion used is not kept.
+  - With **Keep copies of Frigate's event clips** on, a Frigate-event capture's
+    clip is kept too. Motion captures keep no clip: only three frames of their
+    recording were checked for people and nobody reviewed the footage.
+  - `GET /api/garden/{id}/snapshot` and the clip proxy serve the kept copy first,
+    so the record's photo and **Play clip** keep working after Frigate's retention.
+    Guest rules are unchanged. Capture responses add `photo_kept` and `clip_kept`.
+  - Dismissing or returning a capture to review, a person or false-positive
+    revocation (including a person event overlapping the kept clip's time) and
+    history retention delete the kept files. Media retention and the storage
+    limit apply as they do to birds; the per-species maximum counts birds only.
+    Pending and dismissed captures are never kept, and an unreviewed Garden clip
+    played from Frigate no longer passes through the bird clip cache.
+  - A background backfill keeps confirmed captures whose source still exists,
+    one every ten seconds, newest first. A source Frigate reports gone is
+    recorded and never retried or replaced.
+  - **Settings → Data → Photos and video** includes Garden media in **Space
+    used** and says how much of it is Garden's. A new migration adds the
+    `garden_kept_media` table.
 - **Add observation** keeps when a photo or video was taken, and stops dead ends
   (OBS-01, OBS-02, OBS-03):
   - An upload was stamped with the moment **Save** was pressed. It now reads EXIF

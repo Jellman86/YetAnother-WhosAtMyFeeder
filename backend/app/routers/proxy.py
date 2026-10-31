@@ -2244,6 +2244,12 @@ async def check_clip_exists(
     if not settings.frigate.clips_enabled:
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
+    from app.services.garden_media_cache import garden_media_cache
+
+    garden_event, garden_clip = await garden_media_cache.event_clip(event_id)
+    if garden_clip is not None:
+        return Response(status_code=200)
+
     (
         recording_cached_path,
         recording_state,
@@ -2261,7 +2267,7 @@ async def check_clip_exists(
                 include_variant=True,
             ),
         )
-    if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
+    if not garden_event and settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
         return Response(status_code=200)
 
     from app.services.archive_service import archive_service
@@ -2513,6 +2519,22 @@ async def proxy_clip(
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
+    # A confirmed Garden animal's kept clip outlasts Frigate's retention. Any other Garden
+    # event is streamed without entering the bird cache: unreviewed media is never kept.
+    from app.services.garden_media_cache import garden_media_cache
+
+    garden_event, garden_clip = await garden_media_cache.event_clip(event_id)
+    if garden_clip is not None:
+        log.info("proxy_clip_garden_kept_hit", event_id=event_id, download=download_requested)
+        return FileResponse(
+            path=garden_clip,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+            },
+        )
+
     # Check cache first
     (
         recording_cached_path,
@@ -2545,7 +2567,7 @@ async def proxy_clip(
             filename=f"{event_id}.mp4",
             headers=response_headers,
         )
-    if settings.media_cache.cache_clips:
+    if settings.media_cache.cache_clips and not garden_event:
         cached_path = media_cache.get_clip_path(event_id)
         if cached_path:
             log.info(
@@ -2596,7 +2618,7 @@ async def proxy_clip(
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    should_cache = settings.media_cache.cache_clips and media_cache.available
+    should_cache = settings.media_cache.cache_clips and media_cache.available and not garden_event
     log.debug(
         "proxy_clip_start",
         event_id=event_id,

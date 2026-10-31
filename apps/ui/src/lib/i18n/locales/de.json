@@ -650,6 +650,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "JPEG-Qualität für HQ-Schnappschüsse",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Höhere Werte bewahren mehr Details, erzeugen aber größere abgeleitete Schnappschussdateien.",
       "cache_size": "Belegter Speicher",
+      "cache_garden_share": "Davon {size} für bestätigte Gartentiere",
       "cache_size_loading": "Wird gemessen…",
       "cache_size_unavailable": "Konnte nicht geladen werden",
       "cache_size_retry": "Erneut versuchen",

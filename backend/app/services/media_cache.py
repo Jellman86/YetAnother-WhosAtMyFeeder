@@ -33,6 +33,9 @@ PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 # Visit films are part of the same kept media (visit_film_service imports
 # this), so Space used and any other accounting share one definition.
 FILMS_DIR = Path(os.getenv("VISIT_FILMS_DIR", str(CACHE_BASE_DIR / "films")))
+# Confirmed Garden animals' kept photographs and clips, named by capture ID. Bird
+# sweeps never walk it; garden_media_cache owns its lifecycle.
+GARDEN_DIR = CACHE_BASE_DIR / "garden"
 
 # A cache walk that takes longer than this is worth a log line, because on a
 # slow filesystem it is the difference between a stat per file and a stall.
@@ -1462,6 +1465,8 @@ class MediaCacheService:
         preview_size = 0
         film_count = 0
         film_size = 0
+        garden_count = 0
+        garden_size = 0
         oldest_file = None
         newest_file = None
 
@@ -1534,6 +1539,23 @@ class MediaCacheService:
             except Exception:
                 pass
 
+        # Confirmed Garden animals' kept photographs and clips live under the same base folder.
+        for path in GARDEN_DIR.glob("*"):
+            if path.name.startswith(".") or path.suffix not in (".jpg", ".mp4"):
+                continue
+            try:
+                stat = path.stat()
+                garden_count += 1
+                garden_size += stat.st_size
+                mtime = datetime.fromtimestamp(stat.st_mtime)
+                if oldest_file is None or mtime < oldest_file:
+                    oldest_file = mtime
+                if newest_file is None or mtime > newest_file:
+                    newest_file = mtime
+            except Exception:
+                pass
+
+        total_size = snapshot_size + clip_size + preview_size + film_size + garden_size
         return {
             "snapshot_count": snapshot_count,
             "snapshot_size_bytes": snapshot_size,
@@ -1547,8 +1569,11 @@ class MediaCacheService:
             "film_count": film_count,
             "film_size_bytes": film_size,
             "film_size_mb": round(film_size / (1024 * 1024), 2),
-            "total_size_bytes": snapshot_size + clip_size + preview_size + film_size,
-            "total_size_mb": round((snapshot_size + clip_size + preview_size + film_size) / (1024 * 1024), 2),
+            "garden_count": garden_count,
+            "garden_size_bytes": garden_size,
+            "garden_size_mb": round(garden_size / (1024 * 1024), 2),
+            "total_size_bytes": total_size,
+            "total_size_mb": round(total_size / (1024 * 1024), 2),
             "oldest_file": oldest_file.isoformat() if oldest_file else None,
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
@@ -1585,7 +1610,8 @@ class MediaCacheService:
                 files=stats["snapshot_count"]
                 + stats["clip_count"]
                 + stats["preview_count"]
-                + stats.get("film_count", 0),
+                + stats.get("film_count", 0)
+                + stats.get("garden_count", 0),
                 cache_dir=str(CACHE_BASE_DIR),
             )
         return stats
