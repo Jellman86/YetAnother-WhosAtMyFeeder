@@ -460,16 +460,19 @@ iNaturalist preview toggle and the LLM prompt editors.
 
 ## Garden notifications
 
-Under **Settings → Beta features**, Garden notifications are off by default.
-Select channels explicitly and save with **Apply settings**. Saved credentials
-and recipients come from Notifications; bird alert switches may remain off.
-See [Garden notifications](../features/garden-animals.md#send-garden-notifications)
-for eligibility, privacy and delivery status.
+Garden alerts are off by default and are set up under **Settings → Notifications**,
+in the **Garden animals** section shown while the Garden beta is on. They follow
+the bird channels that are switched on and configured, or channels you choose;
+save with **Apply settings**. See
+[Garden notifications](../features/garden-animals.md#send-garden-notifications)
+for eligibility, photos, privacy and delivery status.
 
 | Environment override | Default | Meaning |
 |---|---|---|
 | `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Allow separate Garden alerts while the Garden beta is enabled. |
-| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` follows the enabled, configured bird channels; `false` uses the channel array below. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`, used when not following the bird channels. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop or capture photo. |
 
 Environment overrides take precedence on restart. Without overrides, the Garden
 notification choices persist in `/config/config.json`.

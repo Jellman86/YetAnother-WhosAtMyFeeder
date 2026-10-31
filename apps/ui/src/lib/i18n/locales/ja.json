@@ -1480,7 +1480,31 @@
       "test_retry": "再送信",
       "test_stage_deliver": "テストメッセージを送信",
       "test_subtitle": "このチャンネルの現在の設定でテストメッセージを 1 件送信します。",
-      "test_title": "通知テスト"
+      "test_title": "通知テスト",
+      "garden": {
+        "title": "庭の動物",
+        "desc": "庭の動物に名前が付いたときの通知です。鳥の通知とは別です。",
+        "enabled": "庭の通知を送る",
+        "enabled_help": "動物が自動で名前付けされたとき、またはあなたが種を承認したときに、訪問ごとに1回通知します。「設定を適用」で保存します。",
+        "send_to": "庭の通知の送信先",
+        "use_bird": "鳥の通知先を使う",
+        "use_bird_help": "上で有効になっていて設定済みの通知先です。",
+        "choose": "通知先を選ぶ",
+        "choose_help": "保存済みの認証情報を使います。鳥の通知は無効のままでも構いません。",
+        "bird_uses": "{channels} に送信します。",
+        "bird_none": "有効で設定済みの鳥の通知先がないため、庭の通知は送信できません。上でいずれかを有効にするか、通知先を選んでください。",
+        "channels_label": "庭の通知先",
+        "channel": "{channel} で庭の通知",
+        "choose_one": "庭の通知先を少なくとも1つ選んでください。",
+        "credentials": "{channels} には保存済みの認証情報がないため、そこへの庭の通知は失敗します。上の通知先カードで追加してください。",
+        "include_photo": "写真を添付する",
+        "include_photo_help": "保存済みの動物の切り抜きを、なければ撮影写真を添付します。送信されるのは確認済みの動物だけなので、あなたまたは自動チェックが承認した写真です。写真を読めない場合はテキストのみです。",
+        "privacy": "動物名、カメラ、目撃時刻、選んだ場合は写真をこれらのサービスへ送信します。リンクはここでこの撮影を開きます。訪問者は一般公開で共有されている間だけ開けます。",
+        "rules": "名前が決まってから5分以内、目撃から2時間以内のものだけ送信するため、通知を有効にしても履歴は再送されません。訪問ごとに各通知先へ1回試行し、失敗や不明な送信は再試行しません。",
+        "status": "保存された送信試行。通知先が受理: {sent}。失敗: {failed}。未確認: {unknown}。スキップ: {skipped}。",
+        "status_after_apply": "「設定を適用」で庭を有効にすると送信状況が表示されます。",
+        "refresh": "送信状況を更新"
+      }
     },
     "discord": {
       "title": "Discord通知",
@@ -2047,20 +2071,13 @@
       "garden_models_limits_explorer": "自動チェックは、ローカルで CPU と比較した後に「検出」のデバイス設定に従い、デバイスチェックに失敗した場合は CPU に戻ります。動きのスキャンは引き続き CPU を使います。庭の処理は鳥とカメラが空いているときに一つずつ行い、各プロセスは停止時にモデルのメモリを解放します。エクスプローラーで庭の撮影から開始したチェックは、そこで選んだデバイスを使い、黙ってデバイスを切り替えずに失敗します。",
       "garden_explorer_help": "庭の動物はエクスプローラーで鳥と並んで表示されます。そこで「庭の動物」、続いて「確認が必要」を選ぶと新しい撮影を確認できます。",
       "garden_explorer_open": "庭の動物を確認",
-      "garden_notifications": "庭の通知",
-      "garden_notifications_help": "新たに名前が付いた動物のテキスト通知です。鳥の通知とは別です。「設定を適用」で保存します。",
-      "garden_notifications_privacy": "動物名、カメラ、時刻を選択したサービスへ送信します。写真やメディアリンクは送りません。履歴リンクには引き続き所有者のアクセスが必要です。",
-      "garden_notification_channels": "庭の通知先",
-      "garden_notification_channel": "{channel} で庭の通知",
-      "garden_notifications_choose": "庭の通知先を少なくとも1つ選んでください。",
-      "garden_notifications_credentials": "選択した通知先の認証情報が不足しています。「通知」で設定してください。鳥の通知は無効のままでも使えます。",
-      "garden_notifications_attempts_help": "対象は過去5分以内に名前が付いた撮影です。既知の訪問ごとに各通知先へ1回試行します。失敗や不明な送信は自動再試行しません。",
-      "garden_notifications_status": "保存された送信試行。通知先が受理: {sent}。失敗: {failed}。未確認: {unknown}。スキップ: {skipped}。",
-      "garden_notifications_refresh": "送信状況を更新",
       "garden_cameras_summary": "{cameras} で庭の動物を監視しています。",
       "garden_cameras_none": "庭の動物を監視しているカメラはまだありません。接続でカメラに「庭の動物」または「両方」を選んでください。",
       "garden_motion_summary": "{cameras} で確認用の動体写真を収集しています。",
-      "garden_cameras_open": "接続でカメラを選ぶ"
+      "garden_cameras_open": "接続でカメラを選ぶ",
+      "garden_alerts_on": "庭の通知はオンです。「通知」で通知先と一緒に設定します。",
+      "garden_alerts_off": "庭の通知はオフです。「通知」で通知先と一緒にオンにします。",
+      "garden_alerts_open": "通知を設定"
     },
     "native_revalidation": {
       "title": "隔離されたプロファイルを確認",
@@ -4112,7 +4129,8 @@
       "pick": "種を選ぶ",
       "chosen_by_owner": "所有者が選んだ種"
     },
-    "entry_dismiss_mixed": "ここにあるキャプチャはレビュー状態が異なります。1件ずつ却下してください。"
+    "entry_dismiss_mixed": "ここにあるキャプチャはレビュー状態が異なります。1件ずつ却下してください。",
+    "capture_link_unavailable": "この庭の撮影はもう利用できないか、ここでは共有されていません。"
   },
   "model_execution": {
     "completed": "最後に完了した実行：{device} · {time}",

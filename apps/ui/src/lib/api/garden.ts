@@ -142,6 +142,11 @@ export async function clearGardenSpecies(id: string, token: string): Promise<Gar
     return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/${encodeURIComponent(id)}/species?${new URLSearchParams({ review_token: token })}`, { method: 'DELETE', timeoutMs: 15000 }));
 }
 
+/** One capture's record, as a notification links to it; a visitor reads confirmed, shared captures only. */
+export async function fetchGardenCapture(id: string, signal?: AbortSignal): Promise<GardenCapture> {
+    return handleResponse<GardenCapture>(await apiFetch(`${API_BASE}/garden/captures/${encodeURIComponent(id)}`, { signal, timeoutMs: 15000 }));
+}
+
 /** Re-read a selected capture when a correction moved it out of its former visit. */
 export async function fetchGardenCaptureAtTime(capture: Pick<GardenCapture, 'id' | 'camera' | 'observed_at'>, status: GardenTimelineQuery['status']): Promise<GardenCapture | null> {
     const page = await fetchGardenTimeline({ start: capture.observed_at, end: capture.observed_at, camera: capture.camera, status, order: 'newest', limit: 200 });

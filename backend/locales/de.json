@@ -5,9 +5,10 @@
     "audio_confirmed": "🎤 Audio bestätigt durch BirdNET-Go",
     "view_detection": "Erkennung ansehen",
     "garden_title": "Gartentier: {name}",
-    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_body": "Gesehen: {camera} · {timestamp}\n{source}",
     "garden_automatic": "Automatisch benannt",
-    "garden_owner": "Art vom Besitzer bestätigt"
+    "garden_owner": "Art vom Besitzer bestätigt",
+    "garden_view": "Aufnahme ansehen"
   },
   "errors": {
     "detection_not_found": "Erkennung nicht gefunden",

@@ -229,6 +229,8 @@
     let gardenMotionConfidence = $state(0.5);
     let gardenNotificationsEnabled = $state(false);
     let gardenNotificationChannels = $state<GardenNotificationChannel[]>([]);
+    let gardenNotificationsUseBirdChannels = $state(true);
+    let gardenNotificationsIncludePhoto = $state(true);
     let gardenAutomaticNaming = $state(true);
     let gardenNamingThreshold = $state(0.8);
     let nestDedupeMinutes = $state(30);
@@ -1885,6 +1887,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
             { key: 'gardenNotificationsEnabled', val: gardenNotificationsEnabled, store: s.garden_notifications_enabled ?? false },
             { key: 'gardenNotificationChannels', val: JSON.stringify(gardenNotificationChannels), store: JSON.stringify(s.garden_notification_channels ?? []) },
+            { key: 'gardenNotificationsUseBirdChannels', val: gardenNotificationsUseBirdChannels, store: s.garden_notifications_use_bird_channels ?? true },
+            { key: 'gardenNotificationsIncludePhoto', val: gardenNotificationsIncludePhoto, store: s.garden_notifications_include_photo ?? true },
             { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
             { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
@@ -3102,6 +3106,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
             gardenNotificationsEnabled = settings.garden_notifications_enabled ?? false;
             gardenNotificationChannels = settings.garden_notification_channels ?? [];
+            gardenNotificationsUseBirdChannels = settings.garden_notifications_use_bird_channels ?? true;
+            gardenNotificationsIncludePhoto = settings.garden_notifications_include_photo ?? true;
             gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
             gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
@@ -3514,6 +3520,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 garden_motion_confidence: gardenMotionConfidence,
                 garden_notifications_enabled: gardenNotificationsEnabled,
                 garden_notification_channels: gardenNotificationChannels,
+                garden_notifications_use_bird_channels: gardenNotificationsUseBirdChannels,
+                garden_notifications_include_photo: gardenNotificationsIncludePhoto,
                 garden_automatic_naming: gardenAutomaticNaming,
                 garden_naming_threshold: gardenNamingThreshold,
                 nest_dedupe_minutes: nestDedupeMinutes,
@@ -3899,6 +3907,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:linkTarget={notifyLinkTarget}
                     {frigateExternalUrl}
                     onOpenIntegrations={() => handleTabChange('integrations')}
+                    gardenBeta={betaGardenAnimals}
+                    gardenStatusAvailable={settingsStore.settings?.beta_garden_animals === true}
+                    bind:gardenNotificationsEnabled
+                    bind:gardenUseBirdChannels={gardenNotificationsUseBirdChannels}
+                    bind:gardenNotificationChannels
+                    bind:gardenIncludePhoto={gardenNotificationsIncludePhoto}
                     {sendTestEmail}
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}
@@ -4169,8 +4183,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         motionCameras={gardenMotionCameras}
                         bind:labels={gardenLabels}
                         bind:motionConfidence={gardenMotionConfidence}
-                        bind:notificationsEnabled={gardenNotificationsEnabled}
-                        bind:notificationChannels={gardenNotificationChannels}
+                        notificationsEnabled={gardenNotificationsEnabled}
+                        onOpenNotifications={() => handleTabChange('notifications')}
                         bind:automaticNaming={gardenAutomaticNaming}
                         bind:namingThreshold={gardenNamingThreshold}
                         savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}

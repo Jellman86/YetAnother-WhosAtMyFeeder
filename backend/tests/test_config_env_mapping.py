@@ -700,3 +700,44 @@ def test_garden_notification_file_settings_respect_environment_without_inheritin
     loaded = Settings.load()
     assert not loaded.frigate.garden_notifications_enabled
     assert loaded.frigate.garden_notification_channels == ["discord", "email"]
+
+
+@pytest.mark.parametrize(
+    "saved,env,follows_birds",
+    [
+        ({"garden_notifications_enabled": True}, None, True),
+        ({"garden_notifications_enabled": True, "garden_notification_channels": ["telegram"]}, None, False),
+        (
+            {"garden_notification_channels": ["telegram"], "garden_notifications_use_bird_channels": True},
+            None,
+            True,
+        ),
+        ({"garden_notification_channels": ["telegram"]}, "true", True),
+        ({}, "false", False),
+    ],
+)
+def test_garden_channel_mode_derives_from_saved_channels_unless_saved_or_set(
+    monkeypatch, tmp_path, saved, env, follows_birds
+):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"frigate": saved}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", raising=False)
+    if env is None:
+        monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS", raising=False)
+    else:
+        monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS", env)
+    assert Settings.load().frigate.garden_notifications_use_bird_channels is follows_birds
+
+
+def test_garden_alert_photo_defaults_on_and_follows_file_then_environment(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"frigate": {"garden_notifications_include_photo": False}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", raising=False)
+    assert Settings.load().frigate.garden_notifications_include_photo is False
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", "true")
+    assert Settings.load().frigate.garden_notifications_include_photo is True
+    config_path.write_text(json.dumps({}))
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO")
+    assert Settings.load().frigate.garden_notifications_include_photo is True

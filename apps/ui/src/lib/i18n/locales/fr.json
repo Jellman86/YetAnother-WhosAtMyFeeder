@@ -1480,7 +1480,31 @@
       "test_retry": "Renvoyer",
       "test_stage_deliver": "Envoyer un message de test",
       "test_subtitle": "Envoie un message de test avec les paramètres actuels de ce canal.",
-      "test_title": "Test de notification"
+      "test_title": "Test de notification",
+      "garden": {
+        "title": "Animaux du jardin",
+        "desc": "Alertes quand un animal du jardin est nommé, séparées des alertes oiseaux.",
+        "enabled": "Envoyer les alertes du jardin",
+        "enabled_help": "Une alerte par visite quand un animal est nommé automatiquement ou que vous acceptez son espèce. Enregistrez avec Appliquer les paramètres.",
+        "send_to": "Envoyer les alertes du jardin vers",
+        "use_bird": "Utiliser mes canaux oiseaux",
+        "use_bird_help": "Les canaux ci-dessus qui sont activés et configurés.",
+        "choose": "Choisir les canaux",
+        "choose_help": "Utilise les identifiants enregistrés ; leurs interrupteurs oiseaux peuvent rester désactivés.",
+        "bird_uses": "Envoie vers {channels}.",
+        "bird_none": "Aucun canal oiseaux n’est activé et configuré, donc aucune alerte du jardin ne peut partir. Activez-en un ci-dessus ou choisissez des canaux.",
+        "channels_label": "Canaux du jardin",
+        "channel": "Alertes du jardin via {channel}",
+        "choose_one": "Choisissez au moins un canal pour les alertes du jardin.",
+        "credentials": "Aucun identifiant enregistré pour {channels}, donc les alertes du jardin y échoueront. Ajoutez-les dans la carte du canal ci-dessus.",
+        "include_photo": "Joindre la photo",
+        "include_photo_help": "Joint le recadrage enregistré de l’animal, ou la photo de la capture s’il n’y en a pas. Seuls les animaux confirmés partent, donc c’est une photo que vous ou la vérification automatique avez acceptée. Texte seul si aucune photo n’est lisible.",
+        "privacy": "Envoie le nom de l’animal, la caméra, l’heure de l’observation et, si vous le choisissez, la photo à ces services. Le lien ouvre cette capture ici ; un visiteur ne peut l’ouvrir que tant que l’accès public la partage.",
+        "rules": "Envoyée dans les cinq minutes qui suivent le choix du nom, pour des observations de deux heures au plus, donc activer les alertes ne rejoue jamais l’historique. Un essai par canal et par visite ; les envois échoués ou incertains ne sont pas relancés.",
+        "status": "Essais enregistrés. Acceptés par le canal : {sent}. Échecs : {failed}. Non confirmés : {unknown}. Ignorés : {skipped}.",
+        "status_after_apply": "L’état de livraison apparaît une fois que Appliquer les paramètres a activé le jardin.",
+        "refresh": "Actualiser l’état de livraison"
+      }
     },
     "discord": {
       "title": "Notifications Discord",
@@ -2047,20 +2071,13 @@
       "garden_models_limits_explorer": "Les vérifications automatiques suivent votre choix d'appareil de Détection après une comparaison locale avec le CPU, et repassent sur le CPU si la vérification de l'appareil échoue. Les analyses de mouvement utilisent toujours le CPU. Le travail du jardin se fait une tâche à la fois, quand les oiseaux et les caméras sont au repos ; chaque processus libère la mémoire de son modèle en s'arrêtant. Les vérifications lancées depuis une capture du jardin dans l'Explorateur utilisent l'appareil choisi et échouent au lieu de changer d'appareil sans le dire.",
       "garden_explorer_help": "Les animaux du jardin apparaissent dans l'Explorateur à côté de vos oiseaux. Choisissez-y Animaux du jardin, puis À vérifier, pour traiter les nouvelles captures.",
       "garden_explorer_open": "Vérifier les animaux du jardin",
-      "garden_notifications": "Notifications du jardin",
-      "garden_notifications_help": "Alertes texte pour les animaux nouvellement nommés, séparées de celles des oiseaux. Enregistrez avec Appliquer les paramètres.",
-      "garden_notifications_privacy": "Envoie le nom, la caméra et l’heure aux services choisis. Aucune photo ni lien multimédia. Les liens vers l’historique exigent toujours l’accès propriétaire.",
-      "garden_notification_channels": "Canaux du jardin",
-      "garden_notification_channel": "Alertes du jardin via {channel}",
-      "garden_notifications_choose": "Choisissez au moins un canal pour les alertes du jardin.",
-      "garden_notifications_credentials": "Il manque les identifiants d’un canal choisi. Configurez-le dans Notifications ; les alertes oiseaux peuvent rester désactivées.",
-      "garden_notifications_attempts_help": "Seules les captures nommées des cinq dernières minutes sont admissibles. Un essai par canal et visite connue ; les envois échoués ou incertains ne sont pas relancés automatiquement.",
-      "garden_notifications_status": "Essais enregistrés. Acceptés par le canal : {sent}. Échecs : {failed}. Non confirmés : {unknown}. Ignorés : {skipped}.",
-      "garden_notifications_refresh": "Actualiser l’état de livraison",
       "garden_cameras_summary": "Animaux du jardin surveillés sur {cameras}.",
       "garden_cameras_none": "Aucune caméra ne surveille encore les animaux du jardin. Choisissez Animaux du jardin ou Les deux pour une caméra dans Connexion.",
       "garden_motion_summary": "Des photos de mouvement à vérifier sont collectées sur {cameras}.",
-      "garden_cameras_open": "Choisir les caméras dans Connexion"
+      "garden_cameras_open": "Choisir les caméras dans Connexion",
+      "garden_alerts_on": "Les alertes du jardin sont activées. Elles se règlent dans Notifications, avec leurs canaux.",
+      "garden_alerts_off": "Les alertes du jardin sont désactivées. Activez-les dans Notifications, avec leurs canaux.",
+      "garden_alerts_open": "Régler les alertes"
     },
     "native_revalidation": {
       "title": "Vérifier le profil en quarantaine",
@@ -4112,7 +4129,8 @@
       "pick": "Choisir une espèce",
       "chosen_by_owner": "Espèce choisie par le propriétaire"
     },
-    "entry_dismiss_mixed": "Ces captures ont des états de vérification différents. Écartez-les une par une."
+    "entry_dismiss_mixed": "Ces captures ont des états de vérification différents. Écartez-les une par une.",
+    "capture_link_unavailable": "Cette capture du jardin n’est plus disponible ou n’est pas partagée ici."
   },
   "model_execution": {
     "completed": "Dernière exécution terminée : {device} · {time}",

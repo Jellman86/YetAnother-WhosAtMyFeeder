@@ -5,9 +5,10 @@
     "audio_confirmed": "🎤 已通过 BirdNET-Go 音频确认",
     "view_detection": "查看检测",
     "garden_title": "花园动物：{name}",
-    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_body": "发现于：{camera} · {timestamp}\n{source}",
     "garden_automatic": "自动识别",
-    "garden_owner": "所有者已确认物种"
+    "garden_owner": "所有者已确认物种",
+    "garden_view": "查看捕获"
   },
   "errors": {
     "detection_not_found": "未找到检测记录",

@@ -156,6 +156,16 @@ timeout. They use the visit's accepted identification and current audio confirma
 including manual corrections, rather than a video guess that the promotion rules
 rejected. Deleted, hidden, blocked and unknown visits are checked again before delivery.
 
+## Garden animals
+
+While the Garden animals beta is on, **Settings → Notifications** has a **Garden
+animals** section for alerts about named animals. By default they use your bird
+channels, meaning the ones switched on and configured, and attach the animal photo.
+You can choose channels for Garden alone instead. Bird filters, notification mode
+and the cooldown above apply to birds only. See
+[Send Garden notifications](garden-animals.md#send-garden-notifications) for when an
+alert is sent, what it contains and who can open its link.
+
 ## How it Works
 
 1. **Event Trigger:** A detection is processed and saved to the database.

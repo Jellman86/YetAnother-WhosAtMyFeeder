@@ -833,3 +833,39 @@ async def test_only_successful_automatic_naming_schedules_private_notifications(
         schedule.assert_awaited_once_with(c.capture_id)
     else:
         schedule.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_automatic_naming_nine_minutes_after_the_sighting_sends_its_alert_with_the_photo(naming, monkeypatch):
+    from datetime import timedelta
+
+    from app.services import garden_notifications
+    from app.utils.api_datetime import utc_naive_now
+
+    c = naming
+    # The live install names a median of 417 s (events) and 631 s (motion) after the sighting.
+    observed = utc_naive_now() - timedelta(minutes=9)
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET observed_at=? WHERE id=?", (observed.isoformat(), c.capture_id))
+        await db.commit()
+    monkeypatch.setattr(settings.frigate, "garden_notifications_enabled", True)
+    monkeypatch.setattr(settings.frigate, "garden_notifications_use_bird_channels", False)
+    monkeypatch.setattr(settings.frigate, "garden_notification_channels", ["telegram"])
+    monkeypatch.setattr(settings.frigate, "garden_notifications_include_photo", True)
+    sender = AsyncMock(return_value=True)
+    photo = AsyncMock(return_value=b"crop")
+    service = garden_notifications.GardenNotificationService(sender=sender, photo_loader=photo)
+    monkeypatch.setattr(c.module, "garden_notification_service", service)
+    queued = []
+
+    async def enqueue(key, job):
+        queued.append((key, job))
+
+    monkeypatch.setattr(garden_notifications.notification_dispatcher, "enqueue", enqueue)
+    await c.service.process_once()
+    assert [key for key, _ in queued] == ["garden:" + c.capture_id]
+    await queued[0][1]()
+    sender.assert_awaited_once()
+    channel, sent, attachment = sender.call_args.args
+    assert channel == "telegram" and sent.identification.name == "domestic cat" and attachment == b"crop"
+    assert (await service.status_counts())["sent"] == 1

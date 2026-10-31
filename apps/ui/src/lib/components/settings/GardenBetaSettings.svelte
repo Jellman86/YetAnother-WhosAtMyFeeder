@@ -3,15 +3,14 @@
      * Garden animals are a beta, so everything that sets them up sits with the switch that turns
      * them on, in the order the setup steps give: which cameras and labels are collected, Garden's
      * own models, when an animal is named without a review (as a bird above the naming threshold
-     * is), then alerts. Cameras are chosen once, with their bird role, in Connection; this view
-     * only says which ones watch for Garden animals. Daily review is in the Explorer.
+     * is), then alerts. Cameras are chosen once, with their bird role, in Connection, and alerts
+     * with their channels in Notifications; this view only summarises both. Daily review is in
+     * the Explorer.
      */
     import { _, locale } from 'svelte-i18n';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
-    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
-    import type { GardenNotificationChannel } from '../../api/garden';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from '../../utils/garden-threshold';
     import { formatCameraList, gardenMotionWithinGarden } from '../../utils/camera-watch';
@@ -24,14 +23,16 @@
         labels: string;
         motionConfidence: number;
         automaticNaming: boolean;
+        /** Whether Garden alerts are on, as the page holds it; they are set up in Notifications. */
         notificationsEnabled?: boolean;
-        notificationChannels?: GardenNotificationChannel[];
         namingThreshold: number;
         /** The saved threshold, so a calibrated value keeps its own precision while edited. */
         savedMotionConfidence?: number;
         onNavigate?: (path: string) => void;
         /** Opens Connection at its camera list. */
         onOpenCameras?: () => void;
+        /** Opens Notifications, where Garden alerts are set up. */
+        onOpenNotifications?: () => void;
     }
 
     let {
@@ -41,12 +42,12 @@
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
         automaticNaming = $bindable(true),
-        notificationsEnabled = $bindable(false),
-        notificationChannels = $bindable<GardenNotificationChannel[]>([]),
+        notificationsEnabled = false,
         namingThreshold = $bindable(0.8),
         savedMotionConfidence,
         onNavigate,
-        onOpenCameras
+        onOpenCameras,
+        onOpenNotifications
     }: Props = $props();
 
     const collectingMotion = $derived(gardenMotionWithinGarden(cameras, motionCameras));
@@ -190,7 +191,18 @@
             {/if}
         </div>
 
-        <GardenNotificationSettings bind:enabled={notificationsEnabled} bind:channels={notificationChannels} />
+        <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3" data-garden-alerts-summary>
+            <p class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">
+                {notificationsEnabled
+                    ? $_('settings.beta.garden_alerts_on', { default: 'Garden alerts are on. They are set up in Notifications, with their channels.' })
+                    : $_('settings.beta.garden_alerts_off', { default: 'Garden alerts are off. Turn them on in Notifications, with their channels.' })}
+            </p>
+            {#if onOpenNotifications}
+                <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
+                    {$_('settings.beta.garden_alerts_open', { default: 'Set up alerts' })}
+                </button>
+            {/if}
+        </div>
 
         <section class="space-y-2" aria-labelledby="garden-beta-outcomes" data-garden-outcomes>
             <h4 id="garden-beta-outcomes" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}</h4>

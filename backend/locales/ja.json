@@ -5,9 +5,10 @@
     "audio_confirmed": "🎤 BirdNET-Goによる音声確認済み",
     "view_detection": "検出を見る",
     "garden_title": "庭の動物: {name}",
-    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_body": "目撃: {camera} · {timestamp}\n{source}",
     "garden_automatic": "自動で名前を付与",
-    "garden_owner": "所有者が種を確認"
+    "garden_owner": "所有者が種を確認",
+    "garden_view": "キャプチャを表示"
   },
   "errors": {
     "detection_not_found": "検出が見つかりません",
