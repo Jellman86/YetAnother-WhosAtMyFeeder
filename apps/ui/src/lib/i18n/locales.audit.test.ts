@@ -109,7 +109,7 @@ const REQUIRED_ACTIVE_KEYS = [
     'settings.cameras.preview_live',
     'settings.cameras.preview_loading',
     'settings.cameras.preview_missing_url',
-    'settings.cameras.select',
+    'settings.cameras.watch_for',
     'settings.danger.clear_feedback_button',
     'settings.danger.clear_feedback_desc',
     'settings.danger.clear_feedback_hint',

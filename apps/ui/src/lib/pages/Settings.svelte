@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte';
+    import { onMount, onDestroy, tick, untrack } from 'svelte';
     import type { NotificationLinkTarget } from '../settings/notification-link';
     import {
         fetchSettings,
@@ -1541,6 +1541,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     let availableCameras = $state<string[]>([]);
+    // Only a successful read says which cameras Frigate has; `availableCameras` falls back to the
+    // saved list for the pickers that need names, which must not pass for Frigate's answer.
+    let frigateCameras = $state<string[] | null>(null);
+    let frigateCamerasFailed = $state(false);
     let camerasLoading = $state(false);
 
     let loading = $state(true);
@@ -2177,6 +2181,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const path = `/settings/${tab}`;
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', toAppPath(path));
+    }
+
+    // Beta features names the Garden cameras but they are chosen in Connection, so the link lands
+    // on the camera list itself rather than at the top of a tab whose first card is Frigate.
+    async function openCameraSettings(): Promise<void> {
+        handleTabChange('connection');
+        await tick();
+        const list = document.getElementById('settings-camera-list');
+        list?.scrollIntoView({ block: 'start' });
+        list?.focus({ preventScroll: true });
     }
 
     // Drive taxonomy status from the derived active tab so router-driven changes
@@ -3410,10 +3424,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 const cameras = config.cameras;
                 if (cameras && typeof cameras === 'object') {
                     availableCameras = Object.keys(cameras);
+                    frigateCameras = Object.keys(cameras);
+                    frigateCamerasFailed = false;
+                    return;
                 }
             }
+            frigateCamerasFailed = frigateCameras === null;
         } catch (e) {
             console.error('Failed to load cameras from Frigate', e);
+            frigateCamerasFailed = frigateCameras === null;
             if (selectedCameras.length > 0 && availableCameras.length === 0) {
                  availableCameras = [...selectedCameras];
             }
@@ -3431,12 +3450,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             return;
         }
         if (!Number.isFinite(gardenMotionConfidence) || gardenMotionConfidence < 0.5 || gardenMotionConfidence > 0.95) {
-            message = { type: 'error', text: $_('settings.beta.garden_motion_confidence_invalid', { default: 'Enter an animal proposal threshold between 0.5 and 0.95.' }) };
+            message = { type: 'error', text: $_('settings.beta.garden_motion_confidence_invalid', { default: 'Enter an animal proposal threshold between 50% and 95%.' }) };
             saving = false;
             return;
         }
         if (!Number.isFinite(gardenNamingThreshold) || gardenNamingThreshold < 0.7 || gardenNamingThreshold > 0.99) {
-            message = { type: 'error', text: $_('settings.beta.garden_naming_threshold_invalid', { default: 'Enter a naming threshold between 0.7 and 0.99.' }) };
+            message = { type: 'error', text: $_('settings.beta.garden_naming_threshold_invalid', { default: 'Enter a naming threshold between 70% and 99%.' }) };
             saving = false;
             return;
         }
@@ -3692,14 +3711,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (inaturalistClientSecretSaved) inaturalistClientSecret = '';
     }
 
-    function toggleCamera(camera: string) {
-        if (selectedCameras.includes(camera)) {
-            selectedCameras = selectedCameras.filter(c => c !== camera);
-        } else {
-            selectedCameras = [...selectedCameras, camera];
-        }
-    }
-
     function setTheme(t: Theme) {
         themeStore.setTheme(t);
     }
@@ -3752,6 +3763,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
+                    bind:gardenCameras
+                    bind:gardenMotionCameras
                     {betaGardenAnimals}
                     bind:cameraRoles
                     bind:nestDedupeMinutes
@@ -3763,7 +3776,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:recordingClipAfterSeconds
                     bind:telemetryEnabled
                     bind:telemetryHealthEnabled
-                    {availableCameras}
+                    {frigateCameras}
+                    {frigateCamerasFailed}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
@@ -3772,7 +3786,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {telemetryPayloadPreview}
                     {versionInfo}
                     {loadCameras}
-                    {toggleCamera}
                 />
             {/if}
 
@@ -4127,8 +4140,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 >
                     <GardenBetaSettings
                         bind:enabled={betaGardenAnimals}
-                        bind:cameras={gardenCameras}
-                        bind:motionCameras={gardenMotionCameras}
+                        cameras={gardenCameras}
+                        motionCameras={gardenMotionCameras}
                         bind:labels={gardenLabels}
                         bind:motionConfidence={gardenMotionConfidence}
                         bind:notificationsEnabled={gardenNotificationsEnabled}
@@ -4136,8 +4149,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         bind:automaticNaming={gardenAutomaticNaming}
                         bind:namingThreshold={gardenNamingThreshold}
                         savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
-                        {availableCameras}
                         onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                        onOpenCameras={openCameraSettings}
                     />
                 </SettingsCard>
             {/if}

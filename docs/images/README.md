@@ -93,10 +93,10 @@ example counts or runtime values into product guarantees.
 | `detection-detail.png` | Dunnock photograph, identification and record controls |
 | `detection-photo-review.png` | Review sheet with photograph choices and feeder species |
 | `add-observation.png` | Upload, Analyse, Review and Save flow before anything is added |
-| `settings-garden-cameras.png` | Garden animal settings under Beta features: setup steps, Garden models, cameras, motion collection, labels, proposal threshold, automatic naming and capture outcomes |
+| `settings-garden-cameras.png` | Garden animal settings under Beta features in setup order: steps, the Garden camera summary, labels, proposal threshold, Garden models, automatic naming, notifications and capture outcomes. Refreshed 31 October 2026 |
 | `garden-review.png` | Owner review prototype, separate views and first-capture guidance |
 | `settings-map.png` | Grouped Settings navigation and setup-wizard entry point |
-| `settings-connection.png` | Frigate, MQTT and selected camera controls |
+| `settings-connection.png` | Frigate, MQTT and the Cameras to watch list. Refreshed 31 October 2026 |
 | `settings-detection.png` | Saved Intel NPU preference and actual worker runtime status |
 | `model-manager-dino.png` | Selected DINO model, memory estimate and location guidance |
 | `settings-integrations.png` | BirdNET-Go and optional integration controls |
