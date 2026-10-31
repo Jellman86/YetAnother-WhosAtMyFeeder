@@ -7,6 +7,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -124,12 +125,16 @@
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
         const model = classifier.effective_model_id ?? classifier.active_model_id ?? '—';
         const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
+        const reading = pipelineClassifierState(classifier);
+        const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
+            loaded: { state: $_('about.pipeline.loaded', { default: 'loaded' }), tone: 'ok' },
+            standby: { state: $_('about.pipeline.standby', { default: 'loads on first detection' }), tone: 'off' },
+            check: { state: $_('about.pipeline.degraded', { default: 'check' }), tone: 'off' },
+            unknown: { state: unknown, tone: 'unknown' }
+        };
         return {
             detail: provider ? `${model} · ${provider}` : String(model),
-            state: classifier.loaded
-                ? $_('about.pipeline.loaded', { default: 'loaded' })
-                : $_('about.pipeline.not_loaded', { default: 'not loaded' }),
-            tone: (classifier.loaded ? 'ok' : 'off') as Tone
+            ...states[reading]
         };
     });
 

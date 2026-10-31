@@ -72,7 +72,7 @@ for (const width of [320, 393]) {
             await expect(saved).toBeVisible();
             await expectInsideViewport(page, saved);
 
-            const toast = page.locator('[data-toast-container] > div').filter({ hasText: 'Settings saved' });
+            const toast = page.locator('[data-toast-container] [data-toast]').filter({ hasText: 'Settings saved' });
             await expect(toast).toBeInViewport({ ratio: 1 });
             await expectInsideViewport(page, toast);
             await expectInsideViewport(page, toast.getByRole('button', { name: 'Close notification' }));

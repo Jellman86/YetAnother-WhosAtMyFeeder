@@ -2045,7 +2045,8 @@
     "status_unavailable_auto_retry": "YA-WAMF は 5 秒ごとに自動で再確認します。",
     "status_unavailable_help": "オフラインが続く場合は、コンテナの状態と起動ログを確認してください。",
     "status_checking_again": "再確認中…",
-    "status_check_again": "再確認"
+    "status_check_again": "再確認",
+    "login_failed": "サインインできませんでした。ユーザー名とパスワードを確認してください。"
   },
   "status": {
     "title": "システム状態",
@@ -2054,10 +2055,6 @@
     "offline": "オフライン",
     "audio_analysis": "音声分析",
     "notifications": "通知",
-    "audio_active": "音声分析中",
-    "notifications_enabled": "通知有効",
-    "system_online": "システムオンライン",
-    "system_offline": "システムオフライン",
     "open_health": "システムの状態",
     "tile_live": "ライブ",
     "tile_audio": "音声",
@@ -2131,7 +2128,9 @@
     "empty_filtered": "このフィルターに一致するものはありません。",
     "clear_notifications": "通知をクリア",
     "system_media_storage_unavailable_title": "メディアの保存先を利用できません",
-    "system_media_storage_unavailable_message": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。詳細は 設定 → データ を開いてください。"
+    "system_media_storage_unavailable_message": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。詳細は 設定 → データ を開いてください。",
+    "bell_unread": "{title}、未読 {count} 件",
+    "filter_group": "通知を絞り込む"
   },
   "actions": {
     "confirm_delete": "この{species}の来訪をまるごと削除しますか？記録とメディアは履歴から完全に消えます。代わりに非表示にすれば記録は残ります。",
@@ -3067,7 +3066,6 @@
       "online": "オンライン",
       "degraded": "要確認",
       "loaded": "読み込み済み",
-      "not_loaded": "未読み込み",
       "enabled": "有効",
       "off": "オフ",
       "streaming": "配信中",
@@ -3086,7 +3084,8 @@
       "not_checked": "未確認",
       "no_reading": "ここからは取得できません",
       "owner_only": "オーナーのみ",
-      "owner_only_detail": "オーナーにのみ表示される情報"
+      "owner_only_detail": "オーナーにのみ表示される情報",
+      "standby": "最初の検出時に読み込み"
     },
     "storage": {
       "title": "保存される内容",
@@ -3955,6 +3954,11 @@
     "fallback": "CPUへフォールバック：要求されたアクセラレーターで現在のチェックまたは推論を正常に完了できませんでした。",
     "garden_preference": "自動チェックの優先デバイス：{device}。新しいアクセラレーターはまずCPUとの一致確認が必要です。",
     "unreported": "完了した実行からのデバイス報告はまだありません。推奨は実行記録ではありません。"
+  },
+  "not_found": {
+    "title": "このページは存在しません",
+    "body": "このアドレスは古いバージョンのものかもしれません。",
+    "action": "ダッシュボードを開く"
   },
   "system_telemetry": {
     "last_reading": "最後の測定値"

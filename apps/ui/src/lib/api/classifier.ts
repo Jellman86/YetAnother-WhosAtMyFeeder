@@ -7,10 +7,12 @@ export interface ClassifierStatus {
         status: 'recovering' | 'recovered';
         restart_recommended: boolean;
     } | null;
-    loaded: boolean;
-    error: string | null;
+    /** `loaded`, `error` and `enabled` describe a model held in this process, so a
+     *  subprocess install, whose workers hold the model, sends none of them. */
+    loaded?: boolean;
+    error?: string | null;
     labels_count: number;
-    enabled: boolean;
+    enabled?: boolean;
     active_model_id?: string | null;
     effective_model_id?: string | null;
     onnx_available?: boolean;
@@ -65,6 +67,10 @@ export interface ClassifierStatus {
     inference_backend?: string;
     fallback_reason?: string | null;
     model_config_warnings?: string[];
+    /** The rolling verdict over recent inference outcomes, across every runtime. */
+    inference_health?: {
+        status: 'ok' | 'degraded' | 'unhealthy';
+    };
     host_available_providers?: string[];
     available_providers?: string[];
     provider_preference_order?: string[];

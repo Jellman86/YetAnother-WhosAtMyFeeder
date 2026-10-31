@@ -2045,7 +2045,8 @@
     "status_unavailable_auto_retry": "YA-WAMF vérifie à nouveau la connexion automatiquement toutes les cinq secondes.",
     "status_unavailable_help": "S’il reste hors ligne, vérifiez l’état du conteneur et les journaux de démarrage.",
     "status_checking_again": "Nouvelle vérification…",
-    "status_check_again": "Vérifier à nouveau"
+    "status_check_again": "Vérifier à nouveau",
+    "login_failed": "Connexion impossible. Vérifiez votre nom d'utilisateur et votre mot de passe."
   },
   "status": {
     "title": "État du système",
@@ -2054,10 +2055,6 @@
     "offline": "Hors ligne",
     "audio_analysis": "Analyse audio",
     "notifications": "Notifications",
-    "audio_active": "Analyse audio active",
-    "notifications_enabled": "Notifications activées",
-    "system_online": "Système en ligne",
-    "system_offline": "Système hors ligne",
     "open_health": "État du système",
     "tile_live": "En direct",
     "tile_audio": "Audio",
@@ -2131,7 +2128,9 @@
     "empty_filtered": "Rien ne correspond à ce filtre.",
     "clear_notifications": "Effacer les notifications",
     "system_media_storage_unavailable_title": "Stockage des médias indisponible",
-    "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Paramètres → Données pour les détails."
+    "system_media_storage_unavailable_message": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Ouvrez Paramètres → Données pour les détails.",
+    "bell_unread": "{title}, {count} non lues",
+    "filter_group": "Filtrer les notifications"
   },
   "actions": {
     "confirm_delete": "Supprimer toute cette visite de {species} ? L'enregistrement et ses médias quittent l'historique définitivement. Masquer conserve l'enregistrement.",
@@ -3067,7 +3066,6 @@
       "online": "en ligne",
       "degraded": "à vérifier",
       "loaded": "chargé",
-      "not_loaded": "non chargé",
       "enabled": "activé",
       "off": "désactivé",
       "streaming": "en flux",
@@ -3086,7 +3084,8 @@
       "not_checked": "non vérifié",
       "no_reading": "aucune lecture depuis ici",
       "owner_only": "propriétaire uniquement",
-      "owner_only_detail": "relevé visible par le propriétaire"
+      "owner_only_detail": "relevé visible par le propriétaire",
+      "standby": "se charge à la première détection"
     },
     "storage": {
       "title": "Ce qui est stocké",
@@ -3955,6 +3954,11 @@
     "fallback": "Repli sur CPU : l’accélérateur demandé n’a pas terminé correctement sa vérification ou son inférence actuelle.",
     "garden_preference": "Appareil préféré pour les vérifications automatiques : {device}. Un nouvel accélérateur doit d’abord correspondre au CPU.",
     "unreported": "Aucune exécution terminée n’a indiqué son appareil. Une recommandation ne prouve pas une exécution."
+  },
+  "not_found": {
+    "title": "Cette page n'existe pas",
+    "body": "L'adresse provient peut-être d'une version antérieure.",
+    "action": "Ouvrir le tableau de bord"
   },
   "system_telemetry": {
     "last_reading": "Dernière mesure"

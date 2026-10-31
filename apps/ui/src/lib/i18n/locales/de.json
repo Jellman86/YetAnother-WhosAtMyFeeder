@@ -2045,7 +2045,8 @@
     "status_unavailable_auto_retry": "YA-WAMF prüft die Verbindung automatisch alle fünf Sekunden erneut.",
     "status_unavailable_help": "Bleibt der Dienst offline, prüfe den Containerstatus und die Startprotokolle.",
     "status_checking_again": "Erneute Prüfung…",
-    "status_check_again": "Erneut prüfen"
+    "status_check_again": "Erneut prüfen",
+    "login_failed": "Anmeldung fehlgeschlagen. Prüfe Benutzername und Passwort."
   },
   "status": {
     "title": "Systemstatus",
@@ -2054,10 +2055,6 @@
     "offline": "Getrennt",
     "audio_analysis": "Audioanalyse",
     "notifications": "Benachrichtigungen",
-    "audio_active": "Audio-Analyse aktiv",
-    "notifications_enabled": "Benachrichtigungen aktiviert",
-    "system_online": "System online",
-    "system_offline": "System offline",
     "open_health": "Systemzustand",
     "tile_live": "Live-Daten",
     "tile_audio": "Audio",
@@ -2131,7 +2128,9 @@
     "empty_filtered": "Nichts entspricht diesem Filter.",
     "clear_notifications": "Benachrichtigungen löschen",
     "system_media_storage_unavailable_title": "Medienspeicher nicht verfügbar",
-    "system_media_storage_unavailable_message": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Details unter Einstellungen → Daten."
+    "system_media_storage_unavailable_message": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Details unter Einstellungen → Daten.",
+    "bell_unread": "{title}, {count} ungelesen",
+    "filter_group": "Benachrichtigungen filtern"
   },
   "actions": {
     "confirm_delete": "Diesen gesamten {species}-Besuch löschen? Der Eintrag und seine Medien verschwinden dauerhaft aus der Historie. Ausblenden behält den Eintrag stattdessen.",
@@ -3067,7 +3066,6 @@
       "online": "online",
       "degraded": "prüfen",
       "loaded": "geladen",
-      "not_loaded": "nicht geladen",
       "enabled": "aktiv",
       "off": "aus",
       "streaming": "überträgt",
@@ -3086,7 +3084,8 @@
       "not_checked": "nicht geprüft",
       "no_reading": "von hier aus keine Messung",
       "owner_only": "nur Besitzer",
-      "owner_only_detail": "Messwert nur für den Besitzer sichtbar"
+      "owner_only_detail": "Messwert nur für den Besitzer sichtbar",
+      "standby": "lädt bei der ersten Erkennung"
     },
     "storage": {
       "title": "Was gespeichert wird",
@@ -3955,6 +3954,11 @@
     "fallback": "CPU-Ausweichbetrieb: Der angeforderte Beschleuniger konnte die aktuelle Prüfung oder Inferenz nicht erfolgreich abschließen.",
     "garden_preference": "Gerätepräferenz für automatische Prüfungen: {device}. Ein neuer Beschleuniger muss zuerst mit der CPU übereinstimmen.",
     "unreported": "Noch kein abgeschlossener Lauf mit Geräteangabe. Eine Empfehlung ist kein Ausführungsnachweis."
+  },
+  "not_found": {
+    "title": "Diese Seite gibt es nicht",
+    "body": "Die Adresse stammt vielleicht aus einer älteren Version.",
+    "action": "Dashboard öffnen"
   },
   "system_telemetry": {
     "last_reading": "Letzter Messwert"
