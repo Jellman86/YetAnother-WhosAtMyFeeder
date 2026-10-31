@@ -61,6 +61,9 @@ ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 ENV YAWAMF_IMAGE_FLAVOR=${RUNTIME_FLAVOR}
+# The one container serving UI and API; split installs report "split" (backend/Dockerfile).
+ENV YAWAMF_DEPLOYMENT_MODE=monolith
+LABEL io.yawamf.deployment.mode="monolith"
 # Long-lived Python service with ~70 threads: unbounded glibc malloc arenas
 # retain the high-water mark of large transient buffers (whole video clips
 # pass through memory), observed live as ~3.2GB resident in the API process.

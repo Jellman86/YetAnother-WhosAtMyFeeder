@@ -406,3 +406,15 @@ def test_unraid_guide_has_a_local_template_import_and_complete_connection_setup(
     assert "Settings → Connection" in guide
     assert "FRIGATE__FRIGATE_URL" in guide and "overrides" in guide
     assert "Docker Safe New" not in guide
+
+
+@pytest.mark.parametrize(
+    ("dockerfile_path", "mode"),
+    [("Dockerfile", "monolith"), ("backend/Dockerfile", "split")],
+)
+def test_each_backend_image_reports_its_layout_to_telemetry(dockerfile_path: str, mode: str) -> None:
+    # The split backend and the monolith full image share the "full" flavor, so
+    # only the layout tells the two installs apart in anonymous telemetry.
+    dockerfile = (REPO_ROOT / dockerfile_path).read_text(encoding="utf-8")
+    assert f"ENV YAWAMF_DEPLOYMENT_MODE={mode}" in dockerfile
+    assert f'LABEL io.yawamf.deployment.mode="{mode}"' in dockerfile
