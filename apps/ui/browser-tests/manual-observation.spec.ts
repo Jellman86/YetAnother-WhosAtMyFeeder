@@ -52,7 +52,7 @@ async function serve(page: Page, options: Serve): Promise<{ confirmed: Record<st
 }
 
 async function uploadAndReview(page: Page) {
-    await page.locator('input[type="file"]').setInputFiles({ name: 'robin.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('jpeg') });
+    await page.locator('input[type="file"]').setInputFiles('browser-tests/fixtures/manual-observation.jpg');
     await page.getByRole('button', { name: 'Upload and analyse' }).click();
     await expect(page.getByRole('radio', { name: /European Robin/ })).toBeChecked();
 }
@@ -97,7 +97,7 @@ test('a file without a capture time leaves the field empty and says the save tim
 
 test('uploading a saved file again offers the saved observation', async ({ page }) => {
     await serve(page, { upload: { status: 409, json: { detail: { message: 'This media has already been uploaded.', draft_id: draftId, event_id: savedEventId } } } });
-    await page.locator('input[type="file"]').setInputFiles({ name: 'robin.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('jpeg') });
+    await page.locator('input[type="file"]').setInputFiles('browser-tests/fixtures/manual-observation.jpg');
     await page.getByRole('button', { name: 'Upload and analyse' }).click();
 
     await expect(page.getByRole('alert')).toContainText('This file is already saved as an observation.');
@@ -107,7 +107,7 @@ test('uploading a saved file again offers the saved observation', async ({ page 
 
 test('uploading a file that is still a draft continues that review', async ({ page }) => {
     await serve(page, { upload: { status: 409, json: { detail: { message: 'This media has already been uploaded.', draft_id: draftId, event_id: null } } } });
-    await page.locator('input[type="file"]').setInputFiles({ name: 'robin.jpg', mimeType: 'image/jpeg', buffer: Buffer.from('jpeg') });
+    await page.locator('input[type="file"]').setInputFiles('browser-tests/fixtures/manual-observation.jpg');
     await page.getByRole('button', { name: 'Upload and analyse' }).click();
 
     await expect(page.getByRole('alert')).toContainText('still waiting for your review');
