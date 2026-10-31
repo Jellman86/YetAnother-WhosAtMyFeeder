@@ -1491,7 +1491,31 @@
       "test_retry": "Enviar novamente",
       "test_stage_deliver": "Entregar uma mensagem de teste",
       "test_subtitle": "Envia uma mensagem de teste usando as configurações atuais deste canal.",
-      "test_title": "Teste de notificação"
+      "test_title": "Teste de notificação",
+      "garden": {
+        "title": "Animais do jardim",
+        "desc": "Alertas quando um animal do jardim é nomeado, separados dos alertas de aves.",
+        "enabled": "Enviar alertas do jardim",
+        "enabled_help": "Um alerta por visita quando um animal é nomeado automaticamente ou você aceita a espécie. Salve com Aplicar configurações.",
+        "send_to": "Enviar alertas do jardim para",
+        "use_bird": "Usar meus canais de aves",
+        "use_bird_help": "Os canais acima que estão ativados e configurados.",
+        "choose": "Escolher canais",
+        "choose_help": "Usa as credenciais salvas; os interruptores de aves podem ficar desligados.",
+        "bird_uses": "Envia para {channels}.",
+        "bird_none": "Nenhum canal de aves está ativado e configurado, então nenhum alerta do jardim pode ser enviado. Ative um acima ou escolha canais.",
+        "channels_label": "Canais de entrega do jardim",
+        "channel": "Alertas do jardim via {channel}",
+        "choose_one": "Escolha pelo menos um canal para os alertas do jardim.",
+        "credentials": "Não há credenciais salvas para {channels}, então os alertas do jardim falharão ali. Adicione-as no cartão do canal acima.",
+        "include_photo": "Incluir a foto",
+        "include_photo_help": "Anexa o recorte salvo do animal ou, se não houver, a foto da captura. Só animais confirmados são enviados, então é uma foto que você ou a verificação automática aceitou. Só texto se nenhuma foto puder ser lida.",
+        "privacy": "Envia o nome do animal, a câmera, a hora do avistamento e, se escolhido, a foto para esses serviços. O link abre esta captura aqui; um visitante só pode abri-la enquanto o acesso público a compartilhar.",
+        "rules": "Enviado até cinco minutos depois de o nome ser decidido, para avistamentos de até duas horas, então ativar os alertas nunca reenvia o histórico. Uma tentativa por canal e visita; envios com falha ou incertos não são repetidos.",
+        "status": "Tentativas de entrega salvas. Aceitas pelo canal: {sent}. Falhas: {failed}. Não confirmadas: {unknown}. Ignoradas: {skipped}.",
+        "status_after_apply": "O status de entrega aparece depois que Aplicar configurações ativar o jardim.",
+        "refresh": "Atualizar status de entrega"
+      }
     },
     "discord": {
       "title": "Notificações Discord",
@@ -2058,20 +2082,13 @@
       "garden_models_limits_explorer": "As verificações automáticas seguem a sua preferência de dispositivo de Deteção após uma comparação local com a CPU, e voltam à CPU se a verificação do dispositivo falhar. As análises de movimento continuam a usar a CPU. O trabalho do jardim corre um de cada vez enquanto aves e câmaras estão inativas; cada processo liberta a memória do modelo ao terminar. As verificações que inicia a partir de uma captura do jardim no Explorador usam o dispositivo escolhido aí e falham em vez de mudar de dispositivo sem aviso.",
       "garden_explorer_help": "Os animais do jardim aparecem no Explorador ao lado das suas aves. Escolha aí Animais do jardim e depois Revisão necessária para rever as capturas novas.",
       "garden_explorer_open": "Rever animais do jardim",
-      "garden_notifications": "Notificações do jardim",
-      "garden_notifications_help": "Alertas de texto para animais recém-identificados, separados dos alertas de aves. Guarde com Aplicar definições.",
-      "garden_notifications_privacy": "Envia nome do animal, câmara e hora aos serviços escolhidos. Sem fotografias nem ligações multimédia. O histórico continua a exigir acesso do proprietário.",
-      "garden_notification_channels": "Canais de envio do jardim",
-      "garden_notification_channel": "Alertas do jardim por {channel}",
-      "garden_notifications_choose": "Escolha pelo menos um canal para os alertas do jardim.",
-      "garden_notifications_credentials": "Faltam credenciais num canal escolhido. Configure-o em Notificações; os alertas de aves podem continuar desligados.",
-      "garden_notifications_attempts_help": "Só são elegíveis capturas identificadas dos últimos cinco minutos. Uma tentativa por canal e visita conhecida; envios falhados ou incertos não são repetidos automaticamente.",
-      "garden_notifications_status": "Tentativas guardadas. Aceites pelo canal: {sent}. Falhadas: {failed}. Por confirmar: {unknown}. Ignoradas: {skipped}.",
-      "garden_notifications_refresh": "Atualizar estado de envio",
       "garden_cameras_summary": "Animais do jardim observados em {cameras}.",
       "garden_cameras_none": "Ainda nenhuma câmara observa animais do jardim. Escolha Animais do jardim ou Ambos para uma câmara em Conexão.",
       "garden_motion_summary": "São recolhidas fotos de movimento para revisão em {cameras}.",
-      "garden_cameras_open": "Escolher câmaras em Conexão"
+      "garden_cameras_open": "Escolher câmaras em Conexão",
+      "garden_alerts_on": "Os alertas do jardim estão ativados. São configurados em Notificações, com seus canais.",
+      "garden_alerts_off": "Os alertas do jardim estão desativados. Ative-os em Notificações, com seus canais.",
+      "garden_alerts_open": "Configurar alertas"
     },
     "native_revalidation": {
       "title": "Verificar perfil em quarentena",
@@ -4015,7 +4032,8 @@
       "pick": "Escolher uma espécie",
       "chosen_by_owner": "Espécie escolhida pelo proprietário"
     },
-    "entry_dismiss_mixed": "As capturas aqui têm estados de revisão diferentes. Dispense-as uma de cada vez."
+    "entry_dismiss_mixed": "As capturas aqui têm estados de revisão diferentes. Dispense-as uma de cada vez.",
+    "capture_link_unavailable": "Esta captura do jardim não está mais disponível ou não é compartilhada aqui."
   },
   "model_execution": {
     "completed": "Última execução concluída: {device} · {time}",

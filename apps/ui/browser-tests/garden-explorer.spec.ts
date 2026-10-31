@@ -62,6 +62,11 @@ async function openExplorer(page: Page, query = '', cropped = false, birdCameraC
                 && (status === 'reviewable' || item.status === status));
             return route.fulfill({ json: { items, total: items.length, limit: 200, offset: 0 } });
         }
+        if (path.startsWith('/api/garden/captures/')) {
+            // Notification links carry the server's hex capture ID.
+            const item = [...garden, capture('f0', hoursAgo(3), 'confirmed', 'Red fox')].find(record => record.id === path.split('/')[4]);
+            return item ? route.fulfill({ json: item }) : route.fulfill({ status: 404, json: { detail: 'Garden capture not found' } });
+        }
         if (path === '/api/garden/identification') {
             return route.fulfill({ json: { country: 'GBR', catalogue_ready: true, busy: false, models: [{ variant: '4.0.3b', installed: true, size_bytes: 1 }] } });
         }
@@ -161,6 +166,39 @@ test('a visitor browses confirmed Garden animals beside birds and opens a record
     expect(requested).not.toContain('/api/garden/identification');
     expect(requested.some(path => path.startsWith('/api/garden/') && /\/(confirm|dismiss|identify)$/.test(path))).toBe(false);
     expect(errors).toEqual([]);
+});
+
+const foxId = 'f0'.padEnd(32, '0');
+const goneId = 'dead'.padEnd(32, '0');
+
+for (const visitor of [false, true]) {
+    test(`a notification link opens its Garden capture's record once (${visitor ? 'visitor' : 'owner'})`, async ({ page }) => {
+        const { errors, requested } = await openExplorer(page, `${visitor ? '&guest=1' : '&garden=1'}&garden_capture=${foxId}`);
+        const dialog = page.getByRole('dialog');
+        await expect(dialog.locator('[data-garden-capture-status]')).toHaveAttribute('data-garden-capture-status', 'confirmed');
+        await expect(dialog).toContainText('Red fox');
+        expect(requested).toContain(`/api/garden/captures/${foxId}`);
+        // The link has done its job: Back, a reload or a filter change does not reopen it.
+        await expect.poll(() => new URL(page.url()).searchParams.has('garden_capture')).toBe(false);
+        await page.keyboard.press('Escape');
+        await expect(dialog).toHaveCount(0);
+        expect(errors).toEqual([]);
+    });
+}
+
+test('a notification link to a capture that is gone says so instead of opening nothing', async ({ page }) => {
+    const { errors, requested } = await openExplorer(page, `&garden=1&garden_capture=${goneId}`);
+    await expect(page.getByText('This Garden capture is no longer available, or is not shared here.')).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(requested).toContain(`/api/garden/captures/${goneId}`);
+    expect(errors).toEqual([]);
+});
+
+test('a malformed capture link is ignored without asking the server', async ({ page }) => {
+    const { requested } = await openExplorer(page, '&garden=1&garden_capture=../../settings');
+    await expect.poll(() => new URL(page.url()).searchParams.has('garden_capture')).toBe(false);
+    expect(requested.some(path => path.startsWith('/api/garden/captures/'))).toBe(false);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('without the Garden beta the Explorer shows birds and asks for nothing about Garden', async ({ page }) => {

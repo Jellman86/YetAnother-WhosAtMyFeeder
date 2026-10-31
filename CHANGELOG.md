@@ -34,6 +34,40 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - **Settings → Data → Photos and video** includes Garden media in **Space
     used** and says how much of it is Garden's. A new migration adds the
     `garden_kept_media` table.
+
+- **Garden animal alerts** now work like bird alerts:
+  - They were almost never sent. An alert qualified only if the capture was at
+    most 5 minutes old when delivery started, but automatic naming finishes a
+    median of 417 seconds after a Frigate event sighting and 631 seconds after a
+    motion photo, so about 60% were silently skipped. Freshness now runs from when
+    the name was decided (the automatic check's completion, or your acceptance),
+    within 5 minutes, and the sighting may be up to 2 hours old. Turning alerts on,
+    a restart or a late backlog still never sends old history.
+  - They are set up in **Settings → Notifications**, in a **Garden animals**
+    section shown while the Garden beta is on. By default they use your bird
+    channels (those switched on and configured); **Choose channels** keeps the
+    previous explicit choice. Beta features now shows a one-line summary with a
+    link there. New settings `garden_notifications_use_bird_channels` and
+    `garden_notifications_include_photo` (environment
+    `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` and
+    `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO`). A saved configuration that
+    chose channels keeps them; one that chose none, which could never send, now
+    follows the bird channels.
+  - Alerts attach the saved animal crop, or the capture photo, as Telegram photos,
+    Discord and Pushover attachments and inline email images, and fall back to
+    text when no photo can be read. **Include the photo** turns this off.
+  - The message states the sighting time, and its link opens that capture's record
+    in the Explorer (`garden_capture=<id>`), backed by the new
+    `GET /api/garden/captures/{capture_id}`. Visitors can open it only while public
+    access shares the capture.
+  - Bird filters, notification mode and the bird cooldown still do not apply to
+    Garden alerts, which keep one attempt per channel per visit and are never
+    retried automatically.
+
+- Anonymous telemetry now says whether an install runs the single image or the
+  separate backend and frontend images. Both report the same "full" runtime
+  flavor, so the layout was previously recorded as unknown for every install.
+
 - **Add observation** keeps when a photo or video was taken, and stops dead ends
   (OBS-01, OBS-02, OBS-03):
   - An upload was stamped with the moment **Save** was pressed. It now reads EXIF

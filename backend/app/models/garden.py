@@ -145,9 +145,17 @@ class GardenIdentificationStatus(BaseModel):
     automatic_message: str = "Automatic checks wait for an enabled Garden camera and idle bird inference."
 
 
+GardenNotificationChannel = Literal["discord", "telegram", "pushover", "email"]
+
+
 class GardenNotificationStatus(BaseModel):
     enabled: bool
-    channels: list[Literal["discord", "telegram", "pushover", "email"]]
+    use_bird_channels: bool = Field(description="Whether alerts follow the bird channels instead of `channels`")
+    channels: list[GardenNotificationChannel] = Field(description="The explicitly chosen Garden channels")
+    delivery_channels: list[GardenNotificationChannel] = Field(
+        description="Where an alert would go now, from the saved settings"
+    )
+    include_photo: bool
     configured: dict[str, bool]
     attempts: dict[str, int]
 

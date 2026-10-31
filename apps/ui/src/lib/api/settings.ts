@@ -32,7 +32,9 @@ export interface Settings {
     garden_motion_cameras?: NonNullable<components['schemas']['SettingsResponse']['garden_motion_cameras']>;
     garden_motion_confidence?: NonNullable<components['schemas']['SettingsResponse']['garden_motion_confidence']>;
     garden_notifications_enabled?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_enabled']>;
+    garden_notifications_use_bird_channels?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_use_bird_channels']>;
     garden_notification_channels?: NonNullable<components['schemas']['SettingsResponse']['garden_notification_channels']>;
+    garden_notifications_include_photo?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_include_photo']>;
     garden_automatic_naming?: NonNullable<components['schemas']['SettingsResponse']['garden_automatic_naming']>;
     garden_naming_threshold?: NonNullable<components['schemas']['SettingsResponse']['garden_naming_threshold']>;
     garden_labels: NonNullable<components['schemas']['SettingsResponse']['garden_labels']>;

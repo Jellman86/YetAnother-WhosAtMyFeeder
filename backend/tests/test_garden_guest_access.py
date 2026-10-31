@@ -183,7 +183,12 @@ async def test_guest_still_cannot_review_or_read_owner_garden_state(guest_histor
 async def test_garden_history_needs_public_access_or_a_login(guest_history, monkeypatch):
     monkeypatch.setattr(settings.public_access, "enabled", False)
     async with guest_client() as client:
-        for path in ("/api/garden/visits", "/api/garden/timeline", f"/api/garden/{'f' * 32}/snapshot"):
+        for path in (
+            "/api/garden/visits",
+            "/api/garden/timeline",
+            f"/api/garden/{'f' * 32}/snapshot",
+            f"/api/garden/captures/{'f' * 32}",
+        ):
             assert (await client.get(path)).status_code == 401, path
 
 
@@ -206,8 +211,44 @@ async def test_a_visitor_session_reads_nothing_once_public_access_is_off(guest_h
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": f"Bearer {token}"}
     ) as client:
-        for path in ("/api/garden/visits", "/api/garden/timeline", f"/api/garden/{capture}/snapshot"):
+        for path in (
+            "/api/garden/visits",
+            "/api/garden/timeline",
+            f"/api/garden/{capture}/snapshot",
+            f"/api/garden/captures/{capture}",
+        ):
             assert (await client.get(path)).status_code == 403, path
     with pytest.raises(Exception) as denied:
         await require_event_access("1700000000.1-recent", AuthContext(auth_level=AuthLevel.GUEST), "en", media="clip")
     assert getattr(denied.value, "status_code", None) == 404
+
+
+@pytest.mark.asyncio
+async def test_a_notification_link_opens_one_shared_confirmed_capture_for_a_visitor(guest_history):
+    recent = await add(guest_history, "1700000000.1-recent", days_ago=1)
+    pending = await add(guest_history, "1700000000.2-pending", days_ago=1, status="pending")
+    dismissed = await add(guest_history, "1700000000.3-dismissed", days_ago=1, status="dismissed")
+    old = await add(guest_history, "1700000000.4-old", days_ago=30)
+    async with guest_client() as client:
+        shared = await client.get(f"/api/garden/captures/{recent}")
+        assert shared.status_code == 200, shared.text
+        record = shared.json()
+        assert record["id"] == recent and record["status"] == "confirmed"
+        assert record["review_token"] is None and record["automatic_check"] is None
+        assert shared.headers["cache-control"] == "private, no-store"
+        for capture_id in (pending, dismissed, old, "f" * 32):
+            assert (await client.get(f"/api/garden/captures/{capture_id}")).status_code == 404, capture_id
+        assert (await client.get("/api/garden/captures/not-a-capture")).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_the_owner_opens_any_unblocked_capture_by_its_link(guest_history, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    pending = await add(guest_history, "1700000000.2-pending", days_ago=30, status="pending")
+    blocked = await add(guest_history, "1700000000.5-person", days_ago=1)
+    await guest_history.block_capture(blocked)
+    async with guest_client() as client:
+        record = await client.get(f"/api/garden/captures/{pending}")
+        assert record.status_code == 200, record.text
+        assert record.json()["status"] == "pending" and record.json()["review_token"]
+        assert (await client.get(f"/api/garden/captures/{blocked}")).status_code == 404

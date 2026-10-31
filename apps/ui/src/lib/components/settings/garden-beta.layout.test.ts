@@ -8,6 +8,7 @@ import connectionSource from './ConnectionSettings.svelte?raw';
 import gardenBetaSource from './GardenBetaSettings.svelte?raw';
 import gardenModelsSource from './GardenModelSetup.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
+import notificationSource from './NotificationSettings.svelte?raw';
 import en from '../../i18n/locales/en.json';
 
 describe('Garden animals is a beta feature', () => {
@@ -50,10 +51,20 @@ describe('Garden animals is a beta feature', () => {
     });
 
     it('follows its own setup steps: cameras and labels, then models, naming and alerts', () => {
-        const order = ['data-garden-setup-steps', 'data-garden-collect', '<GardenModelSetup', 'data-garden-naming', '<GardenNotificationSettings', 'data-garden-outcomes']
+        const order = ['data-garden-setup-steps', 'data-garden-collect', '<GardenModelSetup', 'data-garden-naming', 'data-garden-alerts-summary', 'data-garden-outcomes']
             .map(marker => gardenBetaSource.indexOf(marker));
         expect(order.every(index => index >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it('sets up Garden alerts once, in Notifications, and only summarises them here', () => {
+        // Alerts choose channels, so they sit with the channels; Beta features links there.
+        expect(gardenBetaSource).not.toContain('<GardenNotificationSettings');
+        expect(gardenBetaSource).toContain('onclick={onOpenNotifications}');
+        expect(settingsSource).toContain("onOpenNotifications={() => handleTabChange('notifications')}");
+        expect(notificationSource).toMatch(/\{#if gardenBeta\}\s*<GardenNotificationSettings/);
+        expect(notificationSource).toContain('birdChannels={policyChannels}');
+        expect(settingsSource).toContain('gardenBeta={betaGardenAnimals}');
     });
 
     it('shows its thresholds as percentages through the settings primitives', () => {

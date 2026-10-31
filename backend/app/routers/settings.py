@@ -832,12 +832,21 @@ class SettingsUpdate(BaseModel):
         description="Minimum Cedar animal score for new motion proposals; does not change bird or person thresholds",
     )
     garden_notifications_enabled: bool = Field(
-        False, description="Opt in to text-only Garden alerts independently of bird notifications"
+        False, description="Opt in to Garden alerts independently of bird notifications"
+    )
+    garden_notifications_use_bird_channels: bool = Field(
+        True,
+        description="Send Garden alerts on whichever bird channels are switched on and configured; "
+        "off uses garden_notification_channels",
     )
     garden_notification_channels: list[Literal["discord", "telegram", "pushover", "email"]] = Field(
         default_factory=list,
         max_length=4,
-        description="Explicit Garden delivery channels using saved notification credentials",
+        description="Explicit Garden delivery channels using saved notification credentials, "
+        "used while garden_notifications_use_bird_channels is off",
+    )
+    garden_notifications_include_photo: bool = Field(
+        True, description="Attach the saved animal crop, or the capture photo, to Garden alerts"
     )
 
     garden_automatic_naming: bool = Field(
@@ -1552,7 +1561,9 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "garden_motion_cameras": settings.frigate.garden_motion_cameras,
         "garden_motion_confidence": settings.frigate.garden_motion_confidence,
         "garden_notifications_enabled": settings.frigate.garden_notifications_enabled,
+        "garden_notifications_use_bird_channels": settings.frigate.garden_notifications_use_bird_channels,
         "garden_notification_channels": settings.frigate.garden_notification_channels,
+        "garden_notifications_include_photo": settings.frigate.garden_notifications_include_photo,
         "garden_automatic_naming": settings.frigate.garden_automatic_naming,
         "garden_naming_threshold": settings.frigate.garden_naming_threshold,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
@@ -1929,6 +1940,10 @@ async def update_settings(
         settings.frigate.garden_notifications_enabled = update.garden_notifications_enabled
     if "garden_notification_channels" in fields_set:
         settings.frigate.garden_notification_channels = list(dict.fromkeys(update.garden_notification_channels))
+    if "garden_notifications_use_bird_channels" in fields_set:
+        settings.frigate.garden_notifications_use_bird_channels = update.garden_notifications_use_bird_channels
+    if "garden_notifications_include_photo" in fields_set:
+        settings.frigate.garden_notifications_include_photo = update.garden_notifications_include_photo
     if "garden_automatic_naming" in fields_set:
         settings.frigate.garden_automatic_naming = update.garden_automatic_naming
     if "garden_naming_threshold" in fields_set:

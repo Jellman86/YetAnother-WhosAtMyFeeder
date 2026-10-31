@@ -8352,6 +8352,7 @@
             "type": "object"
           },
           "channels": {
+            "description": "The explicitly chosen Garden channels",
             "items": {
               "enum": [
                 "discord",
@@ -8371,14 +8372,40 @@
             "title": "Configured",
             "type": "object"
           },
+          "delivery_channels": {
+            "description": "Where an alert would go now, from the saved settings",
+            "items": {
+              "enum": [
+                "discord",
+                "telegram",
+                "pushover",
+                "email"
+              ],
+              "type": "string"
+            },
+            "title": "Delivery Channels",
+            "type": "array"
+          },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "include_photo": {
+            "title": "Include Photo",
+            "type": "boolean"
+          },
+          "use_bird_channels": {
+            "description": "Whether alerts follow the bird channels instead of `channels`",
+            "title": "Use Bird Channels",
             "type": "boolean"
           }
         },
         "required": [
           "enabled",
+          "use_bird_channels",
           "channels",
+          "delivery_channels",
+          "include_photo",
           "configured",
           "attempts"
         ],
@@ -13643,6 +13670,16 @@
             "title": "Garden Notifications Enabled",
             "type": "boolean"
           },
+          "garden_notifications_include_photo": {
+            "default": true,
+            "title": "Garden Notifications Include Photo",
+            "type": "boolean"
+          },
+          "garden_notifications_use_bird_channels": {
+            "default": true,
+            "title": "Garden Notifications Use Bird Channels",
+            "type": "boolean"
+          },
           "ha_weather_access_token": {
             "anyOf": [
               {
@@ -15906,7 +15943,7 @@
             "type": "number"
           },
           "garden_notification_channels": {
-            "description": "Explicit Garden delivery channels using saved notification credentials",
+            "description": "Explicit Garden delivery channels using saved notification credentials, used while garden_notifications_use_bird_channels is off",
             "items": {
               "enum": [
                 "discord",
@@ -15922,8 +15959,20 @@
           },
           "garden_notifications_enabled": {
             "default": false,
-            "description": "Opt in to text-only Garden alerts independently of bird notifications",
+            "description": "Opt in to Garden alerts independently of bird notifications",
             "title": "Garden Notifications Enabled",
+            "type": "boolean"
+          },
+          "garden_notifications_include_photo": {
+            "default": true,
+            "description": "Attach the saved animal crop, or the capture photo, to Garden alerts",
+            "title": "Garden Notifications Include Photo",
+            "type": "boolean"
+          },
+          "garden_notifications_use_bird_channels": {
+            "default": true,
+            "description": "Send Garden alerts on whichever bird channels are switched on and configured; off uses garden_notification_channels",
+            "title": "Garden Notifications Use Bird Channels",
             "type": "boolean"
           },
           "ha_weather_access_token": {
@@ -27516,6 +27565,61 @@
           }
         ],
         "summary": "List Captures",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/captures/{capture_id}": {
+      "get": {
+        "description": "One capture's record, as a notification links to it; a visitor reads confirmed, shared ones only.",
+        "operationId": "get_capture_api_garden_captures__capture_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "capture_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{32}$",
+              "title": "Capture Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenCaptureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Capture",
         "tags": [
           "garden"
         ]

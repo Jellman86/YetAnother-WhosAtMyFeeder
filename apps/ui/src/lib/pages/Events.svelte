@@ -8,7 +8,7 @@
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
     import GardenExplorerRow from '../components/GardenExplorerRow.svelte';
     import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
-    import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, type GardenServerVisit, type GardenCapture } from '../api/garden';
+    import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, fetchGardenCapture, type GardenServerVisit, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
     import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
@@ -102,6 +102,8 @@
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let pendingEventId = $state<string | null>(null);
+    /** A Garden capture a notification links to, opened once Garden is known to be readable here. */
+    let pendingGardenCaptureId = $state<string | null>(null);
     let lastModalEventId = $state<string | null>(null);
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
@@ -556,6 +558,11 @@
         applyQuery(parseExplorerQuery(params, { owner: authStore.hasOwnerAccess }));
         explorerPath = window.location.pathname;
         const deepLinkedEvent = params.get('event');
+        const linkedGardenCapture = params.get(GARDEN_CAPTURE_PARAM);
+        if (linkedGardenCapture !== null) {
+            if (GARDEN_CAPTURE_ID.test(linkedGardenCapture)) pendingGardenCaptureId = linkedGardenCapture;
+            else clearGardenCaptureLinkParam();
+        }
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
@@ -1112,6 +1119,42 @@
             selectedTimelineBucket = 'all';
         }
     }
+
+    const GARDEN_CAPTURE_PARAM = 'garden_capture';
+    const GARDEN_CAPTURE_ID = /^[a-f0-9]{32}$/;
+
+    /** The link has done its job once the record opens, so a reload or Back does not reopen it. */
+    function clearGardenCaptureLinkParam(): void {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has(GARDEN_CAPTURE_PARAM)) return;
+        url.searchParams.delete(GARDEN_CAPTURE_PARAM);
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    async function openLinkedGardenCapture(id: string, signal: AbortSignal): Promise<void> {
+        try {
+            const capture = await fetchGardenCapture(id, signal);
+            if (signal.aborted || pendingGardenCaptureId !== id) return;
+            pendingGardenCaptureId = null;
+            clearGardenCaptureLinkParam();
+            openGardenCapture(capture);
+        } catch (failure) {
+            if (signal.aborted || pendingGardenCaptureId !== id) return;
+            pendingGardenCaptureId = null;
+            clearGardenCaptureLinkParam();
+            console.error('Failed to resolve Garden capture link', failure);
+            toastStore.warning($_('garden.capture_link_unavailable', { default: 'This Garden capture is no longer available, or is not shared here.' }));
+        }
+    }
+
+    // Reading the linked record is I/O; it waits until Garden is known to be readable here.
+    $effect(() => {
+        const id = pendingGardenCaptureId;
+        if (!id || !gardenAvailable) return;
+        const controller = new AbortController();
+        void openLinkedGardenCapture(id, controller.signal);
+        return () => controller.abort();
+    });
 
     function clearEventVideoDeepLinkParams() {
         const url = new URL(window.location.href);

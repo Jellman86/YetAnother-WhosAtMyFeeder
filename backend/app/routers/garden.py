@@ -20,7 +20,11 @@ from app.repositories.garden_repository import (
     GardenStatus,
     GardenTimelineStatus,
 )
-from app.services.garden_notifications import garden_notification_service
+from app.services.garden_notifications import (
+    configured_channels,
+    current_delivery_channels,
+    garden_notification_service,
+)
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_media_cache import garden_media_cache
 from app.services import garden_motion_privacy
@@ -45,6 +49,7 @@ from app.services.garden_crop_service import garden_crop_service
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_identification import garden_identification_service
 from app.services.species_names import SpeciesIdentityNames, species_name_lookup, vernacular_case
+from app.utils.api_datetime import utc_naive_now
 from app.utils.language import get_user_language
 
 
@@ -421,12 +426,13 @@ async def garden_visit_captures(
 
 @router.get("/notifications", response_model=GardenNotificationStatus)
 async def garden_notification_status() -> GardenNotificationStatus:
-    from app.services.garden_notification_transport import channel_configured
-
     return GardenNotificationStatus(
         enabled=garden_notification_service.enabled(),
+        use_bird_channels=settings.frigate.garden_notifications_use_bird_channels,
         channels=settings.frigate.garden_notification_channels,
-        configured={channel: channel_configured(channel) for channel in ["discord", "telegram", "pushover", "email"]},
+        delivery_channels=current_delivery_channels(),
+        include_photo=settings.frigate.garden_notifications_include_photo,
+        configured=configured_channels(),
         attempts=await garden_notification_service.status_counts(),
     )
 
@@ -499,9 +505,10 @@ async def review_identification(
     async with garden_motion_privacy.lock:
         garden_identification_service.invalidate_photo_checks()
         await garden_identification_service.review(capture_id, action)
+    decided_at = utc_naive_now()
     capture = await garden_capture_service.get(capture_id)
     if action == "accept":
-        await garden_notification_service.schedule(capture_id)
+        await garden_notification_service.schedule(capture_id, accepted_at=decided_at)
     return await _response(capture, language)
 
 
@@ -555,6 +562,28 @@ async def _require_shared_photo(capture_id: str, auth: AuthContext) -> None:
         or not garden_public.guest_photo_visible(capture.observed_at)
     ):
         raise HTTPException(404, "Garden photo not found")
+
+
+@public_router.get("/captures/{capture_id}", response_model=GardenCaptureResponse)
+@guest_rate_limit()
+async def get_capture(
+    request: Request,
+    capture_id: Annotated[str, StringConstraints(pattern=r"^[a-f0-9]{32}$")],
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    language: str = Depends(get_user_language),
+) -> GardenCaptureResponse:
+    """One capture's record, as a notification links to it; a visitor reads confirmed, shared ones only."""
+    if not auth.is_owner:
+        _require_public_access(auth)
+    async with get_db() as db:
+        capture = await GardenRepository(db).get(capture_id)
+    if capture is None or (
+        not auth.is_owner
+        and (capture.status != "confirmed" or not garden_public.guest_history_visible(capture.observed_at))
+    ):
+        raise HTTPException(404, "Garden capture not found")
+    presented = await _response(capture, language)
+    return presented if auth.is_owner else _guest_view(presented)
 
 
 @public_router.get("/{capture_id}/snapshot", response_class=Response, response_model=None)
