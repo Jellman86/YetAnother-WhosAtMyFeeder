@@ -35,6 +35,28 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     and **Edit name** buttons are at least 44px tall. The classifier's model
     id on About wraps instead of being cut.
 
+- Explorer filters are kept in the address and the Garden filters say what
+  they show:
+  - Reloading, **Back** and **Forward**, and a copied link now keep the
+    chosen visitors, Garden review state, time window and custom dates,
+    species, camera, **Favourites**, **Audio matches**, **Multiple species**,
+    **Hidden**, visits or captures, and the page. Previously a reload or a
+    shared link lost everything except a few presets. Each change replaces the
+    history entry, so **Back** leaves the Explorer instead of stepping through
+    every filter tried. Values a link cannot hold are ignored, and a link
+    cannot turn on owner-only filters for a visitor.
+  - Under **Garden animals**, **Cameras** lists the Garden cameras, including
+    one that watches only Garden animals, without bird counts. **Both** lists
+    every camera once, without counts. A visitor is offered the cameras of the
+    Garden captures shown. Previously the list showed bird cameras with bird
+    counts.
+  - The custom range has visible **From** and **To** labels, and its filter
+    token names the dates ("1 Oct to 28 Oct") instead of "Custom".
+  - The Garden subject is called **Garden animals** everywhere, as in
+    Settings, and is counted like birds: "2 Garden visits · 2 captures".
+  - A Garden record has **Play clip** when its capture has a Frigate clip, as
+    its card and row already did.
+
 - Each camera now has one choice of what it watches for. **Settings →
   Connection → Cameras to watch** (formerly **Active Cameras**) shows **Off**,
   **Birds**, **Garden animals** or **Both** on every Frigate camera, with its

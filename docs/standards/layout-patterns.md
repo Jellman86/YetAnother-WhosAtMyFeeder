@@ -153,7 +153,17 @@ match. Cameras and **Only** stay in native collapsible sections, initially close
 their summaries name what is chosen inside. A chosen row carries a bar and weight as
 well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
 visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
-same ordering behind the Filters button.
+same ordering behind the Filters button. A switch and its token use one name per option (the
+subject is **Garden animals**, as Settings names it), and a custom window's token names its
+dates ("1 Oct to 28 Oct") under visible **From** and **To** labels. **Cameras** lists the cameras
+of the chosen visitors and shows a count only where one was measured for them: bird counts under
+**Birds**, none under **Garden animals** or **Both**.
+
+The rail's state lives in the address (`utils/explorer-query.ts`), so a reload, Back/Forward
+and a pasted link open the same view. Each change replaces the current history entry rather than
+pushing one: Back leaves the page, not each filter tried. Values the rail could not hold are
+ignored, owner-only filters are never read for a visitor, and keys the Explorer does not own
+(a shared clip's `event`, `share`, `video`) are kept.
 
 Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
 until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay

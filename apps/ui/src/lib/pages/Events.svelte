@@ -62,6 +62,8 @@
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
     import { explorerPane } from '../utils/explorer-results';
+    import { parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
+    import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
     import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { getBirdNames } from '../naming';
@@ -85,8 +87,9 @@
     let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
     let eventFilters = $state<EventFilters | null>(null);
-    type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
-    let datePreset = $state<DatePreset>('all');
+    /** Cameras the Garden captures read so far came from; a visitor has no other source. */
+    let gardenCamerasSeen = $state.raw<readonly string[]>([]);
+    let datePreset = $state<ExplorerQuery['datePreset']>('all');
     let customStartDate = $state('');
     let customEndDate = $state('');
     let speciesFilter = $state('');
@@ -131,7 +134,7 @@
     let gardenReview = $state<GardenReview>('reviewable');
     /** A group just dismissed together, offered back while its photos remain. */
     let gardenUndo = $state.raw<{ ids: string[]; skipped: number; returnToReview: boolean } | null>(null);
-    /** The address asked for Garden visitors, as an old Garden page link does. */
+    /** The address asked for Garden animals, as an old Garden page link does. */
     let gardenRequested = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
@@ -238,6 +241,7 @@
 
     async function loadEvents() {
         const loadGeneration = ++eventsLoadGeneration;
+        writeAddress();
         loading = true;
         error = null;
         try {
@@ -265,6 +269,7 @@
                 totalCount = page.total;
                 serverGardenVisits = page.visits;
                 gardenItems = page.visits.map((visit) => visit.representative);
+                gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
                 gardenCaptureTotal = page.capture_total;
                 gardenTotal = page.total;
                 gardenFailed = false;
@@ -478,25 +483,78 @@
         void loadEvents();
     }
 
+    /** The filters the rail holds now, as the address states them. */
+    function currentQuery(): ExplorerQuery {
+        return {
+            subjects: gardenAvailable ? subjects : null,
+            gardenReview,
+            datePreset,
+            customStartDate,
+            customEndDate,
+            speciesFilter,
+            cameraFilter,
+            favoritesOnly,
+            audioConfirmedOnly,
+            multipleSpeciesOnly,
+            showHidden,
+            groupVisits,
+            page: currentPage
+        };
+    }
+
+    function applyQuery(query: ExplorerQuery): void {
+        if (query.subjects) explorerSubjectsStore.set(query.subjects);
+        gardenRequested = query.subjects === 'garden';
+        gardenReview = query.gardenReview;
+        datePreset = query.datePreset;
+        customStartDate = query.customStartDate;
+        customEndDate = query.customEndDate;
+        speciesFilter = query.speciesFilter;
+        cameraFilter = query.cameraFilter;
+        favoritesOnly = query.favoritesOnly;
+        audioConfirmedOnly = query.audioConfirmedOnly;
+        multipleSpeciesOnly = query.multipleSpeciesOnly;
+        showHidden = query.showHidden;
+        groupVisits = query.groupVisits;
+        currentPage = query.page;
+    }
+
+    /**
+     * The address follows the filters only once the page has read the one it opened with, and
+     * only while this page owns it: a read finishing after the app moved on must not rewrite
+     * another page's address.
+     */
+    let explorerPath: string | null = null;
+
+    /**
+     * Every read states its filters in the address, replacing the current history entry rather
+     * than adding one: Back leaves the Explorer for where it was opened from, instead of stepping
+     * through each filter tried on the way.
+     */
+    function writeAddress(): void {
+        if (explorerPath === null || window.location.pathname !== explorerPath) return;
+        const search = writeExplorerQuery(window.location.search, currentQuery(), { owner: authStore.hasOwnerAccess, gardenAvailable });
+        const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+        if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+            window.history.replaceState(window.history.state, '', next);
+        }
+    }
+
+    // Another history entry for this same page (the app links here with filters) is read again.
+    $effect(() => {
+        const reread = () => {
+            if (explorerPath === null || window.location.pathname !== explorerPath) return;
+            applyQuery(parseExplorerQuery(window.location.search, { owner: authStore.hasOwnerAccess }));
+            void loadEvents();
+        };
+        window.addEventListener('popstate', reread);
+        return () => window.removeEventListener('popstate', reread);
+    });
+
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('species')) speciesFilter = params.get('species')!;
-        const requestedDatePreset = params.get('date');
-        if (
-            requestedDatePreset === 'all' ||
-            requestedDatePreset === 'today' ||
-            requestedDatePreset === 'week' ||
-            requestedDatePreset === 'month' ||
-            requestedDatePreset === 'custom'
-        ) datePreset = requestedDatePreset;
-        if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
-        if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
-        const visitors = params.get('visitors');
-        if (visitors === 'garden' || visitors === 'birds' || visitors === 'all') explorerSubjectsStore.set(visitors);
-        gardenRequested = visitors === 'garden';
-        const review = params.get('review');
-        // Visitors see confirmed animals only, so a shared review link cannot label their view.
-        if (authStore.hasOwnerAccess && (review === 'pending' || review === 'confirmed' || review === 'dismissed')) gardenReview = review;
+        applyQuery(parseExplorerQuery(params, { owner: authStore.hasOwnerAccess }));
+        explorerPath = window.location.pathname;
         const deepLinkedEvent = params.get('event');
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
@@ -790,6 +848,7 @@
     });
 
     onDestroy(() => {
+        explorerPath = null;
         if (eventsSyncFrame !== null && typeof window !== 'undefined') {
             window.cancelAnimationFrame(eventsSyncFrame);
             eventsSyncFrame = null;
@@ -1107,7 +1166,17 @@
         selectedEvent = event;
     }
 
-    /** A Garden capture's Frigate clip plays in the bird player; the capture carries it only while clips are on. */
+    function closeGardenRecord(): void {
+        gardenGroupGeneration++;
+        selectedGarden = null;
+        openedGardenGroup = null;
+    }
+
+    /**
+     * A Garden capture's Frigate clip plays in the bird player; the capture carries it only while
+     * clips are on, and for a visitor only while the owner shares video. The Garden record closes
+     * before it plays, as a bird record does, so the player is the only dialog.
+     */
     function playGardenClip(capture: GardenCapture): void {
         if (!capture.clip_event) return;
         videoEventId = capture.clip_event;
@@ -1388,6 +1457,18 @@
 
 
     const gardenCameraCount = $derived(settingsStore.settings?.garden_cameras?.length ?? 0);
+    // The owner's Garden cameras are a setting; a camera taken off Garden keeps its captures, so
+    // the cameras those came from are offered too. A visitor has only the captures to go by.
+    const gardenCameras = $derived(
+        authStore.hasOwnerAccess ? [...(settingsStore.settings?.garden_cameras ?? []), ...gardenCamerasSeen] : gardenCamerasSeen
+    );
+    const cameraOptions = $derived(explorerCameraOptions({
+        subjects,
+        birdCameras: availableCameras,
+        birdCounts: eventFilters?.camera_counts,
+        gardenCameras,
+        chosen: cameraFilter
+    }));
     const gardenNotice = $derived<GardenBlocker | null>(
         gardenBlocker(subjects, { speciesFilter, favoritesOnly, showHidden, multipleSpeciesOnly, audioConfirmedOnly, sortOrder, groupVisits, selectionMode })
     );
@@ -1431,6 +1512,7 @@
             if (generation !== gardenLoadGeneration) return;
             serverGardenVisits = page.visits;
             gardenItems = page.visits.map((visit) => visit.representative);
+            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
             gardenCaptureTotal = page.capture_total;
             gardenTotal = page.total;
             gardenFailed = false;
@@ -1553,7 +1635,7 @@
             case 'confidence_sort':
                 return $_('garden.explorer.blocked_sort', { default: 'Garden captures show between visits only when visits are in time order.' });
             case 'ungrouped':
-                return $_('garden.explorer.blocked_ungrouped', { default: 'Garden captures show between visits. Group captures into visits, or choose Garden to see them on their own.' });
+                return $_('garden.explorer.blocked_ungrouped', { default: 'Garden captures show between visits. Group captures into visits, or choose Garden animals to see them on their own.' });
             case 'selection':
                 return $_('garden.explorer.blocked_selection', { default: 'Garden captures are hidden while you select bird visits.' });
             case 'bird_filter_ignored':
@@ -1676,14 +1758,14 @@
                     <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
                 {:else}
                 <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
-                    ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: 'Garden entries: {count} · captures: {captures}' })
+                    ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: '{count, plural, one {# Garden visit} other {# Garden visits}} · {captures, plural, one {# capture} other {# captures}}' })
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
                 {/if}
                 {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
                     <span aria-hidden="true">&middot;</span>
-                    {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count} Garden captures on this page' })}
+                    {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count, plural, one {# Garden visit on this page} other {# Garden visits on this page}}' })}
                 {/if}
                 {#if pane.count === 'measured' && heardActive && heardGroups !== null}
                     <span aria-hidden="true">&middot;</span>
@@ -1842,7 +1924,8 @@
             collapsed={explorerFiltersStore.collapsed}
             oncollapsechange={(next) => explorerFiltersStore.set(next)}
             species={displaySpecies}
-            cameras={availableCameras}
+            cameras={cameraOptions.cameras}
+            cameraCounts={cameraOptions.counts}
             filters={eventFilters}
             {datePreset}
             {speciesFilter}
@@ -2059,7 +2142,7 @@
             </p>
         {:else if gardenInTimeline && gardenItems !== null && gardenTotal > gardenItems.length}
             <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
-                {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden entries; {shown} are shown. Choose Garden to page through all entries.' })}
+                {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden visits; {shown} are shown. Choose Garden animals to page through them all.' })}
             </p>
         {/if}
 
@@ -2281,7 +2364,7 @@
     </LazyModal>
 {/if}
 {#if selectedGarden && gardenAvailable}
-    <LazyModal loader={loadGardenCaptureModal} onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}>
+    <LazyModal loader={loadGardenCaptureModal} onclose={closeGardenRecord}>
         {#snippet children(GardenCaptureModal)}
             {#if selectedGarden}
                 <GardenCaptureModal
@@ -2293,10 +2376,11 @@
                     groupLoading={gardenGroupLoading}
                     groupError={gardenGroupError}
                     onpage={(index) => void loadGardenCapturePage(index)}
-                    onclose={() => { gardenGroupGeneration++; selectedGarden = null; openedGardenGroup = null; }}
+                    onclose={closeGardenRecord}
                     onchanged={gardenChanged}
                     onselect={(capture) => (selectedGarden = capture)}
                     ongroupdismissed={gardenGroupDismissed}
+                    onplay={(capture) => { closeGardenRecord(); playGardenClip(capture); }}
                 />
             {/if}
         {/snippet}

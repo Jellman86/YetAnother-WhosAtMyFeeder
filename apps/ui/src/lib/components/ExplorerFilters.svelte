@@ -3,8 +3,8 @@
     import { _ } from 'svelte-i18n';
     import { filterExplorerSpecies, shownExplorerSpecies } from '../utils/explorer-species';
     import type { ExplorerSubjects, GardenReview } from '../utils/garden-explorer';
-
-    type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+    import { formatCalendarDay } from '../utils/datetime';
+    import type { ExplorerDatePreset as DatePreset } from '../utils/explorer-query';
 
     /** A species option, named as the owner names birds: a primary name and, when shown, the other. */
     type ExplorerSpeciesOption = EventFilterSpecies & { display_secondary?: string | null };
@@ -12,6 +12,8 @@
     interface Props {
         species: ExplorerSpeciesOption[];
         cameras: string[];
+        /** Visits per camera, or null when no measured count describes what the results hold. */
+        cameraCounts: Record<string, number> | null;
         filters: EventFilters | null;
         /** Desktop only: the rail folds away and gives its width to the results. */
         collapsed?: boolean;
@@ -33,7 +35,7 @@
         customStartDate: string;
         customEndDate: string;
         refreshing?: boolean;
-        /** Garden animals are on and readable here: the rail can show Garden visitors instead of, or beside, birds. */
+        /** Garden animals are on and readable here: the rail can show them instead of, or beside, birds. */
         gardenAvailable?: boolean;
         /** Owner-only: visitors see confirmed animals, so there is no review state to choose. */
         gardenReviewAvailable?: boolean;
@@ -60,6 +62,7 @@
     let {
         species,
         cameras,
+        cameraCounts,
         filters,
         collapsed = false,
         oncollapsechange,
@@ -104,7 +107,6 @@
     let search = $state('');
 
     const totals = $derived(filters?.totals ?? null);
-    const cameraCounts = $derived(filters?.camera_counts ?? {});
 
     const datePresets: DatePreset[] = ['all', 'today', 'week', 'month', 'custom'];
 
@@ -113,11 +115,22 @@
     );
 
     const gardenOnly = $derived(gardenAvailable && subjects === 'garden');
+
+    // A custom window is named by its dates, so the token says which range is applied.
+    const customRangeLabel = $derived.by(() => {
+        const start = customStartDate ? formatCalendarDay(customStartDate) : '';
+        const end = customEndDate ? formatCalendarDay(customEndDate) : '';
+        if (start && end) return $_('events.filters.custom_range', { values: { start, end }, default: '{start} to {end}' });
+        if (start) return $_('events.filters.custom_from', { values: { start }, default: 'From {start}' });
+        if (end) return $_('events.filters.custom_until', { values: { end }, default: 'Until {end}' });
+        return $_('events.filters.custom', { default: 'Custom' });
+    });
     // Set once and left: a compact switch, with the chosen option explained beneath it.
-    const subjectOptions = $derived<{ value: ExplorerSubjects; label: string; short: string; hint: string }[]>([
-        { value: 'birds', label: $_('garden.explorer.subjects_birds', { default: 'Birds' }), short: $_('garden.explorer.subjects_short_birds', { default: 'Birds' }), hint: $_('garden.explorer.subjects_birds_hint', { default: 'Bird visits only.' }) },
-        { value: 'all', label: $_('garden.explorer.subjects_all_visitors', { default: 'Birds and Garden' }), short: $_('garden.explorer.subjects_short_all', { default: 'Both' }), hint: $_('garden.explorer.subjects_all_hint', { default: 'Garden animals between the bird visits.' }) },
-        { value: 'garden', label: $_('garden.explorer.subjects_garden_visitors', { default: 'Garden visitors' }), short: $_('garden.explorer.subjects_short_garden', { default: 'Garden' }), hint: $_('garden.explorer.subjects_garden_hint', { default: 'Animals from Garden cameras only.' }) }
+    // The switch and its token use one name per option, the name Settings gives Garden animals.
+    const subjectOptions = $derived<{ value: ExplorerSubjects; label: string; hint: string }[]>([
+        { value: 'birds', label: $_('garden.explorer.subjects_short_birds', { default: 'Birds' }), hint: $_('garden.explorer.subjects_birds_hint', { default: 'Bird visits only.' }) },
+        { value: 'all', label: $_('garden.explorer.subjects_short_all', { default: 'Both' }), hint: $_('garden.explorer.subjects_all_hint', { default: 'Garden animals between the bird visits.' }) },
+        { value: 'garden', label: $_('garden.explorer.subjects_short_garden', { default: 'Garden animals' }), hint: $_('garden.explorer.subjects_garden_hint', { default: 'Animals from Garden cameras only.' }) }
     ]);
     const showOptions = $derived([
         { grouped: true, short: $_('events.filters.show_visits_short', { default: 'Visits' }), hint: $_('events.filters.show_visits_hint', { default: "One bird's stay: its captures less than a minute apart." }) },
@@ -150,9 +163,7 @@
         if (datePreset !== 'all') {
             applied.push({
                 key: 'date',
-                label: $_(`events.filters.${datePreset === 'today' ? 'today' : datePreset}`, {
-                    default: datePreset
-                }),
+                label: datePreset === 'custom' ? customRangeLabel : $_(`events.filters.${datePreset}`, { default: datePreset }),
                 clear: () => onchange({ datePreset: 'all' })
             });
         }
@@ -280,18 +291,19 @@
                 <!-- Garden animals are stored apart from birds; this chooses which the results hold. -->
                 <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-visitors-heading" data-explorer-visitors-facet>
                     <p id="explorer-visitors-heading" class="eyebrow">{$_('garden.explorer.visitors', { default: 'Visitors' })}</p>
-                    <div class="{segmentClass} grid-cols-3">
+                    <!-- Options size to their names and wrap, so a longer name keeps its words whole. -->
+                    <div class="mt-2 flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70">
                         {#each subjectOptions as option (option.value)}
                             {@const chosen = subjects === option.value}
                             <button
                                 type="button"
-                                class="{segmentButtonClass} {chosen ? segmentChosenClass : segmentIdleClass}"
+                                class="{segmentButtonClass} flex-auto py-1 leading-4 {chosen ? segmentChosenClass : segmentIdleClass}"
                                 aria-pressed={chosen}
                                 aria-describedby="explorer-visitors-hint"
                                 onclick={() => onchange({ subjects: option.value, gardenReview: 'reviewable' })}
                                 data-explorer-subjects-option={option.value}
                             >
-                                {option.short}
+                                {option.label}
                             </button>
                         {/each}
                     </div>
@@ -371,22 +383,24 @@
 
                 {#if datePreset === 'custom'}
                     <div class="mt-2 grid grid-cols-2 gap-2">
-                        <label class="block">
-                            <span class="sr-only">{$_('events.filters.start_date', { default: 'Start date' })}</span>
+                        <label class="block min-w-0">
+                            <span class="mb-1 block px-1 text-2xs font-semibold text-slate-600 dark:text-slate-300">{$_('events.filters.start_date', { default: 'From' })}</span>
                             <input
                                 class="input-base text-xs"
                                 type="date"
                                 value={customStartDate}
+                                max={customEndDate || undefined}
                                 onchange={(event) =>
                                     onchange({ customStartDate: (event.currentTarget as HTMLInputElement).value })}
                             />
                         </label>
-                        <label class="block">
-                            <span class="sr-only">{$_('events.filters.end_date', { default: 'End date' })}</span>
+                        <label class="block min-w-0">
+                            <span class="mb-1 block px-1 text-2xs font-semibold text-slate-600 dark:text-slate-300">{$_('events.filters.end_date', { default: 'To' })}</span>
                             <input
                                 class="input-base text-xs"
                                 type="date"
                                 value={customEndDate}
+                                min={customStartDate || undefined}
                                 onchange={(event) =>
                                     onchange({ customEndDate: (event.currentTarget as HTMLInputElement).value })}
                             />
@@ -446,6 +460,8 @@
 
             {/if}
 
+            <!-- With no camera to offer (a visitor not shown camera names), the section would open on nothing. -->
+            {#if cameras.length > 0}
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-camera-facet>
                 <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span class="min-w-0 truncate">
@@ -463,13 +479,16 @@
                             onclick={() => onchange({ cameraFilter: chosen ? '' : camera })}
                         >
                             <span class="truncate">{camera}</span>
-                            <span class="shrink-0 tabular-nums font-normal text-slate-500 dark:text-slate-400">
-                                {cameraCounts[camera] ?? 0}
-                            </span>
+                            {#if cameraCounts}
+                                <span class="shrink-0 tabular-nums font-normal text-slate-500 dark:text-slate-400">
+                                    {cameraCounts[camera] ?? 0}
+                                </span>
+                            {/if}
                         </button>
                     {/each}
                 </div>
             </details>
+            {/if}
 
             {#if !gardenOnly}
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-only-facet>

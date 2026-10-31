@@ -64,8 +64,12 @@ test('the window is always open, rarer filters fold away and name what is chosen
     // The most changed filter sits first and needs no opening.
     await expect(when.getByRole('button', { name: 'Custom', exact: true })).toBeVisible();
     await when.getByRole('button', { name: 'Custom', exact: true }).click();
-    await page.getByLabel('Start date').fill('2026-10-01');
-    await page.getByLabel('End date').fill('2026-10-04');
+    // The range is labelled where it is seen, and its token names the dates rather than "Custom".
+    await expect(when.getByText('From', { exact: true })).toBeVisible();
+    await expect(when.getByText('To', { exact: true })).toBeVisible();
+    await page.getByLabel('From', { exact: true }).fill('2026-10-01');
+    await page.getByLabel('To', { exact: true }).fill('2026-10-04');
+    await expect(page.locator('[data-explorer-token]').filter({ hasText: /1 Oct( 2026)? to 4 Oct( 2026)?/ })).toBeVisible();
     await only.locator('summary').click();
     await page.getByRole('button', { name: 'Favorites 3', exact: true }).click();
     await page.getByRole('button', { name: 'Multiple bird species', exact: true }).click();
