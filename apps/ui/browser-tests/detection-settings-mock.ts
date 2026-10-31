@@ -73,7 +73,7 @@ function installed(id: string, extra: Record<string, unknown> = {}) {
 }
 
 /** A range filter status as the server reports it; tests override only what their state needs. */
-export function rangeStatus(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function rangeStatus(overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
         enabled: false, filtering: false, reason: 'needs_ebird_key', problem: null, source: 'ebird',
         location_precision: 'exact', region_level_setting: 'county', ebird_configured: false, birdnet_enabled: true,
