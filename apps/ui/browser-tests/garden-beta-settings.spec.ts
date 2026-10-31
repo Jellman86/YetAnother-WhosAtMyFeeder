@@ -1,7 +1,9 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 // Every Garden visitor setting, including its own models, lives with its switch in Settings → Beta
-// features. Settings save with the rest of the page; model downloads are separate explicit actions.
+// features, except which cameras watch for Garden animals: that is one choice per camera, beside its
+// bird role, in Settings → Connection. Settings save with the rest of the page; model downloads are
+// separate explicit actions.
 
 type Settings = Record<string, unknown>;
 
@@ -74,28 +76,27 @@ async function openBeta(page: Page): Promise<void> {
     await expect(page.getByRole('heading', { name: 'Beta features' })).toBeVisible();
 }
 
-test('Connection keeps only bird camera settings and points to Beta features for Garden', async ({ page }) => {
+test('Connection chooses Garden cameras per camera, while Garden-only settings stay under Beta features', async ({ page }) => {
     await openSettings(page);
-    await expect(page.getByRole('button', { name: /Garden animals/ })).toHaveCount(0);
+    const patio = page.getByRole('radiogroup', { name: 'patio: watch for' });
+    await expect(patio.locator('label')).toHaveText(['Off', 'Birds', 'Garden animals', 'Both']);
     await expect(page.getByLabel('Frigate animal labels', { exact: true })).toHaveCount(0);
-    await expect(page.getByText('Garden animal cameras are set in Settings → Beta features.')).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Animal proposal threshold' })).toHaveCount(0);
 });
 
-test('every Garden setting is set under Beta features and saves without touching the bird role', async ({ page }) => {
+test('Garden cameras chosen in Connection save with Beta settings without touching the bird role', async ({ page }) => {
     const { writes } = await openSettings(page);
+    const patio = page.getByRole('radiogroup', { name: 'patio: watch for' });
+    await expect(page.getByRole('checkbox', { name: 'Collect motion review photos on patio' })).toHaveCount(0);
+    await patio.getByText('Both', { exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Collect motion review photos on patio' }).check();
+    await expect(page.getByRole('radiogroup', { name: 'front: watch for' }).getByRole('radio', { name: 'Birds' })).toBeChecked();
+
     await openBeta(page);
     const garden = page.locator('[data-garden-beta-settings]');
-
-    const patio = garden.getByRole('button', { name: 'Garden animals on patio' });
-    await expect(patio).toHaveAttribute('aria-pressed', 'false');
-    await expect(garden.getByRole('button', { name: 'Collect motion review photos on patio' })).toHaveCount(0);
-    await patio.click();
-    await expect(patio).toHaveAttribute('aria-pressed', 'true');
-    await garden.getByRole('button', { name: 'Collect motion review photos on patio' }).click();
-    await expect(garden.getByRole('button', { name: 'Garden animals on front' })).toHaveAttribute('aria-pressed', 'false');
-
+    await expect(garden.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await garden.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, squirrel');
-    await garden.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill('0.64');
+    await garden.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill('64');
     await page.getByRole('button', { name: /Apply Settings/i }).click();
 
     await expect.poll(() => writes.length).toBe(1);
@@ -105,6 +106,7 @@ test('every Garden setting is set under Beta features and saves without touching
         garden_motion_cameras: ['patio'],
         garden_labels: ['cat', 'dog', 'squirrel'],
         garden_motion_confidence: 0.64,
+        cameras: ['patio', 'front'],
         camera_roles: { patio: 'nest' }
     });
 });
@@ -112,7 +114,7 @@ test('every Garden setting is set under Beta features and saves without touching
 test('switching Garden off hides its settings and keeps them for later', async ({ page }) => {
     const { writes } = await openSettings(page, { garden_cameras: ['patio'], garden_motion_confidence: 0.63 });
     await openBeta(page);
-    await expect(page.getByRole('button', { name: 'Garden animals on patio' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
     await page.getByRole('button', { name: /Apply Settings/i }).click();
@@ -120,33 +122,39 @@ test('switching Garden off hides its settings and keeps them for later', async (
     expect(writes[0]).toMatchObject({ beta_garden_animals: false, garden_cameras: ['patio'], garden_motion_confidence: 0.63 });
 });
 
-test('without synced cameras, Beta features says where to get them', async ({ page }) => {
+test('without Garden cameras, Beta features says where to choose them', async ({ page }) => {
     await openSettings(page, { cameras: [] }, []);
     await openBeta(page);
-    await expect(page.locator('[data-garden-beta-settings]')).toContainText('Sync the camera list in Settings → Connection');
+    const summary = page.locator('[data-garden-camera-summary]');
+    await expect(summary).toContainText('No camera is watched for Garden animals yet. Choose Garden animals or Both for a camera in Connection.');
+    await expect(summary.getByRole('button', { name: 'Choose cameras in Connection' })).toBeVisible();
 });
 
-for (const calibrated of [0.63, 0.625]) {
-    test(`a calibrated ${calibrated} proposal threshold is valid and steps at its own precision`, async ({ page }) => {
-        await openSettings(page, { garden_motion_confidence: calibrated });
+for (const [calibrated, shown, up] of [[0.63, '63', '64'], [0.625, '62.5', '62.6']] as const) {
+    test(`a calibrated ${calibrated} proposal threshold shows as ${shown}% and steps at its own precision`, async ({ page }) => {
+        const { writes } = await openSettings(page, { garden_motion_confidence: calibrated });
         await openBeta(page);
         const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
-        await expect(threshold).toHaveValue(String(calibrated));
+        await expect(threshold).toHaveValue(shown);
         expect(await threshold.evaluate((input: HTMLInputElement) => ({ valid: input.checkValidity(), stepMismatch: input.validity.stepMismatch }))).toEqual({ valid: true, stepMismatch: false });
         await threshold.press('ArrowUp');
-        await expect(threshold).toHaveValue(calibrated === 0.63 ? '0.64' : '0.626');
+        await expect(threshold).toHaveValue(up);
         await threshold.press('ArrowDown');
-        await expect(threshold).toHaveValue(String(calibrated));
+        await expect(threshold).toHaveValue(shown);
+        await threshold.press('ArrowUp');
+        await page.getByRole('button', { name: /Apply Settings/i }).click();
+        await expect.poll(() => writes.length).toBe(1);
+        expect(writes[0].garden_motion_confidence).toBe(calibrated === 0.63 ? 0.64 : 0.626);
     });
 }
 
-for (const outside of ['0.49', '0.96']) {
-    test(`a proposal threshold of ${outside} is explained and nothing is saved`, async ({ page }) => {
+for (const outside of ['49', '96', '']) {
+    test(`a proposal threshold of "${outside}" is explained and nothing is saved`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
         await page.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill(outside);
         await page.getByRole('button', { name: /Apply Settings/i }).click();
-        await expect(page.getByRole('status').filter({ hasText: 'Enter an animal proposal threshold between 0.5 and 0.95.' })).toBeVisible();
+        await expect(page.getByRole('status').filter({ hasText: 'Enter an animal proposal threshold between 50% and 95%.' })).toBeVisible();
         expect(writes).toEqual([]);
     });
 }
@@ -158,8 +166,8 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
     const naming = garden.getByRole('switch', { name: 'Name animals automatically' });
     const threshold = garden.getByRole('spinbutton', { name: 'Naming threshold' });
     await expect(naming).toHaveAttribute('aria-checked', 'true');
-    await expect(threshold).toHaveValue('0.8');
-    await threshold.fill('0.9');
+    await expect(threshold).toHaveValue('80');
+    await threshold.fill('90');
     await page.getByRole('button', { name: /Apply Settings/i }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ garden_automatic_naming: true, garden_naming_threshold: 0.9 });
@@ -172,13 +180,13 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
     expect(writes[1]).toMatchObject({ garden_automatic_naming: false, garden_naming_threshold: 0.9 });
 });
 
-for (const outside of ['0.69', '1']) {
-    test(`a naming threshold of ${outside} is explained and nothing is saved`, async ({ page }) => {
+for (const outside of ['69', '100']) {
+    test(`a naming threshold of ${outside}% is explained and nothing is saved`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
         await page.getByRole('spinbutton', { name: 'Naming threshold' }).fill(outside);
         await page.getByRole('button', { name: /Apply Settings/i }).click();
-        await expect(page.getByRole('status').filter({ hasText: 'Enter a naming threshold between 0.7 and 0.99.' })).toBeVisible();
+        await expect(page.getByRole('status').filter({ hasText: 'Enter a naming threshold between 70% and 99%.' })).toBeVisible();
         expect(writes).toEqual([]);
     });
 }
@@ -221,7 +229,9 @@ test('Garden models lists its three own models with measured state, size and req
     await expect(detector).toContainText('Optional · Not downloaded');
     await expect(page.locator('[data-garden-country]')).toHaveText('Animal names are filtered for GBR.');
 
-    await page.getByRole('button', { name: 'Collect motion review photos on patio' }).click();
+    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.getByRole('checkbox', { name: 'Collect motion review photos on patio' }).check();
+    await openBeta(page);
     await expect(detector).toContainText('Required · Not downloaded');
 });
 

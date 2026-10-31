@@ -35,6 +35,34 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     and **Edit name** buttons are at least 44px tall. The classifier's model
     id on About wraps instead of being cut.
 
+- Each camera now has one choice of what it watches for. **Settings →
+  Connection → Cameras to watch** (formerly **Active Cameras**) shows **Off**,
+  **Birds**, **Garden animals** or **Both** on every Frigate camera, with its
+  **Feeder** or **Nest** role while it watches for birds and **Collect motion
+  review photos** while it watches for Garden animals. With the Garden animals
+  beta off, a camera is **Off** or **Birds**, as before. Beta features no
+  longer has its own, differently styled camera list; it says which cameras
+  watch for Garden animals and links to the list.
+  - Existing configurations need no migration. The choices save to the same
+    `cameras`, `garden_cameras`, `garden_motion_cameras` and `camera_roles`
+    settings.
+  - An empty bird list still means every Frigate camera, and the card now says
+    so. Turning one camera off while it is empty lists the other cameras
+    first, so they keep watching for birds. **Watch every camera for birds**
+    returns to the empty list.
+  - The last bird camera cannot be turned off for birds, because an empty list
+    would quietly mean every camera; the row says why.
+  - Leaving Garden also stops a camera's motion photos, and leaving birds drops
+    its Nest role. Saving settings now drops any motion camera that is not a
+    Garden camera, which never collected anything.
+  - A saved camera that Frigate no longer lists stays visible, marked **Not
+    found in Frigate**, until you turn it off.
+- Beta features follows its own setup steps: cameras and labels, then Garden
+  models, automatic naming and notifications. The animal proposal and naming
+  thresholds are shown as percentages (50% to 95% and 70% to 99%) and still
+  save the same 0 to 1 values. The last setup step now points to the Explorer
+  instead of the retired Garden animals page.
+
 - Settings is safer and easier to use with a keyboard or screen reader:
   - Choosing a shorter **History Duration** now says, under the picker, how
     many detections the next cleanup will permanently delete, and **Apply

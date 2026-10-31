@@ -1913,6 +1913,13 @@ async def update_settings(
         settings.frigate.garden_labels = update.garden_labels
     if "garden_motion_cameras" in fields_set:
         settings.frigate.garden_motion_cameras = update.garden_motion_cameras
+    if fields_set & {"garden_cameras", "garden_motion_cameras"}:
+        # Motion collection runs only on Garden cameras, so any other entry is inert; dropping
+        # it keeps the saved settings from claiming collection that cannot happen.
+        garden_cameras = set(settings.frigate.garden_cameras)
+        settings.frigate.garden_motion_cameras = [
+            camera for camera in settings.frigate.garden_motion_cameras if camera in garden_cameras
+        ]
     if "garden_motion_confidence" in fields_set:
         settings.frigate.garden_motion_confidence = update.garden_motion_confidence
     if "garden_notifications_enabled" in fields_set:
