@@ -5,6 +5,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from app.utils.child_signals import kill_child, terminate_child
 from app.utils.python_subprocess import python_subprocess_launch
 
 from .classifier_worker_protocol import (
@@ -182,13 +183,11 @@ class ClassifierWorkerClient:
             raise asyncio.CancelledError
 
     def _signal_process(self, *, kill: bool) -> None:
-        if self._process.returncode is not None:
-            return
         try:
             if kill:
-                self._process.kill()
+                kill_child(self._process)
             else:
-                self._process.terminate()
+                terminate_child(self._process)
         except ProcessLookupError:
             # The process may exit between checking returncode and signalling.
             pass
