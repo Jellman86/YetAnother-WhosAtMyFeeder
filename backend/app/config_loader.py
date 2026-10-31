@@ -263,6 +263,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             "FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", "true"
         ).lower()
         == "true",
+        "garden_domestic_birds": json.loads(os.environ.get("FRIGATE__GARDEN_DOMESTIC_BIRDS", "[]")),
     }
     # Absent unless set, so FrigateSettings can derive it from the channels a saved config chose.
     if "FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS" in os.environ:

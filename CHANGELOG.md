@@ -6,6 +6,42 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Domestic birds you keep are Garden animals.** Chickens were thrown away in Garden:
+  SpeciesNet counts a chicken as a bird, and Garden handed every bird to bird detection, so a
+  greenhouse camera that Frigate watched only for cats and dogs dismissed them all. Under
+  **Settings → Beta features → Domestic birds you keep** you can now declare chickens,
+  domestic ducks, domestic geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and
+  quail. The list is empty by default, because Mallards, Greylag Geese, Wild Turkeys and Rock
+  Doves also live wild. Each maps to exact catalogue scientific names and SpeciesNet 4.0.3
+  outputs, never a loose name. A declared bird is a Garden animal on every camera:
+  - A Frigate bird event the bird model classifies as a declared bird (its top result, before
+    any admission filter such as a range filter, or the admitted one) becomes a confirmed
+    Garden capture named after that bird, with the model's label and score, instead of a bird
+    detection. It never reaches bird counts, notifications, eBird, BirdWeather or iNaturalist.
+  - A Garden check that names a declared bird at the naming threshold confirms and names it,
+    on any Garden camera. Any other bird is dismissed with its reason: **Bird, handled by bird
+    detection on this camera**, or **Wild bird. Turn on birds for this camera to record it.**
+    on a Garden-only camera. When SpeciesNet saw an undeclared domestic bird, the record asks
+    whether you keep it.
+  - A bird record of a declared bird offers **Move to Garden**, which hides (not deletes) the
+    bird record. Moving a Garden capture back to birds, and moving past detections in bulk,
+    are not available yet.
+  A new migration stores each domestic record's evidence. `GET /api/garden/domestic-birds` and
+  `POST /api/events/{event_id}/move-to-garden` are new.
+- An animal the automatic Garden check is confident is present, but whose species score is
+  below the naming threshold, now waits in **Needs review** instead of being dismissed. Only
+  uncertain photos below the threshold are dismissed.
+- Garden motion scans no longer report ordinary unreadable recordings as a crashed native
+  worker. Frigate starts a clip at the keyframe before the requested start, and a camera with
+  a 6-second keyframe interval returned 16 seconds for a 10-second window, past the 5 seconds
+  the scanner allowed, so the worker exited with status 1 and the scan logged
+  `GardenNativeWorkerFailed`. The scanner now accepts up to one 10-second recording segment
+  of pre-roll, samples inside the requested window after it (it previously sampled mostly the
+  pre-roll), and times frames from the requested start. A recording that still cannot be read
+  is skipped with its reason and counted per camera in **Collection status**. Garden worker
+  failures now log the exit code, the signal name and the worker's own exception type, and
+  motion failures add the camera and recording window.
+
 - **Range filter** (#696), off by default, in **Settings → Detection**. With a location and an
   eBird API key it checks each new automatic identification against eBird's list of every species
   recorded in your county, state or country:

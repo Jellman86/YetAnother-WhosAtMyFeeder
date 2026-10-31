@@ -1234,6 +1234,28 @@ async def toggle_hide_event(event_id: str, request: Request, auth: AuthContext =
         return HideResponse(status="updated", event_id=event_id, is_hidden=new_status)
 
 
+class MoveToGardenResponse(BaseModel):
+    event_id: str
+    capture_id: str = Field(description="The Garden capture that now records this domestic bird")
+
+
+@router.post("/events/{event_id}/move-to-garden", response_model=MoveToGardenResponse)
+async def move_event_to_garden(event_id: str, auth: AuthContext = Depends(require_owner)) -> MoveToGardenResponse:
+    """Record a declared domestic bird's detection as a Garden animal. Owner only.
+
+    The bird record is hidden, not deleted: showing it again restores it to bird history.
+    """
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    capture_id = await garden_domestic_service.move_detection(event_id)
+    async with get_db() as db:
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+    if detection:
+        await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
+    log.info("Detection moved to Garden", event_id=event_id, capture_id=capture_id)
+    return MoveToGardenResponse(event_id=event_id, capture_id=capture_id)
+
+
 @router.post("/events/{event_id}/favorite", response_model=FavoriteResponse)
 async def favorite_event(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
     """Mark a detection as favorite. Owner only."""

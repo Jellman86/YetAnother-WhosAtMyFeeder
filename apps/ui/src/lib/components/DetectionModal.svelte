@@ -94,6 +94,10 @@
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
+    import { moveDetectionToGarden } from '../api/events';
+    import { fetchGardenDomesticBirds } from '../api/garden';
+    import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
+    import { domesticBirdForRecord, domesticBirdName, type DomesticBirdOption } from '../utils/domestic-birds';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -822,6 +826,25 @@
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    // A bird record of a domestic bird: moved to Garden when the owner keeps it, otherwise asked about.
+    const gardenOwner = $derived(hasOwnerDetectionActions && settingsStore.settings?.beta_garden_animals === true);
+    let domesticOptions = $state.raw<DomesticBirdOption[]>([]);
+    let movingToGarden = $state(false);
+    $effect(() => {
+        if (!gardenOwner) return;
+        const controller = new AbortController();
+        fetchGardenDomesticBirds(controller.signal)
+            .then((options) => {
+                if (!controller.signal.aborted) domesticOptions = options;
+            })
+            .catch(() => {
+                if (!controller.signal.aborted) domesticOptions = [];
+            });
+        return () => controller.abort();
+    });
+    const domesticMatch = $derived(
+        gardenOwner && detection && !detection.is_hidden ? domesticBirdForRecord(detection, domesticOptions) : null
+    );
     // Rows that come from an integration only appear when that integration is on:
     // "no matching call" from a disabled BirdNET would be a measurement we never took.
     const birdnetEnabled = $derived(
@@ -1567,6 +1590,23 @@
             onClose();
         } catch (e) {
             toastStore.error($_('notifications.hide_failed', { values: { message: getErrorMessage(e) } }));
+        }
+    }
+
+    async function handleMoveToGarden() {
+        if (!detection || !domesticMatch?.declared || movingToGarden) return;
+        movingToGarden = true;
+        try {
+            await moveDetectionToGarden(detection.frigate_event);
+            detection.is_hidden = true;
+            detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+            toastStore.success($_('detection.moved_to_garden', { default: 'Moved to Garden. The bird record is hidden; show it again from Hidden to restore it.' }));
+            await onHideSuccess?.(detection.frigate_event, detection.detection_time, true);
+            onClose();
+        } catch (e) {
+            toastStore.error($_('detection.move_to_garden_failed', { default: 'Could not move this record to Garden: {message}', values: { message: getErrorMessage(e) } }));
+        } finally {
+            movingToGarden = false;
         }
     }
 
@@ -3721,6 +3761,22 @@
                         </button>
                     {/if}
                 </div>
+            {/if}
+
+            {#if domesticMatch?.declared}
+                <div class="card-base space-y-2 p-3 text-sm text-slate-700 dark:text-slate-200" data-detection-domestic-bird>
+                    <p>
+                        {$_('detection.domestic_bird_declared', {
+                            default: 'This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.',
+                            values: { bird: domesticBirdName(domesticMatch.key, (id, options) => $_(id, options)) }
+                        })}
+                    </p>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm" disabled={movingToGarden} onclick={handleMoveToGarden} data-detection-move-to-garden>
+                        {movingToGarden ? $_('common.saving') : $_('detection.move_to_garden', { default: 'Move to Garden' })}
+                    </button>
+                </div>
+            {:else if domesticMatch}
+                <GardenDomesticSuggestion bird={domesticMatch.key} />
             {/if}
 
 	            <!-- Bottom Actions -->

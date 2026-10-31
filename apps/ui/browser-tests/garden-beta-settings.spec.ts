@@ -337,7 +337,8 @@ test('the view explains each capture outcome and links daily review to the Explo
     await openBeta(page);
     const outcomes = page.locator('[data-garden-outcomes]');
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
-    await expect(outcomes).toContainText('Low-confidence automatic results');
+    await expect(outcomes).toContainText('animals whose species is below the naming threshold');
+    await expect(outcomes).toContainText('uncertain photos below the naming threshold');
     await expect(outcomes).toContainText('person evidence is removed');
     await page.getByRole('button', { name: 'Review Garden animals' }).click();
     await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/events?visitors=garden&review=pending');
@@ -521,4 +522,35 @@ test('Notifications shows no Garden section while the Garden beta is off', async
     await expect(page.getByRole('heading', { name: 'Discord' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Garden animals' })).toHaveCount(0);
     expect(harness.gardenRequests).toEqual([]);
+});
+
+test('domestic birds you keep start empty, are added as chips and save with the page', async ({ page }) => {
+    const { writes } = await openSettings(page);
+    await openBeta(page);
+    const section = page.locator('[data-garden-domestic-birds]');
+    await expect(section.getByRole('heading', { name: 'Domestic birds you keep' })).toBeVisible();
+    await expect(section).toContainText('These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.');
+    await expect(section.locator('[data-garden-domestic-none]')).toBeVisible();
+    const add = section.getByRole('combobox', { name: 'Add a domestic bird' });
+    await add.selectOption('chicken');
+    await add.selectOption('domestic_duck');
+    const chips = section.getByRole('list', { name: 'Domestic birds you keep' });
+    await expect(chips.getByRole('listitem')).toHaveText(['Chickens', 'Domestic ducks']);
+    await expect(add.locator('option[value="chicken"]')).toHaveCount(0);
+    // Removing works from the keyboard, with a label that says which bird.
+    await section.getByRole('button', { name: 'Remove Domestic ducks' }).focus();
+    await page.keyboard.press('Enter');
+    await expect(chips.getByRole('listitem')).toHaveText(['Chickens']);
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toMatchObject({ garden_domestic_birds: ['chicken'] });
+});
+
+test('saved domestic birds show as chips on a narrow screen', async ({ page }) => {
+    await openSettings(page, { garden_domestic_birds: ['chicken', 'domestic_pigeon'] });
+    await openBeta(page);
+    await page.setViewportSize({ width: 320, height: 740 });
+    const chips = page.locator('[data-garden-domestic-chips]');
+    await expect(chips.getByRole('listitem')).toHaveText(['Chickens', 'Domestic pigeons or doves']);
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

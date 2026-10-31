@@ -37,6 +37,7 @@ export interface Settings {
     garden_notifications_include_photo?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_include_photo']>;
     garden_automatic_naming?: NonNullable<components['schemas']['SettingsResponse']['garden_automatic_naming']>;
     garden_naming_threshold?: NonNullable<components['schemas']['SettingsResponse']['garden_naming_threshold']>;
+    garden_domestic_birds?: NonNullable<components['schemas']['SettingsResponse']['garden_domestic_birds']>;
     garden_labels: NonNullable<components['schemas']['SettingsResponse']['garden_labels']>;
     nest_dedupe_minutes: number;
     classification_image_source?: ClassificationImageSource;

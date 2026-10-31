@@ -89,6 +89,7 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import GardenBetaSettings from '../components/settings/GardenBetaSettings.svelte';
+    import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { locationSettingsDirty } from '../settings/location-dirty';
     import { retentionShrinks } from '../settings/retention-change';
     import {
@@ -233,6 +234,7 @@
     let gardenNotificationsIncludePhoto = $state(true);
     let gardenAutomaticNaming = $state(true);
     let gardenNamingThreshold = $state(0.8);
+    let gardenDomesticBirds = $state<DomesticBirdKey[]>([]);
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -1891,6 +1893,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'gardenNotificationsIncludePhoto', val: gardenNotificationsIncludePhoto, store: s.garden_notifications_include_photo ?? true },
             { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
             { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
+            { key: 'gardenDomesticBirds', val: JSON.stringify(gardenDomesticBirds), store: JSON.stringify(s.garden_domestic_birds ?? []) },
             { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
@@ -3110,6 +3113,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             gardenNotificationsIncludePhoto = settings.garden_notifications_include_photo ?? true;
             gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
             gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
+            gardenDomesticBirds = [...(settings.garden_domestic_birds ?? [])];
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
                 : 30;
@@ -3524,6 +3528,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 garden_notifications_include_photo: gardenNotificationsIncludePhoto,
                 garden_automatic_naming: gardenAutomaticNaming,
                 garden_naming_threshold: gardenNamingThreshold,
+                garden_domestic_birds: gardenDomesticBirds,
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
@@ -4187,6 +4192,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                         onOpenNotifications={() => handleTabChange('notifications')}
                         bind:automaticNaming={gardenAutomaticNaming}
                         bind:namingThreshold={gardenNamingThreshold}
+                        bind:domesticBirds={gardenDomesticBirds}
                         savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
                         onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
                         onOpenCameras={openCameraSettings}

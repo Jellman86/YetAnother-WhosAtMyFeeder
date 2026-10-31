@@ -89,8 +89,10 @@ def main() -> None:
         result = identify(request)
         sys.stdout.write("GARDEN_RESULT:" + json.dumps(result, allow_nan=False) + "\n")
         sys.stdout.flush()
-    except Exception:
-        # No source paths, media, identities or provider stderr enter logs.
+    except Exception as error:
+        # No source paths, media, identities or provider stderr enter logs: only the type.
+        sys.stdout.write("WORKER_ERROR:" + type(error).__name__ + "\n")
+        sys.stdout.flush()
         sys.exit(1)
 
 

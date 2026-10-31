@@ -71,12 +71,58 @@ def test_candidate_binds_sample_rgb_tensor_and_stored_jpeg(scan, monkeypatch):
     reader.release.assert_called_once()
 
 
-def test_frigate_keyframe_padding_is_allowed_without_sampling_past_requested_window(scan, monkeypatch):
+def test_frigate_keyframe_preroll_is_skipped_so_samples_stay_inside_the_requested_window(scan, monkeypatch):
     payload, reader, _, _, props = scan
+    # 12.3 s returned for a 10 s window: Frigate started 2.3 s early, at the previous keyframe.
     props[worker.cv2.CAP_PROP_FRAME_COUNT] = 123
     monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
     assert worker.scan_clip(payload)["outcome"] == "candidate"
-    assert [call.args[1] for call in reader.set.call_args_list] == [1000.0, 5000.0, 9000.0]
+    assert [call.args[1] for call in reader.set.call_args_list] == pytest.approx([3290.0, 7250.0, 11210.0])
+
+
+def test_six_second_keyframe_preroll_from_a_real_camera_is_scanned_and_timed_from_the_window(scan, monkeypatch):
+    payload, reader, _, _, props = scan
+    # The owner's greenhouse camera returned 16 s for a 10 s window, which the old 5 s
+    # allowance rejected with a non-zero exit that looked like a native crash.
+    props[worker.cv2.CAP_PROP_FRAME_COUNT] = 160
+    index = temporal_reader(scan, {110})
+    monkeypatch.setattr(
+        worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))] if index() == 110 else []
+    )
+    result = worker.scan_clip(payload)
+    assert result["outcome"] == "candidate"
+    assert all(call.args[1] >= 6000 for call in reader.set.call_args_list)
+    assert result["frame_index"] == 110 and result["frame_offset"] == pytest.approx(5.0)
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({worker.cv2.CAP_PROP_FRAME_COUNT: 201}, "duration_limit"),
+        ({worker.cv2.CAP_PROP_FRAME_WIDTH: 5000, worker.cv2.CAP_PROP_FRAME_HEIGHT: 4000}, "pixel_limit"),
+        ({worker.cv2.CAP_PROP_FPS: 0}, "invalid_metadata"),
+        ({worker.cv2.CAP_PROP_POS_FRAMES: 5000}, "frame_unbounded"),
+    ],
+)
+def test_recordings_that_cannot_be_read_report_a_reason_without_inference(scan, change, reason):
+    payload, reader, runtime, photo, props = scan
+    props.update(change)
+    with pytest.raises(worker.UnusableRecording) as raised:
+        worker.scan_clip(payload)
+    assert raised.value.reason == reason
+    assert not photo.exists()
+    reader.release.assert_called_once()
+
+
+def test_worker_reports_an_unreadable_recording_as_a_result_and_names_any_other_failure(monkeypatch, capsys):
+    monkeypatch.setattr(worker.sys, "stdin", Mock(buffer=Mock(readline=lambda limit: b"{}")))
+    monkeypatch.setattr(worker, "scan_clip", Mock(side_effect=worker.UnusableRecording("decode_failed")))
+    worker.main()
+    assert capsys.readouterr().out == 'MOTION_RESULT:{"outcome": "unusable_recording", "reason": "decode_failed"}\n'
+    monkeypatch.setattr(worker, "scan_clip", Mock(side_effect=KeyError("model")))
+    with pytest.raises(KeyError):
+        worker.main()
+    assert capsys.readouterr().out == "WORKER_ERROR:KeyError\n"
 
 
 @pytest.mark.parametrize("count", [0, 0.5, float("nan"), 10000])
@@ -193,7 +239,8 @@ def test_offline_samples_remain_inside_the_requested_window_despite_keyframe_pad
     monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
     result = worker.scan_clip(payload, samples_per_window=9)
     assert result["outcome"] == "no_candidate"
-    assert [call.args[1] for call in reader.set.call_args_list] == [i * 1000 for i in range(1, 10)]
+    expected = [(2.3 + 9.9 * i / 10) * 1000 for i in range(1, 10)]
+    assert [call.args[1] for call in reader.set.call_args_list] == pytest.approx(expected)
     assert runtime.infer.call_count == 9
     reader.release.assert_called_once()
 
@@ -208,7 +255,7 @@ def test_failed_added_sample_discards_an_earlier_candidate_and_releases_the_read
 
     reader.read.side_effect = fail_late
     monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
-    with pytest.raises(ValueError, match="could not decode"):
+    with pytest.raises(worker.UnusableRecording, match="decode_failed"):
         worker.scan_clip(payload, samples_per_window=9)
     assert not photo.exists()
     reader.release.assert_called_once()
@@ -221,3 +268,48 @@ def test_only_bounded_offline_sampling_policies_are_accepted_before_native_loadi
         worker.scan_clip(payload, samples_per_window=count)
     runtime.infer.assert_not_called()
     reader.read.assert_not_called()
+
+
+def _real_clip(path, *, seconds: float, fps: int = 10):
+    import cv2
+
+    writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*"mp4v"), fps, (64, 48))
+    assert writer.isOpened()
+    for index in range(round(seconds * fps)):
+        writer.write(np.full((48, 64, 3), index % 255, dtype=np.uint8))
+    writer.release()
+    return path
+
+
+@pytest.mark.parametrize(
+    ("seconds", "expected"), [(16, "no_candidate"), (25, "duration_limit"), (None, "invalid_metadata")]
+)
+def test_real_recordings_are_scanned_with_preroll_or_reported_unreadable(tmp_path, monkeypatch, seconds, expected):
+    clip = tmp_path / "clip.mp4"
+    if seconds is None:
+        clip.write_bytes(b"not a recording")
+    else:
+        _real_clip(clip, seconds=seconds)
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"model")
+    runtime = Mock(actual=["CPUExecutionProvider"])
+    runtime.infer.return_value = np.zeros((1, 7, 1), dtype=np.float32)
+    monkeypatch.setattr(worker, "Runtime", lambda *args: runtime)
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    payload = dict(
+        model=str(model),
+        clip=str(clip),
+        photo=str(tmp_path / "photo.jpg"),
+        duration=10,
+        clip_sha256=hashlib.sha256(clip.read_bytes()).hexdigest(),
+        model_sha256=hashlib.sha256(b"model").hexdigest(),
+        names=["animal", "person", "vehicle"],
+    )
+    if expected == "no_candidate":
+        assert worker.scan_clip(payload) == {"outcome": "no_candidate"}
+        assert runtime.infer.call_count == 3
+    else:
+        with pytest.raises(worker.UnusableRecording) as raised:
+            worker.scan_clip(payload)
+        assert raised.value.reason == expected
+        runtime.infer.assert_not_called()

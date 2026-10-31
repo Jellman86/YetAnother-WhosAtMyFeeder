@@ -3,7 +3,7 @@
 import hashlib
 import time
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -615,3 +615,62 @@ async def test_a_still_proposal_is_recorded_as_scanned_and_stores_nothing(collec
     assert "did not move" in collector.message
     async with get_db() as db:
         assert await GardenRepository(db).count("pending") == 0
+
+
+@pytest.mark.asyncio
+async def test_unreadable_recording_is_skipped_counted_and_never_retried(collector, monkeypatch):
+    native = AsyncMock(return_value={"outcome": "unusable_recording", "reason": "duration_limit"})
+    monkeypatch.setattr(collector, "_native", native)
+    await collector.scan_once()
+    assert collector.last_outcome == "unusable_recording"
+    assert "could not be read" in collector.message
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is not None
+        assert await GardenRepository(db).count("pending") == 0
+    status = await collector.status()
+    assert [(item.camera, item.count, item.last_reason) for item in status.unreadable_recordings] == [
+        ("patio", 1, "duration_limit")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_unknown_unreadable_reason_is_a_failure_not_a_skip(collector, monkeypatch):
+    from app.services import garden_motion
+
+    process = AsyncMock()
+    monkeypatch.setattr(garden_motion.asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
+    monkeypatch.setattr(
+        garden_motion,
+        "supervise_worker",
+        AsyncMock(return_value=b'MOTION_RESULT:{"outcome": "unusable_recording", "reason": "secret"}\n'),
+    )
+    with pytest.raises(ValueError, match="unknown"):
+        await garden_motion.GardenMotionService._native(collector, {}, lambda: False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("exit_code", "signal_name"), [(1, None), (-11, "SIGSEGV")])
+async def test_worker_failure_logs_camera_window_exit_code_and_signal(collector, monkeypatch, exit_code, signal_name):
+    from app.services import garden_motion
+    from app.services.garden_identification import GardenNativeWorkerFailed
+
+    monkeypatch.setattr(collector, "_native", AsyncMock(side_effect=GardenNativeWorkerFailed(exit_code, None)))
+    warning = Mock()
+    monkeypatch.setattr(garden_motion.log, "warning", warning)
+    await collector.scan_once()
+    assert collector.last_outcome == "failed"
+    event, fields = warning.call_args.args[0], warning.call_args.kwargs
+    assert event == "garden_motion_scan_failed"
+    assert fields["camera"] == "patio" and fields["clip_start"] < fields["clip_end"]
+    assert fields["exit_code"] == exit_code and fields["signal"] == signal_name
+    assert ("SIGSEGV" in collector.message) == (signal_name is not None)
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is None
+
+
+def test_unreadable_summary_counts_only_the_last_hour_on_collecting_cameras():
+    from app.services.garden_motion import unreadable_summary
+
+    skipped = [(50.0, "patio", "decode_failed"), (3000.0, "patio", "duration_limit"), (3000.0, "old", "pixel_limit")]
+    summary = unreadable_summary(skipped, now=3700.0, cameras=["patio"])
+    assert [(item.camera, item.count, item.last_reason) for item in summary] == [("patio", 1, "duration_limit")]

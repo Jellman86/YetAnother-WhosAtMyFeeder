@@ -2,6 +2,7 @@ import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
 import { heardWindow } from './heard-timeline';
 import { groupGardenReview } from './garden-review-groups';
+import { domesticBirdName } from './domestic-birds';
 
 /**
  * Where Garden captures sit in the Explorer.
@@ -27,6 +28,16 @@ export function gardenEntryView(capture: GardenCapture): GardenEntryView {
     if (capture.owner_identification && capture.status === 'confirmed') {
         return { name: capture.owner_identification.name, nameState: 'confirmed', score: null, review: null };
     }
+    const route = capture.domestic_route;
+    if (route && capture.status === 'confirmed') {
+        // A domestic bird the owner keeps is named by that bird; the model's own label stays evidence.
+        return {
+            name: domesticBirdName(route.domestic_bird, (_key, options) => options.default),
+            nameState: route.origin === 'moved_from_birds' ? 'confirmed' : 'automatic',
+            score: route.source_score ?? null,
+            review: null
+        };
+    }
     const identification = capture.identification;
     const standing =
         identification && identification.outcome === 'suggestion' && identification.review !== 'dismissed' && identification.name
@@ -44,7 +55,11 @@ export function gardenEntryView(capture: GardenCapture): GardenEntryView {
         nameState,
         score: standing?.score ?? null,
         review: capture.status === 'pending'
-            ? capture.automatic_check_overridden || ['naming_disabled', 'location_required', 'identity_unavailable'].includes(capture.automatic_check?.decision_reason ?? '') ? 'presence' : null
+            ? capture.automatic_check_overridden
+              || ['naming_disabled', 'location_required', 'identity_unavailable'].includes(capture.automatic_check?.decision_reason ?? '')
+              || (capture.automatic_check?.decision_reason === 'below_threshold' && capture.automatic_check.outcome === 'animal')
+                ? 'presence'
+                : null
             : nameState === 'suggested' ? 'species' : null
     };
 }
@@ -150,7 +165,8 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
             state: t('garden.explorer.state_dismissed', 'Dismissed, not counted as an animal')
         };
     }
-    const title = view.name
+    const route = capture.status === 'confirmed' && !capture.owner_identification ? capture.domestic_route : null;
+    const title = (route ? domesticBirdName(route.domestic_bird, (key, options) => t(key, options.default)) : view.name)
         ?? (capture.status === 'pending'
             ? t('garden.explorer.possible_animal', 'Possible animal')
             : t('garden.explorer.unnamed_animal', 'Animal, not named'));
@@ -159,9 +175,18 @@ export function gardenEntryText(capture: GardenCapture, view: GardenEntryView, t
         const reason = capture.automatic_check?.decision_reason;
         if (reason === 'location_required') return { title, state: t('garden.automatic_location_required', 'Animal detected. Set a country in Settings → Location so the model can name it automatically.') };
         if (reason === 'identity_unavailable') return { title, state: t('garden.automatic_identity_unavailable', 'Animal detected, but its name could not be bound to the local catalogue. No automatic name was saved.') };
+        if (reason === 'below_threshold') return { title, state: t('garden.explorer.state_below_threshold', 'Animal detected; species below the naming threshold') };
         return { title, state: t('garden.explorer.state_manual', 'Manual review: automatic naming is off or an owner override is active') };
     }
     if (view.review === 'species') return { title, state: t('garden.explorer.state_species', 'Needs review: suggested species') };
+    if (route) {
+        return {
+            title,
+            state: route.origin === 'moved_from_birds'
+                ? t('garden.explorer.state_domestic_moved', 'Moved from birds as a domestic bird you keep')
+                : t('garden.explorer.state_domestic', 'Named automatically as a domestic bird you keep')
+        };
+    }
     if (view.nameState === 'automatic') return { title, state: t('garden.explorer.state_automatic', 'Named automatically') };
     if (view.nameState === 'confirmed') {
         return { title, state: viewer === 'owner' ? t('garden.explorer.state_confirmed', 'Species confirmed by you') : t('visits.owner_confirmed', 'Owner confirmed') };
@@ -216,6 +241,9 @@ export function findRefreshedGardenVisit<T extends { id: string; kind: string; r
 /** What a capture is, for visit grouping: its name, or what is known before one is given. */
 export function gardenVisitIdentity(capture: GardenCapture): string {
     const view = gardenEntryView(capture);
+    if (!capture.owner_identification && capture.domestic_route && capture.status === 'confirmed') {
+        return `domestic:${capture.domestic_route.domestic_bird}`;
+    }
     const species = capture.owner_identification?.species_id ?? capture.identification?.species_id;
     if (view.name && species) return `species:${species}`;
     if (view.name) return `name:${view.name.trim().toLocaleLowerCase()}`;

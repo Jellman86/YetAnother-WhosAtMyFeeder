@@ -14,7 +14,12 @@ import structlog
 from app.models.inference_execution import InferenceExecution
 from app.config import settings
 from app.database import get_db
-from app.models.garden import GardenAutomaticCheck, GardenIdentification, GardenPresenceMass
+from app.models.garden import (
+    GardenAutomaticCheck,
+    GardenDomesticRoute,
+    GardenIdentification,
+    GardenPresenceMass,
+)
 from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services import garden_motion_privacy
 from app.services.broadcaster import broadcaster
@@ -32,14 +37,40 @@ from app.services.garden_identification import (
     garden_identification_service,
     identification_from_predictions,
     normalize_country,
+    worker_failure_fields,
 )
 from app.services.garden_motion import garden_motion_service
+from app.services.garden_automatic_policy import (
+    NamingResult,
+    automatic_check_dismisses,
+    finish_automatic_check,
+    plan_automatic_check,
+)
 from app.services.garden_automatic_runtime import GardenAutomaticRuntime, candidate_providers
+from app.services.garden_domestic_birds import camera_watches_birds, domestic_bird_for_speciesnet, garden_bird_route
 from app.services.garden_visitors import GardenPolicy, presence_outcome
 from app.utils.api_datetime import utc_naive_now
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
 
 log = structlog.get_logger()
+
+
+def top_output_id(predictions: object, outputs: list[dict]) -> str | None:
+    """The SpeciesNet output id of the top result, or None when the worker gave no usable ranking."""
+    if not isinstance(predictions, list) or not predictions:
+        return None
+    first = predictions[0]
+    if not isinstance(first, list) or len(first) != 2 or type(first[0]) is not int:
+        return None
+    return outputs[first[0]]["id"] if 0 <= first[0] < len(outputs) else None
+
+
+def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
+    if suggestion is None:
+        return "person"
+    if suggestion.automatic:
+        return "named"
+    return {"low_confidence": "low_confidence", "bird_excluded": "bird"}.get(suggestion.reason, "unresolved")
 
 
 class GardenAutomaticReviewService:
@@ -176,6 +207,8 @@ class GardenAutomaticReviewService:
             automatic_naming = settings.frigate.garden_automatic_naming
             naming_threshold = settings.frigate.garden_naming_threshold
             country = normalize_country(settings.location.country)
+            declared = frozenset(settings.frigate.garden_domestic_birds)
+            watches_birds = camera_watches_birds(original.camera, settings.frigate.camera)
             native, provider = await self.runtime.run(image, payload, blocked, service._run_photo_worker)
             mass = GardenPresenceMass.model_validate(native["assessment"]["mass"])
             human_winner = native["assessment"]["human_winner"]
@@ -183,23 +216,22 @@ class GardenAutomaticReviewService:
                 raise ValueError("Automatic check did not meet its runtime contract")
             if native.get("package_sha256") != bundle["package_sha256"]:
                 raise ValueError("Automatic check mapping changed")
-            outcome = presence_outcome(mass.model_dump(), human_winner)
+            presence = presence_outcome(mass.model_dump(), human_winner)
+            domestic = domestic_bird_for_speciesnet(top_output_id(native.get("predictions"), bundle.get("outputs", [])))
+            bird_route = garden_bird_route(domestic, declared, camera_watches_birds=watches_birds)
+            plan = plan_automatic_check(
+                presence, bird_route, automatic_naming=automatic_naming, country_known=country is not None
+            )
+            outcome, decision_reason = plan.outcome, plan.decision_reason
             named: GardenIdentification | None = None
+            route: GardenDomesticRoute | None = None
             naming_score: float | None = None
-            decision_reason = None
-            if automatic_naming and outcome == "uncertain":
-                decision_reason = "below_threshold" if country else "location_required"
-            elif outcome == "animal":
-                if not automatic_naming:
-                    decision_reason = "naming_disabled"
-                elif not country:
-                    decision_reason = "location_required"
-            if outcome in {"animal", "uncertain"} and automatic_naming and country:
+            if plan.run_naming and country:
                 # The species threshold is authoritative even below the coarse animal-presence floor.
                 suggestion = identification_from_predictions(
                     native.get("predictions"),
                     bundle,
-                    policy=GardenPolicy(min_confidence=naming_threshold),
+                    policy=GardenPolicy(min_confidence=naming_threshold, domestic_birds=declared),
                     country=country,
                     variant=variant,
                     provider=provider,
@@ -211,21 +243,26 @@ class GardenAutomaticReviewService:
                     review="accepted",
                     automatic=True,
                 )
-                if suggestion is None:
-                    outcome = "human_rejected"
-                elif suggestion.automatic:
-                    outcome = "animal"
-                    decision_reason = None
+                outcome, decision_reason = finish_automatic_check(plan, naming_result(suggestion), bird_route)
+                if suggestion is not None and suggestion.automatic:
                     named = suggestion
-                elif suggestion.reason == "low_confidence":
-                    decision_reason = "below_threshold"
-                elif outcome != "uncertain":
-                    decision_reason = "identity_unavailable"
+                    kept = domestic_bird_for_speciesnet(suggestion.taxon_id)
+                    if kept in declared and suggestion.name:
+                        route = GardenDomesticRoute(
+                            domestic_bird=kept,
+                            origin="garden_check",
+                            source_label=suggestion.name,
+                            source_score=suggestion.score,
+                            source_model="garden-speciesnet-" + variant,
+                            routed_at=utc_naive_now().isoformat() + "Z",
+                        )
                 naming_score = suggestion.score if suggestion else None
-            if (automatic_naming, naming_threshold, country) != (
+            if (automatic_naming, naming_threshold, country, declared, watches_birds) != (
                 settings.frigate.garden_automatic_naming,
                 settings.frigate.garden_naming_threshold,
                 normalize_country(settings.location.country),
+                frozenset(settings.frigate.garden_domestic_birds),
+                camera_watches_birds(original.camera, settings.frigate.camera),
             ):
                 raise GardenBusy("Automatic naming settings changed during inference")
             if await self._input_box(original) != box:
@@ -265,6 +302,7 @@ class GardenAutomaticReviewService:
                             checked_at=utc_naive_now().isoformat(),
                             policy_version=1 if automatic_naming else 0,
                             decision_reason=decision_reason,
+                            domestic_candidate=domestic if domestic and domestic not in declared else None,
                             naming_score=naming_score,
                             naming_threshold=naming_threshold,
                             execution=InferenceExecution(
@@ -287,7 +325,11 @@ class GardenAutomaticReviewService:
                         )
                         if named is not None:
                             changed = await repo.save_automatic_naming(
-                                original, result, named, **({"crop": saved_crop} if saved_crop else {})
+                                original,
+                                result,
+                                named,
+                                route=route,
+                                **({"crop": saved_crop} if saved_crop else {}),
                             )
                             named_saved = changed
                             service.automatic_message = (
@@ -296,8 +338,8 @@ class GardenAutomaticReviewService:
                         else:
                             changed = await repo.save_automatic_check(original, result)
                             service.automatic_message = (
-                                "Automatic check finished below the animal naming threshold or excluded this capture; it is in Dismissed and can be restored."
-                                if outcome in {"bird", "non_animal"} or decision_reason == "below_threshold"
+                                "Automatic check excluded this capture; it is in Dismissed and can be restored."
+                                if automatic_check_dismisses(outcome, decision_reason)
                                 else "Automatic check finished. The capture remains in Needs review."
                             )
             if provider == "cpu" and candidate_providers()[0] != "cpu":
@@ -319,7 +361,9 @@ class GardenAutomaticReviewService:
             HTTPException,
             httpx.HTTPError,
         ) as error:
-            log.warning("garden_automatic_check_failed", error_type=type(error).__name__)
+            log.warning(
+                "garden_automatic_check_failed", error_type=type(error).__name__, **worker_failure_fields(error)
+            )
             service.automatic_message = (
                 "Automatic check unavailable. The photo stays in Needs review; retry after five minutes."
             )

@@ -2,6 +2,7 @@
 
 from app.models.inference_execution import InferenceExecution, InferenceProvider
 from app.models.garden_crop import GardenCropStorage
+from app.services.garden_domestic_birds import DomesticBirdKey
 from typing import Literal
 import math
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -31,8 +32,21 @@ class GardenAutomaticCheck(BaseModel):
     checked_at: str
     policy_version: int = Field(0, ge=0)
     decision_reason: (
-        Literal["below_threshold", "naming_disabled", "location_required", "identity_unavailable"] | None
+        Literal[
+            "below_threshold",
+            "naming_disabled",
+            "location_required",
+            "identity_unavailable",
+            # A bird SpeciesNet named that the owner does not keep: bird detection owns it on this
+            # camera, or, on a Garden-only camera, nothing else records it.
+            "bird_camera",
+            "wild_bird",
+        ]
+        | None
     ) = None
+    # A domestic bird the owner has not declared that SpeciesNet's top result stands for,
+    # so the record can ask whether they keep it.
+    domestic_candidate: DomesticBirdKey | None = None
     naming_score: float | None = Field(None, ge=0, le=1)
     naming_threshold: float | None = Field(None, ge=0.7, le=0.99)
     execution: InferenceExecution | None = None
@@ -58,6 +72,22 @@ class GardenAutomaticCheck(BaseModel):
         ):
             raise ValueError("Automatic decisions require model and photo evidence")
         return self
+
+
+GardenDomesticOrigin = Literal["bird_detection", "garden_check", "moved_from_birds"]
+
+
+class GardenDomesticRoute(BaseModel):
+    """Why a Garden capture is a domestic bird the owner keeps, with the evidence that said so."""
+
+    domestic_bird: DomesticBirdKey
+    origin: GardenDomesticOrigin
+    source_label: str = Field(min_length=1, max_length=256)
+    source_scientific_name: str | None = Field(None, max_length=256)
+    source_score: float | None = Field(None, ge=0, le=1)
+    source_model: str | None = Field(None, max_length=256)
+    detection_id: int | None = None
+    routed_at: str
 
 
 class GardenPhotoCheckRequest(BaseModel):

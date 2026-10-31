@@ -443,6 +443,7 @@ async def test_automatic_result_is_visible_only_in_private_garden_api(context, m
 
 
 DOMESTIC_CAT = 1806
+UNCERTAIN_MASS = {"bird": 0.05, "animal": 0.6, "human": 0.0, "non_animal": 0.3, "other": 0.05}
 JUNGLE_CAT = 893
 HUMAN = 916
 
@@ -583,9 +584,12 @@ async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, m
         c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
     await c.service.process_once()
     result = await capture(c.capture_id)
-    assert result.status == ("dismissed" if reason == "below_threshold" else "pending")
+    # A confident animal with a low species score is still an animal: it waits for a person.
+    assert result.status == "pending"
     assert result.identification is None
     assert result.automatic_check.outcome == "animal"
+    if reason == "below_threshold":
+        assert result.automatic_check.decision_reason == "below_threshold"
 
 
 @pytest.mark.asyncio
@@ -680,9 +684,10 @@ async def test_automatic_check_explains_actual_cpu_fallback(context, monkeypatch
 
 
 @pytest.mark.asyncio
-async def test_low_confidence_is_soft_dismissed_with_score_and_device_evidence(naming):
+async def test_low_confidence_uncertain_photo_is_soft_dismissed_with_score_and_device_evidence(naming):
     c = naming
     c.native.return_value["predictions"][0][1] = 0.79
+    c.native.return_value["assessment"]["mass"] = UNCERTAIN_MASS
     await c.service.process_once()
     result = await capture(c.capture_id)
     assert result.status == "dismissed"
@@ -802,6 +807,7 @@ async def test_automatic_results_invalidate_owner_history_only_after_committed_c
     c = naming
     if outcome == "dismissed":
         c.native.return_value["predictions"][0][1] = 0.6
+        c.native.return_value["assessment"]["mass"] = UNCERTAIN_MASS
     elif outcome == "unavailable":
         c.native.side_effect = TimeoutError()
     elif outcome == "person":
@@ -869,3 +875,81 @@ async def test_automatic_naming_nine_minutes_after_the_sighting_sends_its_alert_
     channel, sent, attachment = sender.call_args.args
     assert channel == "telegram" and sent.identification.name == "domestic cat" and attachment == b"crop"
     assert (await service.status_counts())["sent"] == 1
+
+
+DOMESTIC_CHICKEN = 1682
+RED_JUNGLEFOWL = 977
+OWNER_BIRD_MASS = {"bird": 0.88, "animal": 0.12, "human": 0.0, "non_animal": 0.0, "other": 0.0}
+
+
+def chicken_photo(c, top=DOMESTIC_CHICKEN, score=0.9, mass=OWNER_BIRD_MASS):
+    c.native.return_value["assessment"]["mass"] = dict(mass)
+    c.native.return_value["predictions"] = [[top, score], [DOMESTIC_CAT, 0.02], [1, 0.01], [2, 0.01], [3, 0.005]]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bird_cameras", [["patio", "feeder"], ["feeder"]])
+async def test_a_declared_chicken_is_confirmed_and_named_on_any_garden_camera(naming, monkeypatch, bird_cameras):
+    c = naming
+    monkeypatch.setattr(settings.frigate, "camera", bird_cameras)
+    monkeypatch.setattr(settings.frigate, "garden_domestic_birds", ["chicken"])
+    chicken_photo(c, top=RED_JUNGLEFOWL)
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "confirmed" and result.automatic_check.outcome == "animal"
+    # Named by the bird the owner keeps, with SpeciesNet's own label kept as evidence.
+    assert result.domestic_route.domestic_bird == "chicken" and result.domestic_route.origin == "garden_check"
+    assert result.domestic_route.source_label == "red junglefowl"
+    assert result.identification.automatic and not result.identification.geofenced
+    async with get_db() as db:
+        await GardenRepository(db).review_identification(c.capture_id, "dismissed")
+    assert (await capture(c.capture_id)).domestic_route is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("bird_cameras", "reason"), [([], "bird_camera"), (["feeder"], "wild_bird")])
+async def test_an_undeclared_bird_is_dismissed_with_who_handles_it_and_a_chicken_suggestion(
+    naming, monkeypatch, bird_cameras, reason
+):
+    c = naming
+    monkeypatch.setattr(settings.frigate, "camera", bird_cameras)
+    monkeypatch.setattr(settings.frigate, "garden_domestic_birds", [])
+    chicken_photo(c)
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed" and result.automatic_check.outcome == "bird"
+    assert result.automatic_check.decision_reason == reason
+    assert result.automatic_check.domestic_candidate == "chicken"
+    assert result.identification is None and result.domestic_route is None
+
+
+@pytest.mark.asyncio
+async def test_owner_uncertain_chicken_photo_follows_the_bird_route_reason(naming, monkeypatch):
+    c = naming
+    monkeypatch.setattr(settings.frigate, "camera", ["feeder"])
+    monkeypatch.setattr(settings.frigate, "garden_domestic_birds", [])
+    # The owner's dismissed greenhouse check: mostly bird, low species score.
+    chicken_photo(c, score=0.2, mass={"bird": 0.65, "animal": 0.28, "human": 0.05, "non_animal": 0.01, "other": 0.01})
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed"
+    assert (result.automatic_check.outcome, result.automatic_check.decision_reason) == ("uncertain", "wild_bird")
+
+
+@pytest.mark.asyncio
+async def test_declaring_a_bird_during_inference_prevents_a_stale_decision(naming, monkeypatch):
+    c = naming
+    monkeypatch.setattr(settings.frigate, "garden_domestic_birds", [])
+    chicken_photo(c)
+    original = c.native.side_effect
+
+    async def declare(*args, **kwargs):
+        settings.frigate.garden_domestic_birds = ["chicken"]
+        return c.native.return_value
+
+    c.native.side_effect = declare
+    try:
+        await c.service.process_once()
+    finally:
+        c.native.side_effect = original
+    assert (await capture(c.capture_id)).status == "pending"

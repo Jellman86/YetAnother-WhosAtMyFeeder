@@ -2026,7 +2026,7 @@
       "garden_naming_off": "Chaque animal attend dans À vérifier que vous le confirmiez et le nommiez.",
       "garden_naming_threshold_help": "De 70 % à 99 %. Une valeur plus élevée nomme automatiquement moins d’animaux et rejette davantage de photos peu sûres. Les vérifications de personnes restent inchangées.",
       "garden_naming_threshold": "Seuil de nommage",
-      "garden_naming_help": "Animal sûr. Confirmé et nommé automatiquement ; écartez la capture ou le nom si l’un des deux est faux. Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",
+      "garden_naming_help": "Les animaux qui atteignent cette confiance d’espèce sont confirmés et nommés automatiquement. Un animal sous le seuil attend dans À vérifier ; une photo incertaine sous le seuil passe dans Rejetées et peut être restaurée. Les vérifications échouées sont relancées ; un pays ou une identité de catalogue manquants sont expliqués.",
       "garden_naming": "Nommer les animaux automatiquement",
       "garden_requirements": "Nécessite des caméras Frigate qui suivent des animaux ou conservent des enregistrements de mouvement. Animaux du jardin télécharge ses propres modèles uniquement à votre demande : 224 Mo pour les vérifications automatiques, plus un modèle facultatif de 224 Mo pour les suggestions d’espèces et un détecteur de mouvement facultatif de 101 Mo. Votre modèle d’oiseaux n’est pas modifié.",
       "garden_setup": "Configurer Animaux du jardin",
@@ -2063,9 +2063,9 @@
       "garden_country_missing": "Indiquez un pays dans Paramètres → Localisation. Sans pays, les animaux ne sont pas nommés automatiquement et les suggestions d’espèces sont indisponibles.",
       "garden_models_refresh": "Actualiser l’état des modèles",
       "garden_outcomes": "Où vont les captures",
-      "garden_outcome_pending": "Animal détecté. Définissez un pays dans Paramètres → Localisation pour le nommer automatiquement. Animal détecté, mais son nom ne peut pas être lié au catalogue local. Aucun nom automatique enregistré. La vérification automatique était indisponible. La photo reste à vérifier ; une nouvelle tentative aura lieu après cinq minutes si Jardin est activé.",
+      "garden_outcome_pending": "Vérifications en attente, vérifications échouées en attente d’une nouvelle tentative, configuration ou identité de catalogue manquantes, animaux dont l’espèce est sous le seuil de nommage et décisions du propriétaire.",
       "garden_outcome_confirmed": "Animaux que vous confirmez et animaux reconnus avec assurance nommés automatiquement. Un nom automatique est signalé comme tel et peut être retiré.",
-      "garden_outcome_dismissed": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier. Oiseau suggéré. Les captures avec seulement des oiseaux vont dans Rejetées ; remettez la photo à vérifier si ce résultat est faux. Scène vide ou véhicule suggéré. Ces captures vont dans Rejetées ; remettez la photo à vérifier si ce résultat est faux.",
+      "garden_outcome_dismissed": "Captures que vous rejetez, photos incertaines sous le seuil de nommage et photos dont la vérification est sûre qu’elles montrent un oiseau que vous n’élevez pas, rien ou un véhicule. Remettre à vérifier en restaure une tant que sa photo existe.",
       "garden_outcome_person": "Une capture présentant des indices de personne est supprimée avec sa photo. Les visites du jardin ne comptent jamais comme des oiseaux et n’atteignent ni les notifications ni les exports d’oiseaux.",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "État de la collecte",
@@ -2078,7 +2078,14 @@
       "garden_cameras_open": "Choisir les caméras dans Connexion",
       "garden_alerts_on": "Les alertes du jardin sont activées. Elles se règlent dans Notifications, avec leurs canaux.",
       "garden_alerts_off": "Les alertes du jardin sont désactivées. Activez-les dans Notifications, avec leurs canaux.",
-      "garden_alerts_open": "Régler les alertes"
+      "garden_alerts_open": "Régler les alertes",
+      "garden_domestic_birds": "Oiseaux domestiques que vous élevez",
+      "garden_domestic_birds_help": "Ils sont enregistrés comme animaux du jardin, et non comme oiseaux sauvages, et ne sont jamais envoyés à eBird, BirdWeather ou iNaturalist.",
+      "garden_domestic_birds_wild": "Rien n’est considéré comme domestique tant que vous ne l’ajoutez pas. Les canards colverts, oies cendrées, dindons sauvages et pigeons bisets vivent aussi à l’état sauvage et sont ensuite enregistrés comme vos oiseaux sur chaque caméra.",
+      "garden_domestic_birds_remove": "Retirer {bird}",
+      "garden_domestic_birds_none": "Aucun pour l’instant. Les poules et les autres oiseaux que vous élevez sont traités comme des oiseaux sauvages.",
+      "garden_domestic_birds_add": "Ajouter un oiseau domestique",
+      "garden_domestic_birds_choose": "Choisir un oiseau"
     },
     "native_revalidation": {
       "title": "Vérifier le profil en quarantaine",
@@ -2817,6 +2824,10 @@
       "frames_unit": "images"
     },
     "identified_by_owner": "Identifié par le propriétaire",
+    "moved_to_garden": "Déplacé dans Jardin. La fiche d’oiseau est masquée ; affichez-la de nouveau depuis Masquées pour la restaurer.",
+    "move_to_garden_failed": "Impossible de déplacer cette fiche dans Jardin : {message}",
+    "domestic_bird_declared": "C’est un oiseau de type {bird}, un oiseau domestique que vous élevez. Déplacez-le dans Jardin pour l’enregistrer comme animal du jardin. Cette fiche d’oiseau est masquée, pas supprimée.",
+    "move_to_garden": "Déplacer dans Jardin",
     "range_fallback": "Filtre d'aire : le modèle a d'abord proposé {original} ({score} %), jamais signalé par eBird dans {region}, sa réponse suivante dans l'aire a donc été gardée."
   },
   "events": {
@@ -3958,7 +3969,7 @@
     "restore": "Renvoyer à la vérification",
     "title": "Animaux du jardin",
     "labels": "Étiquettes animales Frigate",
-    "labels_help": "Étiquettes animales suivies par Frigate, séparées par des virgules, par exemple cat, dog ou squirrel. Oiseaux, personnes et véhicules sont exclus.",
+    "labels_help": "Étiquettes d’animaux suivies par Frigate, séparées par des virgules, par exemple cat, dog ou squirrel. Les oiseaux, personnes et véhicules sont exclus ; ajoutez les poules et autres oiseaux que vous élevez dans Oiseaux domestiques que vous élevez.",
     "catalogue_unavailable": "Les données des espèces du jardin sont indisponibles. Vérifiez le diagnostic de démarrage.",
     "country_missing": "Indiquez un pays reconnu ou un code ISO dans Paramètres → Localisation",
     "discard_identification": "Supprimer l’identification",
@@ -4096,7 +4107,10 @@
       "subjects_short_all": "Les deux",
       "subjects_short_garden": "Animaux du jardin",
       "play_clip": "Lire le clip de {name}",
-      "play_clip_short": "Lire le clip"
+      "play_clip_short": "Lire le clip",
+      "state_below_threshold": "Animal détecté, espèce sous le seuil de nommage",
+      "state_domestic": "Nommé automatiquement comme oiseau domestique que vous élevez",
+      "state_domestic_moved": "Déplacé depuis les oiseaux comme oiseau domestique que vous élevez"
     },
     "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
     "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",
@@ -4110,7 +4124,10 @@
     "named_from": {
       "motion_crop": "Nommé à partir du recadrage de l’animal dans la séquence de mouvement",
       "tracked_crop": "Nommé à partir de l’animal suivi par Frigate dans l’instantané",
-      "whole_image": "Nommé à partir de la photo entière, il peut donc ne pas désigner un seul animal"
+      "whole_image": "Nommé à partir de la photo entière, il peut donc ne pas désigner un seul animal",
+      "domestic_bird_model": "Un oiseau domestique que vous élevez, reconnu par le modèle d’oiseaux",
+      "domestic_moved": "Un oiseau domestique que vous élevez, déplacé depuis l’historique des oiseaux. La fiche d’oiseau est masquée",
+      "domestic_garden": "Un oiseau domestique que vous élevez, reconnu par la vérification automatique"
     },
     "visit_dismiss": "{count, plural, one {Écarter # capture de cette visite} other {Écarter # captures de cette visite}}",
     "visit_dismiss_limit": "Les visites de plus de 128 captures doivent être écartées capture par capture.",
@@ -4131,7 +4148,36 @@
       "chosen_by_owner": "Espèce choisie par le propriétaire"
     },
     "entry_dismiss_mixed": "Ces captures ont des états de vérification différents. Écartez-les une par une.",
-    "capture_link_unavailable": "Cette capture du jardin n’est plus disponible ou n’est pas partagée ici."
+    "capture_link_unavailable": "Cette capture du jardin n’est plus disponible ou n’est pas partagée ici.",
+    "domestic_birds": {
+      "name": {
+        "chicken": "Poule",
+        "domestic_duck": "Canard domestique",
+        "domestic_goose": "Oie domestique",
+        "turkey": "Dindon",
+        "guinea_fowl": "Pintade",
+        "peafowl": "Paon",
+        "domestic_pigeon": "Pigeon ou tourterelle domestique",
+        "quail": "Caille"
+      },
+      "kind": {
+        "chicken": "Poules",
+        "domestic_duck": "Canards domestiques",
+        "domestic_goose": "Oies domestiques",
+        "turkey": "Dindons",
+        "guinea_fowl": "Pintades",
+        "peafowl": "Paons",
+        "domestic_pigeon": "Pigeons ou tourterelles domestiques",
+        "quail": "Cailles"
+      },
+      "suggestion": "Cela ressemble à un oiseau domestique : {birds}. Si vous en élevez, ajoutez-les dans Oiseaux domestiques que vous élevez pour les enregistrer comme animaux du jardin, et non comme oiseaux sauvages.",
+      "suggestion_open": "Ouvrir Oiseaux domestiques que vous élevez",
+      "suggestion_dismiss": "Pas maintenant"
+    },
+    "automatic_animal_below_threshold": "Animal détecté, mais son score d’espèce est sous le seuil de nommage. Il attend dans À vérifier : confirmez-le et choisissez une espèce, ou rejetez-le.",
+    "automatic_bird_camera": "Oiseau, pris en charge par la détection d’oiseaux sur cette caméra. Déplacé dans Rejetées ; remettez la photo à vérifier si ce n’est pas un oiseau.",
+    "automatic_wild_bird": "Oiseau sauvage. Activez les oiseaux pour cette caméra pour l’enregistrer. Déplacé dans Rejetées ; remettez la photo à vérifier si la vérification est fausse.",
+    "motion_unreadable": "{count, plural, one {# enregistrement n’a pas pu être lu} other {# enregistrements n’ont pas pu être lus}} sur {camera} au cours de la dernière heure et {count, plural, one {a été ignoré} other {ont été ignorés}}. Aucune photo n’a été conservée."
   },
   "model_execution": {
     "completed": "Dernière exécution terminée : {device} · {time}",

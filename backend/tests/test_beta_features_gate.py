@@ -66,7 +66,8 @@ async def test_switched_off_garden_still_removes_photos_a_person_event_covers(ga
     await garden_capture_service.process(PERSON_EVENT)
     overlap.assert_awaited_once()
     block.assert_awaited_once()
-    assert block.await_args.kwargs == {"create": False}
+    # A person revokes every capture of the event, a domestic bird's included.
+    assert block.await_args.kwargs == {"create": False, "keep_domestic": False}
 
 
 def test_switched_off_garden_does_not_route_animal_events_from_mqtt(garden_cameras, beta):

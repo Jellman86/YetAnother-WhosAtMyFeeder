@@ -52,6 +52,10 @@ export async function reviewGarden(id: string, action: 'confirm' | 'dismiss' | '
     return handleResponse<GardenCapture>(response);
 }
 
+export async function fetchGardenDomesticBirds(signal?: AbortSignal): Promise<components['schemas']['GardenDomesticBirdOption'][]> {
+    return handleResponse<components['schemas']['GardenDomesticBirdOption'][]>(await apiFetch(`${API_BASE}/garden/domestic-birds`, { signal }));
+}
+
 export async function fetchGardenIdentification(signal: AbortSignal): Promise<GardenIdentificationStatus> {
     return handleResponse<GardenIdentificationStatus>(await apiFetch(`${API_BASE}/garden/identification`, { signal }));
 }

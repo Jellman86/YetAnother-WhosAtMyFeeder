@@ -2026,7 +2026,7 @@
       "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
       "garden_naming_threshold_help": "从 70% 到 99%。值越高，自动命名的动物越少，被忽略的低置信度照片越多。人物检查不变。",
       "garden_naming_threshold": "命名阈值",
-      "garden_naming_help": "动物结果可信。已自动确认并命名；如有错误，请驳回该捕获或舍弃名称。 低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
+      "garden_naming_help": "达到此物种置信度的动物会被自动确认并命名。低于阈值的动物会在“待审核”中等待；低于阈值的不确定照片会移到“已忽略”，并可恢复。失败的检查会重试；缺少国家或目录身份时会说明原因。",
       "garden_naming": "自动为动物命名",
       "garden_requirements": "需要能跟踪动物或保留运动录像的 Frigate 摄像头。花园动物只在你要求时下载专用模型：自动检查需要 224 MB，另有可选的 224 MB 物种建议模型和可选的 101 MB 运动检测器。你的鸟类模型不会改变。",
       "garden_setup": "设置花园动物",
@@ -2063,9 +2063,9 @@
       "garden_country_missing": "请在设置 → 位置中设置国家。没有国家时，动物不会被自动命名，物种建议也不可用。",
       "garden_models_refresh": "刷新模型状态",
       "garden_outcomes": "捕获的去向",
-      "garden_outcome_pending": "已检测到动物。请在“设置 → 位置”中指定国家，以便自动命名。 已检测到动物，但无法将名称关联到本地目录。未保存自动名称。 自动检查暂不可用。照片保持待审核；花园功能开启时，将在五分钟后重试。",
+      "garden_outcome_pending": "等待运行的检查、等待重试的失败检查、缺少设置或目录身份、物种低于命名阈值的动物，以及所有者覆盖。",
       "garden_outcome_confirmed": "你确认的动物，以及被自动命名的有把握的动物。自动名称会标记为自动，并且可以丢弃。",
-      "garden_outcome_dismissed": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。 结果提示为鸟类。仅含鸟类的照片会移至已忽略；如果有误，请将照片恢复为待审核。 结果提示为空场景或车辆。这些照片会移至已忽略；如果有误，请将照片恢复为待审核。",
+      "garden_outcome_dismissed": "您忽略的捕获、低于命名阈值的不确定照片，以及检查确定显示的是您未饲养的鸟、空场景或车辆的照片。只要照片仍在，“返回审核”即可恢复。",
       "garden_outcome_person": "带有人物迹象的捕获会连同照片一起删除。花园访问永远不会计为鸟类，也不会进入鸟类通知或导出。",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "收集状态",
@@ -2078,7 +2078,14 @@
       "garden_cameras_open": "在“连接”中选择摄像头",
       "garden_alerts_on": "花园提醒已开启，在“通知”中与其渠道一起设置。",
       "garden_alerts_off": "花园提醒已关闭，请在“通知”中与其渠道一起开启。",
-      "garden_alerts_open": "设置提醒"
+      "garden_alerts_open": "设置提醒",
+      "garden_domestic_birds": "您饲养的家禽",
+      "garden_domestic_birds_help": "这些会被记录为花园动物，而不是野鸟，并且绝不会发送到 eBird、BirdWeather 或 iNaturalist。",
+      "garden_domestic_birds_wild": "在您添加之前，任何鸟都不算家禽。绿头鸭、灰雁、野火鸡和原鸽也有野生种群，添加后它们在所有摄像头上都会被记录为您的鸟。",
+      "garden_domestic_birds_remove": "移除{bird}",
+      "garden_domestic_birds_none": "暂无。鸡和您饲养的其他鸟会被当作野鸟处理。",
+      "garden_domestic_birds_add": "添加家禽",
+      "garden_domestic_birds_choose": "选择一种鸟"
     },
     "native_revalidation": {
       "title": "检查隔离的配置",
@@ -2817,6 +2824,10 @@
       "frames_unit": "帧"
     },
     "identified_by_owner": "由所有者识别",
+    "moved_to_garden": "已移至花园。该鸟类记录已隐藏；在“已隐藏”中重新显示即可恢复。",
+    "move_to_garden_failed": "无法将此记录移至花园：{message}",
+    "domestic_bird_declared": "这是您饲养的家禽（{bird}）。将其移至花园即可记录为花园动物。此鸟类记录会被隐藏，而不是删除。",
+    "move_to_garden": "移至花园",
     "range_fallback": "分布范围筛选：模型最初给出的是 {original}（{score}%），eBird 从未在 {region} 记录过，因此保留了它在分布范围内的下一个答案。"
   },
   "events": {
@@ -3958,7 +3969,7 @@
     "restore": "返回审核",
     "title": "花园动物",
     "labels": "Frigate 动物标签",
-    "labels_help": "用逗号分隔 Frigate 跟踪的动物标签，例如 cat、dog 或 squirrel。鸟类、人和车辆不在此范围内。",
+    "labels_help": "Frigate 跟踪的动物标签，用逗号分隔，例如 cat、dog 或 squirrel。鸟、人和车辆不包括在内；请在“您饲养的家禽”中添加鸡和其他饲养的鸟。",
     "catalogue_unavailable": "庭院物种数据不可用。请检查应用启动诊断。",
     "country_missing": "请在设置 → 位置中填写可识别的国家名称或ISO代码",
     "discard_identification": "撤销识别结果",
@@ -4096,7 +4107,10 @@
       "subjects_short_all": "全部",
       "subjects_short_garden": "花园动物",
       "play_clip": "播放 {name} 的片段",
-      "play_clip_short": "播放片段"
+      "play_clip_short": "播放片段",
+      "state_below_threshold": "已检测到动物；物种低于命名阈值",
+      "state_domestic": "已自动命名为您饲养的家禽",
+      "state_domestic_moved": "已作为您饲养的家禽从鸟类中移出"
     },
     "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
     "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",
@@ -4110,7 +4124,10 @@
     "named_from": {
       "motion_crop": "根据运动录像中的动物裁剪命名",
       "tracked_crop": "根据快照中 Frigate 跟踪的动物命名",
-      "whole_image": "根据整张照片命名，因此可能并非指某一只动物"
+      "whole_image": "根据整张照片命名，因此可能并非指某一只动物",
+      "domestic_bird_model": "由鸟类模型识别的您饲养的家禽",
+      "domestic_moved": "从鸟类记录中移出的您饲养的家禽；该鸟类记录已隐藏",
+      "domestic_garden": "由自动检查识别的您饲养的家禽"
     },
     "visit_dismiss": "{count, plural, other {忽略本次到访的 # 张照片}}",
     "visit_dismiss_limit": "超过 128 张照片的到访需要逐张忽略。",
@@ -4131,7 +4148,36 @@
       "chosen_by_owner": "由所有者选择的物种"
     },
     "entry_dismiss_mixed": "这里的捕获处于不同的审核状态。请逐个忽略。",
-    "capture_link_unavailable": "此花园捕获已不可用，或未在此处共享。"
+    "capture_link_unavailable": "此花园捕获已不可用，或未在此处共享。",
+    "domestic_birds": {
+      "name": {
+        "chicken": "鸡",
+        "domestic_duck": "家鸭",
+        "domestic_goose": "家鹅",
+        "turkey": "火鸡",
+        "guinea_fowl": "珍珠鸡",
+        "peafowl": "孔雀",
+        "domestic_pigeon": "家鸽或家养斑鸠",
+        "quail": "鹌鹑"
+      },
+      "kind": {
+        "chicken": "鸡",
+        "domestic_duck": "家鸭",
+        "domestic_goose": "家鹅",
+        "turkey": "火鸡",
+        "guinea_fowl": "珍珠鸡",
+        "peafowl": "孔雀",
+        "domestic_pigeon": "家鸽或家养斑鸠",
+        "quail": "鹌鹑"
+      },
+      "suggestion": "这看起来像家禽：{birds}。如果您饲养它们，请在“您饲养的家禽”中添加，以便将其记录为花园动物，而不是野鸟。",
+      "suggestion_open": "打开“您饲养的家禽”",
+      "suggestion_dismiss": "暂不"
+    },
+    "automatic_animal_below_threshold": "已检测到动物，但其物种分数低于命名阈值。它在“待审核”中等待：请确认并选择物种，或忽略它。",
+    "automatic_bird_camera": "鸟，由此摄像头上的鸟类检测处理。已移到“已忽略”；如果不是鸟，请将照片返回审核。",
+    "automatic_wild_bird": "野鸟。要记录它，请为此摄像头开启鸟类检测。已移到“已忽略”；如果检查有误，请将照片返回审核。",
+    "motion_unreadable": "过去一小时内，{camera} 上有 {count, plural, other {# 段录像}}无法读取，已跳过。未保留任何照片。"
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

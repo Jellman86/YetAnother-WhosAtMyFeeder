@@ -56,7 +56,10 @@ def box_motion_ratio(frames: list[np.ndarray], box_xywh: object) -> float | None
 
 
 def motion_scan_interval(outcome: str | None, queued_windows: int) -> int:
-    if outcome in {"candidate", "no_candidate", "person_rejected", "still_rejected"} and queued_windows > 0:
+    if (
+        outcome in {"candidate", "no_candidate", "person_rejected", "still_rejected", "unusable_recording"}
+        and queued_windows > 0
+    ):
         return MOTION_CATCHUP_INTERVAL_SECONDS
     return MOTION_INTERVAL_SECONDS
 

@@ -9,6 +9,8 @@ import math
 import re
 from typing import Literal, Mapping, Sequence
 
+from app.services.garden_domestic_birds import domestic_bird_for_speciesnet
+
 
 @dataclass(frozen=True)
 class Taxon:
@@ -40,6 +42,8 @@ class GardenPolicy:
     labels: frozenset[str] = field(default_factory=frozenset)
     min_confidence: float = 0.7
     human_threshold: float = 0.1
+    # Domestic birds the owner keeps: named like any other animal instead of excluded as birds.
+    domestic_birds: frozenset[str] = field(default_factory=frozenset)
 
     def __post_init__(self) -> None:
         if not 0 < self.min_confidence <= 1 or not 0 < self.human_threshold <= 1:
@@ -204,13 +208,15 @@ def decide_prediction(
     if predictions[0][0].human or any(taxon.human and score >= policy.human_threshold for taxon, score in predictions):
         return GardenDecision("human_rejected")
     taxon, score = predictions[0]
-    if taxon.bird:
+    kept = taxon.bird and domestic_bird_for_speciesnet(taxon.id) in policy.domestic_birds
+    if taxon.bird and not kept:
         return GardenDecision("bird_excluded")
     if not taxon.animal:
         return GardenDecision("non_animal")
     if score < policy.min_confidence:
         return GardenDecision("low_confidence")
-    geofenced = _blocked(taxon, country, geofence)
+    # A kept bird lives where its owner keeps it, so its wild range cannot rename it.
+    geofenced = not kept and _blocked(taxon, country, geofence)
     if geofenced:
         by_key = {item.key: item for item in taxonomy if item.animal}
         # Retain only the winner's ancestry. A geographically plausible

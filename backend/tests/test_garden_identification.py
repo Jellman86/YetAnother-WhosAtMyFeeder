@@ -166,6 +166,36 @@ async def test_request_cancellation_reaps_the_native_worker():
     assert process.returncode == -15
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("returncode", "output", "signal_name", "error_type"),
+    [
+        (1, b"WORKER_ERROR:ValueError\n", None, "ValueError"),
+        (-11, b"", "SIGSEGV", None),
+        (1, b"WORKER_ERROR:../x\n", None, None),
+    ],
+)
+async def test_failed_worker_reports_its_exit_code_signal_and_named_error(returncode, output, signal_name, error_type):
+    from app.services.garden_identification import (
+        GardenNativeWorkerFailed,
+        supervise_worker,
+        worker_failure_fields,
+    )
+
+    process = AsyncMock()
+    process.returncode = returncode
+    process.communicate = AsyncMock(return_value=(output, b""))
+    with pytest.raises(GardenNativeWorkerFailed) as raised:
+        await supervise_worker(process, lambda: False, poll_seconds=0.001)
+    # A Python exception (exit 1) and a native fault (SIGSEGV) are told apart, never merged.
+    assert worker_failure_fields(raised.value) == {
+        "exit_code": returncode,
+        "signal": signal_name,
+        "worker_error": error_type,
+    }
+    assert worker_failure_fields(ValueError("other")) == {}
+
+
 def test_provider_contract_matches_the_strict_native_runtime():
     from app.models.garden import GardenIdentifyRequest
 

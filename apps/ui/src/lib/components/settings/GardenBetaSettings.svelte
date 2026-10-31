@@ -14,6 +14,7 @@
     import GardenModelSetup from './GardenModelSetup.svelte';
     import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from '../../utils/garden-threshold';
     import { formatCameraList, gardenMotionWithinGarden } from '../../utils/camera-watch';
+    import { DOMESTIC_BIRD_KEYS, domesticBirdKind, type DomesticBirdKey } from '../../utils/domestic-birds';
 
     interface Props {
         enabled: boolean;
@@ -26,6 +27,8 @@
         /** Whether Garden alerts are on, as the page holds it; they are set up in Notifications. */
         notificationsEnabled?: boolean;
         namingThreshold: number;
+        /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
+        domesticBirds?: DomesticBirdKey[];
         /** The saved threshold, so a calibrated value keeps its own precision while edited. */
         savedMotionConfidence?: number;
         onNavigate?: (path: string) => void;
@@ -44,6 +47,7 @@
         automaticNaming = $bindable(true),
         notificationsEnabled = false,
         namingThreshold = $bindable(0.8),
+        domesticBirds = $bindable([]),
         savedMotionConfidence,
         onNavigate,
         onOpenCameras,
@@ -52,6 +56,15 @@
 
     const collectingMotion = $derived(gardenMotionWithinGarden(cameras, motionCameras));
     const listLocale = $derived($locale ?? 'en');
+    const addableBirds = $derived(DOMESTIC_BIRD_KEYS.filter((key) => !domesticBirds.includes(key)));
+    const kind = (key: DomesticBirdKey): string => domesticBirdKind(key, (id, options) => $_(id, options));
+
+    function addDomesticBird(event: Event): void {
+        const select = event.currentTarget as HTMLSelectElement;
+        const key = DOMESTIC_BIRD_KEYS.find((candidate) => candidate === select.value);
+        if (key && !domesticBirds.includes(key)) domesticBirds = [...domesticBirds, key];
+        select.value = '';
+    }
 </script>
 
 <SettingsRow
@@ -107,7 +120,7 @@
             <SettingsRow
                 labelId="setting-garden-labels"
                 label={$_('garden.labels', { default: 'Frigate animal labels' })}
-                description={$_('garden.labels_help', { default: 'Comma-separated animal labels tracked by Frigate, for example cat, dog or squirrel. Birds, people and vehicles are excluded.' })}
+                description={$_('garden.labels_help', { default: 'Comma-separated animal labels tracked by Frigate, for example cat, dog or squirrel. Birds, people and vehicles are excluded; add chickens and other birds you keep under Domestic birds you keep.' })}
                 descriptionId="garden-label-help"
                 layout="stacked"
             >
@@ -146,13 +159,57 @@
             </SettingsRow>
         </section>
 
+        <section class="space-y-2" aria-labelledby="garden-domestic-birds" data-garden-domestic-birds>
+            <h4 id="garden-domestic-birds" class="text-sm font-semibold text-slate-900 dark:text-white">
+                {$_('settings.beta.garden_domestic_birds', { default: 'Domestic birds you keep' })}
+            </h4>
+            <p id="garden-domestic-birds-help" class="text-xs text-slate-600 dark:text-slate-400">
+                {$_('settings.beta.garden_domestic_birds_help', { default: 'These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.' })}
+            </p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">
+                {$_('settings.beta.garden_domestic_birds_wild', { default: 'Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.' })}
+            </p>
+            {#if domesticBirds.length > 0}
+                <ul class="flex flex-wrap gap-2" aria-label={$_('settings.beta.garden_domestic_birds', { default: 'Domestic birds you keep' })} data-garden-domestic-chips>
+                    {#each domesticBirds as key (key)}
+                        <li class="inline-flex items-center gap-1 rounded-full border border-line-soft bg-slate-50 pl-3 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100">
+                            {kind(key)}
+                            <button
+                                type="button"
+                                class="btn btn-ghost min-h-11 min-w-11 rounded-full px-2"
+                                aria-label={$_('settings.beta.garden_domestic_birds_remove', { default: 'Remove {bird}', values: { bird: kind(key) } })}
+                                onclick={() => (domesticBirds = domesticBirds.filter((value) => value !== key))}
+                            >
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+                            </button>
+                        </li>
+                    {/each}
+                </ul>
+            {:else}
+                <p class="text-xs text-slate-600 dark:text-slate-400" data-garden-domestic-none>
+                    {$_('settings.beta.garden_domestic_birds_none', { default: 'None yet. Chickens and other birds you keep are treated as wild birds.' })}
+                </p>
+            {/if}
+            {#if addableBirds.length > 0}
+                <label class="block max-w-sm space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                    <span>{$_('settings.beta.garden_domestic_birds_add', { default: 'Add a domestic bird' })}</span>
+                    <select class="select-base w-full" value="" onchange={addDomesticBird} aria-describedby="garden-domestic-birds-help" data-garden-domestic-add>
+                        <option value="" disabled>{$_('settings.beta.garden_domestic_birds_choose', { default: 'Choose a bird' })}</option>
+                        {#each addableBirds as key (key)}
+                            <option value={key}>{kind(key)}</option>
+                        {/each}
+                    </select>
+                </label>
+            {/if}
+        </section>
+
         <GardenModelSetup motionCameras={collectingMotion} />
 
         <div class="space-y-3" data-garden-naming>
             <SettingsRow
                 labelId="setting-garden-naming"
                 label={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                description={$_('settings.beta.garden_naming_help', { default: 'When the automatic check is at least this sure of an animal, it is confirmed and named for you, marked as automatic. You can discard the name or dismiss the capture. Below the threshold it moves to Dismissed and can be restored.' })}
+                description={$_('settings.beta.garden_naming_help', { default: 'Animals reaching this species confidence are confirmed and named automatically. An animal below the threshold waits in Needs review; an uncertain photo below it moves to Dismissed and can be restored. Failed checks retry; missing country or catalogue identity is explained.' })}
             >
                 <SettingsToggle
                     checked={automaticNaming}
@@ -209,7 +266,7 @@
             <dl class="space-y-2 text-xs text-slate-600 dark:text-slate-400">
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.pending', { default: 'Needs review' })}</dt>
-                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, and owner overrides. Low-confidence completed checks move to Dismissed.' })}</dd>
+                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, animals whose species is below the naming threshold, and owner overrides.' })}</dd>
                 </div>
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.confirmed', { default: 'Confirmed animals' })}</dt>
@@ -217,7 +274,7 @@
                 </div>
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.dismissed', { default: 'Dismissed' })}</dt>
-                    <dd>{$_('settings.beta.garden_outcome_dismissed', { default: 'Captures you dismiss, and photos the check is confident show only a bird, nothing or a vehicle. Return to review restores one while its photo remains.' })}</dd>
+                    <dd>{$_('settings.beta.garden_outcome_dismissed', { default: 'Captures you dismiss, uncertain photos below the naming threshold, and photos the check is confident show a bird you do not keep, nothing or a vehicle. Return to review restores one while its photo remains.' })}</dd>
                 </div>
             </dl>
             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_outcome_person', { default: 'A capture with person evidence is removed with its photo. Garden visits never count as birds or reach bird notifications and exports.' })}</p>

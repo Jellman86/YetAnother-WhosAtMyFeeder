@@ -2036,7 +2036,7 @@
       "garden_naming_off": "Ogni animale resta in Da controllare finché non lo confermi e gli assegni un nome.",
       "garden_naming_threshold_help": "Da 70% a 99%. Valori più alti assegnano automaticamente il nome a meno animali e scartano più foto poco sicure. I controlli sulle persone restano invariati.",
       "garden_naming_threshold": "Soglia per il nome",
-      "garden_naming_help": "Animale sicuro. Confermato e nominato automaticamente; scarta la cattura o il nome se uno dei due è sbagliato. Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",
+      "garden_naming_help": "Gli animali che raggiungono questa confidenza di specie vengono confermati e nominati automaticamente. Un animale sotto la soglia attende in Da rivedere; una foto incerta sotto la soglia passa in Scartate e può essere ripristinata. I controlli non riusciti vengono ripetuti; un paese o un'identità di catalogo mancanti vengono spiegati.",
       "garden_naming": "Assegna i nomi agli animali automaticamente",
       "garden_requirements": "Richiede telecamere Frigate che seguono animali o conservano registrazioni di movimento. Animali del giardino scarica i propri modelli solo quando lo chiedi: 224 MB per i controlli automatici, più un modello facoltativo da 224 MB per i suggerimenti sulle specie e un rilevatore di movimento facoltativo da 101 MB. Il tuo modello per gli uccelli non cambia.",
       "garden_setup": "Configura Animali del giardino",
@@ -2073,9 +2073,9 @@
       "garden_country_missing": "Imposta un paese in Impostazioni → Posizione. Senza paese gli animali non ricevono un nome automatico e i suggerimenti sulle specie non sono disponibili.",
       "garden_models_refresh": "Aggiorna stato dei modelli",
       "garden_outcomes": "Dove finiscono le catture",
-      "garden_outcome_pending": "Animale rilevato. Imposta un paese in Impostazioni → Posizione per assegnargli automaticamente un nome. Animale rilevato, ma il nome non è associabile al catalogo locale. Nessun nome automatico salvato. Il controllo automatico non era disponibile. La foto resta da rivedere; verrà riprovato dopo cinque minuti se Giardino è attivo.",
+      "garden_outcome_pending": "Controlli in attesa, controlli non riusciti in attesa di un nuovo tentativo, configurazione o identità di catalogo mancanti, animali la cui specie è sotto la soglia di denominazione e modifiche del proprietario.",
       "garden_outcome_confirmed": "Animali che confermi e animali riconosciuti con sicurezza con nome automatico. Un nome automatico è indicato come tale e può essere scartato.",
-      "garden_outcome_dismissed": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla. Uccello suggerito. Le acquisizioni con soli uccelli passano a Scartate; rimetti la foto in revisione se il risultato è sbagliato. Scena vuota o veicolo suggerito. Queste acquisizioni passano a Scartate; rimetti la foto in revisione se il risultato è sbagliato.",
+      "garden_outcome_dismissed": "Catture che scarti, foto incerte sotto la soglia di denominazione e foto che il controllo ritiene con sicurezza mostrino un uccello che non allevi, niente o un veicolo. Rimetti da rivedere ne ripristina una finché la foto esiste.",
       "garden_outcome_person": "Una cattura con indizi di persone viene rimossa insieme alla foto. Le visite in giardino non contano mai come uccelli e non arrivano alle notifiche o alle esportazioni sugli uccelli.",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "Stato della raccolta",
@@ -2088,7 +2088,14 @@
       "garden_cameras_open": "Scegli le telecamere in Connessione",
       "garden_alerts_on": "Gli avvisi del giardino sono attivi. Si impostano in Notifiche, con i loro canali.",
       "garden_alerts_off": "Gli avvisi del giardino sono disattivati. Attivali in Notifiche, con i loro canali.",
-      "garden_alerts_open": "Imposta gli avvisi"
+      "garden_alerts_open": "Imposta gli avvisi",
+      "garden_domestic_birds": "Uccelli domestici che allevi",
+      "garden_domestic_birds_help": "Vengono registrati come animali del giardino, non come uccelli selvatici, e non vengono mai inviati a eBird, BirdWeather o iNaturalist.",
+      "garden_domestic_birds_wild": "Nulla conta come domestico finché non lo aggiungi. Germani reali, oche selvatiche, tacchini selvatici e piccioni selvatici vivono anche in natura, quindi da quel momento vengono registrati come tuoi uccelli su ogni telecamera.",
+      "garden_domestic_birds_remove": "Rimuovi {bird}",
+      "garden_domestic_birds_none": "Ancora nessuno. Galline e altri uccelli che allevi sono trattati come uccelli selvatici.",
+      "garden_domestic_birds_add": "Aggiungi un uccello domestico",
+      "garden_domestic_birds_choose": "Scegli un uccello"
     },
     "native_revalidation": {
       "title": "Verifica profilo in quarantena",
@@ -2827,6 +2834,10 @@
       "frames_unit": "fotogrammi"
     },
     "identified_by_owner": "Identificato dal proprietario",
+    "moved_to_garden": "Spostato in Giardino. La scheda dell'uccello è nascosta; mostrala di nuovo da Nascoste per ripristinarla.",
+    "move_to_garden_failed": "Impossibile spostare questa scheda in Giardino: {message}",
+    "domestic_bird_declared": "È un uccello di tipo {bird}, un uccello domestico che allevi. Spostalo in Giardino per registrarlo come animale del giardino. Questa scheda viene nascosta, non eliminata.",
+    "move_to_garden": "Sposta in Giardino",
     "range_fallback": "Filtro di areale: il modello aveva detto prima {original} ({score}%), mai registrato da eBird in {region}, quindi è stata tenuta la sua risposta successiva nell'areale."
   },
   "events": {
@@ -3958,7 +3969,7 @@
     "restore": "Rimanda alla revisione",
     "title": "Animali del giardino",
     "labels": "Etichette animali di Frigate",
-    "labels_help": "Etichette animali monitorate da Frigate, separate da virgole, ad esempio cat, dog o squirrel. Uccelli, persone e veicoli sono esclusi.",
+    "labels_help": "Etichette di animali seguite da Frigate, separate da virgole, per esempio cat, dog o squirrel. Uccelli, persone e veicoli sono esclusi; aggiungi galline e altri uccelli che allevi in Uccelli domestici che allevi.",
     "catalogue_unavailable": "I dati delle specie del giardino non sono disponibili. Controlla la diagnostica di avvio.",
     "country_missing": "Imposta un paese riconosciuto o un codice ISO in Impostazioni → Posizione",
     "discard_identification": "Scarta identificazione",
@@ -4096,7 +4107,10 @@
       "subjects_short_all": "Entrambi",
       "subjects_short_garden": "Animali del giardino",
       "play_clip": "Riproduci il clip di {name}",
-      "play_clip_short": "Riproduci clip"
+      "play_clip_short": "Riproduci clip",
+      "state_below_threshold": "Animale rilevato; specie sotto la soglia di denominazione",
+      "state_domestic": "Nominato automaticamente come uccello domestico che allevi",
+      "state_domestic_moved": "Spostato dagli uccelli come uccello domestico che allevi"
     },
     "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
     "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",
@@ -4110,7 +4124,10 @@
     "named_from": {
       "motion_crop": "Denominato dal ritaglio dell’animale nel filmato di movimento",
       "tracked_crop": "Denominato dall’animale tracciato da Frigate nell’istantanea",
-      "whole_image": "Denominato dall’intera foto, quindi potrebbe non riferirsi a un solo animale"
+      "whole_image": "Denominato dall’intera foto, quindi potrebbe non riferirsi a un solo animale",
+      "domestic_bird_model": "Un uccello domestico che allevi, riconosciuto dal modello degli uccelli",
+      "domestic_moved": "Un uccello domestico che allevi, spostato dalla cronologia degli uccelli; la scheda dell'uccello è nascosta",
+      "domestic_garden": "Un uccello domestico che allevi, riconosciuto dal controllo automatico"
     },
     "visit_dismiss": "{count, plural, one {Scarta # acquisizione di questa visita} other {Scarta # acquisizioni di questa visita}}",
     "visit_dismiss_limit": "Le visite con più di 128 acquisizioni devono essere scartate una acquisizione alla volta.",
@@ -4131,7 +4148,36 @@
       "chosen_by_owner": "Specie scelta dal proprietario"
     },
     "entry_dismiss_mixed": "Le catture qui hanno stati di revisione diversi. Scartale una alla volta.",
-    "capture_link_unavailable": "Questa cattura del giardino non è più disponibile o non è condivisa qui."
+    "capture_link_unavailable": "Questa cattura del giardino non è più disponibile o non è condivisa qui.",
+    "domestic_birds": {
+      "name": {
+        "chicken": "Gallina",
+        "domestic_duck": "Anatra domestica",
+        "domestic_goose": "Oca domestica",
+        "turkey": "Tacchino",
+        "guinea_fowl": "Faraona",
+        "peafowl": "Pavone",
+        "domestic_pigeon": "Piccione o tortora domestica",
+        "quail": "Quaglia"
+      },
+      "kind": {
+        "chicken": "Galline",
+        "domestic_duck": "Anatre domestiche",
+        "domestic_goose": "Oche domestiche",
+        "turkey": "Tacchini",
+        "guinea_fowl": "Faraone",
+        "peafowl": "Pavoni",
+        "domestic_pigeon": "Piccioni o tortore domestiche",
+        "quail": "Quaglie"
+      },
+      "suggestion": "Sembra un uccello domestico: {birds}. Se li allevi, aggiungili in Uccelli domestici che allevi per registrarli come animali del giardino, non come uccelli selvatici.",
+      "suggestion_open": "Apri Uccelli domestici che allevi",
+      "suggestion_dismiss": "Non ora"
+    },
+    "automatic_animal_below_threshold": "Animale rilevato, ma il punteggio di specie è sotto la soglia di denominazione. Attende in Da rivedere: confermalo e scegli una specie, oppure scartalo.",
+    "automatic_bird_camera": "Uccello, gestito dal rilevamento uccelli su questa telecamera. Spostato in Scartate; rimetti la foto da rivedere se non è un uccello.",
+    "automatic_wild_bird": "Uccello selvatico. Attiva gli uccelli per questa telecamera per registrarlo. Spostato in Scartate; rimetti la foto da rivedere se il controllo è sbagliato.",
+    "motion_unreadable": "{count, plural, one {# registrazione non è stata letta} other {# registrazioni non sono state lette}} su {camera} nell'ultima ora e {count, plural, one {è stata saltata} other {sono state saltate}}. Nessuna foto è stata conservata."
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",

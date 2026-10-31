@@ -14,10 +14,17 @@ import uuid
 import aiosqlite
 
 from app.utils.api_datetime import utc_naive_now
-from app.models.garden import GardenIdentification, GardenAutomaticCheck, GardenOwnerIdentification, GardenSpecies
+from app.models.garden import (
+    GardenAutomaticCheck,
+    GardenDomesticRoute,
+    GardenIdentification,
+    GardenOwnerIdentification,
+    GardenSpecies,
+)
 from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCropEvidence
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 from app.models.garden_media import KeptMediaEntry, KeptMediaRecord
+from app.services.garden_automatic_policy import automatic_check_dismisses
 
 MOTION_PHOTO_LIMIT = 128
 MOTION_PHOTO_BYTES = 512 * 1024
@@ -52,6 +59,7 @@ class GardenCapture:
     # keeping media cannot make a concurrent review or check look stale.
     kept_photo_sha256: str | None = field(default=None, compare=False)
     clip_kept: bool = field(default=False, compare=False)
+    domestic_route: GardenDomesticRoute | None = None
 
     @property
     def review_token(self) -> str:
@@ -84,7 +92,11 @@ class GardenRepository:
           FROM garden_owner_identifications WHERE capture_id=garden_captures.id),
         {_KEPT_PHOTO},
         COALESCE((SELECT clip_state='kept' FROM garden_kept_media
-          WHERE capture_id=garden_captures.id AND garden_captures.status='confirmed'), 0)"""
+          WHERE capture_id=garden_captures.id AND garden_captures.status='confirmed'), 0),
+        (SELECT json_object('domestic_bird',domestic_bird,'origin',origin,'source_label',source_label,
+                'source_scientific_name',source_scientific_name,'source_score',source_score,
+                'source_model',source_model,'detection_id',detection_id,'routed_at',routed_at)
+          FROM garden_domestic_routes WHERE capture_id=garden_captures.id)"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -107,6 +119,7 @@ class GardenRepository:
             GardenOwnerIdentification.model_validate_json(row[13]) if row[13] else None,
             row[14],
             bool(row[15]),
+            GardenDomesticRoute.model_validate_json(row[16]) if row[16] else None,
         )
 
     async def has_history(self) -> bool:
@@ -122,27 +135,27 @@ class GardenRepository:
         await self.db.commit()
         return inserted.rowcount > 0
 
-    async def block(self, event_id: str, *, create: bool) -> bool:
-        await self.db.execute(
-            "DELETE FROM garden_owner_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
-            (self._key(event_id),),
+    async def block(self, event_id: str, *, create: bool, keep_domestic: bool = False) -> bool:
+        """Remove an event's capture and media, leaving a tombstone.
+
+        ``keep_domestic`` is for a relabel to bird, which revokes an animal capture but
+        is exactly what a domestic bird recorded from a bird event is. Person and
+        false-positive revocations never pass it.
+        """
+        target = "SELECT id FROM garden_captures WHERE event_key=?" + (
+            " AND NOT EXISTS (SELECT 1 FROM garden_domestic_routes r WHERE r.capture_id=garden_captures.id)"
+            if keep_domestic
+            else ""
         )
-        await self.db.execute(
-            "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
-            (self._key(event_id),),
-        )
-        await self.db.execute(
-            "DELETE FROM garden_kept_media WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
-            (self._key(event_id),),
-        )
-        await self.db.execute(
-            "DELETE FROM garden_automatic_checks WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
-            (self._key(event_id),),
-        )
-        await self.db.execute(
-            "DELETE FROM garden_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE event_key=?)",
-            (self._key(event_id),),
-        )
+        for table in (
+            "garden_owner_identifications",
+            "garden_domestic_routes",
+            "garden_saved_crops",
+            "garden_kept_media",
+            "garden_automatic_checks",
+            "garden_identifications",
+        ):
+            await self.db.execute(f"DELETE FROM {table} WHERE capture_id IN ({target})", (self._key(event_id),))
         if create:
             await self.db.execute(
                 """INSERT INTO garden_captures (id, event_key, camera, label, observed_at, status, has_snapshot)
@@ -151,8 +164,8 @@ class GardenRepository:
             )
         # A hashed tombstone stops delayed delivery resurrecting rejected media.
         updated = await self.db.execute(
-            """UPDATE garden_captures SET frigate_event = NULL, camera = '', label = '', status = 'blocked',
-               has_snapshot = 0, reviewed_at = NULL WHERE event_key = ? AND status != 'blocked'""",
+            f"""UPDATE garden_captures SET frigate_event = NULL, camera = '', label = '', status = 'blocked',
+               has_snapshot = 0, reviewed_at = NULL WHERE id IN ({target}) AND status != 'blocked'""",
             (self._key(event_id),),
         )
         await self.db.commit()
@@ -343,10 +356,11 @@ class GardenRepository:
         return updated
 
     async def delete_older_than(self, cutoff: datetime) -> None:
-        await self.db.execute(
-            "DELETE FROM garden_owner_identifications WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
-            (cutoff.replace(tzinfo=None).isoformat(),),
-        )
+        for table in ("garden_owner_identifications", "garden_domestic_routes"):
+            await self.db.execute(
+                f"DELETE FROM {table} WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
+                (cutoff.replace(tzinfo=None).isoformat(),),
+            )
         await self.db.execute(
             "DELETE FROM garden_saved_crops WHERE capture_id IN (SELECT id FROM garden_captures WHERE observed_at < ?)",
             (cutoff.replace(tzinfo=None).isoformat(),),
@@ -460,6 +474,7 @@ class GardenRepository:
         )
         for table in (
             "garden_owner_identifications",
+            "garden_domestic_routes",
             "garden_identifications",
             "garden_motion_sources",
             "garden_automatic_checks",
@@ -516,6 +531,7 @@ class GardenRepository:
 
     async def block_capture(self, capture_id: str) -> bool:
         await self.db.execute("DELETE FROM garden_owner_identifications WHERE capture_id=?", (capture_id,))
+        await self.db.execute("DELETE FROM garden_domestic_routes WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_saved_crops WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_kept_media WHERE capture_id=?", (capture_id,))
         await self.db.execute("DELETE FROM garden_automatic_checks WHERE capture_id=?", (capture_id,))
@@ -587,6 +603,7 @@ class GardenRepository:
         named: GardenIdentification,
         *,
         crop: tuple[GardenCropEvidence, bytes] | None = None,
+        route: GardenDomesticRoute | None = None,
     ) -> bool:
         """Record the check, confirm presence and name the animal together, or change nothing."""
         if result.outcome != "animal" or not named.automatic or named.review != "accepted":
@@ -609,6 +626,8 @@ class GardenRepository:
                WHERE json_extract(garden_identifications.result_json,'$.review') != 'accepted'""",
             (original.id, named.model_dump_json()),
         )
+        if route is not None:
+            await self._insert_domestic_route(original.id, route)
         if crop is not None:
             evidence, image = crop
             await self.save_crop(
@@ -617,9 +636,83 @@ class GardenRepository:
         await self.db.commit()
         return True
 
+    async def _insert_domestic_route(self, capture_id: str, route: GardenDomesticRoute) -> None:
+        await self.db.execute(
+            """INSERT INTO garden_domestic_routes(capture_id,domestic_bird,origin,source_label,source_scientific_name,
+                 source_score,source_model,detection_id,routed_at) VALUES (?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(capture_id) DO NOTHING""",
+            (
+                capture_id,
+                route.domestic_bird,
+                route.origin,
+                route.source_label,
+                route.source_scientific_name,
+                route.source_score,
+                route.source_model,
+                route.detection_id,
+                route.routed_at,
+            ),
+        )
+
+    async def save_domestic_capture(
+        self, event_id: str, camera: str, observed_at: str, has_snapshot: bool, route: GardenDomesticRoute
+    ) -> str | None:
+        """Confirm a Frigate bird event as a declared domestic bird, once per event.
+
+        An existing capture or privacy tombstone for the event wins, so a repeated or
+        revoked event never creates a second record. Returns the new capture id.
+        """
+        capture_id = uuid.uuid4().hex
+        inserted = await self.db.execute(
+            """INSERT INTO garden_captures (id, event_key, frigate_event, camera, label, observed_at, status, has_snapshot)
+               VALUES (?, ?, ?, ?, 'bird', ?, 'confirmed', ?) ON CONFLICT(event_key) DO NOTHING""",
+            (capture_id, self._key(event_id), event_id, camera, observed_at, has_snapshot),
+        )
+        if not inserted.rowcount:
+            await self.db.commit()
+            return None
+        await self._insert_domestic_route(capture_id, route)
+        await self.db.commit()
+        return capture_id
+
+    async def move_detection_to_garden(
+        self,
+        detection_id: int,
+        event_id: str,
+        camera: str,
+        observed_at: str,
+        has_snapshot: bool,
+        route: GardenDomesticRoute,
+    ) -> str | None:
+        """Record a bird detection as the domestic bird it is, and hide the bird record together.
+
+        This is the one write that touches bird history from Garden, so both happen in a
+        single transaction or not at all. The bird row is hidden, not deleted, so showing
+        it again restores it. None means Garden already holds this Frigate event.
+        """
+        capture_id = uuid.uuid4().hex
+        inserted = await self.db.execute(
+            """INSERT INTO garden_captures (id, event_key, frigate_event, camera, label, observed_at, status, has_snapshot)
+               VALUES (?, ?, ?, ?, 'bird', ?, 'confirmed', ?) ON CONFLICT(event_key) DO NOTHING""",
+            (capture_id, self._key(event_id), event_id, camera, observed_at, has_snapshot),
+        )
+        if not inserted.rowcount:
+            await self.db.rollback()
+            return None
+        await self._insert_domestic_route(capture_id, route)
+        hidden = await self.db.execute(
+            "UPDATE detections SET is_hidden=1 WHERE id=? AND frigate_event=? AND COALESCE(is_hidden,0)=0",
+            (detection_id, event_id),
+        )
+        if not hidden.rowcount:
+            await self.db.rollback()
+            return None
+        await self.db.commit()
+        return capture_id
+
     async def save_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
         changed = await self._write_automatic_check(original, result)
-        if changed and (result.outcome in {"bird", "non_animal"} or result.decision_reason == "below_threshold"):
+        if changed and automatic_check_dismisses(result.outcome, result.decision_reason):
             await self.db.execute(
                 "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",
                 (original.id,),
@@ -672,6 +765,11 @@ class GardenRepository:
                 action,
             ),
         )
+        if cursor.rowcount and action == "dismissed":
+            # A discarded SpeciesNet name takes the domestic bird it stood for with it.
+            await self.db.execute(
+                "DELETE FROM garden_domestic_routes WHERE capture_id=? AND origin='garden_check'", (capture_id,)
+            )
         await self.db.commit()
         return cursor.rowcount > 0
 

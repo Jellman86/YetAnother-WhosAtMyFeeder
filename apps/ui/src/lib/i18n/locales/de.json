@@ -2026,7 +2026,7 @@
       "garden_naming_off": "Jedes Tier wartet unter Zu prüfen, bis du es bestätigst und benennst.",
       "garden_naming_threshold_help": "Von 70 % bis 99 %. Höhere Werte benennen weniger Tiere automatisch und verwerfen mehr unsichere Fotos. Personenprüfungen bleiben unverändert.",
       "garden_naming_threshold": "Benennungsschwelle",
-      "garden_naming_help": "Sicheres Tierergebnis. Automatisch bestätigt und benannt; verwirf die Aufnahme oder den Namen, wenn etwas falsch ist. Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",
+      "garden_naming_help": "Tiere ab dieser Artensicherheit werden automatisch bestätigt und benannt. Ein Tier unter dem Schwellenwert wartet unter Zu prüfen; ein unsicheres Foto darunter wird nach Verworfen verschoben und kann wiederhergestellt werden. Fehlgeschlagene Prüfungen werden wiederholt; ein fehlendes Land oder eine fehlende Katalogzuordnung wird erklärt.",
       "garden_naming": "Tiere automatisch benennen",
       "garden_requirements": "Benötigt Frigate-Kameras, die Tiere verfolgen oder Bewegungsaufnahmen speichern. Gartentiere lädt eigene Modelle nur auf deinen Wunsch: 224 MB für automatische Prüfungen, dazu optional ein 224-MB-Modell für Artvorschläge und ein 101-MB-Bewegungsdetektor. Dein Vogelmodell bleibt unverändert.",
       "garden_setup": "Gartentiere einrichten",
@@ -2063,9 +2063,9 @@
       "garden_country_missing": "Lege unter Einstellungen → Standort ein Land fest. Ohne Land werden Tiere nicht automatisch benannt und Artvorschläge sind nicht verfügbar.",
       "garden_models_refresh": "Modellstatus aktualisieren",
       "garden_outcomes": "Wohin Aufnahmen gelangen",
-      "garden_outcome_pending": "Tier erkannt. Land unter Einstellungen → Standort festlegen, damit das Modell es automatisch benennen kann. Tier erkannt, aber der Name konnte dem lokalen Katalog nicht zugeordnet werden. Kein automatischer Name gespeichert. Die automatische Prüfung war nicht verfügbar. Das Foto bleibt zur Prüfung stehen. Bei aktiviertem Garten wird nach fünf Minuten erneut geprüft.",
+      "garden_outcome_pending": "Prüfungen, die noch laufen sollen, fehlgeschlagene Prüfungen vor dem nächsten Versuch, fehlende Einrichtung oder Katalogzuordnung, Tiere mit einer Art unter dem Benennungsschwellenwert und Überschreibungen durch dich.",
       "garden_outcome_confirmed": "Tiere, die du bestätigst, und sichere Tiere mit automatischem Namen. Ein automatischer Name ist als automatisch markiert und kann verworfen werden.",
-      "garden_outcome_dismissed": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden. Vogel vermutet. Reine Vogelaufnahmen landen unter Verworfen. Stelle das Foto zur Prüfung zurück, falls das falsch ist. Leere Szene oder Fahrzeug vermutet. Diese Aufnahmen landen unter Verworfen. Stelle das Foto zur Prüfung zurück, falls das falsch ist.",
+      "garden_outcome_dismissed": "Von dir verworfene Aufnahmen, unsichere Fotos unter dem Benennungsschwellenwert und Fotos, die laut Prüfung sicher einen nicht gehaltenen Vogel, nichts oder ein Fahrzeug zeigen. Zur Prüfung zurück stellt eine Aufnahme wieder her, solange ihr Foto vorhanden ist.",
       "garden_outcome_person": "Eine Aufnahme mit Hinweisen auf Personen wird samt Foto entfernt. Gartenbesuche zählen nie als Vögel und erreichen keine Vogelbenachrichtigungen oder Exporte.",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "Erfassungsstatus",
@@ -2078,7 +2078,14 @@
       "garden_cameras_open": "Kameras unter Verbindung wählen",
       "garden_alerts_on": "Gartenmeldungen sind an. Sie werden unter Benachrichtigungen mit ihren Kanälen eingerichtet.",
       "garden_alerts_off": "Gartenmeldungen sind aus. Schalte sie unter Benachrichtigungen mit ihren Kanälen ein.",
-      "garden_alerts_open": "Meldungen einrichten"
+      "garden_alerts_open": "Meldungen einrichten",
+      "garden_domestic_birds": "Gehaltene Hausvögel",
+      "garden_domestic_birds_help": "Sie werden als Gartentiere und nicht als Wildvögel erfasst und nie an eBird, BirdWeather oder iNaturalist gesendet.",
+      "garden_domestic_birds_wild": "Nichts gilt als Hausvogel, bevor du es hinzufügst. Stockenten, Graugänse, Wildtruthühner und Felsentauben leben auch wild und werden danach auf jeder Kamera als deine Vögel erfasst.",
+      "garden_domestic_birds_remove": "{bird} entfernen",
+      "garden_domestic_birds_none": "Noch keine. Hühner und andere gehaltene Vögel werden als Wildvögel behandelt.",
+      "garden_domestic_birds_add": "Hausvogel hinzufügen",
+      "garden_domestic_birds_choose": "Vogel auswählen"
     },
     "native_revalidation": {
       "title": "Quarantänisiertes Profil prüfen",
@@ -2817,6 +2824,10 @@
       "frames_unit": "Bilder"
     },
     "identified_by_owner": "Vom Eigentümer bestimmt",
+    "moved_to_garden": "In den Garten verschoben. Der Vogeleintrag ist ausgeblendet; blende ihn unter Ausgeblendet wieder ein, um ihn wiederherzustellen.",
+    "move_to_garden_failed": "Eintrag konnte nicht in den Garten verschoben werden: {message}",
+    "domestic_bird_declared": "Das ist ein Vogel der Art {bird}, ein gehaltener Hausvogel. Verschiebe ihn in den Garten, um ihn als Gartentier zu erfassen. Dieser Vogeleintrag wird ausgeblendet, nicht gelöscht.",
+    "move_to_garden": "In den Garten verschieben",
     "range_fallback": "Verbreitungsfilter: Das Modell sagte zuerst {original} ({score} %), was eBird in {region} nie erfasst hat; daher wurde seine nächste Antwort im Verbreitungsgebiet behalten."
   },
   "events": {
@@ -3958,7 +3969,7 @@
     "restore": "Zur Prüfung zurückgeben",
     "title": "Gartentiere",
     "labels": "Frigate-Tierlabels",
-    "labels_help": "Durch Kommas getrennte Tierlabels, die Frigate verfolgt, zum Beispiel cat, dog oder squirrel. Vögel, Menschen und Fahrzeuge sind ausgeschlossen.",
+    "labels_help": "Kommagetrennte Tierlabels, die Frigate verfolgt, zum Beispiel cat, dog oder squirrel. Vögel, Personen und Fahrzeuge sind ausgeschlossen; füge Hühner und andere gehaltene Vögel unter Gehaltene Hausvögel hinzu.",
     "catalogue_unavailable": "Artendaten für den Garten sind nicht verfügbar. Prüfe die Startdiagnose der Anwendung.",
     "country_missing": "Trage ein gültiges Land oder einen ISO-Code unter Einstellungen → Standort ein",
     "discard_identification": "Bestimmung verwerfen",
@@ -4096,7 +4107,10 @@
       "subjects_short_all": "Beides",
       "subjects_short_garden": "Gartentiere",
       "play_clip": "Clip von {name} abspielen",
-      "play_clip_short": "Clip abspielen"
+      "play_clip_short": "Clip abspielen",
+      "state_below_threshold": "Tier erkannt; Art unter dem Benennungsschwellenwert",
+      "state_domestic": "Automatisch als gehaltener Hausvogel benannt",
+      "state_domestic_moved": "Als gehaltener Hausvogel aus den Vögeln verschoben"
     },
     "automatic_animal_manual": "Tier erkannt. Automatische Benennung ist aus oder dieses ältere Ergebnis wartet auf eine neue automatische Prüfung.",
     "automatic_below_threshold": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",
@@ -4110,7 +4124,10 @@
     "named_from": {
       "motion_crop": "Benannt nach dem Tierausschnitt aus der Bewegungsaufnahme",
       "tracked_crop": "Benannt nach dem von Frigate verfolgten Tier im Schnappschuss",
-      "whole_image": "Nach dem ganzen Foto benannt, daher bezieht es sich vielleicht nicht auf ein einzelnes Tier"
+      "whole_image": "Nach dem ganzen Foto benannt, daher bezieht es sich vielleicht nicht auf ein einzelnes Tier",
+      "domestic_bird_model": "Ein gehaltener Hausvogel, vom Vogelmodell erkannt",
+      "domestic_moved": "Ein gehaltener Hausvogel, aus dem Vogelverlauf verschoben; der Vogeleintrag ist ausgeblendet",
+      "domestic_garden": "Ein gehaltener Hausvogel, von der automatischen Prüfung erkannt"
     },
     "visit_dismiss": "{count, plural, one {# Aufnahme dieses Besuchs verwerfen} other {# Aufnahmen dieses Besuchs verwerfen}}",
     "visit_dismiss_limit": "Besuche mit mehr als 128 Aufnahmen müssen einzeln verworfen werden.",
@@ -4131,7 +4148,36 @@
       "chosen_by_owner": "Art vom Eigentümer ausgewählt"
     },
     "entry_dismiss_mixed": "Die Aufnahmen hier haben unterschiedliche Prüfstatus. Verwerfen Sie sie einzeln.",
-    "capture_link_unavailable": "Diese Gartenaufnahme ist nicht mehr verfügbar oder wird hier nicht geteilt."
+    "capture_link_unavailable": "Diese Gartenaufnahme ist nicht mehr verfügbar oder wird hier nicht geteilt.",
+    "domestic_birds": {
+      "name": {
+        "chicken": "Huhn",
+        "domestic_duck": "Hausente",
+        "domestic_goose": "Hausgans",
+        "turkey": "Truthuhn",
+        "guinea_fowl": "Perlhuhn",
+        "peafowl": "Pfau",
+        "domestic_pigeon": "Haustaube",
+        "quail": "Wachtel"
+      },
+      "kind": {
+        "chicken": "Hühner",
+        "domestic_duck": "Hausenten",
+        "domestic_goose": "Hausgänse",
+        "turkey": "Truthühner",
+        "guinea_fowl": "Perlhühner",
+        "peafowl": "Pfauen",
+        "domestic_pigeon": "Haustauben",
+        "quail": "Wachteln"
+      },
+      "suggestion": "Das sieht nach einem Hausvogel aus: {birds}. Wenn du sie hältst, füge sie unter Gehaltene Hausvögel hinzu, damit sie als Gartentiere und nicht als Wildvögel erfasst werden.",
+      "suggestion_open": "Gehaltene Hausvögel öffnen",
+      "suggestion_dismiss": "Nicht jetzt"
+    },
+    "automatic_animal_below_threshold": "Tier erkannt, aber der Artwert liegt unter dem Benennungsschwellenwert. Es wartet unter Zu prüfen: bestätige es und wähle eine Art oder verwirf es.",
+    "automatic_bird_camera": "Vogel, wird auf dieser Kamera von der Vogelerkennung erfasst. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls es kein Vogel ist.",
+    "automatic_wild_bird": "Wildvogel. Aktiviere Vögel für diese Kamera, um ihn zu erfassen. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls die Prüfung falsch ist.",
+    "motion_unreadable": "{count, plural, one {# Aufnahme konnte} other {# Aufnahmen konnten}} in der letzten Stunde auf {camera} nicht gelesen werden und {count, plural, one {wurde} other {wurden}} übersprungen. Es wurde kein Foto behalten."
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",
