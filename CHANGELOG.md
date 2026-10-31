@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- A native crash in the CPU classifier, crop detector or Garden worker keeps its
+  real cause when cleanup signals the worker in the same moment. On Python 3.12,
+  asyncio's own kill and terminate could collect the dead child first, so the
+  crash was recorded as exit status 255 instead of SIGSEGV or SIGABRT and
+  escaped native-crash quarantine. Cleanup now checks the child without
+  collecting it and signals only a worker that is still running, leaving the
+  event loop to read the true exit status.
 - The Dashboard and About page hold still while they load, and the Dashboard
   fits a 320px phone at the largest text sizes:
   - At 320px with 200% text the Dashboard scrolled 149px sideways, and 32px at

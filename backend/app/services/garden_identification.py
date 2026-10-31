@@ -43,6 +43,7 @@ from app.services.garden_model_runtime import digest
 from app.services.garden_visitors import GardenPolicy, Taxon, decide_prediction
 from app.services.model_manager import MODELS_DIR
 from app.utils.api_datetime import utc_naive_now
+from app.utils.child_signals import kill_child, terminate_child
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
 from app.utils.python_subprocess import python_subprocess_launch
 
@@ -119,14 +120,13 @@ class GardenCleanupFailed(RuntimeError):
 
 
 async def _stop_worker(process: Any) -> None:
-    if process.returncode is None:
-        with suppress(ProcessLookupError):
-            process.terminate()
+    with suppress(ProcessLookupError):
+        terminate_child(process)
     try:
         await asyncio.wait_for(process.wait(), 2)
     except TimeoutError:
         with suppress(ProcessLookupError):
-            process.kill()
+            kill_child(process)
         try:
             await asyncio.wait_for(process.wait(), 2)
         except TimeoutError as error:

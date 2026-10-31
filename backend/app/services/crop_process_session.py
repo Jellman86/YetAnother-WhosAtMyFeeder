@@ -26,6 +26,7 @@ from app.services.crop_process_protocol import (
     validate_metadata,
 )
 from app.services.native_crash_quarantine import NativeCrashQuarantine, artifact_digest
+from app.utils.child_signals import kill_child, terminate_child
 from app.utils.python_subprocess import python_subprocess_launch
 
 
@@ -272,14 +273,14 @@ class _Session:
                     await asyncio.wait_for(asyncio.shield(self.process.wait()), 0.05)
                 except TimeoutError:
                     try:
-                        self.process.terminate()
+                        terminate_child(self.process)
                     except ProcessLookupError:
                         pass
             try:
                 await asyncio.wait_for(asyncio.shield(self.process.wait()), 2)
             except TimeoutError:
                 try:
-                    self.process.kill()
+                    kill_child(self.process)
                 except ProcessLookupError:
                     pass
                 try:
