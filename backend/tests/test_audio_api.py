@@ -47,7 +47,9 @@ async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
-    now = datetime.now(timezone.utc)
+    # A fixed instant just past midnight: the newest row then falls on the previous day,
+    # which is exactly when a comparison against "today" used to fail.
+    now = datetime(2026, 3, 14, 0, 0, 30, tzinfo=timezone.utc)
     rows = [
         (
             (now - timedelta(minutes=1)).isoformat(sep=" "),
@@ -95,7 +97,7 @@ async def test_audio_sources_returns_recent_distinct_source_names(client: httpx.
     assert birdcam["mapping_value"] == "BirdCam"
     assert birdcam["sample_source_id"] == "rtsp_new"
     assert birdcam["seen_count"] == 2
-    assert birdcam["last_seen"].startswith(now.strftime("%Y-%m-%d"))
+    assert birdcam["last_seen"] == rows[0][0]
 
 
 @pytest.mark.asyncio
