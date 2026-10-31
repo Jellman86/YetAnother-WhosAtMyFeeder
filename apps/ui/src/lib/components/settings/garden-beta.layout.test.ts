@@ -36,11 +36,36 @@ describe('Garden animals is a beta feature', () => {
         expect(gardenBetaSource).toContain('{#if !enabled}');
         expect(gardenBetaSource).toContain('{:else}');
         expect(gardenBetaSource).toContain('data-garden-beta-settings');
-        expect(connectionSource).toContain('settings.cameras.garden_moved');
+    });
+
+    it('chooses Garden cameras once, in Connection, and only summarises them here', () => {
+        // Two camera lists that marked "chosen" differently were the problem (SET-05); Beta
+        // features keeps a summary with a way to the one list.
+        expect(gardenBetaSource).not.toContain('type="radio"');
+        expect(gardenBetaSource).not.toContain('availableCameras');
+        expect(gardenBetaSource).toContain('data-garden-camera-summary');
+        expect(gardenBetaSource).toContain('onclick={onOpenCameras}');
+        expect(settingsSource).toContain('onOpenCameras={openCameraSettings}');
+        expect(connectionSource).toContain('gardenEnabled: betaGardenAnimals');
+    });
+
+    it('follows its own setup steps: cameras and labels, then models, naming and alerts', () => {
+        const order = ['data-garden-setup-steps', 'data-garden-collect', '<GardenModelSetup', 'data-garden-naming', '<GardenNotificationSettings', 'data-garden-outcomes']
+            .map(marker => gardenBetaSource.indexOf(marker));
+        expect(order.every(index => index >= 0)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it('shows its thresholds as percentages through the settings primitives', () => {
+        expect(gardenBetaSource).toContain('value={thresholdPercentText(motionConfidence)}');
+        expect(gardenBetaSource).toContain('oninput={(value) => (motionConfidence = percentToThreshold(value))}');
+        expect(gardenBetaSource).toContain('value={thresholdPercentText(namingThreshold)}');
+        expect(gardenBetaSource).toContain('oninput={(value) => (namingThreshold = percentToThreshold(value))}');
+        expect(gardenBetaSource).not.toMatch(/<input\b/);
     });
 
     it('sets up Garden models here, from saved state only, without touching bird models or settings', () => {
-        expect(gardenBetaSource).toContain('<GardenModelSetup {motionCameras} />');
+        expect(gardenBetaSource).toContain('<GardenModelSetup motionCameras={collectingMotion} />');
         expect(gardenModelsSource).toContain("settingsStore.settings?.beta_garden_animals === true");
         expect(gardenModelsSource).toContain('installGardenModel(row.install.variant)');
         expect(gardenModelsSource).toContain('installGardenMotion()');

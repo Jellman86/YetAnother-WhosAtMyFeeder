@@ -366,6 +366,30 @@ async def test_garden_settings_roundtrip_preserves_bird_role_and_partial_updates
 
 
 @pytest.mark.asyncio
+async def test_saved_motion_cameras_stay_within_the_garden_cameras():
+    # Motion collection only ever runs on Garden cameras, so a motion camera outside that list
+    # did nothing yet still read as collecting; saving keeps the stored lists honest.
+    settings.frigate.garden_cameras = ["patio", "pond"]
+    settings.frigate.garden_motion_cameras = ["patio", "pond"]
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/settings",
+            json={"garden_cameras": ["patio", "front"], "garden_motion_cameras": ["front", "pond", "shed"]},
+        )
+        assert response.status_code == 200, response.text
+        data = (await client.get("/api/settings")).json()
+        assert data["garden_cameras"] == ["patio", "front"]
+        assert data["garden_motion_cameras"] == ["front"]
+
+        assert (await client.post("/api/settings", json={"garden_cameras": ["patio"]})).status_code == 200
+        assert settings.frigate.garden_motion_cameras == []
+
+        settings.frigate.garden_motion_cameras = ["patio"]
+        assert (await client.post("/api/settings", json={"nest_dedupe_minutes": 42})).status_code == 200
+        assert settings.frigate.garden_motion_cameras == ["patio"]
+
+
+@pytest.mark.asyncio
 async def test_pagination_and_retention_do_not_include_blocked_captures():
     from datetime import datetime, timezone
 
