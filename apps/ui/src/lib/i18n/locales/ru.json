@@ -660,6 +660,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "Качество JPEG для HQ-снимка",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Более высокие значения сохраняют больше деталей, но создают более крупные производные файлы снимков.",
       "cache_size": "Занято места",
+      "cache_garden_share": "Включая {size} для подтверждённых животных сада",
       "cache_size_loading": "Измерение…",
       "cache_size_unavailable": "Не удалось загрузить",
       "cache_size_retry": "Повторить",

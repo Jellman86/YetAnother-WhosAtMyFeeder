@@ -1,7 +1,8 @@
 """Collect terminal Frigate animal events for explicit owner review only.
 
 Intake uses no classifier, bird repository, notification or external submission.
-Snapshots remain with Frigate; automatic review and owner reads fetch them later.
+Snapshots remain with Frigate until a capture is confirmed; then YA-WAMF keeps its own
+copy (garden_media_cache) and reads prefer it.
 """
 
 from datetime import datetime, timezone
@@ -16,6 +17,7 @@ from app.repositories.garden_repository import GardenCapture, GardenRepository
 from app.services.frigate_client import frigate_client
 from app.services.broadcaster import broadcaster
 from app.services.garden_capture_policy import garden_collection_cameras, safe_event_id, observation_time
+from app.services.garden_media_cache import garden_media_cache
 
 
 class GardenCaptureService:
@@ -64,6 +66,7 @@ class GardenCaptureService:
             async with get_db() as db:
                 changed = await GardenRepository(db).block(event_id, create=rejected and camera in cameras) or changed
             if changed:
+                await garden_media_cache.sweep()
                 await broadcaster.broadcast({"type": "garden_history_changed"})
             return
         if camera not in cameras:
@@ -73,6 +76,7 @@ class GardenCaptureService:
                 async with get_db() as db:
                     changed = await GardenRepository(db).block(event_id, create=False)
                 if changed:
+                    await garden_media_cache.sweep()
                     await broadcaster.broadcast({"type": "garden_history_changed"})
             return
         if str(data.get("type", "")).lower() != "end":
@@ -100,6 +104,10 @@ class GardenCaptureService:
 
     async def snapshot(self, capture_id: str) -> bytes:
         capture = await self.get(capture_id)
+        kept = await garden_media_cache.photo(capture)
+        # A dismissal or revocation that lands during the read takes precedence over the copy.
+        if kept is not None and (await self.get(capture_id)).status == "confirmed":
+            return kept
         if capture.motion_source:
             async with get_db() as db:
                 image = await GardenRepository(db).motion_photo(capture_id)

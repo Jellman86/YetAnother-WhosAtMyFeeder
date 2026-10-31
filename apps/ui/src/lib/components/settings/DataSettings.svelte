@@ -438,6 +438,14 @@
                     {/if}
                 </span>
             </div>
+            {#if cacheStats && (cacheStats.garden_count ?? 0) > 0}
+                <p class="px-4 text-xs text-slate-600 dark:text-slate-300" data-cache-garden-share>
+                    {$_('settings.data.cache_garden_share', {
+                        values: { size: `${cacheStats.garden_size_mb ?? 0} MB` },
+                        default: 'Includes {size} kept for confirmed Garden animals'
+                    })}
+                </p>
+            {/if}
 
             <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
             <div class="p-4 rounded-xl bg-surface-raised/70 flex flex-col gap-1" data-archive-usage>

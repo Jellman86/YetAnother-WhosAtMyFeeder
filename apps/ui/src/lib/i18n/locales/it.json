@@ -660,6 +660,7 @@
       "cache_high_quality_event_snapshot_jpeg_quality": "Qualità JPEG istantanea HQ",
       "cache_high_quality_event_snapshot_jpeg_quality_help": "Valori più alti mantengono più dettagli ma creano file derivati delle istantanee più grandi.",
       "cache_size": "Spazio usato",
+      "cache_garden_share": "Di cui {size} conservati per gli animali del giardino confermati",
       "cache_size_loading": "Misurazione…",
       "cache_size_unavailable": "Impossibile caricare",
       "cache_size_retry": "Riprova",
