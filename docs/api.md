@@ -544,7 +544,9 @@ pending scan before its proposal or completion cursor is saved.
 Settings use `garden_cameras` (default `[]`), `garden_motion_cameras` (default `[]`) and `garden_labels` (default
 `["cat", "dog"]`), persisted under `frigate` in the configuration. These are
 independent of `cameras`, `camera_roles` and bird `frigate_ingest_labels`.
-Motion cameras must also be enabled garden cameras; otherwise they are inactive.
+Motion cameras must also be enabled garden cameras; otherwise they are inactive. When a settings
+write includes `garden_cameras` or `garden_motion_cameras`, the server drops any motion camera that
+is not a Garden camera before saving.
 Motion collection ignores animal event labels and does not perform species identification.
 Garden notification settings use flat settings API fields
 `garden_notifications_enabled` (default `false`) and

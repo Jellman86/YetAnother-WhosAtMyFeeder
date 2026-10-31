@@ -30,10 +30,12 @@ const MIGRATED_COMPONENTS = new Set([
     'AISettings.svelte',
     'AppearanceSettings.svelte',
     'AuthenticationSettings.svelte',
+    'CameraWatchRow.svelte',
     'ConnectionSettings.svelte',
     'DataSettings.svelte',
     'DetectionSettings.svelte',
     'EnrichmentSettings.svelte',
+    'GardenBetaSettings.svelte',
     'IntegrationSettings.svelte',
     'NotificationSettings.svelte'
 ]);

@@ -16,6 +16,19 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import ClassificationImageSourceSetting from './ClassificationImageSourceSetting.svelte';
+    import CameraWatchRow from './CameraWatchRow.svelte';
+    import {
+        applyCameraWatchMode,
+        cameraWatchRows,
+        setCameraRole,
+        setGardenMotion,
+        watchEveryCameraForBirds,
+        watchesEveryCameraForBirds,
+        type CameraRole,
+        type CameraWatchContext,
+        type CameraWatchMode,
+        type CameraWatchSettings
+    } from '../../utils/camera-watch';
     import type { ClassificationImageSource } from '../../api/settings';
 
     let {
@@ -35,12 +48,15 @@
         recordingClipBeforeSeconds = $bindable(30),
         recordingClipAfterSeconds = $bindable(90),
         selectedCameras = $bindable<string[]>([]),
+        gardenCameras = $bindable<string[]>([]),
+        gardenMotionCameras = $bindable<string[]>([]),
         betaGardenAnimals = false,
-        cameraRoles = $bindable<Record<string, 'feeder' | 'nest'>>({}),
+        cameraRoles = $bindable<Record<string, CameraRole>>({}),
         nestDedupeMinutes = $bindable(30),
         telemetryEnabled = $bindable(false),
         telemetryHealthEnabled = $bindable(false),
-        availableCameras = $bindable<string[]>([]),
+        frigateCameras = null,
+        frigateCamerasFailed = false,
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
@@ -48,8 +64,7 @@
         telemetryPlatform,
         telemetryPayloadPreview,
         versionInfo,
-        loadCameras,
-        toggleCamera
+        loadCameras
     }: {
         frigateUrl: string;
         frigateIngestLabels: string;
@@ -67,12 +82,16 @@
         recordingClipBeforeSeconds: number;
         recordingClipAfterSeconds: number;
         selectedCameras: string[];
+        gardenCameras: string[];
+        gardenMotionCameras: string[];
         betaGardenAnimals?: boolean;
-        cameraRoles: Record<string, 'feeder' | 'nest'>;
+        cameraRoles: Record<string, CameraRole>;
         nestDedupeMinutes: number;
         telemetryEnabled: boolean;
         telemetryHealthEnabled: boolean;
-        availableCameras: string[];
+        /** Cameras read from Frigate, or null until the list has been read. */
+        frigateCameras: string[] | null;
+        frigateCamerasFailed: boolean;
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
@@ -81,8 +100,29 @@
         telemetryPayloadPreview: Record<string, unknown> | undefined;
         versionInfo: VersionInfo;
         loadCameras: () => Promise<void>;
-        toggleCamera: (camera: string) => void;
     } = $props();
+
+    const watchSettings = $derived<CameraWatchSettings>({
+        cameras: selectedCameras,
+        gardenCameras,
+        gardenMotionCameras,
+        cameraRoles
+    });
+    const watchContext = $derived<CameraWatchContext>({ frigateCameras, gardenEnabled: betaGardenAnimals });
+    const watchRows = $derived(cameraWatchRows(watchSettings, watchContext));
+
+    function commitWatch(next: CameraWatchSettings): void {
+        selectedCameras = [...next.cameras];
+        gardenCameras = [...next.gardenCameras];
+        gardenMotionCameras = [...next.gardenMotionCameras];
+        cameraRoles = { ...next.cameraRoles };
+    }
+
+    function chooseWatchMode(camera: string, mode: CameraWatchMode): void {
+        const change = applyCameraWatchMode(watchSettings, camera, mode, watchContext);
+        // A blocked choice is disabled and worded on the row, so there is nothing to apply.
+        if (change.ok) commitWatch(change.settings);
+    }
 
     // Connection test uses the shared DiagnosticDialog: two genuinely independent
     // checks — reaching the Frigate API, then publishing to the MQTT broker.
@@ -315,6 +355,44 @@
     {/snippet}
     {#snippet camerasIcon()}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3" /></svg>
+    {/snippet}
+
+    {#snippet cameraPreview(camera: string)}
+        <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 dark:border-slate-700/60 dark:bg-slate-900/95 dark:shadow-black/30">
+            <div class="flex items-center justify-between gap-2 px-4 py-2">
+                <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                    <button
+                        type="button"
+                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        aria-label={$_('settings.cameras.preview_close')}
+                        onclick={() => stopPreview(camera)}
+                    >
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="bg-slate-100 dark:bg-slate-800/60">
+                <div class="relative aspect-video w-full">
+                    {#if previewBlobUrl}
+                        <img class="absolute inset-0 h-full w-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
+                    {/if}
+                    {#if previewLoading}
+                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-500 dark:bg-slate-900/70">
+                            {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
+                        </div>
+                    {/if}
+                    {#if previewError}
+                        <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 px-3 text-center text-xs font-semibold text-rose-500 dark:bg-slate-900/80">
+                            {previewError}
+                        </div>
+                    {/if}
+                </div>
+            </div>
+        </div>
     {/snippet}
 
     <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
@@ -597,129 +675,78 @@
         </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
+    <SettingsCard
+        accent
+        iconSnippet={camerasIcon}
+        title={$_('settings.cameras.title', { default: 'Cameras to watch' })}
+        description={betaGardenAnimals
+            ? $_('settings.cameras.watch_desc_garden', { default: 'Choose what each Frigate camera is watched for: birds, Garden animals or both.' })
+            : $_('settings.cameras.watch_desc', { default: 'Choose which Frigate cameras are watched for birds.' })}
+    >
         <!-- The page scrolls; a second scroller inside the card hid the first camera under the
              card header and cut off the nest window below the list. -->
-        {#if betaGardenAnimals}
-        <p class="mb-3 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.garden_moved', { default: 'Garden animal cameras are set in Settings → Beta features.' })}</p>
-        {/if}
-        <div class="space-y-3" data-camera-list>
-            {#if availableCameras.length > 0 && !frigateUrl}
+        <div
+            id="settings-camera-list"
+            class="space-y-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            role="group"
+            aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}
+            tabindex="-1"
+            data-camera-list
+        >
+            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3" data-bird-scope>
+                {#if watchesEveryCameraForBirds(watchSettings)}
+                    <p class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}</p>
+                {:else}
+                    <p id="camera-bird-scope-chosen" class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</p>
+                    <button
+                        type="button"
+                        class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
+                        aria-describedby="camera-bird-scope-chosen"
+                        onclick={() => commitWatch(watchEveryCameraForBirds(watchSettings))}
+                    >
+                        {$_('settings.cameras.watch_every_camera', { default: 'Watch every camera for birds' })}
+                    </button>
+                {/if}
+            </div>
+            {#if !betaGardenAnimals}
+                <p class="text-xs text-slate-600 dark:text-slate-400" data-camera-garden-hint>{$_('settings.cameras.garden_beta_hint', { default: 'To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.' })}</p>
+            {/if}
+            {#if frigateCameras === null}
+                <p class="text-xs text-slate-600 dark:text-slate-400" role="status" data-camera-list-state>
+                    {frigateCamerasFailed
+                        ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync Cameras to try again.' })
+                        : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
+                </p>
+            {/if}
+            {#if watchRows.length > 0 && !frigateUrl}
                 <p id="camera-preview-needs-url" class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.cameras.preview_needs_url', { default: 'Enter the Frigate URL above to preview a camera.' })}</p>
             {/if}
-            {#if availableCameras.length === 0}
-                <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
-                    <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">{$_('settings.cameras.none_found')}</p>
-                </div>
+            {#if watchRows.length === 0}
+                {#if frigateCameras !== null}
+                    <div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.none_found')}</p>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync Cameras.' })}</p>
+                    </div>
+                {/if}
             {:else}
-                <div class="grid grid-cols-1 gap-2">
-                    {#each availableCameras as camera}
-                        {@const selected = selectedCameras.includes(camera)}
-                        {@const role = cameraRoles[camera] === 'nest' ? 'nest' : 'feeder'}
-                        <div
-                            class="relative flex flex-col gap-2 rounded-xl border px-2 py-1.5 transition-colors group
-                                   {selected
-                                       ? 'border-brand-500/70 bg-brand-500/5 text-brand-700 dark:text-brand-300'
-                                       : 'border-line-soft bg-surface-raised/40 text-slate-600 hover:border-brand-500/40 dark:text-slate-300'}"
+                <ul class="grid grid-cols-1 gap-2">
+                    {#each watchRows as row (row.camera)}
+                        <CameraWatchRow
+                            {row}
+                            gardenEnabled={betaGardenAnimals}
+                            previewOpen={previewVisible && previewCamera === row.camera}
+                            previewUnavailableId={frigateUrl ? undefined : 'camera-preview-needs-url'}
+                            onmode={(mode) => chooseWatchMode(row.camera, mode)}
+                            onrole={(role) => commitWatch(setCameraRole(watchSettings, row.camera, role))}
+                            onmotion={(collect) => commitWatch(setGardenMotion(watchSettings, row.camera, collect))}
+                            onpreview={() => togglePreview(row.camera)}
                         >
-                            <div class="flex items-center gap-2">
-                                <button
-                                    type="button"
-                                    aria-pressed={selected}
-                                    aria-label={$_('settings.cameras.select', { default: 'Watch {camera} for birds', values: { camera } })}
-                                    class="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-                                    onclick={() => toggleCamera(camera)}
-                                >
-                                    <span class="min-w-0 truncate text-sm font-bold">{camera}</span>
-                                    <span class="w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-brand-700 border-brand-700 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand-500/50'}" aria-hidden="true">
-                                    {#if selected}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
-                                    </span>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
-                                    aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
-                                    aria-expanded={previewVisible && previewCamera === camera}
-                                    aria-describedby={frigateUrl ? undefined : 'camera-preview-needs-url'}
-                                    disabled={!frigateUrl}
-                                    onclick={() => togglePreview(camera)}
-                                >
-                                    <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                            </div>
-                            {#if selected}
-                                <div class="flex items-center justify-between gap-2 border-t border-line-soft px-2 pb-1 pt-2">
-                                    <span class="eyebrow">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
-                                    <div class="inline-flex rounded-lg border border-line bg-surface p-0.5" role="group" aria-label={$_('settings.cameras.role_label', { default: 'Role' })}>
-                                        <button
-                                            type="button"
-                                            onclick={() => {
-                                                const next = { ...cameraRoles };
-                                                delete next[camera];
-                                                cameraRoles = next;
-                                            }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-700 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
-                                            aria-pressed={role === 'feeder'}
-                                            title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam: every Frigate event is treated as a fresh visit (default).' })}
-                                        >
-                                            {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onclick={() => {
-                                                cameraRoles = { ...cameraRoles, [camera]: 'nest' };
-                                            }}
-                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-700 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
-                                            aria-pressed={role === 'nest'}
-                                            title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
-                                        >
-                                            {$_('settings.cameras.role_nest', { default: 'Nest' })}
-                                        </button>
-                                    </div>
-                                </div>
-                            {/if}
-                            {#if previewVisible && previewCamera === camera}
-                                <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
-                                    <div class="px-4 py-2 flex items-center justify-between gap-2">
-                                        <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
-                                            <button
-                                                type="button"
-                                                class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-                                                aria-label={$_('settings.cameras.preview_close')}
-                                                onclick={() => stopPreview(camera)}
-                                            >
-                                                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div class="bg-slate-100 dark:bg-slate-800/60">
-                                        <div class="relative w-full aspect-video">
-                                            {#if previewBlobUrl}
-                                                <img class="absolute inset-0 w-full h-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
-                                            {/if}
-                                            {#if previewLoading}
-                                                <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-xs font-semibold text-slate-500">
-                                                    {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
-                                                </div>
-                                            {/if}
-                                            {#if previewError}
-                                                <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-xs font-semibold text-rose-500 text-center px-3">
-                                                    {previewError}
-                                                </div>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                </div>
-                            {/if}
-                        </div>
+                            {#snippet preview()}
+                                {@render cameraPreview(row.camera)}
+                            {/snippet}
+                        </CameraWatchRow>
                     {/each}
-                </div>
+                </ul>
             {/if}
         {#if Object.values(cameraRoles).includes('nest')}
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
@@ -832,9 +859,3 @@
         onRetry={runConnectionDiagnostic}
     />
 {/if}
-
-<style>
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b833; border-radius: 10px; }
-</style>

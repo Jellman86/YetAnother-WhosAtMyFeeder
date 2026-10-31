@@ -376,6 +376,7 @@ off with update checks, and absent rather than zero when unknown.
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
+| `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**: Off, Birds, Garden animals or Both as native radios, then the bird role or motion photos for whichever subject is on | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
 
 Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
 `VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
@@ -421,7 +422,8 @@ alert, and a refetch dims what it replaces with `aria-busy` until the new page a
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (summary adapters, fixture grouping, the desk window and
 threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),
-`dashboard-cameras.ts` (configured-camera scope and visit counts), `pipeline-health.ts` (which
+`dashboard-cameras.ts` (configured-camera scope and visit counts), `camera-watch.ts` (each camera's
+Off, Birds, Garden animals or Both choice and how it saves to the server's separate camera lists), `pipeline-health.ts` (which
 dropped events are faults and which are expected filtering) and `health-timeline.ts` (merging kept
 visits, filtered frames and fault drops into one operational thread). New decision rules go there,
 with unit tests, and never inside a component.
@@ -508,6 +510,11 @@ build something better."*
   job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
 - **Labels and controls**: a small uppercase label with wide tracking (`.eyebrow`) names a group or
   a window. Controls speak in sentence case; `app.css` holds every button to that.
+- **One object, one choice**: when one thing takes part in several subjects, as a camera can watch
+  for birds and Garden animals, give it one row with one single-choice control that names the
+  combinations (Off, Birds, Garden animals, Both). Options that belong to one subject appear under
+  the row only while that subject is chosen. A choice that cannot be made is disabled, struck
+  through and explained in words beside the control, never hidden.
 - **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
   icon. Never a coloured bar on one edge.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and

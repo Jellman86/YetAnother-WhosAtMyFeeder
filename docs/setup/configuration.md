@@ -30,7 +30,7 @@ you want the UI to control that field.
 
 Where bird events come from.
 
-![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside an Active Cameras card](../images/settings-connection.png)
+![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
@@ -39,13 +39,35 @@ Where bird events come from.
 | **Identify new detections from** | **Detection snapshot** (default) or a higher-resolution retained **Recording frame** with tracked-box alignment. See [initial classification images](../integrations/frigate.md#initial-classification-image). |
 | **Initial identification delay (seconds)** | Shown for **Recording frame**. Wait 1 to 120 seconds (default 12) before the first read, using the latest tracked snapshot metadata received during the wait. Notifications arrive later too; saved detections are unchanged. |
 | **Public Frigate URL** | The address *your browser* uses to open Frigate, when it differs from the server address above. Used for the "open in Frigate" link on a detection. |
-| **Active Cameras** | Which Frigate cameras YA-WAMF monitors. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. |
-| **Camera role** | Mark each camera as a **feeder** or a **nest** camera. Nest cameras use their own de-duplication window. |
+| **Cameras to watch** | One row per Frigate camera choosing what it is watched for: **Off** or **Birds**, plus **Garden animals** and **Both** while the Garden animals beta is on. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. See [Cameras to watch](#cameras-to-watch). |
+| **Role** | Shown while a camera watches for birds: **Feeder** or **Nest**. Nest cameras use their own de-duplication window. |
+| **Collect motion review photos** | Shown while a camera watches for Garden animals. See [Beta features](#beta-features). |
 | **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |
 | **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
 | **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
 | **Telemetry** | Optional anonymous usage metrics and health diagnostics, both off by default. See [Telemetry](../features/telemetry.md). |
 | **Test Connection** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
+
+### Cameras to watch
+
+Each choice saves to the same lists the server has always used, so existing configurations need no
+migration:
+
+- **Birds** and **Both** put the camera in `frigate.camera`. An empty list means every Frigate
+  camera, including cameras added later, and the card says so. Turning one camera to **Off** or
+  **Garden animals** while the list is empty first lists every other camera Frigate reports, so
+  they keep watching for birds. **Watch every camera for birds** returns to the empty list.
+- At least one camera always watches for birds, because an empty list would mean every camera
+  again. The last bird camera's **Off** and **Garden animals** choices are unavailable, with the
+  reason beside them.
+- **Garden animals** and **Both** put the camera in `frigate.garden_cameras`. Leaving Garden also
+  removes the camera from `frigate.garden_motion_cameras`; the server drops any motion camera that
+  is not a Garden camera when settings are saved.
+- Leaving birds drops the camera's **Nest** role, so the nest window is not kept for a camera that
+  cannot use it.
+- A saved camera that Frigate no longer lists stays in the list marked **Not found in Frigate**
+  until you choose **Off**. If the list cannot be read from Frigate, saved cameras are shown
+  without that mark.
 
 > **Full-visit clips need continuous recording.** Every selected camera needs an enabled
 > FFmpeg `record` role and positive `record.continuous.days` retention. Alert or detection
@@ -257,12 +279,12 @@ or be removed.
 |---------|-------------|
 | **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection and hides Garden; saved captures and the settings below are kept. See [Garden animals](../features/garden-animals.md). |
 | **Garden models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Apply Settings** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
-| **Cameras to watch** | Per-camera opt-in, none by default (`frigate.garden_cameras: []`). Independent of the camera's Feeder or Nest bird role, which stays in Connection. The camera list comes from **Connection → Sync Cameras**. |
-| **Collect motion review photos** | Additional opt-in for a watched camera, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Garden models**. Bounded CPU scans create private review candidates. |
+| **Cameras to watch** | A summary of the cameras watched for Garden animals, none by default (`frigate.garden_cameras: []`), with **Choose cameras in Connection**. Each camera's **Garden animals** or **Both** choice is made in [Connection → Cameras to watch](#cameras-to-watch), beside its bird role. |
+| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Garden models**. Bounded CPU scans create private review candidates. |
 | **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded. |
-| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, 0.5 to 0.95 (default 0.5, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
+| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
 | **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
-| **Naming threshold** | 0.7 to 0.99 (default 0.8, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. Existing captures are not renamed. |
+| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. Existing captures are not renamed. |
 
 ## Data
 

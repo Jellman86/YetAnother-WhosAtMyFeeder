@@ -40,18 +40,25 @@ motion scanner does not run, Garden visitors and camera options are hidden, and 
 Garden API answers that the feature is switched off. Saved captures are kept, and a
 later person event still removes any stored photo it covers.
 
-Every Garden setting and model download lives under **Settings → Beta features**, with the
-switch that turns it on. While it is off, that view lists what Garden needs and offers no
-downloads. Daily review happens in the **Explorer**. An old link to the former Garden animals
-page opens the Explorer's Garden review instead.
+Garden settings and model downloads live under **Settings → Beta features**, with the switch
+that turns it on, in the order of the setup steps below. Which cameras watch for Garden animals
+is chosen once per camera in **Settings → Connection → Cameras to watch**, beside the camera's
+bird role. While Garden is off, Beta features lists what Garden needs and offers no downloads,
+and each camera in Connection offers only **Off** or **Birds**. Daily review happens in the
+**Explorer**. An old link to the former Garden animals page opens the Explorer's Garden review
+instead.
 
 1. Turn on **Garden animals** in **Settings → Beta features**.
-2. Under **Cameras to watch**, choose **Garden animals** for each camera you want to watch.
-   The list comes from **Settings → Connection**; sync it there first if it is empty. A
-   camera's **Feeder** or **Nest** bird role is independent and stays in Connection.
-3. Set **Frigate animal labels** to labels your detector actually tracks. The default
-   is `cat, dog`. Adding `squirrel` here cannot make a detector learn squirrels;
-   Frigate must already track that label and publish completed events over MQTT.
+2. In **Settings → Connection → Cameras to watch** (or **Choose cameras in Connection** under
+   Beta features), choose **Garden animals** for a camera that should watch only for animals,
+   or **Both** for one that watches for birds too. Sync the list from Frigate first if it is
+   empty. A camera's **Feeder** or **Nest** role appears while it watches for birds;
+   **Collect motion review photos** appears while it watches for Garden animals. At least one
+   camera always watches for birds; see
+   [Cameras to watch](../setup/configuration.md#cameras-to-watch) for how each choice is saved.
+3. Back in **Beta features**, set **Frigate animal labels** to labels your detector actually
+   tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a detector learn
+   squirrels; Frigate must already track that label and publish completed events over MQTT.
 4. Choose **Apply Settings**. **Garden models** then shows each Garden model's status.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
@@ -251,7 +258,7 @@ Garden. This does not change which devices qualify for Garden's own models.
 
 Recognised person evidence removes a capture and its photo instead.
 
-![Garden animal settings under Beta features: setup steps, Garden models with download buttons and status, cameras to watch, motion collection, Frigate animal labels, the animal proposal threshold, automatic naming and where captures go](../images/settings-garden-cameras.png)
+![Garden animal settings under Beta features: setup steps, a summary of the cameras watching for Garden animals with a link to Connection, Frigate animal labels, the animal proposal threshold as a percentage, Garden models with download buttons and status, automatic naming, notifications and where captures go](../images/settings-garden-cameras.png)
 
 
 
@@ -280,8 +287,9 @@ turning off Garden animals stops collection but preserves existing reviews.
 ## Collect candidates from motion recordings
 
 If Frigate does not track the animals you want, optionally enable **Collect motion review
-photos** for that camera under **Settings → Beta features**, then apply settings and
-download the **Motion detector** under **Garden models** in the same view. This separate
+photos** for that camera under **Settings → Connection → Cameras to watch** (it appears once the
+camera watches for Garden animals), then apply settings and download the **Motion detector**
+under **Garden models** in **Settings → Beta features**. This separate
 MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
@@ -312,7 +320,8 @@ camera's remaining queue count and check time. A full queue can have further foo
 waiting in Frigate. Refresh the page to read the latest state.
 
 In **Settings → Beta features**, **Animal proposal threshold** adjusts Cedar's minimum animal
-score for new motion photos (0.5 by default, configurable from 0.5 to 0.95).
+score for new motion photos, shown as a percentage (50% by default, configurable from 50% to
+95%; saved as 0.5 to 0.95).
 A higher threshold reduces proposals but can miss small, distant or infrared animals;
 it cannot eliminate confident errors such as feeders and toys. The setting itself shows the saved value. Changing it does not reclassify existing photos or change bird thresholds or the person privacy veto.
 Each new motion photo records the threshold used with its source evidence.
@@ -435,7 +444,7 @@ animal presence. Dismissing animal presence also revokes its identification conf
 ## Automatic naming
 
 **Name animals automatically** in **Settings → Beta features** is on by default, with a
-**Naming threshold** of 0.80 (from 0.7 to 0.99). When the automatic check finds an animal,
+**Naming threshold** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
 it reads SpeciesNet's top result from the same detector-crop pass; no second model run is
 needed. If that result is a non-bird animal scoring at or above the threshold, after the
 same country filtering and person rules as a suggestion, the capture moves to **Confirmed
