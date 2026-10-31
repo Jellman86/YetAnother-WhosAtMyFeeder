@@ -282,13 +282,36 @@ class FrigateSettings(BaseModel):
         description="Minimum Cedar animal score for new motion proposals; person privacy threshold is unchanged",
     )
     garden_notifications_enabled: bool = Field(
-        False, description="Opt in to text-only Garden alerts independently of bird notifications"
+        False, description="Opt in to Garden alerts independently of bird notifications"
+    )
+    garden_notifications_use_bird_channels: bool = Field(
+        True,
+        description=(
+            "Send Garden alerts on whichever bird channels are switched on and configured. Off sends on "
+            "garden_notification_channels instead. A saved config without this key follows the bird channels "
+            "only when it chose no Garden channels"
+        ),
     )
     garden_notification_channels: list[Literal["discord", "telegram", "pushover", "email"]] = Field(
         default_factory=list,
         max_length=4,
-        description="Explicit Garden delivery channels using saved notification credentials",
+        description="Explicit Garden delivery channels using saved notification credentials, used while "
+        "garden_notifications_use_bird_channels is off",
     )
+    garden_notifications_include_photo: bool = Field(
+        True,
+        description="Attach the capture's saved animal crop, or its photo, to Garden alerts; text only when off "
+        "or when no photo is available",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _garden_channels_default_from_saved_choice(cls, data: object) -> object:
+        # Configs saved before the bird-channel mode existed keep the channels they chose; one
+        # that chose none could never send, so it now follows the bird channels.
+        if isinstance(data, dict) and "garden_notifications_use_bird_channels" not in data:
+            return {**data, "garden_notifications_use_bird_channels": not data.get("garden_notification_channels")}
+        return data
 
     garden_automatic_naming: bool = Field(
         True,

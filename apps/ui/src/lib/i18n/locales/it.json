@@ -1490,7 +1490,31 @@
       "test_retry": "Invia di nuovo",
       "test_stage_deliver": "Consegna di un messaggio di prova",
       "test_subtitle": "Invia un messaggio di prova con le impostazioni attuali di questo canale.",
-      "test_title": "Test notifiche"
+      "test_title": "Test notifiche",
+      "garden": {
+        "title": "Animali del giardino",
+        "desc": "Avvisi quando un animale del giardino viene nominato, separati dagli avvisi sugli uccelli.",
+        "enabled": "Invia avvisi del giardino",
+        "enabled_help": "Un avviso per visita quando un animale viene nominato automaticamente o ne accetti la specie. Salva con Applica impostazioni.",
+        "send_to": "Invia avvisi del giardino a",
+        "use_bird": "Usa i miei canali per gli uccelli",
+        "use_bird_help": "I canali qui sopra attivati e configurati.",
+        "choose": "Scegli i canali",
+        "choose_help": "Usa le credenziali salvate; i loro interruttori per gli uccelli possono restare spenti.",
+        "bird_uses": "Invia a {channels}.",
+        "bird_none": "Nessun canale per gli uccelli è attivato e configurato, quindi non si può inviare alcun avviso del giardino. Attivane uno qui sopra o scegli i canali.",
+        "channels_label": "Canali di consegna del giardino",
+        "channel": "Avvisi del giardino tramite {channel}",
+        "choose_one": "Scegli almeno un canale per gli avvisi del giardino.",
+        "credentials": "Nessuna credenziale salvata per {channels}, quindi lì gli avvisi del giardino non riusciranno. Aggiungile nella scheda del canale qui sopra.",
+        "include_photo": "Includi la foto",
+        "include_photo_help": "Allega il ritaglio salvato dell’animale o, se manca, la foto della cattura. Si inviano solo animali confermati, quindi è una foto accettata da te o dal controllo automatico. Solo testo se nessuna foto è leggibile.",
+        "privacy": "Invia nome dell’animale, telecamera, ora dell’avvistamento e, se scelto, la foto a questi servizi. Il link apre questa cattura qui; un visitatore può aprirla solo finché l’accesso pubblico la condivide.",
+        "rules": "Inviato entro cinque minuti dalla scelta del nome, per avvistamenti fino a due ore prima, quindi attivare gli avvisi non ripropone mai lo storico. Un tentativo per canale e visita; gli invii falliti o incerti non vengono ripetuti.",
+        "status": "Tentativi di consegna salvati. Accettati dal canale: {sent}. Non riusciti: {failed}. Non confermati: {unknown}. Saltati: {skipped}.",
+        "status_after_apply": "Lo stato di consegna appare quando Applica impostazioni ha attivato il giardino.",
+        "refresh": "Aggiorna stato di consegna"
+      }
     },
     "discord": {
       "title": "Notifiche Discord",
@@ -2057,20 +2081,13 @@
       "garden_models_limits_explorer": "I controlli automatici seguono la preferenza di dispositivo di Rilevamento dopo un confronto locale con la CPU, e tornano alla CPU se il controllo del dispositivo non riesce. Le scansioni di movimento usano ancora la CPU. Il lavoro del giardino procede uno alla volta mentre uccelli e telecamere sono inattivi; ogni processo libera la memoria del modello quando si ferma. I controlli avviati da una cattura del giardino nell'Esploratore usano il dispositivo scelto lì e falliscono invece di cambiare dispositivo in silenzio.",
       "garden_explorer_help": "Gli animali del giardino compaiono nell'Esploratore accanto ai tuoi uccelli. Scegli lì Animali del giardino e poi Da verificare per esaminare le nuove catture.",
       "garden_explorer_open": "Verifica gli animali del giardino",
-      "garden_notifications": "Notifiche del giardino",
-      "garden_notifications_help": "Avvisi di testo per animali appena identificati, separati da quelli degli uccelli. Salva con Applica impostazioni.",
-      "garden_notifications_privacy": "Invia nome dell’animale, videocamera e ora ai servizi scelti. Nessuna foto o collegamento multimediale. La cronologia richiede ancora l’accesso del proprietario.",
-      "garden_notification_channels": "Canali di invio del giardino",
-      "garden_notification_channel": "Avvisi del giardino tramite {channel}",
-      "garden_notifications_choose": "Scegli almeno un canale per gli avvisi del giardino.",
-      "garden_notifications_credentials": "Mancano le credenziali di un canale scelto. Configuralo in Notifiche; gli avvisi degli uccelli possono restare disattivati.",
-      "garden_notifications_attempts_help": "Sono idonee solo le acquisizioni identificate negli ultimi cinque minuti. Un tentativo per canale e visita nota; gli invii falliti o incerti non vengono ripetuti automaticamente.",
-      "garden_notifications_status": "Tentativi salvati. Accettati dal canale: {sent}. Falliti: {failed}. Non confermati: {unknown}. Saltati: {skipped}.",
-      "garden_notifications_refresh": "Aggiorna stato di invio",
       "garden_cameras_summary": "Animali del giardino osservati su {cameras}.",
       "garden_cameras_none": "Nessuna telecamera osserva ancora gli animali del giardino. Scegli Animali del giardino o Entrambi per una telecamera in Connessione.",
       "garden_motion_summary": "Le foto di movimento da verificare sono raccolte su {cameras}.",
-      "garden_cameras_open": "Scegli le telecamere in Connessione"
+      "garden_cameras_open": "Scegli le telecamere in Connessione",
+      "garden_alerts_on": "Gli avvisi del giardino sono attivi. Si impostano in Notifiche, con i loro canali.",
+      "garden_alerts_off": "Gli avvisi del giardino sono disattivati. Attivali in Notifiche, con i loro canali.",
+      "garden_alerts_open": "Imposta gli avvisi"
     },
     "native_revalidation": {
       "title": "Verifica profilo in quarantena",
@@ -4014,7 +4031,8 @@
       "pick": "Scegli una specie",
       "chosen_by_owner": "Specie scelta dal proprietario"
     },
-    "entry_dismiss_mixed": "Le catture qui hanno stati di revisione diversi. Scartale una alla volta."
+    "entry_dismiss_mixed": "Le catture qui hanno stati di revisione diversi. Scartale una alla volta.",
+    "capture_link_unavailable": "Questa cattura del giardino non è più disponibile o non è condivisa qui."
   },
   "model_execution": {
     "completed": "Ultima esecuzione completata: {device} · {time}",

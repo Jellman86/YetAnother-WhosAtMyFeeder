@@ -22,6 +22,8 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import NotificationPolicySentence from './NotificationPolicySentence.svelte';
+    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
+    import type { GardenNotificationChannel } from '../../api/garden';
     import type { PolicyChannel } from '../../settings/notification-policy';
 
     function extractErrorMessage(error: unknown, fallback: string): string {
@@ -110,6 +112,14 @@
         frigateExternalUrl = '',
         onOpenIntegrations = () => {},
 
+        // Garden animals (beta)
+        gardenBeta = false,
+        gardenStatusAvailable = false,
+        gardenNotificationsEnabled = $bindable(false),
+        gardenUseBirdChannels = $bindable(true),
+        gardenNotificationChannels = $bindable<GardenNotificationChannel[]>([]),
+        gardenIncludePhoto = $bindable(true),
+
         // Functions
         sendTestEmail,
         initiateGmailOAuth,
@@ -169,6 +179,14 @@
         linkTarget: NotificationLinkTarget;
         frigateExternalUrl?: string;
         onOpenIntegrations?: () => void;
+        /** Whether the Garden beta is on, as the page holds it. */
+        gardenBeta?: boolean;
+        /** Whether the saved settings have Garden on, so its delivery status can be read. */
+        gardenStatusAvailable?: boolean;
+        gardenNotificationsEnabled?: boolean;
+        gardenUseBirdChannels?: boolean;
+        gardenNotificationChannels?: GardenNotificationChannel[];
+        gardenIncludePhoto?: boolean;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
@@ -1141,6 +1159,17 @@
             {/if}
         </section>
     </div>
+
+    {#if gardenBeta}
+        <GardenNotificationSettings
+            bind:enabled={gardenNotificationsEnabled}
+            bind:useBirdChannels={gardenUseBirdChannels}
+            bind:channels={gardenNotificationChannels}
+            bind:includePhoto={gardenIncludePhoto}
+            birdChannels={policyChannels}
+            statusAvailable={gardenStatusAvailable}
+        />
+    {/if}
 </div>
 
 {#if ntOpen}

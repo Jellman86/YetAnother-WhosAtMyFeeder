@@ -1480,7 +1480,31 @@
       "test_retry": "Erneut senden",
       "test_stage_deliver": "Testnachricht zustellen",
       "test_subtitle": "Sendet eine Testnachricht mit den aktuellen Einstellungen dieses Kanals.",
-      "test_title": "Benachrichtigungstest"
+      "test_title": "Benachrichtigungstest",
+      "garden": {
+        "title": "Gartentiere",
+        "desc": "Meldungen, wenn ein Gartentier benannt wird, getrennt von Vogelmeldungen.",
+        "enabled": "Gartenmeldungen senden",
+        "enabled_help": "Eine Meldung je Besuch, wenn ein Tier automatisch benannt wird oder du seine Art bestätigst. Mit Einstellungen anwenden speichern.",
+        "send_to": "Gartenmeldungen senden an",
+        "use_bird": "Meine Vogelkanäle verwenden",
+        "use_bird_help": "Die Kanäle oben, die eingeschaltet und eingerichtet sind.",
+        "choose": "Kanäle auswählen",
+        "choose_help": "Nutzt gespeicherte Zugangsdaten; die Vogelschalter können aus bleiben.",
+        "bird_uses": "Sendet an {channels}.",
+        "bird_none": "Kein Vogelkanal ist eingeschaltet und eingerichtet, daher kann keine Gartenmeldung gesendet werden. Schalte oben einen ein oder wähle Kanäle aus.",
+        "channels_label": "Zustellkanäle für den Garten",
+        "channel": "Gartenmeldungen über {channel}",
+        "choose_one": "Wähle mindestens einen Kanal für Gartenmeldungen.",
+        "credentials": "Für {channels} sind keine Zugangsdaten gespeichert, daher schlagen Gartenmeldungen dort fehl. Trage sie oben in der Kanalkarte ein.",
+        "include_photo": "Foto anhängen",
+        "include_photo_help": "Hängt den gespeicherten Tierausschnitt an, sonst das Foto der Aufnahme. Gesendet werden nur bestätigte Tiere, also ein Foto, das du oder die automatische Prüfung angenommen habt. Nur Text, wenn kein Foto lesbar ist.",
+        "privacy": "Sendet Tiername, Kamera, Sichtungszeit und, falls gewählt, das Foto an diese Dienste. Der Link öffnet diese Aufnahme hier; Besucher können sie nur öffnen, solange der öffentliche Zugang sie teilt.",
+        "rules": "Gesendet innerhalb von fünf Minuten nach der Benennung, für Sichtungen bis zu zwei Stunden alt, daher spielt das Einschalten keinen Verlauf erneut ab. Ein Versuch je Kanal und Besuch; fehlgeschlagene oder unklare Sendungen werden nicht wiederholt.",
+        "status": "Gespeicherte Zustellversuche. Vom Kanal angenommen: {sent}. Fehlgeschlagen: {failed}. Unbestätigt: {unknown}. Übersprungen: {skipped}.",
+        "status_after_apply": "Der Zustellstatus erscheint, sobald Einstellungen anwenden den Garten eingeschaltet hat.",
+        "refresh": "Zustellstatus aktualisieren"
+      }
     },
     "discord": {
       "title": "Discord-Benachrichtigungen",
@@ -2047,20 +2071,13 @@
       "garden_models_limits_explorer": "Automatische Prüfungen folgen nach einem lokalen CPU-Vergleich deiner Geräteauswahl unter Erkennung und weichen auf die CPU aus, wenn die Geräteprüfung fehlschlägt. Bewegungsscans nutzen weiterhin die CPU. Gartenarbeit läuft einzeln, während Vögel und Kameras ruhen; jeder Prozess gibt beim Beenden seinen Modellspeicher frei. Prüfungen, die du an einer Gartenaufnahme im Explorer startest, nutzen das dort gewählte Gerät und schlagen fehl, statt still das Gerät zu wechseln.",
       "garden_explorer_help": "Gartentiere erscheinen im Explorer neben deinen Vögeln. Wähle dort Gartentiere und dann Prüfung nötig, um neue Aufnahmen durchzugehen.",
       "garden_explorer_open": "Gartentiere prüfen",
-      "garden_notifications": "Gartenbenachrichtigungen",
-      "garden_notifications_help": "Textmeldungen für neu benannte Tiere, getrennt von Vogelmeldungen. Mit Einstellungen anwenden speichern.",
-      "garden_notifications_privacy": "Sendet Tiername, Kamera und Zeit an ausgewählte Dienste. Keine Fotos oder Medienlinks. Verlaufslinks erfordern weiterhin Besitzerzugriff.",
-      "garden_notification_channels": "Zustellkanäle für den Garten",
-      "garden_notification_channel": "Gartenmeldungen über {channel}",
-      "garden_notifications_choose": "Wähle mindestens einen Kanal für Gartenmeldungen.",
-      "garden_notifications_credentials": "Bei einem ausgewählten Kanal fehlen Zugangsdaten. Richte ihn unter Benachrichtigungen ein; Vogelmeldungen können ausgeschaltet bleiben.",
-      "garden_notifications_attempts_help": "Nur benannte Aufnahmen der letzten fünf Minuten kommen infrage. Ein Versuch je Kanal und bekanntem Besuch; fehlgeschlagene oder unklare Sendungen werden nicht automatisch wiederholt.",
-      "garden_notifications_status": "Gespeicherte Zustellversuche. Vom Kanal angenommen: {sent}. Fehlgeschlagen: {failed}. Unbestätigt: {unknown}. Übersprungen: {skipped}.",
-      "garden_notifications_refresh": "Zustellstatus aktualisieren",
       "garden_cameras_summary": "{cameras} wird auf Gartentiere beobachtet.",
       "garden_cameras_none": "Noch keine Kamera wird auf Gartentiere beobachtet. Wähle unter Verbindung für eine Kamera Gartentiere oder Beides.",
       "garden_motion_summary": "Bewegungsfotos zur Prüfung werden gesammelt auf {cameras}.",
-      "garden_cameras_open": "Kameras unter Verbindung wählen"
+      "garden_cameras_open": "Kameras unter Verbindung wählen",
+      "garden_alerts_on": "Gartenmeldungen sind an. Sie werden unter Benachrichtigungen mit ihren Kanälen eingerichtet.",
+      "garden_alerts_off": "Gartenmeldungen sind aus. Schalte sie unter Benachrichtigungen mit ihren Kanälen ein.",
+      "garden_alerts_open": "Meldungen einrichten"
     },
     "native_revalidation": {
       "title": "Quarantänisiertes Profil prüfen",
@@ -4014,7 +4031,8 @@
       "pick": "Art auswählen",
       "chosen_by_owner": "Art vom Eigentümer ausgewählt"
     },
-    "entry_dismiss_mixed": "Die Aufnahmen hier haben unterschiedliche Prüfstatus. Verwerfen Sie sie einzeln."
+    "entry_dismiss_mixed": "Die Aufnahmen hier haben unterschiedliche Prüfstatus. Verwerfen Sie sie einzeln.",
+    "capture_link_unavailable": "Diese Gartenaufnahme ist nicht mehr verfügbar oder wird hier nicht geteilt."
   },
   "model_execution": {
     "completed": "Letzter abgeschlossener Lauf: {device} · {time}",

@@ -430,26 +430,95 @@ test('Garden shows the actual last NPU execution separately from CPU-only motion
     await expect(status).toContainText('Last completed run: NPU');
 });
 
-test('Garden alerts opt in to their own channels and report saved attempts without enabling bird alerts', async ({ page }) => {
-    const harness = await openSettings(page, { garden_cameras: ['patio'], notifications_telegram_enabled: false }, ['patio'], (route, path) => {
-        if (path === '/api/garden/notifications') return route.fulfill({ json: {
-            enabled: false, channels: [], configured: { telegram: true, discord: false, pushover: false, email: false },
-            attempts: { sent: 2, failed: 1, attempted: 0, skipped: 0 }
-        } });
-    });
+const notificationStatus = {
+    enabled: false, use_bird_channels: true, channels: [], delivery_channels: [], include_photo: true,
+    configured: { telegram: true, discord: false, pushover: false, email: false },
+    attempts: { sent: 2, failed: 1, attempted: 0, skipped: 0 }
+};
+
+const gardenNotifications: GardenHandler = (route, path) => path === '/api/garden/notifications'
+    ? route.fulfill({ json: notificationStatus }) : undefined;
+
+async function openNotifications(page: Page): Promise<void> {
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Garden animals' })).toBeVisible();
+}
+
+test('Beta features summarises Garden alerts and opens Notifications to set them up', async ({ page }) => {
+    await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
     await openBeta(page);
-    const toggle = page.getByRole('switch', { name: /^Garden notifications/ });
-    await expect(toggle).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toHaveCount(0);
-    await toggle.click();
-    await page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true }).click();
-    await expect(page.locator('[data-garden-notification-status]')).toContainText('Accepted by channel: 2');
+    const summary = page.locator('[data-garden-alerts-summary]');
+    await expect(summary).toContainText('Garden alerts are off.');
+    await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
+    await summary.getByRole('button', { name: 'Set up alerts' }).click();
+    await expect(page.getByRole('heading', { name: 'Garden animals' })).toBeVisible();
+    await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveAttribute('aria-checked', 'false');
+});
+
+test('Garden alerts follow the enabled bird channels by default, attach the photo and report saved attempts', async ({ page }) => {
+    const harness = await openSettings(page, {
+        garden_cameras: ['patio'], notifications_telegram_enabled: true,
+        notifications_telegram_bot_token: '***REDACTED***', notifications_telegram_chat_id: '***REDACTED***'
+    }, ['patio'], gardenNotifications);
+    await openNotifications(page);
+    const garden = page.locator('[data-garden-notifications]');
+    await expect(garden.getByRole('radio')).toHaveCount(0);
+    await page.getByRole('switch', { name: 'Send Garden alerts' }).click();
+    await expect(garden.getByRole('radio', { name: /^Use my bird channels/ })).toBeChecked();
+    await expect(garden.locator('[data-garden-delivery]')).toHaveText('Sends to Telegram.');
+    await expect(page.getByRole('switch', { name: 'Include the photo' })).toHaveAttribute('aria-checked', 'true');
+    await expect(garden.locator('[data-garden-notification-status]')).toContainText('Accepted by channel: 2');
     await page.getByRole('button', { name: /Apply Settings/i }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ garden_notifications_enabled: true,
-        garden_notification_channels: ['telegram'], notifications_telegram_enabled: false });
+        garden_notifications_use_bird_channels: true, garden_notifications_include_photo: true,
+        notifications_telegram_enabled: true });
     expect(harness.otherWrites).toEqual([]);
-    await page.setViewportSize({ width: 320, height: 800 });
-    await page.evaluate(() => document.documentElement.style.fontSize = '200%');
-    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('chosen Garden channels use saved credentials without enabling bird alerts, and say what is missing', async ({ page }) => {
+    const harness = await openSettings(page, { garden_cameras: ['patio'], notifications_telegram_enabled: false }, ['patio'], gardenNotifications);
+    await openNotifications(page);
+    const garden = page.locator('[data-garden-notifications]');
+    await page.getByRole('switch', { name: 'Send Garden alerts' }).click();
+    await expect(garden.locator('[data-garden-delivery]')).toContainText('No bird channel is switched on and configured');
+    await garden.getByRole('radio', { name: /^Choose channels/ }).check();
+    await expect(garden.locator('[data-garden-delivery]')).toHaveText('Choose at least one channel to deliver Garden alerts.');
+    await page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(garden.locator('[data-garden-delivery]')).toContainText('No saved credentials for Telegram');
+    await page.getByRole('switch', { name: 'Include the photo' }).click();
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => harness.writes.length).toBe(1);
+    expect(harness.writes[0]).toMatchObject({ garden_notifications_enabled: true,
+        garden_notifications_use_bird_channels: false, garden_notification_channels: ['telegram'],
+        garden_notifications_include_photo: false, notifications_telegram_enabled: false });
+    expect(harness.otherWrites).toEqual([]);
+    // Reflow at 320px, and text resized to 200% on a tablet; the bird cards beside it have their own tests.
+    for (const [width, fontSize] of [[320, '100%'], [768, '200%']] as const) {
+        await page.setViewportSize({ width, height: 800 });
+        await page.evaluate(size => document.documentElement.style.fontSize = size, fontSize);
+        await expect.poll(() => garden.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        for (const option of await garden.locator('label').all()) {
+            expect(await option.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        }
+    }
+});
+
+test('the Garden alert choices work from the keyboard', async ({ page }) => {
+    await openSettings(page, { garden_cameras: ['patio'], garden_notifications_enabled: true }, ['patio'], gardenNotifications);
+    await openNotifications(page);
+    const bird = page.getByRole('radio', { name: /^Use my bird channels/ });
+    await bird.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.getByRole('radio', { name: /^Choose channels/ })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toBeVisible();
+});
+
+test('Notifications shows no Garden section while the Garden beta is off', async ({ page }) => {
+    const harness = await openSettings(page, { beta_garden_animals: false }, ['patio'], gardenNotifications);
+    await page.getByRole('link', { name: 'Notifications', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Discord' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Garden animals' })).toHaveCount(0);
+    expect(harness.gardenRequests).toEqual([]);
 });

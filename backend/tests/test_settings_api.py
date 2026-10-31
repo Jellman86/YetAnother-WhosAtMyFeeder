@@ -1873,3 +1873,34 @@ async def test_garden_notification_settings_round_trip_without_enabling_bird_cha
     assert after["garden_notification_channels"] == ["telegram"]
     assert after["notifications_telegram_enabled"] is False
     assert (await client.post("/api/settings", json={"garden_notification_channels": ["unknown"]})).status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_garden_notification_channel_mode_and_photo_choice_round_trip(client, monkeypatch):
+    monkeypatch.setattr(settings.frigate, "garden_notifications_enabled", False)
+    monkeypatch.setattr(settings.frigate, "garden_notifications_use_bird_channels", True)
+    monkeypatch.setattr(settings.frigate, "garden_notification_channels", [])
+    monkeypatch.setattr(settings.frigate, "garden_notifications_include_photo", True)
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(Settings, "save", AsyncMock())
+    before = (await client.get("/api/settings")).json()
+    assert before["garden_notifications_use_bird_channels"] is True
+    assert before["garden_notifications_include_photo"] is True
+    response = await client.post(
+        "/api/settings",
+        json={
+            "garden_notifications_enabled": True,
+            "garden_notifications_use_bird_channels": False,
+            "garden_notification_channels": ["pushover"],
+            "garden_notifications_include_photo": False,
+        },
+    )
+    assert response.status_code == 200, response.text
+    after = (await client.get("/api/settings")).json()
+    assert after["garden_notifications_use_bird_channels"] is False
+    assert after["garden_notification_channels"] == ["pushover"]
+    assert after["garden_notifications_include_photo"] is False
+    # A write that leaves the mode out keeps it.
+    assert (await client.post("/api/settings", json={"garden_notifications_enabled": True})).status_code == 200
+    assert (await client.get("/api/settings")).json()["garden_notifications_use_bird_channels"] is False

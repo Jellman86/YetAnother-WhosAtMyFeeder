@@ -1490,7 +1490,31 @@
       "test_retry": "Send again",
       "test_stage_deliver": "Deliver a test message",
       "test_subtitle": "Sends one test message using the current settings for this channel.",
-      "test_title": "Notification test"
+      "test_title": "Notification test",
+      "garden": {
+        "title": "Garden animals",
+        "desc": "Alerts when a Garden animal is named, separate from bird alerts.",
+        "enabled": "Send Garden alerts",
+        "enabled_help": "One alert per visit when an animal is named automatically or you accept its species. Apply Settings to save.",
+        "send_to": "Send Garden alerts to",
+        "use_bird": "Use my bird channels",
+        "use_bird_help": "The channels above that are switched on and configured.",
+        "choose": "Choose channels",
+        "choose_help": "Uses saved credentials; their bird switches can stay off.",
+        "bird_uses": "Sends to {channels}.",
+        "bird_none": "No bird channel is switched on and configured, so no Garden alert can be sent. Switch one on above, or choose channels.",
+        "channels_label": "Garden delivery channels",
+        "channel": "Garden alerts via {channel}",
+        "choose_one": "Choose at least one channel to deliver Garden alerts.",
+        "credentials": "No saved credentials for {channels}, so Garden alerts there will fail. Add them in the channel cards above.",
+        "include_photo": "Include the photo",
+        "include_photo_help": "Attaches the saved animal crop, or the capture photo when there is no crop. Only confirmed animals are sent, so it is a photo you or the automatic check accepted. Text only if no photo can be read.",
+        "privacy": "Sends the animal name, camera, sighting time and, if chosen, the photo to these services. The link opens this capture here; a visitor can open it only while public access shares it.",
+        "rules": "Sent within five minutes of the name being decided, for sightings up to two hours old, so turning alerts on never replays history. One attempt per channel per visit; failed or uncertain sends are not retried.",
+        "status": "Saved delivery attempts. Accepted by channel: {sent}. Failed: {failed}. Unconfirmed: {unknown}. Skipped: {skipped}.",
+        "status_after_apply": "Delivery status appears once Apply Settings has switched Garden on.",
+        "refresh": "Refresh delivery status"
+      }
     },
     "discord": {
       "title": "Discord Notifications",
@@ -2057,20 +2081,13 @@
       "garden_models_limits_explorer": "Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start from a Garden capture in the Explorer use the device you choose there and fail rather than silently switch devices.",
       "garden_explorer_help": "Garden animals appear in the Explorer beside your birds. Choose Garden animals there, then Needs review, to work through new captures.",
       "garden_explorer_open": "Review Garden animals",
-      "garden_notifications": "Garden notifications",
-      "garden_notifications_help": "Text alerts for newly named animals, separate from bird alerts. Apply Settings to save.",
-      "garden_notifications_privacy": "Sends the animal name, camera and time to selected services. No photos or media links. History links still require owner access.",
-      "garden_notification_channels": "Garden delivery channels",
-      "garden_notification_channel": "Garden alerts via {channel}",
-      "garden_notifications_choose": "Choose at least one channel to deliver Garden alerts.",
-      "garden_notifications_credentials": "A selected channel is missing credentials. Configure it under Notifications; its bird-alert switch can stay off.",
-      "garden_notifications_attempts_help": "Only named captures from the last five minutes are eligible. One attempt per channel per known visit; failed or uncertain sends are not retried automatically.",
-      "garden_notifications_status": "Saved delivery attempts. Accepted by channel: {sent}. Failed: {failed}. Unconfirmed: {unknown}. Skipped: {skipped}.",
-      "garden_notifications_refresh": "Refresh delivery status",
       "garden_cameras_summary": "Watching {cameras} for Garden animals.",
       "garden_cameras_none": "No camera is watched for Garden animals yet. Choose Garden animals or Both for a camera in Connection.",
       "garden_motion_summary": "Motion review photos are collected on {cameras}.",
-      "garden_cameras_open": "Choose cameras in Connection"
+      "garden_cameras_open": "Choose cameras in Connection",
+      "garden_alerts_on": "Garden alerts are on. They are set up in Notifications, with their channels.",
+      "garden_alerts_off": "Garden alerts are off. Turn them on in Notifications, with their channels.",
+      "garden_alerts_open": "Set up alerts"
     },
     "native_revalidation": {
       "title": "Check quarantined profile",
@@ -4014,7 +4031,8 @@
       "pick": "Pick a species",
       "chosen_by_owner": "Species chosen by the owner"
     },
-    "entry_dismiss_mixed": "Captures here are in different review states. Dismiss them one capture at a time."
+    "entry_dismiss_mixed": "Captures here are in different review states. Dismiss them one capture at a time.",
+    "capture_link_unavailable": "This Garden capture is no longer available, or is not shared here."
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",
