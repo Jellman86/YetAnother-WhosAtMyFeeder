@@ -7,6 +7,7 @@
     let password = $state('');
     let error = $state('');
     let isLoading = $state(false);
+    let passwordInput = $state<HTMLInputElement | null>(null);
 
     async function handleSubmit(e: Event) {
         e.preventDefault();
@@ -18,8 +19,13 @@
         try {
             await authStore.login(username.trim(), password);
         } catch (err) {
-            error = err instanceof Error ? err.message : 'Login failed';
+            error = err instanceof Error && err.message
+                ? err.message
+                : $_('auth.login_failed', { default: 'Could not sign in. Check your username and password.' });
             isLoading = false;
+            // The likeliest fix is retyping the password, so the cursor goes back there.
+            passwordInput?.focus();
+            passwordInput?.select();
         }
     }
 
@@ -47,11 +53,11 @@
             <!-- Header -->
             <div class="text-center mb-8">
                 <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
-                    <img src={APP_ICON_192_URL} alt="Logo" class="w-16 h-16 object-contain drop-shadow-md" />
+                    <img src={APP_ICON_192_URL} alt="" class="w-16 h-16 object-contain drop-shadow-md" />
                 </div>
-                <h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     {$_('auth.welcome_back')}
-                </h2>
+                </h1>
                 <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                     {$_('auth.signin_desc')}
                 </p>
@@ -64,6 +70,8 @@
                         <input
                             id="username"
                             name="username"
+                            aria-invalid={error ? 'true' : undefined}
+                            aria-describedby={error ? 'login-error' : undefined}
                             type="text"
                             autocomplete="username"
                             required
@@ -77,6 +85,9 @@
                         <input
                             id="password"
                             name="password"
+                            bind:this={passwordInput}
+                            aria-invalid={error ? 'true' : undefined}
+                            aria-describedby={error ? 'login-error' : undefined}
                             type="password"
                             autocomplete="current-password"
                             required
@@ -87,11 +98,14 @@
                     </div>
                 </div>
 
-                {#if error}
-                    <div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 text-xs font-bold text-center animate-in fade-in slide-in-from-top-1">
-                        {error}
-                    </div>
-                {/if}
+                <!-- Always present, so the alert is announced the moment a message lands in it. -->
+                <div id="login-error" role="alert" data-login-error>
+                    {#if error}
+                        <div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold text-center animate-in fade-in slide-in-from-top-1">
+                            {error}
+                        </div>
+                    {/if}
+                </div>
 
                 <button
                     type="submit"
@@ -118,7 +132,7 @@
             </form>
         </div>
         
-        <p class="text-center text-3xs font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+        <p class="text-center text-3xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
             {$_('auth.secure_access')}
         </p>
     </div>

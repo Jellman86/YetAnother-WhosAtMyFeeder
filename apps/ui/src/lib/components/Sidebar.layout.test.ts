@@ -22,9 +22,9 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('shows truthful operational status rows in the expanded sidebar', () => {
-        expect(appSource).toContain('variant="sidebar"');
         expect(sidebarSource).toContain('data-sidebar-status');
-        expect(connectionStatusSource).toContain("variant?: 'compact' | 'sidebar'");
+        // The unused compact header variant is gone; the sidebar tiles are the only shape.
+        expect(connectionStatusSource).not.toContain('variant');
         expect(connectionStatusSource).toContain("$_('status.live_updates')");
         expect(connectionStatusSource).toContain("$_('status.audio_analysis')");
         expect(connectionStatusSource).toContain("$_('status.notifications')");
@@ -39,6 +39,27 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).toContain("$_('auth.public_view')");
         expect(sidebarSource).toContain("$_('auth.logout')");
         expect(sidebarSource).toContain("$_('auth.login')");
+    });
+
+    it('never tells a guest that notifications are off', () => {
+        // A guest cannot read the owner's settings, so the Alerts tile is left out, not guessed.
+        expect(appSource).toContain('if (!s) return null;');
+        expect(connectionStatusSource).toContain('notificationsActive?: boolean | null;');
+        expect(connectionStatusSource).toContain('...(notificationsActive === null');
+    });
+
+    it('is a wordmark, not a heading, so each page owns its single h1', () => {
+        expect(sidebarSource).not.toContain('<h1');
+    });
+
+    it('takes the closed phone drawer out of the tab order and makes the open one modal', () => {
+        expect(sidebarSource).toContain('id="app-sidebar"');
+        expect(sidebarSource).toContain('inert={drawerClosed}');
+        expect(sidebarSource).toContain('const release = trapFocus(asideEl);');
+        expect(sidebarSource).toContain(`nav [aria-current="page"]`);
+        expect(sidebarSource).toContain('<svelte:window onkeydown={handleWindowKeydown} />');
+        expect(appSource).toContain('menuOpen={mobileSidebarOpen}');
+        expect(appSource).toContain('menuControls="app-sidebar"');
     });
 
     it('keeps navigation and bottom controls reachable on short viewports', () => {
