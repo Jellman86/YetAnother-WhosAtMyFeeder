@@ -988,6 +988,32 @@ stored capture identity, displayed species, time, temperature or weather also
 returns `409`. Unrelated favourite changes do not reject completion. Refresh before
 retrying; the server does not repeat a paid provider call.
 
+### Range filter
+
+Owner only; guests receive `401` or `403`. See [Range filter](features/range-filter.md) for the
+rules. The switch itself is `range_filter_enabled` and the finest region is
+`range_filter_region_level` (`county`, `state` or `country`) on `GET`/`POST /api/settings`.
+
+- `GET /api/range-filter/status` — whether new detections are being range-checked right now
+  (`filtering`) and, in one `reason`, why not: `active`, `ready` (list present, switch off),
+  `needs_location`, `needs_ebird_key`, `waiting_for_list`, `lookup_failed`, `location_changed`,
+  `list_stale` or `list_unusable`, with `problem` naming the failure. Also the region used and
+  why it is coarser than the setting (`region.note`), the species counts, BirdNET-Go species heard
+  in the last year, when the list was refreshed and goes stale, and how the active model's labels
+  fall against the list (`model.out_of_range`, `model.unmatched`).
+- `POST /api/range-filter/refresh` — starts a background fetch of the regional list and returns
+  the status with `refreshing: true`. Poll the status to see it finish.
+- `GET /api/range-filter/preview` — read-only: species recorded here in the last 90 days that the
+  list treats as out of range, with detection counts, then how many species the active model can
+  name that would be set aside, with examples. `available` is false without a current list.
+- `GET /api/range-filter/skips?limit=` — detections set aside as out of range, newest first
+  (`limit` 1–100, default 20), so a vagrant can be found and recorded by hand.
+- `GET /api/range-filter/decisions/{frigate_event}` — what the filter changed for one detection:
+  `{"decision": null}` when nothing, or the original label and score and the in-range label kept.
+
+A detection set aside is dropped with reason `filter_out_of_range`, and `POST
+/api/events/{event_id}/reclassify` can answer `no_result` with reason `out_of_range`.
+
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)

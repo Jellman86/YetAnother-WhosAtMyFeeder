@@ -27,7 +27,7 @@
 
     let integrations = $derived([
         { id: 'birdnet' as const, name: 'BirdNET-Go', get: () => birdnetEnabled, set: (value: boolean) => (birdnetEnabled = value), note: $_('setup.integrations.note_birdnet', { default: 'Audio confirmation of visual detections.' }) },
-        { id: 'ebird' as const, name: 'eBird', get: () => ebirdEnabled, set: (value: boolean) => (ebirdEnabled = value), note: $_('setup.integrations.note_ebird', { default: 'Nearby sightings and maps. Add an API key in Settings.' }) },
+        { id: 'ebird' as const, name: 'eBird', get: () => ebirdEnabled, set: (value: boolean) => (ebirdEnabled = value), note: $_('setup.integrations.note_ebird', { default: 'Nearby sightings, maps and an optional range filter. Add an API key in Settings.' }) },
         { id: 'inaturalist' as const, name: 'iNaturalist', get: () => inaturalistEnabled, set: (value: boolean) => (inaturalistEnabled = value), note: $_('setup.integrations.note_inat', { default: 'Owner-reviewed submissions. Connect your account in Settings.' }) },
         { id: 'birdweather' as const, name: 'BirdWeather', get: () => birdweatherEnabled, set: (value: boolean) => (birdweatherEnabled = value), note: $_('setup.integrations.note_bw', { default: 'Report to community stations. Add a station token in Settings.' }) },
         { id: 'ai' as const, name: $_('setup.integrations.ai', { default: 'AI analysis' }), get: () => llmEnabled, set: (value: boolean) => (llmEnabled = value), note: $_('setup.integrations.note_ai', { default: 'Behavioural notes. Add a provider key in Settings.' }) }

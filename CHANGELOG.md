@@ -42,6 +42,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   failures now log the exit code, the signal name and the worker's own exception type, and
   motion failures add the camera and recording window.
 
+- **Range filter** (#696), off by default, in **Settings → Detection**. With a location and an
+  eBird API key it checks each new automatic identification against eBird's list of every species
+  recorded in your county, state or country:
+  - An out-of-range top answer falls back to the model's best in-range answer that still clears the
+    confidence threshold and every other rule; the record's technical details say what the model
+    said first. With no such answer the detection is not recorded, and is listed under **Recently
+    set aside** and in the activity log as *Not recorded, never seen in your eBird region*, so a
+    vagrant can be recorded by hand.
+  - The region comes from the counties of nearby eBird hotspots, combining neighbouring counties near
+    a border; an approximate location uses a state list, a country alone the country list, and an
+    under-birded county its state. eBird species codes map to catalogue identities by scientific
+    name, never by common name. Species BirdNET-Go has heard here count as present.
+  - It fails open: no list, a list over 30 days old or for another place, an unreachable eBird, a
+    missing key or a label with no exact identity filters nothing, and the card says which. The
+    list is all-season, so a summer visitor counts as present all year.
+  - The card states what the filter is doing in words, the source, region, species count and
+    freshness, offers **Refresh list**, and previews which recently recorded species and how many
+    of the model's species would be set aside before it is switched on.
+  - Backfill and **Reclassify** follow the same rule; an out-of-range video or photo refinement
+    never replaces an identification. Existing history is not changed.
+  - New owner-only endpoints under `/api/range-filter`, and a migration adding the stored list and
+    the filter's decisions. eBird requests are time- and size-bounded, the key travels only in its
+    header, and eBird receives the location rounded to about 11 km.
 - Confirmed Garden animals keep their full photograph and clip, as bird visits do.
   Until now a Garden capture's photo and video lived only in Frigate: on one
   install no Frigate-event photo older than seven days survived, and 220 of 231

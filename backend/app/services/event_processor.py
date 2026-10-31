@@ -802,6 +802,8 @@ class EventProcessor:
                 label=top_candidate.get("label"),
                 score=top_candidate.get("score"),
             )
+            if reason == "out_of_range":
+                await self._record_range_skip(event, results)
             self._mark_classification_decided_tombstone(event.frigate_event)
             return
 
@@ -1126,6 +1128,23 @@ class EventProcessor:
             frigate_score,
             sub_label_score,
         )
+
+    async def _record_range_skip(self, event, results: list) -> None:
+        recorder = getattr(self.detection_service, "record_range_skip", None)
+        if not callable(recorder):
+            return
+        try:
+            await recorder(
+                results,
+                event.frigate_event,
+                event.sub_label,
+                event.frigate_score,
+                event.sub_label_score,
+                camera=event.camera,
+                detected_at=event.detection_dt,
+            )
+        except Exception as error:  # noqa: BLE001 - a missing record never changes the skip itself
+            log.warning("Range skip not recorded", event_id=event.frigate_event, error=type(error).__name__)
 
     async def _handle_false_positive(self, frigate_event_id: str):
         """Take a detection out of view when Frigate withdraws its event.

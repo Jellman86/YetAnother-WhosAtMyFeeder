@@ -3,6 +3,8 @@ from app.services.classification_input_provenance import classification_evidence
 import os
 import asyncio
 import math
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Literal, NamedTuple
 from app.config import settings
 from app.models.classification_evidence import ClassificationEvidence
@@ -10,6 +12,8 @@ from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_S
 from app.services.classifier_service import ClassifierService
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
+from app.services.range_filter import RangeCandidate, RangeDecision, decide_range_admission
+from app.services.range_filter_service import range_filter_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label
@@ -94,6 +98,19 @@ TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIME
 
 def _reportable_species(scientific_name: str | None) -> bool:
     return bool(scientific_name) and scientific_name != "Unknown Bird"
+
+
+_THRESHOLD_REASONS = frozenset({"threshold_passed", "threshold_passed_with_sublabel_disagreement_guard"})
+
+
+@dataclass(frozen=True)
+class RangeSelection:
+    """A selection with the range rule's decision, kept so a skip can be recorded."""
+
+    top: dict | None
+    reason: str | None
+    decision: RangeDecision | None = None
+    chosen: RangeCandidate | None = None
 
 
 class NonBirdSaveRejection(NamedTuple):
@@ -313,15 +330,150 @@ class DetectionService:
         frigate_score: float = None,
         frigate_sub_label_score: float = None,
     ) -> tuple[dict | None, str | None]:
-        """Return the first classifier result that survives filtering.
+        """Return the first classifier result that survives filtering, range rule included.
 
         Some model artifacts expose abstention classes such as "Unknown" or
         "No detection". Those classes are diagnostics, not useful species
         labels, so lower-ranked concrete species should still get a chance.
         """
+        selection = self.select_with_range(
+            classifications,
+            frigate_event,
+            frigate_sub_label,
+            frigate_score,
+            frigate_sub_label_score,
+        )
+        return selection.top, selection.reason
+
+    def select_with_range(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
+    ) -> RangeSelection:
+        """Select as every other rule does, then apply the range rule to that choice (#696).
+
+        A selection the range rule cannot judge (no active list, an unknown-bird
+        catch-all, a label without an exact identity) passes unchanged. An
+        out-of-range selection is replaced by the best in-range lower-ranked
+        output that clears every other rule, or else set aside with the reason
+        ``out_of_range``.
+        """
+        top, reason, index = self._select_unfiltered(
+            classifications,
+            frigate_event,
+            frigate_sub_label,
+            frigate_score,
+            frigate_sub_label_score,
+        )
+        if top is None or reason == "unknown_catchall":
+            return RangeSelection(top, reason)
+        active = range_filter_service.active_list()
+        if active is None:
+            return RangeSelection(top, reason)
+
+        selected = range_filter_service.candidate(top, admissible=True)
+        alternatives: list[RangeCandidate] = []
+        alternative_results: list[tuple[dict | None, str | None]] = []
+        if index is not None and top.get("source") != "frigate_fallback":
+            for classification in list(classifications or [])[index + 1 :]:
+                clean = {key: value for key, value in classification.items() if key != "admission_candidates"}
+                result, result_reason = self.filter_and_label(
+                    clean, frigate_event, frigate_sub_label, frigate_score, frigate_sub_label_score
+                )
+                admissible = (
+                    result is not None
+                    and result_reason in _THRESHOLD_REASONS
+                    and not should_hide_species_label(
+                        result.get("label"), extra_unknown_labels=unknown_species_labels()
+                    )
+                )
+                alternatives.append(range_filter_service.candidate(clean, admissible=admissible))
+                alternative_results.append((result, result_reason))
+
+        decision = decide_range_admission(
+            [selected, *alternatives],
+            active_list=active,
+            threshold=float(settings.classification.threshold or 0.0),
+        )
+        if decision.outcome == "fallback" and decision.chosen_index is not None:
+            chosen = alternatives[decision.chosen_index - 1]
+            chosen_result, chosen_reason = alternative_results[decision.chosen_index - 1]
+            fallback = {
+                **(chosen_result or {}),
+                "range_fallback": {
+                    "original_label": selected.label,
+                    "original_score": selected.score,
+                    "original_species_id": selected.species_id,
+                    "region_code": active.region_code,
+                },
+            }
+            if top.get("admission_candidates"):
+                fallback["admission_candidates"] = top["admission_candidates"]
+            log.info(
+                "Range filter replaced an out-of-range prediction",
+                event_id=frigate_event,
+                original=selected.label,
+                chosen=chosen.label,
+                region=active.region_code,
+            )
+            return RangeSelection(fallback, chosen_reason, decision, chosen)
+        if decision.outcome == "skipped":
+            log.info(
+                "Range filter set aside an out-of-range prediction",
+                event_id=frigate_event,
+                label=selected.label,
+                region=active.region_code,
+            )
+            return RangeSelection(None, "out_of_range", decision)
+        return RangeSelection(top, reason, decision)
+
+    async def record_range_skip(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str | None = None,
+        frigate_score: float | None = None,
+        frigate_sub_label_score: float | None = None,
+        *,
+        camera: str | None,
+        detected_at: datetime | None,
+    ) -> None:
+        """Remember a detection the range rule set aside, so a genuine vagrant can be recovered."""
+        selection = self.select_with_range(
+            classifications, frigate_event, frigate_sub_label, frigate_score, frigate_sub_label_score
+        )
+        decision = selection.decision
+        if decision is None or decision.outcome != "skipped" or decision.original is None:
+            return
+        active = range_filter_service.current_list
+        await range_filter_service.record_decision(
+            frigate_event=frigate_event,
+            outcome="skipped",
+            original_label=decision.original.label,
+            original_score=decision.original.score,
+            original_species_id=decision.original.species_id,
+            chosen_label=None,
+            chosen_score=None,
+            region_code=active.region_code if active else "",
+            camera=camera,
+            detected_at=detected_at,
+        )
+
+    def _select_unfiltered(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
+    ) -> tuple[dict | None, str | None, int | None]:
+        """Every admission rule except range; also returns which output was chosen (None for Frigate's)."""
         last_reason: str | None = None
         admission_candidates: list[dict] = []
-        for classification in classifications or []:
+        for position, classification in enumerate(classifications or []):
             classification = {key: value for key, value in classification.items() if key != "admission_candidates"}
             top, reason = self.filter_and_label(
                 classification,
@@ -333,7 +485,7 @@ class DetectionService:
             if top:
                 if admission_candidates:
                     top = {**top, "admission_candidates": admission_candidates}
-                return top, reason
+                return top, reason, position
             if reason == "blocked_label":
                 label = normalize_classifier_label(classification["label"])
                 threshold, _ = self._required_threshold(label, frigate_sub_label)
@@ -346,7 +498,7 @@ class DetectionService:
                         }
                     )
             if reason == "non_bird":
-                return None, reason
+                return None, reason, None
             last_reason = reason
         fallback_label = normalize_sub_label(frigate_sub_label)
         if settings.classification.trust_frigate_sublabel and fallback_label:
@@ -355,15 +507,19 @@ class DetectionService:
                 if frigate_sub_label_score is not None
                 else max(settings.classification.min_confidence, settings.classification.threshold)
             )
-            return {
-                "label": fallback_label,
-                "score": final_score,
-                "index": -1,
-                "source": "frigate_fallback",
-                "input_source": "frigate_sublabel",
-                **({"admission_candidates": admission_candidates} if admission_candidates else {}),
-            }, "frigate_fallback"
-        return None, last_reason
+            return (
+                {
+                    "label": fallback_label,
+                    "score": final_score,
+                    "index": -1,
+                    "source": "frigate_fallback",
+                    "input_source": "frigate_sublabel",
+                    **({"admission_candidates": admission_candidates} if admission_candidates else {}),
+                },
+                "frigate_fallback",
+                None,
+            )
+        return None, last_reason, None
 
     def select_manual_reclassification(
         self,
@@ -618,6 +774,22 @@ class DetectionService:
                 await VisitRepository(db).save_event_bounds(frigate_event, start_time, end_time)
             changed = was_inserted or was_updated
 
+            range_fallback = classification.get("range_fallback")
+            if changed and isinstance(range_fallback, dict):
+                await range_filter_service.record_decision(
+                    frigate_event=frigate_event,
+                    outcome="fallback",
+                    original_label=str(range_fallback.get("original_label") or ""),
+                    original_score=float(range_fallback.get("original_score") or 0.0),
+                    original_species_id=range_fallback.get("original_species_id"),
+                    chosen_label=str(classification.get("label") or ""),
+                    chosen_score=score,
+                    region_code=str(range_fallback.get("region_code") or ""),
+                    camera=camera,
+                    detected_at=timestamp,
+                    db=db,
+                )
+
             if changed:
                 persisted = await repo.get_by_frigate_event(frigate_event)
                 log.info(
@@ -725,6 +897,7 @@ class DetectionService:
         video_model_sha256: str | None = None,
         input_evidence: ClassificationEvidence | None = None,
         admission_candidates: list[dict] | None = None,
+        range_fallback: dict | None = None,
     ) -> bool | None | NonBirdSaveRejection:
         """
         Process a trustworthy asynchronous classification result.
@@ -806,6 +979,32 @@ class DetectionService:
                     "Video analysis produced Unknown; recording completion without promotion",
                     event_id=frigate_event,
                     video_score=video_score,
+                )
+                return False
+
+            # An explicit reclassification already chose an in-range result when it
+            # selected this one; automatic refinements meet the rule here (#696).
+            range_decision = decide_range_admission(
+                [
+                    range_filter_service.candidate(
+                        {
+                            "label": video_label,
+                            "score": video_score,
+                            "index": video_index,
+                            "model_sha256": video_model_sha256,
+                        },
+                        admissible=True,
+                    )
+                ],
+                active_list=range_filter_service.active_list(),
+                threshold=float(settings.classification.threshold or 0.0),
+                owner_confirmed=manual_tagged,
+            )
+            if range_decision.outcome == "skipped":
+                log.info(
+                    "Out-of-range refinement recorded without replacing the identification",
+                    event_id=frigate_event,
+                    video_label=normalized_video_label,
                 )
                 return False
 
@@ -985,6 +1184,20 @@ class DetectionService:
                         video_label=new_species,
                     )
                     return False
+                if isinstance(range_fallback, dict):
+                    await range_filter_service.record_decision(
+                        frigate_event=frigate_event,
+                        outcome="fallback",
+                        original_label=str(range_fallback.get("original_label") or ""),
+                        original_score=float(range_fallback.get("original_score") or 0.0),
+                        original_species_id=range_fallback.get("original_species_id"),
+                        chosen_label=new_species,
+                        chosen_score=video_score,
+                        region_code=str(range_fallback.get("region_code") or ""),
+                        camera=existing.camera_name,
+                        detected_at=existing.detection_time,
+                        db=db,
+                    )
 
                 # Broadcast the update
                 updated = await repo.get_by_frigate_event(frigate_event)

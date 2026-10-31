@@ -1796,6 +1796,85 @@ export interface components {
     missing: number;
     status: string;
 };
+    RangeDecisionCounts: {
+    fallback: number;
+    skipped: number;
+    window_days: number;
+};
+    RangeDecisionDetail: {
+    chosen_label?: string | null;
+    chosen_score?: number | null;
+    decided_at?: string | null;
+    original_label: string;
+    original_score: number;
+    outcome: "fallback" | "skipped";
+    region_code: string;
+};
+    RangeDecisionResponse: {
+    decision?: components['schemas']['RangeDecisionDetail'] | null;
+};
+    RangeFilterPreview: {
+    available: boolean;
+    examples: Array<components['schemas']['RangePreviewSpecies']>;
+    model_out_of_range_total?: number | null;
+    recently_seen: Array<components['schemas']['RangePreviewSpecies']>;
+    window_days: number;
+};
+    RangeFilterStatus: {
+    birdnet_enabled: boolean;
+    ebird_configured: boolean;
+    enabled: boolean;
+    filtering: boolean;
+    heard_only_species: number;
+    heard_species: number;
+    last_attempt_at?: string | null;
+    last_error?: string | null;
+    location_precision: "exact" | "approximate" | "country_only" | "none";
+    model?: components['schemas']['RangeModelCoverage'] | null;
+    next_refresh_at?: string | null;
+    problem?: string | null;
+    reason: "active" | "ready" | "needs_location" | "needs_ebird_key" | "waiting_for_list" | "lookup_failed" | "location_changed" | "list_stale" | "list_unusable";
+    recent: components['schemas']['RangeDecisionCounts'];
+    refreshed_at?: string | null;
+    refreshing: boolean;
+    region?: components['schemas']['RangeRegion'] | null;
+    region_level_setting: "county" | "state" | "country";
+    region_species_total?: number | null;
+    source: "ebird";
+    species_in_range?: number | null;
+    stale_after?: string | null;
+};
+    RangeModelCoverage: {
+    bird_species: number;
+    out_of_range: number;
+    unmatched: number;
+};
+    RangePreviewSpecies: {
+    common_name?: string | null;
+    detections?: number | null;
+    last_seen?: string | null;
+    scientific_name: string;
+    species_id: number;
+};
+    RangeRegion: {
+    code: string;
+    codes: Array<string>;
+    level: "county" | "state" | "country";
+    name?: string | null;
+    note?: string | null;
+};
+    RangeSkip: {
+    camera?: string | null;
+    decided_at?: string | null;
+    detected_at?: string | null;
+    frigate_event: string;
+    label: string;
+    region_code: string;
+    score: number;
+};
+    RangeSkipsResponse: {
+    items: Array<components['schemas']['RangeSkip']>;
+};
     ReadinessResponse: {
     db_pool_initialized: boolean;
     ready: boolean;
@@ -1810,7 +1889,7 @@ export interface components {
     new_species: string;
     old_species: string;
     queue_state?: "queued" | "duplicate" | null;
-    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | "non_bird" | null;
+    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | "non_bird" | "out_of_range" | null;
     status: "queued" | "success" | "no_result";
     updated: boolean;
 };
@@ -2061,6 +2140,8 @@ export interface components {
     public_access_show_camera_names?: boolean | null;
     public_access_show_clips?: boolean | null;
     public_access_show_snapshots?: boolean | null;
+    range_filter_enabled?: boolean | null;
+    range_filter_region_level?: "county" | "state" | "country" | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
@@ -2278,6 +2359,8 @@ export interface components {
     public_access_show_camera_names?: boolean | null;
     public_access_show_clips?: boolean | null;
     public_access_show_snapshots?: boolean | null;
+    range_filter_enabled?: boolean | null;
+    range_filter_region_level?: "county" | "state" | "country" | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
@@ -4777,6 +4860,55 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ModelValidateResponse'];
+    };
+  };
+  "/api/range-filter/decisions/{frigate_event}": {
+    get: {
+      operationId: "get_range_filter_decision_api_range_filter_decisions__frigate_event__get";
+      path: {
+    frigate_event: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeDecisionResponse'];
+    };
+  };
+  "/api/range-filter/preview": {
+    get: {
+      operationId: "get_range_filter_preview_api_range_filter_preview_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterPreview'];
+    };
+  };
+  "/api/range-filter/refresh": {
+    post: {
+      operationId: "refresh_range_list_api_range_filter_refresh_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterStatus'];
+    };
+  };
+  "/api/range-filter/skips": {
+    get: {
+      operationId: "get_range_filter_skips_api_range_filter_skips_get";
+      path: never;
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['RangeSkipsResponse'];
+    };
+  };
+  "/api/range-filter/status": {
+    get: {
+      operationId: "get_range_filter_status_api_range_filter_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterStatus'];
     };
   };
   "/api/settings": {

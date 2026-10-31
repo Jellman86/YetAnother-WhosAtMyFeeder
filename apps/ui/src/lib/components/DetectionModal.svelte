@@ -1,6 +1,7 @@
 <script lang="ts">
     import ClassificationSource from './ClassificationSource.svelte';
     import RecordTechnicalDetails from './RecordTechnicalDetails.svelte';
+    import RangeFallbackNote from './RangeFallbackNote.svelte';
     import TaxonomyLineage from './TaxonomyLineage.svelte';
     import Map from './Map.svelte';
     import {
@@ -2621,6 +2622,9 @@
                         <p class="mt-1 text-slate-500" data-frigate-event-gone>
                             {$_('detection.open_in_frigate_gone', { default: 'No longer in Frigate' })}
                         </p>
+                    {/if}
+                    {#if hasOwnerDetectionActions && !isManualObservation}
+                        <RangeFallbackNote eventId={detection.frigate_event} />
                     {/if}
             </RecordTechnicalDetails>
             {#if isManualObservation && detection.observation_notes}
