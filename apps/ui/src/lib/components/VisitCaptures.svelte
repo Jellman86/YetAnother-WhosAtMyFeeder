@@ -112,7 +112,7 @@
         if (facts.shown) found.push({ text: $_('visits.shown_photo', { default: 'Visit photo' }), emphasis: true });
         if (facts.favorite) found.push({ text: $_('detection.favorite_label_active', { default: 'Favorited' }), emphasis: true });
         if (facts.birds !== null) {
-            found.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count} birds' }), emphasis: false });
+            found.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count, plural, one {# bird} other {# birds}}' }), emphasis: false });
         }
         if (facts.heard) found.push({ text: $_('detection.fact_heard_yes', { default: 'matching call' }), emphasis: true });
         return found;
@@ -149,7 +149,7 @@
                         <span class="font-normal tabular-nums text-slate-500 dark:text-slate-400">&middot; {span}</span>
                         {#if peak !== null && peak >= 2}
                             <span class="block font-medium text-slate-500 dark:text-slate-400">
-                                {$_('visits.peak_birds', { values: { count: peak }, default: '{count} birds in one capture' })}
+                                {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
                             </span>
                         {/if}
                     {/if}
@@ -304,6 +304,6 @@
     {@render aside()}
 {:else if !inline && peak !== null && peak >= 2}
     <p class="border-t border-slate-200/80 px-4 py-3 text-xs font-medium text-slate-500 dark:border-slate-700/60 dark:text-slate-400" data-visit-captures-peak>
-        {$_('visits.peak_birds', { values: { count: peak }, default: '{count} birds in one capture' })}
+        {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
     </p>
 {/if}

@@ -28,6 +28,7 @@
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchNewSpeciesQueue, updateSettings } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -39,6 +40,7 @@
 
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
+    import { dayBarSlots } from '../utils/day-bar';
     import { applyManualTagResult } from '../utils/manual-tag';
 
     interface Props {
@@ -268,6 +270,12 @@
     let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
     let last24hSpecies = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
+    // Configuration decides which figures the day bar holds, so loading fills cells rather than adding them.
+    let daySlots = $derived(dayBarSlots({
+        audioConfigured: birdnetEnabled,
+        countingConfigured: publicSettingsStore.settings?.bird_counting_enabled ?? null,
+        countedCaptures: summary?.counted_captures ?? null
+    }));
 
     const summaryLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
@@ -365,9 +373,9 @@
         gardenHistory.invalidate();
         gardenViewer.close();
         void loadSummary();
-        const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
+        const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
         if (skipped > 0) {
-            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: skipped } })}`);
         } else {
             toastStore.success(message);
         }
@@ -508,13 +516,15 @@
 <div class="space-y-6">
     <DayBar
         visitCount={summary ? last24hCount : null}
-        countedBirds={summary?.counted_birds ?? 0}
-        countedCaptures={summary?.counted_captures ?? 0}
+        countedBirds={summary ? (summary.counted_birds ?? 0) : null}
+        countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? last24hSpecies : null}
         unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
         audioCalls={audioSummary?.total ?? null}
-        {audioConfirmations}
+        audioConfirmations={summary ? audioConfirmations : null}
+        slots={daySlots}
         loading={summaryPending || queueStatus === 'loading'}
+        audioLoading={audioSummaryLoading}
         connected={detectionsStore.connected}
     />
 
@@ -531,6 +541,7 @@
             <FieldLog
                 rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
+                placeholderRows={VISIT_ROW_LIMIT}
                 loading={summaryPending}
                 unavailable={summaryUnavailable}
                 {gardenUnavailable}

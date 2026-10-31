@@ -56,7 +56,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
-  import { documentTitle, routeIdFor, type RouteId } from './lib/app/route-title';
+  import { documentTitle, routeIdFor, routeOffersRefresh, type RouteId } from './lib/app/route-title';
 
   const loadDashboardPage = lazyComponent(() => import('./lib/pages/Dashboard.svelte'));
   const loadEventsPage = lazyComponent(() => import('./lib/pages/Events.svelte'));
@@ -122,7 +122,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   $effect(() => {
       document.title = documentTitle(
           requiresLogin
-              ? $_('auth.login', { default: 'Log In' })
+              ? $_('auth.login', { default: 'Sign in' })
               : routeId === null
                 ? notFoundTitle
                 : pageTitle
@@ -839,6 +839,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                       subtitle={pageSubtitle}
                       onNavigate={navigate}
                       showOwnerActions={!authStore.isGuest}
+                      refreshExpected={routeOffersRefresh(routeId)}
                       notificationsCurrent={routeId === 'notifications'}
                   />
               {/if}

@@ -2,7 +2,7 @@
     import { getThumbnailUrl } from '../api';
     import type { Detection } from '../api';
     import { detectionsStore } from '../stores/detections.svelte';
-    import type { ReviewQueue } from '../utils/review-queue';
+    import { reviewReasonMessage, type ReviewQueue } from '../utils/review-queue';
     import MediaImage from './MediaImage.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
     import { _ } from 'svelte-i18n';
@@ -26,6 +26,15 @@
         return isToday
             ? formatTime(detection.detection_time)
             : `${formatDate(detection.detection_time)} ${formatTime(detection.detection_time)}`;
+    }
+
+    // A detection the queue holds always has a reason; one without is waiting on its score.
+    function reason(detection: Detection): string {
+        const message = reviewReasonMessage(
+            queue.reasons.get(detection.frigate_event) ?? 'low_score',
+            queue.newSpeciesSightings.get(detection.frigate_event) ?? 1
+        );
+        return $_(message.key, { values: message.values, default: message.default });
     }
 </script>
 
@@ -88,7 +97,7 @@
     {:else if queue.total === 0}
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {$_('dashboard.review_queue.empty', {
-                default: 'Every visit today has a species. Nothing waiting on you.'
+                default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.'
             })}
         </p>
     {:else}
@@ -113,17 +122,10 @@
                             <span class="block truncate text-xs font-semibold text-slate-800 dark:text-slate-100">
                                 {detection.display_name}
                             </span>
+                            <!-- Why it waits comes first; a phone drops the camera to keep it whole. -->
                             <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
-                                {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
-                                    <span class="font-semibold text-attention-800 dark:text-attention-300">
-                                        {$_('dashboard.review_queue.new_species_tag', {
-                                            values: { count: queue.newSpeciesSightings.get(detection.frigate_event) ?? 1 },
-                                            default: 'New species · {count} sighting(s)'
-                                        })}
-                                    </span>
-                                    ·
-                                {/if}
-                                {when(detection)} · {detection.camera_name}
+                                <span class="font-semibold text-attention-800 dark:text-attention-300" data-review-queue-reason>{reason(detection)}</span>
+                                · {when(detection)}<span class="hidden sm:inline" data-review-queue-camera> · {detection.camera_name}</span>
                             </span>
                         </span>
                         <span class="shrink-0 text-2xs font-bold tabular-nums text-attention-800 dark:text-attention-300">

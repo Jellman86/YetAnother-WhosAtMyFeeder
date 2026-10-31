@@ -103,7 +103,9 @@
         </div>
     </section>
 {:else}
-    <div class="min-h-24" aria-busy="true">
+    <!-- A screen tall, so the footer stays below the fold until the page arrives instead of
+         showing beneath an empty page and jumping away when it lands. -->
+    <div class="min-h-svh" aria-busy="true" data-route-loading>
         {#if showLoadingState}
             <div
                 class="flex items-center gap-3 border-t border-slate-200 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400"

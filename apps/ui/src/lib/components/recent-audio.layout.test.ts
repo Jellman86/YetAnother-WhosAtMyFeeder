@@ -12,6 +12,14 @@ describe('RecentAudio dashboard widget layout', () => {
         expect(recentAudioSource).toMatch(/data-audio-history-action[^>]+rounded-full/);
     });
 
+    it('names the species heard and leaves the call totals to the day bar', () => {
+        expect(recentAudioSource).toContain("$_('dashboard.desk.species_heard'");
+        expect(recentAudioSource).toContain('data-dashboard-species-heard');
+        expect(recentAudioSource).not.toContain('dashboard.day_bar.calls_heard');
+        expect(recentAudioSource).not.toContain('dashboard.day_bar.cross_confirmed');
+        expect(recentAudioSource).not.toContain('{matchedCalls.toLocaleString()}');
+    });
+
     it('explains a microphone that matched no visit without raising it as work', () => {
         // Amber is for what needs a person; this is context.
         expect(recentAudioSource).toContain('data-dashboard-no-match');

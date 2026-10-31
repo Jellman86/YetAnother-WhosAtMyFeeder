@@ -5,6 +5,11 @@ import detectionModalSource from './DetectionModal.svelte?raw';
 import technicalSource from './RecordTechnicalDetails.svelte?raw';
 
 describe('detection surface polish', () => {
+    it('keeps the audio context and edit-name controls at the touch-target floor', () => {
+        expect(detectionModalSource).toMatch(/onclick=\{toggleAudioContext\}\s+aria-expanded=\{audioContextOpen\}\s+class="[^"]*min-h-11/);
+        expect(detectionModalSource).toMatch(/commonNameEditorOpen = !commonNameEditorOpen;\s+\}\}\s+aria-expanded=\{commonNameEditorOpen\}\s+class="[^"]*min-h-11/);
+    });
+
     it('keeps event cards quiet and media-led', () => {
         expect(detectionCardSource).toContain('data-detection-card');
         expect(detectionCardSource).toContain('hover:border-brand-500/40');

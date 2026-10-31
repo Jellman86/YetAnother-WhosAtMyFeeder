@@ -12,7 +12,11 @@ import connectionStepSource from './ConnectionStep.svelte?raw';
 import integrationsStepSource from './IntegrationsStep.svelte?raw';
 import telemetryStepSource from './TelemetryStep.svelte?raw';
 import historyStepSource from './HistoryStep.svelte?raw';
+import accountStepSource from './AccountStep.svelte?raw';
 import { WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
+import en from '../../i18n/locales/en.json';
+
+const stepNames = en.setup.step_names;
 
 describe('setup wizard wiring', () => {
     it('renders a branch for every wizard step id', () => {
@@ -24,7 +28,36 @@ describe('setup wizard wiring', () => {
     it('exposes an accessible progress indicator and step counter', () => {
         expect(wizardShellSource).toContain('role="progressbar"');
         expect(wizardShellSource).toContain('setup.step_of');
-        expect(wizardShellSource).toContain('aria-live="polite"');
+    });
+
+    it('announces a step once: the step focuses its heading and the body is not a live region', () => {
+        expect(wizardStepLayoutSource).toContain('heading?.focus()');
+        expect(wizardShellSource).not.toContain('aria-live');
+        // Targeted status messages inside steps keep their own regions.
+        expect(wizardStepLayoutSource).toContain('role="alert"');
+    });
+
+    it('lists the steps by name, marks the current one, and names it beside the counter', () => {
+        expect(wizardShellSource).toMatch(/<ol[^>]*aria-label=\{\$_\('setup\.step_list'/);
+        expect(wizardShellSource).toContain("aria-current={i === index ? 'step' : undefined}");
+        expect(wizardShellSource).toContain('<span class="sr-only">{stepName(s.id)}</span>');
+        expect(wizardShellSource).toContain('{stepName(step.id)}');
+        expect(wizardShellSource).not.toContain('title={s.id}');
+        for (const step of WIZARD_STEPS) expect(stepNames).toHaveProperty(step.id);
+    });
+
+    it('gives each credential field the autocomplete it really is', () => {
+        // The owner account is new, so a password manager should offer to save it.
+        expect(accountStepSource).toMatch(/id="setup-username"[^>]*autocomplete="username"/);
+        expect(accountStepSource).toMatch(/id="setup-password"[^>]*autocomplete="new-password"[^>]*aria-describedby="setup-password-rules"/);
+        expect(accountStepSource).toMatch(/id="setup-confirm"[^>]*autocomplete="new-password"[^>]*aria-describedby="setup-password-rules"/);
+        expect(accountStepSource).toContain('id="setup-password-rules"');
+        expect(accountStepSource).toContain('AUTH_PASSWORD_REQUIREMENTS.key');
+        expect(accountStepSource).toMatch(/<label class="[^"]*min-h-11[^"]*">\s*<input type="checkbox" bind:checked=\{skipAuth\}/);
+        // The broker's account is not the owner's login, so the browser must not fill it in.
+        expect(connectionStepSource).toMatch(/id="setup-mqtt-username"[^>]*autocomplete="off"/);
+        expect(connectionStepSource).toMatch(/id="setup-mqtt-password"[\s\S]{0,80}autocomplete="new-password"/);
+        expect(connectionStepSource).not.toContain('autocomplete="current-password"');
     });
 
     it('only shows the exit control in re-run mode', () => {

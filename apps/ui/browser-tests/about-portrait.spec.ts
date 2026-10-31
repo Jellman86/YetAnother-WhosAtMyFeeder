@@ -120,3 +120,52 @@ test('the newest arrival has a usable touch target', async ({ page }) => {
     expect(box?.width ?? 0).toBeGreaterThanOrEqual(44);
     expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
 });
+
+for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 844 }]) {
+    test(`a slow portrait lands in its own shape without moving the page at ${viewport.width}px`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.addInitScript(() => {
+            const tracked = window as Window & { layoutShifts?: { value: number; sources: string[] }[] };
+            tracked.layoutShifts = [];
+            new PerformanceObserver(list => {
+                for (const entry of list.getEntries() as (PerformanceEntry & { value: number; hadRecentInput: boolean; sources?: { node?: Node | null }[] })[]) {
+                    if (entry.hadRecentInput) continue;
+                    const sources = (entry.sources ?? []).map(source => source.node instanceof Element
+                        ? `${source.node.tagName.toLowerCase()}.${String(source.node.className).slice(0, 60)}`
+                        : source.node?.nodeName ?? 'unknown');
+                    tracked.layoutShifts?.push({ value: entry.value, sources });
+                }
+            }).observe({ type: 'layout-shift', buffered: true });
+        });
+        let release: () => void = () => undefined;
+        const released = new Promise<void>(resolve => { release = resolve; });
+        await open(page, async route => {
+            await released;
+            await route.fulfill({ json: portrait() });
+        });
+        const prose = page.locator('#about-project .max-w-prose');
+        const placeholder = page.locator('[data-feeder-portrait-loading]');
+        await expect(placeholder).toBeVisible();
+        await expect(placeholder).toHaveAttribute('aria-busy', 'true');
+        await expect(page.getByRole('status').filter({ hasText: "Loading this feeder's facts" })).toHaveCount(1);
+        await page.waitForTimeout(300);
+        const before = (await prose.boundingBox())?.y ?? -1;
+
+        release();
+        await expect(page.locator('[data-feeder-portrait-visit]')).toBeVisible();
+        await expect(placeholder).toHaveCount(0);
+        await page.waitForTimeout(500);
+        const after = (await prose.boundingBox())?.y ?? -2;
+        expect(Math.abs(after - before)).toBeLessThanOrEqual(1);
+        const shifts = await page.evaluate(() => (window as Window & { layoutShifts?: { value: number; sources: string[] }[] }).layoutShifts ?? []);
+        const total = shifts.reduce((sum, shift) => sum + shift.value, 0);
+        expect(total, JSON.stringify(shifts, null, 1)).toBeLessThan(0.05);
+    });
+}
+
+test('a failed portrait read leaves one quiet line, not an empty gap or a stuck placeholder', async ({ page }) => {
+    await open(page, route => route.fulfill({ status: 503, json: { detail: 'Portrait unavailable' } }));
+    await expect(page.locator('[data-feeder-portrait-unavailable]')).toHaveText("This feeder's facts could not be loaded.");
+    await expect(page.locator('[data-feeder-portrait-loading]')).toHaveCount(0);
+    await expect(page.locator('[data-feeder-portrait]')).toHaveCount(0);
+});

@@ -93,12 +93,13 @@
     {#if phase !== 'ready'}
         <DayBar
             visitCount={null}
-            countedBirds={0}
-            countedCaptures={0}
+            countedBirds={null}
+            countedCaptures={null}
             speciesCount={null}
             unresolvedCount={null}
             audioCalls={null}
-            audioConfirmations={0}
+            audioConfirmations={null}
+            slots={{ countedBirds: false, audio: false }}
             loading={phase === 'loading'}
             connected={false}
         />

@@ -231,8 +231,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 2m6-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
                 {hiddenLabel ?? $_('jobs.errors_activity_earlier', {
-                    values: { count: hiddenCount.toLocaleString() },
-                    default: '{count} earlier events in this window'
+                    values: { count: hiddenCount },
+                    default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
                 })}
             </p>
         {/if}

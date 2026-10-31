@@ -1635,18 +1635,18 @@
     <!-- Ranking controls -->
     <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex flex-wrap gap-2" aria-label={$_('leaderboard.title')}>
+            <div class="flex flex-wrap gap-2" role="group" aria-label={$_('leaderboard.span_group', { default: 'Time span' })} data-leaderboard-span-bar>
             <button
                 type="button"
-                aria-pressed={span === 'month'}
-                onclick={() => span = 'month'}
-                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
+                aria-pressed={span === 'day'}
+                onclick={() => span = 'day'}
+                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                    <path d="M3 8h14"></path>
+                    <circle cx="10" cy="10" r="4.2"></circle>
+                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
                 </svg>
-                {$_('leaderboard.sort_by_month')}
+                {$_('leaderboard.sort_by_day')}
             </button>
             <button
                 type="button"
@@ -1661,15 +1661,15 @@
             </button>
             <button
                 type="button"
-                aria-pressed={span === 'day'}
-                onclick={() => span = 'day'}
-                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
+                aria-pressed={span === 'month'}
+                onclick={() => span = 'month'}
+                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <circle cx="10" cy="10" r="4.2"></circle>
-                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
+                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                    <path d="M3 8h14"></path>
                 </svg>
-                {$_('leaderboard.sort_by_day')}
+                {$_('leaderboard.sort_by_month')}
             </button>
             <button
                 type="button"
@@ -1812,7 +1812,7 @@
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? hourLabel(busiestHour.hour) : '—'}</dd>
-                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count.toLocaleString() }, default: '{count} detections on camera' })}</dd>{/if}
+                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
@@ -1873,7 +1873,7 @@
                     <p>
                         {$_('leaderboard.unlikely_note', {
                             values: { count: unlikelyRows.length, radius: nearbyCheck.radiusKm, days: nearbyCheck.daysBack },
-                            default: '{count} species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.'
+                            default: '{count, plural, one {# species has no call, no confirmation and no eBird report within {radius} km in the last {days} days. It is probably a misidentification: open it to confirm or correct it.} other {# species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.}}'
                         })}
                     </p>
                 </div>

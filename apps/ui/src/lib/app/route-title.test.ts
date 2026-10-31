@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { documentTitle, routeIdFor } from './route-title';
+import { documentTitle, routeIdFor, routeOffersRefresh } from './route-title';
+import dashboardSource from '../pages/Dashboard.svelte?raw';
+import eventsSource from '../pages/Events.svelte?raw';
+import speciesSource from '../pages/Species.svelte?raw';
+import settingsSource from '../pages/Settings.svelte?raw';
+import aboutSource from '../pages/About.svelte?raw';
+import notificationsSource from '../pages/Notifications.svelte?raw';
 
 describe('routeIdFor', () => {
     it('names the page each address opens', () => {
@@ -30,5 +36,26 @@ describe('documentTitle', () => {
     it('falls back to the product name alone', () => {
         expect(documentTitle('')).toBe('YA-WAMF');
         expect(documentTitle('   ')).toBe('YA-WAMF');
+    });
+});
+
+describe('routeOffersRefresh', () => {
+    it('holds the header refresh control for every page that registers one, before the page arrives', () => {
+        // Otherwise the control is inserted when the lazy page mounts and the header controls move.
+        const pages = [
+            ['dashboard', dashboardSource],
+            ['explorer', eventsSource],
+            ['leaderboard', speciesSource],
+            ['settings', settingsSource],
+            ['about', aboutSource],
+            ['notifications', notificationsSource]
+        ] as const;
+        for (const [route, source] of pages) {
+            expect(routeOffersRefresh(route), route).toBe(source.includes('pageRefreshAction.register('));
+        }
+    });
+
+    it('offers no refresh on an address no page answers', () => {
+        expect(routeOffersRefresh(null)).toBe(false);
     });
 });

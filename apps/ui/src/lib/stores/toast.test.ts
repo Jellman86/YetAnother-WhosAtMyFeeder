@@ -91,4 +91,27 @@ describe('toastStore', () => {
         vi.advanceTimersByTime(1_000);
         expect(ids()).toEqual([next]);
     });
+
+    it('offers an undo for ten seconds, and running it removes the toast', () => {
+        const undo = vi.fn();
+        const id = toastStore.undoable('Cleared 3 notifications.', 'Undo', undo);
+        const toast = toastStore.toasts.find((entry) => entry.id === id);
+        expect(toast?.action?.label).toBe('Undo');
+        expect(toast?.persistent).toBe(false);
+
+        vi.advanceTimersByTime(9_999);
+        expect(ids()).toContain(id);
+        toastStore.runAction(id);
+        expect(undo).toHaveBeenCalledTimes(1);
+        expect(ids()).not.toContain(id);
+    });
+
+    it('lets an undo lapse once its ten seconds are up', () => {
+        const undo = vi.fn();
+        const id = toastStore.undoable('Cleared 1 notification.', 'Undo', undo);
+        vi.advanceTimersByTime(10_000);
+        expect(ids()).not.toContain(id);
+        toastStore.runAction(id);
+        expect(undo).not.toHaveBeenCalled();
+    });
 });

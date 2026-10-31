@@ -294,6 +294,7 @@ export interface PublicSettings {
     ebird_default_days_back: number;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
+    bird_counting_enabled: boolean;
 }
 
 export async function fetchPublicSettings(): Promise<PublicSettings> {

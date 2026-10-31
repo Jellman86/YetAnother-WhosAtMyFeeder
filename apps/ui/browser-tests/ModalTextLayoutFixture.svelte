@@ -20,6 +20,11 @@
         camera_name: 'Gartenfutterstelle_ABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789',
         detection_time: '2026-10-01T12:00:00Z', score: 0.9, frigate_score: 0.8
     };
+    // `?controls=true` adds what brings the audio-context and edit-name controls on screen.
+    if (new URLSearchParams(window.location.search).get('controls') === 'true') {
+        detection.scientific_name = 'Prunella modularis';
+        detection.audio_context_species = ['Dunnock'];
+    }
     if (new URLSearchParams(window.location.search).get('observedProgress') === 'true') {
         detectionsStore.startReclassification(detection.frigate_event, 7, 'auto_video');
         for (let frame = 1; frame <= 3; frame += 1) {
