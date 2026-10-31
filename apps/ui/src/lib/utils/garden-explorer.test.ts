@@ -307,6 +307,11 @@ describe('findRefreshedGardenVisit', () => {
         expect(findRefreshedGardenVisit(visits, opened)).toBe(visits[1]);
     });
 
+    it('leaves a visit whose species changed to be re-read on its own', () => {
+        const visit = { id: 'a', kind: 'visit' as const, items: [member('a')] };
+        expect(findRefreshedGardenVisit([{ id: 'b', kind: 'visit', representative: { id: 'a' } }], visit)).toBeNull();
+    });
+
     it('finds nothing when no refreshed visit holds one of its photos', () => {
         expect(findRefreshedGardenVisit([{ id: 'position:q', kind: 'position', representative: { id: 'q' } }], opened)).toBeNull();
         expect(findRefreshedGardenVisit([], null)).toBeNull();

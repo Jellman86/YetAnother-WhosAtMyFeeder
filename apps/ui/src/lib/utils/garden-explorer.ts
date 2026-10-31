@@ -195,9 +195,10 @@ export interface GardenVisit {
 /**
  * The open group in a refreshed page of server visits.
  *
- * The server names a visit after one of its captures, so reviewing that capture renames the
- * visit. A refreshed visit is still the open group when its representative is one of the open
- * group's photos; without this, confirming the photo a stack is named after lost the stack.
+ * The server names a position stack after one of its photos, so reviewing that photo renames the
+ * stack. A refreshed stack is still the open one when its representative is one of the open stack's
+ * photos; without this, confirming the photo a stack is named after lost the stack. A visit whose
+ * species changed is not followed here: that capture is re-read on its own.
  */
 export function findRefreshedGardenVisit<T extends { id: string; kind: string; representative: { id: string } }>(
     visits: readonly T[],
@@ -206,7 +207,9 @@ export function findRefreshedGardenVisit<T extends { id: string; kind: string; r
     if (!opened) return null;
     const members = new Set(opened.items.map((item) => item.id));
     return visits.find((visit) => visit.id === opened.id)
-        ?? visits.find((visit) => visit.kind === opened.kind && members.has(visit.representative.id))
+        ?? (opened.kind === 'position'
+            ? visits.find((visit) => visit.kind === 'position' && members.has(visit.representative.id))
+            : undefined)
         ?? null;
 }
 
