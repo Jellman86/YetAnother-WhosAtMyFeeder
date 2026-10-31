@@ -160,6 +160,16 @@ export async function hideDetection(frigateEventId: string): Promise<HideDetecti
     return handleResponse<HideDetectionResult>(response);
 }
 
+export type MoveToGardenResult = paths['/api/events/{event_id}/move-to-garden']['post']['response'];
+
+/** Records a declared domestic bird's detection as a Garden animal; the bird record is hidden, not deleted. */
+export async function moveDetectionToGarden(frigateEventId: string): Promise<MoveToGardenResult> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/move-to-garden`, {
+        method: 'POST'
+    });
+    return handleResponse<MoveToGardenResult>(response);
+}
+
 export async function favoriteDetection(frigateEventId: string): Promise<FavoriteDetectionResult> {
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/favorite`, {
         method: 'POST'

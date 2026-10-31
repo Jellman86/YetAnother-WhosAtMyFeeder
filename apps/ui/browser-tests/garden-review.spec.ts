@@ -726,3 +726,51 @@ test('confirming one photo in the mixed review state leaves its pending position
     await expect(page.locator('[data-garden-card="confirmed"]')).toHaveCount(1);
     await expect(page.locator('[data-garden-card="pending"]')).toHaveCount(1);
 });
+
+const birdCheck = (reason: 'bird_camera' | 'wild_bird') => ({
+    outcome: 'bird', decision_reason: reason, domestic_candidate: 'chicken', checked_at: '2026-10-31T09:00:00', variant: '4.0.3a',
+    image_sha256: 'b'.repeat(64), model_sha256: 'c'.repeat(64), package_sha256: 'd'.repeat(64),
+    mass: { bird: 0.88, animal: 0.12, human: 0, non_animal: 0, other: 0 },
+    box_xywh: [0.1, 0.2, 0.3, 0.4], devices: ['CPUExecutionProvider']
+});
+
+for (const [reason, text] of [
+    ['bird_camera', 'Bird, handled by bird detection on this camera.'],
+    ['wild_bird', 'Wild bird. Turn on birds for this camera to record it.']
+] as const) {
+    test(`a dismissed ${reason} capture says who records birds and asks once about chickens`, async ({ page }) => {
+        const capture = { ...row, frigate_label: 'cat', status: 'dismissed', automatic_check: birdCheck(reason) };
+        await mockGarden(page, { items: requested => (requested === 'dismissed' ? [capture] : []) });
+        await openReview(page, 'dismissed');
+        await openFirst(page);
+        await expect(record(page).locator('[data-garden-automatic-check]')).toContainText(text);
+        const suggestion = record(page).locator('[data-domestic-suggestion="chicken"]');
+        await expect(suggestion).toContainText('This looks like a domestic bird: Chickens.');
+        await expect(suggestion.getByRole('link', { name: 'Open Domestic birds you keep' })).toHaveAttribute('href', /\/settings\/beta$/);
+        await suggestion.getByRole('button', { name: 'Not now' }).click();
+        await expect(suggestion).toHaveCount(0);
+        await page.reload();
+        await openFirst(page);
+        await expect(record(page).locator('[data-garden-automatic-check]')).toContainText(text);
+        await expect(record(page).locator('[data-domestic-suggestion]')).toHaveCount(0);
+    });
+}
+
+test('a declared chicken from a bird event is named Chicken with the bird model evidence', async ({ page }) => {
+    const capture = {
+        ...row, frigate_label: 'bird', status: 'confirmed', scientific_name: 'Gallus gallus domesticus',
+        domestic_route: {
+            domestic_bird: 'chicken', origin: 'bird_detection', source_label: 'Gallus gallus',
+            source_score: 0.93, routed_at: '2026-10-31T09:00:05Z'
+        }
+    };
+    await mockGarden(page, { items: requested => (['confirmed', 'reviewable'].includes(requested) ? [capture] : []) });
+    await openReview(page, 'confirmed');
+    await openFirst(page);
+    await expect(record(page).getByRole('heading', { name: 'Chicken', level: 3 })).toBeVisible();
+    await expect(record(page).locator('[data-garden-named-from]')).toHaveText('A domestic bird you keep, recognised by the bird model');
+    await expect(record(page).getByRole('button', { name: 'Discard identification' })).toHaveCount(0);
+    await record(page).locator('[data-garden-capture-details] summary').first().click();
+    await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('Gallus gallus');
+    await expect(record(page).locator('[data-garden-domestic-route]')).toContainText('93%');
+});

@@ -7,6 +7,7 @@ import structlog
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services.bird_model_region_resolver import normalize_bird_model_region
+from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
 
 log = structlog.get_logger()
 
@@ -323,7 +324,11 @@ class FrigateSettings(BaseModel):
         le=0.99,
         allow_inf_nan=False,
         strict=True,
-        description="Minimum SpeciesNet score to name a Garden animal automatically; successful checks below it are dismissed and remain restorable",
+        description="Minimum SpeciesNet score to name a Garden animal automatically; uncertain checks below it are dismissed and remain restorable",
+    )
+    garden_domestic_birds: list[DomesticBirdKey] = Field(
+        default_factory=list,
+        description="Domestic birds this install keeps; they are recorded as Garden animals on every camera, never as bird detections",
     )
 
     @field_validator("garden_motion_cameras", mode="before")
@@ -346,6 +351,11 @@ class FrigateSettings(BaseModel):
         from app.services.garden_capture_policy import normalize_garden_labels
 
         return normalize_garden_labels(value)
+
+    @field_validator("garden_domestic_birds", mode="before")
+    @classmethod
+    def _normalize_garden_domestic_birds(cls, value: object) -> list[str]:
+        return normalize_domestic_birds(value)
 
     nest_dedupe_minutes: int = Field(
         default=30,

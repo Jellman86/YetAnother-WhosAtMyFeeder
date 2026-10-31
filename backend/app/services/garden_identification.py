@@ -7,6 +7,8 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
+import signal
 import tempfile
 import time
 import sqlite3
@@ -109,10 +111,46 @@ class GardenBusy(RuntimeError):
     pass
 
 
+def exit_signal_name(exit_code: int | None) -> str | None:
+    """The signal that ended a child, from asyncio's negative return code."""
+    if exit_code is None or exit_code >= 0:
+        return None
+    try:
+        return signal.Signals(-exit_code).name
+    except ValueError:
+        return f"signal {-exit_code}"
+
+
+def worker_error_type(output: bytes) -> str | None:
+    """The exception type a Garden worker named before exiting non-zero, if any."""
+    for line in output.splitlines():
+        if line.startswith(b"WORKER_ERROR:"):
+            name = line[len(b"WORKER_ERROR:") :].decode("ascii", "replace").strip()
+            return name if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name) else None
+    return None
+
+
 class GardenNativeWorkerFailed(ValueError):
-    def __init__(self, exit_code: int) -> None:
-        super().__init__("Requested garden runtime failed")
+    """A Garden worker exited non-zero.
+
+    A signal (negative exit code) is a native fault or a kill; a positive code is a
+    Python exception inside the worker, named by ``error_type`` when it said so.
+    """
+
+    def __init__(self, exit_code: int, error_type: str | None = None) -> None:
         self.exit_code = exit_code
+        self.signal_name = exit_signal_name(exit_code)
+        self.error_type = error_type
+        cause = f"was stopped by {self.signal_name}" if self.signal_name else f"exited with status {exit_code}"
+        super().__init__(f"Garden worker {cause}" + (f" after {error_type}" if error_type else ""))
+
+    def log_fields(self) -> dict[str, int | str | None]:
+        return {"exit_code": self.exit_code, "signal": self.signal_name, "worker_error": self.error_type}
+
+
+def worker_failure_fields(error: BaseException) -> dict[str, int | str | None]:
+    """Exit details for a failure log; empty for anything but a failed worker."""
+    return error.log_fields() if isinstance(error, GardenNativeWorkerFailed) else {}
 
 
 class GardenCleanupFailed(RuntimeError):
@@ -154,7 +192,7 @@ async def supervise_worker(
             if done:
                 output, _ = completion.result()
                 if process.returncode != 0:
-                    raise GardenNativeWorkerFailed(process.returncode)
+                    raise GardenNativeWorkerFailed(process.returncode, worker_error_type(output or b""))
                 if len(output) > 65536:
                     raise ValueError("Garden worker output exceeded its bound")
                 return output
@@ -337,7 +375,7 @@ class GardenIdentificationService:
             self.error = "Garden worker did not stop. Garden checks are unavailable until the application restarts."
             raise HTTPException(503, self.error) from error
         except (OSError, ValueError, RuntimeError, TypeError, KeyError, TimeoutError, sqlite3.Error) as error:
-            log.warning("garden_photo_check_failed", error_type=type(error).__name__)
+            log.warning("garden_photo_check_failed", error_type=type(error).__name__, **worker_failure_fields(error))
             raise HTTPException(
                 503, "The photo check failed. Check the installed crop model and provider, then retry."
             ) from error
@@ -528,7 +566,7 @@ class GardenIdentificationService:
             )
             raise HTTPException(503, self.error) from error
         except (OSError, ValueError, RuntimeError, TypeError, KeyError, TimeoutError, sqlite3.Error) as error:
-            log.warning("garden_identification_failed", error_type=type(error).__name__)
+            log.warning("garden_identification_failed", error_type=type(error).__name__, **worker_failure_fields(error))
             raise HTTPException(
                 503, "Garden identification failed on the selected provider. Check the model and provider, then retry."
             ) from error

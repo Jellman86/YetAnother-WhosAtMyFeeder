@@ -135,7 +135,11 @@ class GardenCropService:
                             return
                         from app.config import settings
 
-                        if str(event.get("label", "")).lower() not in settings.frigate.garden_labels:
+                        label = str(event.get("label", "")).lower()
+                        # A domestic bird recorded from a bird event keeps Frigate's bird label.
+                        if label not in settings.frigate.garden_labels and not (
+                            original.domestic_route and label in settings.frigate.ingest_labels
+                        ):
                             raise ValueError("Garden crop label is no longer enabled")
                         image, _ = await frigate_client.get_alignment_snapshot_with_error(
                             original.frigate_event, timeout=5

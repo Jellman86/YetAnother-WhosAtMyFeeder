@@ -785,6 +785,8 @@ class EventProcessor:
             event.frigate_score,
             event.sub_label_score,
         )
+        if await self._route_declared_domestic_bird(event, results[0] if results else None, top, started):
+            return
         if not top:
             top_candidate = results[0] if results else {}
             log.info(
@@ -881,6 +883,33 @@ class EventProcessor:
             event_id=event.frigate_event,
             duration_ms=round(duration_ms, 1),
         )
+
+    async def _route_declared_domestic_bird(
+        self, event: EventData, top: dict | None, accepted: dict | None, started: float
+    ) -> bool:
+        """Domestic birds the owner keeps become Garden animals here, before bird admission.
+
+        ``top`` is the model's raw top result. Any admission filter that can reject it,
+        such as a range filter, belongs in selection, which this point already follows
+        for the accepted result and precedes for the raw one, so a declared chicken that
+        a filter would reject still reaches Garden rather than being lost.
+        """
+        from app.services.garden_domestic_service import garden_domestic_service
+
+        routed = await garden_domestic_service.route_bird_event(
+            event_id=event.frigate_event,
+            camera=event.camera,
+            start_time=event.start_time_ts,
+            # The bird model just read Frigate's snapshot, so it exists unless Frigate kept nothing.
+            has_snapshot=not event.not_retained_by_frigate(),
+            top=top,
+            accepted=accepted,
+        )
+        if routed:
+            self._mark_classification_decided_tombstone(event.frigate_event)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, "domestic_bird_routed_to_garden")
+        return routed
 
     def _recording_wait_seconds(self, event: EventData, event_type: str) -> float | None:
         """How long a live event must wait for its recording frame to be written, or None."""

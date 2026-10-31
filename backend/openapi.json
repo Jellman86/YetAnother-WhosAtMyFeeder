@@ -7264,7 +7264,9 @@
                   "below_threshold",
                   "naming_disabled",
                   "location_required",
-                  "identity_unavailable"
+                  "identity_unavailable",
+                  "bird_camera",
+                  "wild_bird"
                 ],
                 "type": "string"
               },
@@ -7280,6 +7282,27 @@
             },
             "title": "Devices",
             "type": "array"
+          },
+          "domestic_candidate": {
+            "anyOf": [
+              {
+                "enum": [
+                  "chicken",
+                  "domestic_duck",
+                  "domestic_goose",
+                  "turkey",
+                  "guinea_fowl",
+                  "peafowl",
+                  "domestic_pigeon",
+                  "quail"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domestic Candidate"
           },
           "execution": {
             "anyOf": [
@@ -7536,6 +7559,17 @@
               }
             ],
             "title": "Crop Url"
+          },
+          "domestic_route": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GardenDomesticRoute"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when this capture is a domestic bird the owner keeps, with the evidence that said so"
           },
           "frigate_label": {
             "title": "Frigate Label",
@@ -7827,6 +7861,146 @@
           "review_token"
         ],
         "title": "GardenDismissTarget",
+        "type": "object"
+      },
+      "GardenDomesticBirdOption": {
+        "properties": {
+          "declared": {
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "key": {
+            "enum": [
+              "chicken",
+              "domestic_duck",
+              "domestic_goose",
+              "turkey",
+              "guinea_fowl",
+              "peafowl",
+              "domestic_pigeon",
+              "quail"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "scientific_names": {
+            "description": "Every catalogue name that stands for this bird",
+            "items": {
+              "type": "string"
+            },
+            "title": "Scientific Names",
+            "type": "array"
+          },
+          "species_ids": {
+            "description": "Those names resolved to catalogue identities",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Species Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "key",
+          "declared",
+          "scientific_names",
+          "species_ids"
+        ],
+        "title": "GardenDomesticBirdOption",
+        "type": "object"
+      },
+      "GardenDomesticRoute": {
+        "description": "Why a Garden capture is a domestic bird the owner keeps, with the evidence that said so.",
+        "properties": {
+          "detection_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detection Id"
+          },
+          "domestic_bird": {
+            "enum": [
+              "chicken",
+              "domestic_duck",
+              "domestic_goose",
+              "turkey",
+              "guinea_fowl",
+              "peafowl",
+              "domestic_pigeon",
+              "quail"
+            ],
+            "title": "Domestic Bird",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "bird_detection",
+              "garden_check",
+              "moved_from_birds"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "routed_at": {
+            "title": "Routed At",
+            "type": "string"
+          },
+          "source_label": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Source Label",
+            "type": "string"
+          },
+          "source_model": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Model"
+          },
+          "source_scientific_name": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Scientific Name"
+          },
+          "source_score": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Score"
+          }
+        },
+        "required": [
+          "domestic_bird",
+          "origin",
+          "source_label",
+          "routed_at"
+        ],
+        "title": "GardenDomesticRoute",
         "type": "object"
       },
       "GardenIdentification": {
@@ -8301,6 +8475,13 @@
             ],
             "title": "State",
             "type": "string"
+          },
+          "unreadable_recordings": {
+            "items": {
+              "$ref": "#/components/schemas/GardenMotionUnreadable"
+            },
+            "title": "Unreadable Recordings",
+            "type": "array"
           }
         },
         "required": [
@@ -8312,6 +8493,39 @@
           "message"
         ],
         "title": "GardenMotionStatus",
+        "type": "object"
+      },
+      "GardenMotionUnreadable": {
+        "description": "Recordings on one camera that could not be read in the last hour, and were skipped.",
+        "properties": {
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "last_reason": {
+            "enum": [
+              "invalid_metadata",
+              "pixel_limit",
+              "duration_limit",
+              "decode_failed",
+              "frame_unbounded",
+              "photo_too_large"
+            ],
+            "title": "Last Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "camera",
+          "count",
+          "last_reason"
+        ],
+        "title": "GardenMotionUnreadable",
         "type": "object"
       },
       "GardenNotificationStatus": {
@@ -11850,7 +12064,7 @@
             "type": "integer"
           },
           "frame_offset": {
-            "description": "Decoded frame offset from the returned clip start; Frigate may include bounded keyframe padding",
+            "description": "Seconds from the requested start to the decoded frame, excluding Frigate's keyframe pre-roll",
             "minimum": 0.0,
             "title": "Frame Offset",
             "type": "number"
@@ -11886,6 +12100,25 @@
           "box_xywh"
         ],
         "title": "MotionSource",
+        "type": "object"
+      },
+      "MoveToGardenResponse": {
+        "properties": {
+          "capture_id": {
+            "description": "The Garden capture that now records this domestic bird",
+            "title": "Capture Id",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_id",
+          "capture_id"
+        ],
+        "title": "MoveToGardenResponse",
         "type": "object"
       },
       "NewSpeciesQueueResponse": {
@@ -13600,6 +13833,23 @@
             "title": "Garden Cameras",
             "type": "array"
           },
+          "garden_domestic_birds": {
+            "items": {
+              "enum": [
+                "chicken",
+                "domestic_duck",
+                "domestic_goose",
+                "turkey",
+                "guinea_fowl",
+                "peafowl",
+                "domestic_pigeon",
+                "quail"
+              ],
+              "type": "string"
+            },
+            "title": "Garden Domestic Birds",
+            "type": "array"
+          },
           "garden_labels": {
             "items": {
               "type": "string"
@@ -15108,6 +15358,7 @@
           "garden_labels",
           "garden_motion_cameras",
           "garden_notification_channels",
+          "garden_domestic_birds",
           "cameras",
           "blocked_labels",
           "blocked_species",
@@ -15880,6 +16131,24 @@
               "type": "string"
             },
             "title": "Garden Cameras",
+            "type": "array"
+          },
+          "garden_domestic_birds": {
+            "description": "Domestic birds this install keeps, recorded as Garden animals instead of bird detections",
+            "items": {
+              "enum": [
+                "chicken",
+                "domestic_duck",
+                "domestic_goose",
+                "turkey",
+                "guinea_fowl",
+                "peafowl",
+                "domestic_pigeon",
+                "quail"
+              ],
+              "type": "string"
+            },
+            "title": "Garden Domestic Birds",
             "type": "array"
           },
           "garden_labels": {
@@ -25996,6 +26265,57 @@
         "summary": "Toggle Hide Event"
       }
     },
+    "/api/events/{event_id}/move-to-garden": {
+      "post": {
+        "description": "Record a declared domestic bird's detection as a Garden animal. Owner only.\n\nThe bird record is hidden, not deleted: showing it again restores it to bird history.",
+        "operationId": "move_event_to_garden_api_events__event_id__move_to_garden_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MoveToGardenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Move Event To Garden"
+      }
+    },
     "/api/events/{event_id}/reclassify": {
       "post": {
         "description": "Re-run the classifier on an existing detection.\n\nCan use either a single snapshot or a video clip (Temporal Ensemble).",
@@ -27676,6 +27996,43 @@
           }
         ],
         "summary": "Dismiss Captures",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/domestic-birds": {
+      "get": {
+        "description": "The domestic birds an owner can declare, so a bird record can be matched by exact identity.",
+        "operationId": "domestic_birds_api_garden_domestic_birds_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GardenDomesticBirdOption"
+                  },
+                  "title": "Response Domestic Birds Api Garden Domestic Birds Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Domestic Birds",
         "tags": [
           "garden"
         ]

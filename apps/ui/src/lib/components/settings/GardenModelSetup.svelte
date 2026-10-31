@@ -233,6 +233,9 @@
                     {#if motion.queue_camera && motion.queue_checked_at}
                         <p class="break-words text-xs">{$_('garden.motion_queue', { default: '{camera}: {count, plural, one {# window waiting} other {# windows waiting}} when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: new Date(motion.queue_checked_at).toLocaleString() } })}</p>
                     {/if}
+                    {#each motion.unreadable_recordings ?? [] as skipped (skipped.camera)}
+                        <p class="break-words text-xs" data-garden-motion-unreadable={skipped.camera}>{$_('garden.motion_unreadable', { default: '{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept.', values: { count: skipped.count, camera: skipped.camera } })}</p>
+                    {/each}
                     {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
                 {/if}
             </div>

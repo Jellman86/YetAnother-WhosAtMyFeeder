@@ -2035,7 +2035,7 @@
       "garden_naming_off": "Every animal waits in Needs review for you to confirm and name it.",
       "garden_naming_threshold_help": "From 70% to 99%. Higher values automatically name fewer animals and dismiss more low-confidence photos. Person checks are unchanged.",
       "garden_naming_threshold": "Naming threshold",
-      "garden_naming_help": "Animals reaching this species confidence are confirmed and named automatically. Successful checks below the threshold move to Dismissed and can be restored. Failed checks retry; missing country or catalogue identity is explained.",
+      "garden_naming_help": "Animals reaching this species confidence are confirmed and named automatically. An animal below the threshold waits in Needs review; an uncertain photo below it moves to Dismissed and can be restored. Failed checks retry; missing country or catalogue identity is explained.",
       "garden_naming": "Name animals automatically",
       "garden_requirements": "Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models when you ask: 224 MB for automatic checks, plus an optional 224 MB species suggestion model and an optional 101 MB motion detector. Your bird model is not changed.",
       "garden_setup": "Set up Garden animals",
@@ -2073,9 +2073,9 @@
       "garden_country_missing": "Set a country in Settings → Location. Without one, animals are not named automatically and species suggestions are unavailable.",
       "garden_models_refresh": "Refresh model status",
       "garden_outcomes": "Where captures go",
-      "garden_outcome_pending": "Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, and owner overrides. Low-confidence completed automatic checks move to Dismissed.",
+      "garden_outcome_pending": "Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, animals whose species is below the naming threshold, and owner overrides.",
       "garden_outcome_confirmed": "Animals you confirm, and confident animals named automatically. An automatic name is marked as automatic and can be discarded.",
-      "garden_outcome_dismissed": "Low-confidence automatic results, bird-only or empty scenes, and captures you dismiss. Return to review restores a photo while it remains available.",
+      "garden_outcome_dismissed": "Captures you dismiss, uncertain photos below the naming threshold, and photos the check is confident show a bird you do not keep, nothing or a vehicle. Return to review restores one while its photo remains.",
       "garden_outcome_person": "A capture with person evidence is removed with its photo. Garden visits never count as birds or reach bird notifications and exports.",
       "garden_status_title": "Collection status",
       "garden_models_limits_explorer": "Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start from a Garden capture in the Explorer use the device you choose there and fail rather than silently switch devices.",
@@ -2087,7 +2087,14 @@
       "garden_cameras_open": "Choose cameras in Connection",
       "garden_alerts_on": "Garden alerts are on. They are set up in Notifications, with their channels.",
       "garden_alerts_off": "Garden alerts are off. Turn them on in Notifications, with their channels.",
-      "garden_alerts_open": "Set up alerts"
+      "garden_alerts_open": "Set up alerts",
+      "garden_domestic_birds": "Domestic birds you keep",
+      "garden_domestic_birds_help": "These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.",
+      "garden_domestic_birds_wild": "Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.",
+      "garden_domestic_birds_remove": "Remove {bird}",
+      "garden_domestic_birds_none": "None yet. Chickens and other birds you keep are treated as wild birds.",
+      "garden_domestic_birds_add": "Add a domestic bird",
+      "garden_domestic_birds_choose": "Choose a bird"
     },
     "native_revalidation": {
       "title": "Check quarantined profile",
@@ -2730,7 +2737,11 @@
       "legend_weak": "Under 50%",
       "frames_unit": "frames"
     },
-    "identified_by_owner": "Identified by the owner"
+    "identified_by_owner": "Identified by the owner",
+    "moved_to_garden": "Moved to Garden. The bird record is hidden; show it again from Hidden to restore it.",
+    "move_to_garden_failed": "Could not move this record to Garden: {message}",
+    "domestic_bird_declared": "This is a {bird}, a domestic bird you keep. Move it to Garden to record it as a Garden animal. This bird record is hidden, not deleted.",
+    "move_to_garden": "Move to Garden"
   },
   "events": {
     "title": "Events",
@@ -3859,7 +3870,7 @@
     "restore": "Return to review",
     "title": "Garden animals",
     "labels": "Frigate animal labels",
-    "labels_help": "Comma-separated animal labels tracked by Frigate, for example cat, dog or squirrel. Birds, people and vehicles are excluded.",
+    "labels_help": "Comma-separated animal labels tracked by Frigate, for example cat, dog or squirrel. Birds, people and vehicles are excluded; add chickens and other birds you keep under Domestic birds you keep.",
     "model_status_unavailable": "Model status unavailable. Refresh to try again.",
     "catalogue_unavailable": "Garden species data is unavailable. Check the application startup diagnostics.",
     "model": "Garden model",
@@ -3997,7 +4008,10 @@
       "subjects_short_all": "Both",
       "subjects_short_garden": "Garden animals",
       "play_clip": "Play clip of {name}",
-      "play_clip_short": "Play clip"
+      "play_clip_short": "Play clip",
+      "state_below_threshold": "Animal detected; species below the naming threshold",
+      "state_domestic": "Named automatically as a domestic bird you keep",
+      "state_domestic_moved": "Moved from birds as a domestic bird you keep"
     },
     "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
     "confirm_manually": "Confirm animal manually",
@@ -4011,7 +4025,10 @@
     "named_from": {
       "motion_crop": "Named from the animal crop in motion footage",
       "tracked_crop": "Named from Frigate's tracked animal in the snapshot",
-      "whole_image": "Named from the whole photo, so it may not refer to one animal"
+      "whole_image": "Named from the whole photo, so it may not refer to one animal",
+      "domestic_bird_model": "A domestic bird you keep, recognised by the bird model",
+      "domestic_moved": "A domestic bird you keep, moved from bird history; the bird record is hidden",
+      "domestic_garden": "A domestic bird you keep, recognised by the automatic check"
     },
     "visit_dismiss": "{count, plural, one {Dismiss # capture in this visit} other {Dismiss # captures in this visit}}",
     "visit_dismiss_limit": "Visits with more than 128 captures must be dismissed one capture at a time.",
@@ -4032,7 +4049,36 @@
       "chosen_by_owner": "Species chosen by the owner"
     },
     "entry_dismiss_mixed": "Captures here are in different review states. Dismiss them one capture at a time.",
-    "capture_link_unavailable": "This Garden capture is no longer available, or is not shared here."
+    "capture_link_unavailable": "This Garden capture is no longer available, or is not shared here.",
+    "domestic_birds": {
+      "name": {
+        "chicken": "Chicken",
+        "domestic_duck": "Domestic duck",
+        "domestic_goose": "Domestic goose",
+        "turkey": "Turkey",
+        "guinea_fowl": "Guineafowl",
+        "peafowl": "Peafowl",
+        "domestic_pigeon": "Domestic pigeon or dove",
+        "quail": "Quail"
+      },
+      "kind": {
+        "chicken": "Chickens",
+        "domestic_duck": "Domestic ducks",
+        "domestic_goose": "Domestic geese",
+        "turkey": "Turkeys",
+        "guinea_fowl": "Guineafowl",
+        "peafowl": "Peafowl",
+        "domestic_pigeon": "Domestic pigeons or doves",
+        "quail": "Quail"
+      },
+      "suggestion": "This looks like a domestic bird: {birds}. If you keep them, add them under Domestic birds you keep to record them as Garden animals, not wild birds.",
+      "suggestion_open": "Open Domestic birds you keep",
+      "suggestion_dismiss": "Not now"
+    },
+    "automatic_animal_below_threshold": "Animal detected, but its species score is below the naming threshold. It waits in Needs review: confirm it and pick a species, or dismiss it.",
+    "automatic_bird_camera": "Bird, handled by bird detection on this camera. Moved to Dismissed; return this photo to review if it is not a bird.",
+    "automatic_wild_bird": "Wild bird. Turn on birds for this camera to record it. Moved to Dismissed; return this photo to review if the check is wrong.",
+    "motion_unreadable": "{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept."
   },
   "model_execution": {
     "completed": "Last completed run: {device} · {time}",

@@ -2025,7 +2025,7 @@
       "garden_naming_off": "Cada animal espera en Por revisar hasta que lo confirmes y lo nombres.",
       "garden_naming_threshold_help": "Del 70 % al 99 %. Los valores altos nombran automáticamente menos animales y descartan más fotos de baja confianza. Las comprobaciones de personas no cambian.",
       "garden_naming_threshold": "Umbral de nombre",
-      "garden_naming_help": "Animal seguro. Confirmado y nombrado automáticamente; descarta la captura o el nombre si alguno es incorrecto. Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",
+      "garden_naming_help": "Los animales que alcanzan esta confianza de especie se confirman y nombran automáticamente. Un animal por debajo del umbral espera en Por revisar; una foto dudosa por debajo pasa a Descartadas y se puede restaurar. Las comprobaciones fallidas se reintentan; se explica si falta el país o la identidad del catálogo.",
       "garden_naming": "Nombrar animales automáticamente",
       "garden_requirements": "Necesita cámaras de Frigate que sigan animales o guarden grabaciones de movimiento. Animales del jardín descarga sus propios modelos solo cuando lo pides: 224 MB para las comprobaciones automáticas, más un modelo opcional de 224 MB para sugerencias de especies y un detector de movimiento opcional de 101 MB. Tu modelo de aves no cambia.",
       "garden_setup": "Configurar Animales del jardín",
@@ -2062,9 +2062,9 @@
       "garden_country_missing": "Indica un país en Ajustes → Ubicación. Sin país, los animales no se nombran automáticamente y las sugerencias de especies no están disponibles.",
       "garden_models_refresh": "Actualizar estado de los modelos",
       "garden_outcomes": "Adónde van las capturas",
-      "garden_outcome_pending": "Animal detectado. Define un país en Ajustes → Ubicación para nombrarlo automáticamente. Animal detectado, pero no se pudo vincular su nombre al catálogo local. No se guardó un nombre automático. La comprobación automática no estaba disponible. La foto sigue pendiente de revisión; se reintentará pasados cinco minutos mientras Jardín esté activado.",
+      "garden_outcome_pending": "Comprobaciones pendientes, comprobaciones fallidas a la espera de reintento, configuración o identidad de catálogo ausentes, animales cuya especie está por debajo del umbral de nombre y anulaciones del propietario.",
       "garden_outcome_confirmed": "Animales que confirmas y animales seguros nombrados automáticamente. Un nombre automático se marca como automático y se puede descartar.",
-      "garden_outcome_dismissed": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla. Se sugiere un ave. Las capturas solo de aves pasan a Descartadas; restaura la foto para revisión si es incorrecto. Se sugiere una escena vacía o un vehículo. Estas capturas pasan a Descartadas; restaura la foto para revisión si es incorrecto.",
+      "garden_outcome_dismissed": "Capturas que descartas, fotos dudosas por debajo del umbral de nombre y fotos que la comprobación considera seguras de mostrar un ave que no tienes, nada o un vehículo. Volver a revisar restaura una mientras su foto exista.",
       "garden_outcome_person": "Una captura con indicios de personas se elimina junto con su foto. Las visitas al jardín nunca cuentan como aves ni llegan a las notificaciones o exportaciones de aves.",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "Estado de la recogida",
@@ -2077,7 +2077,14 @@
       "garden_cameras_open": "Elegir cámaras en Conexión",
       "garden_alerts_on": "Los avisos del jardín están activados. Se configuran en Notificaciones, con sus canales.",
       "garden_alerts_off": "Los avisos del jardín están desactivados. Actívalos en Notificaciones, con sus canales.",
-      "garden_alerts_open": "Configurar avisos"
+      "garden_alerts_open": "Configurar avisos",
+      "garden_domestic_birds": "Aves domésticas que tienes",
+      "garden_domestic_birds_help": "Se registran como animales del jardín, no como aves silvestres, y nunca se envían a eBird, BirdWeather ni iNaturalist.",
+      "garden_domestic_birds_wild": "Nada cuenta como doméstico hasta que lo añades. Ánades reales, ánsares comunes, pavos salvajes y palomas bravías también viven en libertad, así que después se registran como tus aves en todas las cámaras.",
+      "garden_domestic_birds_remove": "Quitar {bird}",
+      "garden_domestic_birds_none": "Ninguna todavía. Las gallinas y otras aves que tienes se tratan como aves silvestres.",
+      "garden_domestic_birds_add": "Añadir un ave doméstica",
+      "garden_domestic_birds_choose": "Elige un ave"
     },
     "native_revalidation": {
       "title": "Comprobar perfil en cuarentena",
@@ -2720,7 +2727,11 @@
       "legend_weak": "Menos del 50%",
       "frames_unit": "fotogramas"
     },
-    "identified_by_owner": "Identificado por el propietario"
+    "identified_by_owner": "Identificado por el propietario",
+    "moved_to_garden": "Movida al jardín. El registro de ave está oculto; vuelve a mostrarlo desde Ocultas para restaurarlo.",
+    "move_to_garden_failed": "No se pudo mover este registro al jardín: {message}",
+    "domestic_bird_declared": "Es un ave de tipo {bird}, un ave doméstica que tienes. Muévela al jardín para registrarla como animal del jardín. Este registro de ave se oculta, no se borra.",
+    "move_to_garden": "Mover al jardín"
   },
   "events": {
     "title": "Eventos",
@@ -3859,7 +3870,7 @@
     "restore": "Volver a revisión",
     "title": "Animales del jardín",
     "labels": "Etiquetas de animales de Frigate",
-    "labels_help": "Etiquetas de animales que Frigate sigue, separadas por comas, por ejemplo cat, dog o squirrel. Se excluyen aves, personas y vehículos.",
+    "labels_help": "Etiquetas de animales separadas por comas que sigue Frigate, por ejemplo cat, dog o squirrel. Se excluyen aves, personas y vehículos; añade las gallinas y otras aves que tienes en Aves domésticas que tienes.",
     "catalogue_unavailable": "Los datos de especies del jardín no están disponibles. Revisa el diagnóstico de inicio.",
     "country_missing": "Indica un país reconocido o un código ISO en Ajustes → Ubicación",
     "discard_identification": "Descartar identificación",
@@ -3997,7 +4008,10 @@
       "subjects_short_all": "Ambos",
       "subjects_short_garden": "Animales del jardín",
       "play_clip": "Reproducir clip de {name}",
-      "play_clip_short": "Reproducir clip"
+      "play_clip_short": "Reproducir clip",
+      "state_below_threshold": "Animal detectado; especie por debajo del umbral de nombre",
+      "state_domestic": "Nombrada automáticamente como ave doméstica que tienes",
+      "state_domestic_moved": "Movida desde las aves como ave doméstica que tienes"
     },
     "automatic_animal_manual": "Animal detectado. El nombrado automático está desactivado o este resultado anterior espera una nueva comprobación.",
     "automatic_below_threshold": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",
@@ -4011,7 +4025,10 @@
     "named_from": {
       "motion_crop": "Nombrado a partir del recorte del animal en la grabación de movimiento",
       "tracked_crop": "Nombrado a partir del animal seguido por Frigate en la instantánea",
-      "whole_image": "Nombrado a partir de la foto completa, así que puede no referirse a un solo animal"
+      "whole_image": "Nombrado a partir de la foto completa, así que puede no referirse a un solo animal",
+      "domestic_bird_model": "Un ave doméstica que tienes, reconocida por el modelo de aves",
+      "domestic_moved": "Un ave doméstica que tienes, movida del historial de aves; el registro de ave está oculto",
+      "domestic_garden": "Un ave doméstica que tienes, reconocida por la comprobación automática"
     },
     "visit_dismiss": "{count, plural, one {Descartar # captura de esta visita} other {Descartar # capturas de esta visita}}",
     "visit_dismiss_limit": "Las visitas con más de 128 capturas deben descartarse captura por captura.",
@@ -4032,7 +4049,36 @@
       "chosen_by_owner": "Especie elegida por el propietario"
     },
     "entry_dismiss_mixed": "Las capturas tienen distintos estados de revisión. Descártelas de una en una.",
-    "capture_link_unavailable": "Esta captura del jardín ya no está disponible o no se comparte aquí."
+    "capture_link_unavailable": "Esta captura del jardín ya no está disponible o no se comparte aquí.",
+    "domestic_birds": {
+      "name": {
+        "chicken": "Gallina",
+        "domestic_duck": "Pato doméstico",
+        "domestic_goose": "Ganso doméstico",
+        "turkey": "Pavo",
+        "guinea_fowl": "Pintada",
+        "peafowl": "Pavo real",
+        "domestic_pigeon": "Paloma doméstica",
+        "quail": "Codorniz"
+      },
+      "kind": {
+        "chicken": "Gallinas",
+        "domestic_duck": "Patos domésticos",
+        "domestic_goose": "Gansos domésticos",
+        "turkey": "Pavos",
+        "guinea_fowl": "Pintadas",
+        "peafowl": "Pavos reales",
+        "domestic_pigeon": "Palomas domésticas",
+        "quail": "Codornices"
+      },
+      "suggestion": "Parece un ave doméstica: {birds}. Si las crías, añádelas en Aves domésticas que tienes para registrarlas como animales del jardín, no como aves silvestres.",
+      "suggestion_open": "Abrir Aves domésticas que tienes",
+      "suggestion_dismiss": "Ahora no"
+    },
+    "automatic_animal_below_threshold": "Animal detectado, pero la puntuación de especie está por debajo del umbral de nombre. Espera en Por revisar: confírmalo y elige una especie, o descártalo.",
+    "automatic_bird_camera": "Ave, gestionada por la detección de aves en esta cámara. Movida a Descartadas; devuelve la foto a revisión si no es un ave.",
+    "automatic_wild_bird": "Ave silvestre. Activa las aves en esta cámara para registrarla. Movida a Descartadas; devuelve la foto a revisión si la comprobación es errónea.",
+    "motion_unreadable": "{count, plural, one {# grabación no se pudo leer} other {# grabaciones no se pudieron leer}} en {camera} en la última hora y se {count, plural, one {omitió} other {omitieron}}. No se guardó ninguna foto."
   },
   "model_execution": {
     "completed": "Última ejecución completada: {device} · {time}",

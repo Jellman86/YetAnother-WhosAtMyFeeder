@@ -26,6 +26,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
+from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
 from app.services.notification_links import instance_base, notification_link, public_base
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
@@ -857,6 +858,10 @@ class SettingsUpdate(BaseModel):
         strict=True,
         description="Minimum SpeciesNet score to name a Garden animal automatically; does not change bird thresholds",
     )
+    garden_domestic_birds: list[DomesticBirdKey] = Field(
+        default_factory=list,
+        description="Domestic birds this install keeps, recorded as Garden animals instead of bird detections",
+    )
 
     @field_validator("garden_motion_cameras", mode="before")
     @classmethod
@@ -878,6 +883,11 @@ class SettingsUpdate(BaseModel):
         from app.services.garden_capture_policy import normalize_garden_labels
 
         return normalize_garden_labels(value)
+
+    @field_validator("garden_domestic_birds", mode="before")
+    @classmethod
+    def validate_garden_domestic_birds(cls, value: object) -> list[str]:
+        return normalize_domestic_birds(value)
 
     nest_dedupe_minutes: int = Field(30, ge=1, le=720, description="Dedupe window for nest cameras")
     audio_buffer_hours: int = Field(
@@ -1563,6 +1573,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "garden_notifications_include_photo": settings.frigate.garden_notifications_include_photo,
         "garden_automatic_naming": settings.frigate.garden_automatic_naming,
         "garden_naming_threshold": settings.frigate.garden_naming_threshold,
+        "garden_domestic_birds": settings.frigate.garden_domestic_birds,
         "nest_dedupe_minutes": settings.frigate.nest_dedupe_minutes,
         "audio_buffer_hours": settings.frigate.audio_buffer_hours,
         "audio_correlation_window_seconds": settings.frigate.audio_correlation_window_seconds,
@@ -1945,6 +1956,8 @@ async def update_settings(
         settings.frigate.garden_automatic_naming = update.garden_automatic_naming
     if "garden_naming_threshold" in fields_set:
         settings.frigate.garden_naming_threshold = update.garden_naming_threshold
+    if "garden_domestic_birds" in fields_set:
+        settings.frigate.garden_domestic_birds = update.garden_domestic_birds
     if "nest_dedupe_minutes" in fields_set and update.nest_dedupe_minutes is not None:
         settings.frigate.nest_dedupe_minutes = update.nest_dedupe_minutes
     if "audio_buffer_hours" in fields_set:

@@ -26,10 +26,12 @@ from app.services.garden_notifications import (
     garden_notification_service,
 )
 from app.services.garden_capture_service import garden_capture_service
+from app.services.garden_domestic_birds import DOMESTIC_BIRDS, DomesticBirdKey
 from app.services import garden_motion_privacy
 from app.services import garden_public
 from app.ratelimit import guest_rate_limit
 from app.models.garden import (
+    GardenDomesticRoute,
     GardenIdentification,
     GardenOwnerIdentification,
     GardenSpecies,
@@ -90,6 +92,9 @@ class GardenCaptureResponse(BaseModel):
     crop: GardenCropEvidence | None = None
     identification: GardenIdentification | None = None
     owner_identification: GardenOwnerIdentification | None = None
+    domestic_route: GardenDomesticRoute | None = Field(
+        None, description="Set when this capture is a domestic bird the owner keeps, with the evidence that said so"
+    )
     # The standing identification's catalogue name, so the record can show it as birds do.
     scientific_name: str | None = None
     source_kind: Literal["frigate_event", "motion"] = "frigate_event"
@@ -158,6 +163,8 @@ async def _response(
             update={"name": vernacular_case((catalogue.display if catalogue else None) or owner.name)}
         )
         scientific_name = owner.scientific_name
+    elif capture.domestic_route and capture.status == "confirmed":
+        scientific_name = DOMESTIC_BIRDS[capture.domestic_route.domestic_bird].record_scientific_name
     return GardenCaptureResponse(
         id=capture.id,
         camera=capture.camera,
@@ -170,6 +177,7 @@ async def _response(
         crop=capture.crop,
         identification=identification,
         owner_identification=owner,
+        domestic_route=capture.domestic_route,
         scientific_name=scientific_name,
         source_kind="motion" if capture.motion_source else "frigate_event",
         motion_source=capture.motion_source,
@@ -195,6 +203,9 @@ def _guest_view(capture: GardenCaptureResponse) -> GardenCaptureResponse:
             "review_token": None,
             "automatic_check": None,
             "automatic_check_overridden": False,
+            "domestic_route": capture.domestic_route.model_copy(update={"detection_id": None, "source_model": None})
+            if capture.domestic_route
+            else None,
             "snapshot_url": capture.snapshot_url if photo else None,
             "crop_url": capture.crop_url if photo else None,
             "clip_event": capture.clip_event if garden_public.guest_clip_visible(capture.observed_at) else None,
@@ -433,6 +444,31 @@ async def review_batch(request: GardenBatchReviewRequest) -> GardenBatchReviewRe
         async with get_db() as db:
             updated = await GardenRepository(db).review_batch(ids, request.action)
     return GardenBatchReviewResponse(updated_ids=updated, skipped_count=len(ids) - len(updated))
+
+
+class GardenDomesticBirdOption(BaseModel):
+    key: DomesticBirdKey
+    declared: bool
+    scientific_names: list[str] = Field(description="Every catalogue name that stands for this bird")
+    species_ids: list[int] = Field(description="Those names resolved to catalogue identities")
+
+
+@router.get("/domestic-birds", response_model=list[GardenDomesticBirdOption])
+async def domestic_birds() -> list[GardenDomesticBirdOption]:
+    """The domestic birds an owner can declare, so a bird record can be matched by exact identity."""
+    from app.services.garden_domestic_service import species_ids_by_bird
+
+    resolved = await asyncio.to_thread(species_ids_by_bird)
+    declared = set(settings.frigate.garden_domestic_birds)
+    return [
+        GardenDomesticBirdOption(
+            key=key,
+            declared=key in declared,
+            scientific_names=list(bird.scientific_names),
+            species_ids=sorted(resolved.get(key, ())),
+        )
+        for key, bird in DOMESTIC_BIRDS.items()
+    ]
 
 
 @router.get("/identification", response_model=GardenIdentificationStatus)

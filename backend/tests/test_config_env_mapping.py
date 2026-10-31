@@ -678,6 +678,18 @@ def test_garden_naming_defaults_on_at_080_and_env_overrides_file(monkeypatch, tm
     assert loaded.frigate.garden_naming_threshold == 0.9
 
 
+def test_domestic_birds_default_to_none_and_env_overrides_file(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__GARDEN_DOMESTIC_BIRDS", raising=False)
+    assert Settings.load().frigate.garden_domestic_birds == []
+    path.write_text(json.dumps({"frigate": {"garden_domestic_birds": ["chicken", "quail"]}}))
+    assert Settings.load().frigate.garden_domestic_birds == ["chicken", "quail"]
+    monkeypatch.setenv("FRIGATE__GARDEN_DOMESTIC_BIRDS", '["domestic_goose"]')
+    assert Settings.load().frigate.garden_domestic_birds == ["domestic_goose"]
+
+
 def test_garden_notification_file_settings_respect_environment_without_inheriting_bird_switches(monkeypatch, tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(

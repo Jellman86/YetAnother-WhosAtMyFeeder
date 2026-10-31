@@ -1044,8 +1044,9 @@ export interface components {
     GardenAutomaticCheck: {
     box_xywh?: [number, number, number, number] | null;
     checked_at: string;
-    decision_reason?: "below_threshold" | "naming_disabled" | "location_required" | "identity_unavailable" | null;
+    decision_reason?: "below_threshold" | "naming_disabled" | "location_required" | "identity_unavailable" | "bird_camera" | "wild_bird" | null;
     devices?: Array<string>;
+    domestic_candidate?: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail" | null;
     execution?: components['schemas']['InferenceExecution'] | null;
     image_sha256?: string | null;
     mass?: components['schemas']['GardenPresenceMass'] | null;
@@ -1078,6 +1079,7 @@ export interface components {
     clip_event?: string | null;
     crop?: components['schemas']['GardenCropEvidence'] | null;
     crop_url?: string | null;
+    domestic_route?: components['schemas']['GardenDomesticRoute'] | null;
     frigate_label: string;
     id: string;
     identification?: components['schemas']['GardenIdentification'] | null;
@@ -1114,6 +1116,22 @@ export interface components {
     GardenDismissTarget: {
     id: string;
     review_token: string;
+};
+    GardenDomesticBirdOption: {
+    declared: boolean;
+    key: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    scientific_names: Array<string>;
+    species_ids: Array<number>;
+};
+    GardenDomesticRoute: {
+    detection_id?: number | null;
+    domestic_bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    origin: "bird_detection" | "garden_check" | "moved_from_birds";
+    routed_at: string;
+    source_label: string;
+    source_model?: string | null;
+    source_scientific_name?: string | null;
+    source_score?: number | null;
 };
     GardenIdentification: {
     automatic?: boolean;
@@ -1178,6 +1196,12 @@ export interface components {
     queue_limit?: number;
     queued_windows?: number;
     state: "disabled" | "waiting" | "scanning" | "unavailable";
+    unreadable_recordings?: Array<components['schemas']['GardenMotionUnreadable']>;
+};
+    GardenMotionUnreadable: {
+    camera: string;
+    count: number;
+    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large";
 };
     GardenNotificationStatus: {
     attempts: Record<string, number>;
@@ -1684,6 +1708,10 @@ export interface components {
     image_sha256: string;
     sampled_frame_sha256?: string | null;
 };
+    MoveToGardenResponse: {
+    capture_id: string;
+    event_id: string;
+};
     NewSpeciesQueueResponse: {
     items: Array<components['schemas']['NewSpeciesSighting']>;
     max_sightings: number;
@@ -1903,6 +1931,7 @@ export interface components {
     frigate_url?: string | null;
     garden_automatic_naming?: boolean;
     garden_cameras: Array<string>;
+    garden_domestic_birds: Array<"chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail">;
     garden_labels: Array<string>;
     garden_motion_cameras: Array<string>;
     garden_motion_confidence?: number;
@@ -2122,6 +2151,7 @@ export interface components {
     frigate_url?: string | null;
     garden_automatic_naming?: boolean;
     garden_cameras?: Array<string>;
+    garden_domestic_birds?: Array<"chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail">;
     garden_labels?: Array<string>;
     garden_motion_cameras?: Array<string>;
     garden_motion_confidence?: number;
@@ -3725,6 +3755,17 @@ export interface paths {
       response: components['schemas']['HideResponse'];
     };
   };
+  "/api/events/{event_id}/move-to-garden": {
+    post: {
+      operationId: "move_event_to_garden_api_events__event_id__move_to_garden_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MoveToGardenResponse'];
+    };
+  };
   "/api/events/{event_id}/reclassify": {
     post: {
       operationId: "reclassify_event_api_events__event_id__reclassify_post";
@@ -4056,6 +4097,15 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['GardenDismissRequest'];
       response: components['schemas']['GardenBatchReviewResponse'];
+    };
+  };
+  "/api/garden/domestic-birds": {
+    get: {
+      operationId: "domestic_birds_api_garden_domestic_birds_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: Array<components['schemas']['GardenDomesticBirdOption']>;
     };
   };
   "/api/garden/identification": {

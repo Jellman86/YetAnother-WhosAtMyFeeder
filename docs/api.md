@@ -248,6 +248,13 @@ not satisfy it. A visit matches if one of its captures qualifies. Guest requests
 - `PATCH /api/events/bulk/manual-tag` (owner)
 - `DELETE /api/events/{event_id}` (owner)
 - `POST /api/events/{event_id}/hide` (owner)
+- `POST /api/events/{event_id}/move-to-garden` (owner) records a detection of a declared
+  domestic bird (see `garden_domestic_birds`) as a confirmed Garden capture of that bird, with
+  the detection's label, score and id as `domestic_route` evidence, and hides the detection in the
+  same transaction. It is not deleted: showing it again restores the bird record. Returns
+  `{"event_id", "capture_id"}`. `404` for an unknown detection; `409` when Garden is off, the
+  detection is hidden, its species is not a declared domestic bird, or Garden already holds the
+  Frigate event. Exports already sent for the detection are not withdrawn.
 - `POST /api/events/{event_id}/favorite` (owner)
 - `DELETE /api/events/{event_id}/favorite` (owner). Both return `archive_state`.
 - `GET /api/events/{event_id}/archive` (owner). What the favourite's archive holds: `state`,
@@ -472,6 +479,9 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   101 MB Cedar ONNX detector; no body. `409` if another garden operation is running,
   `503` if the catalogue, download or worker cleanup is unavailable.
 
+- `GET /api/garden/domestic-birds` — the domestic birds an owner can declare: each `key`,
+  whether it is `declared`, the catalogue `scientific_names` that stand for it and those names
+  resolved to catalogue `species_ids`, so a bird record is matched by exact identity.
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
   per-variant model download status, busy state, `automatic_message` and any worker cleanup error.
   Automatic checks download/verify the tracked-crop model when needed and run
@@ -514,18 +524,31 @@ Finder evidence is exposed as `crop_detector.last_execution` in classifier statu
 and comes from successful in-process inference or an accepted worker result bound
 to its current lease. Records for another selected finder are withheld. Garden
 checks include optional `execution`, `policy_version`, `decision_reason`,
-`naming_score` and `naming_threshold`; old stored JSON remains readable. A
-`below_threshold` decision soft-dismisses the capture without marking it as an
-owner review. Owner overrides, person vetoes and atomic result comparisons remain
-in force.
+`domestic_candidate`, `naming_score` and `naming_threshold`; old stored JSON remains readable.
+A `below_threshold` decision soft-dismisses an `uncertain` photo without marking it as an owner
+review; an `animal` the check is confident is present stays pending for review instead.
+`bird_camera` (a bird on a camera watched for birds) and `wild_bird` (a bird the owner does not
+keep, on a Garden-only camera) also dismiss. `domestic_candidate` names an undeclared domestic
+bird SpeciesNet's top result stands for. Owner overrides, person vetoes and atomic result
+comparisons remain in force.
+
+Captures include optional `domestic_route` when the capture is a declared domestic bird:
+`domestic_bird`, `origin` (`bird_detection`, `garden_check` or `moved_from_birds`),
+`source_label`, `source_scientific_name`, `source_score`, `source_model`, `detection_id` and
+`routed_at`. Guests receive it without `source_model` and `detection_id`.
 
 
 Captures include `source_kind=frigate_event|motion`. Motion captures have no Frigate
 event ID. Their `motion_source` binds the requested recording window, returned frame
 index/offset, model/input/frame/clip/photo hashes and normalized detector box. The
-windows describe the requested Frigate interval; the returned clip can include up
-to five seconds of keyframe padding. Samples stay within its first ten seconds,
-person checks include the padded interval and displayed observation times are approximate. These
+windows describe the requested Frigate interval; Frigate starts the returned clip at the
+keyframe before the requested start, so it can begin up to one 10-second recording segment
+early. Samples are taken inside the requested window after that pre-roll, `frame_offset` is
+measured from the requested start, person checks include five seconds of padding and displayed
+observation times are approximate. A recording that cannot be read (invalid metadata, pixel or
+duration limit, a sample that will not decode, an unbounded frame or a photo too large to keep)
+is skipped with its reason and counted per camera for the last hour in
+`unreadable_recordings`; it is never retried in a loop and keeps no photo. These
 are detector proposals, including possible birds and false positives. Confirmation
 requires an unexpired stored photo. The 128-photo budget is capped at 512 KiB per
 photo. A new candidate at capacity reclaims the oldest dismissed photos in the same
@@ -540,8 +563,12 @@ days and unconfirmed motion captures are removed. Confirmed history survives pho
 The equivalent environment override is `FRIGATE__GARDEN_MOTION_CONFIDENCE`.
 `garden_automatic_naming` (default `true`, `FRIGATE__GARDEN_AUTOMATIC_NAMING`) and
 `garden_naming_threshold` (0.7 to 0.99, default 0.8, `FRIGATE__GARDEN_NAMING_THRESHOLD`)
-control automatic naming. Successful results below the species threshold are soft
-dismissed and restorable; failures remain pending for retry. Older pending results
+control automatic naming. Uncertain results below the species threshold are soft
+dismissed and restorable; a present animal below it stays pending; failures remain pending for
+retry. `garden_domestic_birds` (default `[]`, `FRIGATE__GARDEN_DOMESTIC_BIRDS` as a JSON list)
+lists the domestic birds this install keeps: any of `chicken`, `domestic_duck`, `domestic_goose`,
+`turkey`, `guinea_fowl`, `peafowl`, `domestic_pigeon` and `quail`. While Garden is on, a declared
+bird is a Garden animal on every camera and never a bird detection. Older pending results
 without owner overrides are reconsidered once under this policy. Bird and person
 thresholds remain separate.
 It affects new Cedar animal proposals only, leaving bird and person thresholds intact.

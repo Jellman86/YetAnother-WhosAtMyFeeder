@@ -2025,7 +2025,7 @@
       "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
       "garden_naming_threshold_help": "70% から 99% まで。値を上げると自動で名前を付ける動物が減り、信頼度の低い写真の除外が増えます。人物の確認は変わりません。",
       "garden_naming_threshold": "名前付けのしきい値",
-      "garden_naming_help": "確信度の高い動物です。自動で確定し名前を付けました。誤っている場合はキャプチャを却下するか、名前を取り消してください。 自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
+      "garden_naming_help": "この種の確信度に達した動物は自動で確認され、名前が付きます。しきい値未満の動物は「要確認」で待機し、しきい値未満の不確かな写真は「却下」に移動して復元できます。失敗したチェックは再試行され、国やカタログの情報が不足している場合は理由が表示されます。",
       "garden_naming": "動物に自動で名前を付ける",
       "garden_requirements": "動物を追跡するか、動きの録画を保存する Frigate カメラが必要です。庭の動物は、依頼したときだけ専用モデルをダウンロードします。自動チェック用に 224 MB、任意で種の候補用モデル 224 MB と動き検出器 101 MB です。鳥のモデルは変更されません。",
       "garden_setup": "庭の動物を設定",
@@ -2062,9 +2062,9 @@
       "garden_country_missing": "設定 → 位置情報で国を設定してください。国がないと、動物に自動で名前が付かず、種の候補も使えません。",
       "garden_models_refresh": "モデルの状態を更新",
       "garden_outcomes": "キャプチャの行き先",
-      "garden_outcome_pending": "動物を検出しました。自動命名のため、設定 → 位置情報で国を指定してください。 動物を検出しましたが、名前をローカルカタログに関連付けられませんでした。自動名は保存されていません。 自動確認を利用できませんでした。写真は確認待ちのままです。庭機能が有効なら5分後に再試行します。",
+      "garden_outcome_pending": "実行待ちのチェック、再試行待ちの失敗したチェック、設定やカタログ情報の不足、種が命名しきい値未満の動物、所有者による上書き。",
       "garden_outcome_confirmed": "確認した動物と、自動で名前が付いた確実な動物。自動の名前には自動と表示され、取り消せます。",
-      "garden_outcome_dismissed": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。 鳥と推定されました。鳥のみの画像は却下済みに移動します。誤りなら確認待ちに戻してください。 空の場面または車両と推定されました。却下済みに移動します。誤りなら確認待ちに戻してください。",
+      "garden_outcome_dismissed": "却下したキャプチャ、命名しきい値未満の不確かな写真、飼っていない鳥・何もない場面・車両だとチェックが確信した写真。写真が残っている間は「確認に戻す」で復元できます。",
       "garden_outcome_person": "人物の痕跡があるキャプチャは写真ごと削除されます。庭の訪問は鳥として数えられず、鳥の通知やエクスポートにも含まれません。",
       "garden_model_motion_source": "MegaDetector v1000 Cedar",
       "garden_status_title": "収集の状況",
@@ -2077,7 +2077,14 @@
       "garden_cameras_open": "接続でカメラを選ぶ",
       "garden_alerts_on": "庭の通知はオンです。「通知」で通知先と一緒に設定します。",
       "garden_alerts_off": "庭の通知はオフです。「通知」で通知先と一緒にオンにします。",
-      "garden_alerts_open": "通知を設定"
+      "garden_alerts_open": "通知を設定",
+      "garden_domestic_birds": "飼っている家禽",
+      "garden_domestic_birds_help": "これらは野鳥ではなく庭の動物として記録され、eBird、BirdWeather、iNaturalist には送信されません。",
+      "garden_domestic_birds_wild": "追加するまでは何も家禽として扱われません。マガモ、ハイイロガン、野生のシチメンチョウ、カワラバトは野生にもいるため、追加後はすべてのカメラであなたの鳥として記録されます。",
+      "garden_domestic_birds_remove": "{bird}を削除",
+      "garden_domestic_birds_none": "まだありません。ニワトリなど飼っている鳥は野鳥として扱われます。",
+      "garden_domestic_birds_add": "家禽を追加",
+      "garden_domestic_birds_choose": "鳥を選択"
     },
     "native_revalidation": {
       "title": "隔離されたプロファイルを確認",
@@ -2720,7 +2727,11 @@
       "legend_weak": "50%未満",
       "frames_unit": "フレーム"
     },
-    "identified_by_owner": "所有者が判定"
+    "identified_by_owner": "所有者が判定",
+    "moved_to_garden": "庭に移動しました。鳥の記録は非表示です。「非表示」から再表示すると元に戻せます。",
+    "move_to_garden_failed": "この記録を庭に移動できませんでした: {message}",
+    "domestic_bird_declared": "これは飼っている家禽 ({bird}) です。庭に移動すると庭の動物として記録されます。この鳥の記録は削除されず、非表示になります。",
+    "move_to_garden": "庭に移動"
   },
   "events": {
     "title": "イベント",
@@ -3859,7 +3870,7 @@
     "restore": "確認に戻す",
     "title": "庭の動物",
     "labels": "Frigate の動物ラベル",
-    "labels_help": "Frigate が追跡する動物ラベルをカンマで区切ります。例：cat、dog、squirrel。鳥、人、車両は除外されます。",
+    "labels_help": "Frigate が追跡する動物ラベルをカンマ区切りで指定します (例: cat、dog、squirrel)。鳥・人・車両は除外されます。ニワトリなど飼っている鳥は「飼っている家禽」に追加してください。",
     "catalogue_unavailable": "庭の種データを利用できません。アプリの起動診断を確認してください。",
     "country_missing": "設定 → 位置情報で認識可能な国名またはISOコードを設定してください",
     "discard_identification": "識別を取り消す",
@@ -3997,7 +4008,10 @@
       "subjects_short_all": "両方",
       "subjects_short_garden": "庭の動物",
       "play_clip": "{name} のクリップを再生",
-      "play_clip_short": "クリップを再生"
+      "play_clip_short": "クリップを再生",
+      "state_below_threshold": "動物を検出、種は命名しきい値未満",
+      "state_domestic": "飼っている家禽として自動で命名",
+      "state_domestic_moved": "飼っている家禽として鳥から移動"
     },
     "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
     "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
@@ -4011,7 +4025,10 @@
     "named_from": {
       "motion_crop": "動き検出映像の動物切り抜きから命名",
       "tracked_crop": "スナップショット内のFrigateが追跡した動物から命名",
-      "whole_image": "写真全体から命名したため、1匹の動物を指していない可能性があります"
+      "whole_image": "写真全体から命名したため、1匹の動物を指していない可能性があります",
+      "domestic_bird_model": "鳥のモデルが認識した、飼っている家禽",
+      "domestic_moved": "鳥の履歴から移動した飼っている家禽。鳥の記録は非表示です",
+      "domestic_garden": "自動チェックが認識した、飼っている家禽"
     },
     "visit_dismiss": "{count, plural, other {この訪問の#件の記録を除外}}",
     "visit_dismiss_limit": "128件を超える訪問記録は、1件ずつ除外してください。",
@@ -4032,7 +4049,36 @@
       "chosen_by_owner": "所有者が選んだ種"
     },
     "entry_dismiss_mixed": "ここにあるキャプチャはレビュー状態が異なります。1件ずつ却下してください。",
-    "capture_link_unavailable": "この庭の撮影はもう利用できないか、ここでは共有されていません。"
+    "capture_link_unavailable": "この庭の撮影はもう利用できないか、ここでは共有されていません。",
+    "domestic_birds": {
+      "name": {
+        "chicken": "ニワトリ",
+        "domestic_duck": "家禽のアヒル",
+        "domestic_goose": "家禽のガチョウ",
+        "turkey": "シチメンチョウ",
+        "guinea_fowl": "ホロホロチョウ",
+        "peafowl": "クジャク",
+        "domestic_pigeon": "飼育しているハトまたはキジバト",
+        "quail": "ウズラ"
+      },
+      "kind": {
+        "chicken": "ニワトリ",
+        "domestic_duck": "家禽のアヒル",
+        "domestic_goose": "家禽のガチョウ",
+        "turkey": "シチメンチョウ",
+        "guinea_fowl": "ホロホロチョウ",
+        "peafowl": "クジャク",
+        "domestic_pigeon": "飼育しているハトやキジバト",
+        "quail": "ウズラ"
+      },
+      "suggestion": "家禽のようです: {birds}。飼っている場合は「飼っている家禽」に追加すると、野鳥ではなく庭の動物として記録されます。",
+      "suggestion_open": "「飼っている家禽」を開く",
+      "suggestion_dismiss": "今はしない"
+    },
+    "automatic_animal_below_threshold": "動物は検出されましたが、種のスコアが命名しきい値未満です。「要確認」で待機しています。確認して種を選ぶか、却下してください。",
+    "automatic_bird_camera": "鳥です。このカメラでは鳥の検出が扱います。「却下」に移動しました。鳥でない場合は写真を確認に戻してください。",
+    "automatic_wild_bird": "野鳥です。記録するには、このカメラで鳥を有効にしてください。「却下」に移動しました。チェックが誤っている場合は写真を確認に戻してください。",
+    "motion_unreadable": "過去 1 時間に {camera} で {count, plural, other {# 件の録画}}を読み取れず、スキップしました。写真は保存されていません。"
   },
   "model_execution": {
     "completed": "最後に完了した実行：{device} · {time}",

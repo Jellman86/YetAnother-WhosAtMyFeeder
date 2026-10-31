@@ -62,7 +62,12 @@ class GardenCaptureService:
                     async with get_db() as db:
                         changed = await GardenRepository(db).block_motion_overlap(camera, start, max(start, end))
             async with get_db() as db:
-                changed = await GardenRepository(db).block(event_id, create=rejected and camera in cameras) or changed
+                changed = (
+                    await GardenRepository(db).block(
+                        event_id, create=rejected and camera in cameras, keep_domestic=not rejected
+                    )
+                    or changed
+                )
             if changed:
                 await broadcaster.broadcast({"type": "garden_history_changed"})
             return

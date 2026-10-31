@@ -1,7 +1,8 @@
 """Opt-in, low-rate motion proposals; birds and explicit owner review take priority."""
 
 import asyncio
-from collections.abc import Callable
+from collections import deque
+from collections.abc import Callable, Iterable
 from contextlib import suppress
 import hashlib
 import json
@@ -23,7 +24,9 @@ from app.config import settings
 from app.database import get_db
 from app.models.garden_motion import (
     GardenMotionStatus,
+    GardenMotionUnreadable,
     MotionSource,
+    UNUSABLE_RECORDING_REASONS,
     MOTION_PADDING_SECONDS,
     MOTION_INTERVAL_SECONDS,
     MOTION_CATCHUP_SECONDS,
@@ -41,6 +44,7 @@ from app.services.garden_identification import (
     bird_work_pending,
     garden_identification_service,
     supervise_worker,
+    worker_failure_fields,
     MODEL_BASE_URL,
 )
 from app.services.garden_model_runtime import digest
@@ -50,6 +54,26 @@ from app.utils.api_datetime import utc_naive_now
 from app.utils.python_subprocess import python_subprocess_launch
 
 log = structlog.get_logger()
+UNREADABLE_WINDOW_SECONDS = 3600
+
+
+def unreadable_summary(
+    skipped: Iterable[tuple[float, str, str]],
+    *,
+    now: float,
+    cameras: list[str],
+    window_seconds: float = UNREADABLE_WINDOW_SECONDS,
+) -> list[GardenMotionUnreadable]:
+    """Per camera, how many recordings could not be read within the window, and the latest reason."""
+    counts: dict[str, tuple[int, str]] = {}
+    for at, camera, reason in skipped:
+        if camera in cameras and now - at <= window_seconds:
+            count, _ = counts.get(camera, (0, reason))
+            counts[camera] = (count + 1, reason)
+    return [
+        GardenMotionUnreadable(camera=camera, count=count, last_reason=reason)
+        for camera, (count, reason) in counts.items()
+    ]
 
 
 class GardenMotionService:
@@ -67,6 +91,8 @@ class GardenMotionService:
         self.queued_windows = 0
         self.queue_camera: str | None = None
         self.queue_checked_at: str | None = None
+        # (time.time(), camera, reason) for recordings skipped because they could not be read.
+        self.unreadable: deque[tuple[float, str, str]] = deque(maxlen=512)
 
     def cameras(self) -> list[str]:
         from app.services.garden_capture_policy import garden_collection_cameras
@@ -117,6 +143,7 @@ class GardenMotionService:
             queued_windows=self.queued_windows if self.queue_camera in cameras else 0,
             queue_camera=self.queue_camera if self.queue_camera in cameras else None,
             queue_checked_at=self.queue_checked_at if self.queue_camera in cameras else None,
+            unreadable_recordings=unreadable_summary(self.unreadable, now=time.time(), cameras=cameras),
         )
 
     async def install(self) -> GardenMotionStatus:
@@ -249,8 +276,11 @@ class GardenMotionService:
             "person_rejected",
             "no_candidate",
             "still_rejected",
+            "unusable_recording",
         }:
             raise ValueError("Motion worker returned an invalid outcome")
+        if result["outcome"] == "unusable_recording" and result.get("reason") not in UNUSABLE_RECORDING_REASONS:
+            raise ValueError("Motion worker returned an unknown unusable-recording reason")
         if result["outcome"] == "candidate" and result.get("devices") != ["CPUExecutionProvider"]:
             raise ValueError("Motion worker did not use its requested CPU provider")
         return result
@@ -274,6 +304,8 @@ class GardenMotionService:
         watcher: asyncio.Task | None = None
         camera = cameras[self.camera_index % len(cameras)]
         self.camera_index += 1
+        start: float | None = None
+        end: float | None = None
         guard_time, clear = time.monotonic(), False
         generation = garden_motion_privacy.generation
         animal_confidence = settings.frigate.garden_motion_confidence
@@ -405,6 +437,17 @@ class GardenMotionService:
                 self.message = "Review photo collected. Confirm animal presence before requesting a species suggestion."
             elif result["outcome"] == "still_rejected":
                 self.message = "Recording scanned; the detected shape did not move, so no review photo was retained."
+            elif result["outcome"] == "unusable_recording":
+                # Retrying cannot read the same recording, so it is skipped and counted.
+                self.unreadable.append((time.time(), camera, result["reason"]))
+                log.info(
+                    "garden_motion_recording_skipped",
+                    camera=camera,
+                    clip_start=start,
+                    clip_end=end,
+                    reason=result["reason"],
+                )
+                self.message = "A recording could not be read and was skipped; no review photo was retained."
             else:
                 self.message = "Recording scanned; no review photo retained."
         except GardenBusy as error:
@@ -425,9 +468,19 @@ class GardenMotionService:
             httpx.HTTPError,
             FrigateEventsFetchError,
         ) as error:
-            log.warning("garden_motion_scan_failed", error_type=type(error).__name__)
+            failure = worker_failure_fields(error)
+            log.warning(
+                "garden_motion_scan_failed",
+                error_type=type(error).__name__,
+                camera=camera,
+                clip_start=start,
+                clip_end=end,
+                **failure,
+            )
             self.message = (
-                "Motion scan failed. Check Frigate recordings and the detector download; it will retry automatically."
+                f"The motion detector stopped unexpectedly ({failure['signal']}); it will retry automatically."
+                if failure.get("signal")
+                else "Motion scan failed. Check Frigate recordings and the detector download; it will retry automatically."
             )
             self.last_outcome = "failed"
         finally:

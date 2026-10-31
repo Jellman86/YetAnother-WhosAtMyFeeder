@@ -13,6 +13,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import GardenAutomaticAssessment from './GardenAutomaticAssessment.svelte';
+    import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import GardenPhotoCheckDialog from './GardenPhotoCheckDialog.svelte';
     import GardenCaptureThumbnail from './GardenCaptureThumbnail.svelte';
@@ -175,6 +176,14 @@
             return viewer === 'owner'
                 ? $_('garden.rename.chosen_by_you', { default: 'Species chosen by you' })
                 : $_('garden.rename.chosen_by_owner', { default: 'Species chosen by the owner' });
+        }
+        const route = capture.status === 'confirmed' ? capture.domestic_route : null;
+        if (route) {
+            return route.origin === 'bird_detection'
+                ? $_('garden.named_from.domestic_bird_model', { default: 'A domestic bird you keep, recognised by the bird model' })
+                : route.origin === 'moved_from_birds'
+                  ? $_('garden.named_from.domestic_moved', { default: 'A domestic bird you keep, moved from bird history; the bird record is hidden' })
+                  : $_('garden.named_from.domestic_garden', { default: 'A domestic bird you keep, recognised by the automatic check' });
         }
         const named = capture.identification;
         if (!view.name || !named) return null;
@@ -656,6 +665,9 @@
                 {#if capture.automatic_check && capture.status !== 'confirmed'}
                     <GardenAutomaticAssessment assessment={capture.automatic_check} overridden={capture.automatic_check_overridden} named={false} />
                 {/if}
+                {#if viewer === 'owner' && capture.automatic_check?.domestic_candidate}
+                    <GardenDomesticSuggestion bird={capture.automatic_check.domestic_candidate} />
+                {/if}
 
                 {#if groupError}
                     <p role="alert" class="text-sm text-red-700 dark:text-red-300">{groupError}</p>
@@ -741,6 +753,8 @@
                                 <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
                                     {$_('garden.dismiss_suggestion', { default: 'Dismiss suggestion' })}
                                 </button>
+                            {:else if capture.domestic_route && capture.domestic_route.origin !== 'garden_check'}
+                                <!-- Named from the owner's list, not a model suggestion: Pick a different species corrects it. -->
                             {:else if view.nameState === 'confirmed' || view.nameState === 'automatic'}
                                 <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-ghost" disabled={saving} onclick={() => reviewName('dismiss')}>
                                     {$_('garden.discard_identification', { default: 'Discard identification' })}
@@ -805,6 +819,14 @@
                         <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-capture-identification>
                             <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">model</dt><dd class="min-w-0 max-w-full break-all">SpeciesNet {evidence.variant} · {evidence.devices.join(', ')}</dd></div>
                             {#each [['model_species', evidence.name ?? ''], ['model_score', evidence.score == null ? '' : `${Math.round(evidence.score * 100)}%`], ['country', evidence.country], ['input_kind', evidence.input_kind], ['identified_at', evidence.identified_at], ['model_sha256', evidence.model_sha256], ['package_sha256', evidence.package_sha256], ['image_sha256', evidence.image_sha256]] as [key, value] (key)}
+                                {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
+                            {/each}
+                        </dl>
+                    {/if}
+                    {#if capture.domestic_route}
+                        {@const route = capture.domestic_route}
+                        <dl class="mt-3 space-y-2 border-t border-slate-700 pt-3" data-garden-domestic-route>
+                            {#each [['domestic_bird', route.domestic_bird], ['origin', route.origin], ['source_label', route.source_label], ['source_scientific_name', route.source_scientific_name ?? ''], ['source_score', route.source_score == null ? '' : `${Math.round(route.source_score * 100)}%`], ['source_model', route.source_model ?? ''], ['detection_id', route.detection_id == null ? '' : String(route.detection_id)], ['routed_at', route.routed_at]] as [key, value] (key)}
                                 {#if value}<div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>{/if}
                             {/each}
                         </dl>

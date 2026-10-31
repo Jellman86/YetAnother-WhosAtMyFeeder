@@ -15,7 +15,21 @@ import cv2
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
 from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
-from app.models.garden_motion import MOTION_PADDING_SECONDS
+from app.models.garden_motion import MOTION_KEYFRAME_PREROLL_SECONDS, UNUSABLE_RECORDING_REASONS
+
+
+class UnusableRecording(ValueError):
+    """This recording cannot be scanned, so retrying the same window cannot help.
+
+    It is reported as a result, not a non-zero exit, so the parent never mistakes
+    a bad recording for a crashed worker.
+    """
+
+    def __init__(self, reason: str) -> None:
+        if reason not in UNUSABLE_RECORDING_REASONS:
+            raise ValueError("Unknown unusable-recording reason")
+        super().__init__(reason)
+        self.reason = reason
 
 
 def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[str, Any]:
@@ -36,10 +50,16 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
         width, height = reader.get(cv2.CAP_PROP_FRAME_WIDTH), reader.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps, count = reader.get(cv2.CAP_PROP_FPS), reader.get(cv2.CAP_PROP_FRAME_COUNT)
         if not all(math.isfinite(v) and v > 0 for v in (width, height, fps, count)):
-            raise ValueError("Motion recording has no valid dimensions or frame rate")
+            raise UnusableRecording("invalid_metadata")
         duration = count / fps
-        if width * height > 16_000_000 or fps > 120 or not 0.1 <= duration <= duration_limit + MOTION_PADDING_SECONDS:
-            raise ValueError("Motion recording exceeds its pixel or duration limit")
+        if width * height > 16_000_000 or fps > 120:
+            raise UnusableRecording("pixel_limit")
+        if not 0.1 <= duration <= duration_limit + MOTION_KEYFRAME_PREROLL_SECONDS:
+            raise UnusableRecording("duration_limit")
+        # Any extra length is keyframe pre-roll from before the requested start, which
+        # belongs to the window before this one; samples stay inside the requested window.
+        preroll = max(0.0, duration - duration_limit)
+        span = min(duration - preroll - 0.1, duration_limit)
         runtime = Runtime(model, "cpu")
         best = None
         greys = []
@@ -53,13 +73,13 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
 
         fractions = (0.1, 0.5, 0.9) if samples_per_window == 3 else tuple(i / 10 for i in range(1, 10))
         for fraction in fractions:
-            reader.set(cv2.CAP_PROP_POS_MSEC, min(duration - 0.1, duration_limit) * fraction * 1000)
+            reader.set(cv2.CAP_PROP_POS_MSEC, (preroll + span * fraction) * 1000)
             ok, frame = reader.read()
             if not ok:
-                raise ValueError("Motion recording could not decode a sample")
+                raise UnusableRecording("decode_failed")
             index = reader.get(cv2.CAP_PROP_POS_FRAMES) - 1
-            if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration_limit:
-                raise ValueError("Motion recording did not identify a bounded sample frame")
+            if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration:
+                raise UnusableRecording("frame_unbounded")
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             greys.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
             decoded += 1
@@ -85,7 +105,7 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
                     animals[0],
                     frame.copy(),
                     int(index),
-                    float(index / fps),
+                    max(0.0, float(index / fps) - preroll),
                     hashlib.sha256(rgb.tobytes()).hexdigest(),
                     hashlib.sha256(tensor.tobytes()).hexdigest(),
                 )
@@ -122,14 +142,22 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
                         "motion_ratio": None if motion_ratio is None else round(motion_ratio, 3),
                     }
                 )
-        raise ValueError("Motion photo could not fit its byte limit")
+        raise UnusableRecording("photo_too_large")
     finally:
         reader.release()
 
 
 def main() -> None:
     payload = json.loads(sys.stdin.buffer.readline(8192))
-    result = scan_clip(payload)
+    try:
+        result = scan_clip(payload)
+    except UnusableRecording as error:
+        result = {"outcome": "unusable_recording", "reason": error.reason}
+    except Exception as error:
+        # stderr is discarded, so name the failure before the non-zero exit.
+        sys.stdout.write("WORKER_ERROR:" + type(error).__name__ + "\n")
+        sys.stdout.flush()
+        raise
     sys.stdout.write("MOTION_RESULT:" + json.dumps(result, allow_nan=False) + "\n")
     sys.stdout.flush()
 

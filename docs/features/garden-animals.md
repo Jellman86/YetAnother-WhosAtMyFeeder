@@ -7,8 +7,9 @@ automatic name is marked as automatic and can be discarded. Owner-requested Spec
 suggestions remain available for everything else.
 
 New captures are checked automatically with the SpeciesNet tracked-crop model.
-Confident bird-only, blank-scene or vehicle results move to **Dismissed** with
-the automatic result shown on the capture. Open that view and choose **Return to
+Confident results showing a bird you do not keep, a blank scene or a vehicle move to
+**Dismissed** with the automatic result shown on the capture. Chickens and other
+[domestic birds you keep](#domestic-birds) are Garden animals once you declare them. Open that view and choose **Return to
 review** if the check is wrong. Restoring, confirming or dismissing a capture
 overrides automatic checks for that capture, including after restart.
 Owner-reviewed, confirmed and dismissed captures keep their reviews. Older pending automatic
@@ -19,8 +20,9 @@ The required 224 MB tracked-crop model is the **Automatic check model** under
 captures arrive; if you have not, it downloads and verifies automatically when an
 enabled Garden camera has a new photo to check. Checks use the Detection device
 preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
-missing boxes or unavailable checks stay in **Needs review** for retry. Completed
-low-confidence results move to restorable **Dismissed** when automatic naming is enabled.
+missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
+enabled, an uncertain photo below the naming threshold moves to restorable **Dismissed**; an
+animal the check is confident is there waits in **Needs review** when only its species score is low.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
@@ -261,10 +263,14 @@ Garden. This does not change which devices qualify for Garden's own models.
 **Where captures go** in the same view summarises the outcomes:
 
 - **Needs review**: checks waiting to run or retry, missing country/catalogue identity,
-  and owner overrides. Automatic work says it is waiting, rather than asking for presence verification.
-- **Confirmed animals**: animals you confirm, and confident animals named automatically.
-- **Dismissed**: successful below-threshold automatic checks, captures you dismiss,
-  and photos the check is confident show only a bird, nothing or a vehicle.
+  animals whose species score is below the naming threshold, and owner overrides. Automatic
+  work says it is waiting, rather than asking for presence verification.
+- **Confirmed animals**: animals you confirm, confident animals named automatically, and
+  domestic birds you keep.
+- **Dismissed**: uncertain photos below the naming threshold, captures you dismiss, and
+  photos the check is confident show a bird you do not keep, nothing or a vehicle. The record
+  says which: **Bird, handled by bird detection on this camera** on a camera that also watches
+  for birds, or **Wild bird. Turn on birds for this camera to record it.** on a Garden-only camera.
 
 Recognised person evidence removes a capture and its photo instead.
 
@@ -278,7 +284,7 @@ history is not backfilled into this view.
 
 Garden visits never enter bird totals, personalization, bird notifications,
 BirdWeather, eBird or iNaturalist submissions. Bird labels, including custom bird
-ingest labels, take precedence. People and vehicles cannot be configured as garden
+ingest labels, take precedence, except for [domestic birds you keep](#domestic-birds). People and vehicles cannot be configured as garden
 labels. A later person or false-positive update removes its Frigate event capture from all views
 and prevents a delayed animal message from restoring it, even after capture is
 switched off. This relies on Frigate's labels; a missed person could still be in
@@ -322,9 +328,14 @@ windows fall outside this catch-up limit without being scanned. This samples
 activity; it does not track animals or promise to find every visit. Even within
 a scanned window, a brief visit can fall between the three sampled frames.
 
-Frigate can include keyframe padding in the returned clip. Up to five extra seconds
-are tolerated, but samples stay within the requested duration. Recording windows
-and decoded frame offsets are retained separately; displayed visit times are approximate.
+Frigate starts each returned clip at the keyframe before the requested start, so a clip
+can begin up to one 10-second recording segment early (a camera with a 6-second keyframe
+interval returned 16 seconds for a 10-second window). Samples skip that pre-roll and stay
+inside the requested window, and frame offsets are measured from the requested start;
+displayed visit times are approximate. A recording that cannot be read, for example one
+over the size or duration limit or with a frame that will not decode, is skipped with its
+reason instead of being retried, keeps no photo, and **Collection status** counts such
+recordings per camera for the last hour.
 The panel reports waiting, failures, the last attempted scan and the latest checked
 camera's remaining queue count and check time. A full queue can have further footage
 waiting in Frigate. Refresh the page to read the latest state.
@@ -456,13 +467,17 @@ animal presence. Dismissing animal presence also revokes its identification conf
 **Name animals automatically** in **Settings → Beta features** is on by default, with a
 **Naming threshold** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
 it reads SpeciesNet's top result from the same detector-crop pass; no second model run is
-needed. If that result is a non-bird animal scoring at or above the threshold, after the
+needed. If that result is a non-bird animal, or a [domestic bird you keep](#domestic-birds),
+scoring at or above the threshold, after the
 same country filtering and person rules as a suggestion, the capture moves to **Confirmed
 animals** with the name **Named automatically**. A result filtered by country is named by
 its plausible group, for example *cat family*.
 
-Successful checks below the species threshold move to **Dismissed**, retaining their
-photo and **Return to review** action. The configured species threshold is authoritative;
+An animal the check is confident is present, but whose species score is below the
+threshold, waits unnamed in **Needs review** with its score and the threshold shown: a low
+species score is not evidence that nothing is there. An uncertain photo below the threshold
+moves to **Dismissed**, retaining its photo and **Return to review** action. The configured
+species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
 Without a recognised country in **Settings → Location**, or a catalogue identity, the
 capture stays pending with the missing requirement explained. Failed checks stay pending
@@ -495,6 +510,57 @@ preserves the same thresholds, person veto, naming policy and owner-review prote
 
 The [accelerator validation and hedgehog follow-up](../reviews/2026-10-24-garden-automatic-accelerators.md) records the tested hardware, numerical limits and remaining accuracy gaps.
 
+
+## Domestic birds
+
+Chickens and other birds you keep are Garden animals, like a dog or a cat, not wild birds.
+Declare them under **Settings → Beta features → Domestic birds you keep**; the list is empty
+by default. Choose from chickens, domestic ducks, domestic geese, turkeys, guineafowl,
+peafowl, domestic pigeons or doves and quail. Declared birds are recorded as Garden animals,
+are never bird detections and are never sent to eBird, BirdWeather or iNaturalist. While
+Garden animals is off, the list has no effect.
+
+Nothing is treated as domestic until you declare it, because most kept birds share their
+identity with a wild bird. Each declared bird stands for exact catalogue identities, never a
+loose name match:
+
+| Declared bird | Bird model (catalogue scientific names) | SpeciesNet 4.0.3 outputs |
+|---------------|------------------------------------------|---------------------------|
+| Chickens | *Gallus gallus domesticus*, *Gallus gallus* (Red Junglefowl) | domestic chicken, red junglefowl, gallus species |
+| Domestic ducks | *Anas platyrhynchos* (Mallard), *Cairina moschata* (Muscovy Duck) | mallard, muscovy duck |
+| Domestic geese | *Anser anser domesticus*, *Anser anser* (Greylag Goose), *Anser cygnoides* | domestic goose |
+| Turkeys | *Meleagris gallopavo* (Wild Turkey) | wild turkey, meleagris species |
+| Guineafowl | *Numida meleagris* | helmeted guineafowl |
+| Peafowl | *Pavo cristatus* | indian peafowl |
+| Domestic pigeons or doves | *Columba livia* (Rock Dove), *Streptopelia roseogrisea* | rock dove |
+| Quail | *Coturnix japonica*, *Coturnix coturnix* | quail species (*Coturnix*) |
+
+So declaring domestic ducks also records a wild Mallard on any camera as one of your ducks;
+add a bird only if you keep it. A record of a declared bird is named by it, for example
+**Chicken**, with its family tree, and keeps what the model originally said as evidence.
+
+- **Frigate bird events.** On a camera watched for birds, the bird model classifies the event
+  as usual. If its top result, or the result admitted after any fallback, is a declared bird at
+  the bird naming threshold, no bird detection is created: the event becomes a confirmed Garden
+  capture of that bird, with the bird model's label and score. This happens before any
+  admission filter, such as a range filter, could reject the result, so a kept chicken the
+  bird model calls Red Junglefowl outside its wild range still reaches Garden. Repeated
+  messages for the event are idempotent, and a later person or false-positive update removes
+  it as for any Garden capture. A Garden-only camera does not classify Frigate bird events; it
+  finds kept birds through motion review photos.
+- **Garden checks.** When SpeciesNet names a declared bird at the naming threshold, the
+  capture is confirmed and named on any Garden camera, and the bird's wild range does not
+  rename it. A bird you have not declared is dismissed with the reason above. If SpeciesNet
+  saw a domestic bird you have not declared, the record asks whether you keep it, with a link
+  to the setting; **Not now** stops asking on that device.
+- **Earlier bird records.** On a bird record of a declared bird, **Move to Garden** records it
+  as a Garden capture of that bird and hides the bird record. Nothing is deleted: show the bird
+  record again from **Hidden** to restore it, and dismiss the Garden capture. Exports already
+  sent for that record are not withdrawn. Past detections are not moved automatically, and
+  **Move to birds** for a Garden capture is not available yet.
+- **Notifications.** A declared bird found by a Garden check is announced like any automatically
+  named animal. One recorded from a Frigate bird event or moved from bird history sends no
+  Garden alert.
 
 ## Verify which device ran a model
 
