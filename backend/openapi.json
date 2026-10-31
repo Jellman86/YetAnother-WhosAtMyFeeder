@@ -12254,6 +12254,11 @@
       "PublicSettings": {
         "description": "Display preferences served identically to a guest and to an owner.",
         "properties": {
+          "bird_counting_enabled": {
+            "description": "Whether new captures are analysed to count birds",
+            "title": "Bird Counting Enabled",
+            "type": "boolean"
+          },
           "classification_threshold": {
             "description": "Score below which a detection is flagged as needing review",
             "title": "Classification Threshold",
@@ -12279,7 +12284,8 @@
           "classification_threshold",
           "ebird_default_days_back",
           "clips_enabled",
-          "recording_clip_enabled"
+          "recording_clip_enabled",
+          "bird_counting_enabled"
         ],
         "title": "PublicSettings",
         "type": "object"

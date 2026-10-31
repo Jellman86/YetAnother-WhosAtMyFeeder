@@ -88,7 +88,7 @@
     {:else if queue.total === 0}
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
             {$_('dashboard.review_queue.empty', {
-                default: 'Every visit today has a species. Nothing waiting on you.'
+                default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.'
             })}
         </p>
     {:else}

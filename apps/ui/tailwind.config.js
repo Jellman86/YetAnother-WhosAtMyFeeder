@@ -1,3 +1,5 @@
+import plugin from 'tailwindcss/plugin';
+
 export default {
     darkMode: 'class',
     content: ['./src/**/*.{html,js,svelte,ts}'],
@@ -147,5 +149,13 @@ export default {
             },
         },
     },
-    plugins: [],
+    plugins: [
+        // The field log lays its rows out by its own width in rem, not the screen's, so a larger text
+        // size on a phone, or a narrow dashboard column, gets the layout that fits. The `.field-log`
+        // section in FieldLog.svelte declares the container these query.
+        plugin(({ addVariant }) => {
+            addVariant('log-wide', '@container field-log (width >= 32rem)');
+            addVariant('log-narrow', '@container field-log (width < 16rem)');
+        }),
+    ],
 }

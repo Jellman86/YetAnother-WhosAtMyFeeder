@@ -353,7 +353,7 @@
     "live_feed": "Live-Feed",
     "showing_last_3_days": "Zeige letzte 3 Tage",
     "no_detections": "Noch keine Erkennungen",
-    "waiting_first_visitor": "Warten auf den ersten Besucher des Tages…",
+    "waiting_first_visitor": "Keine Besuche in den letzten 24 Stunden. Neue Besuche erscheinen hier, sobald sie eintreffen.",
     "discovery_feed": "Entdeckungs-Feed",
     "see_full_history": "Vollständigen Verlauf anzeigen",
     "audio_confirmations": "Audio-Bestätigungen",
@@ -398,7 +398,7 @@
       "preview_trigger": "Vorschau für {species}",
       "preview_alt": "{species} auf {camera}",
       "preview_frames": "{count} Aufnahmen in diesem Besuch, die klarste wird gezeigt",
-      "earlier": "{count} frühere Besuche heute",
+      "earlier": "{count} frühere Besuche in den letzten 24 Stunden, im Explorer öffnen",
       "preview_frame_position": "Aufnahme {position} von {count} in diesem Besuch",
       "birds_in_capture": "{count} Vögel in einer Aufnahme",
       "birds_unknown": "{count} unbekannt",
@@ -456,7 +456,7 @@
     },
     "review_queue": {
       "title": "Erfordert Ihre Entscheidung",
-      "empty": "Jeder Besuch heute hat eine Art. Es wartet nichts auf Sie.",
+      "empty": "Jeder Besuch der letzten 24 Stunden hat eine Art. Es wartet nichts auf Sie.",
       "remaining": "{count} weitere warten",
       "work_through": "Warteschlange abarbeiten",
       "new_species_tag": "Neue Art · {count} Sichtung(en)",
@@ -3181,7 +3181,9 @@
       "latest": "Letzter Besuch",
       "open_visit": "Den Besuch von {name} am {time} öffnen",
       "gone": "Dieser Besuch ist nicht mehr im Verlauf.",
-      "community": "{count} Futterhäuser nutzten YA-WAMF diese Woche."
+      "community": "{count} Futterhäuser nutzten YA-WAMF diese Woche.",
+      "loading": "Die Fakten dieses Futterplatzes werden geladen…",
+      "unavailable": "Die Fakten dieses Futterplatzes konnten nicht geladen werden."
     }
   },
   "species_detail": {

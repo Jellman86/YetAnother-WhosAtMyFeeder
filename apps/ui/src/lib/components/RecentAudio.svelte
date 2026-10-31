@@ -128,7 +128,7 @@
     {:else if !summary || summary.total === 0}
         <p class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}
-        <dl class="flex gap-6">
+        <dl class="flex flex-wrap gap-x-6 gap-y-2">
             <div>
                 <dd class="font-display text-lg font-bold tabular-nums text-slate-900 dark:text-white">{summary.total.toLocaleString()}</dd>
                 <dt class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.calls_heard', { default: 'calls heard' })}</dt>

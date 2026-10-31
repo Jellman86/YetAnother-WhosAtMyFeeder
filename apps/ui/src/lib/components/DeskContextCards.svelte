@@ -132,7 +132,7 @@
     {:else}
         <ul class="divide-y divide-slate-200/70 dark:divide-slate-700/50">
             {#each cameraRows as camera (camera.name)}
-                <li class="flex items-center gap-2.5 py-2 text-sm" data-desk-camera={camera.name}>
+                <li class="flex flex-wrap items-center gap-x-2.5 gap-y-1 py-2 text-sm" data-desk-camera={camera.name}>
                     <span
                         class="h-2 w-2 shrink-0 rounded-full {camera.status === 'online'
                             ? 'bg-success-500'
@@ -150,7 +150,7 @@
                     {#if camera.lastSeen}
                         <span class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400">{formatTime(camera.lastSeen)}</span>
                     {/if}
-                    <span class="w-20 shrink-0 text-right tabular-nums text-slate-900 dark:text-white">
+                    <span class="ml-auto min-w-20 shrink-0 text-right tabular-nums text-slate-900 dark:text-white">
                         {#if camera.visits === null && loading}
                             <span class="ml-auto inline-block h-3 w-12 translate-y-0.5 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
                         {:else if camera.visits === null}

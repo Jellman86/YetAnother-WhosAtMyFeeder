@@ -16,6 +16,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
     import { SCORE_FILL, SCORE_TEXT, scoreBand } from '../utils/score-tone';
+    import { FIELD_LOG_CELL as cell } from '../utils/field-log';
 
     interface Props {
         visit: GardenServerVisit;
@@ -60,26 +61,22 @@
 </script>
 
 <li
-    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/10' : ''}"
+    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/10' : ''}"
     data-field-log-row
     data-row-kind="garden"
     data-field-log-garden={visit.id}
     data-needs-review={view.review ? 'true' : 'false'}
 >
-    {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-attention-500" aria-hidden="true"></span>
-    {/if}
+    <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400 {cell.time}">{span}</span>
 
-    <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">{span}</span>
-
-    <span class="relative flex h-full justify-center" aria-hidden="true">
+    <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
         <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {view.review ? 'bg-attention-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
     </span>
 
     <!-- The bird preview's size and frame, so the photo column reads as one. -->
-    <span class="grid min-h-11 min-w-11 place-items-center" aria-hidden="true">
+    <span class="grid min-h-11 min-w-11 place-items-center {cell.photo}" aria-hidden="true">
         <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
             {#if photo && failedUrl !== photo}
                 <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} fill aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
@@ -87,14 +84,14 @@
         </span>
     </span>
 
-    <div class="min-w-0">
+    <div class="min-w-0 {cell.body}">
         <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {text.title}
         </p>
         <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if score !== null}
-                <span class="font-bold tabular-nums sm:hidden {scoreTone}">{score}%</span>
+                <span class="font-bold tabular-nums log-wide:hidden {scoreTone}">{score}%</span>
             {/if}
             {#if showCamera}
                 <span class="break-words" data-field-log-camera>{capture.camera}</span>
@@ -104,7 +101,7 @@
         </p>
     </div>
 
-    <span class="hidden flex-col items-end gap-1 sm:flex">
+    <span class="hidden flex-col items-end gap-1 log-wide:flex">
         {#if score !== null}
             <span class="text-xs font-bold tabular-nums {scoreTone}">{score}%</span>
             <span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
@@ -114,24 +111,28 @@
         {/if}
     </span>
 
-    <span class="flex items-center justify-end">
+    <span class="flex items-center justify-end {cell.action}">
         {#if view.review}
-            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs sm:px-3" aria-label={openLabel} onclick={() => onopen(visit)}>
+            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" aria-label={openLabel} onclick={() => onopen(visit)} data-field-log-action>
                 {$_('dashboard.field_log.review', { default: 'Review' })}
             </button>
         {:else}
-            <button class="btn btn-ghost min-h-11 min-w-11 px-0 py-1.5 text-xs sm:px-3" aria-label={openLabel} onclick={() => onopen(visit)}>
-                <span class="hidden sm:inline">{$_('dashboard.field_log.open', { default: 'Open' })}</span>
-                <svg class="h-4 w-4 sm:hidden" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <button class="btn btn-ghost min-h-11 min-w-11 px-0 py-1.5 text-xs log-wide:px-3 log-narrow:px-3" aria-label={openLabel} onclick={() => onopen(visit)} data-field-log-action>
+                <span class="hidden log-wide:inline log-narrow:inline">{$_('dashboard.field_log.open', { default: 'Open' })}</span>
+                <svg class="h-4 w-4 log-wide:hidden" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" />
                 </svg>
             </button>
         {/if}
     </span>
     {#if scope && oncapture}
-        <div class="col-[3/-1] min-w-0">
+        <div class="col-[3/-1] min-w-0 log-narrow:col-[2/-1]">
             <GardenVisitCaptures visit={{ id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [capture] }}
                 {scope} layout="inline" onselect={oncapture} />
         </div>
+    {/if}
+    <!-- Last, so it never takes a column: the line's cells are placed by their order. -->
+    {#if view.review}
+        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-attention-500" aria-hidden="true"></span>
     {/if}
 </li>

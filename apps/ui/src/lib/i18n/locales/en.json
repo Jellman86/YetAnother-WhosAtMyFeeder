@@ -353,7 +353,7 @@
     "live_feed": "Live Feed",
     "showing_last_3_days": "Showing last 3 days",
     "no_detections": "No detections yet",
-    "waiting_first_visitor": "Waiting for the first visitor of the day…",
+    "waiting_first_visitor": "No visits in the last 24 hours. New visits appear here as they arrive.",
     "discovery_feed": "Discovery Feed",
     "see_full_history": "See full history",
     "audio_confirmations": "Audio Confirmations",
@@ -398,7 +398,7 @@
       "preview_trigger": "Preview {species}",
       "preview_alt": "{species} on {camera}",
       "preview_frames": "{count} frames in this visit, clearest shown",
-      "earlier": "{count} earlier visits today",
+      "earlier": "{count} earlier visits in the last 24 hours, open in Explorer",
       "preview_frame_position": "Frame {position} of {count} in this visit",
       "birds_in_capture": "{count} birds in one capture",
       "birds_unknown": "{count} unknown",
@@ -456,7 +456,7 @@
     },
     "review_queue": {
       "title": "Needs your call",
-      "empty": "Every visit today has a species. Nothing waiting on you.",
+      "empty": "Every visit in the last 24 hours has a species. Nothing waiting on you.",
       "remaining": "{count} more waiting",
       "work_through": "Work through the queue",
       "new_species_tag": "New species · {count} sighting(s)",
@@ -3191,7 +3191,9 @@
       "latest": "Latest visit",
       "open_visit": "Open the {name} visit from {time}",
       "gone": "That visit is no longer in the history.",
-      "community": "{count} feeders ran YA-WAMF this week."
+      "community": "{count} feeders ran YA-WAMF this week.",
+      "loading": "Loading this feeder's facts…",
+      "unavailable": "This feeder's facts could not be loaded."
     }
   },
   "species_detail": {

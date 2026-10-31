@@ -6,6 +6,32 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- The Dashboard and About page hold still while they load, and the Dashboard
+  fits a 320px phone at the largest text sizes:
+  - At 320px with 200% text the Dashboard scrolled 149px sideways, and 32px at
+    the largest **Text size**. It now fits. The day bar steps down to fewer
+    columns, one at the narrowest, measured against its own width in rem. Field
+    log rows move the score and captures onto the name's line and put **Open**
+    under the name. The day's heading steps down a size instead of breaking
+    inside a word.
+  - The day bar holds every figure from the start. BirdNET being on, and new
+    captures being counted (the new `bird_counting_enabled` in
+    `GET /api/settings/public`), decide which figures exist, and loading fills
+    them in. The field log loads as many placeholder rows as it will show, a
+    loading page is a screen tall so the footer stays put, and the header
+    keeps the refresh button's place until the page can refresh.
+  - Measured with the day's readings delayed, the cold-load layout shift fell
+    from 0.17 to 0.001 for the owner on a desktop and from 0.18 to 0.009 for a
+    guest; on a 390px phone it fell from 0.56 to 0.
+  - The About page shows the feeder portrait's shape while it loads, so the text
+    beneath it no longer moves when it arrives (it moved 350px on a desktop),
+    and says so in one line if it cannot be read. On a phone the version sits
+    under the title. Its layout shift fell from 0.19 to 0.02 on a desktop and
+    from 0.41 to 0.01 on a phone.
+  - The Dashboard names its window "last 24 hours" everywhere. The link under
+    the field log reads "9 earlier visits in the last 24 hours, open in
+    Explorer" with an arrow that points onward, since it opens the Explorer.
+
 - Settings is safer and easier to use with a keyboard or screen reader:
   - Choosing a shorter **History Duration** now says, under the picker, how
     many detections the next cleanup will permanently delete, and **Apply

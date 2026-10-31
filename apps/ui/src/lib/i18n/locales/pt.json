@@ -353,7 +353,7 @@
     "live_feed": "Ao Vivo",
     "showing_last_3_days": "Mostrando últimos 3 dias",
     "no_detections": "Nenhuma detecção ainda",
-    "waiting_first_visitor": "Aguardando o primeiro visitante do dia…",
+    "waiting_first_visitor": "Nenhuma visita nas últimas 24 horas. Novas visitas aparecem aqui assim que chegam.",
     "discovery_feed": "Feed de Descobertas",
     "see_full_history": "Ver histórico completo",
     "audio_confirmations": "Confirmações de Áudio",
@@ -398,7 +398,7 @@
       "preview_trigger": "Pré-visualizar {species}",
       "preview_alt": "{species} em {camera}",
       "preview_frames": "{count} quadros nesta visita, exibindo o mais nítido",
-      "earlier": "{count} visitas anteriores hoje",
+      "earlier": "{count} visitas anteriores nas últimas 24 horas, abrir em Explorar",
       "preview_frame_position": "Quadro {position} de {count} desta visita",
       "birds_in_capture": "{count} aves numa captura",
       "birds_unknown": "{count} desconhecidas",
@@ -456,7 +456,7 @@
     },
     "review_queue": {
       "title": "Precisa da sua decisão",
-      "empty": "Todas as visitas de hoje têm espécie. Não há nada pendente.",
+      "empty": "Todas as visitas das últimas 24 horas têm espécie. Não há nada pendente.",
       "remaining": "Mais {count} em espera",
       "work_through": "Tratar da fila",
       "new_species_tag": "Espécie nova · {count} avistamento(s)",
@@ -3191,7 +3191,9 @@
       "latest": "Última visita",
       "open_visit": "Abrir a visita de {name} de {time}",
       "gone": "Essa visita não está mais no histórico.",
-      "community": "{count} comedouros usaram o YA-WAMF esta semana."
+      "community": "{count} comedouros usaram o YA-WAMF esta semana.",
+      "loading": "Carregando os dados deste comedouro…",
+      "unavailable": "Não foi possível carregar os dados deste comedouro."
     }
   },
   "species_detail": {

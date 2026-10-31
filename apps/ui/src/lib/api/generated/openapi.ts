@@ -1741,6 +1741,7 @@ export interface components {
     state?: "idle" | "running" | "succeeded" | "failed" | "interrupted" | "superseded";
 };
     PublicSettings: {
+    bird_counting_enabled: boolean;
     classification_threshold: number;
     clips_enabled: boolean;
     ebird_default_days_back: number;

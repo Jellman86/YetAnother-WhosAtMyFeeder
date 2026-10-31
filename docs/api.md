@@ -931,6 +931,9 @@ retrying; the server does not repeat a paid provider call.
   guest and to an owner. Deliberately unauthenticated, and an allowlist rather than a filtered
   copy: a setting is public because it is named in `backend/app/models/public_settings.py`, so a
   new one is public or owner-only by decision rather than by whether anyone remembered.
+  `bird_counting_enabled` says whether new captures are analysed to count birds (high-quality
+  snapshots on, with clips available), so the Dashboard can hold its counted-birds figure while
+  the day loads.
 - `POST /api/settings` (owner)
 
 Settings writes are partial and use the flat API field names, rather than the nested

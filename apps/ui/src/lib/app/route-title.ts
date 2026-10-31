@@ -25,11 +25,19 @@ const ROUTE_PREFIXES: ReadonlyArray<[prefix: string, id: RouteId]> = [
     ['/about', 'about']
 ];
 
+// Pages that register a refresh action once their code has loaded. The header holds the control's
+// place from the start, so it does not arrive with the page and move the controls beside it.
+const REFRESHABLE_ROUTES: ReadonlySet<RouteId> = new Set(['dashboard', 'explorer', 'leaderboard', 'settings']);
+
 const PRODUCT_NAME = 'YA-WAMF';
 
 export function routeIdFor(path: string): RouteId | null {
     if (path === '/') return 'dashboard';
     return ROUTE_PREFIXES.find(([prefix]) => path.startsWith(prefix))?.[1] ?? null;
+}
+
+export function routeOffersRefresh(id: RouteId | null): boolean {
+    return id !== null && REFRESHABLE_ROUTES.has(id);
 }
 
 export function documentTitle(pageTitle: string): string {
