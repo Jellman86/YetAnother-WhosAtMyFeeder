@@ -14,7 +14,7 @@ removed, because the range filter applies to new admissions only.
   the model first said.
 
 Revision ID: a6b9e2d41c70
-Revises: 7fa03c365538
+Revises: db260f76fda3
 Create Date: 2026-10-31
 """
 
@@ -24,7 +24,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = "a6b9e2d41c70"
-down_revision: Union[str, None] = "7fa03c365538"
+down_revision: Union[str, None] = "db260f76fda3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

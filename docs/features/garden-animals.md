@@ -119,7 +119,9 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   said in words only while it waits on you or has no name. A capture that came from a
   Frigate event has the bird rows' play control, which opens Frigate's clip in the same
   player while clips are enabled. Its record has **Play clip** beside the photograph too; the
-  record closes and the clip plays, as a bird record does. Motion captures have no clip, and a
+  record closes and the clip plays, as a bird record does. Once the capture is confirmed, the
+  clip YA-WAMF kept plays after Frigate has deleted its own (see
+  [Kept photographs and clips](#kept-photographs-and-clips)). Motion captures have no clip, and a
   visitor sees the control only while you share video.
 - Garden pages count complete entries, with the capture total shown separately.
   Grouping happens on the server before pagination. An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
@@ -289,7 +291,8 @@ Frigate events without an advertised snapshot are skipped. **Needs review** omit
 captures whose photo is known to be unavailable, without deleting or changing
 their review metadata. Confirmed history remains visible after photo loss.
 Frigate event photographs are requested for automatic checks and when viewed;
-they can expire before their metadata. A failed download disables confirmation but does not discard the
+they can expire before their metadata. Confirmed captures keep their own copy, as
+[Kept photographs and clips](#kept-photographs-and-clips) explains. A failed download disables confirmation but does not discard the
 capture: a network error is not proof that the photo is gone. Review metadata follows
 **Settings → Data → Detection Retention** when automatic cleanup is enabled;
 turning off Garden animals stops collection but preserves existing reviews.
@@ -392,7 +395,10 @@ Dismissed motion photos can be reclaimed for new captures, so Undo is not perman
 At most 128 motion photos of 512 KiB each are stored in the application database,
 a 64 MiB photo budget. Clips are temporary and removed after each scan. Photos
 expire three days after the recording; unconfirmed and dismissed motion captures
-are then permanently removed. Confirmed history, identification metadata and saved animal crops remain
+are then permanently removed. A confirmed motion photo is first copied out of this
+budget into the media folder (see [Kept photographs and clips](#kept-photographs-and-clips)),
+so it outlasts the expiry without holding one of the 128 review slots. Confirmed history,
+identification metadata and saved animal crops remain
 subject to normal history retention and the crop budget below. A recording cannot create another review or
 undo a dismissal when the detector changes. Dismissed photos stay available for
 **Return to review** until expiry or until a new candidate needs their space. At
@@ -609,8 +615,8 @@ Explorer cards and list previews centre on the saved animal box with a little
 surrounding context. The full photograph and its box remain in the capture record.
 A photograph without valid recorded geometry stays full-frame; no animal box is
 inferred just for display. Cropping changes the preview, not the saved photo or
-species decision. Expired photographs remain unavailable under the existing
-retention policy.
+species decision. A photograph with no kept copy and no upstream source remains
+unavailable.
 
 
 ### Saved animal crops
@@ -644,7 +650,66 @@ long edge and 128 KiB (a maximum of 250 MiB of crop pixels). A new crop can recl
 the oldest preview while retaining the visit and identification record. Evicted
 previews are not automatically recreated in a loop. **Settings → Beta features →
 Garden models → Collection status** shows the saved-crop count and budget.
-The three-day full-photo expiry and separate 128-photo motion budget still apply.
+The three-day full-photo expiry and separate 128-photo motion budget still apply to
+the review copy; a confirmed capture's full photograph is kept separately, below.
+
+
+### Kept photographs and clips
+
+Frigate deletes event snapshots and recordings on its own schedule (for example seven
+days for snapshots and three for recordings), and motion photos expire three days
+after their recording. Bird visits keep their own copies; confirmed Garden animals do
+too.
+
+**What is kept.** When a capture is confirmed, by you or by automatic naming,
+YA-WAMF copies:
+
+- its full photograph, the one the record shows: Frigate's uncropped snapshot for a
+  Frigate event, or the stored motion photo for a motion capture;
+- for a Frigate event, its clip, while **Settings → Data → Photos and video → Keep
+  copies of Frigate's event clips** is on.
+
+Motion captures keep no clip. The scanner checked only three sampled frames of the
+recording for people, and nobody reviewed the footage, so keeping it would publish
+video that was never checked. Their review photograph is kept instead.
+
+**Evidence.** Each copy records its SHA-256 checksum, and a copy is served only while
+its bytes still match. A motion photo must match the checksum the motion scanner
+recorded. A Frigate snapshot must match the photo the automatic check or a species
+suggestion used, when either recorded one; a snapshot that differs is not kept,
+because it is not the evidence the decision was made on. Copies are never edited,
+re-encoded or cropped.
+
+**Where.** The files live in the media folder under `garden/`, named by the capture's
+internal ID, never by a Frigate event ID. `GET /api/garden/{id}/snapshot` and the clip
+player read the kept copy first and fall back to Frigate. Guests see them under the same
+public history window, media window and photograph and video switches as before.
+
+**When it happens.** Confirmation starts the copy straight away. A background job also
+works through confirmed captures that have nothing kept yet, newest first, one every
+ten seconds while birds are idle, and only for cameras that still watch for Garden
+animals. It copies only what Frigate or the motion store still has. A source Frigate
+reports as gone is recorded as missing and never asked for again; nothing is replaced
+or reconstructed. A failed request is retried an hour later. Captures confirmed
+before this change keep their photo only if its source still existed when the job
+reached them.
+
+**What is never kept.** Captures waiting for review and dismissed captures are never
+copied. Playing a waiting capture's clip streams it from Frigate without storing it.
+
+**When it is deleted.** The kept photo and clip are deleted when you dismiss the
+capture or return it to review, when a person or false-positive update revokes it
+(including a person event whose time overlaps the kept clip), and when history
+retention removes the capture. They also follow the bird media limits: media
+retention (**Settings → Data**, `0` follows detection retention) ages them out by
+the capture's time, and the storage limit removes the oldest kept media, bird or
+Garden, first. A per-species maximum counts birds only. An aged-out or evicted copy
+is not fetched again. **Space used** under **Settings → Data → Photos and video**
+includes Garden media and says how much of it is Garden's.
+
+Downgrading past the kept-media migration drops the record of what was kept; the
+files stay in `garden/` unread until you delete the folder, and upgrading again
+deletes any file without a record.
 
 Downgrading the saved-crop migration removes these derived previews while keeping
 capture history, identifications and the separate temporary full photos.

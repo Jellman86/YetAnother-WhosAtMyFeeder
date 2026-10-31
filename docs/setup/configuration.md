@@ -331,7 +331,10 @@ Retention, caching, imports, and the destructive tools.
   newest visits covered by a configured minimum are protected from age cleanup; the
   minimum protects photographs, not clips. Photo variants and metadata age together.
   `media_cache.retention_days=0` follows detection retention; it does not independently mean
-  unlimited when history retention is finite.
+  unlimited when history retention is finite. Confirmed Garden animals keep their full photograph,
+  and their Frigate clip while event-clip copies are on, under the same retention; **Space used**
+  includes them and says how much is Garden's. See
+  [Kept photographs and clips](../features/garden-animals.md#kept-photographs-and-clips).
 - **Best available event snapshots** — start from Frigate's completed clean best frame and
   tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
   only when a compatible species result improves confidence by at least two points. JPEG quality
@@ -365,7 +368,8 @@ Retention, caching, imports, and the destructive tools.
   of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
   including alternate photos and clips, while keeping visits and counted-bird records.
 - **Storage limit (MiB)** — periodically remove the oldest non-favourite cached visits until
-  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata fit the budget.
+  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata, and confirmed
+  Garden animals' kept photos and clips, fit the budget.
   `0` means unlimited. Favourites and their archive are protected; active work is deferred, so the
   cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
   Limits run at startup and every five minutes, and when **Clear Cached Files** is used. The budget

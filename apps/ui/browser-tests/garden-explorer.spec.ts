@@ -766,3 +766,48 @@ test('a Garden record plays its Frigate clip, named for the animal, only when th
     await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
+
+for (const kept of [true, false]) {
+    test(`after Frigate drops a confirmed capture, its record ${kept ? 'shows the kept photo and plays the kept clip' : 'says the photo has expired'}`, async ({ page }) => {
+        const { garden, errors } = await openExplorer(page, '&garden=1');
+        const fox = garden[0];
+        Object.assign(fox, { clip_event: kept ? '1729000000.123-fox' : null, photo_kept: kept, clip_kept: kept });
+        // A fresh URL, so the browser cannot reuse the photo the card loaded before Frigate dropped it.
+        if (!kept) fox.snapshot_url = `/api/garden/${fox.id}/snapshot?after=expiry`;
+        const clipRequests: string[] = [];
+        // Frigate has let the event go. Only the copies YA-WAMF kept can still answer.
+        await page.route(url => url.pathname.startsWith('/api/frigate/') || url.pathname === `/api/garden/${fox.id}/snapshot`, route => {
+            const path = new URL(route.request().url()).pathname;
+            if (kept && path.endsWith('/clip.mp4')) {
+                clipRequests.push(route.request().method());
+                return route.fulfill({ status: 200, contentType: 'video/mp4', body: '' });
+            }
+            if (kept && path.endsWith('/snapshot')) {
+                return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#4d7c0f"/></svg>' });
+            }
+            return route.fulfill({ status: 404, json: { detail: 'Frigate no longer has this snapshot' } });
+        });
+        await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+        await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+        const dialog = page.locator('[data-garden-capture-modal]');
+        const expired = dialog.getByText('The photo has expired. The confirmed record is kept.');
+        const play = dialog.getByRole('button', { name: 'Play clip of Red fox', exact: true });
+        await dialog.locator('[data-garden-capture-details] summary').click();
+        if (!kept) {
+            await expect(expired).toBeVisible();
+            await expect(play).toHaveCount(0);
+            await expect(dialog.locator('[data-garden-capture-details]')).toContainText(/kept_media\s*none/);
+            expect(errors).toEqual([]);
+            return;
+        }
+        await expect(dialog.locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${fox.id}/snapshot`));
+        await expect(expired).toHaveCount(0);
+        await expect(dialog.locator('[data-garden-capture-details]')).toContainText(/kept_media\s*photo, clip/);
+        await expect(play).toBeVisible();
+        await play.click();
+        await expect(page.getByRole('dialog', { name: 'Video player' })).toBeVisible();
+        // Frigate's stream is gone, so the player falls back to the clip proxy, which serves the kept copy.
+        await expect.poll(() => clipRequests.length).toBeGreaterThan(0);
+        expect(errors).toEqual([]);
+    });
+}

@@ -121,6 +121,8 @@
     const index = $derived(Math.max(0, group.findIndex((item) => item.id === capture.id)));
     // A capture carries its clip only while clips are on, and for a visitor only while video is shared.
     const canPlay = $derived(Boolean(onplay && capture.clip_event));
+    // YA-WAMF's own copies, which outlast Frigate's retention; read-only evidence for Details.
+    const keptMedia = $derived([capture.photo_kept && 'photo', capture.clip_kept && 'clip'].filter(Boolean).join(', ') || 'none');
     const view = $derived(gardenEntryView(capture));
     const originalFailed = $derived(failedPhoto === capture.id);
     const originalSize = $derived(sizeCapture === capture.id ? size : undefined);
@@ -796,7 +798,7 @@
                 <!-- The saved run and capture evidence, read-only and closed by default. -->
                 <RecordTechnicalDetails title={$_('garden.explorer.details', { default: 'Details' })} command="yawamf garden show" identifier={capture.id} data-garden-capture-details>
                     <dl class="mt-3 space-y-2">
-                        {#each [['camera', capture.camera], ['source', capture.source_kind ?? 'frigate_event'], ['observed_at', capture.observed_at]] as [key, value] (key)}
+                        {#each [['camera', capture.camera], ['source', capture.source_kind ?? 'frigate_event'], ['observed_at', capture.observed_at], ['kept_media', keptMedia]] as [key, value] (key)}
                             <div class="flex flex-wrap justify-between gap-x-3 gap-y-1"><dt class="text-slate-400">{key}</dt><dd class="min-w-0 max-w-full break-all">{value}</dd></div>
                         {/each}
                     </dl>

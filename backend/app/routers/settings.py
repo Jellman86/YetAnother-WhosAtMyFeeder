@@ -478,6 +478,9 @@ class CacheStatsResponse(BaseModel):
     film_count: int = 0
     film_size_bytes: int = 0
     film_size_mb: float = 0.0
+    garden_count: int = Field(0, description="Kept photographs and clips of confirmed Garden animals")
+    garden_size_bytes: int = 0
+    garden_size_mb: float = 0.0
     total_size_bytes: int
     total_size_mb: float
     oldest_file: Optional[str] = None
@@ -3290,6 +3293,9 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
 
     limit_stats = await media_storage_service.enforce_limits()
     stats["bytes_freed"] += limit_stats["bytes_freed"]
+    from app.services.garden_media_cache import garden_media_cache
+
+    await garden_media_cache.apply_retention()
     return {"status": "completed", **stats, "retention_days": retention}
 
 
