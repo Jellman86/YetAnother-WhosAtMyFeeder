@@ -259,7 +259,16 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "garden_notification_channels": json.loads(os.environ.get("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", "[]")),
         "garden_automatic_naming": os.environ.get("FRIGATE__GARDEN_AUTOMATIC_NAMING", "true").lower() == "true",
         "garden_naming_threshold": float(os.environ.get("FRIGATE__GARDEN_NAMING_THRESHOLD", "0.8")),
+        "garden_notifications_include_photo": os.environ.get(
+            "FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", "true"
+        ).lower()
+        == "true",
     }
+    # Absent unless set, so FrigateSettings can derive it from the channels a saved config chose.
+    if "FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS" in os.environ:
+        frigate_data["garden_notifications_use_bird_channels"] = (
+            os.environ["FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS"].lower() == "true"
+        )
 
     # Maintenance settings
     maintenance_data = {

@@ -209,7 +209,8 @@ async def test_late_automatic_and_manual_results_never_replace_an_owner_identity
         assert not await repo.save_identification(
             current, original.identification.model_copy(update={"review": "unreviewed"})
         )
-        assert not eligible(current, enabled=True, cameras=["patio"], now=datetime(2026, 10, 29, tzinfo=timezone.utc))
+        decided = datetime(2026, 10, 29, tzinfo=timezone.utc)
+        assert not eligible(current, enabled=True, cameras=["patio"], decided_at=decided, now=decided)
         assert current.owner_identification.species_id == fox
 
 

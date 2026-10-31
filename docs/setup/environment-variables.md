@@ -286,8 +286,10 @@ Discord / Pushover / Telegram / Email:
 | --- | --- | --- |
 | `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the Debug settings tab. |
 | `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
-| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate text-only Garden alerts while the beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate Garden alerts while the beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` sends Garden alerts on the bird channels that are switched on and configured; `false` uses `FRIGATE__GARDEN_NOTIFICATION_CHANNELS`. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
 | `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | Explicit JSON channel array, for example `["telegram"]`; supports `discord`, `telegram`, `pushover`, `email`. Reuses saved credentials independently of bird switches. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop, or the capture photo, to Garden alerts. |
 | `SYSTEM__UPDATE_CHECK_ENABLED` | `true` | Check for new releases. |
 | `SYSTEM__TRUSTED_PROXY_HOSTS` | _(built-in list)_ | Comma-separated trusted reverse-proxy hosts. |
 | `SYSTEM__BROADCASTER_MAX_QUEUE_SIZE` | `100` | SSE broadcaster queue size. |

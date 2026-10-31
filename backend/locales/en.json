@@ -5,9 +5,10 @@
     "audio_confirmed": "🎤 Audio Confirmed by BirdNET-Go",
     "view_detection": "View detection",
     "garden_title": "Garden animal: {name}",
-    "garden_body": "{camera} · {timestamp}\n{source}",
+    "garden_body": "Seen on {camera} at {timestamp}\n{source}",
     "garden_automatic": "Named automatically",
-    "garden_owner": "Species confirmed by owner"
+    "garden_owner": "Species confirmed by owner",
+    "garden_view": "View capture"
   },
   "errors": {
     "detection_not_found": "Detection not found",

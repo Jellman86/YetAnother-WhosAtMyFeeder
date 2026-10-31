@@ -1183,7 +1183,10 @@ export interface components {
     attempts: Record<string, number>;
     channels: Array<"discord" | "telegram" | "pushover" | "email">;
     configured: Record<string, boolean>;
+    delivery_channels: Array<"discord" | "telegram" | "pushover" | "email">;
     enabled: boolean;
+    include_photo: boolean;
+    use_bird_channels: boolean;
 };
     GardenOwnerIdentification: {
     changed_at: string;
@@ -1906,6 +1909,8 @@ export interface components {
     garden_naming_threshold?: number;
     garden_notification_channels: Array<"discord" | "telegram" | "pushover" | "email">;
     garden_notifications_enabled?: boolean;
+    garden_notifications_include_photo?: boolean;
+    garden_notifications_use_bird_channels?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -2123,6 +2128,8 @@ export interface components {
     garden_naming_threshold?: number;
     garden_notification_channels?: Array<"discord" | "telegram" | "pushover" | "email">;
     garden_notifications_enabled?: boolean;
+    garden_notifications_include_photo?: boolean;
+    garden_notifications_use_bird_channels?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -4020,6 +4027,17 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/captures/{capture_id}": {
+    get: {
+      operationId: "get_capture_api_garden_captures__capture_id__get";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
     };
   };
   "/api/garden/crops/storage": {

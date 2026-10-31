@@ -1480,7 +1480,31 @@
       "test_retry": "再次发送",
       "test_stage_deliver": "发送测试消息",
       "test_subtitle": "使用此渠道的当前设置发送一条测试消息。",
-      "test_title": "通知测试"
+      "test_title": "通知测试",
+      "garden": {
+        "title": "花园动物",
+        "desc": "花园动物被命名时发送提醒，与鸟类提醒分开。",
+        "enabled": "发送花园提醒",
+        "enabled_help": "动物被自动命名或你接受其物种时，每次到访发送一条提醒。点击“应用设置”保存。",
+        "send_to": "花园提醒发送到",
+        "use_bird": "使用我的鸟类通知渠道",
+        "use_bird_help": "上方已开启且已配置的渠道。",
+        "choose": "选择渠道",
+        "choose_help": "使用已保存的凭据；其鸟类开关可以保持关闭。",
+        "bird_uses": "发送到 {channels}。",
+        "bird_none": "没有已开启且已配置的鸟类渠道，因此无法发送花园提醒。请在上方开启一个，或选择渠道。",
+        "channels_label": "花园提醒渠道",
+        "channel": "通过 {channel} 发送花园提醒",
+        "choose_one": "请至少选择一个花园提醒渠道。",
+        "credentials": "{channels} 没有已保存的凭据，因此发往那里的花园提醒会失败。请在上方的渠道卡片中添加。",
+        "include_photo": "附带照片",
+        "include_photo_help": "附上已保存的动物裁剪图，没有时附上捕获照片。只发送已确认的动物，因此照片是你或自动检查已接受的。无法读取照片时仅发送文字。",
+        "privacy": "将动物名称、摄像头、目击时间以及（如已选择）照片发送到这些服务。链接会在此处打开该捕获；访客只能在公开访问共享它时打开。",
+        "rules": "仅在名称确定后五分钟内、且目击不超过两小时时发送，因此开启提醒不会重放历史。每次到访每个渠道只尝试一次；失败或不确定的发送不会重试。",
+        "status": "已保存的发送尝试。渠道已接受：{sent}。失败：{failed}。未确认：{unknown}。已跳过：{skipped}。",
+        "status_after_apply": "“应用设置”开启花园后会显示发送状态。",
+        "refresh": "刷新发送状态"
+      }
     },
     "discord": {
       "title": "Discord 通知",
@@ -2047,20 +2071,13 @@
       "garden_models_limits_explorer": "自动检查在本地与 CPU 比较后遵循你在 检测 中的设备偏好，设备检查失败时回退到 CPU。动态扫描仍使用 CPU。花园任务在鸟类和摄像头空闲时逐个运行；每个进程停止时都会释放模型内存。在浏览器中从花园拍摄启动的检查使用你在那里选择的设备，失败时不会悄悄切换设备。",
       "garden_explorer_help": "花园动物会在浏览器中与鸟类一起显示。在那里选择 花园动物，再选择 需要审核，即可逐一处理新的拍摄。",
       "garden_explorer_open": "审核花园动物",
-      "garden_notifications": "花园通知",
-      "garden_notifications_help": "新识别动物的文字提醒，与鸟类提醒分开。点击“应用设置”保存。",
-      "garden_notifications_privacy": "向所选服务发送动物名称、摄像头和时间。不发送照片或媒体链接。查看历史链接仍需所有者权限。",
-      "garden_notification_channels": "花园通知渠道",
-      "garden_notification_channel": "通过 {channel} 发送花园提醒",
-      "garden_notifications_choose": "请至少选择一个花园通知渠道。",
-      "garden_notifications_credentials": "所选渠道缺少凭据。请在“通知”中配置；鸟类提醒可以保持关闭。",
-      "garden_notifications_attempts_help": "仅限最近五分钟内已识别的抓拍。每个已知访问的每个渠道尝试一次；失败或结果不明时不会自动重试。",
-      "garden_notifications_status": "已保存的发送尝试。渠道已接受：{sent}。失败：{failed}。未确认：{unknown}。已跳过：{skipped}。",
-      "garden_notifications_refresh": "刷新发送状态",
       "garden_cameras_summary": "正在 {cameras} 上监视花园动物。",
       "garden_cameras_none": "还没有摄像头监视花园动物。请在“连接”中为摄像头选择“花园动物”或“两者”。",
       "garden_motion_summary": "正在 {cameras} 上收集待审核的移动照片。",
-      "garden_cameras_open": "在“连接”中选择摄像头"
+      "garden_cameras_open": "在“连接”中选择摄像头",
+      "garden_alerts_on": "花园提醒已开启，在“通知”中与其渠道一起设置。",
+      "garden_alerts_off": "花园提醒已关闭，请在“通知”中与其渠道一起开启。",
+      "garden_alerts_open": "设置提醒"
     },
     "native_revalidation": {
       "title": "检查隔离的配置",
@@ -4014,7 +4031,8 @@
       "pick": "选择物种",
       "chosen_by_owner": "由所有者选择的物种"
     },
-    "entry_dismiss_mixed": "这里的捕获处于不同的审核状态。请逐个忽略。"
+    "entry_dismiss_mixed": "这里的捕获处于不同的审核状态。请逐个忽略。",
+    "capture_link_unavailable": "此花园捕获已不可用，或未在此处共享。"
   },
   "model_execution": {
     "completed": "上次完成的运行：{device} · {time}",

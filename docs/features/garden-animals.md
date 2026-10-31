@@ -526,39 +526,81 @@ person to confirm presence. Manual confirmation remains available as an override
 
 ## Send Garden notifications
 
-Garden notifications are off by default and separate from bird alerts.
+Garden alerts are off by default and are set up in **Settings → Notifications**,
+in the **Garden animals** section that appears while the Garden beta is on.
+**Settings → Beta features** shows whether they are on and links there.
 
-1. Save credentials and recipients under **Settings → Notifications**. Bird channel
-   switches can remain off.
-2. Under **Settings → Beta features**, enable Garden animals, then enable
-   **Garden notifications** and select Discord, Telegram, Pushover or Email.
-3. Select **Apply settings**. Configure an instance URL under Notifications if you
-   want messages to link to your owner-only Garden history.
+1. Turn on **Send Garden alerts**.
+2. Under **Send Garden alerts to**, keep **Use my bird channels** to send on
+   whichever Discord, Telegram, Pushover or Email channel is switched on and
+   configured for birds. Or pick **Choose channels** and select channels
+   yourself; they use the saved credentials, and their bird switches can stay off.
+3. Keep **Include the photo** on to attach the picture, or turn it off for text only.
+4. Select **Apply settings**. Set an instance URL under Notifications if you want
+   messages to link back to the capture.
 
-Only confirmed animals with an accepted species name qualify: either automatic
-naming above your threshold or an owner accepting a species suggestion. Confirming
-animal presence alone does not send an alert. The camera must still be enabled,
-Garden and its notification switch must remain enabled, and the capture must be
-no more than five minutes old when delivery starts. Enabling alerts does not replay
-old history. Pending and dismissed captures do not qualify.
+An alert is sent when a confirmed animal gets an accepted species name: automatic
+naming above your threshold, or you accepting a species suggestion. Confirming
+animal presence alone does not send one. Freshness is measured from when the name
+was decided, not from the sighting, because automatic naming finishes minutes
+after the animal was seen. On one install the median was about 7 minutes for a
+Frigate event and about 10.5 minutes for a motion photo. The rules are:
 
-Messages share the animal name, camera, observation time and whether the name was
-assigned automatically or confirmed by the owner with your selected providers.
-They contain no photographs, snapshot URLs or session tokens. Links open private
-Garden history and still require owner access. Garden uses saved channel credentials
-and recipients, but has its own opt-in; bird filters, silent mode, cooldowns,
-image choices and Frigate link targets do not apply. Pushover uses normal priority.
+- The name was decided at most five minutes before delivery starts: the automatic
+  check's completion time, or the moment you accepted the suggestion.
+- The sighting itself is at most two hours old, so turning alerts on, a restart or
+  a late backlog never sends old history as a new visit.
+- The camera is still a Garden camera, Garden and its alerts are still on, and the
+  capture is still confirmed with that name. A correction you make afterwards
+  does not send another alert.
+
+Each message gives the animal name, the camera, the sighting time in UTC (which can
+be a few minutes before the alert arrives), and whether the name was assigned
+automatically or confirmed by you. With **Include the photo** on, it attaches the
+saved animal crop, or the capture photo when no crop was saved: a Telegram photo,
+a Discord attachment, a Pushover attachment or an inline email image. Only
+confirmed captures qualify, so the picture is one you or the automatic check
+already accepted. When neither photo can be read, or it is larger than 5 MB, the
+alert is sent as text. Animal and camera names are escaped for each service.
+
+Photos go only to the channels you send Garden alerts to, which are your own. No
+message contains a snapshot URL, a media proxy address or a session token. With an
+instance URL set, the link opens that capture's record in the Explorer
+(`/events?visitors=garden&review=confirmed&camera=…&garden_capture=<id>`). The
+owner can open it; a visitor can open it only while public access shares
+confirmed Garden animals from that date, as for any shared capture.
+
+Garden uses the saved channel credentials but its own rules. Bird species filters,
+minimum confidence, audio confirmation, notification mode (including **Silent**),
+the bird notification cooldown and Frigate link targets do not apply. The cooldown
+is not shared because Garden already sends at most one alert per channel per
+visit, and a shared cooldown would let a bird alert silence an animal alert, or
+the reverse, without saying so. Pushover uses normal priority.
 
 YA-WAMF saves at most one delivery attempt per channel for each currently grouped
 visit. Repeated photos and restarts do not resend it. A later visit can send a new
 alert. Failed or interrupted attempts are not retried automatically, because a
 provider might have accepted a message before its response was lost.
 
-The saved attempt counts under Garden notifications distinguish provider acceptance,
-failure, unconfirmed attempts and skipped sends. Acceptance means the channel
-accepted the message, not that its recipient read it. The delivery status refresh
-only reads those counts; it sends no message. Turning off alerts stops subsequent
-sends, but cannot recall messages already dispatched.
+The saved attempt counts in the Garden animals section distinguish provider
+acceptance, failure, unconfirmed attempts and skipped sends. Acceptance means the
+channel accepted the message, not that its recipient read it. Refreshing the
+delivery status only reads those counts; it sends no message. Turning off alerts
+stops later sends, but cannot recall messages already dispatched.
+
+### Settings and older configurations
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `garden_notifications_enabled` | `false` | Send Garden alerts while the Garden beta is on. |
+| `garden_notifications_use_bird_channels` | `true` | Follow the bird channels that are switched on and configured. |
+| `garden_notification_channels` | `[]` | Explicit channels, used while `garden_notifications_use_bird_channels` is `false`. |
+| `garden_notifications_include_photo` | `true` | Attach the crop or capture photo. |
+
+A configuration saved before `garden_notifications_use_bird_channels` existed keeps
+working. If it chose channels, it keeps sending to exactly those. If it chose none,
+which could never send anything, it now follows the bird channels. Saving settings
+writes the choice explicitly.
 
 
 ### Cropped previews
