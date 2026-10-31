@@ -479,10 +479,12 @@ for (const concurrentReview of [false, true]) {
             const writes: { ids: string[]; action: string }[] = [];
             const animalId = captures[keptIndex].id;
             const concurrentId = captures[keptIndex + 1].id;
+            let confirmed = false;
             await mockGarden(page, { items: requested => captures.filter(item => states.get(item.id) === requested).map(item => ({ ...item, status: requested })) });
             await page.route('**/api/garden/*/confirm', route => {
                 const reviewed = new URL(route.request().url()).pathname.split('/').at(-2) ?? '';
                 states.set(reviewed, 'confirmed');
+                confirmed = true;
                 return route.fulfill({ json: { ...captures.find(item => item.id === reviewed), status: 'confirmed' } });
             });
             await page.route('**/api/garden/review-batch', route => {
@@ -503,7 +505,12 @@ for (const concurrentReview of [false, true]) {
             await expect(record(page).getByRole('button', { name: 'Dismiss remaining 80 photos', exact: true })).toBeVisible();
             if (keptIndex > 0) await nextPhoto(page);
             await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${animalId}/snapshot`));
+            // A review refreshes the open stack in the background. Confirming the photo a stack is named
+            // after renames the stack, so wait for that refresh rather than racing it to the next click.
+            const stackRefreshed = page.waitForResponse(response => confirmed && /^\/api\/garden\/visits\/[^/]+\/captures$/.test(new URL(response.url()).pathname));
             await record(page).getByRole('button', { name: 'Confirm animal manually', exact: true }).click();
+            await stackRefreshed;
+            await expect(record(page).locator('[data-garden-capture-group] [role="group"]')).toHaveAttribute('aria-busy', 'false');
             await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${captures[keptIndex + 1].id}/snapshot`));
             await expect(record(page).getByText(`Photo ${keptIndex + 1} of 79`, { exact: true })).toBeVisible();
             await record(page).getByRole('button', { name: 'Dismiss remaining 79 photos', exact: true }).click();

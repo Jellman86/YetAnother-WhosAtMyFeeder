@@ -192,6 +192,24 @@ export interface GardenVisit {
     items: GardenCapture[];
 }
 
+/**
+ * The open group in a refreshed page of server visits.
+ *
+ * The server names a visit after one of its captures, so reviewing that capture renames the
+ * visit. A refreshed visit is still the open group when its representative is one of the open
+ * group's photos; without this, confirming the photo a stack is named after lost the stack.
+ */
+export function findRefreshedGardenVisit<T extends { id: string; kind: string; representative: { id: string } }>(
+    visits: readonly T[],
+    opened: Pick<GardenVisit, 'id' | 'kind' | 'items'> | null
+): T | null {
+    if (!opened) return null;
+    const members = new Set(opened.items.map((item) => item.id));
+    return visits.find((visit) => visit.id === opened.id)
+        ?? visits.find((visit) => visit.kind === opened.kind && members.has(visit.representative.id))
+        ?? null;
+}
+
 /** What a capture is, for visit grouping: its name, or what is known before one is given. */
 export function gardenVisitIdentity(capture: GardenCapture): string {
     const view = gardenEntryView(capture);
