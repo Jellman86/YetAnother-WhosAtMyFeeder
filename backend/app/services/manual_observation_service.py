@@ -6,7 +6,8 @@ import os
 import re
 import shutil
 import uuid
-from datetime import datetime, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import aiofiles
@@ -20,6 +21,11 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import Detection, DetectionRepository
 from app.repositories.manual_observation_repository import ManualObservationDraft, ManualObservationRepository
+from app.services.capture_time import (
+    captured_at_from_image,
+    captured_at_from_mp4,
+    configured_timezone,
+)
 from app.services.classifier_service import get_classifier
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.utils.api_datetime import utc_naive_datetime, utc_naive_now
@@ -41,6 +47,17 @@ ALLOWED_MEDIA = {
 GPS_INFO_TAG = 34853
 SCENE_MAX_EDGE = 1920
 CHOSEN_PHOTO_FILENAME = "photo.jpg"
+# Only ISO base media files carry a movie header; WebM has no creation time worth trusting.
+VIDEO_METADATA_CONTENT_TYPES = {"video/mp4", "video/quicktime"}
+
+
+@dataclass(frozen=True, slots=True)
+class UploadMetadata:
+    """What an upload's own metadata says about the sighting. Every field is optional."""
+
+    coordinates: tuple[float, float] | None = None
+    captured_at: datetime | None = None
+    captured_at_source: str | None = None
 
 
 def species_photo_filename(position: int, *, scene: bool = False) -> str:
@@ -215,6 +232,18 @@ async def _prepare_classification_results(results: list[dict], classifier: objec
     return prepared
 
 
+def _already_uploaded(existing: ManualObservationDraft) -> HTTPException:
+    """A duplicate upload names the draft or saved observation it duplicates, so the person can go to it."""
+    return HTTPException(
+        status_code=409,
+        detail={
+            "message": "This media has already been uploaded.",
+            "draft_id": existing.id,
+            "event_id": existing.saved_event_id,
+        },
+    )
+
+
 class ManualObservationService:
     def __init__(self) -> None:
         self.base_dir = Path(os.getenv("DATA_DIR", "/data")) / "manual_observations"
@@ -256,22 +285,16 @@ class ManualObservationService:
                     await output.write(chunk)
             if size == 0:
                 raise HTTPException(status_code=400, detail="The uploaded file is empty.")
-            extracted_location = await self._validate_and_create_preview(
-                source_path, draft_dir / "preview.jpg", media_type
+            metadata = await self._validate_and_create_preview(
+                source_path, draft_dir / "preview.jpg", media_type, content_type
             )
+            extracted_location = metadata.coordinates
             content_sha256 = digest.hexdigest()
             async with get_db() as db:
                 repo = ManualObservationRepository(db)
                 existing = await repo.get_by_hash(content_sha256)
                 if existing:
-                    raise HTTPException(
-                        status_code=409,
-                        detail={
-                            "message": "This media has already been uploaded.",
-                            "draft_id": existing.id,
-                            "event_id": existing.saved_event_id,
-                        },
-                    )
+                    raise _already_uploaded(existing)
                 draft = ManualObservationDraft(
                     id=draft_id,
                     status="queued",
@@ -284,10 +307,16 @@ class ManualObservationService:
                     latitude=extracted_location[0] if extracted_location else None,
                     longitude=extracted_location[1] if extracted_location else None,
                     location_source="image_metadata" if extracted_location else None,
+                    captured_at=metadata.captured_at,
+                    captured_at_source=metadata.captured_at_source,
                 )
                 try:
                     await repo.create(draft)
                 except aiosqlite.IntegrityError as exc:
+                    # The same file finished uploading in parallel; point at that one, as above.
+                    concurrent = await repo.get_by_hash(content_sha256)
+                    if concurrent is not None:
+                        raise _already_uploaded(concurrent) from exc
                     raise HTTPException(status_code=409, detail="This media has already been uploaded.") from exc
             self._start_analysis(draft_id)
             return draft
@@ -298,23 +327,30 @@ class ManualObservationService:
             await media.close()
 
     async def _validate_and_create_preview(
-        self, source: Path, preview: Path, media_type: str
-    ) -> tuple[float, float] | None:
+        self, source: Path, preview: Path, media_type: str, content_type: str
+    ) -> UploadMetadata:
+        now = datetime.now(timezone.utc)
+        local_zone = configured_timezone()
         if media_type == "image":
 
-            def validate_image() -> tuple[float, float] | None:
+            def validate_image() -> UploadMetadata:
                 with Image.open(source) as image:
                     try:
                         coordinates = _gps_coordinates_from_ifd(image.getexif().get_ifd(GPS_INFO_TAG))
                     except (AttributeError, KeyError, TypeError, ValueError):
                         coordinates = None
+                    captured_at = captured_at_from_image(image, local_zone=local_zone, now=now)
                     image.load()
                     if image.width * image.height > MAX_IMAGE_PIXELS:
                         raise HTTPException(status_code=413, detail="Image dimensions are too large.")
                     normalized = ImageOps.exif_transpose(image).convert("RGB")
                     normalized.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
                     normalized.save(preview, "JPEG", quality=92, optimize=True)
-                    return coordinates
+                    return UploadMetadata(
+                        coordinates=coordinates,
+                        captured_at=captured_at,
+                        captured_at_source="exif" if captured_at else None,
+                    )
 
             try:
                 return await asyncio.to_thread(validate_image)
@@ -322,7 +358,6 @@ class ManualObservationService:
                 raise
             except Exception as exc:
                 raise HTTPException(status_code=422, detail="The image could not be decoded safely.") from exc
-            return None
 
         def validate_video() -> None:
             capture = cv2.VideoCapture(str(source))
@@ -357,8 +392,15 @@ class ManualObservationService:
             finally:
                 capture.release()
 
+        def read_video_creation_time() -> datetime | None:
+            if content_type not in VIDEO_METADATA_CONTENT_TYPES:
+                return None
+            with source.open("rb") as stream:
+                return captured_at_from_mp4(stream, now=now)
+
         await asyncio.to_thread(validate_video)
-        return None
+        captured_at = await asyncio.to_thread(read_video_creation_time)
+        return UploadMetadata(captured_at=captured_at, captured_at_source="video_metadata" if captured_at else None)
 
     async def _purge_expired_drafts(self) -> None:
         cutoff = utc_naive_now() - timedelta(days=DRAFT_RETENTION_DAYS)
@@ -549,8 +591,13 @@ class ManualObservationService:
                 )
             except Exception as error:
                 log.debug("Manual observation catalogue resolution unavailable", error=str(error))
+        # The person's own time wins; otherwise the file's capture time; the save time only without either.
+        if observed_at is not None:
+            detection_time = utc_naive_datetime(observed_at)
+        else:
+            detection_time = draft.captured_at or utc_naive_now()
         detection = Detection(
-            detection_time=utc_naive_datetime(observed_at) if observed_at else utc_naive_now(),
+            detection_time=detection_time,
             detection_index=0,
             species_id=species_id,
             score=max(0.0, min(1.0, score)),

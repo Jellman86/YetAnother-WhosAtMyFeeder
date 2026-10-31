@@ -470,3 +470,143 @@ async def test_interrupted_analysis_becomes_retryable(client: httpx.AsyncClient)
     assert retried.json()["status"] == "analyzing"
     assert retried.json()["error_code"] is None
     assert (await client.delete(f"/api/manual-observations/{draft_id}")).status_code == 200
+
+
+def _jpeg_with_capture_time(original: str, offset: str | None, color: tuple[int, int, int]) -> bytes:
+    exif = Image.Exif()
+    sub = exif.get_ifd(0x8769)
+    sub[0x9003] = original
+    if offset is not None:
+        sub[0x9011] = offset
+    buffer = io.BytesIO()
+    Image.new("RGB", (48, 32), color=color).save(buffer, format="JPEG", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+async def _upload(client: httpx.AsyncClient, name: str, content: bytes) -> httpx.Response:
+    with patch(
+        "app.services.manual_observation_service.manual_observation_service._run_analysis",
+        new=AsyncMock(),
+    ):
+        return await client.post("/api/manual-observations", files={"media": (name, content, "image/jpeg")})
+
+
+async def _mark_ready(draft_id: str) -> None:
+    async with get_db() as db:
+        await db.execute(
+            """UPDATE manual_observation_drafts SET status = 'ready', results_json = ?,
+               progress_current = 1, progress_total = 1 WHERE id = ?""",
+            ('[{"label":"Erithacus rubecula","score":0.9}]', draft_id),
+        )
+        await db.commit()
+
+
+async def _detection_time(event_id: str) -> str:
+    async with get_db() as db:
+        async with db.execute("SELECT detection_time FROM detections WHERE frigate_event = ?", (event_id,)) as cursor:
+            row = await cursor.fetchone()
+    return str(row[0])
+
+
+@pytest.mark.asyncio
+async def test_upload_reports_the_capture_time_from_exif(client: httpx.AsyncClient):
+    response = await _upload(
+        client, "dated.jpg", _jpeg_with_capture_time("2026:05:01 08:15:30", "+02:00", (11, 120, 33))
+    )
+
+    assert response.status_code == 202, response.text
+    assert response.json()["captured_at"] == "2026-05-01T06:15:30Z"
+    assert response.json()["captured_at_source"] == "exif"
+    fetched = await client.get(f"/api/manual-observations/{response.json()['id']}")
+    assert fetched.json()["captured_at"] == "2026-05-01T06:15:30Z"
+    assert fetched.json()["captured_at_source"] == "exif"
+
+
+@pytest.mark.asyncio
+async def test_upload_without_a_capture_time_says_so(client: httpx.AsyncClient):
+    response = await _upload(client, "undated.jpg", _jpeg_bytes((12, 121, 34)))
+
+    assert response.status_code == 202, response.text
+    assert response.json()["captured_at"] is None
+    assert response.json()["captured_at_source"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_upload_ignores_a_future_capture_time(client: httpx.AsyncClient):
+    response = await _upload(
+        client, "future.jpg", _jpeg_with_capture_time("2999:01:01 00:00:00", "+00:00", (13, 122, 35))
+    )
+
+    assert response.status_code == 202, response.text
+    assert response.json()["captured_at"] is None
+    assert response.json()["captured_at_source"] == "none"
+
+
+@pytest.mark.asyncio
+async def test_confirm_without_a_time_uses_the_capture_time_not_the_save_time(client: httpx.AsyncClient):
+    created = await _upload(
+        client, "dated-save.jpg", _jpeg_with_capture_time("2026:05:01 08:15:30", "+02:00", (14, 123, 36))
+    )
+    draft_id = created.json()["id"]
+    await _mark_ready(draft_id)
+
+    with patch(
+        "app.services.manual_observation_service.taxonomy_service.get_names",
+        new=AsyncMock(return_value={"scientific_name": "Erithacus rubecula", "common_name": "European Robin"}),
+    ):
+        saved = await client.post(f"/api/manual-observations/{draft_id}/confirm", json={"label": "Erithacus rubecula"})
+
+    assert saved.status_code == 200, saved.text
+    assert (await _detection_time(saved.json()["event_id"])).startswith("2026-05-01 06:15:30")
+    assert (await client.delete(f"/api/events/{saved.json()['event_id']}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_confirm_with_a_time_keeps_the_persons_time(client: httpx.AsyncClient):
+    created = await _upload(
+        client, "dated-override.jpg", _jpeg_with_capture_time("2026:05:01 08:15:30", "+02:00", (15, 124, 37))
+    )
+    draft_id = created.json()["id"]
+    await _mark_ready(draft_id)
+
+    with patch(
+        "app.services.manual_observation_service.taxonomy_service.get_names",
+        new=AsyncMock(return_value={"scientific_name": "Erithacus rubecula", "common_name": "European Robin"}),
+    ):
+        saved = await client.post(
+            f"/api/manual-observations/{draft_id}/confirm",
+            json={"label": "Erithacus rubecula", "observed_at": "2026-05-02T09:00:00Z"},
+        )
+
+    assert saved.status_code == 200, saved.text
+    assert (await _detection_time(saved.json()["event_id"])).startswith("2026-05-02 09:00:00")
+    assert (await client.delete(f"/api/events/{saved.json()['event_id']}")).status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_duplicate_upload_names_the_draft_and_then_the_saved_observation(client: httpx.AsyncClient):
+    content = _jpeg_bytes((16, 125, 38))
+    created = await _upload(client, "first.jpg", content)
+    draft_id = created.json()["id"]
+
+    duplicate = await _upload(client, "again.jpg", content)
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == {
+        "message": "This media has already been uploaded.",
+        "draft_id": draft_id,
+        "event_id": None,
+    }
+
+    await _mark_ready(draft_id)
+    with patch(
+        "app.services.manual_observation_service.taxonomy_service.get_names",
+        new=AsyncMock(return_value={"scientific_name": "Erithacus rubecula", "common_name": "European Robin"}),
+    ):
+        saved = await client.post(f"/api/manual-observations/{draft_id}/confirm", json={"label": "Erithacus rubecula"})
+    event_id = saved.json()["event_id"]
+
+    after_save = await _upload(client, "again.jpg", content)
+    assert after_save.status_code == 409
+    assert after_save.json()["detail"]["draft_id"] == draft_id
+    assert after_save.json()["detail"]["event_id"] == event_id
+    assert (await client.delete(f"/api/events/{event_id}")).status_code == 200

@@ -6,6 +6,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Add observation** keeps when a photo or video was taken, and stops dead ends
+  (OBS-01, OBS-02, OBS-03):
+  - An upload was stamped with the moment **Save** was pressed. It now reads EXIF
+    `DateTimeOriginal` (then `DateTime`, with their offsets) and the MP4/MOV movie
+    header's creation time, prefills **Observed at** with a **From the photo** or
+    **From the video** chip, and saves that time when the field is left empty. An
+    EXIF time with no offset is read in the container's `TZ`. Malformed, pre-1990
+    and future values are ignored. Draft responses add `captured_at` and
+    `captured_at_source`; a new migration stores them on the draft.
+  - Uploading the same file again offers **Open the saved observation** or
+    **Continue that review** instead of only an error.
+  - The species field searches the catalogue by common or scientific name instead
+    of listing up to 10,000 raw model labels, and warns when a typed name is not
+    one the model knows. The default camera name is translated, the upload button
+    is 44px tall, and the step names stay readable to screen readers on a phone.
+- Two intermittently failing tests are deterministic:
+  - Confirming the photo a Garden position stack is named after renamed the stack,
+    so the Explorer's background refresh could not find it and reduced the open
+    record to one photo (or closed it). The record now follows the renamed stack,
+    and the 80-photo browser test waits for that refresh instead of racing it.
+  - The audio sources test compared against today's date and failed just after
+    midnight UTC; it now uses a fixed time.
+
 - A native crash in the CPU classifier, crop detector or Garden worker keeps its
   real cause when cleanup signals the worker in the same moment. On Python 3.12,
   asyncio's own kill and terminate could collect the dead child first, so the

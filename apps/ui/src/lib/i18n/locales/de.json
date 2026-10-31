@@ -107,7 +107,17 @@
       "save_species": "{species} hinzufügen",
       "several_species": "Jeder Vorschlag zeigt den Vogel, an dem er bewertet wurde. Wenn das Video mehr als einen Vogel zeigt, wählen Sie den, für den diese Beobachtung gilt, und das Foto folgt Ihrer Wahl.",
       "no_frame": "Kein Bild",
-      "when_help": "Leer lassen, um den Zeitpunkt des Speicherns zu verwenden."
+      "when_help": "Leer lassen, um den Zeitpunkt des Speicherns zu verwenden.",
+      "default_camera": "Manueller Upload",
+      "when_help_from_photo": "Aus den Metadaten des Fotos gelesen. Ändern Sie die Zeit, falls die Kamerauhr falsch ging.",
+      "when_help_from_video": "Aus den Metadaten des Videos gelesen. Ändern Sie die Zeit, falls die Kamerauhr falsch ging.",
+      "when_help_file_fallback": "Leer lassen, um die in der Datei gespeicherte Zeit zu verwenden.",
+      "when_help_none": "In der Datei wurde keine Aufnahmezeit gefunden. Leer lassen, um den Zeitpunkt des Speicherns zu verwenden.",
+      "from_photo": "Aus dem Foto",
+      "from_video": "Aus dem Video",
+      "species_unknown": "Diese Art kennt das Modell nicht; sie wird wie eingegeben gespeichert.",
+      "species_help": "Wählen Sie oben einen Vorschlag oder suchen Sie nach deutschem oder wissenschaftlichem Namen.",
+      "species_matches": "Passende Arten"
     },
     "location": {
       "title": "Sichtungsort",
@@ -144,6 +154,12 @@
       "title": "Diesen Upload verwerfen?",
       "message": "Die hochgeladene Datei und ihre Analyse werden gelöscht. Zu Ihren Beobachtungen wurde nichts hinzugefügt.",
       "confirm": "Upload verwerfen"
+    },
+    "duplicate": {
+      "saved": "Diese Datei ist bereits als Beobachtung gespeichert.",
+      "draft": "Diese Datei wurde bereits hochgeladen und wartet noch auf Ihre Prüfung.",
+      "open_saved": "Gespeicherte Beobachtung öffnen",
+      "continue_review": "Diese Prüfung fortsetzen"
     }
   },
   "setup": {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import type { DetectionVisit } from '../api/visits';
-import { gardenBelongs, gardenBlocker, gardenCaptureFacts, gardenEntryText, gardenRowDetail, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
+import { findRefreshedGardenVisit, gardenBelongs, gardenBlocker, gardenCaptureFacts, gardenEntryText, gardenRowDetail, groupGardenVisits, gardenEntryView, gardenWindow, placeGardenCaptures, type GardenFilterState } from './garden-explorer';
 
 function capture(overrides: Partial<GardenCapture> = {}): GardenCapture {
     return {
@@ -287,5 +287,33 @@ describe('gardenRowDetail', () => {
     it('never claims a scientific name the catalogue did not give', () => {
         const fox = capture({ status: 'confirmed', identification: named('accepted', true), scientific_name: null });
         expect(gardenRowDetail(fox, gardenEntryView(fox))).toEqual({ scientific: null, showState: true });
+    });
+});
+
+describe('findRefreshedGardenVisit', () => {
+    const member = (id: string) => ({ id }) as GardenCapture;
+    const opened = { id: 'position:a', kind: 'position' as const, items: [member('b'), member('c')] };
+
+    it('keeps the open group when its id is unchanged', () => {
+        const visits = [{ id: 'position:a', kind: 'position', representative: { id: 'z' } }];
+        expect(findRefreshedGardenVisit(visits, opened)).toBe(visits[0]);
+    });
+
+    it('follows a stack renamed after the photo it was named after was reviewed', () => {
+        const visits = [
+            { id: 'visit:x', kind: 'visit', representative: { id: 'b' } },
+            { id: 'position:b', kind: 'position', representative: { id: 'c' } }
+        ];
+        expect(findRefreshedGardenVisit(visits, opened)).toBe(visits[1]);
+    });
+
+    it('leaves a visit whose species changed to be re-read on its own', () => {
+        const visit = { id: 'a', kind: 'visit' as const, items: [member('a')] };
+        expect(findRefreshedGardenVisit([{ id: 'b', kind: 'visit', representative: { id: 'a' } }], visit)).toBeNull();
+    });
+
+    it('finds nothing when no refreshed visit holds one of its photos', () => {
+        expect(findRefreshedGardenVisit([{ id: 'position:q', kind: 'position', representative: { id: 'q' } }], opened)).toBeNull();
+        expect(findRefreshedGardenVisit([], null)).toBeNull();
     });
 });

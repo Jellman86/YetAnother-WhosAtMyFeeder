@@ -1531,6 +1531,8 @@ export interface components {
     taxa_id?: number | null;
 };
     ManualObservationResponse: {
+    captured_at?: string | null;
+    captured_at_source?: "exif" | "video_metadata" | "none";
     content_sha256: string;
     content_type: string;
     created_at?: string | null;

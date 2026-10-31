@@ -107,7 +107,17 @@
       "save_species": "Adicionar {species}",
       "several_species": "Cada sugestão mostra a ave em que foi avaliada. Se o vídeo tiver mais de uma ave, escolha a desta observação e a foto acompanha a escolha.",
       "no_frame": "Sem quadro",
-      "when_help": "Deixe vazio para usar a hora em que salvar."
+      "when_help": "Deixe vazio para usar a hora em que salvar.",
+      "default_camera": "Envio manual",
+      "when_help_from_photo": "Lida dos metadados da foto. Altere-a se o relógio da câmera estava errado.",
+      "when_help_from_video": "Lida dos metadados do vídeo. Altere-a se o relógio da câmera estava errado.",
+      "when_help_file_fallback": "Deixe em branco para usar a hora salva no arquivo.",
+      "when_help_none": "Nenhuma hora de captura foi encontrada no arquivo. Deixe em branco para usar a hora em que salvar.",
+      "from_photo": "Da foto",
+      "from_video": "Do vídeo",
+      "species_unknown": "Este modelo não conhece esta espécie; ela será salva como digitada.",
+      "species_help": "Escolha uma sugestão acima ou pesquise pelo nome comum ou científico.",
+      "species_matches": "Espécies correspondentes"
     },
     "location": {
       "title": "Local do avistamento",
@@ -144,6 +154,12 @@
       "title": "Descartar este envio?",
       "message": "O arquivo enviado e a análise dele são excluídos. Nada foi adicionado às suas observações.",
       "confirm": "Descartar envio"
+    },
+    "duplicate": {
+      "saved": "Este arquivo já está salvo como observação.",
+      "draft": "Este arquivo já foi enviado e ainda aguarda sua revisão.",
+      "open_saved": "Abrir a observação salva",
+      "continue_review": "Continuar essa revisão"
     }
   },
   "setup": {

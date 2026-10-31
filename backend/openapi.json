@@ -10577,6 +10577,7 @@
                 "type": "null"
               }
             ],
+            "description": "When the sighting happened. Null uses the file's captured_at, then the save time.",
             "title": "Observed At"
           }
         },
@@ -10760,6 +10761,29 @@
       },
       "ManualObservationResponse": {
         "properties": {
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the file says it was taken, in UTC: EXIF DateTimeOriginal (then DateTime), or an MP4/MOV creation time. An EXIF time without an offset is read in the server's TZ. Null when absent or implausible.",
+            "title": "Captured At"
+          },
+          "captured_at_source": {
+            "default": "none",
+            "description": "Where captured_at came from; none when the file holds no usable capture time.",
+            "enum": [
+              "exif",
+              "video_metadata",
+              "none"
+            ],
+            "title": "Captured At Source",
+            "type": "string"
+          },
           "content_sha256": {
             "title": "Content Sha256",
             "type": "string"

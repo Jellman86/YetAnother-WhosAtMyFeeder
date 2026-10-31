@@ -10,7 +10,7 @@
     import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
     import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, type GardenServerVisit, type GardenCapture } from '../api/garden';
     import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
-    import { gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
+    import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
@@ -733,9 +733,9 @@
                 if (gardenOnly) await loadEvents();
                 else await loadGarden();
                 if (selectedGarden && !gardenFailed) {
-                    const refreshed = serverGardenVisits.find((visit) => visit.id === openedGardenGroup?.id);
+                    const refreshed = findRefreshedGardenVisit(serverGardenVisits, openedGardenGroup);
                     if (refreshed && openedGardenGroup) {
-                        openedGardenGroup = { ...openedGardenGroup, captureCount: refreshed.capture_count };
+                        openedGardenGroup = { ...openedGardenGroup, id: refreshed.id, captureCount: refreshed.capture_count };
                         await loadGardenCapturePage(gardenGroupOffset, false);
                     } else {
                         // A species correction can change the visit ID. Re-read this
