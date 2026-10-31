@@ -26,7 +26,7 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 | **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Shows which features are most popular. |
 | **Runtime** | `{ "inference_provider_active": "intel_cpu", "model_runtime": "onnx" }` | Shows which inference paths are actually in use. |
 | **Hardware Capability** | `{ "cuda_available": false, "intel_gpu_available": true }` | Helps prioritize GPU/runtime support without storing device serials or host details. |
-| **Deployment** | `{ "image_flavor": "intel", "image_arch": "x86_64" }` | Tracks which packaged runtime family and architecture are active. Branch and Git identity are separate deployment fields. |
+| **Deployment** | `{ "mode": "monolith", "image_flavor": "intel", "image_arch": "x86_64" }` | Tracks whether the install runs the single image (`monolith`) or the separate backend and frontend images (`split`), and which packaged runtime family and architecture are active. Branch and Git identity are separate deployment fields. |
 
 ## Anonymous Health Diagnostics
 

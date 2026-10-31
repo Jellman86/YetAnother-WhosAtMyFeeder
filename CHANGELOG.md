@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Anonymous telemetry now says whether an install runs the single image or the
+  separate backend and frontend images. Both report the same "full" runtime
+  flavor, so the layout was previously recorded as unknown for every install.
+
 - **Add observation** keeps when a photo or video was taken, and stops dead ends
   (OBS-01, OBS-02, OBS-03):
   - An upload was stamped with the moment **Save** was pressed. It now reads EXIF
