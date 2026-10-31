@@ -89,6 +89,7 @@ health), then groups the settings by the decision they make:
   its own when you have changed its defaults.
 - **Frigate and video**: sublabel trust, sublabel write-back and **Auto Video Analysis**.
 - **Blocked Labels**.
+- **Range filter**: optional, needs a location and an eBird key.
 
 ![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
@@ -107,6 +108,8 @@ health), then groups the settings by the decision they make:
 | **Runtime report** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
 | **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
 | **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
+| **Range filter** | Disabled | Set aside new automatic identifications of species eBird has never recorded in your region, falling back to the model's best in-range answer. Needs a location and an eBird API key; fails open when the list is missing or stale. See [Range filter](../features/range-filter.md). |
+| **Finest region** | `County` | The finest eBird region the range filter uses. An approximate location uses a state list and a country alone uses the country list. |
 
 ### 🛠 How the two thresholds work together
 

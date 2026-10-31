@@ -17,6 +17,7 @@ for behavior shipped in a tagged image.
 
 - [Explorer and review](features/explorer.md) — seen visits, heard calls, individual captures and corrections.
 - [Add observation](features/manual-observations.md) — classify and save your own photograph or clip.
+- [Range filter](features/range-filter.md) — set aside birds eBird has never recorded in your region.
 - [Video and photo analysis](features/video-analysis.md) — frame evidence and counted birds.
 - [Garden animals](features/garden-animals.md) — owner review of animal captures, separate from birds.
 - [Favourites](features/favourites.md) — archives, retention and storage limits.

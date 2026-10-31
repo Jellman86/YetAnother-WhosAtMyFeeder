@@ -419,6 +419,14 @@ class ClassificationSettings(BaseModel):
     personalized_rerank_enabled: bool = Field(
         default=False, description="Enable personalized camera/model-aware reranking from manual tags"
     )
+    range_filter_enabled: bool = Field(
+        default=False,
+        description="Set aside automatic identifications of species eBird has never recorded in this region",
+    )
+    range_filter_region_level: Literal["county", "state", "country"] = Field(
+        default="county",
+        description="Finest eBird region the range filter uses; coarser locations use a coarser region",
+    )
     # Auto Video Classification
     auto_video_classification: bool = Field(
         default=False, description="Automatically classify video clips when available"

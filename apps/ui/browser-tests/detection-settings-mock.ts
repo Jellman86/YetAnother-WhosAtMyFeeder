@@ -72,7 +72,29 @@ function installed(id: string, extra: Record<string, unknown> = {}) {
     };
 }
 
+/** A range filter status as the server reports it; tests override only what their state needs. */
+function rangeStatus(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+        enabled: false, filtering: false, reason: 'needs_ebird_key', problem: null, source: 'ebird',
+        location_precision: 'exact', region_level_setting: 'county', ebird_configured: false, birdnet_enabled: true,
+        region: null, species_in_range: null, region_species_total: null, heard_species: 0, heard_only_species: 0,
+        refreshed_at: null, next_refresh_at: null, stale_after: null, refreshing: false, last_error: null,
+        last_attempt_at: null, model: null, recent: { window_days: 30, fallback: 0, skipped: 0 },
+        ...overrides
+    };
+}
+
+export type RangeMock = {
+    status?: Record<string, unknown>;
+    /** Served after a refresh is requested; defaults to the same status. */
+    afterRefresh?: Record<string, unknown>;
+    preview?: Record<string, unknown>;
+    previewFails?: boolean;
+    skips?: Record<string, unknown>[];
+};
+
 export type DetectionMockOptions = {
+    range?: RangeMock;
     finderExecution?: Record<string, unknown>;
     savedFinder?: 'yolox_tiny' | 'rfdetr_nano';
     rfdetrInstalled?: boolean;
@@ -82,6 +104,7 @@ export type DetectionMockOptions = {
 };
 
 export type DetectionMockState = {
+    rangeRefreshes: number;
     settingsReads: number;
     saves: Record<string, unknown>[];
     savedFinder: 'yolox_tiny' | 'rfdetr_nano';
@@ -117,7 +140,7 @@ function classifierStatus(state: DetectionMockState, rfdetrInstalled: boolean, e
 export async function openDetectionSettings(page: Page, options: DetectionMockOptions = {}): Promise<DetectionMockState> {
     const rfdetrInstalled = options.rfdetrInstalled ?? true;
     const state: DetectionMockState = {
-        settingsReads: 0, saves: [], savedFinder: options.savedFinder ?? 'yolox_tiny',
+        rangeRefreshes: 0, settingsReads: 0, saves: [], savedFinder: options.savedFinder ?? 'yolox_tiny',
         savedFinderProvider: options.savedFinderProvider ?? 'auto',
         savedProvider: options.savedProvider ?? 'auto'
     };
@@ -147,9 +170,24 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
                 classification_threshold: 0.6, classification_min_confidence: 0.4,
                 inference_provider: state.savedProvider, image_execution_mode: 'subprocess',
                 bird_crop_accurate_detector: state.savedFinder,
-                bird_crop_inference_provider: state.savedFinderProvider
+                bird_crop_inference_provider: state.savedFinderProvider,
+                range_filter_enabled: Boolean(options.range?.status?.enabled),
+                range_filter_region_level: 'county'
             } });
         }
+        if (path === '/api/range-filter/refresh' && request.method() === 'POST') {
+            state.rangeRefreshes++;
+            return route.fulfill({ json: { ...rangeStatus(options.range?.status), refreshing: true } });
+        }
+        if (path === '/api/range-filter/status') {
+            const refreshed = state.rangeRefreshes > 0 && options.range?.afterRefresh;
+            return route.fulfill({ json: rangeStatus(refreshed ? options.range?.afterRefresh : options.range?.status) });
+        }
+        if (path === '/api/range-filter/preview') {
+            if (options.range?.previewFails) return route.fulfill({ status: 500, json: { detail: 'Preview store unavailable' } });
+            return route.fulfill({ json: options.range?.preview ?? { available: false, window_days: 90, recently_seen: [], model_out_of_range_total: null, examples: [] } });
+        }
+        if (path === '/api/range-filter/skips') return route.fulfill({ json: { items: options.range?.skips ?? [] } });
         if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled, options.finderExecution) });
         if (path === '/api/models/available') return route.fulfill({ json: availableModels });
         if (path === '/api/models/installed') {

@@ -10,6 +10,7 @@ Enable eBird for nearby sightings and notable reports. Species identities and mo
 - **Notable Sightings:** Discover rare bird reports in your area.
 - **Thumbnail Images:** Notable sightings include species images powered by iNaturalist taxonomy.
 - **Export:** Export your detections to a CSV file compatible with eBird's bulk import tool.
+- **Range filter:** Optionally set aside identifications of species eBird has never recorded in your region. See [Range filter](../features/range-filter.md).
 
 ## Configuration
 1. Go to **Settings → Integrations → eBird**.

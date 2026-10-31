@@ -44,6 +44,15 @@ class ShadowResolution:
 
 
 @dataclass(frozen=True)
+class ModelSpeciesCoverage:
+    """Which species a model's outputs name: known birds, species of no recorded group, and unidentified outputs."""
+
+    birds: frozenset[int]
+    ungrouped: frozenset[int]
+    unresolved_outputs: int
+
+
+@dataclass(frozen=True)
 class _OutputEntry:
     artifact_row_id: int
     class_kind: str
@@ -239,6 +248,45 @@ class SpeciesCatalogResolver:
         checksum, normalized_label = request
         entry = self._group_snapshot.get(checksum, {}).get(output_index)
         return self._bound_group(entry.source_label, entry.taxonomic_group, normalized_label) if entry else "unknown"
+
+    def cached_output_species_id(self, model_sha256: Optional[str], output_index: int, label: str) -> Optional[int]:
+        """The catalogue species a model output names, from the loaded snapshot with no I/O.
+
+        Bound to the label the same way output groups are: a result whose label is
+        not the one the catalogue recorded for that output names nothing here.
+        """
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return None
+        checksum, normalized_label = request
+        entry = self._outputs.get(checksum, {}).get(output_index)
+        if entry is None or entry.class_kind != "species" or entry.species_id is None:
+            return None
+        if self._bound_group(entry.source_label, "bird", normalized_label) != "bird":
+            return None
+        return entry.species_id
+
+    def cached_species_id_for_name(self, scientific_name: Optional[str]) -> Optional[int]:
+        """Exact scientific-name identity from the loaded snapshot with no I/O; ambiguous names resolve nothing."""
+        name = str(scientific_name or "").strip()
+        return self._name_to_species.get(name.casefold()) if name else None
+
+    def model_species_coverage(self, model_sha256: Optional[str]) -> Optional[ModelSpeciesCoverage]:
+        """The species a registered model can name, split by what the catalogue knows of them.
+
+        Returns None for a missing catalogue or an unregistered model, so a caller can
+        tell "names no birds" apart from "not known".
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        if not checksum or not self._ensure_loaded() or checksum not in self._artifact_ids:
+            return None
+        entries = list(self._outputs.get(checksum, {}).values())
+        named = [entry for entry in entries if entry.class_kind == "species" and entry.species_id is not None]
+        return ModelSpeciesCoverage(
+            birds=frozenset(entry.species_id for entry in named if entry.taxonomic_group == "bird"),
+            ungrouped=frozenset(entry.species_id for entry in named if entry.taxonomic_group == "unknown"),
+            unresolved_outputs=sum(1 for entry in entries if entry.class_kind == "unknown"),
+        )
 
     def fresh_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
         """Recheck durable evidence immediately before writes, without the cache."""
