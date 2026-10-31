@@ -125,6 +125,14 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('events.filters.end_date');
     });
 
+    it('keeps the filters in the address by replacing the history entry, never adding one', () => {
+        // Back leaves the Explorer; it does not step through every filter tried (FLT-01).
+        expect(eventsSource).toContain('writeExplorerQuery(window.location.search, currentQuery()');
+        expect(eventsSource).toContain('window.history.replaceState(window.history.state');
+        expect(eventsSource).not.toContain('history.pushState');
+        expect(eventsSource).toContain('applyQuery(parseExplorerQuery(');
+    });
+
     it('says the day chips describe the loaded page, not the whole filter', () => {
         // The chips group `events`, which is one page of results, while the heading
         // beside them counts the whole filter. Two numbers of different scope on one

@@ -30,6 +30,28 @@ choose a single species to see its calls. The page explains the active restricti
 truncated, narrow the date range. If a spectrogram or clip has expired upstream, the visit and
 stored call information remain available. A call-loading failure does not remove camera visits.
 
+## Keep, reload and share a view
+
+The address of the Explorer states its filters: the visitors (birds, Garden animals or both), the
+Garden review state, the time window with any custom dates, the species, the camera,
+**Favourites**, **Audio matches**, **Multiple species**, **Hidden**, whether visits or captures are
+shown, and the page. Reloading the page, or opening a copied link, shows the same view.
+
+- A custom window is labelled **From** and **To**, and its filter token names the dates, for
+  example **1 Oct to 28 Oct**. The year is added when it is not this year. A pinned date format in
+  Settings is used instead.
+- Each change replaces the address rather than adding a history entry. **Back** returns to the
+  page you opened the Explorer from, not to each filter you tried on the way, and **Forward**
+  returns to the Explorer with the filters you left it with.
+- A link is checked before use. A value the filters could not hold, such as an impossible date, a
+  window that ends before it starts or a page that is not a whole number, is ignored and the rest
+  of the link applies. Your next change rewrites the address without it.
+- **Hidden**, **Multiple species** and the Garden review state are owner filters. A link cannot
+  turn them on for a public visitor.
+- A shared clip link keeps its own part of the address while you change filters.
+- **Clear all** removes the filters from the address. How results are shown (visits or captures)
+  stays, as it does on screen.
+
 ## Loading, failures and empty pages
 
 The Explorer never reports an empty history or a count it has not measured:

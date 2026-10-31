@@ -76,6 +76,24 @@ export function formatDate(value: DateInput): string {
     return formatDateParts(date, getDateFormat());
 }
 
+/**
+ * A YYYY-MM-DD day, as a date input holds it, read as that local day rather than UTC midnight.
+ * Under the locale format it is short ("1 Oct"), with the year only when it is not this year.
+ */
+export function formatCalendarDay(day: string, now: Date = new Date()): string {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+    if (!match) return day;
+    const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    if (Number.isNaN(date.getTime())) return day;
+    const format = getDateFormat();
+    if (format !== 'locale') return formatDateParts(date, format);
+    return date.toLocaleDateString(undefined, {
+        day: 'numeric',
+        month: 'short',
+        ...(date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' })
+    });
+}
+
 export function formatDateTime(value: DateInput): string {
     const date = toDate(value);
     if (!date) return typeof value === 'string' ? value : '';
