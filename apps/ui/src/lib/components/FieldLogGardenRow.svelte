@@ -29,7 +29,7 @@
 
     let { visit, scope, oncapture, grid, showCamera, onopen }: Props = $props();
 
-    const translate = (key: string, fallback: string, values?: Record<string, string>): string =>
+    const translate = (key: string, fallback: string, values?: Record<string, string | number>): string =>
         get(_)(key, { values, default: fallback });
 
     const capture = $derived(visit.representative);

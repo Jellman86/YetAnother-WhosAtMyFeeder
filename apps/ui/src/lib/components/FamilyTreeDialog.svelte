@@ -166,7 +166,7 @@
         if (subject === 'animal') return null;
         if (taxon.rank === 'species') {
             return (taxon.seen_count ?? 0) > 0
-                ? $_('taxonomy.captures_here', { values: { count: taxon.seen_count }, default: '{count} captures here' })
+                ? $_('taxonomy.captures_here', { values: { count: taxon.seen_count }, default: '{count, plural, one {# capture here} other {# captures here}}' })
                 : null;
         }
         return isSeen(taxon)

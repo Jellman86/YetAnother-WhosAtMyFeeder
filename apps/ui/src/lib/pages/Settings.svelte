@@ -65,7 +65,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
-    import { validateAuthSettingsSave } from '../auth-password-policy';
+    import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
@@ -2321,7 +2321,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 type: 'success',
                 text: count > 0
                     ? $_('settings.data.timezone_repair_preview_found', {
-                        default: '{count} detections can be repaired.',
+                        default: '{count, plural, one {# detection can be repaired.} other {# detections can be repaired.}}',
                         values: { count }
                     })
                     : $_('settings.data.timezone_repair_preview_none', {
@@ -2358,7 +2358,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = {
                 type: 'success',
                 text: $_('settings.data.timezone_repair_apply_success', {
-                    default: 'Repaired {count} detections.',
+                    default: 'Repaired {count, plural, one {# detection} other {# detections}}.',
                     values: { count: result.repaired_count }
                 })
             };
@@ -2479,7 +2479,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 title: $_('settings.data.purge_button', { default: 'Purge Old Records' }),
                 message: $_('settings.data.purge_confirm', {
                     values: { count: maintenanceStats?.detections_to_cleanup ?? 0, days },
-                    default: "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
                 }),
                 confirmLabel: $_('settings.data.purge_button', { default: 'Purge Old Records' })
             });
@@ -2792,7 +2792,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 type: 'success',
                 text: $_('settings.data.config_backup_imported', {
                     values: { count: result.changed_fields.length },
-                    default: 'Configuration backup imported ({count} sections changed). Run a backfill when you are ready.'
+                    default: 'Configuration backup imported ({count, plural, one {# section changed} other {# sections changed}}). Run a backfill when you are ready.'
                 })
             };
         } catch (e) {
@@ -3466,7 +3466,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             authPasswordConfirm
         });
         if (authSettingsError) {
-            message = { type: 'error', text: authSettingsError };
+            const problem = passwordProblemMessage(authSettingsError);
+            message = { type: 'error', text: $_(problem.key, { default: problem.default }) };
             saving = false;
             return;
         }

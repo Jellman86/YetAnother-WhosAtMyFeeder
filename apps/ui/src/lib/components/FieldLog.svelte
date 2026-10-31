@@ -234,7 +234,7 @@
                 {hiddenLabel ??
                     $_('dashboard.field_log.earlier', {
                         values: { count: hiddenCount },
-                        default: '{count} earlier visits today'
+                        default: '{count, plural, one {# earlier visit today} other {# earlier visits today}}'
                     })}
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10 5v10m0 0-4-4m4 4 4-4" />

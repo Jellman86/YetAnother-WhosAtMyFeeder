@@ -161,7 +161,10 @@
                             <span class="text-xs font-normal text-slate-500 dark:text-slate-400">
                                 {camera.visits === 0
                                     ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
-                                    : $_('dashboard.day_bar.visits', { default: 'visits' })}
+                                    : $_('dashboard.desk.camera_visits_unit', {
+                                          values: { count: camera.visits },
+                                          default: '{count, plural, one {visit} other {visits}}'
+                                      })}
                             </span>
                         {/if}
                     </span>

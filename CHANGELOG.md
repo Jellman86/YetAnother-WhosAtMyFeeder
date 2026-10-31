@@ -6,6 +6,35 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Copy, plurals and small polish across the UI:
+  - Counts choose their word in every language: "1 visit", not "1 visits",
+    and Russian uses the right form for 1, 2 to 4 and 5 or more. About 75
+    strings moved to ICU plurals in all nine locales, a locale test now fails
+    on a new "{count} noun" string, and counts are formatted in the reader's
+    locale.
+  - Each **Needs your call** row says why it waits: **Unknown species**,
+    **Below the naming threshold** or **New species**. On a phone the reason
+    replaces the camera name.
+  - The **Heard** card says how many species were heard, then **Heard most**
+    and the latest call. The call and cross-confirmed totals stay in the day
+    bar only.
+  - **Clear notifications** offers **Undo** for ten seconds.
+  - The sign-in screen uses the standard card, fields and buttons, and reads
+    **Sign in** / **Continue without signing in**.
+  - The setup wizard announces each step once, lists its steps by name, and
+    shows the current step's name beside "Step 2 of 10". The owner account
+    fields offer to save a new password; the MQTT fields no longer get the
+    owner login filled in. Password rules are translated.
+  - The leaderboard spans run **Day**, **Week**, **Month**, **Total**, with
+    Month still the default, and they are a named group.
+  - Species details no longer draw an empty ruled band when there is no family
+    tree, and the header no longer repeats the reference description.
+  - The page-size picker is named by its visible label, and its arrow shows in
+    dark mode.
+  - Tabs, pagination arrows, About links, and the record's **Audio context**
+    and **Edit name** buttons are at least 44px tall. The classifier's model
+    id on About wraps instead of being cut.
+
 - Explorer filters are kept in the address and the Garden filters say what
   they show:
   - Reloading, **Back** and **Forward**, and a copied link now keep the

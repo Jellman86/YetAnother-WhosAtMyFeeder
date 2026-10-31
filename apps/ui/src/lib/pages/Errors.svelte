@@ -359,9 +359,9 @@
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
         const faults = faultDropCount(pipeline);
-        if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} critical failures recorded.` });
-        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} historical failures recorded; pipeline has since recovered.` });
-        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults.toLocaleString() }, default: `${faults.toLocaleString()} events were dropped by a fault.` });
+        if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures }, default: '{count, plural, one {# critical failure recorded.} other {# critical failures recorded.}}' });
+        if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# historical failure recorded; pipeline has since recovered.} other {# historical failures recorded; pipeline has since recovered.}}' });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# event was dropped by a fault.} other {# events were dropped by a fault.}}' });
         return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
     }
 
@@ -377,8 +377,8 @@
             return $_('jobs.errors_filtered_none', { default: 'Nothing has been filtered out yet.' });
         }
         return $_('jobs.errors_filtered_summary', {
-            values: { count: count.toLocaleString() },
-            default: `${count.toLocaleString()} detections did not meet your detection settings. This is the filter working, not a fault.`
+            values: { count },
+            default: '{count, plural, one {# detection did not meet your detection settings.} other {# detections did not meet your detection settings.}} This is the filter working, not a fault.'
         });
     }
 
@@ -405,7 +405,7 @@
         }
         const reconnects = asNumber(mqtt.topic_liveness_reconnects);
         return reconnects > 0
-            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects.toLocaleString() }, default: `MQTT recovered cleanly after ${reconnects.toLocaleString()} topic reconnects.` })
+            ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT recovered cleanly after {count, plural, one {# topic reconnect} other {# topic reconnects}}.' })
             : $_('jobs.errors_mqtt_ok', { default: 'MQTT traffic is flowing normally.' });
     }
 
@@ -456,7 +456,7 @@
         const droppedJobs = asNumber(dispatcher.dropped_jobs);
         const dbWait = asNumber(dbPool.acquire_wait_max_ms);
         if (droppedJobs > 0) {
-            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs.toLocaleString() }, default: `Notification dispatcher dropped ${droppedJobs.toLocaleString()} jobs.` });
+            return $_('jobs.errors_dispatcher_dropped', { values: { count: droppedJobs }, default: 'Notification dispatcher dropped {count, plural, one {# job} other {# jobs}}.' });
         }
         if (dbWait >= 5000) {
             return $_('jobs.errors_dispatcher_db_wait', { values: { ms: dbWait.toLocaleString() }, default: `DB acquire wait reached ${dbWait.toLocaleString()}ms.` });
@@ -474,7 +474,7 @@
         }
         const first = startupWarnings[0] ?? {};
         const phase = asText((first as Record<string, unknown>).phase, $_('jobs.errors_unknown_phase', { default: 'Unknown phase' }));
-        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
+        return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length, phase }, default: '{count, plural, one {# startup warning recorded.} other {# startup warnings recorded.}} Latest phase: {phase}.' });
     }
 
     function namingStatus(): string {
@@ -505,8 +505,8 @@
             });
         }
         return $_('jobs.errors_naming_ok', {
-            values: { count: taxa.toLocaleString() },
-            default: '{count} species can be named without the network.'
+            values: { count: taxa },
+            default: '{count, plural, one {# species can be named without the network.} other {# species can be named without the network.}}'
         });
     }
 
@@ -970,8 +970,8 @@
                     })}
                     hiddenCount={timelineHidden}
                     hiddenLabel={$_('jobs.errors_activity_earlier', {
-                        values: { count: timelineHidden.toLocaleString() },
-                        default: '{count} earlier events in this window'
+                        values: { count: timelineHidden },
+                        default: '{count, plural, one {# earlier event in this window} other {# earlier events in this window}}'
                     })}
                     loading={detectionsStore.isLoading && timelineRows.length === 0}
                     onselect={(detection) => goToDetection(detection.frigate_event)}

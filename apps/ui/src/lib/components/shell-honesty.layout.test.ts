@@ -91,6 +91,27 @@ describe('the sign-in screen', () => {
         expect(loginSource).toContain("$_('auth.login_failed'");
         expect(loginSource).not.toContain("'Login failed'");
     });
+
+    it('is built from the shared kit, flat, with no retired glass styling', () => {
+        expect(loginSource).toContain('class="card-base');
+        expect(loginSource.match(/class="input-base/g) ?? []).toHaveLength(2);
+        expect(loginSource).toContain('class="btn btn-primary');
+        expect(loginSource).toContain('class="btn btn-secondary');
+        expect(loginSource).toMatch(/<label for="username" class="[^"]*text-sm/);
+        for (const retired of ['backdrop-blur', 'shadow-2xl', 'animate-in', 'slide-in-from', 'handleGuest', 'uppercase tracking-widest']) {
+            expect(loginSource).not.toContain(retired);
+        }
+    });
+
+    it('speaks plainly in sentence case', () => {
+        expect(loginSource).toContain("$_('auth.signin_heading'");
+        expect(loginSource).not.toContain('auth.welcome_back');
+        expect(loginSource).not.toContain('auth.secure_access');
+        expect(en.auth.signin_heading).toBe('Sign in');
+        expect(en.auth.signin_desc).toBe('Sign in to manage your feeder.');
+        expect(en.auth.signin_button).toBe('Sign in');
+        expect(en.auth.continue_guest).toBe('Continue without signing in');
+    });
 });
 
 describe('the About pipeline', () => {

@@ -6,6 +6,16 @@ import aboutSource from '../pages/About.svelte?raw';
 import en from '../i18n/locales/en.json';
 
 describe('About surface polish', () => {
+    it('gives the quick links and credit links a full touch target', () => {
+        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring');
+        expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
+    });
+
+    it('prints the classifier model id whole, as an identifier that may break anywhere', () => {
+        expect(pipelineSource).toContain("identifier: true");
+        expect(pipelineSource).toContain("step.identifier ? 'font-mono break-all' : ''");
+    });
+
     it('lists every browser-side network call the sighting map makes', () => {
         // The panel promises "nothing leaves your network except the calls listed
         // below", and the eBird map fetches OpenStreetMap tiles from each

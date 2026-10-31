@@ -3,7 +3,7 @@
     import { get } from 'svelte/store';
     import { authStore } from '../../stores/auth.svelte';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
-    import { AUTH_PASSWORD_REQUIREMENTS_MESSAGE, validateAuthPasswordPolicy } from '../../auth-password-policy';
+    import { AUTH_PASSWORD_REQUIREMENTS, passwordProblemMessage, validateAuthPasswordPolicy } from '../../auth-password-policy';
     import WizardStepLayout from './WizardStepLayout.svelte';
 
     let alreadyConfigured = $derived(!authStore.needsInitialSetup);
@@ -26,9 +26,10 @@
                 error = get(_)('first_run.password_mismatch', { default: "Passwords don't match" });
                 return;
             }
-            const policyError = validateAuthPasswordPolicy(password);
-            if (policyError) {
-                error = policyError;
+            const problem = validateAuthPasswordPolicy(password);
+            if (problem) {
+                const message = passwordProblemMessage(problem);
+                error = get(_)(message.key, { default: message.default });
                 return;
             }
         }
@@ -65,16 +66,18 @@
         {#if !skipAuth}
             <div>
                 <label for="setup-username" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.admin_username', { default: 'Admin username' })}</label>
-                <input id="setup-username" type="text" bind:value={username} class="input-base mt-1" />
+                <input id="setup-username" type="text" autocomplete="username" bind:value={username} class="input-base mt-1" />
             </div>
             <div>
                 <label for="setup-password" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.password', { default: 'Password' })}</label>
-                <input id="setup-password" type="password" minlength="8" bind:value={password} class="input-base mt-1" />
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{AUTH_PASSWORD_REQUIREMENTS_MESSAGE}</p>
+                <input id="setup-password" type="password" minlength="8" autocomplete="new-password" aria-describedby="setup-password-rules" bind:value={password} class="input-base mt-1" />
+                <p id="setup-password-rules" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {$_(AUTH_PASSWORD_REQUIREMENTS.key, { default: AUTH_PASSWORD_REQUIREMENTS.default })}
+                </p>
             </div>
             <div>
                 <label for="setup-confirm" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.confirm_password', { default: 'Confirm password' })}</label>
-                <input id="setup-confirm" type="password" minlength="8" bind:value={confirmPassword} class="input-base mt-1" />
+                <input id="setup-confirm" type="password" minlength="8" autocomplete="new-password" aria-describedby="setup-password-rules" bind:value={confirmPassword} class="input-base mt-1" />
             </div>
         {/if}
 
@@ -82,7 +85,7 @@
             <div role="alert" class="rounded-md bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-200">{error}</div>
         {/if}
 
-        <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+        <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
             <input type="checkbox" bind:checked={skipAuth} class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             {$_('first_run.skip_auth', { default: 'Run without a password (trusted network only)' })}
         </label>

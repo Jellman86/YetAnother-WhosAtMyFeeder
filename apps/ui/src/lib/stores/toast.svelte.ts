@@ -7,7 +7,17 @@ export interface Toast {
     duration?: number; // milliseconds, default 5000
     /** Stays until the reader dismisses it. Every error does: a failure must not vanish unread. */
     persistent: boolean;
+    /** One button that acts on what the toast reports, such as undoing it. */
+    action?: ToastAction;
 }
+
+interface ToastAction {
+    label: string;
+    run: () => void;
+}
+
+/** Long enough to read the message and reach the button, short enough that it is clearly temporary. */
+const UNDO_WINDOW_MS = 10_000;
 
 interface Countdown {
     remaining: number;
@@ -23,7 +33,7 @@ class ToastStore {
     private duplicateWindowMs = 1500;
     private countdowns = new Map<string, Countdown>();
 
-    show(message: string, type: Toast['type'] = 'info', duration: number = 5000) {
+    show(message: string, type: Toast['type'] = 'info', duration: number = 5000, action?: ToastAction) {
         const normalizedMessage = String(message ?? '').trim();
         const signature = `${type}:${normalizedMessage}`;
         const now = Date.now();
@@ -41,7 +51,7 @@ class ToastStore {
         if (waiting) return waiting.id;
 
         const id = `toast-${this.nextId++}`;
-        const toast: Toast = { id, message: normalizedMessage || message, type, duration, persistent };
+        const toast: Toast = { id, message: normalizedMessage || message, type, duration, persistent, action };
 
         this.toasts = [...this.toasts, toast];
 
@@ -82,6 +92,19 @@ class ToastStore {
         }
         this.countdowns.clear();
         this.toasts = [];
+    }
+
+    /** Runs the toast's action once and takes the toast away; a lapsed toast does nothing. */
+    runAction(id: string) {
+        const toast = this.toasts.find((entry) => entry.id === id);
+        if (!toast?.action) return;
+        this.remove(id);
+        toast.action.run();
+    }
+
+    /** Reports something just done and offers to undo it while the toast is up. */
+    undoable(message: string, label: string, undo: () => void) {
+        return this.show(message, 'info', UNDO_WINDOW_MS, { label, run: undo });
     }
 
     // Convenience methods

@@ -43,7 +43,7 @@
         <p class="text-sm text-slate-700 dark:text-slate-200" data-dashboard-activity-peak>
             {$_('dashboard.histogram.peak', {
                 values: { time: hourLabel(peak.hour), count: peak.value },
-                default: 'Busiest at {time}, {count} visits'
+                default: 'Busiest at {time}, {count, plural, one {# visit} other {# visits}}'
             })}
         </p>
         <div
@@ -51,7 +51,7 @@
             role="img"
             aria-label={$_('dashboard.histogram.aria', {
                 values: { count: total, time: hourLabel(peak.hour) },
-                default: 'Visits per hour over the last 24 hours: {count} in all, busiest at {time}'
+                default: 'Visits per hour over the last 24 hours: {count, plural, one {# visit} other {# visits}} in all, busiest at {time}'
             })}
         >
             {#each bars as bar (bar.hour)}
@@ -64,7 +64,7 @@
                     style:height="{Math.max((bar.value / maxVal) * 100, bar.value > 0 ? 6 : 2)}%"
                     title={$_('dashboard.histogram.tooltip_visits', {
                         values: { count: bar.value, time: hourLabel(bar.hour) },
-                        default: '{count} visits at {time}'
+                        default: '{count, plural, one {# visit} other {# visits}} at {time}'
                     })}
                     aria-hidden="true"
                 ></div>

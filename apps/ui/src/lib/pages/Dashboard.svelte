@@ -365,9 +365,9 @@
         gardenHistory.invalidate();
         gardenViewer.close();
         void loadSummary();
-        const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
+        const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
         if (skipped > 0) {
-            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: skipped } })}`);
         } else {
             toastStore.success(message);
         }

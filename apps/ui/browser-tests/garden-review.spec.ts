@@ -514,7 +514,7 @@ for (const concurrentReview of [false, true]) {
             if (concurrentReview) {
                 expect(states.get(concurrentId)).toBe('confirmed');
                 expect(states.get('f'.repeat(32))).toBe('pending');
-                await expect(toasts(page)).toContainText('1 photos were unchanged');
+                await expect(toasts(page)).toContainText('1 photo was unchanged');
             }
             await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
             await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);

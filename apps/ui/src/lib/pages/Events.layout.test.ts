@@ -54,6 +54,13 @@ describe('Explorer page layout', () => {
         expect(paginationSource).toContain('hidden items-center gap-1 sm:flex');
     });
 
+    it('names the page-size select by its visible label and keeps the arrows at the touch floor', () => {
+        // A hidden aria-label different from the visible "Show:" breaks WCAG 2.5.3, Label in Name.
+        expect(paginationSource).toContain('<label for="page-size-selector">');
+        expect(paginationSource).not.toContain('pagination.page_size_aria');
+        expect(paginationSource.match(/class="btn btn-ghost btn-icon /g) ?? []).toHaveLength(2);
+    });
+
     it('labels the page-level selection toggle as Multi Select', () => {
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && !gardenOnly}');
         expect(eventsSource).toContain("$_('common.multi_select', { default: 'Multi Select' })");

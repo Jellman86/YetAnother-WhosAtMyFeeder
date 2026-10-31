@@ -453,7 +453,7 @@
                     >
                         {speciesExpanded
                             ? $_('events.filters.show_fewer_species', { default: 'Show fewer' })
-                            : $_('events.filters.show_all_species', { default: 'Show all {count} species', values: { count: species.length } })}
+                            : $_('events.filters.show_all_species', { default: '{count, plural, one {Show # species} other {Show all # species}}', values: { count: species.length } })}
                     </button>
                 {/if}
             </div>

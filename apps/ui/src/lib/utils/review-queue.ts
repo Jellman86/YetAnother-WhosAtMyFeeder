@@ -1,9 +1,30 @@
 import type { Detection } from '../api';
-import { needsReview } from './visit-grouping';
+import { hasNoSpecies, needsReview } from './visit-grouping';
 
-/** Why a detection is asking for a person: a shaky score, or a species this
- * feeder has never confirmed (#310). */
-export type ReviewReason = 'low_score' | 'new_species';
+/** Why a detection is asking for a person: no species at all, a shaky score, or a
+ * species this feeder has never confirmed (#310). */
+export type ReviewReason = 'unknown_species' | 'low_score' | 'new_species';
+
+export interface ReviewReasonMessage {
+    key: string;
+    default: string;
+    values?: { count: number };
+}
+
+/** The words a queue row uses to say why it needs a person. */
+export function reviewReasonMessage(reason: ReviewReason, sightings: number): ReviewReasonMessage {
+    if (reason === 'new_species') {
+        return {
+            key: 'dashboard.review_queue.new_species_tag',
+            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            values: { count: sightings }
+        };
+    }
+    if (reason === 'unknown_species') {
+        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'Unknown species' };
+    }
+    return { key: 'dashboard.review_queue.reason_low_score', default: 'Below the naming threshold' };
+}
 
 export interface ReviewQueue {
     /** Longest-waiting first, capped by the caller's limit. */
@@ -67,7 +88,7 @@ export function buildReviewQueue(
 
     const reasons = new Map<string, ReviewReason>();
     const newSpeciesSightings = new Map<string, number>();
-    for (const detection of open) reasons.set(detection.frigate_event, 'low_score');
+    for (const detection of open) reasons.set(detection.frigate_event, hasNoSpecies(detection) ? 'unknown_species' : 'low_score');
 
     const seen = new Set(open.map((detection) => detection.frigate_event));
     const currentDetections = new Map(knownDetections.map(detection => [detection.frigate_event, detection]));

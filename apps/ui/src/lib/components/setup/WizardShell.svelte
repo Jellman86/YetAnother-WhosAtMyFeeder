@@ -30,6 +30,10 @@
     let skipBusy = $state(false);
     let skipError = $state<string | null>(null);
 
+    function stepName(id: string): string {
+        return $_(`setup.step_names.${id}`, { default: id });
+    }
+
     // Skipping is honest about its one consequence: leaving first-run before
     // the account step runs the app without a password until one is set in
     // Settings. Everything else the wizard covers is configurable later, and
@@ -93,6 +97,7 @@
                 <div class="flex items-center gap-3">
                     <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {$_('setup.step_of', { values: { n: setupWizardStore.position, total: setupWizardStore.total }, default: `Step ${setupWizardStore.position} of ${setupWizardStore.total}` })}
+                        <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
                         <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
@@ -110,15 +115,17 @@
                 </div>
             </div>
 
-            <!-- Step dots -->
-            <div class="flex items-center gap-1.5" aria-hidden="true">
-                {#each steps as s, i}
-                    <div
-                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
-                        title={s.id}
-                    ></div>
+            <!-- The step bar is a list a screen reader can walk; the bars themselves are drawn, the names are read. -->
+            <ol class="flex items-center gap-1.5" aria-label={$_('setup.step_list', { default: 'Setup steps' })}>
+                {#each steps as s, i (s.id)}
+                    <li
+                        class="h-1.5 flex-1 rounded-full transition-colors duration-300 motion-reduce:transition-none {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
+                        aria-current={i === index ? 'step' : undefined}
+                    >
+                        <span class="sr-only">{stepName(s.id)}</span>
+                    </li>
                 {/each}
-            </div>
+            </ol>
             <span class="sr-only" role="progressbar" aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
         </div>
 
@@ -149,7 +156,8 @@
         {/if}
 
         <!-- Body -->
-        <div class="max-h-[70vh] overflow-y-auto p-6" aria-live="polite">
+        <!-- Not a live region: each step focuses its own heading, which is what is announced. -->
+        <div class="max-h-[70vh] overflow-y-auto p-6">
             {#key step.id}
                 <div in:fade={{ duration: 180 }}>
                     <div class="mb-4"><SetupStepIcon step={step.id} /></div>

@@ -1265,7 +1265,7 @@
                 toastStore.warning(
                     $_('events.bulk_tag_partial', {
                         values: { count: result.failed_count + result.missing_count },
-                        default: `${result.failed_count + result.missing_count} selected events were not updated.`
+                        default: '{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}'
                     })
                 );
             }
@@ -1284,7 +1284,7 @@
             title: $_('actions.delete_selected', { default: 'Delete Selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
-                default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
+                default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
             }),
             confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
         });
@@ -1297,13 +1297,13 @@
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success($_('events.bulk_delete_success', {
                     values: { count: result.deleted_count },
-                    default: `Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`
+                    default: 'Deleted {count, plural, one {# detection} other {# detections}}.'
                 }));
             }
             if (result.missing_count > 0) {
                 toastStore.warning($_('events.bulk_delete_missing', {
                     values: { count: result.missing_count },
-                    default: `${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`
+                    default: '{count, plural, one {# detection was not found.} other {# detections were not found.}}'
                 }));
             }
             selectedEventIds = [];
@@ -1338,7 +1338,7 @@
             if (failed === 0) {
                 toastStore.success($_('events.bulk_reclassify_success', {
                     values: { count: queued },
-                    default: `Queued ${queued} detection${queued === 1 ? '' : 's'} for video analysis`
+                    default: 'Queued {count, plural, one {# detection} other {# detections}} for video analysis.'
                 }));
             } else {
                 toastStore.warning($_('events.bulk_reclassify_partial', {
@@ -1607,9 +1607,9 @@
         selectedGarden = null;
         openedGardenGroup = null;
         void (gardenOnly ? loadEvents() : loadGarden());
-        const message = $_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: ids.length } });
+        const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
         if (skipped > 0) {
-            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: skipped } })}`);
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: skipped } })}`);
         } else {
             toastStore.success(message);
         }
@@ -1621,7 +1621,7 @@
         try {
             const result = await reviewGardenBatch(undo.ids, 'restore');
             gardenUndo = null;
-            toastStore.success($_('garden.batch_restored', { default: '{count} photos returned to review.', values: { count: result.updated_ids.length } }));
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
             await loadEvents();
         } catch (failure) {
             toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
@@ -2124,8 +2124,8 @@
         {#if gardenUndo}
             <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-undo>
                 <span class="min-w-0 flex-1">
-                    {$_('garden.batch_dismissed', { default: '{count} photos dismissed.', values: { count: gardenUndo.ids.length } })}
-                    {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count} photos were unchanged because their review or availability changed.', values: { count: gardenUndo.skipped } })}{/if}
+                    {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
+                    {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
                     {' '}{gardenUndo.returnToReview
                         ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
                         : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
