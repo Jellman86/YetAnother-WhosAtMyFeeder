@@ -2,7 +2,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import { APP_ICON_192_URL } from '../assets';
-    
+
     let username = $state('');
     let password = $state('');
     let error = $state('');
@@ -15,7 +15,7 @@
 
         isLoading = true;
         error = '';
-        
+
         try {
             await authStore.login(username.trim(), password);
         } catch (err) {
@@ -28,112 +28,75 @@
             passwordInput?.select();
         }
     }
-
-    function handleGuest() {
-        // Just reloading usually triggers the guest flow if public access is enabled
-        // or we can navigate to dashboard?
-        // Actually, if we are in <Login />, it means requiresLogin is true.
-        // requiresLogin = authRequired && !publicAccess && !authenticated.
-        // So if publicAccessEnabled is true, we shouldn't be here?
-        // Wait, requiresLogin in App.svelte logic:
-        // requiresLogin = authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated ...
-        // So if publicAccessEnabled is TRUE, requiresLogin is FALSE.
-        // Thus, <Login /> is NOT shown.
-        // So the "Continue as Guest" button is redundant/impossible here unless logic changes.
-        // I'll skip it to avoid confusion.
-        window.location.reload();
-    }
 </script>
 
-<div class="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-300">
-    <div class="w-full max-w-sm space-y-8">
-        <!-- Card -->
-        <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/20 dark:border-slate-800 ring-1 ring-slate-900/5">
-            
-            <!-- Header -->
-            <div class="text-center mb-8">
-                <div class="mx-auto w-20 h-20 flex items-center justify-center mb-6">
-                    <img src={APP_ICON_192_URL} alt="" class="w-16 h-16 object-contain drop-shadow-md" />
-                </div>
-                <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    {$_('auth.welcome_back')}
-                </h1>
-                <p class="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {$_('auth.signin_desc')}
-                </p>
-            </div>
-            
-            <form class="space-y-5" onsubmit={handleSubmit} autocomplete="on">
-                <div class="space-y-4">
-                    <div>
-                        <label for="username" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.username')}</label>
-                        <input
-                            id="username"
-                            name="username"
-                            aria-invalid={error ? 'true' : undefined}
-                            aria-describedby={error ? 'login-error' : undefined}
-                            type="text"
-                            autocomplete="username"
-                            required
-                            bind:value={username}
-                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                            placeholder={$_('auth.username_placeholder')}
-                        />
-                    </div>
-                    <div>
-                        <label for="password" class="block text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-1.5 ml-1">{$_('auth.password')}</label>
-                        <input
-                            id="password"
-                            name="password"
-                            bind:this={passwordInput}
-                            aria-invalid={error ? 'true' : undefined}
-                            aria-describedby={error ? 'login-error' : undefined}
-                            type="password"
-                            autocomplete="current-password"
-                            required
-                            bind:value={password}
-                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                            placeholder="••••••••"
-                        />
-                    </div>
-                </div>
-
-                <!-- Always present, so the alert is announced the moment a message lands in it. -->
-                <div id="login-error" role="alert" data-login-error>
-                    {#if error}
-                        <div class="p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold text-center animate-in fade-in slide-in-from-top-1">
-                            {error}
-                        </div>
-                    {/if}
-                </div>
-
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    class="btn btn-primary w-full min-h-11 px-4 py-3"
-                >
-                    {#if isLoading}
-                        <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                        {$_('auth.verifying')}
-                    {:else}
-                        {$_('auth.signin_button')}
-                    {/if}
-                </button>
-
-                {#if authStore.publicAccessEnabled}
-                    <button
-                        type="button"
-                        onclick={() => authStore.cancelLogin()}
-                        class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-                    >
-                        {$_('auth.continue_guest')}
-                    </button>
-                {/if}
-            </form>
+<div class="flex min-h-screen items-center justify-center px-4 py-10">
+    <div class="card-base w-full max-w-sm p-8">
+        <div class="mb-8 text-center">
+            <img src={APP_ICON_192_URL} alt="" width="56" height="56" class="mx-auto mb-4 h-14 w-14 object-contain" />
+            <h1 class="font-display text-2xl font-bold text-slate-900 dark:text-white">
+                {$_('auth.signin_heading', { default: 'Sign in' })}
+            </h1>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                {$_('auth.signin_desc', { default: 'Sign in to manage your feeder.' })}
+            </p>
         </div>
-        
-        <p class="text-center text-3xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
-            {$_('auth.secure_access')}
-        </p>
+
+        <form class="space-y-5" onsubmit={handleSubmit} autocomplete="on">
+            <div>
+                <label for="username" class="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">{$_('auth.username')}</label>
+                <input
+                    id="username"
+                    name="username"
+                    aria-invalid={error ? 'true' : undefined}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    type="text"
+                    autocomplete="username"
+                    required
+                    bind:value={username}
+                    class="input-base min-h-11"
+                    placeholder={$_('auth.username_placeholder')}
+                />
+            </div>
+            <div>
+                <label for="password" class="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">{$_('auth.password')}</label>
+                <input
+                    id="password"
+                    name="password"
+                    bind:this={passwordInput}
+                    aria-invalid={error ? 'true' : undefined}
+                    aria-describedby={error ? 'login-error' : undefined}
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    bind:value={password}
+                    class="input-base min-h-11"
+                />
+            </div>
+
+            <!-- Always present, so the alert is announced the moment a message lands in it. -->
+            <div id="login-error" role="alert" data-login-error>
+                {#if error}
+                    <p class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
+                        {error}
+                    </p>
+                {/if}
+            </div>
+
+            <button type="submit" disabled={isLoading} aria-busy={isLoading} class="btn btn-primary min-h-11 w-full px-4">
+                {#if isLoading}
+                    <span class="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white motion-reduce:animate-none" aria-hidden="true"></span>
+                    {$_('auth.verifying')}
+                {:else}
+                    {$_('auth.signin_button', { default: 'Sign in' })}
+                {/if}
+            </button>
+
+            {#if authStore.publicAccessEnabled}
+                <button type="button" onclick={() => authStore.cancelLogin()} class="btn btn-secondary min-h-11 w-full px-4">
+                    {$_('auth.continue_guest', { default: 'Continue without signing in' })}
+                </button>
+            {/if}
+        </form>
     </div>
 </div>

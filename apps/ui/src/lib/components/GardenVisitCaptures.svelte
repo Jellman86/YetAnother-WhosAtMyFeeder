@@ -77,7 +77,7 @@
         onselect(capture, index);
     }
 
-    function translate(key: string, fallback: string, values?: Record<string, string>): string {
+    function translate(key: string, fallback: string, values?: Record<string, string | number>): string {
         return get(_)(key, { values, default: fallback });
     }
 

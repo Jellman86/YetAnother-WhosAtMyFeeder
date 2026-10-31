@@ -1,7 +1,7 @@
 import { gardenVisitResponse } from './garden-visits-fixture';
 import { expect, test, type Page, type Route } from '@playwright/test';
 
-// Garden review happens in the Explorer: Garden visitors in the filter rail, one review state at a
+// Garden review happens in the Explorer: Garden animals in the filter rail, one review state at a
 // time, and each capture or position group opened in its Garden record. These scenarios carried over
 // from the retired Garden page, so the review guarantees stay proven where the work now happens.
 
@@ -447,7 +447,7 @@ test('109 repeated proposals become two position groups with exact photo review 
     });
     await openReview(page);
     await expect(page.locator('[data-garden-card]')).toHaveCount(2);
-    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 109');
+    await expect(page.locator('[data-explorer-count]')).toContainText('2 Garden visits · 109 captures');
     // Page size now counts server groups, keeping every stack whole.
     await expect(page.locator('#page-size-selector')).toBeVisible();
     await openFirst(page);
@@ -514,7 +514,7 @@ for (const concurrentReview of [false, true]) {
             if (concurrentReview) {
                 expect(states.get(concurrentId)).toBe('confirmed');
                 expect(states.get('f'.repeat(32))).toBe('pending');
-                await expect(toasts(page)).toContainText('1 photos were unchanged');
+                await expect(toasts(page)).toContainText('1 photo was unchanged');
             }
             await page.getByRole('button', { name: 'Undo group dismissal', exact: true }).click();
             await expect(toasts(page)).toContainText(`${concurrentReview ? 78 : 79} photos returned to review.`);
@@ -570,7 +570,7 @@ for (const action of ['confirm', 'dismiss'] as const) {
         await expect(toasts(page)).toContainText(action === 'confirm' ? 'Photo confirmed.' : 'Capture dismissed.');
         await expect(toasts(page)).toContainText('Other photos in this group still need review.');
         await expect(record(page).locator('[data-garden-capture-photo]')).toHaveAttribute('src', new RegExp(`${row.id}/snapshot`));
-        await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 1 · captures: 1');
+        await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
         expect(writes).toEqual([second]);
         await fitsNarrowScreen(page);
     });
@@ -621,7 +621,7 @@ test("one animal's repeated captures are one Explorer entry, as a bird's visit i
     await mockGarden(page, { items: requested => (requested === 'confirmed' ? [later, ...stay] : []) });
     await openReview(page, 'confirmed');
     await expect(page.locator('[data-garden-card]')).toHaveCount(2);
-    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 21');
+    await expect(page.locator('[data-explorer-count]')).toContainText('2 Garden visits · 21 captures');
     const visit = page.locator('[data-garden-card]').filter({ has: page.locator('[data-garden-card-group]') });
     await expect(visit.locator('[data-garden-card-group]')).toHaveText('20 captures in this visit');
     await visit.getByRole('button', { name: /^Open Garden capture/ }).click();
@@ -651,7 +651,7 @@ test('a 215-photo visit stays on one group page and its photo navigation crosses
     });
     await openReview(page, 'confirmed');
     await expect(page.locator('[data-garden-card]')).toHaveCount(24);
-    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 25 · captures: 239');
+    await expect(page.locator('[data-explorer-count]')).toContainText('25 Garden visits · 239 captures');
     await expect(page.locator('[data-garden-card-group]').first()).toContainText('215 captures');
     await openFirst(page);
     await expect(record(page).getByText('Photo 1 of 215', { exact: true })).toBeVisible();

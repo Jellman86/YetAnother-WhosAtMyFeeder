@@ -265,7 +265,7 @@
                                 href={action.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="group inline-flex items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
+                                class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
                             >
                                 <span class="group-hover:underline">{action.label}</span>
                                 <!-- Sized in the icon rather than left to the display font, which
@@ -292,7 +292,7 @@
                 <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     {#each creditsLinks as credit}
                         <li>
-                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}
+                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center text-brand-600 hover:underline focus-ring dark:text-brand-400">{credit.label}</a>{credit.parts.after}
                         </li>
                     {/each}
                     <li>{$_('about.credits_list.ai_assistants')}</li>

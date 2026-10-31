@@ -35,9 +35,9 @@ empty state, never "today" or "of the day". A screen whose header says one thing
 count another is broken even when every figure is individually correct.
 
 A link that leaves the page says where it goes and points onward, not down: "9 earlier visits in
-the last 24 hours, open in Explorer" with a right chevron. The Explorer reads only whole-day date
-presets from its address, so the link opens it unfiltered rather than on a window that is not the
-desk's.
+the last 24 hours, open in Explorer" with a right chevron. The Explorer's address holds whole days (a
+preset or a custom range of dates), not a rolling window, so the link opens it unfiltered rather
+than on a window that is not the desk's.
 
 When you add a panel, take the already-windowed list, not `detectionsStore.detections`.
 
@@ -160,7 +160,17 @@ match. Cameras and **Only** stay in native collapsible sections, initially close
 their summaries name what is chosen inside. A chosen row carries a bar and weight as
 well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
 visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
-same ordering behind the Filters button.
+same ordering behind the Filters button. A switch and its token use one name per option (the
+subject is **Garden animals**, as Settings names it), and a custom window's token names its
+dates ("1 Oct to 28 Oct") under visible **From** and **To** labels. **Cameras** lists the cameras
+of the chosen visitors and shows a count only where one was measured for them: bird counts under
+**Birds**, none under **Garden animals** or **Both**.
+
+The rail's state lives in the address (`utils/explorer-query.ts`), so a reload, Back/Forward
+and a pasted link open the same view. Each change replaces the current history entry rather than
+pushing one: Back leaves the page, not each filter tried. Values the rail could not hold are
+ignored, owner-only filters are never read for a visitor, and keys the Explorer does not own
+(a shared clip's `event`, `share`, `video`) are kept.
 
 Explorer can show heard calls between its visits, from a **Heard calls** switch on the page (off
 until a device turns it on, remembered per device like Cards/List, never a setting). Visits stay
@@ -487,6 +497,11 @@ build something better."*
 - Every user-facing string goes through `svelte-i18n` with a `{ default: '…' }` fallback, and lands
   in all nine locales. The locale audit enforces key parity; genuine cognates and product names go
   in `locales.identical-baseline.json`.
+- A count chooses its word. Write `{count, plural, one {# visit} other {# visits}}`, never
+  "{count} visits" or "visit(s)", and give each locale the forms it needs: Russian takes `one`,
+  `few`, `many` and `other`; Japanese and Chinese take `other` alone. Pass the number, not a
+  formatted string: `#` formats it in the reader's locale. `locales.plurals.test.ts` enforces this,
+  and lists the few strings where `{count}` stands before a word that does not change with it.
 
 ---
 
@@ -536,7 +551,9 @@ build something better."*
   record and the field log draw one score in one colour in every theme. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
-- **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
+- **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions. The
+  kit's `.tab-button` and `.btn-icon` carry the floor themselves, so a tab or an icon button needs
+  no extra class.
 - **Review overlay**: the queue pins the underlying page at its current scroll position while open and restores it on close. Its backdrop covers the viewport even when the page has scrollbars. Opening the full record releases the queue lock before the record takes its own lock; closing the record returns to the same page position.
 - **Page headings**: every route has exactly one h1, and it uses the label of the route's menu
   item, so the Explorer page is titled **Explorer** and the species page **Leaderboard**. The
@@ -549,7 +566,9 @@ build something better."*
   page. Open, it traps focus, starts on the current page's item, and closes on Escape with focus
   back on the menu button, which carries `aria-expanded` and `aria-controls`.
 - **Toasts**: errors go into a `role="alert"` region and stay until closed; other toasts are polite
-  and leave on their own, but never while pointed at or focused.
+  and leave on their own, but never while pointed at or focused. An action that is saved at once
+  and cannot otherwise be taken back, such as clearing the notification history, reports itself in
+  a toast with **Undo** for ten seconds (`toastStore.undoable`) instead of asking first.
 - **App headers**: page actions wrap onto another row when needed. The mobile wordmark yields to the app icon when space is tight; menu and theme controls keep their hit targets. Test the full App after a settled desktop-to-320px resize at 200% text, including keyboard refresh and camera disclosure.
 - **Dashboard reflow**: the Dashboard fits 320px at 200% text and at the largest Text size. Its day bar
   and field log lay out by their own width in rem (container queries), not the screen's: the day

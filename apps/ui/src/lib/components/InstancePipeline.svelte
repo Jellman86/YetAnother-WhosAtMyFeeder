@@ -23,6 +23,8 @@
         detail: string;
         state: string | null;
         tone: Tone;
+        /** The detail is a literal identifier, such as a model id, not words. */
+        identifier?: boolean;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -134,6 +136,7 @@
         };
         return {
             detail: provider ? `${model} · ${provider}` : String(model),
+            identifier: true,
             ...states[reading]
         };
     });
@@ -159,6 +162,7 @@
             key: 'classifier',
             kind: 'local',
             detail: classifierSummary.detail,
+            identifier: 'identifier' in classifierSummary,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
@@ -247,7 +251,8 @@
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400">
+                <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
                     {step.detail}
                 </span>
             </li>

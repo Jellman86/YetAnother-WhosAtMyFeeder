@@ -231,7 +231,7 @@
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
                     {/if}
                     {#if motion.queue_camera && motion.queue_checked_at}
-                        <p class="break-words text-xs">{$_('garden.motion_queue', { default: '{camera}: {count} windows waiting when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: new Date(motion.queue_checked_at).toLocaleString() } })}</p>
+                        <p class="break-words text-xs">{$_('garden.motion_queue', { default: '{camera}: {count, plural, one {# window waiting} other {# windows waiting}} when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: new Date(motion.queue_checked_at).toLocaleString() } })}</p>
                     {/if}
                     {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
                 {/if}

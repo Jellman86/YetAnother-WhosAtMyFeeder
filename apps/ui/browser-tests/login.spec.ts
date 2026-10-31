@@ -13,9 +13,10 @@ test('a failed sign-in is announced, tied to its fields, and puts you back in th
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto('/');
 
-    await expect(page.getByRole('heading', { level: 1, name: 'Welcome Back' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Sign in' })).toBeVisible();
+    await expect(page.getByText('Sign in to manage your feeder.')).toBeVisible();
     await expect(page.locator('h1')).toHaveCount(1);
-    await expect(page).toHaveTitle('Log In · YA-WAMF');
+    await expect(page).toHaveTitle('Sign in · YA-WAMF');
     // The logo is decoration beside the heading, so it is silent.
     await expect(page.locator('img[alt="Logo"]')).toHaveCount(0);
 
@@ -24,7 +25,7 @@ test('a failed sign-in is announced, tied to its fields, and puts you back in th
     await expect(username).not.toHaveAttribute('aria-invalid', 'true');
     await username.fill('owner');
     await password.fill('wrong');
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
 
     await expect(page.getByRole('alert').filter({ hasText: 'Invalid credentials' })).toHaveAttribute('id', 'login-error');
     await expect(password).toBeFocused();

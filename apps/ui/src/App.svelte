@@ -122,7 +122,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   $effect(() => {
       document.title = documentTitle(
           requiresLogin
-              ? $_('auth.login', { default: 'Log In' })
+              ? $_('auth.login', { default: 'Sign in' })
               : routeId === null
                 ? notFoundTitle
                 : pageTitle

@@ -127,7 +127,7 @@ export function gardenWindow(input: {
     return { start: input.rangeStart, end: input.rangeEnd && input.rangeEnd < input.now ? input.rangeEnd : input.now };
 }
 
-type Translate = (key: string, fallback: string, values?: Record<string, string>) => string;
+type Translate = (key: string, fallback: string, values?: Record<string, string | number>) => string;
 
 /** The title and one state line an Explorer entry shows, so a row, a card and a record agree. */
 /**
@@ -240,10 +240,10 @@ export function groupGardenVisits(captures: readonly GardenCapture[]): GardenVis
 /** How a grouped entry says what it holds, or null for a single capture. */
 export function gardenVisitLabel(visit: GardenVisit | undefined, t: Translate): string | null {
     if (!visit || (visit.captureCount ?? visit.items.length) < 2) return null;
-    const count = String(visit.captureCount ?? visit.items.length);
+    const count = visit.captureCount ?? visit.items.length;
     return visit.kind === 'position'
-        ? t('garden.explorer.group_photos', '{count} photos, same position', { count })
-        : t('garden.explorer.visit_captures', '{count} captures in this visit', { count });
+        ? t('garden.explorer.group_photos', '{count, plural, one {# photo, same position} other {# photos, same position}}', { count })
+        : t('garden.explorer.visit_captures', '{count, plural, one {# capture in this visit} other {# captures in this visit}}', { count });
 }
 
 /** What one capture inside an expanded Garden visit says beside its time, as a bird capture does. */

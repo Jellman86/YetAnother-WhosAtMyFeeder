@@ -471,9 +471,6 @@
                         {subName}
                     </p>
                 {/if}
-                {#if info?.description}
-                    <p class="mt-1 hidden truncate text-sm text-slate-600 dark:text-slate-300 sm:block">{info.description}</p>
-                {/if}
             </div>
             <button
                 type="button"
@@ -712,9 +709,7 @@
                 {/if}
 
                 {#if !isUnknownBird && lineageName}
-                    <section data-species-taxonomy class="border-t border-slate-200 pt-8 dark:border-slate-700">
-                        <TaxonomyLineage scientificName={lineageName} />
-                    </section>
+                    <TaxonomyLineage scientificName={lineageName} class="border-t border-slate-200 pt-8 dark:border-slate-700" />
                 {/if}
 
                 <!-- Species Description -->

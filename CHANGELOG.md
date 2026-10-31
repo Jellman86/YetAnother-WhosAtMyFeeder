@@ -31,6 +31,57 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   - The Dashboard names its window "last 24 hours" everywhere. The link under
     the field log reads "9 earlier visits in the last 24 hours, open in
     Explorer" with an arrow that points onward, since it opens the Explorer.
+- Copy, plurals and small polish across the UI:
+  - Counts choose their word in every language: "1 visit", not "1 visits",
+    and Russian uses the right form for 1, 2 to 4 and 5 or more. About 75
+    strings moved to ICU plurals in all nine locales, a locale test now fails
+    on a new "{count} noun" string, and counts are formatted in the reader's
+    locale.
+  - Each **Needs your call** row says why it waits: **Unknown species**,
+    **Below the naming threshold** or **New species**. On a phone the reason
+    replaces the camera name.
+  - The **Heard** card says how many species were heard, then **Heard most**
+    and the latest call. The call and cross-confirmed totals stay in the day
+    bar only.
+  - **Clear notifications** offers **Undo** for ten seconds.
+  - The sign-in screen uses the standard card, fields and buttons, and reads
+    **Sign in** / **Continue without signing in**.
+  - The setup wizard announces each step once, lists its steps by name, and
+    shows the current step's name beside "Step 2 of 10". The owner account
+    fields offer to save a new password; the MQTT fields no longer get the
+    owner login filled in. Password rules are translated.
+  - The leaderboard spans run **Day**, **Week**, **Month**, **Total**, with
+    Month still the default, and they are a named group.
+  - Species details no longer draw an empty ruled band when there is no family
+    tree, and the header no longer repeats the reference description.
+  - The page-size picker is named by its visible label, and its arrow shows in
+    dark mode.
+  - Tabs, pagination arrows, About links, and the record's **Audio context**
+    and **Edit name** buttons are at least 44px tall. The classifier's model
+    id on About wraps instead of being cut.
+
+- Explorer filters are kept in the address and the Garden filters say what
+  they show:
+  - Reloading, **Back** and **Forward**, and a copied link now keep the
+    chosen visitors, Garden review state, time window and custom dates,
+    species, camera, **Favourites**, **Audio matches**, **Multiple species**,
+    **Hidden**, visits or captures, and the page. Previously a reload or a
+    shared link lost everything except a few presets. Each change replaces the
+    history entry, so **Back** leaves the Explorer instead of stepping through
+    every filter tried. Values a link cannot hold are ignored, and a link
+    cannot turn on owner-only filters for a visitor.
+  - Under **Garden animals**, **Cameras** lists the Garden cameras, including
+    one that watches only Garden animals, without bird counts. **Both** lists
+    every camera once, without counts. A visitor is offered the cameras of the
+    Garden captures shown. Previously the list showed bird cameras with bird
+    counts.
+  - The custom range has visible **From** and **To** labels, and its filter
+    token names the dates ("1 Oct to 28 Oct") instead of "Custom".
+  - The Garden subject is called **Garden animals** everywhere, as in
+    Settings, and is counted like birds: "2 Garden visits · 2 captures".
+  - A Garden record has **Play clip** when its capture has a Frigate clip, as
+    its card and row already did.
+
 - Each camera now has one choice of what it watches for. **Settings →
   Connection → Cameras to watch** (formerly **Active Cameras**) shows **Off**,
   **Birds**, **Garden animals** or **Both** on every Frigate camera, with its

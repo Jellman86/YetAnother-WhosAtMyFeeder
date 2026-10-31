@@ -400,6 +400,7 @@
     "settings.tabs.debug",
     "settings.telegram.bot_token_placeholder",
     "settings.text_size.standard",
+    "setup.step_names.account",
     "status.tile_audio",
     "theme.font_studio",
     "video_player.clip_badge"

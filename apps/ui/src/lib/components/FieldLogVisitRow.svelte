@@ -74,7 +74,7 @@
     // The visit's node says what it stands for on hover.
     const visitHint = $derived(
         captureCount > 1
-            ? $_('visits.node_visit_many', { values: { span, count: captureCount }, default: 'Visit, {span}, {count} captures' })
+            ? $_('visits.node_visit_many', { values: { span, count: captureCount }, default: 'Visit, {span}, {count, plural, one {# capture} other {# captures}}' })
             : $_('visits.node_visit', { values: { span }, default: 'Visit at {span}' })
     );
 
@@ -98,7 +98,7 @@
         }
         const text = $_('dashboard.field_log.birds_in_capture', {
             values: { count: counted },
-            default: '{count} birds in one capture'
+            default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}'
         });
         return unknown > 0
             ? `${text}, ${$_('dashboard.field_log.birds_unknown', { values: { count: unknown }, default: '{count} unknown' })}`
@@ -111,7 +111,7 @@
         const notes: { text: string; emphasis: boolean }[] = [];
         if (facts.shown) notes.push({ text: $_('visits.shown_photo', { default: 'Visit photo' }), emphasis: true });
         if (facts.favorite) notes.push({ text: $_('detection.favorite_label_active', { default: 'Favorited' }), emphasis: true });
-        if (facts.birds !== null) notes.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count} birds' }), emphasis: false });
+        if (facts.birds !== null) notes.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count, plural, one {# bird} other {# birds}}' }), emphasis: false });
         if (facts.heard) notes.push({ text: $_('detection.fact_heard_yes', { default: 'matching call' }), emphasis: true });
         return notes;
     }
@@ -275,10 +275,10 @@
                 aria-controls={listId}
                 aria-label={expanded
                     ? $_('visits.hide_captures', { default: 'Hide captures' })
-                    : $_('visits.show_captures', { values: { count: captureCount }, default: 'Show {count} captures' })}
+                    : $_('visits.show_captures', { values: { count: captureCount }, default: '{count, plural, one {Show # capture} other {Show # captures}}' })}
                 title={expanded
                     ? $_('visits.hide_captures', { default: 'Hide captures' })
-                    : $_('visits.show_captures', { values: { count: captureCount }, default: 'Show {count} captures' })}
+                    : $_('visits.show_captures', { values: { count: captureCount }, default: '{count, plural, one {Show # capture} other {Show # captures}}' })}
                 onclick={() => (open = !open)}
                 data-field-log-captures-toggle
             >

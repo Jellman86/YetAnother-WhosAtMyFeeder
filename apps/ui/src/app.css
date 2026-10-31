@@ -182,7 +182,7 @@ html[data-theme='dark'] {
 
   /* Tab button styling */
   .tab-button {
-    @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
+    @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
     @apply transition-colors duration-200;
   }
 
@@ -223,7 +223,7 @@ html[data-theme='dark'] {
   }
 
   .btn-icon {
-    @apply p-2.5 rounded-xl;
+    @apply min-h-11 min-w-11 p-2.5 rounded-xl;
   }
 
   /* Unified fields */
@@ -235,10 +235,15 @@ html[data-theme='dark'] {
 
   .select-base {
     @apply input-base pr-9 appearance-none;
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 12px 12px;
+  }
+
+  .dark .select-base {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   /* Navigation buttons */

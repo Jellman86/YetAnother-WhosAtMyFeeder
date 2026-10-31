@@ -191,7 +191,7 @@
                                 class="text-left text-3xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
                                 onclick={openJobsPage}
                             >
-                                {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count} more work lanes' })}
+                                {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count, plural, one {# more work lane} other {# more work lanes}}' })}
                             </button>
                         {/if}
                     </div>

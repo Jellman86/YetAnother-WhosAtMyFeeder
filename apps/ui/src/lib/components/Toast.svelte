@@ -57,6 +57,17 @@
                 {toast.message}
             </div>
 
+            {#if toast.action}
+                <button
+                    type="button"
+                    onclick={() => toastStore.runAction(toast.id)}
+                    class="inline-flex min-h-11 flex-shrink-0 items-center rounded-lg border border-white/60 px-3 text-sm font-semibold transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    data-toast-action
+                >
+                    {toast.action.label}
+                </button>
+            {/if}
+
             <!-- Close Button -->
             <button
                 onclick={() => toastStore.remove(toast.id)}

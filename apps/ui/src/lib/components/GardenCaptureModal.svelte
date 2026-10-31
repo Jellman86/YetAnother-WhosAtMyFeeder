@@ -67,8 +67,10 @@
         onselect?: (capture: GardenCapture) => void;
         /** Photos dismissed together, for the page to offer Undo. */
         ongroupdismissed?: (ids: string[], skipped: number, restoreMode?: 'review') => void;
+        /** Plays the capture's Frigate clip, as its card and row do. */
+        onplay?: (capture: GardenCapture) => void;
     }
-    let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed }: Props = $props();
+    let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed, onplay }: Props = $props();
 
     let dialog = $state<HTMLElement | null>(null);
     let size = $state<readonly [number, number] | undefined>(undefined);
@@ -96,9 +98,9 @@
         return $_('garden.entry_dismiss_mixed', { default: 'Captures here are in different review states. Dismiss them one capture at a time.' });
     });
     const entryDismissLabel = $derived(entryKind === 'visit'
-        ? $_('garden.visit_dismiss', { default: 'Dismiss {count} captures in this visit', values: { count: groupTotal } })
+        ? $_('garden.visit_dismiss', { default: '{count, plural, one {Dismiss # capture in this visit} other {Dismiss # captures in this visit}}', values: { count: groupTotal } })
         : entryKind === 'stack'
-          ? $_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: groupTotal } })
+          ? $_('garden.group_dismiss', { default: '{count, plural, one {Dismiss remaining # photo} other {Dismiss remaining # photos}}', values: { count: groupTotal } })
           : $_('garden.dismiss', { default: 'Dismiss capture' }));
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
@@ -117,6 +119,8 @@
     let photoCheckController: AbortController | null = null;
 
     const index = $derived(Math.max(0, group.findIndex((item) => item.id === capture.id)));
+    // A capture carries its clip only while clips are on, and for a visitor only while video is shared.
+    const canPlay = $derived(Boolean(onplay && capture.clip_event));
     const view = $derived(gardenEntryView(capture));
     const originalFailed = $derived(failedPhoto === capture.id);
     const originalSize = $derived(sizeCapture === capture.id ? size : undefined);
@@ -299,7 +303,7 @@
         const message = action === 'confirm'
             ? $_('garden.photo_confirmed', { default: 'Photo confirmed.' })
             : action === 'dismiss'
-              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden visitors, Dismissed.' })
+              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals, Dismissed.' })
               : $_('garden.photo_restored', { default: 'Photo returned to review.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
         const remaining = groupTotal > 1 && action !== 'restore'
@@ -481,16 +485,31 @@
                 </div>
                 <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 pb-5 pt-4">
                     <!-- On a phone the rail's title sits right under the picture, so this would say it twice. -->
-                    <div class="hidden sm:block">
-                        <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
-                        <p class="mt-2 text-3xs font-semibold text-white/50">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="hidden min-w-0 flex-1 sm:block">
+                            <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
+                            <p class="mt-2 text-3xs font-semibold text-white/50">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
+                        </div>
+                        {#if canPlay}
+                            <button
+                                type="button"
+                                class="btn btn-secondary min-h-11 shrink-0 gap-2 px-3 text-xs"
+                                disabled={saving}
+                                onclick={() => onplay?.(capture)}
+                                aria-label={$_('garden.explorer.play_clip', { values: { name: title }, default: 'Play clip of {name}' })}
+                                data-garden-capture-play
+                            >
+                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                                {$_('garden.explorer.play_clip_short', { default: 'Play clip' })}
+                            </button>
+                        {/if}
                     </div>
                     {#if groupTotal > 1}
                         <div class="space-y-2" data-garden-capture-group>
                             <p class="text-sm font-semibold text-white">
                                 {groupKind === 'position'
-                                    ? $_('garden.group_count', { default: '{count} photos around the same position', values: { count: groupTotal } })
-                                    : $_('garden.explorer.visit_heading', { default: '{count} captures in this visit', values: { count: groupTotal } })}
+                                    ? $_('garden.group_count', { default: '{count, plural, one {# photo around the same position} other {# photos around the same position}}', values: { count: groupTotal } })
+                                    : $_('garden.explorer.visit_heading', { default: '{count, plural, one {# capture in this visit} other {# captures in this visit}}', values: { count: groupTotal } })}
                             </p>
                             <p class="text-xs text-white/70">
                                 {groupKind === 'position'
@@ -753,7 +772,7 @@
                 {/if}
 
                 <!-- The bird record's bottom row: the hide control dismisses the whole entry, reversible
-                     from Garden visitors, Dismissed; one capture is dismissed beside its photo. -->
+                     from Garden animals, Dismissed; one capture is dismissed beside its photo. -->
                 {#if canReview && capture.status !== 'dismissed'}
                     <div class="flex flex-wrap items-center gap-2 pt-2" data-garden-capture-bottom-actions>
                         <button

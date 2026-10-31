@@ -526,7 +526,7 @@
                     {session.skipped > 0
                         ? $_('dashboard.review_session.skipped_note', {
                               values: { count: session.skipped },
-                              default: '{count} left for later. They stay in the queue.'
+                              default: '{count, plural, one {# left for later. It stays in the queue.} other {# left for later. They stay in the queue.}}'
                           })
                         : $_('dashboard.review_session.done_note', {
                               default: 'Every visit has a species. Your corrections feed the per-camera ranking.'
@@ -608,7 +608,7 @@
                             {#if sceneReady}
                                 <span class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm">
                                     {wholeScene.otherOutlines.length > 0
-                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count} crop regions outlined' })
+                                        ? $_('detection.whole_scene_multiple_outlined', { values: { count: wholeScene.otherOutlines.length + 1 }, default: 'Whole scene, {count, plural, one {# crop region outlined} other {# crop regions outlined}}' })
                                         : wholeScene.pinned
                                             ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
                                             : $_('detection.whole_scene_chip', { default: 'Whole scene' })}

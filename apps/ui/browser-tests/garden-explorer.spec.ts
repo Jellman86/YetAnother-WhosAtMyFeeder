@@ -29,7 +29,7 @@ function capture(id: string, at: string, status: 'pending' | 'confirmed', name?:
     };
 }
 
-async function openExplorer(page: Page, query = '', cropped = false) {
+async function openExplorer(page: Page, query = '', cropped = false, birdCameraCounts: Record<string, number> = {}) {
     const errors: string[] = [];
     page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
     const visits = [bird('morning', hoursAgo(1)), bird('night', hoursAgo(5))];
@@ -75,7 +75,7 @@ async function openExplorer(page: Page, query = '', cropped = false) {
         if (path.endsWith('/snapshot') || path.endsWith('/crop') || path.endsWith('.jpg')) {
             return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120"><rect width="160" height="120" fill="#4d7c0f"/></svg>' });
         }
-        if (path.endsWith('/filters')) return route.fulfill({ json: { species: [], cameras: [], camera_counts: {}, totals: { total: 2, favorites: 0, audio_matched: 0 } } });
+        if (path.endsWith('/filters')) return route.fulfill({ json: { species: [], cameras: Object.keys(birdCameraCounts), camera_counts: birdCameraCounts, totals: { total: 2, favorites: 0, audio_matched: 0 } } });
         if (path.endsWith('/labels') || path.endsWith('/species')) return route.fulfill({ json: [] });
         return route.fulfill({ json: { count: 0 } });
     });
@@ -111,7 +111,7 @@ test('Garden on its own lists only captures, and its record confirms an animal w
     if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     await expect(page.locator('[data-explorer-visit]')).toHaveCount(0);
-    await expect(page.locator('[data-explorer-count]')).toContainText('Garden entries: 2 · captures: 2');
+    await expect(page.locator('[data-explorer-count]')).toContainText('2 Garden visits · 2 captures');
 
     await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
     const dialog = page.getByRole('dialog');
@@ -667,5 +667,64 @@ test('a Garden row reads like a bird row and plays its Frigate clip', async ({ p
     await expect(player).toBeVisible();
     await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-list-row.png` });
+    expect(errors).toEqual([]);
+});
+
+test('the rail offers the cameras of the chosen subjects, and counts only what it measured', async ({ page }) => {
+    // greenhousecam watches Garden animals only, so the bird filter read never names it.
+    const { timelineQueries, errors } = await openExplorer(page, '&garden=1&gardencams=patio,greenhousecam', false, { birdcam: 12 });
+    const cameras = page.locator('[data-explorer-camera-facet]');
+    await cameras.locator('summary').click();
+    // Both: every camera once, and no count, because the bird counts do not cover animals.
+    await expect(cameras.getByRole('button')).toHaveText(['birdcam', 'greenhousecam', 'patio']);
+
+    await page.locator('[data-explorer-subjects-option="birds"]').click();
+    await expect(cameras.getByRole('button')).toHaveCount(1);
+    await expect(cameras.getByRole('button', { name: 'birdcam 12', exact: true })).toBeVisible();
+
+    await page.locator('[data-explorer-subjects-option="garden"]').click();
+    await expect(cameras.getByRole('button')).toHaveText(['greenhousecam', 'patio']);
+    const before = timelineQueries.length;
+    await cameras.getByRole('button', { name: 'greenhousecam', exact: true }).click();
+    await expect(cameras.getByRole('button', { name: 'greenhousecam', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    // The Garden reads are narrowed to that camera, and the address keeps it.
+    await expect.poll(() => timelineQueries.slice(before).at(-1)?.get('camera')).toBe('greenhousecam');
+    expect(new URL(page.url()).searchParams.get('camera')).toBe('greenhousecam');
+    expect(new URL(page.url()).searchParams.get('visitors')).toBe('garden');
+    expect(errors).toEqual([]);
+});
+
+test('a visitor is offered the Garden cameras the shared captures came from', async ({ page }) => {
+    const { errors } = await openExplorer(page, '&guest=1', false, { birdcam: 4 });
+    const option = page.locator('[data-explorer-subjects-option="garden"]');
+    await option.click();
+    const cameras = page.locator('[data-explorer-camera-facet]');
+    await cameras.locator('summary').click();
+    await expect(cameras.getByRole('button')).toHaveText(['patio']);
+    expect(errors).toEqual([]);
+});
+
+test('a Garden record plays its Frigate clip, named for the animal, only when the capture has one', async ({ page }) => {
+    const { garden, errors } = await openExplorer(page, '&garden=1');
+    Object.assign(garden[0], { clip_event: '1729000000.123-fox' });
+    await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    await expect(page.locator('[data-garden-card="confirmed"] [data-garden-card-play]')).toBeVisible();
+
+    // A capture with no clip has nothing to play.
+    await page.getByRole('button', { name: /Open Garden capture: Possible animal/ }).click();
+    await expect(page.locator('[data-garden-capture-modal]')).toBeVisible();
+    await expect(page.locator('[data-garden-capture-play]')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
+
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
+    const play = page.locator('[data-garden-capture-modal]').getByRole('button', { name: 'Play clip of Red fox', exact: true });
+    await expect(play).toBeVisible();
+    await expect(play).toHaveText('Play clip');
+    if (shots) await page.screenshot({ path: `${shots}/garden-record-play.png` });
+    await play.click();
+    // The record closes, as a bird record does, so the player is the only dialog.
+    await expect(page.getByRole('dialog', { name: 'Video player' })).toBeVisible();
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
