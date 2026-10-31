@@ -296,6 +296,10 @@ async def run_cleanup():
             )
             if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                 log.info("Media cache cleanup completed", **cache_stats)
+        # Garden's kept media follows the same retention, and anything deleted with its history goes too.
+        from app.services.garden_media_cache import garden_media_cache
+
+        await garden_media_cache.apply_retention()
 
         # The archive is never aged out; only a directory with no favourite behind it goes.
         archive_sweep = await archive_service.orphan_sweep()

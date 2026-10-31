@@ -4,14 +4,14 @@ The row names the declared bird and keeps the model evidence that stood for it,
 so a routed record shows what the bird model or SpeciesNet originally said.
 
 Revision ID: b8230ca9d42c
-Revises: 7fa03c365538
+Revises: db260f76fda3
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 revision = "b8230ca9d42c"
-down_revision = "7fa03c365538"
+down_revision = "db260f76fda3"
 branch_labels = None
 depends_on = None
 

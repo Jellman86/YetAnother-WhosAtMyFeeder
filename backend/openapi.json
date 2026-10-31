@@ -3042,6 +3042,22 @@
             "title": "Film Size Mb",
             "type": "number"
           },
+          "garden_count": {
+            "default": 0,
+            "description": "Kept photographs and clips of confirmed Garden animals",
+            "title": "Garden Count",
+            "type": "integer"
+          },
+          "garden_size_bytes": {
+            "default": 0,
+            "title": "Garden Size Bytes",
+            "type": "integer"
+          },
+          "garden_size_mb": {
+            "default": 0.0,
+            "title": "Garden Size Mb",
+            "type": "number"
+          },
           "newest_file": {
             "anyOf": [
               {
@@ -7539,6 +7555,12 @@
             "description": "The Frigate event whose clip plays for this capture, while clips are enabled",
             "title": "Clip Event"
           },
+          "clip_kept": {
+            "default": false,
+            "description": "YA-WAMF holds its own copy of the Frigate clip, so it outlasts Frigate's retention",
+            "title": "Clip Kept",
+            "type": "boolean"
+          },
           "crop": {
             "anyOf": [
               {
@@ -7612,6 +7634,12 @@
                 "type": "null"
               }
             ]
+          },
+          "photo_kept": {
+            "default": false,
+            "description": "YA-WAMF holds its own copy of the full photograph, so it outlasts Frigate's retention",
+            "title": "Photo Kept",
+            "type": "boolean"
           },
           "review_token": {
             "anyOf": [

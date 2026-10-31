@@ -470,6 +470,9 @@ export interface components {
     film_count?: number;
     film_size_bytes?: number;
     film_size_mb?: number;
+    garden_count?: number;
+    garden_size_bytes?: number;
+    garden_size_mb?: number;
     newest_file?: string | null;
     oldest_file?: string | null;
     preview_count: number;
@@ -1077,6 +1080,7 @@ export interface components {
     automatic_check_overridden?: boolean;
     camera: string;
     clip_event?: string | null;
+    clip_kept?: boolean;
     crop?: components['schemas']['GardenCropEvidence'] | null;
     crop_url?: string | null;
     domestic_route?: components['schemas']['GardenDomesticRoute'] | null;
@@ -1086,6 +1090,7 @@ export interface components {
     motion_source?: components['schemas']['MotionSource'] | null;
     observed_at: string;
     owner_identification?: components['schemas']['GardenOwnerIdentification'] | null;
+    photo_kept?: boolean;
     review_token?: string | null;
     reviewed_at: string | null;
     scientific_name?: string | null;

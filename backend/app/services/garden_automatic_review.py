@@ -29,6 +29,7 @@ from app.services.frigate_client import frigate_client
 from app.services.garden_capture_policy import garden_collection_cameras
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_crop_service import garden_crop_service, build_saved_crop
+from app.services.garden_media_cache import garden_media_cache
 from app.services.garden_identification import (
     GardenBusy,
     GardenCleanupFailed,
@@ -93,6 +94,10 @@ class GardenAutomaticReviewService:
             try:
                 await self.process_once()
                 await garden_crop_service.collect_one()
+                # Keeps newly confirmed media and backfills older captures, one per cycle;
+                # the sweep removes files that a dismissal or revocation elsewhere released.
+                await garden_media_cache.collect_one()
+                await garden_media_cache.sweep()
             except asyncio.CancelledError:
                 raise
             except Exception as error:
