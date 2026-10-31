@@ -17,8 +17,9 @@ describe('Garden captures in the Explorer', () => {
         expect(filtersSource).toContain('aria-pressed={chosen}');
         expect(filtersSource).toContain("key: 'subjects'");
         expect(filtersSource).toContain('data-explorer-garden-review-facet');
-        expect(en.garden.explorer.subjects_garden_visitors).toBe('Garden visitors');
-        expect(en.garden.explorer.subjects_birds).toBe('Birds');
+        // One name for the subject, the one Settings gives it, on the switch and its token alike.
+        expect(en.garden.explorer.subjects_short_garden).toBe(en.settings.beta.garden_animals);
+        expect(en.garden.explorer.subjects_short_birds).toBe('Birds');
     });
 
     it('places captures between visits in both layouts and opens the Garden record, not the bird one', () => {

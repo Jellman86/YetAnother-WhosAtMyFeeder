@@ -329,7 +329,7 @@ test('the view explains each capture outcome and links daily review to the Explo
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
     await expect(outcomes).toContainText('Low-confidence automatic results');
     await expect(outcomes).toContainText('person evidence is removed');
-    await page.getByRole('button', { name: 'Review Garden visitors' }).click();
+    await page.getByRole('button', { name: 'Review Garden animals' }).click();
     await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/events?visitors=garden&review=pending');
 });
 

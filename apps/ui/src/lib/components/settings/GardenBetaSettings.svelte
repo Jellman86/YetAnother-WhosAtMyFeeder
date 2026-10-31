@@ -1,6 +1,6 @@
 <script lang="ts">
     /**
-     * Garden visitors are a beta, so everything that sets them up sits with the switch that turns
+     * Garden animals are a beta, so everything that sets them up sits with the switch that turns
      * them on: its own models, which cameras are watched, which Frigate labels count, how confident
      * the motion detector must be, and when an animal is named without a review, as a bird above
      * the naming threshold is. A camera's Garden role is independent of its bird role. Daily review
@@ -210,10 +210,10 @@
         </section>
 
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3">
-            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_explorer_help', { default: 'Garden visitors appear in the Explorer beside your birds. Choose Garden visitors there, then Needs review, to work through new captures.' })}</p>
+            <p class="min-w-0 flex-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_explorer_help', { default: 'Garden animals appear in the Explorer beside your birds. Choose Garden animals there, then Needs review, to work through new captures.' })}</p>
             {#if onNavigate}
                 <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={() => onNavigate?.('/events?visitors=garden&review=pending')}>
-                    {$_('settings.beta.garden_explorer_open', { default: 'Review Garden visitors' })}
+                    {$_('settings.beta.garden_explorer_open', { default: 'Review Garden animals' })}
                 </button>
             {/if}
         </div>

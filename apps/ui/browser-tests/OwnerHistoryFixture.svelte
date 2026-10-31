@@ -19,9 +19,10 @@
     authStore.isAuthenticated = !guest;
     authStore.publicAccessEnabled = guest;
     authStore.gardenAnimalsEnabled = guest;
-    // garden=1: the owner has the Garden beta on for one camera.
+    // garden=1: the owner has the Garden beta on for one camera, or for those gardencams lists.
     // garden=0: switched off, as a saved setting says it.
-    const garden = params.get('garden') === '1' ? { beta_garden_animals: true, garden_cameras: ['patio'] } : params.get('garden') === '0' ? { beta_garden_animals: false } : {};
+    const gardenCameras = params.get('gardencams')?.split(',').filter(Boolean) ?? ['patio'];
+    const garden = params.get('garden') === '1' ? { beta_garden_animals: true, garden_cameras: gardenCameras } : params.get('garden') === '0' ? { beta_garden_animals: false } : {};
     if (!guest) settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
     // The app's global Escape handler must not consume native capture-panel dismissal.

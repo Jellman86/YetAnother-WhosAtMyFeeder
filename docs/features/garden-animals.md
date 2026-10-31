@@ -36,7 +36,7 @@ its photo instead of placing it in Dismissed, preserving the privacy rules below
 
 It is off unless you turn it on in **Settings → Beta features** (or set
 `SYSTEM__BETA_GARDEN_ANIMALS=true`). While it is off, Garden collects nothing new, the
-motion scanner does not run, Garden visitors and camera options are hidden, and the
+motion scanner does not run, Garden animals and camera options are hidden in the Explorer, and the
 Garden API answers that the feature is switched off. Saved captures are kept, and a
 later person event still removes any stored photo it covers.
 
@@ -55,8 +55,8 @@ page opens the Explorer's Garden review instead.
 4. Choose **Apply Settings**. **Garden models** then shows each Garden model's status.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
-5. Open the **Explorer**, or choose **Review Garden visitors** in **Settings → Beta features**. In
-   the filter rail choose **Garden** under **Visitors**, then **Needs review**. Open a capture, inspect the
+5. Open the **Explorer**, or choose **Review Garden animals** in **Settings → Beta features**. In
+   the filter rail choose **Garden animals** under **Visitors**, then **Needs review**. Open a capture, inspect the
    photograph, and either open **Manual override** and choose **Confirm animal manually**, or
    dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
    Under **Dismissed**, **Return to review** restores a capture while its photo remains available.
@@ -85,10 +85,18 @@ update signal carries no capture details and is never delivered to guests.
 
 With Garden on, the **Explorer** shows each opted-in camera's animals beside its birds, placed by
 time between the visits they fell between. **Visitors** at the top of the filter rail chooses
-**Both** (the default), **Birds** or **Garden**, and this device remembers the
-choice like **Cards** and **List**. Under **Garden visitors**, **Review** chooses **Animals and
-waiting for review**, **Needs review**, **Confirmed animals** or **Dismissed**. Both appear as
-removable filters, and bird-only filters step aside while Garden visitors is chosen.
+**Both** (the default), **Birds** or **Garden animals**, and this device remembers the
+choice like **Cards** and **List**. The filter's token uses the same name. Under **Garden animals**,
+**Review** chooses **Animals and waiting for review**, **Needs review**, **Confirmed animals** or
+**Dismissed**. Both appear as removable filters, and bird-only filters step aside while Garden
+animals is chosen. The count reads like the bird one, for example **2 Garden visits · 2 captures**.
+
+**Cameras** follows the chosen visitors. Under **Birds** it lists the bird cameras with their bird
+visit counts. Under **Garden animals** it lists the Garden cameras, including one that watches only
+Garden animals, without counts, because the counts in the rail describe birds. Under **Both** it
+lists every camera once, also without counts. A visitor cannot read your Garden settings, so a
+visitor is offered the cameras of the Garden captures already shown, and none while camera names
+are not shared. Choosing a camera narrows the Garden captures as well as the birds.
 
 - The Explorer shows confirmed animals and captures still waiting for review. Dismissed captures,
   whether you or the automatic check dismissed them, are listed under **Review**, **Dismissed**, as
@@ -103,7 +111,9 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   named animal that needs nothing from you shows its scientific name, and the state is
   said in words only while it waits on you or has no name. A capture that came from a
   Frigate event has the bird rows' play control, which opens Frigate's clip in the same
-  player while clips are enabled. Motion captures have no clip.
+  player while clips are enabled. Its record has **Play clip** beside the photograph too; the
+  record closes and the clip plays, as a bird record does. Motion captures have no clip, and a
+  visitor sees the control only while you share video.
 - Garden pages count complete entries, with the capture total shown separately.
   Grouping happens on the server before pagination. An animal's stay is one entry, as a bird's visit is: captures on the same camera, of the same
   animal (the same name, or both unnamed in the same review state), less than a minute apart, open
@@ -177,14 +187,14 @@ removable filters, and bird-only filters step aside while Garden visitors is cho
   Human, background and higher-taxon entries cannot be chosen as species.
 - Garden captures are stored apart from birds. Bird totals, leaderboards, notifications, exports
   and BirdWeather, eBird and iNaturalist reporting never count them.
-- Under **Birds and Garden**, filters that only describe bird visits (a species, **Favourites**, **Hidden**,
+- Under **Both**, filters that only describe bird visits (a species, **Favourites**, **Hidden**,
   **Multiple species**, **Matching call**, confidence order, individual captures or multi-select)
   hide the Garden captures and the page says why. The date range, days on the page and camera
-  filters apply to both. Under **Garden visitors**, the bird filters are left out and the page says so.
+  filters apply to both. Under **Garden animals**, the bird filters are left out and the page says so.
 - In the mixed Explorer, a Garden entry belongs to the page containing its latest
   capture time. Its full membership stays together even if its first capture fell
   in the previous bird page's time span. Up to 200 Garden entries are shown beside
-  a bird page; if there are more, the page says so. Choose **Garden visitors** to
+  a bird page; if there are more, the page says so. Choose **Garden animals** to
   page through every entry using the page-size control.
 - Records show a selectable strip of crop thumbnails for the visit or position
   stack, with the current photo marked. Each choice opens that capture and its own
@@ -405,7 +415,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 3. In **Settings → Detection**, choose a device supported by your image and hardware. CPU, Intel CPU/GPU/NPU
    and NVIDIA GPU are supported runtimes; unavailable hardware produces an error
    rather than a CPU fallback.
-4. Under **Garden visitors**, choose **Confirmed animals**, open a capture and select **Suggest species**.
+4. Under **Garden animals**, choose **Confirmed animals**, open a capture and select **Suggest species**.
    Check the proposed identity, score and input context. Choose **Confirm** with the suggested
    name, **Dismiss suggestion**, or leave it unreviewed.
 
