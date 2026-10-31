@@ -12373,6 +12373,565 @@
         "title": "PurgeMissingMediaResponse",
         "type": "object"
       },
+      "RangeDecisionCounts": {
+        "properties": {
+          "fallback": {
+            "title": "Fallback",
+            "type": "integer"
+          },
+          "skipped": {
+            "title": "Skipped",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "window_days",
+          "fallback",
+          "skipped"
+        ],
+        "title": "RangeDecisionCounts",
+        "type": "object"
+      },
+      "RangeDecisionDetail": {
+        "properties": {
+          "chosen_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Label"
+          },
+          "chosen_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Score"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "original_label": {
+            "title": "Original Label",
+            "type": "string"
+          },
+          "original_score": {
+            "title": "Original Score",
+            "type": "number"
+          },
+          "outcome": {
+            "enum": [
+              "fallback",
+              "skipped"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "region_code": {
+            "title": "Region Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "original_label",
+          "original_score",
+          "region_code"
+        ],
+        "title": "RangeDecisionDetail",
+        "type": "object"
+      },
+      "RangeDecisionResponse": {
+        "properties": {
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeDecisionDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "RangeDecisionResponse",
+        "type": "object"
+      },
+      "RangeFilterPreview": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/RangePreviewSpecies"
+            },
+            "title": "Examples",
+            "type": "array"
+          },
+          "model_out_of_range_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Out Of Range Total"
+          },
+          "recently_seen": {
+            "items": {
+              "$ref": "#/components/schemas/RangePreviewSpecies"
+            },
+            "title": "Recently Seen",
+            "type": "array"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "window_days",
+          "recently_seen",
+          "examples"
+        ],
+        "title": "RangeFilterPreview",
+        "type": "object"
+      },
+      "RangeFilterStatus": {
+        "properties": {
+          "birdnet_enabled": {
+            "title": "Birdnet Enabled",
+            "type": "boolean"
+          },
+          "ebird_configured": {
+            "title": "Ebird Configured",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "filtering": {
+            "description": "True only while new detections are actually being range-checked",
+            "title": "Filtering",
+            "type": "boolean"
+          },
+          "heard_only_species": {
+            "description": "Heard species the regional list does not include",
+            "title": "Heard Only Species",
+            "type": "integer"
+          },
+          "heard_species": {
+            "description": "Species BirdNET-Go heard here in the last year",
+            "title": "Heard Species",
+            "type": "integer"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "location_precision": {
+            "enum": [
+              "exact",
+              "approximate",
+              "country_only",
+              "none"
+            ],
+            "title": "Location Precision",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeModelCoverage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_refresh_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Refresh At"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "reason": {
+            "enum": [
+              "active",
+              "ready",
+              "needs_location",
+              "needs_ebird_key",
+              "waiting_for_list",
+              "lookup_failed",
+              "location_changed",
+              "list_stale",
+              "list_unusable"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "recent": {
+            "$ref": "#/components/schemas/RangeDecisionCounts"
+          },
+          "refreshed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refreshed At"
+          },
+          "refreshing": {
+            "title": "Refreshing",
+            "type": "boolean"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RangeRegion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region_level_setting": {
+            "enum": [
+              "county",
+              "state",
+              "country"
+            ],
+            "title": "Region Level Setting",
+            "type": "string"
+          },
+          "region_species_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region Species Total"
+          },
+          "source": {
+            "const": "ebird",
+            "title": "Source",
+            "type": "string"
+          },
+          "species_in_range": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species In Range"
+          },
+          "stale_after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale After"
+          }
+        },
+        "required": [
+          "enabled",
+          "filtering",
+          "reason",
+          "source",
+          "location_precision",
+          "region_level_setting",
+          "ebird_configured",
+          "birdnet_enabled",
+          "heard_species",
+          "heard_only_species",
+          "refreshing",
+          "recent"
+        ],
+        "title": "RangeFilterStatus",
+        "type": "object"
+      },
+      "RangeModelCoverage": {
+        "properties": {
+          "bird_species": {
+            "description": "Bird species the active model can name",
+            "title": "Bird Species",
+            "type": "integer"
+          },
+          "out_of_range": {
+            "description": "Of those, species eBird names that the regional list does not",
+            "title": "Out Of Range",
+            "type": "integer"
+          },
+          "unmatched": {
+            "description": "Model labels with no exact eBird identity, which are never filtered",
+            "title": "Unmatched",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bird_species",
+          "out_of_range",
+          "unmatched"
+        ],
+        "title": "RangeModelCoverage",
+        "type": "object"
+      },
+      "RangePreviewSpecies": {
+        "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detections": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detections"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "species_id": {
+            "title": "Species Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "species_id",
+          "scientific_name"
+        ],
+        "title": "RangePreviewSpecies",
+        "type": "object"
+      },
+      "RangeRegion": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "codes": {
+            "description": "Every eBird region combined into the list, nearest first",
+            "items": {
+              "type": "string"
+            },
+            "title": "Codes",
+            "type": "array"
+          },
+          "level": {
+            "enum": [
+              "county",
+              "state",
+              "country"
+            ],
+            "title": "Level",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the level differs from the setting, e.g. county_list_too_short",
+            "title": "Note"
+          }
+        },
+        "required": [
+          "code",
+          "codes",
+          "level"
+        ],
+        "title": "RangeRegion",
+        "type": "object"
+      },
+      "RangeSkip": {
+        "properties": {
+          "camera": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "detected_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected At"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "region_code": {
+            "title": "Region Code",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "label",
+          "score",
+          "region_code"
+        ],
+        "title": "RangeSkip",
+        "type": "object"
+      },
+      "RangeSkipsResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RangeSkip"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RangeSkipsResponse",
+        "type": "object"
+      },
       "ReadinessResponse": {
         "properties": {
           "db_pool_initialized": {
@@ -12469,7 +13028,8 @@
                   "blocked_label",
                   "abstention_label",
                   "invalid_score",
-                  "non_bird"
+                  "non_bird",
+                  "out_of_range"
                 ],
                 "type": "string"
               },
@@ -14833,6 +15393,35 @@
             ],
             "title": "Public Access Show Snapshots"
           },
+          "range_filter_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false,
+            "title": "Range Filter Enabled"
+          },
+          "range_filter_region_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "county",
+                  "state",
+                  "country"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "county",
+            "title": "Range Filter Region Level"
+          },
           "recording_clip_after_seconds": {
             "default": 90,
             "title": "Recording Clip After Seconds",
@@ -17177,6 +17766,37 @@
             ],
             "description": "Show snapshots to public visitors",
             "title": "Public Access Show Snapshots"
+          },
+          "range_filter_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": false,
+            "description": "Set aside automatic identifications of species eBird has never recorded in this region",
+            "title": "Range Filter Enabled"
+          },
+          "range_filter_region_level": {
+            "anyOf": [
+              {
+                "enum": [
+                  "county",
+                  "state",
+                  "country"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "county",
+            "description": "Finest eBird region the range filter uses",
+            "title": "Range Filter Region Level"
           },
           "recording_clip_after_seconds": {
             "default": 90,
@@ -30950,6 +31570,216 @@
         "summary": "Validate Model",
         "tags": [
           "models"
+        ]
+      }
+    },
+    "/api/range-filter/decisions/{frigate_event}": {
+      "get": {
+        "description": "What the range filter changed for one detection, or nothing when it changed nothing.",
+        "operationId": "get_range_filter_decision_api_range_filter_decisions__frigate_event__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "frigate_event",
+            "required": true,
+            "schema": {
+              "title": "Frigate Event",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Range Filter Decision",
+        "tags": [
+          "range-filter"
+        ]
+      }
+    },
+    "/api/range-filter/preview": {
+      "get": {
+        "description": "Species the filter would set aside, those recently recorded here first. Read-only.",
+        "operationId": "get_range_filter_preview_api_range_filter_preview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeFilterPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Range Filter Preview",
+        "tags": [
+          "range-filter"
+        ]
+      }
+    },
+    "/api/range-filter/refresh": {
+      "post": {
+        "description": "Fetch the regional list again in the background; poll the status to see it finish.",
+        "operationId": "refresh_range_list_api_range_filter_refresh_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeFilterStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Refresh Range List",
+        "tags": [
+          "range-filter"
+        ]
+      }
+    },
+    "/api/range-filter/skips": {
+      "get": {
+        "description": "Detections set aside as out of range, newest first, so a vagrant can be found and recorded by hand.",
+        "operationId": "get_range_filter_skips_api_range_filter_skips_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeSkipsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Range Filter Skips",
+        "tags": [
+          "range-filter"
+        ]
+      }
+    },
+    "/api/range-filter/status": {
+      "get": {
+        "description": "What the range filter is doing now, the list behind it, and why it is not filtering when it is not.",
+        "operationId": "get_range_filter_status_api_range_filter_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeFilterStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Range Filter Status",
+        "tags": [
+          "range-filter"
         ]
       }
     },

@@ -255,6 +255,8 @@
     let scientificNamePrimary = $state(false);
     let explorerView = $state<'cards' | 'list'>('cards');
     let personalizedRerankEnabled = $state(false);
+    let rangeFilterEnabled = $state(false);
+    let rangeFilterRegionLevel = $state<'county' | 'state' | 'country'>('county');
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
@@ -1803,6 +1805,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
             { key: 'explorerView', val: explorerView, store: s.appearance_explorer_view ?? 'cards' },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
+            { key: 'rangeFilterEnabled', val: rangeFilterEnabled, store: s.range_filter_enabled ?? false },
+            { key: 'rangeFilterRegionLevel', val: rangeFilterRegionLevel, store: s.range_filter_region_level ?? 'county' },
             { key: 'fontTheme', val: currentFontTheme, store: normalizeFontTheme(s.appearance_font_theme) },
             { key: 'colorTheme', val: currentColorTheme, store: normalizeColorTheme(s.appearance_color_theme) },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
@@ -2181,6 +2185,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         const path = `/settings/${tab}`;
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', toAppPath(path));
+    }
+
+    // The range filter's next steps live in Integrations; land on the field itself, not the top of the tab.
+    // A field hidden behind its switch (the key while eBird is off, coordinates while the location
+    // is automatic) falls back to that switch, which is the step that reveals it.
+    async function openIntegrationField(...selectors: string[]): Promise<void> {
+        handleTabChange('integrations');
+        await tick();
+        const field = selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean);
+        field?.scrollIntoView({ block: 'center' });
+        field?.focus({ preventScroll: true });
     }
 
     // Beta features names the Garden cameras but they are chosen in Connection, so the link lands
@@ -3119,6 +3134,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             scientificNamePrimary = settings.scientific_name_primary ?? false;
             explorerView = settings.appearance_explorer_view ?? 'cards';
             personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
+            rangeFilterEnabled = settings.range_filter_enabled ?? false;
+            rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
@@ -3518,6 +3535,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 scientific_name_primary: scientificNamePrimary,
                 appearance_explorer_view: explorerView,
                 personalized_rerank_enabled: personalizedRerankEnabled,
+                range_filter_enabled: rangeFilterEnabled,
+                range_filter_region_level: rangeFilterRegionLevel,
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
@@ -3816,7 +3835,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
-                    onopenlocationsettings={() => handleTabChange('integrations')}
+                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    bind:rangeFilterEnabled
+                    bind:rangeFilterRegionLevel
+                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')}
+                    onopenactivitylog={() => handleTabChange('health')}
+                    onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                 />
             {/if}
 

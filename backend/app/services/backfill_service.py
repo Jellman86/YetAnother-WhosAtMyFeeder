@@ -21,6 +21,7 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService, NonBirdSaveRejection
 from app.services.error_diagnostics import error_diagnostics_history
+from app.utils.api_datetime import utc_naive_from_timestamp
 from app.utils.frigate import parse_sub_label
 from app.utils.image_io import decode_image_bytes
 
@@ -368,6 +369,17 @@ class BackfillService:
             if not top:
                 if reason == "invalid_score":
                     log.warning("Historical event skipped due to invalid classifier score", event_id=frigate_event)
+                if reason == "out_of_range":
+                    start = event.get("start_time")
+                    await self.detection_service.record_range_skip(
+                        results,
+                        frigate_event,
+                        sub_label,
+                        frigate_score,
+                        parsed_sub_label.score,
+                        camera=event.get("camera"),
+                        detected_at=utc_naive_from_timestamp(start) if isinstance(start, (int, float)) else None,
+                    )
                 return "skipped", reason
 
             camera_name = event.get("camera", "unknown")

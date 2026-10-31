@@ -21,6 +21,7 @@
     } from '../../settings/blocked-species';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import DetectionStatusBand from './DetectionStatusBand.svelte';
+    import RangeFilterSettings from './RangeFilterSettings.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
@@ -56,7 +57,12 @@
         videoCircuitFailures = 0,
         blockedLabels = $bindable<string[]>([]),
         blockedSpecies = $bindable<BlockedSpeciesEntry[]>([]),
-        onopenlocationsettings
+        rangeFilterEnabled = $bindable(false),
+        rangeFilterRegionLevel = $bindable<'county' | 'state' | 'country'>('county'),
+        onopenlocationsettings,
+        onopenebirdsettings,
+        onopenactivitylog,
+        onopenmanualobservation
     }: {
         threshold: number;
         minConfidence: number;
@@ -82,7 +88,12 @@
         videoCircuitFailures: number;
         blockedLabels: string[];
         blockedSpecies: BlockedSpeciesEntry[];
+        rangeFilterEnabled?: boolean;
+        rangeFilterRegionLevel?: 'county' | 'state' | 'country';
         onopenlocationsettings?: () => void;
+        onopenebirdsettings?: () => void;
+        onopenactivitylog?: () => void;
+        onopenmanualobservation?: () => void;
     } = $props();
 
     // Memory and isolation stay folded away until the owner has changed them,
@@ -1268,6 +1279,15 @@
             <p class="text-xs font-bold italic text-slate-400">{$_('settings.detection.no_blocked_labels')}</p>
         {/if}
     </SettingsCard>
+
+    <RangeFilterSettings
+        bind:enabled={rangeFilterEnabled}
+        bind:regionLevel={rangeFilterRegionLevel}
+        {onopenlocationsettings}
+        {onopenebirdsettings}
+        {onopenactivitylog}
+        {onopenmanualobservation}
+    />
 </div>
 
 {#if cdOpen}

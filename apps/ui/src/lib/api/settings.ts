@@ -61,6 +61,8 @@ export interface Settings {
     display_common_names: boolean;
     scientific_name_primary: boolean;
     personalized_rerank_enabled: boolean;
+    range_filter_enabled?: boolean;
+    range_filter_region_level?: NonNullable<components['schemas']['SettingsResponse']['range_filter_region_level']>;
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;

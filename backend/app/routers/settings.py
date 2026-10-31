@@ -952,6 +952,12 @@ class SettingsUpdate(BaseModel):
     personalized_rerank_enabled: Optional[bool] = Field(
         False, description="Enable personalized reranking using manual tag feedback"
     )
+    range_filter_enabled: Optional[bool] = Field(
+        False, description="Set aside automatic identifications of species eBird has never recorded in this region"
+    )
+    range_filter_region_level: Optional[Literal["county", "state", "country"]] = Field(
+        "county", description="Finest eBird region the range filter uses"
+    )
     # Auto Video Classification
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
@@ -1585,6 +1591,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "display_common_names": settings.classification.display_common_names,
         "scientific_name_primary": settings.classification.scientific_name_primary,
         "personalized_rerank_enabled": settings.classification.personalized_rerank_enabled,
+        "range_filter_enabled": settings.classification.range_filter_enabled,
+        "range_filter_region_level": settings.classification.range_filter_region_level,
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
@@ -2014,6 +2022,10 @@ async def update_settings(
         settings.classification.scientific_name_primary = update.scientific_name_primary
     if "personalized_rerank_enabled" in fields_set and update.personalized_rerank_enabled is not None:
         settings.classification.personalized_rerank_enabled = update.personalized_rerank_enabled
+    if "range_filter_enabled" in fields_set and update.range_filter_enabled is not None:
+        settings.classification.range_filter_enabled = update.range_filter_enabled
+    if "range_filter_region_level" in fields_set and update.range_filter_region_level is not None:
+        settings.classification.range_filter_region_level = update.range_filter_region_level
 
     if "auto_video_classification" in fields_set and update.auto_video_classification is not None:
         settings.classification.auto_video_classification = update.auto_video_classification
@@ -2465,6 +2477,12 @@ async def update_settings(
         from app.services.localized_names import start_background_refresh
 
         background_tasks.add_task(start_background_refresh)
+
+    # The filter, the region level, the location or the eBird key may have changed;
+    # a list for a different place or level is fetched in the background, never here.
+    from app.services.range_filter_service import range_filter_service
+
+    background_tasks.add_task(range_filter_service.settings_changed)
 
     if (
         inference_provider_changed

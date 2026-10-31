@@ -1393,6 +1393,7 @@ class ReclassifyResponse(BaseModel):
             "abstention_label",
             "invalid_score",
             "non_bird",
+            "out_of_range",
         ]
         | None
     ) = None
@@ -1932,6 +1933,7 @@ async def reclassify_event(
             video_input_source=top.get("input_source"),
             input_evidence=classification_evidence(top),
             **({"admission_candidates": top["admission_candidates"]} if top.get("admission_candidates") else {}),
+            **({"range_fallback": top["range_fallback"]} if top.get("range_fallback") else {}),
         )
 
         from app.services.detection_service import NonBirdSaveRejection

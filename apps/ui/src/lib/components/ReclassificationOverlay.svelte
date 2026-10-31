@@ -92,6 +92,11 @@
                 default: 'The model identified a non-bird, so the existing identification was kept.'
             });
         }
+        if (code === 'out_of_range') {
+            return $_('detection.reclassification.unchanged_reason_out_of_range', {
+                default: 'The model named a species eBird has never recorded in your region, so the existing identification was kept.'
+            });
+        }
         if (progress.outcome === 'no_result') {
             return $_('detection.reclassification.unchanged_description', {
                 default: 'No result cleared the confidence rules, so the existing identification was kept.'

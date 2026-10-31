@@ -83,6 +83,7 @@ from app.routers import (
     auth as auth_router,
     jobs as jobs_router,
     manual_observations,
+    range_filter,
     taxonomy,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -654,6 +655,9 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=88,
         )
+        from app.services.range_filter_service import range_filter_service
+
+        await _run_lifecycle_phase(app, "range_filter_start", range_filter_service.start, fatal=False)
         await _run_lifecycle_phase(
             app,
             "media_storage_start",
@@ -785,6 +789,9 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(
             app, "system_telemetry_history_stop", system_telemetry_history_service.stop, fatal=False
         )
+        from app.services.range_filter_service import range_filter_service
+
+        await _run_lifecycle_phase(app, "range_filter_stop", range_filter_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
         from app.services.native_profile_revalidation import native_profile_revalidation
@@ -937,6 +944,7 @@ app.include_router(
     inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_oauth_router_auth_context)]
 )
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(range_filter.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 
 

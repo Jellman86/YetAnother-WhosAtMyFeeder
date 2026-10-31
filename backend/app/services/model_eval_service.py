@@ -1393,8 +1393,8 @@ def _catalogue_species_ids(panel: list[SpeciesEntry]) -> dict[int, int]:
     return resolved
 
 
-def _evaluated_model_sha256(classifier_service: Any) -> Optional[str]:
-    """The checksum the catalogue keys the evaluated model on.
+def active_catalogue_model_sha256(classifier_service: Any) -> Optional[str]:
+    """The checksum the catalogue keys the active model on.
 
     The registry's published checksum for the active model and region comes first:
     a subprocess-mode parent (the default) never loads the model itself. A custom
@@ -1421,7 +1421,7 @@ def _model_vocabulary(classifier_service: Any) -> Optional[ModelVocabulary]:
     """The species the loaded model can name, or None when the catalogue does not know the model."""
     from app.services.species_catalog_resolver import species_catalog_resolver
 
-    model_sha256 = _evaluated_model_sha256(classifier_service)
+    model_sha256 = active_catalogue_model_sha256(classifier_service)
     outputs = species_catalog_resolver.species_outputs(model_sha256)
     if outputs is None:
         return None
