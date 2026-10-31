@@ -107,7 +107,17 @@
       "save_species": "添加 {species}",
       "several_species": "每个建议都显示用于评分的那只鸟。如果视频中有不止一只鸟，选择这条观察记录对应的鸟，照片会随之更换。",
       "no_frame": "无画面",
-      "when_help": "留空则使用保存时的时间。"
+      "when_help": "留空则使用保存时的时间。",
+      "default_camera": "手动上传",
+      "when_help_from_photo": "读取自照片的元数据。如果相机时钟不准，请修改。",
+      "when_help_from_video": "读取自视频的元数据。如果相机时钟不准，请修改。",
+      "when_help_file_fallback": "留空则使用文件中保存的时间。",
+      "when_help_none": "文件中未找到拍摄时间。留空则使用保存时的时间。",
+      "from_photo": "来自照片",
+      "from_video": "来自视频",
+      "species_unknown": "此模型不认识这个物种；将按输入内容保存。",
+      "species_help": "选择上方的建议，或按俗名或学名搜索。",
+      "species_matches": "匹配的物种"
     },
     "location": {
       "title": "目击地点",
@@ -144,6 +154,12 @@
       "title": "放弃这次上传？",
       "message": "上传的文件及其分析将被删除。你的观察记录中尚未添加任何内容。",
       "confirm": "放弃上传"
+    },
+    "duplicate": {
+      "saved": "此文件已保存为观察记录。",
+      "draft": "此文件之前已上传，仍在等待您的审核。",
+      "open_saved": "打开已保存的观察记录",
+      "continue_review": "继续该审核"
     }
   },
   "setup": {

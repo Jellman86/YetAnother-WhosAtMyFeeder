@@ -32,9 +32,7 @@ def test_no_exif_has_no_capture_time() -> None:
 
 
 def test_original_time_with_its_offset_is_converted_to_utc() -> None:
-    captured = _captured(
-        exif_ifd={EXIF_DATETIME_ORIGINAL: "2026:05:01 08:15:30", EXIF_OFFSET_TIME_ORIGINAL: "+02:00"}
-    )
+    captured = _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "2026:05:01 08:15:30", EXIF_OFFSET_TIME_ORIGINAL: "+02:00"})
 
     assert captured == datetime(2026, 5, 1, 6, 15, 30)
 
@@ -85,11 +83,15 @@ def test_malformed_values_are_ignored(value: object) -> None:
 
 
 def test_a_malformed_offset_is_ignored_rather_than_guessed() -> None:
-    assert _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "2026:05:01 08:00:00", EXIF_OFFSET_TIME_ORIGINAL: "+25:00"}) is None
+    assert (
+        _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "2026:05:01 08:00:00", EXIF_OFFSET_TIME_ORIGINAL: "+25:00"}) is None
+    )
 
 
 def test_future_times_beyond_a_small_skew_are_rejected() -> None:
-    assert _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "2027:01:01 00:00:00", EXIF_OFFSET_TIME_ORIGINAL: "+00:00"}) is None
+    assert (
+        _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "2027:01:01 00:00:00", EXIF_OFFSET_TIME_ORIGINAL: "+00:00"}) is None
+    )
     # A camera clock a few minutes fast is tolerated.
     assert _captured(
         exif_ifd={EXIF_DATETIME_ORIGINAL: "2026:10:31 12:03:00", EXIF_OFFSET_TIME_ORIGINAL: "+00:00"}
@@ -97,11 +99,15 @@ def test_future_times_beyond_a_small_skew_are_rejected() -> None:
 
 
 def test_times_before_1990_are_rejected() -> None:
-    assert _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "1989:12:31 23:59:59", EXIF_OFFSET_TIME_ORIGINAL: "+00:00"}) is None
+    assert (
+        _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: "1989:12:31 23:59:59", EXIF_OFFSET_TIME_ORIGINAL: "+00:00"}) is None
+    )
 
 
 def test_byte_values_with_a_trailing_nul_are_read() -> None:
-    captured = _captured(exif_ifd={EXIF_DATETIME_ORIGINAL: b"2026:05:01 08:15:00\x00", EXIF_OFFSET_TIME_ORIGINAL: b"+01:00"})
+    captured = _captured(
+        exif_ifd={EXIF_DATETIME_ORIGINAL: b"2026:05:01 08:15:00\x00", EXIF_OFFSET_TIME_ORIGINAL: b"+01:00"}
+    )
 
     assert captured == datetime(2026, 5, 1, 7, 15)
 

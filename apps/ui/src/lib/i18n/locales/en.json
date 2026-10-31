@@ -107,7 +107,17 @@
       "save_species": "Add {species}",
       "several_species": "Each suggestion shows the bird it was scored on. If the video has more than one bird, choose the one this observation is for and its photo follows.",
       "no_frame": "No frame",
-      "when_help": "Leave empty to use the time you save it."
+      "when_help": "Leave empty to use the time you save it.",
+      "default_camera": "Manual upload",
+      "when_help_from_photo": "Read from the photo's own metadata. Change it if the camera clock was wrong.",
+      "when_help_from_video": "Read from the video's own metadata. Change it if the camera clock was wrong.",
+      "when_help_file_fallback": "Leave empty to use the time saved in the file.",
+      "when_help_none": "No capture time was found in the file. Leave empty to use the time you save it.",
+      "from_photo": "From the photo",
+      "from_video": "From the video",
+      "species_unknown": "Not a species this model knows; it will be saved as typed.",
+      "species_help": "Choose a suggestion above, or search by common or scientific name.",
+      "species_matches": "Matching species"
     },
     "location": {
       "title": "Sighting location",
@@ -144,6 +154,12 @@
       "title": "Discard this upload?",
       "message": "The uploaded file and its analysis are deleted. Nothing has been added to your observations.",
       "confirm": "Discard upload"
+    },
+    "duplicate": {
+      "saved": "This file is already saved as an observation.",
+      "draft": "This file was uploaded before and is still waiting for your review.",
+      "open_saved": "Open the saved observation",
+      "continue_review": "Continue that review"
     }
   },
   "setup": {

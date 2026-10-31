@@ -107,7 +107,17 @@
       "save_species": "Aggiungi {species}",
       "several_species": "Ogni suggerimento mostra l'uccello su cui è stato valutato. Se il video mostra più di un uccello, scegli quello di questa osservazione e la foto lo seguirà.",
       "no_frame": "Nessun fotogramma",
-      "when_help": "Lascia vuoto per usare l'ora del salvataggio."
+      "when_help": "Lascia vuoto per usare l'ora del salvataggio.",
+      "default_camera": "Caricamento manuale",
+      "when_help_from_photo": "Letta dai metadati della foto. Modificala se l'orologio della fotocamera era sbagliato.",
+      "when_help_from_video": "Letta dai metadati del video. Modificala se l'orologio della fotocamera era sbagliato.",
+      "when_help_file_fallback": "Lascia vuoto per usare l'ora salvata nel file.",
+      "when_help_none": "Nel file non è stata trovata l'ora di scatto. Lascia vuoto per usare l'ora in cui salvi.",
+      "from_photo": "Dalla foto",
+      "from_video": "Dal video",
+      "species_unknown": "Questo modello non conosce questa specie; verrà salvata come scritta.",
+      "species_help": "Scegli un suggerimento qui sopra o cerca per nome comune o scientifico.",
+      "species_matches": "Specie corrispondenti"
     },
     "location": {
       "title": "Luogo dell’avvistamento",
@@ -144,6 +154,12 @@
       "title": "Scartare questo caricamento?",
       "message": "Il file caricato e la sua analisi vengono eliminati. Non è stato aggiunto nulla alle tue osservazioni.",
       "confirm": "Scarta caricamento"
+    },
+    "duplicate": {
+      "saved": "Questo file è già salvato come osservazione.",
+      "draft": "Questo file è già stato caricato ed è ancora in attesa della tua revisione.",
+      "open_saved": "Apri l'osservazione salvata",
+      "continue_review": "Continua quella revisione"
     }
   },
   "setup": {

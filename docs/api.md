@@ -583,7 +583,23 @@ coordinates, and local preview/media URLs. For a video, each suggestion the anal
 a frame also carries `photo_url` (that species' best frame, cropped to the bird), `scene_url` (the
 whole frame) and `frame_offset_seconds`; they are null otherwise. The confirmation body accepts optional `latitude` and
 `longitude` together plus `location_source` (`image_metadata`, `manual_pin`, or `none` to clear an
-extracted location). Confirmation creates a normal
+extracted location).
+
+Draft responses also carry `captured_at` (UTC ISO-8601, or null) and `captured_at_source`
+(`exif`, `video_metadata`, or `none`): when the file itself says it was taken. A photo's time comes
+from EXIF `DateTimeOriginal`, then `DateTime`, using `OffsetTimeOriginal`/`OffsetTime` when present.
+An EXIF time with no offset is read as local time in the server's configured `TZ` (UTC when unset).
+An MP4 or MOV time comes from the movie header's creation time, which the format defines as UTC.
+Times before 1990 or more than ten minutes in the future are ignored. The confirmation body's
+optional `observed_at` wins; without it the detection uses `captured_at`, and only then the save
+time.
+
+Uploading a file the server already holds returns `409` with
+`detail: { message, draft_id, event_id }`. `event_id` is the saved observation's ID (open it at
+`/events?event={event_id}`), or null while the earlier upload is still an unsaved draft that can be
+continued with `GET /api/manual-observations/{draft_id}`.
+
+Confirmation creates a normal
 detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
 from the retained top classifier result. A saved video's photo is the confirmed species' best frame
 when the analysis localised one, and the video's first frame otherwise. A later species correction

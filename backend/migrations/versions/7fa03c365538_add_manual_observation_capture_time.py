@@ -27,9 +27,7 @@ def upgrade() -> None:
     if "captured_at" not in columns:
         op.add_column("manual_observation_drafts", sa.Column("captured_at", sa.DateTime(), nullable=True))
     if "captured_at_source" not in columns:
-        op.add_column(
-            "manual_observation_drafts", sa.Column("captured_at_source", sa.String(length=32), nullable=True)
-        )
+        op.add_column("manual_observation_drafts", sa.Column("captured_at_source", sa.String(length=32), nullable=True))
 
 
 def downgrade() -> None:

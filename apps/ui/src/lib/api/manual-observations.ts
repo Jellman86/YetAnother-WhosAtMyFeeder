@@ -1,4 +1,6 @@
-import { API_BASE, apiFetch, handleResponse } from './core';
+import { readDuplicateUpload, type DuplicateUpload } from '../utils/manual-observation-upload';
+import { API_BASE, ApiRequestError, apiFetch, handleResponse } from './core';
+import { extractApiErrorMessage } from './error-message';
 
 export interface ManualObservationPrediction {
     label: string;
@@ -38,6 +40,9 @@ export interface ManualObservation {
     latitude?: number | null;
     longitude?: number | null;
     location_source?: 'image_metadata' | 'manual_pin' | null;
+    /** When the file says it was taken (UTC), from EXIF or a video's creation time; null without one. */
+    captured_at?: string | null;
+    captured_at_source?: 'exif' | 'video_metadata' | 'none';
     preview_url: string;
     media_url: string;
     created_at?: string | null;
@@ -60,10 +65,26 @@ export interface SavedManualObservation {
     detection_url: string;
 }
 
+/** The file was uploaded before; `existing` says where that upload now is. */
+export class DuplicateManualObservationError extends ApiRequestError {
+    readonly existing: DuplicateUpload;
+
+    constructor(message: string, existing: DuplicateUpload) {
+        super(message, 409);
+        this.name = 'DuplicateManualObservationError';
+        this.existing = existing;
+    }
+}
+
 export async function uploadManualObservation(file: File): Promise<ManualObservation> {
     const form = new FormData();
     form.append('media', file);
     const response = await apiFetch(`${API_BASE}/manual-observations`, { method: 'POST', body: form });
+    if (response.status === 409) {
+        const payload: unknown = await response.clone().json().catch(() => null);
+        const existing = readDuplicateUpload(payload);
+        if (existing) throw new DuplicateManualObservationError(extractApiErrorMessage(payload, 'HTTP 409'), existing);
+    }
     return handleResponse<ManualObservation>(response);
 }
 

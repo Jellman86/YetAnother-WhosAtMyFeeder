@@ -15,12 +15,17 @@ clips, and older wildlife media that you want in the same searchable history as 
    the same distributed frame sampling, crop comparison, model, and provider as automatic deep
    video classification.
 4. Review the leading result and alternatives. Common and scientific names are shown together when
-   taxonomy data is available. You can choose a suggestion or enter the correct species,
-   observation time, camera/place label, and optional notes.
-5. Check the sighting location. For a photo with valid GPS metadata, YA-WAMF places the pin for you.
+   taxonomy data is available. You can choose a suggestion, or search for the correct species by
+   common or scientific name. A name the search does not know is saved as typed, and the review
+   says so. Then check the observation time, camera/place label, and optional notes.
+5. Check **Observed at**. When the file records when it was taken, the field is filled in with that
+   time and marked **From the photo** (or **From the video**). Change it if the camera clock was
+   wrong. When the file has no capture time, the field starts empty and saving uses the time you
+   save, as the help text beneath it says.
+6. Check the sighting location. For a photo with valid GPS metadata, YA-WAMF places the pin for you.
    You can move it, enter coordinates, or clear it. If the file has no GPS metadata, location stays
    optional and the map lets you add a pin.
-6. Select **Save observation**. Nothing is added to detections, counts, or leaderboards before this
+7. Select **Save observation**. Nothing is added to detections, counts, or leaderboards before this
    confirmation.
 
 The review step shows the winning input source, model, provider, and confidence when the classifier
@@ -53,8 +58,17 @@ retain or serve its media.
 - GPS is read only from valid image EXIF metadata. Partial, malformed, or out-of-range coordinates
   are ignored. The original upload already contains its metadata; extracted coordinates are kept in
   the owner-only draft and become part of the saved observation only after confirmation.
-- A SHA-256 content identity prevents the same file being inserted twice. If a browser reloads,
-  the current durable analysis is restored rather than started again.
+- A SHA-256 content identity prevents the same file being inserted twice. Uploading it again
+  offers **Open the saved observation** when it was saved, or **Continue that review** when it is
+  still waiting for review. If a browser reloads, the current durable analysis is restored rather
+  than started again.
+- The capture time is read only from the file's own metadata, with bounded parsers that ignore
+  malformed values: EXIF `DateTimeOriginal` (then `DateTime`) for photos, and the movie header's
+  creation time for MP4 and MOV. WebM files carry none that YA-WAMF reads. An EXIF time that has an
+  offset is exact. One without an offset is read as local time in the container's `TZ` setting
+  (UTC when unset), so set `TZ` to where the photos were taken. Video creation times are UTC by
+  definition. Times before 1990, or more than ten minutes in the future, are ignored as an unset or
+  wrong clock.
 - Analysis progress and failures are stored in SQLite. A failed analysis can be retried without
   uploading the original again.
 - Unsaved drafts expire after seven days and are removed when a later upload begins, preventing

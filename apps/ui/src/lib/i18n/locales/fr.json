@@ -107,7 +107,17 @@
       "save_species": "Ajouter {species}",
       "several_species": "Chaque suggestion montre l'oiseau sur lequel elle a été évaluée. Si la vidéo montre plus d'un oiseau, choisissez celui de cette observation et sa photo suivra.",
       "no_frame": "Aucune image",
-      "when_help": "Laissez vide pour utiliser l'heure à laquelle vous enregistrez."
+      "when_help": "Laissez vide pour utiliser l'heure à laquelle vous enregistrez.",
+      "default_camera": "Import manuel",
+      "when_help_from_photo": "Lue dans les métadonnées de la photo. Modifiez-la si l'horloge de l'appareil était fausse.",
+      "when_help_from_video": "Lue dans les métadonnées de la vidéo. Modifiez-la si l'horloge de l'appareil était fausse.",
+      "when_help_file_fallback": "Laissez vide pour utiliser l'heure enregistrée dans le fichier.",
+      "when_help_none": "Aucune heure de prise de vue n'a été trouvée dans le fichier. Laissez vide pour utiliser l'heure à laquelle vous enregistrez.",
+      "from_photo": "De la photo",
+      "from_video": "De la vidéo",
+      "species_unknown": "Ce modèle ne connaît pas cette espèce ; elle sera enregistrée telle que saisie.",
+      "species_help": "Choisissez une suggestion ci-dessus, ou cherchez par nom commun ou scientifique.",
+      "species_matches": "Espèces correspondantes"
     },
     "location": {
       "title": "Lieu de l’observation",
@@ -144,6 +154,12 @@
       "title": "Abandonner cet envoi ?",
       "message": "Le fichier envoyé et son analyse sont supprimés. Rien n'a été ajouté à vos observations.",
       "confirm": "Abandonner l'envoi"
+    },
+    "duplicate": {
+      "saved": "Ce fichier est déjà enregistré comme observation.",
+      "draft": "Ce fichier a déjà été importé et attend encore votre vérification.",
+      "open_saved": "Ouvrir l'observation enregistrée",
+      "continue_review": "Reprendre cette vérification"
     }
   },
   "setup": {

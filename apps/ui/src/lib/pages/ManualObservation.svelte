@@ -4,11 +4,14 @@
     import {
         confirmManualObservation,
         discardManualObservation,
+        DuplicateManualObservationError,
         fetchManualObservation,
         retryManualObservation,
+        searchSpecies,
         uploadManualObservation,
         type ManualObservation,
         type ManualObservationPrediction,
+        type SearchResult,
     } from '../api';
     import { withAuthParams } from '../api/core';
     import LocationPicker from '../components/LocationPicker.svelte';
@@ -16,11 +19,15 @@
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
         findPredictionForSpecies,
         formatVideoOffset,
-        validateManualObservationUpload
+        toDateTimeLocalValue,
+        validateManualObservationUpload,
+        type DuplicateUpload
     } from '../utils/manual-observation-upload';
+    import { speciesPickerNames } from '../utils/species-picker';
 
     let { onNavigate } = $props<{ onNavigate: (path: string) => void }>();
 
@@ -32,11 +39,17 @@
     let saving = $state(false);
     let dragActive = $state(false);
     let errorMessage = $state<string | null>(null);
+    // A file uploaded before is not an error to retry: it already has a place to go back to.
+    let duplicate = $state<DuplicateUpload | null>(null);
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
     let selectedLabel = $state('');
-    let cameraName = $state('Manual upload');
+    const defaultCameraName = $derived($_('manual_observation.review.default_camera', { default: 'Manual upload' }));
+    let cameraName = $state($_('manual_observation.review.default_camera', { default: 'Manual upload' }));
     let notes = $state('');
     let observedAt = $state('');
+    let observedAtTouched = false;
+    // The catalogue result the species field was last filled from, for naming it as the person chose it.
+    let pickedSpecies = $state.raw<SearchResult | null>(null);
     let latitude = $state<number | null>(null);
     let longitude = $state<number | null>(null);
     let locationSource = $state<'image_metadata' | 'manual_pin' | 'none' | null>(null);
@@ -68,9 +81,46 @@
     // species, and the saved photo is this suggestion's own best frame (#481).
     const selectedPrediction = $derived(findPredictionForSpecies(draft?.predictions ?? [], selectedLabel));
     const selectedSpeciesName = $derived(
-        selectedPrediction ? predictionPrimaryName(selectedPrediction) : selectedLabel.trim()
+        selectedPrediction
+            ? predictionPrimaryName(selectedPrediction)
+            : pickedSpecies?.id === selectedLabel ? speciesPickerNames(pickedSpecies).primary : selectedLabel.trim()
     );
     const isVideo = $derived(draft?.media_type === 'video');
+    // "From the photo" is claimed only while the field still holds exactly the time the file gave.
+    const capturedAtValue = $derived(toDateTimeLocalValue(draft?.captured_at));
+    const observedAtFromFile = $derived(capturedAtValue !== '' && observedAt === capturedAtValue);
+    const observedAtHelp = $derived.by(() => {
+        if (observedAtFromFile) {
+            return isVideo
+                ? $_('manual_observation.review.when_help_from_video', { default: "Read from the video's own metadata. Change it if the camera clock was wrong." })
+                : $_('manual_observation.review.when_help_from_photo', { default: "Read from the photo's own metadata. Change it if the camera clock was wrong." });
+        }
+        if (!observedAt && capturedAtValue) {
+            return $_('manual_observation.review.when_help_file_fallback', { default: 'Leave empty to use the time saved in the file.' });
+        }
+        if (!observedAt) {
+            return $_('manual_observation.review.when_help_none', { default: 'No capture time was found in the file. Leave empty to use the time you save it.' });
+        }
+        return $_('manual_observation.review.when_help', { default: 'Leave empty to use the time you save it.' });
+    });
+
+    // The species field searches the catalogue as the person types, as the other species pickers do.
+    // An answer is kept with the words it answers, so a late reply cannot fill the list under newer ones.
+    const SPECIES_SEARCH_DEBOUNCE_MS = 200;
+    let speciesTyping = $state(false);
+    let speciesAnswer = $state.raw<{ term: string; results: SearchResult[] } | null>(null);
+    let speciesSearchTimer: ReturnType<typeof setTimeout> | null = null;
+    let speciesSearchController: AbortController | null = null;
+    const speciesTerm = $derived(selectedLabel.trim());
+    const speciesMatches = $derived(
+        speciesTyping && speciesTerm && speciesAnswer?.term === speciesTerm ? speciesAnswer.results : null
+    );
+    const speciesUnknown = $derived(
+        speciesMatches !== null && !selectedPrediction && !speciesMatches.some((result) =>
+            [result.id, result.display_name, result.common_name, result.scientific_name]
+                .some((name) => (name ?? '').trim().toLocaleLowerCase() === speciesTerm.toLocaleLowerCase())
+        )
+    );
     const speciesPhotoUrl = $derived(selectedPrediction?.photo_url ? withAuthParams(selectedPrediction.photo_url) : null);
     const speciesSceneUrl = $derived(selectedPrediction?.scene_url ? withAuthParams(selectedPrediction.scene_url) : null);
     const showsSuggestionPhotos = $derived(isVideo && (draft?.predictions ?? []).some((prediction) => prediction.photo_url));
@@ -150,6 +200,7 @@
 
     function applyDraft(value: ManualObservation): void {
         draft = value;
+        if (!observedAtTouched) observedAt = toDateTimeLocalValue(value.captured_at);
         if (!locationTouched) {
             latitude = value.latitude ?? null;
             longitude = value.longitude ?? null;
@@ -169,6 +220,43 @@
         if (scientific && scientific.toLocaleLowerCase() !== primary) return scientific;
         if (prediction.label.toLocaleLowerCase() !== primary) return prediction.label;
         return null;
+    }
+
+    function clearSpeciesSearch(): void {
+        if (speciesSearchTimer) clearTimeout(speciesSearchTimer);
+        speciesSearchTimer = null;
+        speciesSearchController?.abort();
+        speciesSearchController = null;
+    }
+
+    function typeSpecies(value: string): void {
+        selectedLabel = value;
+        speciesTyping = true;
+        clearSpeciesSearch();
+        const term = value.trim();
+        if (!term) return;
+        const controller = new AbortController();
+        speciesSearchController = controller;
+        speciesSearchTimer = setTimeout(async () => {
+            const options = getManualTagSearchOptions(term);
+            let results: SearchResult[];
+            try {
+                results = await searchSpecies(term, options.limit, options.hydrateMissing, controller.signal);
+            } catch {
+                if (controller.signal.aborted) return;
+                // The raw classifier labels stand in only when the catalogue search fails.
+                results = await classifierLabelsStore.searchFallback(term, 20);
+            }
+            if (!controller.signal.aborted) speciesAnswer = { term, results };
+        }, SPECIES_SEARCH_DEBOUNCE_MS);
+    }
+
+    function pickSpecies(result: SearchResult): void {
+        clearSpeciesSearch();
+        pickedSpecies = result;
+        selectedLabel = result.id;
+        speciesTyping = false;
+        wholeFrameShownFor = null;
     }
 
     function chooseLocation(nextLatitude: number, nextLongitude: number): void {
@@ -251,16 +339,43 @@
         if (!selectedFile || uploading) return;
         uploading = true;
         errorMessage = null;
+        duplicate = null;
         try {
             locationTouched = false;
+            observedAtTouched = false;
             const uploadedDraft = await uploadManualObservation(selectedFile);
             applyDraft(uploadedDraft);
             sessionStorage.setItem('manual_observation_draft', uploadedDraft.id);
             schedulePoll();
         } catch (error) {
-            errorMessage = error instanceof Error ? error.message : $_('manual_observation.errors.upload', { default: 'The media could not be uploaded.' });
+            if (error instanceof DuplicateManualObservationError) {
+                duplicate = error.existing;
+                errorMessage = error.existing.kind === 'saved'
+                    ? $_('manual_observation.duplicate.saved', { default: 'This file is already saved as an observation.' })
+                    : $_('manual_observation.duplicate.draft', { default: 'This file was uploaded before and is still waiting for your review.' });
+            } else {
+                errorMessage = error instanceof Error ? error.message : $_('manual_observation.errors.upload', { default: 'The media could not be uploaded.' });
+            }
         } finally {
             uploading = false;
+        }
+    }
+
+    async function continueDuplicateReview(draftId: string): Promise<void> {
+        errorMessage = null;
+        duplicate = null;
+        try {
+            const existing = await fetchManualObservation(draftId);
+            clearSelectedFile();
+            if (fileInput) fileInput.value = '';
+            locationTouched = false;
+            observedAtTouched = false;
+            applyDraft(existing);
+            selectedLabel = existing.predictions[0]?.label ?? '';
+            sessionStorage.setItem('manual_observation_draft', existing.id);
+            schedulePoll();
+        } catch (error) {
+            errorMessage = error instanceof Error ? error.message : $_('manual_observation.errors.load', { default: 'The analysis status could not be loaded.' });
         }
     }
 
@@ -289,9 +404,14 @@
         draft = null;
         selectedFile = null;
         selectedLabel = '';
+        pickedSpecies = null;
+        speciesTyping = false;
+        clearSpeciesSearch();
         notes = '';
         observedAt = '';
-        cameraName = 'Manual upload';
+        observedAtTouched = false;
+        cameraName = defaultCameraName;
+        duplicate = null;
         latitude = null;
         longitude = null;
         locationSource = null;
@@ -308,7 +428,7 @@
         errorMessage = null;
         try {
             const saved = await confirmManualObservation(draft.id, {
-                label: selectedLabel.trim(), camera_name: cameraName.trim() || 'Manual upload',
+                label: selectedLabel.trim(), camera_name: cameraName.trim() || defaultCameraName,
                 notes: notes.trim() || null, observed_at: observedAt ? new Date(observedAt).toISOString() : null,
                 latitude: hasLocation ? latitude : null,
                 longitude: hasLocation ? longitude : null,
@@ -325,7 +445,6 @@
     }
 
     onMount(() => {
-        void classifierLabelsStore.load();
         const remembered = sessionStorage.getItem('manual_observation_draft');
         if (remembered) {
             void fetchManualObservation(remembered).then((value) => {
@@ -338,6 +457,7 @@
 
     onDestroy(() => {
         clearPoll();
+        clearSpeciesSearch();
         if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
     });
 </script>
@@ -371,8 +491,8 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3 3 7-7" />
                         </svg>
                     {/if}
-                    <span class="hidden sm:inline">{item.title}</span>
-                    <span class="sm:hidden">{item.number}</span>
+                    <span class="sr-only sm:not-sr-only">{item.title}</span>
+                    <span class="sm:hidden" aria-hidden="true">{item.number}</span>
                 </li>
             {/each}
         </ol>
@@ -388,7 +508,16 @@
             {#if errorMessage}
                 <div role="alert" class="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
                     <svg class="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 7v3m0 3h.01M8.6 3.4 2.8 14a2 2 0 0 0 1.8 3h10.8a2 2 0 0 0 1.8-3L11.4 3.4a1.6 1.6 0 0 0-2.8 0Z" /></svg>
-                    <span>{errorMessage}</span>
+                    <div class="min-w-0">
+                        <p>{errorMessage}</p>
+                        {#if duplicate?.kind === 'saved'}
+                            {@const eventId = duplicate.eventId}
+                            <button type="button" class="btn btn-secondary mt-3 min-h-11 px-4 py-2 text-sm" onclick={() => onNavigate(`/events?event=${encodeURIComponent(eventId)}`)} data-manual-observation-duplicate="saved">{$_('manual_observation.duplicate.open_saved', { default: 'Open the saved observation' })}</button>
+                        {:else if duplicate?.kind === 'draft'}
+                            {@const draftId = duplicate.draftId}
+                            <button type="button" class="btn btn-secondary mt-3 min-h-11 px-4 py-2 text-sm" onclick={() => void continueDuplicateReview(draftId)} data-manual-observation-duplicate="draft">{$_('manual_observation.duplicate.continue_review', { default: 'Continue that review' })}</button>
+                        {/if}
+                    </div>
                 </div>
             {/if}
 
@@ -414,7 +543,7 @@
                         {/if}
                     </button>
                     <input bind:this={fileInput} class="sr-only" type="file" aria-label={$_('manual_observation.upload.title', { default: 'Choose a photo or video' })} accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm" onchange={(event) => setFile(event.currentTarget.files?.[0] ?? null)} />
-                    <div class="mt-6 flex justify-end"><button class="btn btn-primary px-5 py-2.5" disabled={!selectedFile || uploading} onclick={beginAnalysis}>{uploading ? $_('manual_observation.upload.uploading', { default: 'Securing upload…' }) : $_('manual_observation.upload.analyse', { default: 'Analyse media' })}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m7 4 6 6-6 6" /></svg></button></div>
+                    <div class="mt-6 flex justify-end"><button class="btn btn-primary min-h-11 px-5 py-2.5" disabled={!selectedFile || uploading} onclick={beginAnalysis}>{uploading ? $_('manual_observation.upload.uploading', { default: 'Securing upload…' }) : $_('manual_observation.upload.analyse', { default: 'Analyse media' })}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m7 4 6 6-6 6" /></svg></button></div>
                 </div>
             {:else if stage === 2}
                 <div class="mx-auto max-w-3xl">
@@ -495,9 +624,37 @@
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.review.title', { default: 'Does this look right?' })}</h3>
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.review.body', { default: 'Choose a suggestion or correct it before this becomes part of your observation history.' })}</p>
                         {#if severalSpeciesPictured}<p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300" data-manual-observation-several-species>{$_('manual_observation.review.several_species', { default: 'Each suggestion shows the bird it was scored on. If the video has more than one bird, choose the one this observation is for and its photo follows.' })}</p>{/if}
-                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedPrediction === prediction ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} checked={selectedPrediction === prediction} onchange={() => { selectedLabel = prediction.label; wholeFrameShownFor = null; }} />{#if showsSuggestionPhotos}<span class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800" data-manual-observation-suggestion-photo>{#if prediction.photo_url}<img src={withAuthParams(prediction.photo_url)} alt="" loading="lazy" class="h-full w-full object-cover" onerror={(event) => event.currentTarget.classList.add('invisible')} />{:else}<span class="px-1 text-center text-3xs font-semibold leading-tight text-slate-500 dark:text-slate-400">{$_('manual_observation.review.no_frame', { default: 'No frame' })}</span>{/if}</span>{/if}<span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
-                        <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2 min-h-11" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each classifierLabelsStore.labels as label}<option value={label}></option>{/each}</datalist></label>
-                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5 min-h-11" type="datetime-local" bind:value={observedAt} aria-describedby="manual-observation-when-help" /><span id="manual-observation-when-help" class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.review.when_help', { default: 'Leave empty to use the time you save it.' })}</span></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
+                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedPrediction === prediction ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} checked={selectedPrediction === prediction} onchange={() => { selectedLabel = prediction.label; pickedSpecies = null; speciesTyping = false; clearSpeciesSearch(); wholeFrameShownFor = null; }} />{#if showsSuggestionPhotos}<span class="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-lg bg-slate-100 dark:bg-slate-800" data-manual-observation-suggestion-photo>{#if prediction.photo_url}<img src={withAuthParams(prediction.photo_url)} alt="" loading="lazy" class="h-full w-full object-cover" onerror={(event) => event.currentTarget.classList.add('invisible')} />{:else}<span class="px-1 text-center text-3xs font-semibold leading-tight text-slate-500 dark:text-slate-400">{$_('manual_observation.review.no_frame', { default: 'No frame' })}</span>{/if}</span>{/if}<span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
+                        <div class="mt-4" data-manual-observation-species>
+                            <label class="block" for="manual-observation-species"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span></label>
+                            <input id="manual-observation-species" class="input-base mt-2 min-h-11" type="search" value={selectedLabel} oninput={(event) => typeSpecies(event.currentTarget.value)} autocomplete="off" aria-describedby="manual-observation-species-help" />
+                            <p id="manual-observation-species-help" class="mt-1 text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+                                {#if speciesUnknown}
+                                    <span class="font-semibold text-amber-700 dark:text-amber-300" data-manual-observation-species-unknown>{$_('manual_observation.review.species_unknown', { default: 'Not a species this model knows; it will be saved as typed.' })}</span>
+                                {:else if speciesTyping && speciesTerm && !speciesMatches}
+                                    {$_('common.loading', { default: 'Loading…' })}
+                                {:else if !speciesTyping && pickedSpecies && pickedSpecies.id === selectedLabel && !selectedPrediction}
+                                    {@const names = speciesPickerNames(pickedSpecies)}
+                                    {names.secondary ? `${names.primary} · ${names.secondary}` : names.primary}
+                                {:else}
+                                    {$_('manual_observation.review.species_help', { default: 'Choose a suggestion above, or search by common or scientific name.' })}
+                                {/if}
+                            </p>
+                            {#if speciesMatches && speciesMatches.length > 0}
+                                <ul class="mt-2 max-h-64 divide-y divide-slate-200/70 overflow-y-auto rounded-xl border border-slate-200 dark:divide-slate-700/50 dark:border-slate-700" aria-label={$_('manual_observation.review.species_matches', { default: 'Matching species' })} data-manual-observation-species-matches>
+                                    {#each speciesMatches as result (result.id)}
+                                        {@const names = speciesPickerNames(result)}
+                                        <li>
+                                            <button type="button" class="flex min-h-11 w-full flex-col items-start px-3 py-2 text-left text-sm text-slate-800 transition-colors hover:bg-brand-50 focus-ring dark:text-slate-100 dark:hover:bg-brand-950/30" onclick={() => pickSpecies(result)}>
+                                                <span class="font-medium">{names.primary}</span>
+                                                {#if names.secondary}<span class="text-xs italic text-slate-500 dark:text-slate-400">{names.secondary}</span>{/if}
+                                            </button>
+                                        </li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><div><label class="flex flex-wrap items-center gap-2" for="manual-observation-when"><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span>{#if observedAtFromFile}<span class="rounded-full bg-accent-50 px-2.5 py-1 text-3xs font-bold text-accent-700 dark:bg-accent-950/40 dark:text-accent-300" data-manual-observation-time-source>{isVideo ? $_('manual_observation.review.from_video', { default: 'From the video' }) : $_('manual_observation.review.from_photo', { default: 'From the photo' })}</span>{/if}</label><input id="manual-observation-when" class="input-base mt-1.5 min-h-11" type="datetime-local" step="1" value={observedAt} oninput={(event) => { observedAt = event.currentTarget.value; observedAtTouched = true; }} aria-describedby="manual-observation-when-help" /><span id="manual-observation-when-help" class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{observedAtHelp}</span></div><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
                         <section class="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700" aria-labelledby="manual-observation-location-title">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div>
