@@ -772,6 +772,8 @@ for (const kept of [true, false]) {
         const { garden, errors } = await openExplorer(page, '&garden=1');
         const fox = garden[0];
         Object.assign(fox, { clip_event: kept ? '1729000000.123-fox' : null, photo_kept: kept, clip_kept: kept });
+        // A fresh URL, so the browser cannot reuse the photo the card loaded before Frigate dropped it.
+        if (!kept) fox.snapshot_url = `/api/garden/${fox.id}/snapshot?after=expiry`;
         const clipRequests: string[] = [];
         // Frigate has let the event go. Only the copies YA-WAMF kept can still answer.
         await page.route(url => url.pathname.startsWith('/api/frigate/') || url.pathname === `/api/garden/${fox.id}/snapshot`, route => {
