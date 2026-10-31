@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import speciesDetailSource from './SpeciesDetailModal.svelte?raw';
+import lineageSource from './TaxonomyLineage.svelte?raw';
 import barChartSource from './SimpleBarChart.svelte?raw';
 
 describe('species detail field-record layout', () => {
@@ -25,13 +26,29 @@ describe('species detail field-record layout', () => {
 
     it('places the bird in its family tree after the record and before the reference text', () => {
         const sightings = speciesDetailSource.indexOf('data-species-recent-sightings');
-        const taxonomy = speciesDetailSource.indexOf('data-species-taxonomy');
+        const taxonomy = speciesDetailSource.indexOf('<TaxonomyLineage');
         const reference = speciesDetailSource.indexOf('data-species-reference');
 
         expect(taxonomy).toBeGreaterThan(sightings);
         expect(reference).toBeGreaterThan(taxonomy);
-        expect(speciesDetailSource).toContain('<TaxonomyLineage scientificName={lineageName} />');
+        expect(speciesDetailSource).toMatch(/<TaxonomyLineage\s+scientificName=\{lineageName\}/);
         expect(speciesDetailSource).toMatch(/\{#if !isUnknownBird && lineageName\}/);
+    });
+
+    it('draws the family tree band only when there is a lineage to put in it', () => {
+        // The rule and padding travel with the lineage, which renders nothing when the catalogue
+        // does not know the bird; a wrapper section here would leave an empty ruled band.
+        expect(speciesDetailSource).not.toMatch(/<section data-species-taxonomy[^>]*>\s*<TaxonomyLineage/);
+        expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-slate-200 pt-8 dark:border-slate-700"/);
+        expect(lineageSource).toMatch(/<section class="space-y-2 \{className\}"/);
+    });
+
+    it('keeps the reference description out of the header, where it repeated the section below', () => {
+        const header = speciesDetailSource.slice(
+            speciesDetailSource.indexOf('<header data-species-modal-header'),
+            speciesDetailSource.indexOf('</header>')
+        );
+        expect(header).not.toContain('info.description');
     });
 
     it('removes the tiny-label and card-wall treatments', () => {

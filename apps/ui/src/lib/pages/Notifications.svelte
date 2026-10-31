@@ -18,6 +18,7 @@
     import { formatDateTime, formatTime } from '../utils/datetime';
     import { getThumbnailUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toAppPath } from '../app/url-base';
     import Pagination from '../components/Pagination.svelte';
@@ -54,6 +55,20 @@
         // outside this effect's dependency graph so a response cannot restart its own polling loop.
         return untrack(() => serverJobsStore.retain());
     });
+
+    // Clearing is saved at once, so the toast offers the history back for a few seconds.
+    function clearWithUndo(): void {
+        const cleared = notificationCenter.clear();
+        if (cleared.length === 0) return;
+        toastStore.undoable(
+            $_('notifications.cleared', {
+                values: { count: cleared.length },
+                default: '{count, plural, one {Cleared # notification.} other {Cleared # notifications.}}'
+            }),
+            $_('common.undo', { default: 'Undo' }),
+            () => notificationCenter.restore(cleared)
+        );
+    }
 
     function navigate(path: string) {
         if (onNavigate) {
@@ -145,10 +160,10 @@
             </h2>
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                 <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{items.length}</b>
-                    {$_('notifications.count_events', { default: 'events' })}</span>
+                    {$_('notifications.count_events', { values: { count: items.length }, default: '{count, plural, one {event} other {events}}' })}</span>
                 {#if unread > 0}
                     <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{unread}</b>
-                        {$_('notifications.count_unread', { default: 'unread' })}</span>
+                        {$_('notifications.count_unread_unit', { values: { count: unread }, default: '{count, plural, one {unread} other {unread}}' })}</span>
                 {/if}
             </p>
         </div>
@@ -161,7 +176,7 @@
             <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
-            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
+            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={clearWithUndo}>
                 {$_('notifications.clear_notifications', { default: 'Clear notifications' })}
             </button>
         </div>

@@ -469,6 +469,11 @@ build something better."*
 - Every user-facing string goes through `svelte-i18n` with a `{ default: '…' }` fallback, and lands
   in all nine locales. The locale audit enforces key parity; genuine cognates and product names go
   in `locales.identical-baseline.json`.
+- A count chooses its word. Write `{count, plural, one {# visit} other {# visits}}`, never
+  "{count} visits" or "visit(s)", and give each locale the forms it needs: Russian takes `one`,
+  `few`, `many` and `other`; Japanese and Chinese take `other` alone. Pass the number, not a
+  formatted string: `#` formats it in the reader's locale. `locales.plurals.test.ts` enforces this,
+  and lists the few strings where `{count}` stands before a word that does not change with it.
 
 ---
 
@@ -513,7 +518,9 @@ build something better."*
   record and the field log draw one score in one colour in every theme. **Exception:** a frame the filter rejected scores under 60 by
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
-- **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
+- **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions. The
+  kit's `.tab-button` and `.btn-icon` carry the floor themselves, so a tab or an icon button needs
+  no extra class.
 - **Review overlay**: the queue pins the underlying page at its current scroll position while open and restores it on close. Its backdrop covers the viewport even when the page has scrollbars. Opening the full record releases the queue lock before the record takes its own lock; closing the record returns to the same page position.
 - **Page headings**: every route has exactly one h1, and it uses the label of the route's menu
   item, so the Explorer page is titled **Explorer** and the species page **Leaderboard**. The
@@ -526,7 +533,9 @@ build something better."*
   page. Open, it traps focus, starts on the current page's item, and closes on Escape with focus
   back on the menu button, which carries `aria-expanded` and `aria-controls`.
 - **Toasts**: errors go into a `role="alert"` region and stay until closed; other toasts are polite
-  and leave on their own, but never while pointed at or focused.
+  and leave on their own, but never while pointed at or focused. An action that is saved at once
+  and cannot otherwise be taken back, such as clearing the notification history, reports itself in
+  a toast with **Undo** for ten seconds (`toastStore.undoable`) instead of asking first.
 - **App headers**: page actions wrap onto another row when needed. The mobile wordmark yields to the app icon when space is tight; menu and theme controls keep their hit targets. Test the full App after a settled desktop-to-320px resize at 200% text, including keyboard refresh and camera disclosure.
 - **Text reflow**: capture detail sheets fit 320px at 200% text. Media flex items need `min-w-0` so an aspect ratio plus a minimum height cannot widen the sheet in Safari. Fact labels, technical disclosure chrome and footer controls wrap when enlarged text no longer fits; complete names remain readable and controls retain their touch-target floor. Check the actual modal in Chromium and WebKit, including a full-resolution whole-scene peek and its outline geometry.
 - **Settings save bar and notifications**: both stack by their own width in rem (a container query), not the screen width, so enlarged text on a phone moves Apply Settings onto a full-width row and puts a notification's words below its icon and close button. Wider screens keep the single row. `browser-tests/settings-save-footer.spec.ts` checks 320px and 393px at 200% text, including keyboard activation of Apply Settings.

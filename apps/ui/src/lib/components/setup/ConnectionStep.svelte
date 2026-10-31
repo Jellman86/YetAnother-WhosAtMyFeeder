@@ -146,7 +146,7 @@
                         <label for="setup-mqtt-username" class="text-sm font-medium text-slate-700 dark:text-slate-300">
                             {$_('setup.connection.mqtt_username', { default: 'Username' })}
                         </label>
-                        <input id="setup-mqtt-username" type="text" autocomplete="username" bind:value={mqttUsername} class="input-base mt-1" />
+                        <input id="setup-mqtt-username" type="text" autocomplete="off" bind:value={mqttUsername} class="input-base mt-1" />
                     </div>
                     <div>
                         <label for="setup-mqtt-password" class="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -155,7 +155,7 @@
                         <input
                             id="setup-mqtt-password"
                             type="password"
-                            autocomplete="current-password"
+                            autocomplete="new-password"
                             value={mqttPassword}
                             placeholder={mqttPasswordSaved ? '***REDACTED***' : ''}
                             oninput={(event) => updateMqttPassword(event.currentTarget.value)}

@@ -48,9 +48,14 @@ function timestamp(detection: Detection): number {
     return Number.isNaN(parsed) ? Number.NaN : parsed;
 }
 
-export function needsReview(detection: Detection, reviewThreshold: number | null): boolean {
+/** The classifier gave no species: the label is empty or the "Unknown Bird" placeholder. */
+export function hasNoSpecies(detection: Detection): boolean {
     const label = (detection.display_name ?? '').trim().toLowerCase();
-    if (!label || label === UNRESOLVED_LABEL) return true;
+    return !label || label === UNRESOLVED_LABEL;
+}
+
+export function needsReview(detection: Detection, reviewThreshold: number | null): boolean {
+    if (hasNoSpecies(detection)) return true;
     if (detection.manual_tagged === true) return false;
     if (reviewThreshold === null || !Number.isFinite(reviewThreshold)) return false;
     return (detection.score ?? 0) < reviewThreshold;

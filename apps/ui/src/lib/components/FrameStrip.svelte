@@ -513,14 +513,10 @@
                 {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
             {:else if moments.length === 0}
                 {emptyText ?? $_('detection.frame_strip_empty', { default: 'No frames kept from this visit yet.' })}
-            {:else if moments.length === 1}
-                {offersPhotoOptions
-                    ? $_('detection.photo_option_count_one', { default: '1 photo option from this visit' })
-                    : $_('detection.frame_strip_count_one', { default: '1 frame from this visit' })}
             {:else}
                 {$_(offersPhotoOptions ? 'detection.photo_option_count' : 'detection.frame_strip_count', {
                     values: { count: moments.length },
-                    default: offersPhotoOptions ? '{count} photo options from this visit' : '{count} frames from this visit'
+                    default: offersPhotoOptions ? '{count, plural, one {# photo option from this visit} other {# photo options from this visit}}' : '{count, plural, one {# frame from this visit} other {# frames from this visit}}'
                 })}
             {/if}
         </span>

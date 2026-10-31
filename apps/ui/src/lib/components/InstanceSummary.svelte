@@ -96,7 +96,7 @@
         }
         return $_('about.instance.uptime_days', {
             values: { count: Math.floor(hours / 24) },
-            default: '{count} days'
+            default: '{count, plural, one {# day} other {# days}}'
         });
     });
 

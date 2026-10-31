@@ -16,9 +16,11 @@
         scientificName: string;
         /** A Garden animal: the catalogue holds only the model's animals and the counts are birds'. */
         subject?: 'bird' | 'animal';
+        /** Chrome around the lineage, such as a rule above it, drawn only when there is a lineage. */
+        class?: string;
     }
 
-    let { scientificName, subject = 'bird' }: Props = $props();
+    let { scientificName, subject = 'bird', class: className = '' }: Props = $props();
 
     let lineage = $state.raw<Taxon[] | null>(null);
     let loading = $state(true);
@@ -53,9 +55,11 @@
 </script>
 
 {#if loading}
-    <div class="h-16 animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" aria-hidden="true"></div>
+    <div class={className} aria-hidden="true">
+        <div class="h-16 animate-pulse rounded-xl bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+    </div>
 {:else if steps.length > 1}
-    <section class="space-y-2" aria-labelledby="taxonomy-lineage-heading" data-taxonomy-lineage>
+    <section class="space-y-2 {className}" aria-labelledby="taxonomy-lineage-heading" data-taxonomy-lineage>
         <h4 id="taxonomy-lineage-heading" class="eyebrow">
             {$_('taxonomy.small_heading', { default: 'Family tree' })}
         </h4>

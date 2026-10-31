@@ -408,8 +408,8 @@
                     <div class="col-span-3 text-xs text-slate-500 md:col-span-1 dark:text-slate-400" data-system-health-host>
                         {#if history.host.cpu_count}
                             {history.host.cpu_quota
-                                ? $_('settings.system_health.cores_limited', { values: { count: history.host.cpu_count, quota: history.host.cpu_quota }, default: '{count} cores, limited to {quota}' })
-                                : $_('settings.system_health.cores', { values: { count: history.host.cpu_count }, default: '{count} cores, no CPU limit on the container' })}
+                                ? $_('settings.system_health.cores_limited', { values: { count: history.host.cpu_count, quota: history.host.cpu_quota }, default: '{count, plural, one {# core} other {# cores}}, limited to {quota}' })
+                                : $_('settings.system_health.cores', { values: { count: history.host.cpu_count }, default: '{count, plural, one {# core} other {# cores}}, no CPU limit on the container' })}
                         {/if}
                     </div>
                 </dl>

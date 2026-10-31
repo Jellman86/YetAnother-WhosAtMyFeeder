@@ -26,6 +26,14 @@ wizard. Creating a password signs that browser in immediately. Either choice com
 account setup, which cannot later be claimed through the unauthenticated setup endpoint. Reopen
 the non-destructive section map from **Settings → Setup wizard**.
 
+The password needs at least 8 characters, with at least one letter and one number, and no more than
+72 bytes. Accented and non-Latin letters take more than one byte each. The account fields offer a
+password manager the new owner login; the MQTT fields in the connection step do not, so the browser
+never fills the owner login in as broker credentials.
+
+With authentication on, an owner who is signed out sees **Sign in**. When public access is also on,
+**Continue without signing in** returns to the guest view.
+
 ## Password Reset
 
 Currently, there is no email-based "Forgot Password" flow. If you lose your password, you must reset it manually via the server file system.

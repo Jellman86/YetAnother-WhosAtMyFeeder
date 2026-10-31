@@ -524,7 +524,7 @@
                     {#if recordingClipCapability.supported}
                         <p class="font-semibold text-slate-800 dark:text-slate-200">
                             {$_('settings.frigate.full_visit_supported', {
-                                default: 'Continuous coverage is ready for all {count} selected camera(s).',
+                                default: '{count, plural, one {Continuous coverage is ready for the selected camera.} other {Continuous coverage is ready for all # selected cameras.}}',
                                 values: { count: recordingClipCapability.eligible_cameras.length }
                             })}
                         </p>
@@ -549,7 +549,7 @@
                     {#if recordingClipCapability.supported && recordingClipCapability.retention_days !== null}
                         <p>
                             {$_('settings.frigate.full_visit_retention', {
-                                default: 'Guaranteed continuous retention: {days} day(s)',
+                                default: 'Guaranteed continuous retention: {days, plural, one {# day} other {# days}}',
                                 values: { days: recordingClipCapability.retention_days }
                             })}
                         </p>

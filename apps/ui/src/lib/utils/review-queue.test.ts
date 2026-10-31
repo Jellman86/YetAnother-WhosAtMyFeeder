@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
-import { buildReviewQueue as buildQueue } from './review-queue';
+import { buildReviewQueue as buildQueue, reviewReasonMessage } from './review-queue';
 
 function detection(overrides: Partial<Detection> & { frigate_event: string }): Detection {
     return {
@@ -17,6 +17,18 @@ function buildReviewQueue(detections: readonly Detection[], limit: number = 4) {
 }
 
 describe('buildReviewQueue', () => {
+    it('says whether each detection waits for want of a species or for a shaky score', () => {
+        const queue = buildReviewQueue([
+            detection({ frigate_event: 'unnamed', display_name: 'Unknown Bird', score: 0.91 }),
+            detection({ frigate_event: 'blank', display_name: '  ', score: 0.91 }),
+            detection({ frigate_event: 'shaky', display_name: 'Dunnock', score: 0.42 })
+        ]);
+
+        expect(queue.reasons.get('unnamed')).toBe('unknown_species');
+        expect(queue.reasons.get('blank')).toBe('unknown_species');
+        expect(queue.reasons.get('shaky')).toBe('low_score');
+    });
+
     it('uses the configured naming threshold when deciding what needs a person', () => {
         const queue = buildQueue(
             [
@@ -210,5 +222,23 @@ describe('buildReviewQueue with new-species candidates (#310)', () => {
         });
 
         expect(queue.items.map((item) => item.frigate_event)).toEqual(['older', 'newer']);
+    });
+});
+
+describe('reviewReasonMessage', () => {
+    it('words every reason a detection can wait for', () => {
+        expect(reviewReasonMessage('unknown_species', 0)).toEqual({
+            key: 'dashboard.review_queue.reason_unknown_species',
+            default: 'Unknown species'
+        });
+        expect(reviewReasonMessage('low_score', 0)).toEqual({
+            key: 'dashboard.review_queue.reason_low_score',
+            default: 'Below the naming threshold'
+        });
+        expect(reviewReasonMessage('new_species', 3)).toEqual({
+            key: 'dashboard.review_queue.new_species_tag',
+            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            values: { count: 3 }
+        });
     });
 });

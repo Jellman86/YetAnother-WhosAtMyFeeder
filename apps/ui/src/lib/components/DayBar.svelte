@@ -89,8 +89,8 @@
                 $_('dashboard.day_bar.birds_found', { default: 'birds found' }),
                 countedBirds,
                 'plain',
-                $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count} analyzed captures' }),
-                $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count} analyzed captures; birds may be missed' }),
+                $_('dashboard.day_bar.birds_scope_short', { values: { count: countedCaptures }, default: 'from {count, plural, one {# analyzed capture} other {# analyzed captures}}' }),
+                $_('dashboard.day_bar.birds_scope', { values: { count: countedCaptures }, default: 'From {count, plural, one {# analyzed capture} other {# analyzed captures}}; birds may be missed' }),
                 'counted-birds'
             )}
         {/if}

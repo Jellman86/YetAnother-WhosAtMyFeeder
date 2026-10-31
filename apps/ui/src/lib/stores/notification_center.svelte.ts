@@ -196,12 +196,21 @@ class NotificationCenterStore {
         this.persist();
     }
 
-    clear() {
+    /** Empties the history and hands back what was in it, so the caller can offer an undo. */
+    clear(): NotificationItem[] {
+        const cleared = this.items;
         this.items = [];
         if (this.persistTimer !== null && typeof window !== 'undefined') {
             window.clearTimeout(this.persistTimer);
             this.persistTimer = null;
         }
+        this.persist();
+        return cleared;
+    }
+
+    /** Puts cleared items back beside anything that arrived since, in the usual order. */
+    restore(items: NotificationItem[]) {
+        this.items = this.normalize([...this.items, ...items]);
         this.persist();
     }
 

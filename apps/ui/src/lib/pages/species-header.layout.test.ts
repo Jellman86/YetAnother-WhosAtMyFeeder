@@ -8,3 +8,20 @@ describe('species page header layout', () => {
         expect(speciesPageSource).not.toContain("$_('leaderboard.detections_count'");
     });
 });
+
+describe('leaderboard span bar', () => {
+    const opening = speciesPageSource.lastIndexOf('<div', speciesPageSource.indexOf('data-leaderboard-span-bar'));
+    const spanBar = speciesPageSource.slice(opening, speciesPageSource.indexOf('</div>', opening));
+
+    it('runs from the shortest window to the longest, as the standard lists it', () => {
+        const order = ['sort_by_day', 'sort_by_week', 'sort_by_month', 'sort_by_total'].map((key) => spanBar.indexOf(key));
+        expect(order.every((at) => at > -1)).toBe(true);
+        expect([...order].sort((a, b) => a - b)).toEqual(order);
+    });
+
+    it('is a named group of tabs, so the name is read', () => {
+        expect(spanBar).toContain('role="group"');
+        expect(spanBar).toContain("aria-label={$_('leaderboard.span_group'");
+        expect(speciesPageSource).not.toContain("aria-label={$_('leaderboard.title')}");
+    });
+});

@@ -497,7 +497,7 @@
                 >
                     {expanded
                         ? $_('detection.counted_birds.show_fewer', { default: 'Show fewer birds' })
-                        : $_('detection.counted_birds.show_all', { values: { count: rows.length }, default: 'Show all {count} birds' })}
+                        : $_('detection.counted_birds.show_all', { values: { count: rows.length }, default: '{count, plural, one {Show # bird} other {Show all # birds}}' })}
                 </button>
             {/if}
         {/if}

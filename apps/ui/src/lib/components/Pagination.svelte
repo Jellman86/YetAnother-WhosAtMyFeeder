@@ -84,7 +84,6 @@
                         id="page-size-selector"
                         value={itemsPerPage}
                         onchange={(e) => onPageSizeChange?.(Number(e.currentTarget.value))}
-                        aria-label={$_('pagination.page_size_aria', { default: 'Items per page' })}
                         class="select-base min-h-11 py-1.5 text-xs"
                     >
                         {#each pageSizeOptions as size}
@@ -104,7 +103,7 @@
                 class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
                 aria-label={$_('pagination.previous_page', { default: 'Previous page' })}
             >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                 </svg>
             </button>
@@ -143,7 +142,7 @@
                 class="btn btn-ghost btn-icon text-slate-600 dark:text-slate-400"
                 aria-label={$_('pagination.next_page', { default: 'Next page' })}
             >
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
             </button>

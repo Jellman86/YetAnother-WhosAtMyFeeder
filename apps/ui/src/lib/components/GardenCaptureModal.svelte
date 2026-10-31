@@ -96,9 +96,9 @@
         return $_('garden.entry_dismiss_mixed', { default: 'Captures here are in different review states. Dismiss them one capture at a time.' });
     });
     const entryDismissLabel = $derived(entryKind === 'visit'
-        ? $_('garden.visit_dismiss', { default: 'Dismiss {count} captures in this visit', values: { count: groupTotal } })
+        ? $_('garden.visit_dismiss', { default: '{count, plural, one {Dismiss # capture in this visit} other {Dismiss # captures in this visit}}', values: { count: groupTotal } })
         : entryKind === 'stack'
-          ? $_('garden.group_dismiss', { default: 'Dismiss remaining {count} photos', values: { count: groupTotal } })
+          ? $_('garden.group_dismiss', { default: '{count, plural, one {Dismiss remaining # photo} other {Dismiss remaining # photos}}', values: { count: groupTotal } })
           : $_('garden.dismiss', { default: 'Dismiss capture' }));
     let manualOverride = $state(false);
     let error = $state<string | null>(null);
@@ -489,8 +489,8 @@
                         <div class="space-y-2" data-garden-capture-group>
                             <p class="text-sm font-semibold text-white">
                                 {groupKind === 'position'
-                                    ? $_('garden.group_count', { default: '{count} photos around the same position', values: { count: groupTotal } })
-                                    : $_('garden.explorer.visit_heading', { default: '{count} captures in this visit', values: { count: groupTotal } })}
+                                    ? $_('garden.group_count', { default: '{count, plural, one {# photo around the same position} other {# photos around the same position}}', values: { count: groupTotal } })
+                                    : $_('garden.explorer.visit_heading', { default: '{count, plural, one {# capture in this visit} other {# captures in this visit}}', values: { count: groupTotal } })}
                             </p>
                             <p class="text-xs text-white/70">
                                 {groupKind === 'position'
