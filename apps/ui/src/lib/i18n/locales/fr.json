@@ -366,7 +366,7 @@
     "live_feed": "Flux en direct",
     "showing_last_3_days": "Affichage des 3 derniers jours",
     "no_detections": "Aucune détection pour le moment",
-    "waiting_first_visitor": "En attente du premier visiteur de la journée…",
+    "waiting_first_visitor": "Aucune visite ces dernières 24 heures. Les nouvelles visites apparaîtront ici dès leur arrivée.",
     "discovery_feed": "Fil de découverte",
     "see_full_history": "Voir l'historique complet",
     "audio_confirmations": "Confirmations audio",
@@ -407,7 +407,7 @@
       "open": "Ouvrir",
       "preview_trigger": "Aperçu de {species}",
       "preview_alt": "{species} sur {camera}",
-      "earlier": "{count, plural, one {# visite plus tôt aujourd’hui} other {# visites plus tôt aujourd’hui}}",
+      "earlier": "{count, plural, one {# visite plus tôt ces dernières 24 heures, ouvrir dans l’Explorateur} other {# visites plus tôt ces dernières 24 heures, ouvrir dans l’Explorateur}}",
       "preview_frame_position": "Image {position} sur {count} de cette visite",
       "birds_in_capture": "{count, plural, one {# oiseau sur une capture} other {# oiseaux sur une capture}}",
       "birds_unknown": "{count} inconnus",
@@ -467,7 +467,7 @@
     },
     "review_queue": {
       "title": "Nécessite votre décision",
-      "empty": "Chaque visite d’aujourd’hui a une espèce. Rien ne vous attend.",
+      "empty": "Chaque visite de ces dernières 24 heures a une espèce. Rien ne vous attend.",
       "remaining": "{count} autres en attente",
       "work_through": "Traiter la file",
       "new_species_tag": "Nouvelle espèce · {count, plural, one {# observation} other {# observations}}",
@@ -3211,7 +3211,9 @@
       "latest": "Dernière visite",
       "open_visit": "Ouvrir la visite de {name} du {time}",
       "gone": "Cette visite ne figure plus dans l’historique.",
-      "community": "{count, plural, one {# mangeoire a utilisé YA-WAMF cette semaine.} other {# mangeoires ont utilisé YA-WAMF cette semaine.}}"
+      "community": "{count, plural, one {# mangeoire a utilisé YA-WAMF cette semaine.} other {# mangeoires ont utilisé YA-WAMF cette semaine.}}",
+      "loading": "Chargement des faits de cette mangeoire…",
+      "unavailable": "Les faits de cette mangeoire n’ont pas pu être chargés."
     }
   },
   "species_detail": {

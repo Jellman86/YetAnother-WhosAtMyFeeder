@@ -41,7 +41,7 @@ test('accepted historical choice survives an older pending count and omission fr
     releaseCount();
     await expect.poll(() => historyReads).toBeGreaterThanOrEqual(3);
     await expect(card.locator('[data-review-queue-count]')).toHaveCount(0);
-    await expect(card.getByText('Every visit today has a species. Nothing waiting on you.')).toBeVisible();
+    await expect(card.getByText('Every visit in the last 24 hours has a species. Nothing waiting on you.')).toBeVisible();
 });
 
 for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true, ageHours: 0 }, { fails: false, ageHours: 48 }]) {
@@ -97,7 +97,7 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             await modal.getByRole('button', { name: 'Back to the dashboard' }).click();
             await expect.poll(() => newSpeciesReads).toBeGreaterThanOrEqual(3);
             await expect(card.locator('[data-review-queue-count]')).toHaveCount(0);
-            await expect(card.getByText('Every visit today has a species. Nothing waiting on you.')).toBeVisible();
+            await expect(card.getByText('Every visit in the last 24 hours has a species. Nothing waiting on you.')).toBeVisible();
             await expect(card.getByRole('button', { name: 'Work through the queue' })).toHaveCount(0);
             expect(writes).toEqual(['review-1', 'review-0']);
         }

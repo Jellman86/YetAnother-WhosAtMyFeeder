@@ -366,7 +366,7 @@
     "live_feed": "Live Feed",
     "showing_last_3_days": "Visualizzazione ultimi 3 giorni",
     "no_detections": "Nessun rilevamento ancora",
-    "waiting_first_visitor": "In attesa del primo visitatore del giorno…",
+    "waiting_first_visitor": "Nessuna visita nelle ultime 24 ore. Le nuove visite compaiono qui appena arrivano.",
     "discovery_feed": "Feed Scoperte",
     "see_full_history": "Vedi cronologia completa",
     "audio_confirmations": "Conferme Audio",
@@ -407,7 +407,7 @@
       "open": "Apri",
       "preview_trigger": "Anteprima di {species}",
       "preview_alt": "{species} su {camera}",
-      "earlier": "{count, plural, one {# visita precedente oggi} other {# visite precedenti oggi}}",
+      "earlier": "{count, plural, one {# visita precedente nelle ultime 24 ore, apri in Esplora} other {# visite precedenti nelle ultime 24 ore, apri in Esplora}}",
       "preview_frame_position": "Fotogramma {position} di {count} di questa visita",
       "birds_in_capture": "{count, plural, one {# uccello in un’acquisizione} other {# uccelli in un’acquisizione}}",
       "birds_unknown": "{count} sconosciuti",
@@ -467,7 +467,7 @@
     },
     "review_queue": {
       "title": "Richiede una tua decisione",
-      "empty": "Ogni visita di oggi ha una specie. Non c’è nulla in sospeso.",
+      "empty": "Ogni visita delle ultime 24 ore ha una specie. Non c’è nulla in sospeso.",
       "remaining": "Altri {count} in attesa",
       "work_through": "Smaltisci la coda",
       "new_species_tag": "Nuova specie · {count, plural, one {# avvistamento} other {# avvistamenti}}",
@@ -3221,7 +3221,9 @@
       "latest": "Ultima visita",
       "open_visit": "Apri la visita di {name} del {time}",
       "gone": "Quella visita non è più nella cronologia.",
-      "community": "{count, plural, one {# mangiatoia ha usato YA-WAMF questa settimana.} other {# mangiatoie hanno usato YA-WAMF questa settimana.}}"
+      "community": "{count, plural, one {# mangiatoia ha usato YA-WAMF questa settimana.} other {# mangiatoie hanno usato YA-WAMF questa settimana.}}",
+      "loading": "Caricamento dei dati di questa mangiatoia…",
+      "unavailable": "Non è stato possibile caricare i dati di questa mangiatoia."
     }
   },
   "species_detail": {

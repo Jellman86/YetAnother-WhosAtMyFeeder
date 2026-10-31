@@ -366,7 +366,7 @@
     "live_feed": "实时画面",
     "showing_last_3_days": "显示最近3天",
     "no_detections": "暂无检测",
-    "waiting_first_visitor": "等待今天的第一位访客…",
+    "waiting_first_visitor": "过去24小时内没有到访。新的到访一出现就会显示在这里。",
     "discovery_feed": "发现动态",
     "see_full_history": "查看完整历史",
     "audio_confirmations": "音频确认",
@@ -407,7 +407,7 @@
       "open": "打开",
       "preview_trigger": "预览 {species}",
       "preview_alt": "{camera} 上的 {species}",
-      "earlier": "{count, plural, other {今天更早的 # 次到访}}",
+      "earlier": "{count, plural, other {过去24小时内更早的 # 次到访，在探索中打开}}",
       "preview_frame_position": "本次到访的第 {position} 帧，共 {count} 帧",
       "birds_in_capture": "{count, plural, other {一次拍摄中有 # 只鸟}}",
       "birds_unknown": "{count} 只未知",
@@ -467,7 +467,7 @@
     },
     "review_queue": {
       "title": "需要你确认",
-      "empty": "今天的每次到访都有物种，没有待处理项。",
+      "empty": "过去24小时内的每次到访都有物种，没有待处理项。",
       "remaining": "还有 {count} 项待处理",
       "work_through": "处理待办队列",
       "new_species_tag": "新物种 · {count, plural, other {# 次目击}}",
@@ -3211,7 +3211,9 @@
       "latest": "最近一次到访",
       "open_visit": "打开 {time} 的 {name} 到访",
       "gone": "该到访已不在历史记录中。",
-      "community": "{count, plural, other {本周有 # 个喂食器在运行 YA-WAMF。}}"
+      "community": "{count, plural, other {本周有 # 个喂食器在运行 YA-WAMF。}}",
+      "loading": "正在加载这个喂食器的数据…",
+      "unavailable": "无法加载这个喂食器的数据。"
     }
   },
   "species_detail": {

@@ -366,7 +366,7 @@
     "live_feed": "ライブフィード",
     "showing_last_3_days": "過去3日間を表示",
     "no_detections": "検出はまだありません",
-    "waiting_first_visitor": "今日の最初の来訪者を待っています…",
+    "waiting_first_visitor": "過去24時間に訪問はありません。新しい訪問は届きしだいここに表示されます。",
     "discovery_feed": "ディスカバリーフィード",
     "see_full_history": "すべての履歴を表示",
     "audio_confirmations": "音声確認",
@@ -407,7 +407,7 @@
       "open": "開く",
       "preview_trigger": "{species} をプレビュー",
       "preview_alt": "{camera} の {species}",
-      "earlier": "{count, plural, other {今日はほかに # 件の訪問}}",
+      "earlier": "{count, plural, other {過去24時間のそれ以前の訪問 # 件、エクスプローラーで開く}}",
       "preview_frame_position": "この訪問の {count} フレーム中 {position} 枚目",
       "birds_in_capture": "{count, plural, other {1回の撮影に # 羽}}",
       "birds_unknown": "不明 {count} 羽",
@@ -467,7 +467,7 @@
     },
     "review_queue": {
       "title": "確認が必要です",
-      "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
+      "empty": "過去24時間の訪問にはすべて種名が付いています。保留中の項目はありません。",
       "remaining": "他に {count} 件が保留中",
       "work_through": "キューを処理する",
       "new_species_tag": "新しい種 · {count, plural, other {# 回の観察}}",
@@ -3211,7 +3211,9 @@
       "latest": "最新の訪問",
       "open_visit": "{time} の {name} の訪問を開く",
       "gone": "その訪問は履歴にもうありません。",
-      "community": "{count, plural, other {今週 # か所の給餌台で YA-WAMF が動いていました。}}"
+      "community": "{count, plural, other {今週 # か所の給餌台で YA-WAMF が動いていました。}}",
+      "loading": "この給餌台の記録を読み込んでいます…",
+      "unavailable": "この給餌台の記録を読み込めませんでした。"
     }
   },
   "species_detail": {

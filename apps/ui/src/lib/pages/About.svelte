@@ -9,6 +9,7 @@
     import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
     import FeederPortrait from '../components/FeederPortrait.svelte';
+    import FeederPortraitPlaceholder from '../components/FeederPortraitPlaceholder.svelte';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadDetectionModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { authStore } from '../stores/auth.svelte';
@@ -47,6 +48,8 @@
     // The opener states what this feeder has recorded, not what the software can do, beside
     // its latest visit. The wider count is how many installs reported to telemetry this week.
     let portrait = $state.raw<FeederPortraitData | null>(null);
+    // Until the read settles its shape stands in, so the colophon does not move when it lands.
+    let portraitFailed = $state(false);
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
@@ -79,6 +82,7 @@
             if (!signal.aborted && generation === portraitGeneration) portrait = next;
         } catch (error) {
             if (signal.aborted || generation !== portraitGeneration) return;
+            portraitFailed = true;
             // Without the portrait the page is still worth reading; it opens on the prose.
             if (isTransientRequestError(error)) {
                 logger.warn('Feeder portrait unavailable', { message: getErrorMessage(error) });
@@ -97,6 +101,7 @@
         // A hidden or deleted visit must leave the page, including its downloaded film,
         // before a new public projection arrives. A failed refresh stays clear.
         portrait = null;
+        portraitFailed = false;
         void loadPortrait(controller.signal, generation);
         return () => {
             controller.abort();
@@ -183,8 +188,10 @@
 <div class="space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
-        <div class="flex items-start gap-4">
-            <div class="min-w-0">
+        <!-- On a phone the version sits on its own line, so the runtime version replacing the
+             build's cannot rewrap the title and move the page beneath it. -->
+        <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
+            <div class="min-w-0 basis-full sm:basis-0 sm:grow">
                 <!-- The PageHeader already says "About" for owners; repeating it here was the
                      second half of the doubled heading. -->
                 <h2 id="about-project-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
@@ -195,7 +202,7 @@
                 href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="ml-auto shrink-0 rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
+                class="max-w-full shrink-0 truncate rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs sm:ml-auto text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
                 title={$_('about.view_changelog')}
             >
                 v{versionInfo.base_version}
@@ -210,6 +217,8 @@
                 onopenvisit={openVisit}
                 onopenspecies={(name) => (selectedSpecies = name)}
             />
+        {:else}
+            <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} />
         {/if}
 
         <div class="max-w-prose space-y-3 text-base leading-7 text-slate-700 dark:text-slate-300">

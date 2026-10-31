@@ -27,10 +27,17 @@ Six decisions carry most of the design. Apply them before reaching for a compone
 
 ### 1.1 One window per surface
 
-Every number on a screen describes the same slice of time. The dashboard says "Today" and then
-counts visits, species, unresolved detections, camera activity and audio calls over the same 24
-hours, via `withinDeskWindow()`. A screen whose header says one thing and whose cards count
-another is broken even when every figure is individually correct.
+Every number on a screen describes the same slice of time. The dashboard says "Last 24 hours" and
+then counts visits, species, unresolved detections, camera activity and audio calls over the same
+rolling 24 hours, via `withinDeskWindow()`. Every line on the desk names that window the same way:
+the field log's "earlier visits in the last 24 hours", the review queue's empty state and the log's
+empty state, never "today" or "of the day". A screen whose header says one thing and whose cards
+count another is broken even when every figure is individually correct.
+
+A link that leaves the page says where it goes and points onward, not down: "9 earlier visits in
+the last 24 hours, open in Explorer" with a right chevron. The Explorer's address holds whole days (a
+preset or a custom range of dates), not a rolling window, so the link opens it unfiltered rather
+than on a window that is not the desk's.
 
 When you add a panel, take the already-windowed list, not `detectionsStore.detections`.
 
@@ -405,9 +412,18 @@ Close dismiss it. The panel stays within the viewport and scrolls long lists. Th
 previews portal into the panel's top layer. Explorer list and Health layouts stay inline. `FrameStrip` removes unwanted photo choices reversibly with Undo while retaining
 counting evidence. Recent species sightings open exact detection links.
 
-Loading never claims a state. Until the day has been read, the field log shows placeholder rows
-in the anatomy and height of real rows, the day bar shows placeholders instead of zeros, the review
-queue does not say "Nothing waiting", and the camera list does not say none are reporting. A first
+Loading never claims a state, and it never moves the page when it ends. Until the day has been
+read, the field log shows as many placeholder rows as it will show, in the anatomy and height of
+real rows; the day bar shows placeholders instead of zeros, in every figure it will hold, with the
+note line beneath a figure that carries one; the review queue does not say "Nothing waiting"; and
+the camera list does not say none are reporting. Which figures the day bar holds comes from
+configuration (`dayBarSlots()` in `utils/day-bar.ts`: BirdNET on, and `bird_counting_enabled` from
+the public settings), never from whether a reading has arrived. A lazy page's placeholder is a
+screen tall, so the footer does not show beneath an empty page and jump when the page lands, and
+the header keeps the refresh button's place (disabled) on a page that will register one. The About
+portrait shows its media box and fact rows while it loads, and one quiet line if the read fails.
+`browser-tests/dashboard-layout.spec.ts` and `about-portrait.spec.ts` hold cold loads to a layout
+shift under 0.05 on a desktop and 0.1 on a phone, with the readings delayed. A first
 read that fails says so with a retry. Every placeholder stands still under reduced motion.
 The Explorer follows the same rule through one tested decision, `explorerPane()` in
 `utils/explorer-results.ts`: first load, error, empty, filtered empty or results. A failed read is
@@ -470,8 +486,8 @@ build something better."*
 
 - **No em dashes.** Use a comma, a colon, a semicolon or a full stop.
 - Name a control by its effect. "Identify", "Add House Sparrow", "Work through the queue".
-- Empty states say what is true and what is next: "Every visit today has a species. Nothing waiting
-  on you." Never a bare "No data".
+- Empty states say what is true and what is next: "Every visit in the last 24 hours has a species.
+  Nothing waiting on you." Never a bare "No data".
 - State an unknown as unknown. Do not round it up to healthy.
 - No nature-documentary register. "A camera pointed at a feeder, and a great deal of curiosity" is
   the wrong voice. "A feeder camera, a classifier, and a database" is closer; the plainest correct
@@ -554,6 +570,14 @@ build something better."*
   and cannot otherwise be taken back, such as clearing the notification history, reports itself in
   a toast with **Undo** for ten seconds (`toastStore.undoable`) instead of asking first.
 - **App headers**: page actions wrap onto another row when needed. The mobile wordmark yields to the app icon when space is tight; menu and theme controls keep their hit targets. Test the full App after a settled desktop-to-320px resize at 200% text, including keyboard refresh and camera disclosure.
+- **Dashboard reflow**: the Dashboard fits 320px at 200% text and at the largest Text size. Its day bar
+  and field log lay out by their own width in rem (container queries), not the screen's: the day
+  bar's figures go from one row to three, two, then one column, and below 16rem a field log line puts
+  the time beside the photo, the name, score and captures beneath it, and **Open** under the name.
+  The `log-wide` and `log-narrow` Tailwind variants query the field log's container; every line,
+  capture and placeholder takes its cell placement from `FIELD_LOG_CELL` in `utils/field-log.ts`, so
+  captures keep sharing the visit's columns through subgrid. A page title too long for a narrow
+  header steps down a size rather than breaking inside a word.
 - **Text reflow**: capture detail sheets fit 320px at 200% text. Media flex items need `min-w-0` so an aspect ratio plus a minimum height cannot widen the sheet in Safari. Fact labels, technical disclosure chrome and footer controls wrap when enlarged text no longer fits; complete names remain readable and controls retain their touch-target floor. Check the actual modal in Chromium and WebKit, including a full-resolution whole-scene peek and its outline geometry.
 - **Settings save bar and notifications**: both stack by their own width in rem (a container query), not the screen width, so enlarged text on a phone moves Apply Settings onto a full-width row and puts a notification's words below its icon and close button. Wider screens keep the single row. `browser-tests/settings-save-footer.spec.ts` checks 320px and 393px at 200% text, including keyboard activation of Apply Settings.
 - **Disclosures**: a collapsible section is not required to look like every other one — a terminal
