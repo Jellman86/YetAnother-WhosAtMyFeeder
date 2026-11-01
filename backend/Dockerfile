@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Multi-stage build for Python 3.12
-FROM python:3.12-slim as builder
+FROM python:3.15-slim as builder
 
 WORKDIR /app
 
@@ -23,7 +23,7 @@ RUN pip wheel --no-cache-dir --wheel-dir /wheels \
     -r /requirements/requirements-provider-full.txt
 
 # Final stage
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
