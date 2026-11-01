@@ -32,13 +32,9 @@ from app.services.classifier_service import (  # noqa: E402
     VideoClassificationWorkerError,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
-    _normalize_inference_provider,
     _probe_openvino_gpu_plugin_error_safe,
     _probe_onnxruntime_cuda_provider_safe,
-    _provider_capability_contract,
-    _reconcile_ort_active_provider,
     _read_selected_video_frames,
-    _resolve_inference_selection,
     _select_video_frame_indices,
     _summarize_openvino_load_error,
 )
@@ -47,6 +43,13 @@ from app.services import classifier_service as classifier_service_module  # noqa
 from app.services.inference import runtimes  # noqa: E402
 from app.services.inference.diagnostics import summarize_numeric_array  # noqa: E402
 from app.services.inference.outputs import safe_softmax  # noqa: E402
+from app.services.inference.provider_policy import (  # noqa: E402
+    InferenceSelection,
+    normalize_inference_provider,
+    provider_capability_contract,
+    reconcile_ort_active_provider,
+    resolve_inference_selection,
+)
 from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerCircuitOpenError,
     ClassifierWorkerDeadlineExceededError,
@@ -1694,13 +1697,14 @@ async def test_init_bird_model_falls_through_when_runtime_fallback_load_fails(mo
 
     monkeypatch.setattr(
         classifier_service_module,
-        "_resolve_inference_selection",
-        lambda *_args, **_kwargs: {
-            "backend": "openvino",
-            "active_provider": "intel_gpu",
-            "openvino_device": "GPU",
-            "fallback_reason": None,
-        },
+        "resolve_inference_selection",
+        lambda *_args, **_kwargs: InferenceSelection(
+            requested_provider="auto",
+            backend="openvino",
+            active_provider="intel_gpu",
+            openvino_device="GPU",
+            fallback_reason=None,
+        ),
     )
     monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: openvino_model)
     monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: onnx_fallback_model)
@@ -1836,13 +1840,14 @@ async def test_init_bird_model_refuses_slow_openvino_gpu_runtime_and_exposes_ben
 
     monkeypatch.setattr(
         classifier_service_module,
-        "_resolve_inference_selection",
-        lambda *_args, **_kwargs: {
-            "backend": "openvino",
-            "active_provider": "intel_gpu",
-            "openvino_device": "GPU",
-            "fallback_reason": None,
-        },
+        "resolve_inference_selection",
+        lambda *_args, **_kwargs: InferenceSelection(
+            requested_provider="auto",
+            backend="openvino",
+            active_provider="intel_gpu",
+            openvino_device="GPU",
+            fallback_reason=None,
+        ),
     )
     monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: gpu_model)
     monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: cpu_fallback)
@@ -1915,13 +1920,14 @@ async def test_init_bird_model_mounts_openvino_gpu_when_runtime_benchmark_passes
 
     monkeypatch.setattr(
         classifier_service_module,
-        "_resolve_inference_selection",
-        lambda *_args, **_kwargs: {
-            "backend": "openvino",
-            "active_provider": "intel_gpu",
-            "openvino_device": "GPU",
-            "fallback_reason": None,
-        },
+        "resolve_inference_selection",
+        lambda *_args, **_kwargs: InferenceSelection(
+            requested_provider="auto",
+            backend="openvino",
+            active_provider="intel_gpu",
+            openvino_device="GPU",
+            fallback_reason=None,
+        ),
     )
     monkeypatch.setattr(classifier_service_module, "OpenVINOModelInstance", lambda *args, **kwargs: gpu_model)
 
@@ -1994,14 +2000,15 @@ async def test_init_bird_model_refuses_slow_onnxruntime_cuda_and_exposes_benchma
 
     monkeypatch.setattr(
         classifier_service_module,
-        "_resolve_inference_selection",
-        lambda *_args, **_kwargs: {
-            "backend": "onnxruntime",
-            "active_provider": "cuda",
-            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-            "openvino_device": None,
-            "fallback_reason": None,
-        },
+        "resolve_inference_selection",
+        lambda *_args, **_kwargs: InferenceSelection(
+            requested_provider="auto",
+            backend="onnxruntime",
+            active_provider="cuda",
+            ort_providers=("CUDAExecutionProvider", "CPUExecutionProvider"),
+            openvino_device=None,
+            fallback_reason=None,
+        ),
     )
     monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", _fake_onnx_model)
 
@@ -2067,14 +2074,15 @@ async def test_init_bird_model_mounts_onnxruntime_cuda_when_runtime_benchmark_pa
 
     monkeypatch.setattr(
         classifier_service_module,
-        "_resolve_inference_selection",
-        lambda *_args, **_kwargs: {
-            "backend": "onnxruntime",
-            "active_provider": "cuda",
-            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-            "openvino_device": None,
-            "fallback_reason": None,
-        },
+        "resolve_inference_selection",
+        lambda *_args, **_kwargs: InferenceSelection(
+            requested_provider="auto",
+            backend="onnxruntime",
+            active_provider="cuda",
+            ort_providers=("CUDAExecutionProvider", "CPUExecutionProvider"),
+            openvino_device=None,
+            fallback_reason=None,
+        ),
     )
     monkeypatch.setattr(classifier_service_module, "ONNXModelInstance", lambda *args, **kwargs: cuda_model)
 
@@ -2981,13 +2989,14 @@ async def test_classifier_service_uses_tflite_asset_paths_when_onnx_fallback_rea
         ),
         patch.object(
             classifier_service_module,
-            "_resolve_inference_selection",
-            return_value={
-                "backend": "onnxruntime",
-                "active_provider": "cpu",
-                "ort_providers": ["CPUExecutionProvider"],
-                "fallback_reason": None,
-            },
+            "resolve_inference_selection",
+            return_value=InferenceSelection(
+                requested_provider="auto",
+                backend="onnxruntime",
+                active_provider="cpu",
+                ort_providers=("CPUExecutionProvider",),
+                fallback_reason=None,
+            ),
         ),
         patch.object(
             ClassifierService,
@@ -5514,9 +5523,9 @@ async def test_classifier_service_video_progress_callback_failure_does_not_drop_
 
 
 def test_normalize_inference_provider_defaults_to_auto_for_invalid_value():
-    assert _normalize_inference_provider(None) == "auto"
-    assert _normalize_inference_provider("") == "auto"
-    assert _normalize_inference_provider("not-real") == "auto"
+    assert normalize_inference_provider(None) == "auto"
+    assert normalize_inference_provider("") == "auto"
+    assert normalize_inference_provider("not-real") == "auto"
 
 
 def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
@@ -5527,15 +5536,15 @@ def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
         "intel_gpu_available": True,
         "intel_cpu_available": True,
     }
-    sel = _resolve_inference_selection("auto", caps)
-    assert sel["active_provider"] == "intel_gpu"
-    assert sel["backend"] == "openvino"
-    assert sel["openvino_device"] == "GPU"
-    assert sel["fallback_reason"] is None
+    sel = resolve_inference_selection("auto", caps)
+    assert sel.active_provider == "intel_gpu"
+    assert sel.backend == "openvino"
+    assert sel.openvino_device == "GPU"
+    assert sel.fallback_reason is None
 
 
 def test_provider_capability_contract_filters_image_and_orders_active_runtime_path():
-    contract = _provider_capability_contract(
+    contract = provider_capability_contract(
         caps={
             "ort_available": True,
             "cuda_available": True,
@@ -5559,7 +5568,7 @@ def test_provider_capability_contract_filters_image_and_orders_active_runtime_pa
 
 
 def test_provider_capability_contract_hides_hardware_the_active_model_cannot_run():
-    contract = _provider_capability_contract(
+    contract = provider_capability_contract(
         caps={
             "ort_available": True,
             "cuda_available": False,
@@ -5582,7 +5591,7 @@ def test_provider_capability_contract_hides_hardware_the_active_model_cannot_run
 
 
 def test_provider_capability_contract_keeps_cuda_fallback_order_truthful():
-    contract = _provider_capability_contract(
+    contract = provider_capability_contract(
         caps={
             "ort_available": True,
             "cuda_available": True,
@@ -5817,10 +5826,10 @@ def test_resolve_inference_selection_provider_matrix(
         "cuda_probe_error": None,
         **caps,
     }
-    sel = _resolve_inference_selection(requested, caps)
-    assert sel["active_provider"] == expected_provider
-    assert sel["backend"] == expected_backend
-    assert sel["openvino_device"] == expected_device
+    sel = resolve_inference_selection(requested, caps)
+    assert sel.active_provider == expected_provider
+    assert sel.backend == expected_backend
+    assert sel.openvino_device == expected_device
 
 
 def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
@@ -5834,11 +5843,11 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_unavailable():
         "intel_gpu_available": False,
         "intel_cpu_available": False,
     }
-    sel = _resolve_inference_selection("cuda", caps)
-    assert sel["active_provider"] == "cpu"
-    assert sel["backend"] == "onnxruntime"
-    assert sel["ort_providers"] == ["CPUExecutionProvider"]
-    assert sel["fallback_reason"] is not None
+    sel = resolve_inference_selection("cuda", caps)
+    assert sel.active_provider == "cpu"
+    assert sel.backend == "onnxruntime"
+    assert sel.ort_providers == ("CPUExecutionProvider",)
+    assert sel.fallback_reason is not None
 
 
 def test_resolve_inference_selection_cuda_falls_back_to_openvino_gpu_when_available():
@@ -5852,11 +5861,11 @@ def test_resolve_inference_selection_cuda_falls_back_to_openvino_gpu_when_availa
         "intel_gpu_available": True,
         "intel_cpu_available": True,
     }
-    sel = _resolve_inference_selection("cuda", caps)
-    assert sel["active_provider"] == "intel_gpu"
-    assert sel["backend"] == "openvino"
-    assert sel["openvino_device"] == "GPU"
-    assert "CUDA requested" in (sel["fallback_reason"] or "")
+    sel = resolve_inference_selection("cuda", caps)
+    assert sel.active_provider == "intel_gpu"
+    assert sel.backend == "openvino"
+    assert sel.openvino_device == "GPU"
+    assert "CUDA requested" in (sel.fallback_reason or "")
 
 
 def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_probe_fails():
@@ -5870,12 +5879,12 @@ def test_resolve_inference_selection_cuda_falls_back_to_cpu_when_probe_fails():
         "intel_gpu_available": False,
         "intel_cpu_available": False,
     }
-    sel = _resolve_inference_selection("cuda", caps)
-    assert sel["active_provider"] == "cpu"
-    assert sel["backend"] == "onnxruntime"
-    assert sel["ort_providers"] == ["CPUExecutionProvider"]
-    assert "failed runtime probe" in (sel["fallback_reason"] or "")
-    assert "libcublasLt.so.12" in (sel["fallback_reason"] or "")
+    sel = resolve_inference_selection("cuda", caps)
+    assert sel.active_provider == "cpu"
+    assert sel.backend == "onnxruntime"
+    assert sel.ort_providers == ("CPUExecutionProvider",)
+    assert "failed runtime probe" in (sel.fallback_reason or "")
+    assert "libcublasLt.so.12" in (sel.fallback_reason or "")
 
 
 def test_resolve_inference_selection_cuda_probe_failure_uses_openvino_gpu_when_available():
@@ -5889,12 +5898,12 @@ def test_resolve_inference_selection_cuda_probe_failure_uses_openvino_gpu_when_a
         "intel_gpu_available": True,
         "intel_cpu_available": True,
     }
-    sel = _resolve_inference_selection("cuda", caps)
-    assert sel["active_provider"] == "intel_gpu"
-    assert sel["backend"] == "openvino"
-    assert sel["openvino_device"] == "GPU"
-    assert "failed runtime probe" in (sel["fallback_reason"] or "")
-    assert "libcublasLt.so.12" in (sel["fallback_reason"] or "")
+    sel = resolve_inference_selection("cuda", caps)
+    assert sel.active_provider == "intel_gpu"
+    assert sel.backend == "openvino"
+    assert sel.openvino_device == "GPU"
+    assert "failed runtime probe" in (sel.fallback_reason or "")
+    assert "libcublasLt.so.12" in (sel.fallback_reason or "")
 
 
 def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_possible():
@@ -5905,11 +5914,11 @@ def test_resolve_inference_selection_intel_gpu_falls_back_to_intel_cpu_when_poss
         "intel_gpu_available": False,
         "intel_cpu_available": True,
     }
-    sel = _resolve_inference_selection("intel_gpu", caps)
-    assert sel["active_provider"] == "intel_cpu"
-    assert sel["backend"] == "openvino"
-    assert sel["openvino_device"] == "CPU"
-    assert sel["fallback_reason"] is not None
+    sel = resolve_inference_selection("intel_gpu", caps)
+    assert sel.active_provider == "intel_cpu"
+    assert sel.backend == "openvino"
+    assert sel.openvino_device == "CPU"
+    assert sel.fallback_reason is not None
 
 
 def test_resolve_inference_selection_auto_skips_intel_gpu_when_model_disallows_it():
@@ -5921,12 +5930,12 @@ def test_resolve_inference_selection_auto_skips_intel_gpu_when_model_disallows_i
         "intel_cpu_available": True,
     }
 
-    sel = _resolve_inference_selection("auto", caps, supported_providers=["cpu", "intel_cpu"])
+    sel = resolve_inference_selection("auto", caps, supported_providers=["cpu", "intel_cpu"])
 
-    assert sel["active_provider"] == "intel_cpu"
-    assert sel["backend"] == "openvino"
-    assert sel["openvino_device"] == "CPU"
-    assert sel["fallback_reason"] is None
+    assert sel.active_provider == "intel_cpu"
+    assert sel.backend == "openvino"
+    assert sel.openvino_device == "CPU"
+    assert sel.fallback_reason is None
 
 
 @pytest.mark.asyncio
@@ -6082,7 +6091,7 @@ def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
 
 
 def test_reconcile_ort_active_provider_downgrades_cuda_when_session_is_cpu_only():
-    active, reason = _reconcile_ort_active_provider(
+    active, reason = reconcile_ort_active_provider(
         requested_active_provider="cuda",
         session_providers=["CPUExecutionProvider"],
     )
