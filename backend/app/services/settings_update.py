@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel
 
 from app.auth import hash_password
-from app.config import Settings
+from app.config import Settings, settings as live_settings
 from app.config_models import (
     normalize_blocked_species_entries,
     normalize_crop_override_map,
@@ -742,7 +742,14 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
 
 
 def publish_settings(current: BaseModel, candidate: BaseModel) -> None:
-    """Preserve imported facade and nested section references without yielding."""
+    """Copy a persisted candidate onto the live settings in place, without yielding.
+
+    Modules import the ``settings`` singleton, and many keep a nested section such as
+    ``settings.notifications.telegram`` for the life of a request or a worker. Rebinding
+    the singleton, or replacing a section object, would leave those readers on the old
+    configuration. Copying field by field into the existing objects keeps every held
+    reference current, and no ``await`` here means no reader sees a half-published mix.
+    """
     for field in type(current).model_fields:
         old_value = getattr(current, field)
         new_value = getattr(candidate, field)
@@ -755,3 +762,21 @@ def publish_settings(current: BaseModel, candidate: BaseModel) -> None:
 async def apply_update(current: Settings, candidate: Settings) -> None:
     await candidate.save()
     publish_settings(current, candidate)
+
+
+async def commit_settings_change(change: Callable[[Settings], None], current: Settings = live_settings) -> None:
+    """Apply a programmatic change through the same stage, persist, publish boundary.
+
+    Model activation, first-run setup and the telemetry identity change settings
+    outside the settings endpoints. Writing the live object directly while a save is
+    in flight would be overwritten by that save's publication, so they stage their
+    change on a private copy under the writer lock instead. ``change`` may raise to
+    refuse; nothing is saved or published then.
+    """
+
+    async def write() -> None:
+        candidate = current.model_copy(deep=True)
+        change(candidate)
+        await apply_update(current, candidate)
+
+    await run_settings_writer(write)

@@ -116,8 +116,8 @@ async def test_reconcile_retired_selection_prefers_installed_convnext_large(tmp_
 
     saved: list[tuple[str, str]] = []
 
-    async def fake_save(_self):
-        saved.append((settings.classification.model, settings.classification.inference_provider))
+    async def fake_save(candidate):
+        saved.append((candidate.classification.model, candidate.classification.inference_provider))
 
     monkeypatch.setattr(type(settings), "save", fake_save)
     monkeypatch.setattr(

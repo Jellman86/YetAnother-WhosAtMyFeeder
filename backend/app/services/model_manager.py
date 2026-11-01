@@ -14,7 +14,7 @@ from datetime import datetime, UTC
 from app.services.openvino_cache import clear_openvino_cache, resolve_openvino_cache_dir
 from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
-from app.config import settings
+from app.config import Settings, settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
 from app.services.model_validation import (
     activation_provider_recommendation,
@@ -23,6 +23,7 @@ from app.services.model_validation import (
     is_model_validated,
 )
 from app.services.bird_model_region_resolver import resolve_bird_model_region
+from app.services.settings_update import commit_settings_change
 
 
 def _directory_entries(path: str) -> list[tuple[str, str]]:
@@ -913,24 +914,22 @@ class ModelManager:
             )
             replacing_active_model = replacement_id != active_model_id
 
-        previous_setting_model = settings.classification.model
-        previous_provider = settings.classification.inference_provider
         artifact_meta = self._get_registry_model_meta(replacement_id) or {}
         recommended_provider = activation_provider_recommendation(
             replacement_id,
             artifact_sha256=artifact_meta.get("sha256"),
         )
-        settings.classification.model = replacement_id
-        if replacing_active_model:
-            settings.classification.inference_provider = recommended_provider or "auto"
+
+        def select_replacement(candidate: Settings) -> None:
+            candidate.classification.model = replacement_id
+            if replacing_active_model:
+                candidate.classification.inference_provider = recommended_provider or "auto"
 
         try:
             if replacing_active_model:
                 await asyncio.to_thread(self._save_active_model_id, replacement_id)
-            await settings.save()
+            await commit_settings_change(select_replacement)
         except Exception:
-            settings.classification.model = previous_setting_model
-            settings.classification.inference_provider = previous_provider
             if replacing_active_model:
                 try:
                     await asyncio.to_thread(self._save_active_model_id, active_model_id)

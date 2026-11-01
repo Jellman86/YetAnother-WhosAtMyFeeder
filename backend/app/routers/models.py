@@ -2,7 +2,7 @@ import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field, JsonValue
 from typing import List, Optional
-from app.config import settings
+from app.config import Settings as AppSettings, settings
 from app.services.model_manager import (
     ModelDeletionError,
     is_retired_model,
@@ -10,6 +10,7 @@ from app.services.model_manager import (
     registry_artifact_kind,
 )
 from app.services.model_validation import activation_provider_recommendation, run_validation_probe
+from app.services.settings_update import commit_settings_change
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
 from app.auth import require_owner, AuthContext
@@ -179,18 +180,21 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
     if not success:
         raise HTTPException(status_code=404, detail="Model not installed")
 
-    # Keep settings.classification.model in sync so config.json reflects the active model
-    settings.classification.model = model_id
     recommended_provider = activation_provider_recommendation(
         model_id,
         artifact_sha256=(target.metadata.sha256 if target.metadata else None),
     )
-    # Provider evidence is model-specific. Never carry an explicit provider
-    # selected for the previous model across activation when this model has no
-    # current-image recommendation; ``auto`` will select from the new model's
-    # globally safe or host-validated contract.
-    settings.classification.inference_provider = recommended_provider or "auto"
-    await settings.save()
+
+    def select_activated_model(candidate: AppSettings) -> None:
+        # Keep classification.model in sync so config.json reflects the active model.
+        candidate.classification.model = model_id
+        # Provider evidence is model-specific. Never carry an explicit provider
+        # selected for the previous model across activation when this model has no
+        # current-image recommendation; ``auto`` will select from the new model's
+        # globally safe or host-validated contract.
+        candidate.classification.inference_provider = recommended_provider or "auto"
+
+    await commit_settings_change(select_activated_model)
 
     # Reload the classifier in the background to prevent blocking API timeouts
     # when loading heavy models across multiple worker processes.
