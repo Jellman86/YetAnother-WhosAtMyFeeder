@@ -21,14 +21,14 @@ model preprocessing paths before the cap was raised.
 import numpy as np
 import pytest
 
-from app.services.classifier_service import _normalize_probability_vector, _safe_softmax
+from app.services.inference.outputs import normalize_probability_vector, safe_softmax
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
 
 def test_probability_normalisation_returns_float32_that_sums_to_one():
-    result = _normalize_probability_vector(np.array([1.0, 1.0, 2.0], dtype=np.float32), context="test")
+    result = normalize_probability_vector(np.array([1.0, 1.0, 2.0], dtype=np.float32), context="test")
     assert result.dtype == np.float32
     np.testing.assert_allclose(result, [0.25, 0.25, 0.5], rtol=0, atol=1e-7)
 
@@ -42,14 +42,14 @@ def test_probability_normalisation_returns_float32_that_sums_to_one():
     ],
 )
 def test_probability_normalisation_holds_its_dtype_on_hostile_input(values):
-    result = _normalize_probability_vector(np.array(values, dtype=np.float32), context="test")
+    result = normalize_probability_vector(np.array(values, dtype=np.float32), context="test")
     assert result.dtype == np.float32
     assert np.isfinite(result).all()
 
 
 def test_softmax_is_float32_and_normalised_even_at_extreme_logits():
     logits = np.array([-1000.0, 0.0, 1000.0], dtype=np.float32)
-    result = _safe_softmax(logits, context="test")
+    result = safe_softmax(logits, context="test")
     assert result.dtype == np.float32
     assert np.isfinite(result).all()
     assert result.sum() == pytest.approx(1.0, abs=1e-6)

@@ -72,9 +72,10 @@ def _labels_path(model_id: str) -> Path:
 
 
 def _load_labels(model_id: str) -> list[str]:
-    from app.services.classifier_service import _resolve_model_labels, artifact_digest
+    from app.services.inference.outputs import resolve_model_labels
+    from app.services.native_crash_quarantine import artifact_digest
 
-    labels, _, _ = _resolve_model_labels(
+    labels, _, _ = resolve_model_labels(
         str(_labels_path(model_id)), {}, model_sha256=artifact_digest(str(_model_dir(model_id) / "model.onnx"))
     )
     return labels
@@ -279,9 +280,9 @@ def test_model_inference_on_white_image(model_id: str, ort_session_cache: dict) 
     white = white.transpose(2, 0, 1)[np.newaxis]  # (1, 3, H, W)
 
     input_name = session.get_inputs()[0].name
-    from app.services.classifier_service import _classifier_auxiliary_inputs
+    from app.services.inference.preprocessing import classifier_auxiliary_inputs
 
-    outputs = session.run(None, {input_name: white, **_classifier_auxiliary_inputs(pre)})
+    outputs = session.run(None, {input_name: white, **classifier_auxiliary_inputs(pre)})
     logits = outputs[0][0]
 
     assert logits.ndim == 1, f"{model_id}: output should be 1-D per sample"
@@ -307,9 +308,9 @@ def test_model_inference_on_noise_image(model_id: str, ort_session_cache: dict) 
     noise = rng.standard_normal((1, 3, input_size, input_size)).astype(np.float32)
 
     input_name = session.get_inputs()[0].name
-    from app.services.classifier_service import _classifier_auxiliary_inputs
+    from app.services.inference.preprocessing import classifier_auxiliary_inputs
 
-    outputs = session.run(None, {input_name: noise, **_classifier_auxiliary_inputs(config.get("preprocessing", {}))})
+    outputs = session.run(None, {input_name: noise, **classifier_auxiliary_inputs(config.get("preprocessing", {}))})
     assert outputs[0] is not None, f"{model_id}: got None output"
 
 
@@ -330,9 +331,9 @@ def test_model_softmax_sums_to_one(model_id: str, ort_session_cache: dict) -> No
     img = img.transpose(2, 0, 1)[np.newaxis]
 
     input_name = session.get_inputs()[0].name
-    from app.services.classifier_service import _classifier_auxiliary_inputs
+    from app.services.inference.preprocessing import classifier_auxiliary_inputs
 
-    logits = session.run(None, {input_name: img, **_classifier_auxiliary_inputs(pre)})[0][0]
+    logits = session.run(None, {input_name: img, **classifier_auxiliary_inputs(pre)})[0][0]
 
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
@@ -376,9 +377,9 @@ def test_model_inference_top_prediction_is_reasonable(model_id: str, ort_session
     tensor = ((base - mean) / std).transpose(2, 0, 1)[np.newaxis]
 
     input_name = session.get_inputs()[0].name
-    from app.services.classifier_service import _classifier_auxiliary_inputs
+    from app.services.inference.preprocessing import classifier_auxiliary_inputs
 
-    logits = session.run(None, {input_name: tensor, **_classifier_auxiliary_inputs(pre)})[0][0]
+    logits = session.run(None, {input_name: tensor, **classifier_auxiliary_inputs(pre)})[0][0]
     exp = np.exp(logits - logits.max())
     probs = exp / exp.sum()
 

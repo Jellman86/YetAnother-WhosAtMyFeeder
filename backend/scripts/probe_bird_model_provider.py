@@ -18,7 +18,9 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from app.services.classifier_service import ModelInstance, ONNXModelInstance, OpenVINOModelInstance
+from app.services.inference.adapters.onnx import ONNXModelInstance
+from app.services.inference.adapters.openvino import OpenVINOModelInstance
+from app.services.inference.adapters.tflite import ModelInstance
 from app.services.model_manager import model_manager
 
 
