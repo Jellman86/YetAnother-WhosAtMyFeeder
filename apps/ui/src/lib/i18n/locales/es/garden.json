@@ -230,7 +230,7 @@
     "suggestion_open": "Abrir Aves domésticas que tienes",
     "suggestion_dismiss": "Ahora no"
   },
-  "automatic_animal_below_threshold": "Animal detectado, pero la puntuación de especie está por debajo del umbral de nombre. Espera en Por revisar: confírmalo y elige una especie, o descártalo.",
+  "automatic_animal_below_threshold_dismissed": "Animal detectado, pero la puntuación de especie está por debajo del umbral de nombre. Movido a Descartados; devuélvelo a revisión si quieres nombrarlo tú.",
   "automatic_bird_camera": "Ave, gestionada por la detección de aves en esta cámara. Movida a Descartadas; devuelve la foto a revisión si no es un ave.",
   "automatic_wild_bird": "Ave silvestre. Activa las aves en esta cámara para registrarla. Movida a Descartadas; devuelve la foto a revisión si la comprobación es errónea.",
   "motion_unreadable": "{count, plural, one {# grabación no se pudo leer} other {# grabaciones no se pudieron leer}} en {camera} en la última hora y se {count, plural, one {omitió} other {omitieron}}. No se guardó ninguna foto."

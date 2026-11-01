@@ -571,12 +571,10 @@ async def test_named_visit_keeps_real_crops_after_restart_and_photo_expiry_while
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("reason", ["below_threshold", "naming_off", "no_country", "unbound"])
+@pytest.mark.parametrize("reason", ["naming_off", "no_country", "unbound"])
 async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, monkeypatch, reason):
     c = naming
-    if reason == "below_threshold":
-        c.native.return_value["predictions"][0][1] = 0.79
-    elif reason == "naming_off":
+    if reason == "naming_off":
         monkeypatch.setattr(settings.frigate, "garden_automatic_naming", False)
     elif reason == "no_country":
         monkeypatch.setattr(settings.location, "country", None)
@@ -584,12 +582,75 @@ async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, m
         c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
     await c.service.process_once()
     result = await capture(c.capture_id)
-    # A confident animal with a low species score is still an animal: it waits for a person.
     assert result.status == "pending"
     assert result.identification is None
     assert result.automatic_check.outcome == "animal"
-    if reason == "below_threshold":
-        assert result.automatic_check.decision_reason == "below_threshold"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bound", [True, False])
+async def test_animal_whose_species_score_is_below_the_threshold_is_soft_dismissed(naming, bound):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.12
+    if not bound:
+        c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed"
+    assert not result.automation_overridden
+    assert result.identification is None
+    assert result.automatic_check.outcome == "animal"
+    assert result.automatic_check.decision_reason == "below_threshold"
+    assert result.automatic_check.naming_score == pytest.approx(0.12)
+    assert "Dismissed" in c.identification.automatic_message
+    async with get_db() as db:
+        await GardenRepository(db).review(c.capture_id, "pending")
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).status == "pending"
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_animals_left_waiting_by_the_earlier_policy_are_dismissed_unless_the_owner_restored_them(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.18
+    await c.service.process_once()
+    # Reproduce what the earlier policy saved: a present animal with an unbound low score, still pending.
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            """UPDATE garden_automatic_checks
+               SET result_json=json_set(result_json,'$.decision_reason','identity_unavailable') WHERE capture_id=?""",
+            (c.capture_id,),
+        )
+        await db.commit()
+    assert await c.service.dismiss_settled_low_scores() == 1
+    assert (await capture(c.capture_id)).status == "dismissed"
+    assert await c.service.dismiss_settled_low_scores() == 0
+    async with get_db() as db:
+        await GardenRepository(db).review(c.capture_id, "pending")
+    assert await c.service.dismiss_settled_low_scores() == 0
+    restored = await capture(c.capture_id)
+    assert restored.status == "pending" and restored.automation_overridden
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_saved_check_is_skipped_without_stopping_the_startup_pass(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.12
+    await c.service.process_once()
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            "UPDATE garden_automatic_checks SET result_json=json_set(result_json,'$.outcome','gone') WHERE capture_id=?",
+            (c.capture_id,),
+        )
+        await db.commit()
+    assert await c.service.dismiss_settled_low_scores() == 0
+    async with get_db() as db:
+        row = await (await db.execute("SELECT status FROM garden_captures WHERE id=?", (c.capture_id,))).fetchone()
+    assert row[0] == "pending"
 
 
 @pytest.mark.asyncio

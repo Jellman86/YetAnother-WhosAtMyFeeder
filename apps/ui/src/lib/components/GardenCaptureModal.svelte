@@ -157,10 +157,17 @@
         if (identification.busy) return $_('garden.explorer.model_busy', { default: 'The Garden model is busy with another photo. Try again shortly.' });
         return null;
     });
-    const canCheckPhoto = $derived(Boolean(
-        identification?.catalogue_ready && !identification.error && !identification.busy && installed.includes('4.0.3a')
-        && capture.motion_source && capture.status === 'pending' && photoReady
-    ));
+    // Why Check photo is unavailable, in the order a person can act on it; the photo note covers a missing photo.
+    const checkBlocked = $derived.by((): string | null => {
+        if (!photoReady) return $_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' });
+        if (!identification) return $_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' });
+        if (identification.error) return identification.error;
+        if (!identification.catalogue_ready) return $_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' });
+        if (!installed.includes('4.0.3a')) return $_('garden.explorer.check_needs_model', { default: 'Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.' });
+        if (identification.busy) return $_('garden.explorer.model_busy', { default: 'The Garden model is busy with another photo. Try again shortly.' });
+        return null;
+    });
+    const canCheckPhoto = $derived(Boolean(capture.motion_source && capture.status === 'pending' && checkBlocked === null));
     const title = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), viewer).title);
     // Catalogue context needs a name that stands: one the owner or the check accepted, or a suggestion.
     const referenceName = $derived(view.name && capture.scientific_name && (capture.owner_identification || capture.identification?.rank === 'species') ? view.name : null);
@@ -722,16 +729,16 @@
                                         {$_('garden.confirm_manually', { default: 'Confirm animal manually' })}
                                     </button>
                                     {#if capture.motion_source}
-                                        <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving || !canCheckPhoto} onclick={checkPhoto} aria-describedby={canCheckPhoto ? undefined : 'garden-capture-check-note'}>
+                                        <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving || !canCheckPhoto} onclick={checkPhoto} aria-describedby={canCheckPhoto ? undefined : photoReady ? 'garden-capture-check-note' : 'garden-capture-photo-note'}>
                                             {$_('garden.check_photo', { default: 'Check photo' })}
                                         </button>
                                     {/if}
                                 </div>
                                 {#if !photoReady}
-                                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' })}</p>
+                                    <p id="garden-capture-photo-note" class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.confirm_needs_photo', { default: 'An animal can be confirmed only while its photo is shown.' })}</p>
                                 {/if}
-                                {#if capture.motion_source && !canCheckPhoto}
-                                    <p id="garden-capture-check-note" class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('garden.explorer.check_needs_model', { default: 'Photo checks need the automatic check model. Download it under Garden models in Settings → Beta features.' })}</p>
+                                {#if capture.motion_source && photoReady && checkBlocked}
+                                    <p id="garden-capture-check-note" class="mt-2 text-xs text-slate-600 dark:text-slate-400">{checkBlocked}</p>
                                 {/if}
                             </details>
                         {:else if capture.status === 'confirmed'}
@@ -793,15 +800,14 @@
                     <div class="flex flex-wrap items-center gap-2 pt-2" data-garden-capture-bottom-actions>
                         <button
                             type="button"
-                            class="rounded-xl bg-slate-100 p-3 text-slate-600 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                            class="btn btn-secondary min-h-11 min-w-0 gap-2 whitespace-normal px-4 text-sm"
                             disabled={saving || entryBlocked !== null}
                             onclick={dismissEntry}
-                            title={entryDismissLabel}
-                            aria-label={entryDismissLabel}
                             aria-describedby={entryBlocked ? 'garden-entry-dismiss-note' : undefined}
                             data-garden-entry-dismiss={entryKind}
                         >
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                            <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                            <span class="min-w-0 [overflow-wrap:anywhere]">{entryDismissLabel}</span>
                         </button>
                     </div>
                     {#if entryBlocked}

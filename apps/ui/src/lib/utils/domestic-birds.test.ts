@@ -80,7 +80,7 @@ describe('domestic birds', () => {
         expect(gardenVisitIdentity(routed)).toBe('domestic:chicken');
     });
 
-    it('keeps a present animal below the naming threshold waiting for a person', () => {
+    it('asks a person about a pending animal whose species score missed the naming threshold', () => {
         const pending = capture({
             status: 'pending',
             frigate_label: 'dog',

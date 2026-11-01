@@ -230,7 +230,7 @@
     "suggestion_open": "Apri Uccelli domestici che allevi",
     "suggestion_dismiss": "Non ora"
   },
-  "automatic_animal_below_threshold": "Animale rilevato, ma il punteggio di specie è sotto la soglia di denominazione. Attende in Da rivedere: confermalo e scegli una specie, oppure scartalo.",
+  "automatic_animal_below_threshold_dismissed": "Animale rilevato, ma il punteggio di specie è sotto la soglia di denominazione. Spostato in Scartati; rimettilo da rivedere se vuoi nominarlo tu.",
   "automatic_bird_camera": "Uccello, gestito dal rilevamento uccelli su questa telecamera. Spostato in Scartate; rimetti la foto da rivedere se non è un uccello.",
   "automatic_wild_bird": "Uccello selvatico. Attiva gli uccelli per questa telecamera per registrarlo. Spostato in Scartate; rimetti la foto da rivedere se il controllo è sbagliato.",
   "motion_unreadable": "{count, plural, one {# registrazione non è stata letta} other {# registrazioni non sono state lette}} su {camera} nell'ultima ora e {count, plural, one {è stata saltata} other {sono state saltate}}. Nessuna foto è stata conservata."

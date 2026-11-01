@@ -230,7 +230,7 @@
     "suggestion_open": "打开“您饲养的家禽”",
     "suggestion_dismiss": "暂不"
   },
-  "automatic_animal_below_threshold": "已检测到动物，但其物种分数低于命名阈值。它在“待审核”中等待：请确认并选择物种，或忽略它。",
+  "automatic_animal_below_threshold_dismissed": "已检测到动物，但其物种分数低于命名阈值。已移至“已忽略”；如需自行命名，可将其返回审核。",
   "automatic_bird_camera": "鸟，由此摄像头上的鸟类检测处理。已移到“已忽略”；如果不是鸟，请将照片返回审核。",
   "automatic_wild_bird": "野鸟。要记录它，请为此摄像头开启鸟类检测。已移到“已忽略”；如果检查有误，请将照片返回审核。",
   "motion_unreadable": "过去一小时内，{camera} 上有 {count, plural, other {# 段录像}}无法读取，已跳过。未保留任何照片。"

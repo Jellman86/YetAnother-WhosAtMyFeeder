@@ -230,7 +230,7 @@
     "suggestion_open": "Abrir Aves domésticas que você cria",
     "suggestion_dismiss": "Agora não"
   },
-  "automatic_animal_below_threshold": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Ele aguarda em Para revisar: confirme e escolha uma espécie, ou descarte.",
+  "automatic_animal_below_threshold_dismissed": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Movido para Descartados; volte-o para revisão se quiser nomeá-lo você mesmo.",
   "automatic_bird_camera": "Ave, tratada pela detecção de aves nesta câmera. Movida para Descartadas; devolva a foto para revisão se não for uma ave.",
   "automatic_wild_bird": "Ave selvagem. Ative aves nesta câmera para registrá-la. Movida para Descartadas; devolva a foto para revisão se a verificação estiver errada.",
   "motion_unreadable": "{count, plural, one {# gravação não pôde ser lida} other {# gravações não puderam ser lidas}} em {camera} na última hora e {count, plural, one {foi ignorada} other {foram ignoradas}}. Nenhuma foto foi mantida."

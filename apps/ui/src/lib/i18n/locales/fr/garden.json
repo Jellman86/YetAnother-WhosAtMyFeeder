@@ -230,7 +230,7 @@
     "suggestion_open": "Ouvrir Oiseaux domestiques que vous élevez",
     "suggestion_dismiss": "Pas maintenant"
   },
-  "automatic_animal_below_threshold": "Animal détecté, mais son score d’espèce est sous le seuil de nommage. Il attend dans À vérifier : confirmez-le et choisissez une espèce, ou rejetez-le.",
+  "automatic_animal_below_threshold_dismissed": "Animal détecté, mais son score d’espèce est sous le seuil de nommage. Déplacé dans Rejetés ; remettez-le à vérifier si vous voulez le nommer vous-même.",
   "automatic_bird_camera": "Oiseau, pris en charge par la détection d’oiseaux sur cette caméra. Déplacé dans Rejetées ; remettez la photo à vérifier si ce n’est pas un oiseau.",
   "automatic_wild_bird": "Oiseau sauvage. Activez les oiseaux pour cette caméra pour l’enregistrer. Déplacé dans Rejetées ; remettez la photo à vérifier si la vérification est fausse.",
   "motion_unreadable": "{count, plural, one {# enregistrement n’a pas pu être lu} other {# enregistrements n’ont pas pu être lus}} sur {camera} au cours de la dernière heure et {count, plural, one {a été ignoré} other {ont été ignorés}}. Aucune photo n’a été conservée."
