@@ -9,6 +9,7 @@ from app.config import settings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
 from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.transports.email import EmailCredentials, EmailOptions, EmailTransport
 from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
 from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
 from app.services.notifications.transports.telegram import TelegramCredentials, TelegramOptions, TelegramTransport
@@ -496,41 +497,35 @@ class NotificationService:
                 except Exception as fetch_error:
                     log.warning("Failed to fetch snapshot for email", error=str(fetch_error))
 
-            # Send email
             if cfg.use_oauth and cfg.oauth_provider:
-                success = await smtp_service.send_email_oauth(
-                    provider=cfg.oauth_provider,
-                    to_email=cfg.to_email,
-                    subject=subject,
-                    html_body=html_body,
-                    plain_body=plain_body,
-                    image_data=image_data,
-                )
+                # The OAuth mailbox sends as the address its token belongs to.
+                credentials = EmailCredentials(to_email=cfg.to_email, oauth_provider=cfg.oauth_provider)
             else:
-                # Traditional SMTP
                 if not cfg.smtp_host or not cfg.from_email:
                     log.error("Email SMTP configuration incomplete")
                     return False
-
-                success = await smtp_service.send_email_password(
+                credentials = EmailCredentials(
+                    to_email=cfg.to_email,
+                    from_email=cfg.from_email,
                     smtp_host=cfg.smtp_host,
                     smtp_port=cfg.smtp_port,
-                    username=cfg.smtp_username,
-                    password=cfg.smtp_password,
-                    from_email=cfg.from_email,
-                    to_email=cfg.to_email,
-                    subject=subject,
-                    html_body=html_body,
-                    plain_body=plain_body,
+                    smtp_username=cfg.smtp_username,
+                    smtp_password=cfg.smtp_password,
                     use_tls=cfg.smtp_use_tls,
-                    image_data=image_data,
                 )
+            message = NotificationMessage(
+                title=subject, attachment=Attachment("snapshot.jpg", image_data) if image_data else None
+            )
+            result = await EmailTransport(smtp_service).send(
+                message, credentials, EmailOptions(html_body=html_body, plain_body=plain_body)
+            )
+            success = result.sent
 
             if success:
                 log.info("Email notification sent", to=cfg.to_email, species=species)
                 return True
             else:
-                log.error("Email notification failed")
+                log.error("Email notification failed", error_type=result.error_type)
                 return False
 
         except Exception as e:

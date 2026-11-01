@@ -966,3 +966,34 @@ async def test_bird_pushover_sends_the_detection_with_its_time_priority_and_link
         "url_title": "View Snapshot",
         "device": "phone",
     }
+
+
+@pytest.mark.asyncio
+async def test_bird_email_over_oauth_sends_the_template_from_the_token_mailbox(notification_service, monkeypatch):
+    from app.config import settings
+    from app.services.smtp_service import smtp_service
+
+    cfg = settings.notifications.email
+    for key, value in {
+        "to_email": "owner@example.test",
+        "from_email": "configured@example.test",
+        "use_oauth": True,
+        "oauth_provider": "gmail",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    oauth = AsyncMock(return_value=True)
+    password = AsyncMock(return_value=True)
+    monkeypatch.setattr(smtp_service, "send_email_oauth", oauth)
+    monkeypatch.setattr(smtp_service, "send_email_password", password)
+    sent = await notification_service._send_email(
+        "Robin", "Erithacus rubecula", 0.92, "front", SEEN_AT, "http://frigate/snap.jpg", b"bird-jpeg", False, "en"
+    )
+    assert sent is True
+    password.assert_not_awaited()
+    kwargs = oauth.await_args.kwargs
+    assert kwargs["provider"] == "gmail" and kwargs["to_email"] == "owner@example.test"
+    assert kwargs["from_email"] is None, "the OAuth token's own address sends bird alerts"
+    assert kwargs["image_data"] == b"bird-jpeg"
+    assert "Robin" in kwargs["subject"] and "Erithacus rubecula" in kwargs["html_body"]
+    assert "cid:bird_snapshot" in kwargs["html_body"]

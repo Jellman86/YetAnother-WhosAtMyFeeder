@@ -17,6 +17,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.services.notifications.message import Attachment, DeliveryResult, NotificationMessage, SubjectLink
 from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+from app.services.notifications.transports.email import EmailCredentials, EmailOptions, EmailTransport
 from app.services.notifications.transports.pushover import (
     API_URL as PUSHOVER_URL,
     PushoverCredentials,
@@ -334,3 +335,117 @@ def test_verbose_http_logs_hide_a_configured_discord_webhook_on_any_host(monkeyp
     logging.getLogger(logger).info("HTTP Request: POST %s", webhook + "?wait=true")
     assert "DUMMY-SELF-HOSTED-WEBHOOK" not in caplog.text
     assert "REDACTED" in caplog.text and "HTTP Request" in caplog.text
+
+
+# --- Email --------------------------------------------------------------------------------------
+
+
+class FakeMailer:
+    """The SMTP/OAuth boundary: records each send and answers, or raises, as told."""
+
+    def __init__(self, answer: object = True) -> None:
+        self.calls: list[tuple[str, dict[str, object]]] = []
+        self.answer = answer
+
+    async def _record(self, kind: str, kwargs: dict[str, object]) -> bool:
+        self.calls.append((kind, kwargs))
+        if isinstance(self.answer, Exception):
+            raise self.answer
+        return self.answer is True
+
+    async def send_email_oauth(self, **kwargs):
+        return await self._record("oauth", kwargs)
+
+    async def send_email_password(self, **kwargs):
+        return await self._record("password", kwargs)
+
+
+SMTP = EmailCredentials(
+    to_email="owner@example.test",
+    from_email="feeder@example.test",
+    smtp_host="smtp.example.test",
+    smtp_port=465,
+    smtp_username="feeder",
+    smtp_password="DUMMY-SMTP-PASSWORD",
+    use_tls=False,
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("attachment", [None, PHOTO])
+async def test_email_sends_once_and_embeds_a_photo_only_when_given_one(attachment):
+    mailer = FakeMailer()
+    result = await EmailTransport(mailer).send(NotificationMessage("Title", "Body", attachment=attachment), SMTP)
+    assert result == DeliveryResult(sent=True)
+    assert len(mailer.calls) == 1
+    kwargs = mailer.calls[0][1]
+    assert kwargs["image_data"] == (PHOTO.content if attachment else None)
+    assert ("cid:bird_snapshot" in str(kwargs["html_body"])) is (attachment is not None)
+
+
+@pytest.mark.asyncio
+async def test_email_over_smtp_escapes_data_and_links_the_subject():
+    mailer = FakeMailer()
+    message = NotificationMessage('Cat <b>& "x"', "Seen <here>", link=LINK, attachment=PHOTO)
+    await EmailTransport(mailer).send(message, SMTP)
+    assert mailer.calls == [
+        (
+            "password",
+            {
+                "smtp_host": "smtp.example.test",
+                "smtp_port": 465,
+                "username": "feeder",
+                "password": "DUMMY-SMTP-PASSWORD",
+                "from_email": "feeder@example.test",
+                "to_email": "owner@example.test",
+                "subject": 'Cat <b>& "x"',
+                "html_body": (
+                    "<h1>Cat &lt;b&gt;&amp; &quot;x&quot;</h1><p>Seen &lt;here&gt;</p>"
+                    '<p><img src="cid:bird_snapshot" alt="Cat &lt;b&gt;&amp; &quot;x&quot;" style="max-width:100%"></p>'
+                    '<p><a href="https://owner.test/feeder/events?garden_capture=abc&amp;x=1">View capture</a></p>'
+                ),
+                "plain_body": f'Cat <b>& "x"\nSeen <here>\n{LINK.url}',
+                "use_tls": False,
+                "image_data": PHOTO.content,
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_email_over_oauth_uses_the_provider_and_a_builder_rendered_body():
+    mailer = FakeMailer()
+    oauth = EmailCredentials(to_email="owner@example.test", oauth_provider="gmail")
+    rendered = EmailOptions(html_body="<p>template</p>", plain_body="template")
+    await EmailTransport(mailer).send(NotificationMessage("Robin"), oauth, rendered)
+    assert mailer.calls == [
+        (
+            "oauth",
+            {
+                "provider": "gmail",
+                "to_email": "owner@example.test",
+                "from_email": None,
+                "subject": "Robin",
+                "html_body": "<p>template</p>",
+                "plain_body": "template",
+                "image_data": None,
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "answer,expected",
+    [
+        (False, DeliveryResult(sent=False)),
+        (OSError("535 auth failed for DUMMY-SMTP-PASSWORD"), DeliveryResult(sent=False, error_type="OSError")),
+    ],
+)
+async def test_email_failure_is_reported_once_without_provider_text(answer, expected):
+    mailer = FakeMailer(answer)
+    with capture_logs() as logs:
+        result = await EmailTransport(mailer).send(NotificationMessage("Title", "Body"), SMTP)
+    assert result == expected
+    assert len(mailer.calls) == 1
+    assert "DUMMY-SMTP-PASSWORD" not in repr(result) + json.dumps(logs) + repr(SMTP)

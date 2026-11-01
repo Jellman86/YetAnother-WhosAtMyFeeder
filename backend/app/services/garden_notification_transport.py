@@ -1,6 +1,5 @@
 """Garden messages: their own text, the accepted photo as an attachment, and no media URL or token."""
 
-import html
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
@@ -16,6 +15,7 @@ from app.services.i18n_service import i18n_service
 from app.services.notification_links import instance_base
 from app.services.notifications.message import Attachment, DeliveryResult, NotificationMessage, SubjectLink
 from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+from app.services.notifications.transports.email import EmailCredentials, EmailTransport
 from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
 from app.services.notifications.transports.telegram import TelegramCredentials, TelegramTransport
 
@@ -126,6 +126,21 @@ async def _send_through_transport(channel: str, alert: NotificationMessage) -> D
     if channel == "telegram":
         credentials = TelegramCredentials(cfg.telegram.bot_token, cfg.telegram.chat_id)
         return await TelegramTransport(http_client).send(alert, credentials)
+    if channel == "email":
+        from app.services.smtp_service import smtp_service
+
+        email = cfg.email
+        credentials = EmailCredentials(
+            to_email=email.to_email,
+            from_email=email.from_email,
+            oauth_provider=email.oauth_provider if email.use_oauth else None,
+            smtp_host=email.smtp_host,
+            smtp_port=email.smtp_port,
+            smtp_username=email.smtp_username,
+            smtp_password=email.smtp_password,
+            use_tls=email.smtp_use_tls,
+        )
+        return await EmailTransport(smtp_service).send(alert, credentials)
     if channel == "pushover":
         credentials = PushoverCredentials(cfg.pushover.api_token, cfg.pushover.user_key)
         return await PushoverTransport(http_client).send(
@@ -137,53 +152,10 @@ async def _send_through_transport(channel: str, alert: NotificationMessage) -> D
 async def send_garden_notification(channel: str, capture: GardenCapture, photo: bytes | None = None) -> bool:
     if not channel_configured(channel):
         return False
-    alert = garden_message(capture, photo)
-    result = await _send_through_transport(channel, alert)
-    if result is not None:
-        if not result.sent:
-            log.warning("garden_channel_delivery_failed", channel=channel, error_type=result.error_type)
-        return result.sent
-    title, body, url = message(capture)
-    lang = settings.notifications.notification_language
-    link_text = i18n_service.translate("notification.garden_view", lang=lang)
-    cfg = settings.notifications
-    try:
-        if channel == "email":
-            from app.services.smtp_service import smtp_service
-
-            email = cfg.email
-            plain = f"{title}\n{body}" + (f"\n{url}" if url else "")
-            rendered = f"<h1>{html.escape(title)}</h1><p>{html.escape(body)}</p>"
-            if photo:
-                # smtp_service attaches the image inline under this Content-ID.
-                rendered += f'<p><img src="cid:bird_snapshot" alt="{html.escape(title, quote=True)}" style="max-width:100%"></p>'
-            if url:
-                rendered += f'<p><a href="{html.escape(url, quote=True)}">{html.escape(link_text)}</a></p>'
-            if email.use_oauth:
-                return await smtp_service.send_email_oauth(
-                    provider=email.oauth_provider,
-                    to_email=email.to_email,
-                    from_email=email.from_email,
-                    subject=title,
-                    html_body=rendered,
-                    plain_body=plain,
-                    image_data=photo,
-                )
-            return await smtp_service.send_email_password(
-                smtp_host=email.smtp_host,
-                smtp_port=email.smtp_port,
-                username=email.smtp_username,
-                password=email.smtp_password,
-                from_email=email.from_email,
-                to_email=email.to_email,
-                subject=title,
-                html_body=rendered,
-                plain_body=plain,
-                use_tls=email.smtp_use_tls,
-                image_data=photo,
-            )
+    result = await _send_through_transport(channel, garden_message(capture, photo))
+    if result is None:
         return False
-    except Exception as error:
-        # Third-party failures can contain credential-bearing URLs or request bodies.
-        log.warning("garden_channel_delivery_failed", channel=channel, error_type=type(error).__name__)
-        return False
+    if not result.sent:
+        # The result names the failure's type and status only, never provider text or credentials.
+        log.warning("garden_channel_delivery_failed", channel=channel, error_type=result.error_type)
+    return result.sent
