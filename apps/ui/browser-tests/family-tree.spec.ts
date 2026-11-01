@@ -174,6 +174,26 @@ test('a name opens its card on hover and keyboard focus: a species with its refe
     expect(errors).toEqual([]);
 });
 
+test('a species card still shows its photo when it is pinned while the photo is loading', async ({ page }) => {
+    const { errors } = await prepare(page);
+    // Hold the lookup so the card is still loading when the same name is clicked.
+    let release: () => void = () => {};
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    await page.route(/\/api\/species\/.+\/info$/, async (route) => {
+        await held;
+        await route.fulfill({ json: { title: 'Prunella modularis', scientific_name: 'Prunella modularis', thumbnail_url: REFERENCE } });
+    });
+    const card = page.locator('[data-taxon-card]');
+    const dunnock = page.locator('[data-taxonomy-lineage] button', { hasText: 'Dunnock' });
+    await dunnock.hover();
+    await expect(card).toHaveAttribute('aria-label', 'Dunnock');
+    // Pinning places the same species again; the lookup already under way must still land.
+    await dunnock.click();
+    release();
+    await expect(card.locator('[data-taxon-card-picture]')).toHaveAttribute('src', REFERENCE);
+    expect(errors).toEqual([]);
+});
+
 test('a click pins the card until a click elsewhere, so a tap can open it', async ({ page }) => {
     await prepare(page);
     const card = page.locator('[data-taxon-card]');
