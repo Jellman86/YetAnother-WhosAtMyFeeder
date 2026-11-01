@@ -358,7 +358,7 @@ async def test_public_audio_lookup_work_depends_on_capture_window_not_shared_his
 async def test_public_audio_indexed_bounds_preserve_midnight_and_capture_edges(
     private_history, monkeypatch, public_days, seconds, capture_offset
 ):
-    from app.repositories.detection_repository import _public_audio_conditions_sql
+    from app.repositories.audio_history_repository import public_audio_conditions_sql
     from app.utils.api_datetime import serialize_storage_datetime
     from app.utils.public_access import public_events_window
 
@@ -387,7 +387,7 @@ async def test_public_audio_indexed_bounds_preserve_midnight_and_capture_edges(
             "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data,is_hidden) VALUES(?,'Robin',.9,'micA','{}',0)",
             [(serialize_storage_datetime(stamp),) for stamp in samples],
         )
-        sql, params = await _public_audio_conditions_sql(db)
+        sql, params = await public_audio_conditions_sql(db)
         query = f"""WITH d(camera_name,detection_time,audio_species) AS (VALUES (?,?,?))
             SELECT a.timestamp FROM d JOIN audio_detections a ON {sql} ORDER BY a.timestamp"""
         async with db.execute(query, ["secret-camera", serialize_storage_datetime(target), "Robin", *params]) as cursor:

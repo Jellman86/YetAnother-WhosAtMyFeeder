@@ -5,8 +5,8 @@ from app.repositories.detection_repository import (
     Detection,
     DetectionRepository,
     _row_to_detection,
-    _public_audio_evidence_sql,
 )
+from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.services.visit_grouping import VISIT_GAP_SECONDS, valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
 
@@ -171,7 +171,7 @@ class VisitRepository(DetectionRepository):
             clauses.append("EXISTS (SELECT 1 FROM detection_favorites f WHERE f.detection_id = d.id)")
         if audio_only:
             if public_audio:
-                condition, values = await _public_audio_evidence_sql(self.db)
+                condition, values = await public_audio_evidence_sql(self.db)
                 condition = "d.audio_confirmed = 1 AND " + condition
                 clauses.append(condition)
                 params.extend(values)
@@ -213,7 +213,7 @@ class VisitRepository(DetectionRepository):
         )
         audio_sql, audio_params = ("1 = 1", [])
         if public_audio:
-            audio_sql, audio_params = await _public_audio_evidence_sql(self.db)
+            audio_sql, audio_params = await public_audio_evidence_sql(self.db)
             audio_sql = audio_sql.replace("d.", "v.")
         source_cte = cte
         source_params = [*params, *values]
@@ -280,7 +280,7 @@ class VisitRepository(DetectionRepository):
         cte, params = await self.grouping_cte(start=start, end=end)
         audio_sql, audio_params = ("1 = 1", [])
         if public_audio:
-            audio_sql, audio_params = await _public_audio_evidence_sql(self.db)
+            audio_sql, audio_params = await public_audio_evidence_sql(self.db)
             audio_sql = audio_sql.replace("d.", "v.")
         async with self.db.execute(
             f"""WITH {cte}

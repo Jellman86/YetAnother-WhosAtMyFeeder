@@ -1,0 +1,765 @@
+{
+ "backfill": {
+  "identified": 3,
+  "names_seen": 3,
+  "unresolved": 4
+ },
+ "context_bounded": [
+  [
+   {
+    "birdnet_id": 102,
+    "confidence": 0.72,
+    "offset_seconds": 10,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "garden-mic",
+    "species": "Wren",
+    "timestamp": "2033-06-10T08:00:20+00:00"
+   },
+   {
+    "birdnet_id": 103,
+    "confidence": 0.65,
+    "offset_seconds": 30,
+    "scientific_name": "Turdus merula",
+    "sensor_id": "shed-mic",
+    "species": "Blackbird",
+    "timestamp": "2033-06-10T08:00:40+00:00"
+   }
+  ],
+  0
+ ],
+ "context_garden": [
+  [
+   {
+    "birdnet_id": 101,
+    "confidence": 0.91,
+    "offset_seconds": -10,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "species": "Robin",
+    "timestamp": "2033-06-10T08:00:00+00:00"
+   },
+   {
+    "birdnet_id": 102,
+    "confidence": 0.72,
+    "offset_seconds": 10,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "garden-mic",
+    "species": "Wren",
+    "timestamp": "2033-06-10T08:00:20+00:00"
+   }
+  ],
+  1
+ ],
+ "context_unmapped": [
+  [],
+  3
+ ],
+ "contexts": {
+  "evt-quiet": [
+   [],
+   0
+  ],
+  "evt-robin": [
+   [
+    {
+     "birdnet_id": 101,
+     "confidence": 0.91,
+     "offset_seconds": -10,
+     "scientific_name": "Erithacus rubecula",
+     "sensor_id": "garden-mic",
+     "species": "Robin",
+     "timestamp": "2033-06-10T08:00:00+00:00"
+    },
+    {
+     "birdnet_id": 102,
+     "confidence": 0.72,
+     "offset_seconds": 10,
+     "scientific_name": "Troglodytes troglodytes",
+     "sensor_id": "garden-mic",
+     "species": "Wren",
+     "timestamp": "2033-06-10T08:00:20+00:00"
+    }
+   ],
+   1
+  ],
+  "evt-shed": [
+   [
+    {
+     "birdnet_id": 103,
+     "confidence": 0.65,
+     "offset_seconds": -5,
+     "scientific_name": "Turdus merula",
+     "sensor_id": "shed-mic",
+     "species": "Blackbird",
+     "timestamp": "2033-06-10T08:00:40+00:00"
+    },
+    {
+     "birdnet_id": 102,
+     "confidence": 0.72,
+     "offset_seconds": -25,
+     "scientific_name": "Troglodytes troglodytes",
+     "sensor_id": "garden-mic",
+     "species": "Wren",
+     "timestamp": "2033-06-10T08:00:20+00:00"
+    }
+   ],
+   0
+  ],
+  "evt-wren": [
+   [
+    {
+     "birdnet_id": 102,
+     "confidence": 0.72,
+     "offset_seconds": -10,
+     "scientific_name": "Troglodytes troglodytes",
+     "sensor_id": "garden-mic",
+     "species": "Wren",
+     "timestamp": "2033-06-10T08:00:20+00:00"
+    },
+    {
+     "birdnet_id": 101,
+     "confidence": 0.91,
+     "offset_seconds": -30,
+     "scientific_name": "Erithacus rubecula",
+     "sensor_id": "garden-mic",
+     "species": "Robin",
+     "timestamp": "2033-06-10T08:00:00+00:00"
+    }
+   ],
+   1
+  ]
+ },
+ "correlation": [
+  {
+   "confidence": 0.91,
+   "database_id": 1,
+   "raw_data": {
+    "detectionId": 101,
+    "nm": "Garden Mic"
+   },
+   "scientific_name": "Erithacus rubecula",
+   "sensor_id": "garden-mic",
+   "source_event_id": "garden-mic:101",
+   "species": "Robin",
+   "timestamp": "2033-06-10T08:00:00"
+  },
+  null,
+  null
+ ],
+ "delete": [
+  true,
+  false
+ ],
+ "hide": [
+  true,
+  false
+ ],
+ "history": {
+  "items": [
+   {
+    "_mapping_keys": [
+     "103",
+     "shed",
+     "shed-mic"
+    ],
+    "birdnet_id": 103,
+    "confidence": 0.65,
+    "id": 3,
+    "scientific_name": "Turdus merula",
+    "sensor_id": "shed-mic",
+    "source_name": "Shed",
+    "species": "Blackbird",
+    "timestamp": "2033-06-10T08:00:40Z"
+   },
+   {
+    "_mapping_keys": [
+     "dev-1",
+     "garden mic",
+     "garden-mic"
+    ],
+    "birdnet_id": 102,
+    "confidence": 0.72,
+    "id": 2,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "garden-mic",
+    "source_name": "Garden Mic",
+    "species": "Wren",
+    "timestamp": "2033-06-10T08:00:20Z"
+   },
+   {
+    "_mapping_keys": [
+     "garden mic",
+     "garden-mic"
+    ],
+    "birdnet_id": 101,
+    "confidence": 0.91,
+    "id": 1,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "Garden Mic",
+    "species": "Robin",
+    "timestamp": "2033-06-10T08:00:00Z"
+   },
+   {
+    "_mapping_keys": [
+     "garden-mic"
+    ],
+    "birdnet_id": 105,
+    "confidence": 0.81,
+    "id": 5,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "garden-mic",
+    "species": "Robin",
+    "timestamp": "2033-06-09T19:00:00Z"
+   }
+  ],
+  "limit": 4,
+  "offset": 0,
+  "total": 6
+ },
+ "history_bounded": {
+  "items": [
+   {
+    "_mapping_keys": [
+     "dev-1",
+     "garden mic",
+     "garden-mic"
+    ],
+    "birdnet_id": 102,
+    "confidence": 0.72,
+    "id": 2,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "garden-mic",
+    "source_name": "Garden Mic",
+    "species": "Wren",
+    "timestamp": "2033-06-10T08:00:20Z"
+   },
+   {
+    "_mapping_keys": [
+     "garden mic",
+     "garden-mic"
+    ],
+    "birdnet_id": 101,
+    "confidence": 0.91,
+    "id": 1,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "Garden Mic",
+    "species": "Robin",
+    "timestamp": "2033-06-10T08:00:00Z"
+   },
+   {
+    "_mapping_keys": [
+     "garden-mic"
+    ],
+    "birdnet_id": 105,
+    "confidence": 0.81,
+    "id": 5,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "garden-mic",
+    "species": "Robin",
+    "timestamp": "2033-06-09T19:00:00Z"
+   },
+   {
+    "_mapping_keys": [],
+    "birdnet_id": null,
+    "confidence": 0.77,
+    "id": 6,
+    "scientific_name": "Turdus philomelos",
+    "sensor_id": null,
+    "source_name": null,
+    "species": "Song Thrush",
+    "timestamp": "2033-06-08T06:30:00Z"
+   },
+   {
+    "_mapping_keys": [
+     "shed",
+     "shed-mic"
+    ],
+    "birdnet_id": 107,
+    "confidence": 0.68,
+    "id": 7,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "shed-mic",
+    "source_name": "shed-mic",
+    "species": "Wren",
+    "timestamp": "2033-06-03T06:30:00Z"
+   }
+  ],
+  "limit": 100,
+  "offset": 0,
+  "total": 5
+ },
+ "history_filtered": {
+  "items": [
+   {
+    "_mapping_keys": [
+     "garden mic",
+     "garden-mic"
+    ],
+    "birdnet_id": 101,
+    "confidence": 0.91,
+    "id": 1,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "Garden Mic",
+    "species": "Robin",
+    "timestamp": "2033-06-10T08:00:00Z"
+   },
+   {
+    "_mapping_keys": [
+     "garden-mic"
+    ],
+    "birdnet_id": 105,
+    "confidence": 0.81,
+    "id": 5,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "source_name": "garden-mic",
+    "species": "Robin",
+    "timestamp": "2033-06-09T19:00:00Z"
+   }
+  ],
+  "limit": 100,
+  "offset": 0,
+  "total": 2
+ },
+ "history_page_two": {
+  "items": [
+   {
+    "_mapping_keys": [],
+    "birdnet_id": null,
+    "confidence": 0.77,
+    "id": 6,
+    "scientific_name": "Turdus philomelos",
+    "sensor_id": null,
+    "source_name": null,
+    "species": "Song Thrush",
+    "timestamp": "2033-06-08T06:30:00Z"
+   },
+   {
+    "_mapping_keys": [
+     "shed",
+     "shed-mic"
+    ],
+    "birdnet_id": 107,
+    "confidence": 0.68,
+    "id": 7,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "shed-mic",
+    "source_name": "shed-mic",
+    "species": "Wren",
+    "timestamp": "2033-06-03T06:30:00Z"
+   }
+  ],
+  "limit": 4,
+  "offset": 4,
+  "total": 6
+ },
+ "history_start": "2033-06-03T06:30:00",
+ "history_start_bounded": "2033-06-09T19:00:00",
+ "insert_new": [
+  8,
+  true
+ ],
+ "insert_plain": 9,
+ "insert_repeat": [
+  8,
+  false
+ ],
+ "media_visible": {
+  "101": true,
+  "102": true,
+  "103": true,
+  "104": false,
+  "105": true,
+  "107": false,
+  "999": false
+ },
+ "pending_names": [
+  [
+   "Erithacus rubecula",
+   3
+  ],
+  [
+   "Troglodytes troglodytes",
+   2
+  ],
+  [
+   "Turdus merula",
+   1
+  ],
+  [
+   "Turdus philomelos",
+   1
+  ]
+ ],
+ "public_audio": {
+  "evt-robin": {
+   "context": [],
+   "primary": {
+    "confidence": 0.91,
+    "scientific_name": "Erithacus rubecula",
+    "sensor_id": "garden-mic",
+    "species": "Robin",
+    "timestamp": "2033-06-10 08:00:00"
+   }
+  },
+  "evt-shed": {
+   "context": [
+    {
+     "confidence": 0.65,
+     "scientific_name": "Turdus merula",
+     "sensor_id": "shed-mic",
+     "species": "Blackbird",
+     "timestamp": "2033-06-10 08:00:40"
+    },
+    {
+     "confidence": 0.72,
+     "scientific_name": "Troglodytes troglodytes",
+     "sensor_id": "garden-mic",
+     "species": "Wren",
+     "timestamp": "2033-06-10 08:00:20"
+    },
+    {
+     "confidence": 0.91,
+     "scientific_name": "Erithacus rubecula",
+     "sensor_id": "garden-mic",
+     "species": "Robin",
+     "timestamp": "2033-06-10 08:00:00"
+    }
+   ],
+   "primary": {
+    "confidence": 0.65,
+    "scientific_name": "Turdus merula",
+    "sensor_id": "shed-mic",
+    "species": "Blackbird",
+    "timestamp": "2033-06-10 08:00:40"
+   }
+  },
+  "evt-wren": {
+   "context": [
+    {
+     "confidence": 0.72,
+     "scientific_name": "Troglodytes troglodytes",
+     "sensor_id": "garden-mic",
+     "species": "Wren",
+     "timestamp": "2033-06-10 08:00:20"
+    },
+    {
+     "confidence": 0.91,
+     "scientific_name": "Erithacus rubecula",
+     "sensor_id": "garden-mic",
+     "species": "Robin",
+     "timestamp": "2033-06-10 08:00:00"
+    }
+   ],
+   "primary": {
+    "confidence": 0.72,
+    "scientific_name": "Troglodytes troglodytes",
+    "sensor_id": "garden-mic",
+    "species": "Wren",
+    "timestamp": "2033-06-10 08:00:20"
+   }
+  }
+ },
+ "recent_sources": [
+  {
+   "raw_data": "{\"id\": 103, \"sourceName\": \"Shed\"}",
+   "sensor_id": "shed-mic",
+   "timestamp": "2033-06-10 08:00:40"
+  },
+  {
+   "raw_data": "{\"detection_id\": \"102\", \"Source\": {\"displayName\": \"Garden Mic\", \"id\": \"dev-1\"}}",
+   "sensor_id": "garden-mic",
+   "timestamp": "2033-06-10 08:00:20"
+  },
+  {
+   "raw_data": "{\"detectionId\": 101, \"nm\": \"Garden Mic\"}",
+   "sensor_id": "garden-mic",
+   "timestamp": "2033-06-10 08:00:00"
+  }
+ ],
+ "recent_sources_bounded": [
+  {
+   "raw_data": "{\"detection_id\": \"102\", \"Source\": {\"displayName\": \"Garden Mic\", \"id\": \"dev-1\"}}",
+   "sensor_id": "garden-mic",
+   "timestamp": "2033-06-10 08:00:20"
+  },
+  {
+   "raw_data": "{\"detectionId\": 101, \"nm\": \"Garden Mic\"}",
+   "sensor_id": "garden-mic",
+   "timestamp": "2033-06-10 08:00:00"
+  },
+  {
+   "raw_data": "{\"detectionId\": 105}",
+   "sensor_id": "garden-mic",
+   "timestamp": "2033-06-09 19:00:00"
+  },
+  {
+   "raw_data": "not json",
+   "sensor_id": null,
+   "timestamp": "2033-06-08 06:30:00"
+  }
+ ],
+ "rows_after_writes": [
+  [
+   1,
+   "2033-06-10 08:00:00",
+   "Robin",
+   "garden-mic",
+   "{\"detectionId\": 101, \"nm\": \"Garden Mic\"}",
+   "garden-mic:101",
+   9001,
+   0
+  ],
+  [
+   2,
+   "2033-06-10 08:00:20",
+   "Wren",
+   "garden-mic",
+   "{\"detection_id\": \"102\", \"Source\": {\"displayName\": \"Garden Mic\", \"id\": \"dev-1\"}}",
+   "garden-mic:102",
+   null,
+   1
+  ],
+  [
+   4,
+   "2033-06-10 08:01:30",
+   "Robin",
+   "garden-mic",
+   "{\"detectionId\": 104, \"src\": \"dev-1\"}",
+   "garden-mic:104",
+   9001,
+   1
+  ],
+  [
+   5,
+   "2033-06-09 19:00:00",
+   "Robin",
+   "garden-mic",
+   "{\"detectionId\": 105}",
+   "garden-mic:105",
+   9001,
+   0
+  ],
+  [
+   6,
+   "2033-06-08 06:30:00",
+   "Song Thrush",
+   null,
+   "not json",
+   null,
+   null,
+   0
+  ],
+  [
+   7,
+   "2033-06-03 06:30:00",
+   "Wren",
+   "shed-mic",
+   "{\"detectionId\": 107, \"sourceId\": \"shed\"}",
+   "shed-mic:107",
+   null,
+   0
+  ],
+  [
+   8,
+   "2033-06-10 09:00:00",
+   "Robin",
+   "garden-mic",
+   "{\"detectionId\": 108}",
+   "garden-mic:108",
+   9001,
+   0
+  ],
+  [
+   9,
+   "2033-06-10 09:05:00",
+   "Wren",
+   null,
+   "{}",
+   null,
+   null,
+   0
+  ]
+ ],
+ "species_counts": [
+  {
+   "prev_count": 0,
+   "scientific_name": "Turdus merula",
+   "species": "Blackbird",
+   "window_avg_confidence": 0.65,
+   "window_count": 1,
+   "window_last_heard": "2033-06-10T08:00:40"
+  },
+  {
+   "prev_count": 0,
+   "scientific_name": "Erithacus rubecula",
+   "species": "Robin",
+   "window_avg_confidence": 0.8600000000000001,
+   "window_count": 2,
+   "window_last_heard": "2033-06-10T08:00:00"
+  },
+  {
+   "prev_count": 1,
+   "scientific_name": "Turdus philomelos",
+   "species": "Song Thrush",
+   "window_avg_confidence": 0.0,
+   "window_count": 0,
+   "window_last_heard": null
+  },
+  {
+   "prev_count": 1,
+   "scientific_name": "Troglodytes troglodytes",
+   "species": "Wren",
+   "window_avg_confidence": 0.72,
+   "window_count": 1,
+   "window_last_heard": "2033-06-10T08:00:20"
+  }
+ ],
+ "summary": {
+  "daily_counts": [
+   {
+    "count": 1,
+    "date": "2033-06-03"
+   },
+   {
+    "count": 1,
+    "date": "2033-06-08"
+   },
+   {
+    "count": 1,
+    "date": "2033-06-09"
+   },
+   {
+    "count": 3,
+    "date": "2033-06-10"
+   }
+  ],
+  "hourly_counts": [
+   {
+    "count": 2,
+    "hour": 6
+   },
+   {
+    "count": 3,
+    "hour": 8
+   },
+   {
+    "count": 1,
+    "hour": 19
+   }
+  ],
+  "source_count": 5,
+  "sources": [
+   {
+    "count": 2,
+    "last_heard": "2033-06-10T08:00:20Z",
+    "source_name": "Garden Mic"
+   },
+   {
+    "count": 1,
+    "last_heard": "2033-06-09T19:00:00Z",
+    "source_name": "garden-mic"
+   },
+   {
+    "count": 1,
+    "last_heard": "2033-06-10T08:00:40Z",
+    "source_name": "Shed"
+   },
+   {
+    "count": 1,
+    "last_heard": "2033-06-03T06:30:00Z",
+    "source_name": "shed-mic"
+   },
+   {
+    "count": 1,
+    "last_heard": "2033-06-08T06:30:00Z",
+    "source_name": "Unknown source"
+   }
+  ],
+  "species_count": 4,
+  "top_species": [
+   {
+    "avg_confidence": 0.7,
+    "count": 2,
+    "first_heard": "2033-06-03T06:30:00Z",
+    "last_heard": "2033-06-10T08:00:20Z",
+    "max_confidence": 0.72,
+    "scientific_name": "Troglodytes troglodytes",
+    "species": "Wren"
+   },
+   {
+    "avg_confidence": 0.8600000000000001,
+    "count": 2,
+    "first_heard": "2033-06-09T19:00:00Z",
+    "last_heard": "2033-06-10T08:00:00Z",
+    "max_confidence": 0.91,
+    "scientific_name": "Erithacus rubecula",
+    "species": "Robin"
+   },
+   {
+    "avg_confidence": 0.65,
+    "count": 1,
+    "first_heard": "2033-06-10T08:00:40Z",
+    "last_heard": "2033-06-10T08:00:40Z",
+    "max_confidence": 0.65,
+    "scientific_name": "Turdus merula",
+    "species": "Blackbird"
+   },
+   {
+    "avg_confidence": 0.77,
+    "count": 1,
+    "first_heard": "2033-06-08T06:30:00Z",
+    "last_heard": "2033-06-08T06:30:00Z",
+    "max_confidence": 0.77,
+    "scientific_name": "Turdus philomelos",
+    "species": "Song Thrush"
+   }
+  ],
+  "total": 6
+ },
+ "summary_filtered": {
+  "daily_counts": [
+   {
+    "count": 1,
+    "date": "2033-06-10"
+   }
+  ],
+  "hourly_counts": [
+   {
+    "count": 1,
+    "hour": 8
+   }
+  ],
+  "source_count": 1,
+  "sources": [
+   {
+    "count": 1,
+    "last_heard": "2033-06-10T08:00:40Z",
+    "source_name": "Shed"
+   }
+  ],
+  "species_count": 1,
+  "top_species": [
+   {
+    "avg_confidence": 0.65,
+    "count": 1,
+    "first_heard": "2033-06-10T08:00:40Z",
+    "last_heard": "2033-06-10T08:00:40Z",
+    "max_confidence": 0.65,
+    "scientific_name": "Turdus merula",
+    "species": "Blackbird"
+   }
+  ],
+  "total": 1
+ },
+ "visible": [
+  true,
+  false,
+  false
+ ]
+}
