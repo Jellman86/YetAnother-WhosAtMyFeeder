@@ -819,6 +819,14 @@ async def present_events(
             audio_pairs = await asyncio.gather(*(resolve_unconfirmed(n) for n in unconfirmed_audio_species))
             unconfirmed_audio_canonical = {k: v for k, v in audio_pairs if v}
 
+        owner_audio_contexts = {}
+        if auth.is_owner:
+            owner_audio_contexts = await repo.get_audio_contexts_for_detections(
+                [event for event in events if event.audio_species and not event.audio_confirmed],
+                settings.frigate.camera_audio_mapping or {},
+                settings.frigate.audio_correlation_window_seconds,
+            )
+
         audio_context_species_by_event: dict[str, list[str]] = {}
         for event in events:
             if not auth.is_owner and not settings.public_access.show_audio:
@@ -826,19 +834,10 @@ async def present_events(
             if event.audio_confirmed or not event.audio_species:
                 continue
 
-            mapping_value = None
-            if settings.frigate.camera_audio_mapping:
-                mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
-
             # The suppressed count is for the detail view, which explains an empty
             # result; the event list only needs the species it can show.
             if auth.is_owner:
-                nearby_audio, _ = await repo.get_audio_context(
-                    target_time=event.detection_time,
-                    window_seconds=settings.frigate.audio_correlation_window_seconds,
-                    mapping_value=mapping_value,
-                    limit=8,
-                )
+                nearby_audio, _ = owner_audio_contexts[event.frigate_event]
             else:
                 nearby_audio = public_audio.get(event.frigate_event, {}).get("context", [])
             await localize_audio_detections(nearby_audio, lang, db)

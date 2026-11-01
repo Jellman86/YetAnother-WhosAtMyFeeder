@@ -8,7 +8,7 @@ import pytest_asyncio
 from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.detection_repository import DetectionRepository, Detection
 from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
 
 
@@ -409,3 +409,97 @@ async def test_audio_context_reports_no_suppression_for_a_genuinely_silent_windo
     assert response.status_code == 200, response.text
     assert response.json() == []
     assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "0"
+
+
+@pytest.mark.asyncio
+async def test_fifty_overlapping_owner_audio_contexts_use_one_read(client, monkeypatch):
+    import aiosqlite
+
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"batch-context-cam": "batch-microphone"}
+    target = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    event_ids = [f"batched-audio-{index}" for index in range(50)]
+    async with get_db() as db:
+        for index, event_id in enumerate(event_ids):
+            await db.execute(
+                """INSERT INTO detections (detection_time, detection_index, score, display_name,
+                category_name, frigate_event, camera_name, audio_confirmed, audio_species)
+                VALUES (?, 1, 0.8, 'Great Tit', 'Great Tit', ?, 'batch-context-cam', 0, 'Corvus corone')""",
+                ((target + timedelta(seconds=index)).isoformat(sep=" "), event_id),
+            )
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+            VALUES (?, 'Passer domesticus', 0.9, 'batch-microphone', '{}', 'Passer domesticus')""",
+            (target.isoformat(sep=" "),),
+        )
+        await db.commit()
+    reads = []
+    execute = aiosqlite.Connection.execute
+
+    def counted_execute(connection, sql, parameters=None):
+        normalized = " ".join(sql.split()).casefold()
+        if normalized.startswith("select timestamp, species, confidence, sensor_id, scientific_name, raw_data"):
+            reads.append(sql)
+        return execute(connection, sql, parameters or [])
+
+    monkeypatch.setattr(aiosqlite.Connection, "execute", counted_execute)
+    try:
+        response = await client.get("/api/events", params={"camera": "batch-context-cam", "limit": 50})
+        assert response.status_code == 200, response.text
+        events = response.json()
+        assert len(events) == 50
+        assert len(reads) == 1
+        for event in events:
+            assert_audio_species_matches(
+                event["audio_context_species"], ["Corvus corone", {"Passer domesticus", "House Sparrow"}]
+            )
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE camera_name = 'batch-context-cam'")
+            await db.execute("DELETE FROM audio_detections WHERE sensor_id = 'batch-microphone'")
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_batched_owner_contexts_match_single_reads_across_mapping_windows_and_chunks():
+    import aiosqlite
+
+    target = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    cameras = {"mapped": "mic", "wildcard": "*", "unmapped": "", "payload": "payload-mic"}
+    events = [
+        Detection(target + timedelta(seconds=offset), 1, 0.8, "bird", "bird", f"context-{camera}-{offset}", camera)
+        for camera in cameras
+        for offset in (0, 20, 1000)
+    ]
+    async with aiosqlite.connect(":memory:") as db:
+        await db.execute("""CREATE TABLE audio_detections (timestamp TEXT, species TEXT, confidence REAL,
+                           sensor_id TEXT, scientific_name TEXT, raw_data TEXT, is_hidden INT DEFAULT 0)""")
+        # More than a chunk, including hidden rows and exact timestamp boundaries.
+        for index in range(620):
+            stamp = target + timedelta(seconds=(index % 61) - 30)
+            await db.execute(
+                "INSERT INTO audio_detections VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    stamp.isoformat(sep=" "),
+                    f"species-{index}",
+                    (index % 10) / 10,
+                    "mic" if index % 3 == 0 else "other",
+                    None,
+                    json.dumps({"nm": "payload-mic", "detectionId": index}),
+                    int(index % 13 == 0),
+                ),
+            )
+        await db.commit()
+        repo = DetectionRepository(db)
+        expected = {
+            event.frigate_event: await repo.get_audio_context(event.detection_time, 30, cameras[event.camera_name], 8)
+            for event in events
+        }
+        actual = await repo.get_audio_contexts_for_detections(events, cameras, 30)
+        assert actual == expected
+        assert actual["context-unmapped-0"][0] == []
+        assert actual["context-unmapped-0"][1] > 0
+        assert len(actual["context-wildcard-0"][0]) == 8
+        assert actual["context-mapped-1000"] == ([], 0)
+        assert await repo.get_audio_contexts_for_detections([], cameras, 30) == {}
