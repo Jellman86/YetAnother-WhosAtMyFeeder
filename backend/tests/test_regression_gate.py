@@ -80,3 +80,10 @@ def test_hung_test_process_is_reaped_and_fails(monkeypatch):
         kill.assert_called_once_with(12345, gate.signal.SIGKILL)
     else:
         process.kill.assert_called_once()
+
+
+def test_the_application_lane_deadline_stays_inside_the_ci_job_limit():
+    workflow = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    job_seconds = workflow["jobs"]["backend"]["timeout-minutes"] * 60
+    # Installation, migration checks and the pure lane run before the application lane.
+    assert gate.PURE_TEST_TIMEOUT_SECONDS + gate.TEST_TIMEOUT_SECONDS <= job_seconds - 5 * 60
