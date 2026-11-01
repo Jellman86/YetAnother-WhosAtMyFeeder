@@ -7,12 +7,16 @@ Checks:
 3. Detect stale compose service aliases in docs commands.
 4. Detect stale Settings navigation labels.
 5. Detect incompatible image-variable spelling and blanket CUDA packaging claims.
+6. One heading per kind under CHANGELOG.md Unreleased.
+7. Every changelog.d/ fragment is well formed and not duplicated.
 """
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
+
+from assemble_changelog import FRAGMENT_DIRNAME, check_fragments
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -167,6 +171,7 @@ def main() -> int:
     errors.extend(check_documented_endpoints(actual_routes))
     errors.extend(check_stale_terms())
     errors.extend(check_changelog_headings())
+    errors.extend(check_fragments(ROOT / FRAGMENT_DIRNAME, ROOT / "CHANGELOG.md", root=ROOT))
 
     if errors:
         print("Documentation consistency check failed:")

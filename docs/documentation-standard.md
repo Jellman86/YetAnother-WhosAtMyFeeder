@@ -39,7 +39,9 @@ Keep the project records distinct:
   complete. It contains no promised dates and never describes planned work as
   available.
 - [`../CHANGELOG.md`](../CHANGELOG.md) records implemented user- or
-  operator-relevant changes under **Unreleased** until release.
+  operator-relevant changes. Until release, each change is a fragment under
+  [`../changelog.d/`](../changelog.d/README.md), folded into the changelog when
+  the version is cut.
 - GitHub issues hold actionable scope, acceptance criteria, reproduction
   evidence, and current discussion. Link a roadmap outcome to an issue when it
   becomes concrete enough to implement.
@@ -190,5 +192,5 @@ Before finishing a documentation change:
 7. If screenshots changed, visually inspect them.
 8. Confirm [`index.md`](index.md) links any new user-facing page.
 
-If the change documents new behaviour, update `CHANGELOG.md` unless the change is
-purely documentation-only.
+If the change documents new behaviour, add a `changelog.d/` fragment unless the
+change is purely documentation-only.

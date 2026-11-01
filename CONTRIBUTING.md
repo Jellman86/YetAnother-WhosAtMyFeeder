@@ -67,7 +67,7 @@ Use the repository pull request template to:
 - describe the useful outcome and exact included/excluded scope;
 - record focused and full checks with their real results;
 - include tests for new or changed behaviour;
-- update `CHANGELOG.md` under `Unreleased` for implemented user/operator behavior changes; documentation-only maintenance does not need a new behavior entry;
+- add one [`changelog.d/`](changelog.d/README.md) fragment for implemented user/operator behavior changes instead of editing `CHANGELOG.md` directly; documentation-only maintenance does not need a new behavior entry;
 - update docs when settings, APIs, integrations, or user-visible behaviour change;
 - identify data-integrity, migration, security, or operational risk and recovery;
 - keep required checks green and resolve blocking review conversations.

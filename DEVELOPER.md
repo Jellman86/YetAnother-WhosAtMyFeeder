@@ -158,5 +158,6 @@ and [release workflow](docs/development/releasing.md).
 
 Future work belongs in [ROADMAP.md](ROADMAP.md) and actionable GitHub issues.
 Historical review reports describe their tested revision; they are not a current
-list of missing capabilities. Implemented changes stay under **Unreleased** in
-[CHANGELOG.md](CHANGELOG.md) until a release is actually published.
+list of missing capabilities. Implemented changes wait as fragments in
+[changelog.d/](changelog.d/README.md), plus older entries under **Unreleased** in
+[CHANGELOG.md](CHANGELOG.md), until a release is actually published.
