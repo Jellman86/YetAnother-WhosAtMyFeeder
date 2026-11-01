@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, JsonValue
 import structlog
 from pathlib import Path
 
+from app.models.classifier_status import ClassifierStatusResponse
 from app.services.classifier_service import get_classifier
 from app.services.provider_revalidation import ProviderValidationStatus, provider_revalidation
 from app.services.personalization_service import personalization_service
@@ -130,11 +131,11 @@ class _LiveClassifierProxy:
 classifier_service = _LiveClassifierProxy()
 
 
-@router.get("/status", response_model=dict[str, JsonValue])
+@router.get("/status", response_model=ClassifierStatusResponse, response_model_exclude_unset=True)
 @guest_rate_limit()
 async def classifier_status(
     request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
-) -> dict[str, JsonValue]:
+) -> ClassifierStatusResponse:
     """Return the status of the bird classifier model."""
     status = classifier_service.get_status()
     status["personalized_rerank_enabled"] = bool(getattr(settings.classification, "personalized_rerank_enabled", False))
@@ -147,7 +148,7 @@ async def classifier_status(
     except Exception as exc:
         log.warning("Failed to load personalization status summary", error=str(exc))
 
-    return status
+    return ClassifierStatusResponse.model_validate(status)
 
 
 @router.get("/provider-validation", response_model=ProviderValidationStatus)

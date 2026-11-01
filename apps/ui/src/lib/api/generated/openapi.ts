@@ -516,6 +516,29 @@ export interface components {
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
 };
+    ClassifierCropDeviceCheck: {
+    checked_at: string | null;
+    model_id: string | null;
+    providers: Array<string>;
+    reason: string | null;
+    state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierCropStatus: {
+    chosen_model_id?: string;
+    device_check?: components['schemas']['ClassifierCropDeviceCheck'] | null;
+    enabled_for_runtime?: boolean;
+    healthy?: boolean;
+    installed?: boolean;
+    last_execution?: components['schemas']['InferenceExecution'] | null;
+    load_error?: string | null;
+    model_id?: string;
+    model_path?: string | null;
+    reason?: string;
+    resolved_tier?: string;
+    selected_tier?: string;
+    [key: string]: components['schemas']['JsonValue'];
+};
     ClassifierDownloadResponse: {
     input_size?: string | null;
     labels_count?: number | null;
@@ -524,13 +547,93 @@ export interface components {
     path?: string | null;
     status: string;
 };
+    ClassifierHostEligibility: {
+    generated_at?: string | null;
+    model_count?: number;
+    run_id?: string | null;
+    verified_providers?: Array<string>;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierInferenceHealth: {
+    status: "ok" | "degraded" | "unhealthy";
+    [key: string]: components['schemas']['JsonValue'];
+};
     ClassifierLabelsResponse: {
     labels: Array<string>;
+};
+    ClassifierNativeQuarantine: {
+    restart_recommended: boolean;
+    status: "recovering" | "recovered";
+    [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierPredictionResponse: {
     label: string;
     rank: number;
     score: number;
+};
+    ClassifierStatusResponse: {
+    active_model_candidate_providers?: Array<string>;
+    active_model_estimated_ram_mb?: number | null;
+    active_model_id?: string | null;
+    active_model_validated_providers?: Array<string>;
+    active_provider?: string;
+    available_providers?: Array<string>;
+    crop_detector?: components['schemas']['ClassifierCropStatus'] | null;
+    cuda_available?: boolean;
+    cuda_enabled?: boolean;
+    cuda_hardware_available?: boolean;
+    cuda_probe_error?: string | null;
+    cuda_provider_installed?: boolean;
+    dev_accel_present?: boolean;
+    dev_dri_entries?: Array<string>;
+    dev_dri_present?: boolean;
+    effective_model_id?: string | null;
+    enabled?: boolean;
+    error?: string | null;
+    fallback_reason?: string | null;
+    host_available_providers?: Array<string>;
+    host_device_eligibility?: components['schemas']['ClassifierHostEligibility'] | null;
+    image_execution_mode?: "in_process" | "subprocess";
+    image_flavor?: string;
+    image_flavor_warning?: string | null;
+    inference_backend?: string;
+    inference_health?: components['schemas']['ClassifierInferenceHealth'] | null;
+    intel_cpu_available?: boolean;
+    intel_gpu_available?: boolean;
+    intel_npu_available?: boolean;
+    labels_count?: number | null;
+    loaded?: boolean;
+    model_config_warnings?: Array<string>;
+    native_runtime_quarantine?: components['schemas']['ClassifierNativeQuarantine'] | null;
+    onnx_available?: boolean;
+    openvino_available?: boolean;
+    openvino_devices?: Array<string>;
+    openvino_gpu_probe_error?: string | null;
+    openvino_import_error?: string | null;
+    openvino_import_path?: string | null;
+    openvino_model_compile_device?: string | null;
+    openvino_model_compile_error?: string | null;
+    openvino_model_compile_ok?: boolean | null;
+    openvino_model_compile_unsupported_ops?: Array<string>;
+    openvino_probe_error?: string | null;
+    openvino_version?: string | null;
+    packaged_inference_providers?: Array<string>;
+    personalization_active_camera_models?: number;
+    personalization_feedback_rows?: number;
+    personalization_min_feedback_tags?: number;
+    personalized_rerank_enabled?: boolean;
+    process_gid?: number | null;
+    process_groups?: Array<number>;
+    process_uid?: number | null;
+    provider_preference_order?: Array<string>;
+    resolved_background_workers?: number;
+    resolved_live_workers?: number;
+    runtime_source?: "worker" | "planned" | "in_process" | "in_process_fallback" | "default" | null;
+    selected_provider?: string;
+    validated_provider_preference_order?: Array<string>;
+    worker_in_process_fallback?: components['schemas']['ClassifierWorkerFallback'] | null;
+    worker_pools?: components['schemas']['ClassifierWorkerPools'] | null;
+    [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierTestResponse: {
     error?: string | null;
@@ -539,6 +642,39 @@ export interface components {
     results?: Array<Record<string, components['schemas']['JsonValue']>>;
     status?: string | null;
     traceback?: string | null;
+};
+    ClassifierWorkerFallback: {
+    active: boolean;
+    active_seconds: number | null;
+    classifications: number;
+    reason: string | null;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerPool: {
+    circuit_open?: boolean;
+    circuit_open_until_monotonic?: number | null;
+    crop_execution?: components['schemas']['InferenceExecution'] | null;
+    last_exit_reason?: string | null;
+    last_stderr_excerpt?: string;
+    last_stderr_truncated_bytes?: number;
+    restarts?: number;
+    runtime?: components['schemas']['ClassifierWorkerRuntime'] | null;
+    workers?: number;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerPools: {
+    background?: components['schemas']['ClassifierWorkerPool'] | null;
+    late_results_ignored?: number;
+    live?: components['schemas']['ClassifierWorkerPool'] | null;
+    video?: components['schemas']['ClassifierWorkerPool'] | null;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerRuntime: {
+    backend?: string;
+    crop_execution?: components['schemas']['InferenceExecution'] | null;
+    model_id?: string | null;
+    provider?: string;
+    [key: string]: components['schemas']['JsonValue'];
 };
     CleanupResponse: {
     audio_deleted_count?: number | null;
@@ -3308,7 +3444,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ClassifierStatusResponse'];
     };
   };
   "/api/classifier/test": {

@@ -915,8 +915,14 @@ current catalogue. Download, validation, and activation requests for those IDs r
 Their existing release files remain available to pre-3.0 application versions during the
 compatibility window; current releases neither list nor run them.
 
-`GET /api/classifier/status` separates packaging, hardware availability, and the
-active model session. Important deployment fields are:
+`GET /api/classifier/status` has a generated operational response contract for
+runtime source, effective model, inference health, worker pools and crop detection.
+Worker/crop sections are optional. The `loaded`, `error` and `enabled` fields
+describe a model resident in this process. When classification runs only in
+isolated workers these fields remain absent; absence does not mean classification
+is inactive. Diagnostic extension fields are retained.
+
+The status separates packaging, hardware availability, and the active model session. Important deployment fields are:
 
 | Field | Meaning |
 |---|---|

@@ -369,3 +369,76 @@ async def test_classifier_status_exposes_crop_detector_readiness(
     assert payload["crop_detector"]["healthy"] is False
     assert payload["crop_detector"]["enabled_for_runtime"] is False
     assert payload["crop_detector"]["reason"] == "not_installed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owner", [False, True])
+@pytest.mark.parametrize(
+    "runtime",
+    [
+        {
+            "image_execution_mode": "in_process",
+            "runtime_source": "in_process",
+            "loaded": True,
+            "enabled": True,
+            "error": None,
+            "labels_count": 12,
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "planned",
+            "labels_count": None,
+            "worker_pools": {"live": {"workers": 0, "runtime": None}, "late_results_ignored": 0},
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "worker",
+            "effective_model_id": "bird-model",
+            "inference_health": {"status": "ok", "samples": 3},
+            "worker_pools": {"live": {"workers": 1, "runtime": {"backend": "onnx", "provider": "cpu"}}},
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "in_process_fallback",
+            "worker_in_process_fallback": {
+                "active": True,
+                "reason": "circuit",
+                "active_seconds": 1.5,
+                "classifications": 2,
+            },
+        },
+        {
+            "image_execution_mode": "in_process",
+            "native_runtime_quarantine": {
+                "status": "recovering",
+                "restart_recommended": True,
+                "failed_runtime": {"backend": "onnx", "provider": "cpu"},
+            },
+            "inference_health": {"status": "unhealthy"},
+        },
+    ],
+)
+async def test_operational_status_contract_preserves_runtime_fields_and_omissions(client, monkeypatch, owner, runtime):
+    from app.auth import get_auth_context_with_legacy
+
+    monkeypatch.setattr(classifier_router, "classifier_service", SimpleNamespace(get_status=lambda: dict(runtime)))
+    monkeypatch.setattr(classifier_router.personalization_service, "get_status_summary", AsyncMock(return_value={}))
+    app.dependency_overrides[get_auth_context_with_legacy] = lambda: AuthContext(
+        auth_level=AuthLevel.OWNER if owner else AuthLevel.GUEST, username="test"
+    )
+    try:
+        response = await client.get("/api/classifier/status")
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            **runtime,
+            "personalized_rerank_enabled": settings.classification.personalized_rerank_enabled,
+            "personalization_min_feedback_tags": classifier_router.personalization_service.min_feedback_tags,
+            "personalization_feedback_rows": 0,
+            "personalization_active_camera_models": 0,
+        }
+        schema = app.openapi()["paths"]["/api/classifier/status"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]
+        assert schema == {"$ref": "#/components/schemas/ClassifierStatusResponse"}
+    finally:
+        app.dependency_overrides.pop(get_auth_context_with_legacy, None)
