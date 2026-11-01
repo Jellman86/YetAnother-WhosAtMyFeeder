@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Event-stream delivery consistently uses bounded, non-blocking queues. Regression
+  coverage now exercises failed delivery and slow subscribers through that boundary.
+
 - Settings saves and backup imports persist a private candidate before changing live
   settings. Concurrent requests are serialised, and failed saves schedule no reloads
   or notifications.
