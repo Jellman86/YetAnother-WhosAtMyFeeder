@@ -1313,6 +1313,13 @@ export interface components {
     provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
     variant?: "4.0.3a" | "4.0.3b";
 };
+    GardenKeepBirdResponse: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    declared: boolean;
+    moved: number;
+    remaining: number;
+    skipped: number;
+};
     GardenModelStatus: {
     installed: boolean;
     size_bytes: number;
@@ -4330,6 +4337,17 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: Array<components['schemas']['GardenDomesticBirdOption']>;
+    };
+  };
+  "/api/garden/domestic-birds/{bird}/keep": {
+    post: {
+      operationId: "keep_domestic_bird_api_garden_domestic_birds__bird__keep_post";
+      path: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenKeepBirdResponse'];
     };
   };
   "/api/garden/identification": {

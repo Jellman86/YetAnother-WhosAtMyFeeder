@@ -676,6 +676,29 @@ class GardenRepository:
         await self.db.commit()
         return capture_id
 
+    async def visible_bird_events(
+        self, species_ids: frozenset[int], scientific_names: tuple[str, ...], limit: int
+    ) -> tuple[list[str], int]:
+        """Visible bird records that may be this bird, oldest first, and how many there are.
+
+        Candidates only: each is matched again by exact identity before it moves.
+        """
+        names = sorted({" ".join(name.split()).casefold() for name in scientific_names})
+        ids = sorted(species_ids)
+        where = f"""COALESCE(is_hidden,0)=0 AND (
+            species_id IN ({",".join("?" * len(ids)) or "NULL"})
+            OR lower(scientific_name) IN ({",".join("?" * len(names)) or "NULL"})
+            OR lower(display_name) IN ({",".join("?" * len(names)) or "NULL"}))"""
+        values = (*ids, *names, *names)
+        total = (await (await self.db.execute(f"SELECT COUNT(*) FROM detections WHERE {where}", values)).fetchone())[0]
+        rows = await (
+            await self.db.execute(
+                f"SELECT frigate_event FROM detections WHERE {where} ORDER BY detection_time, id LIMIT ?",
+                (*values, limit),
+            )
+        ).fetchall()
+        return [row[0] for row in rows], total
+
     async def move_detection_to_garden(
         self,
         detection_id: int,

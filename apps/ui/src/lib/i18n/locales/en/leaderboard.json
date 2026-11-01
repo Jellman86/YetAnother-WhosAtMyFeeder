@@ -209,7 +209,14 @@
     "partial": "{count, plural, one {# capture could not be renamed. Try again.} other {# captures could not be renamed. Try again.}}",
     "renamed": "{count, plural, one {# visit is now} other {# visits are now}} {species}.",
     "confirmed": "{count, plural, one {# visit confirmed as} other {# visits confirmed as}} {species}.",
-    "hidden": "{count, plural, one {# visit hidden as not a bird.} other {# visits hidden as not a bird.}}"
+    "hidden": "{count, plural, one {# visit hidden as not a bird.} other {# visits hidden as not a bird.}}",
+    "kept_bird_body": "{species} may be a domestic bird: {kind}. If you keep them, record them as Garden animals: their bird records move to Garden, hidden from bird history, not deleted.",
+    "kept_bird_keep": "I keep {kind}: move to Garden",
+    "kept_bird_move": "Move {kind} records to Garden",
+    "kept_bird_working": "Moving to Garden…",
+    "kept_bird_moved": "{count, plural, =0 {No bird records needed moving.} one {Moved # bird record to Garden.} other {Moved # bird records to Garden.}} {kind} are now in Domestic birds you keep.",
+    "kept_bird_skipped": "{count, plural, one {# record could not move and stays in bird history.} other {# records could not move and stay in bird history.}}",
+    "kept_bird_remaining": "{count, plural, one {# more record is waiting; choose the action again to move it.} other {# more records are waiting; choose the action again to move them.}}"
   },
   "span_group": "Time span"
 }

@@ -1,6 +1,7 @@
 """Private, paginated animal reviews. Confirmation records presence, not species."""
 
 import asyncio
+from dataclasses import asdict
 import sqlite3
 from datetime import datetime, timezone
 
@@ -482,6 +483,23 @@ async def domestic_birds() -> list[GardenDomesticBirdOption]:
         )
         for key, bird in DOMESTIC_BIRDS.items()
     ]
+
+
+class GardenKeepBirdResponse(BaseModel):
+    bird: DomesticBirdKey
+    declared: bool = Field(description="True when this request added the bird to Domestic birds you keep")
+    moved: int = Field(description="Bird records moved to Garden; each is hidden in bird history, not deleted")
+    skipped: int = Field(description="Matching bird records that could not move and stay in bird history")
+    remaining: int = Field(description="Matching bird records beyond this request's limit; repeat to move them")
+
+
+@router.post("/domestic-birds/{bird}/keep", response_model=GardenKeepBirdResponse)
+async def keep_domestic_bird(bird: DomesticBirdKey) -> GardenKeepBirdResponse:
+    """Declare a domestic bird the owner keeps and move its visible bird records to Garden. Owner only."""
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    result = await garden_domestic_service.keep_bird(bird)
+    return GardenKeepBirdResponse(bird=bird, **asdict(result))
 
 
 @router.get("/identification", response_model=GardenIdentificationStatus)
