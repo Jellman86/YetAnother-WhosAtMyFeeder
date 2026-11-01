@@ -85,19 +85,20 @@
 
     let picture = $state<{ name: string; url: string | null; state: 'loading' | 'ready' | 'none' | 'failed' } | null>(null);
 
+    // Keyed by the name, not the taxon object: hovering, focusing or pinning the same species
+    // places a fresh proxied taxon, and re-running the lookup for it once stranded the card loading.
+    const pictureName = $derived(isSpecies ? (taxon?.scientific_name ?? null) : null);
+
     $effect(() => {
-        if (!taxon || taxon.rank !== 'species') return;
-        const name = taxon.scientific_name;
-        // Read untracked: the picture this effect sets must not re-run it and cancel its own lookup.
+        const name = pictureName;
+        if (!name) return;
+        // Read untracked: the picture this effect sets must not re-run it.
         if (untrack(() => picture?.name) === name) return;
         picture = { name, url: null, state: 'loading' };
-        let live = true;
+        // A result for a name the card has moved away from is dropped by the name check.
         void speciesPicture(name).then((url) => {
-            if (live && picture?.name === name) picture = { name, url, state: url ? 'ready' : 'none' };
+            if (picture?.name === name) picture = { name, url, state: url ? 'ready' : 'none' };
         });
-        return () => {
-            live = false;
-        };
     });
 
     function seenLine(): string | null {
