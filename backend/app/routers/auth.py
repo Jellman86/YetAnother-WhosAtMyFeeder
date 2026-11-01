@@ -24,8 +24,9 @@ from app.auth import (
     set_session_cookie,
     clear_session_cookie,
 )
-from app.config import settings
+from app.config import Settings, settings
 from app.services import avatar_service
+from app.services.settings_update import commit_settings_change
 from app.services.stream_tickets import STREAM_TICKET_TTL_SECONDS, stream_tickets
 from app.database import get_db
 from app.models import MessageResponse
@@ -420,6 +421,19 @@ async def remove_avatar(_auth: AuthContext = Depends(require_owner)) -> AvatarRe
     return AvatarResponse(avatar_version=None)
 
 
+def _require_untouched_first_run(current: Settings) -> None:
+    if current.auth.initial_setup_complete:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Initial setup already completed. Use Settings to change authentication.",
+        )
+    if current.auth.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password already configured. Use Settings to change password.",
+        )
+
+
 @router.post("/auth/initial-setup", response_model=InitialSetupResponse)
 async def set_initial_password(
     request_obj: Request, request: InitialPasswordRequest, response: Response
@@ -442,40 +456,22 @@ async def set_initial_password(
         # This unauthenticated endpoint exists only for the untouched first-run
         # state. Re-check inside the lock so two concurrent requests cannot both
         # claim the installation.
-        if settings.auth.initial_setup_complete:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Initial setup already completed. Use Settings to change authentication.",
-            )
-        if settings.auth.password_hash:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Password already configured. Use Settings to change password.",
-            )
+        _require_untouched_first_run(settings)
+        password_hash = hash_password(request.password) if request.enable_auth and request.password else None
 
-        previous = (
-            settings.auth.username,
-            settings.auth.password_hash,
-            settings.auth.enabled,
-            settings.auth.initial_setup_complete,
-        )
-        try:
-            if request.enable_auth and request.password:
-                settings.auth.username = request.username
-                settings.auth.password_hash = hash_password(request.password)
-                settings.auth.enabled = True
+        def claim_installation(candidate: Settings) -> None:
+            # A settings save may have published since the check above; refuse on the
+            # candidate the writer will actually persist.
+            _require_untouched_first_run(candidate)
+            if password_hash:
+                candidate.auth.username = request.username
+                candidate.auth.password_hash = password_hash
+                candidate.auth.enabled = True
             else:
-                settings.auth.enabled = False
-            settings.auth.initial_setup_complete = True
-            await settings.save()
-        except Exception:
-            (
-                settings.auth.username,
-                settings.auth.password_hash,
-                settings.auth.enabled,
-                settings.auth.initial_setup_complete,
-            ) = previous
-            raise
+                candidate.auth.enabled = False
+            candidate.auth.initial_setup_complete = True
+
+        await commit_settings_change(claim_installation)
 
     log.info(
         "AUTH_AUDIT: Initial setup completed",

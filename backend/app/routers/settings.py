@@ -2,7 +2,7 @@ import platform
 import re
 import asyncio
 import httpx
-from typing import Any, List, Optional, Literal
+from typing import Any, List, Optional, Literal, TypeVar
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
@@ -523,6 +523,19 @@ class ClearFeedbackResponse(BaseModel):
     deleted_count: int
 
 
+_Channel = TypeVar("_Channel", bound=BaseModel)
+
+
+def _with_typed_credentials(saved: _Channel, **typed: Optional[str]) -> _Channel:
+    """Overlay unapplied credentials on a private copy of a saved channel.
+
+    Writing them onto the live settings, even for the length of one test send, let a
+    concurrent settings save persist credentials the owner never applied.
+    """
+    overrides = {field: value for field, value in typed.items() if value and value != "***REDACTED***"}
+    return saved.model_copy(update=overrides)
+
+
 @router.post("/settings/notifications/test", response_model=ActionStatusResponse)
 async def test_notification(
     request: NotificationTestRequest, _auth: AuthContext = Depends(require_owner)
@@ -539,78 +552,48 @@ async def test_notification(
 
     try:
         if request.platform == "discord":
-            # Temporarily override settings if provided
-            original_url = settings.notifications.discord.webhook_url
-            if request.webhook_url and request.webhook_url != "***REDACTED***":
-                settings.notifications.discord.webhook_url = request.webhook_url
-
-            try:
-                await notification_service._send_discord(
-                    common_name,
-                    confidence,
-                    camera,
-                    timestamp,
-                    snapshot_url,
-                    True,
-                    settings.notifications.notification_language,
-                    None,
-                    detection_url=detection_url,
-                )
-            finally:
-                if request.webhook_url and request.webhook_url != "***REDACTED***":
-                    settings.notifications.discord.webhook_url = original_url
+            await notification_service._send_discord(
+                common_name,
+                confidence,
+                camera,
+                timestamp,
+                snapshot_url,
+                True,
+                settings.notifications.notification_language,
+                None,
+                detection_url=detection_url,
+                config=_with_typed_credentials(settings.notifications.discord, webhook_url=request.webhook_url),
+            )
 
         elif request.platform == "pushover":
-            orig_user = settings.notifications.pushover.user_key
-            orig_token = settings.notifications.pushover.api_token
-
-            if request.user_key and request.user_key != "***REDACTED***":
-                settings.notifications.pushover.user_key = request.user_key
-            if request.api_token and request.api_token != "***REDACTED***":
-                settings.notifications.pushover.api_token = request.api_token
-
-            try:
-                await notification_service._send_pushover(
-                    common_name,
-                    confidence,
-                    camera,
-                    timestamp,
-                    snapshot_url,
-                    None,
-                    settings.notifications.notification_language,
-                    detection_url=detection_url,
-                )
-            finally:
-                if request.user_key and request.user_key != "***REDACTED***":
-                    settings.notifications.pushover.user_key = orig_user
-                if request.api_token and request.api_token != "***REDACTED***":
-                    settings.notifications.pushover.api_token = orig_token
+            await notification_service._send_pushover(
+                common_name,
+                confidence,
+                camera,
+                timestamp,
+                snapshot_url,
+                None,
+                settings.notifications.notification_language,
+                detection_url=detection_url,
+                config=_with_typed_credentials(
+                    settings.notifications.pushover, user_key=request.user_key, api_token=request.api_token
+                ),
+            )
 
         elif request.platform == "telegram":
-            orig_bot = settings.notifications.telegram.bot_token
-            orig_chat = settings.notifications.telegram.chat_id
-
-            if request.bot_token and request.bot_token != "***REDACTED***":
-                settings.notifications.telegram.bot_token = request.bot_token
-            if request.chat_id and request.chat_id != "***REDACTED***":
-                settings.notifications.telegram.chat_id = request.chat_id
-
-            try:
-                await notification_service._send_telegram(
-                    common_name,
-                    confidence,
-                    camera,
-                    timestamp,
-                    snapshot_url,
-                    None,
-                    settings.notifications.notification_language,
-                    detection_url=detection_url,
-                )
-            finally:
-                if request.bot_token and request.bot_token != "***REDACTED***":
-                    settings.notifications.telegram.bot_token = orig_bot
-                if request.chat_id and request.chat_id != "***REDACTED***":
-                    settings.notifications.telegram.chat_id = orig_chat
+            await notification_service._send_telegram(
+                common_name,
+                confidence,
+                camera,
+                timestamp,
+                snapshot_url,
+                None,
+                settings.notifications.notification_language,
+                detection_url=detection_url,
+                config=_with_typed_credentials(
+                    settings.notifications.telegram, bot_token=request.bot_token, chat_id=request.chat_id
+                ),
+            )
 
         else:
             return JSONResponse(

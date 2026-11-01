@@ -56,7 +56,7 @@
         type RecordingClipCapability
     } from '../api';
     import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
-    import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
+    import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -95,12 +95,10 @@
         reconcileSavedInferenceProvider,
         type InferenceProvider
     } from '../settings/inference-providers';
-    import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
     import AccessibilitySettings from '../components/settings/AccessibilitySettings.svelte';
-    import AppearanceSettings from '../components/settings/AppearanceSettings.svelte';
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
@@ -110,6 +108,10 @@
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
     import Errors from './Errors.svelte';
+    import LazyRoute from '../components/LazyRoute.svelte';
+    import { lazyComponent } from '../app/lazy-component';
+    import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
+    import { sectionIsDirty } from '../settings/section-adapter';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -134,16 +136,8 @@
         currentRoute?: string;
     }>();
 
-    function normalizeFontTheme(value: unknown): FontTheme {
-        return value === 'default' || value === 'clean' || value === 'studio'
-            || value === 'classic' || value === 'compact'
-            ? value
-            : 'classic';
-    }
-
-    function normalizeColorTheme(value: unknown): ColorTheme {
-        return value === 'default' || value === 'bluetit' ? value : 'bluetit';
-    }
+    // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
+    const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -196,9 +190,20 @@
     let backgroundWorkerCount = $state<number | null>(null);
     let trustFrigateSublabel = $state(true);
     let writeFrigateSublabel = $state(true);
-    let displayCommonNames = $state(true);
-    let scientificNamePrimary = $state(false);
-    let explorerView = $state<'cards' | 'list'>('cards');
+    // The font and colour live in the theme store so a choice previews across the app before
+    // Apply; the rest of the Appearance draft is held here.
+    let appearanceChoices = $state<Omit<AppearanceDraft, 'fontTheme' | 'colorTheme'>>({
+        displayCommonNames: true,
+        scientificNamePrimary: false,
+        explorerView: 'cards',
+        dateFormat: 'locale',
+        timeFormat: 'locale'
+    });
+    const appearanceDraft: AppearanceDraft = $derived({
+        ...appearanceChoices,
+        fontTheme: themeStore.fontTheme,
+        colorTheme: themeStore.colorTheme
+    });
     let personalizedRerankEnabled = $state(false);
     let rangeFilterEnabled = $state(false);
     let rangeFilterRegionLevel = $state<'county' | 'state' | 'country'>('county');
@@ -1262,8 +1267,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let publicAccessExternalBaseUrl = $state('');
-    let dateFormat = $state('locale');
-    let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
     let betaGardenAnimals = $state(false);
@@ -1498,8 +1501,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let saving = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
-    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);
-    let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
@@ -1746,14 +1747,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'threshold', val: threshold, store: s.classification_threshold },
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
-            { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
-            { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
-            { key: 'explorerView', val: explorerView, store: s.appearance_explorer_view ?? 'cards' },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
             { key: 'rangeFilterEnabled', val: rangeFilterEnabled, store: s.range_filter_enabled ?? false },
             { key: 'rangeFilterRegionLevel', val: rangeFilterRegionLevel, store: s.range_filter_region_level ?? 'county' },
-            { key: 'fontTheme', val: currentFontTheme, store: normalizeFontTheme(s.appearance_font_theme) },
-            { key: 'colorTheme', val: currentColorTheme, store: normalizeColorTheme(s.appearance_color_theme) },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
@@ -1861,8 +1857,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
-            { key: 'dateFormat', val: dateFormat, store: normalizeDateFormat(s.date_format) },
-            { key: 'timeFormat', val: timeFormat, store: normalizeTimeFormat(s.time_format) },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -1929,6 +1923,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         return (
             checks.some(c => c.val !== c.store) ||
+            sectionIsDirty(appearanceSection, appearanceDraft, s) ||
             locationSettingsDirty({
                 current: {
                     latitude: locationLat,
@@ -2056,12 +2051,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     $effect(() => {
         currentTheme = themeStore.theme;
-    });
-    $effect(() => {
-        currentFontTheme = themeStore.fontTheme;
-    });
-    $effect(() => {
-        currentColorTheme = themeStore.colorTheme;
     });
 
     onMount(() => subscribeSettingsUpdates(reconcileLocalSettingsUpdate));
@@ -3081,9 +3070,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             backgroundWorkerCount = settings.background_worker_count ?? null;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
-            displayCommonNames = settings.display_common_names ?? true;
-            scientificNamePrimary = settings.scientific_name_primary ?? false;
-            explorerView = settings.appearance_explorer_view ?? 'cards';
+            const { fontTheme, colorTheme, ...savedAppearanceChoices } = appearanceSection.decode(settings);
+            appearanceChoices = savedAppearanceChoices;
+            themeStore.setFontTheme(fontTheme);
+            themeStore.setColorTheme(colorTheme);
             personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
             rangeFilterEnabled = settings.range_filter_enabled ?? false;
             rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
@@ -3256,8 +3246,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
-            dateFormat = normalizeDateFormat(settings.date_format);
-            timeFormat = normalizeTimeFormat(settings.time_format);
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
@@ -3371,10 +3359,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
             reducedMotion = settings.accessibility_reduced_motion ?? false;
-
-            // Appearance (persisted)
-            themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));
-            themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
@@ -3485,9 +3469,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 background_worker_count: backgroundWorkerCount,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 write_frigate_sublabel: writeFrigateSublabel,
-                display_common_names: displayCommonNames,
-                scientific_name_primary: scientificNamePrimary,
-                appearance_explorer_view: explorerView,
                 personalized_rerank_enabled: personalizedRerankEnabled,
                 range_filter_enabled: rangeFilterEnabled,
                 range_filter_region_level: rangeFilterRegionLevel,
@@ -3590,8 +3571,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
                 public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
-                date_format: dateFormat,
-                time_format: timeFormat,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -3647,9 +3626,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 accessibility_live_announcements: liveAnnouncements,
                 accessibility_reduced_motion: reducedMotion,
 
-                // Appearance
-                appearance_font_theme: currentFontTheme,
-                appearance_color_theme: currentColorTheme
+                ...appearanceSection.encodePatch(appearanceDraft)
             });
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
@@ -3689,12 +3666,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         themeStore.setTheme(t);
     }
 
-    function setFontTheme(font: import('../stores/theme.svelte').FontTheme) {
-        themeStore.setFontTheme(font);
-    }
-
-    function setColorTheme(color: import('../stores/theme.svelte').ColorTheme) {
-        themeStore.setColorTheme(color);
+    function updateAppearance({ fontTheme, colorTheme, ...choices }: Partial<AppearanceDraft>): void {
+        if (fontTheme) themeStore.setFontTheme(fontTheme);
+        if (colorTheme) themeStore.setColorTheme(colorTheme);
+        appearanceChoices = { ...appearanceChoices, ...choices };
     }
 
     async function setLanguage(lang: string): Promise<void> {
@@ -4085,22 +4060,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Appearance Tab -->
             {#if activeTab === 'appearance'}
-                <AppearanceSettings
-                    {currentTheme}
-                    currentLocale={$locale || 'en'}
-                    currentDateFormat={dateFormat}
-                    currentTimeFormat={timeFormat}
-                    bind:displayCommonNames
-                    bind:scientificNamePrimary
-                    bind:explorerView
-                    {setTheme}
-                    {currentFontTheme}
-                    {setFontTheme}
-                    {currentColorTheme}
-                    {setColorTheme}
-                    {setLanguage}
-                    setDateFormat={(value) => (dateFormat = value)}
-                    setTimeFormat={(value) => (timeFormat = value)}
+                <LazyRoute
+                    loader={loadAppearanceTab}
+                    label={$_('settings.tabs.appearance')}
+                    props={{
+                        currentTheme,
+                        currentLocale: $locale || 'en',
+                        draft: appearanceDraft,
+                        onchange: updateAppearance,
+                        setTheme,
+                        setLanguage
+                    }}
                 />
             {/if}
 

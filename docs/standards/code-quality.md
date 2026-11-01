@@ -78,7 +78,11 @@ drift fails CI. All network access goes through `apps/ui/src/lib/api/` — never
 **Load heavy code on first use.** Routes, record dialogs, the video player, the setup wizard and
 markdown-it are imported through `lazyComponent()` (`apps/ui/src/lib/app/lazy-component.ts`), which
 shares one import and lets a failed chunk be retried. Dialogs open through `LazyModal`, which says
-when they are still opening and offers a worded retry if their code does not arrive. Do not import a
+when they are still opening and offers a worded retry if their code does not arrive. Settings tab
+bodies load through `LazyRoute` the same way; their values stay in the page's one draft, built from
+per-section adapters in `apps/ui/src/lib/settings/` (`decode` saved settings, `encodePatch` for
+Apply, and `sectionIsDirty` comparing the two), so a tab's edits survive leaving it and one Apply
+still saves every tab. Do not import a
 dialog statically into a page. Large reads that only some viewers need, such as the classifier label
 list, are read on first need and shared through a store rather than added to a page's refresh.
 

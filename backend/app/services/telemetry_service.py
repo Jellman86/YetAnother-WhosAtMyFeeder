@@ -7,7 +7,8 @@ import os
 import hashlib
 from datetime import datetime, timezone
 from typing import Any
-from app.config import settings
+from app.config import Settings, settings
+from app.services.settings_update import commit_settings_change
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.utils.tasks import create_background_task
 
@@ -428,6 +429,32 @@ class TelemetryService:
         self._health_report_lock = asyncio.Lock()
         # Note: Do NOT call _ensure_installation_id here - it's async and called in start()
 
+    async def _commit_installation_id(self, new_id: str, *, replacing: str | None) -> None:
+        """Persist ``new_id`` through the settings writer if the identity is still ``replacing``.
+
+        ``replacing=None`` means "no identity yet". A settings save or import may change
+        the identity while this waits for the writer, so the candidate is checked rather
+        than the value seen before waiting.
+        """
+
+        def assign(candidate: Settings) -> None:
+            if (candidate.telemetry.installation_id or None) == replacing:
+                candidate.telemetry.installation_id = new_id
+
+        await commit_settings_change(assign)
+
+    async def _persist_installation_id(self, *, replacing: str | None) -> bool:
+        """Replace the identity durably, falling back to memory when the config cannot be saved."""
+        new_id = str(uuid.uuid4())
+        try:
+            await self._commit_installation_id(new_id, replacing=replacing)
+            return True
+        except Exception as exc:
+            log.warning("Failed to save installation ID to config", error=str(exc))
+            if (settings.telemetry.installation_id or None) == replacing:
+                settings.telemetry.installation_id = new_id
+            return False
+
     async def _ensure_installation_id(self, max_retries: int = 3) -> bool:
         """Generate a persistent anonymous ID if one doesn't exist.
 
@@ -443,16 +470,14 @@ class TelemetryService:
             # Already have an ID
             return True
 
-        # Generate new UUID
+        log.info("Generating new anonymous installation ID")
         new_id = str(uuid.uuid4())
-        settings.telemetry.installation_id = new_id
-        log.info("Generated new anonymous installation ID")
 
         # Try to persist it to config file with retries
         for attempt in range(1, max_retries + 1):
             try:
                 # Add timeout protection - never hang more than 5 seconds
-                await asyncio.wait_for(settings.save(), timeout=5.0)
+                await asyncio.wait_for(self._commit_installation_id(new_id, replacing=None), timeout=5.0)
                 log.info("Installation ID persisted to config", attempt=attempt)
                 return True
             except asyncio.TimeoutError:
@@ -466,6 +491,8 @@ class TelemetryService:
             if attempt < max_retries:
                 await asyncio.sleep(2 ** (attempt - 1))
 
+        if not settings.telemetry.installation_id:
+            settings.telemetry.installation_id = new_id
         # All retries failed - continue with in-memory ID
         log.warning(
             "Using in-memory installation ID (config save failed)",
@@ -544,9 +571,10 @@ class TelemetryService:
             self._reported_health_event_ids.clear()
             self._pending_health_payload = None
             self._pending_health_event_ids.clear()
-            if settings.telemetry.installation_id == target_id:
-                settings.telemetry.installation_id = str(uuid.uuid4())
-                await settings.save()
+            if settings.telemetry.installation_id == target_id and not await self._persist_installation_id(
+                replacing=target_id
+            ):
+                log.warning("Rotated installation identity is in memory only (config save failed)")
             log.info("Anonymous telemetry history deleted and installation identity rotated")
             return True
         except Exception as exc:

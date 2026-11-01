@@ -6,6 +6,7 @@ from typing import Optional
 from collections.abc import Coroutine
 
 from app.config import settings
+from app.config_models import DiscordSettings, PushoverSettings, TelegramSettings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
 from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
@@ -302,9 +303,10 @@ class NotificationService:
         lang: str,
         snapshot_data: Optional[bytes],
         detection_url: Optional[str] = None,
+        config: Optional[DiscordSettings] = None,
     ) -> bool:
         """Send Discord webhook notification."""
-        cfg = settings.notifications.discord
+        cfg = config if config is not None else settings.notifications.discord
         if not cfg.webhook_url:
             return False
 
@@ -345,9 +347,10 @@ class NotificationService:
         snapshot_data: Optional[bytes],
         lang: str,
         detection_url: Optional[str] = None,
+        config: Optional[PushoverSettings] = None,
     ) -> bool:
         """Send Pushover notification."""
-        cfg = settings.notifications.pushover
+        cfg = config if config is not None else settings.notifications.pushover
         if not cfg.user_key or not cfg.api_token:
             return False
 
@@ -388,9 +391,10 @@ class NotificationService:
         snapshot_data: Optional[bytes],
         lang: str,
         detection_url: Optional[str] = None,
+        config: Optional[TelegramSettings] = None,
     ) -> bool:
         """Send Telegram notification."""
-        cfg = settings.notifications.telegram
+        cfg = config if config is not None else settings.notifications.telegram
         if not cfg.bot_token or not cfg.chat_id:
             return False
 
