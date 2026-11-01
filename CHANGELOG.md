@@ -6,6 +6,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Settings saves and backup imports persist a private candidate before changing live
+  settings. Concurrent requests are serialised, and failed saves schedule no reloads
+  or notifications.
+
 - Rejected settings updates leave all settings unchanged, including public access
   when an invalid notification instance address is submitted in the same request.
 
