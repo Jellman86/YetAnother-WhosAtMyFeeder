@@ -1,4 +1,5 @@
 import asyncio
+import os
 import collections
 import contextlib
 import types
@@ -269,6 +270,37 @@ async def test_graceful_shutdown_returns_cancelled_active_job_to_pending(monkeyp
         broadcast=False,
     )
     assert not any(call.args[1] == "failed" for call in service._update_status.await_args_list)
+
+
+@pytest.mark.asyncio
+async def test_cancelling_clip_acquisition_fails_the_job_and_leaves_no_clip_file(monkeypatch):
+    service = AutoVideoClassifierService()
+    loading = asyncio.Event()
+    reserved: list[str] = []
+
+    async def slow_clip_load(_event_id, dest_path, *, skip_delay=False):
+        reserved.append(dest_path)
+        loading.set()
+        await asyncio.Event().wait()
+
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._load_preferred_clip = slow_clip_load  # type: ignore[method-assign]
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=({"id": "evt-acquire-cancel"}, None)),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    service._running = True
+    task = asyncio.create_task(service._process_event("evt-acquire-cancel", "cam1", skip_delay=True))
+    await asyncio.wait_for(loading.wait(), timeout=1.0)
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert not os.path.exists(reserved[0])
+    service._update_status.assert_any_await("evt-acquire-cancel", "failed", error="video_cancelled", broadcast=True)
 
 
 @pytest.mark.asyncio
