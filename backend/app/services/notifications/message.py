@@ -5,6 +5,7 @@ per-channel transports in `notifications.transports` only render and deliver a m
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,17 @@ class NotificationMessage:
     # Where a text-only alert points when the subject has no page of its own (a bird snapshot).
     fallback_link: SubjectLink | None = None
     attachment: Attachment | None = None
+    # A photo a channel may show by address when none is attached (a bird snapshot on Frigate).
+    image_url: str | None = None
+    # When the subject was seen; a naive time is UTC.
+    occurred_at: datetime | None = None
+
+    def occurred_utc(self) -> datetime | None:
+        if self.occurred_at is None:
+            return None
+        if self.occurred_at.tzinfo is None:
+            return self.occurred_at.replace(tzinfo=timezone.utc)
+        return self.occurred_at.astimezone(timezone.utc)
 
 
 @dataclass(frozen=True)

@@ -1,15 +1,12 @@
 """Garden messages: their own text, the accepted photo as an attachment, and no media URL or token."""
 
 import html
-import json
-import re
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
 import structlog
 from fastapi import HTTPException
-from httpx import URL
 
 from app.config import settings
 from app.database import get_db
@@ -17,7 +14,9 @@ from app.repositories.garden_repository import GardenCapture, GardenPhotoUnavail
 from app.services import garden_motion_privacy
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import instance_base
-from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.message import Attachment, DeliveryResult, NotificationMessage, SubjectLink
+from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
 from app.services.notifications.transports.telegram import TelegramCredentials, TelegramTransport
 
 log = structlog.get_logger()
@@ -104,77 +103,52 @@ def message(capture: GardenCapture) -> tuple[str, str, str | None]:
     return title, body, capture_link(capture)
 
 
-def _discord_escape(text: str) -> str:
-    # Model/camera names are data, never mentions or Markdown controls.
-    return re.sub(r"([\\`*_~|>\[\]()])", r"\\\1", text)
+GARDEN_DISCORD_FOOTER = "YA-WAMF Garden"
+
+
+def garden_message(capture: GardenCapture, photo: bytes | None) -> NotificationMessage:
+    title, body, url = message(capture)
+    link_text = i18n_service.translate("notification.garden_view", lang=settings.notifications.notification_language)
+    return NotificationMessage(
+        title=title,
+        body=body,
+        link=SubjectLink(url, link_text) if url else None,
+        attachment=Attachment(PHOTO_NAME, photo) if photo else None,
+        occurred_at=observed_utc(capture.observed_at),
+    )
+
+
+async def _send_through_transport(channel: str, alert: NotificationMessage) -> DeliveryResult | None:
+    cfg = settings.notifications
+    if channel == "discord":
+        options = DiscordOptions(username=cfg.discord.username, footer=GARDEN_DISCORD_FOOTER)
+        return await DiscordTransport(http_client).send(alert, DiscordCredentials(cfg.discord.webhook_url), options)
+    if channel == "telegram":
+        credentials = TelegramCredentials(cfg.telegram.bot_token, cfg.telegram.chat_id)
+        return await TelegramTransport(http_client).send(alert, credentials)
+    if channel == "pushover":
+        credentials = PushoverCredentials(cfg.pushover.api_token, cfg.pushover.user_key)
+        return await PushoverTransport(http_client).send(
+            alert, credentials, PushoverOptions(device=cfg.pushover.device)
+        )
+    return None
 
 
 async def send_garden_notification(channel: str, capture: GardenCapture, photo: bytes | None = None) -> bool:
     if not channel_configured(channel):
         return False
+    alert = garden_message(capture, photo)
+    result = await _send_through_transport(channel, alert)
+    if result is not None:
+        if not result.sent:
+            log.warning("garden_channel_delivery_failed", channel=channel, error_type=result.error_type)
+        return result.sent
     title, body, url = message(capture)
     lang = settings.notifications.notification_language
     link_text = i18n_service.translate("notification.garden_view", lang=lang)
-    client = http_client
     cfg = settings.notifications
     try:
-        if channel == "discord":
-            embed: dict[str, object] = {
-                "title": _discord_escape(title),
-                "description": _discord_escape(body),
-                "timestamp": observed_utc(capture.observed_at).isoformat(),
-                "footer": {"text": "YA-WAMF Garden"},
-            }
-            if url:
-                embed["url"] = url
-            payload = {"username": cfg.discord.username, "allowed_mentions": {"parse": []}, "embeds": [embed]}
-            webhook = URL(cfg.discord.webhook_url).copy_merge_params({"wait": "true"})
-            if photo:
-                embed["image"] = {"url": f"attachment://{PHOTO_NAME}"}
-                response = await client.post(
-                    webhook,
-                    data={"payload_json": json.dumps(payload)},
-                    files={"files[0]": (PHOTO_NAME, photo, "image/jpeg")},
-                )
-            else:
-                response = await client.post(webhook, json=payload)
-        elif channel == "telegram":
-            garden_message = NotificationMessage(
-                title=title,
-                body=body,
-                link=SubjectLink(url, link_text) if url else None,
-                attachment=Attachment(PHOTO_NAME, photo) if photo else None,
-            )
-            result = await TelegramTransport(client).send(
-                garden_message, TelegramCredentials(cfg.telegram.bot_token, cfg.telegram.chat_id)
-            )
-            if not result.sent:
-                log.warning("garden_channel_delivery_failed", channel=channel, error_type=result.error_type)
-            return result.sent
-        elif channel == "pushover":
-            fields = {
-                "token": cfg.pushover.api_token,
-                "user": cfg.pushover.user_key,
-                "title": title,
-                "message": body,
-                "html": 0,
-                "priority": 0,
-            }
-            if cfg.pushover.device:
-                fields["device"] = cfg.pushover.device
-            if url:
-                fields.update(url=url, url_title=link_text)
-            if photo:
-                response = await client.post(
-                    "https://api.pushover.net/1/messages.json",
-                    data=fields,
-                    files={"attachment": (PHOTO_NAME, photo, "image/jpeg")},
-                )
-            else:
-                response = await client.post("https://api.pushover.net/1/messages.json", data=fields)
-            response.raise_for_status()
-            return response.json().get("status") == 1
-        elif channel == "email":
+        if channel == "email":
             from app.services.smtp_service import smtp_service
 
             email = cfg.email
@@ -208,10 +182,7 @@ async def send_garden_notification(channel: str, capture: GardenCapture, photo: 
                 use_tls=email.smtp_use_tls,
                 image_data=photo,
             )
-        else:
-            return False
-        response.raise_for_status()
-        return True
+        return False
     except Exception as error:
         # Third-party failures can contain credential-bearing URLs or request bodies.
         log.warning("garden_channel_delivery_failed", channel=channel, error_type=type(error).__name__)

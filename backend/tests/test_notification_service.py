@@ -418,7 +418,7 @@ async def test_send_discord_with_snapshot_data(notification_service):
             assert mock_post.called
             call_kwargs = mock_post.call_args.kwargs
             assert "files" in call_kwargs
-            assert call_kwargs["files"]["file"][1] == fake_image
+            assert call_kwargs["files"]["files[0]"][1] == fake_image
 
 
 @pytest.mark.asyncio
@@ -826,3 +826,143 @@ async def test_bird_telegram_reports_a_refused_send_as_not_sent(notification_ser
         answer=httpx.Response(403, json={"ok": False}),
     )
     assert sent is False
+
+
+# --- bird Discord and Pushover messages, sent through the shared transports --------------------
+
+
+async def _bird_request(notification_service, send, answer):
+    import httpx
+
+    requests = []
+
+    def receive(request):
+        requests.append(request)
+        return answer
+
+    await notification_service.client.aclose()
+    notification_service.client = httpx.AsyncClient(transport=httpx.MockTransport(receive))
+    try:
+        sent = await send()
+    finally:
+        await notification_service.client.aclose()
+    assert len(requests) == 1
+    return sent, requests[0]
+
+
+def _bird_discord(monkeypatch, include_snapshot=True):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.notifications.discord, "webhook_url", "https://discord.test/api/webhooks/1/secret")
+    monkeypatch.setattr(settings.notifications.discord, "username", "YA-WAMF")
+    monkeypatch.setattr(settings.notifications.discord, "include_snapshot", include_snapshot)
+
+
+SEEN_AT = datetime(2026, 11, 1, 9, 30)
+
+
+@pytest.mark.asyncio
+async def test_bird_discord_embed_states_the_detection_in_bold_and_shows_the_snapshot_by_address(
+    notification_service, monkeypatch
+):
+    import httpx
+
+    _bird_discord(monkeypatch)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_discord(
+            "Robin (juvenile)",
+            0.88,
+            "back_yard",
+            SEEN_AT,
+            "http://frigate/api/events/e1/snapshot.jpg",
+            True,
+            "en",
+            None,
+            detection_url="https://feeder.test/events?event=e1",
+        ),
+        httpx.Response(200, json={"id": "1"}),
+    )
+    assert sent is True
+    assert request.url.params["wait"] == "true"
+    assert json.loads(request.content) == {
+        "username": "YA-WAMF",
+        "allowed_mentions": {"parse": []},
+        "embeds": [
+            {
+                "title": "New Bird Detected: Robin \\(juvenile\\)",
+                "description": (
+                    "**Robin \\(juvenile\\) detected on back\\_yard with 88% confidence**\n**🎤 Audio Confirmed by BirdNET-Go**"
+                ),
+                "color": 3066993,
+                "timestamp": "2026-11-01T09:30:00+00:00",
+                "footer": {"text": "YA-WAMF"},
+                "url": "https://feeder.test/events?event=e1",
+                "image": {"url": "http://frigate/api/events/e1/snapshot.jpg"},
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_bird_discord_attaches_snapshot_bytes_as_the_embed_image(notification_service, monkeypatch):
+    import httpx
+
+    _bird_discord(monkeypatch)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_discord(
+            "Cardinal", 0.92, "feeder", SEEN_AT, "http://frigate/snap.jpg", False, "en", b"bird-jpeg"
+        ),
+        httpx.Response(200, json={"id": "1"}),
+    )
+    assert sent is True
+    body = request.content.decode()
+    assert 'name="files[0]"; filename="snapshot.jpg"' in body and "bird-jpeg" in body
+    assert '"image": {"url": "attachment://snapshot.jpg"}' in body
+    assert "http://frigate/snap.jpg" not in body
+
+
+@pytest.mark.asyncio
+async def test_bird_pushover_sends_the_detection_with_its_time_priority_and_link(notification_service, monkeypatch):
+    import httpx
+    from urllib.parse import parse_qs
+
+    from app.config import settings
+
+    cfg = settings.notifications.pushover
+    for key, value in {
+        "api_token": "app-token",
+        "user_key": "user-key",
+        "priority": 1,
+        "device": "phone",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_pushover(
+            "Blue Jay",
+            0.95,
+            "front_feeder",
+            SEEN_AT.replace(tzinfo=timezone.utc),
+            "http://frigate/snap.jpg",
+            None,
+            "en",
+        ),
+        httpx.Response(200, json={"status": 1}),
+    )
+    assert sent is True
+    assert str(request.url) == "https://api.pushover.net/1/messages.json"
+    assert {key: values[0] for key, values in parse_qs(request.content.decode()).items()} == {
+        "token": "app-token",
+        "user": "user-key",
+        "title": "New Bird Detected: Blue Jay",
+        "message": "Blue Jay detected on front_feeder with 95% confidence",
+        "html": "0",
+        "priority": "1",
+        "timestamp": str(int(SEEN_AT.replace(tzinfo=timezone.utc).timestamp())),
+        "url": "http://frigate/snap.jpg",
+        "url_title": "View Snapshot",
+        "device": "phone",
+    }
