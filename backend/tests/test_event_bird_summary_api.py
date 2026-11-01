@@ -15,6 +15,7 @@ from app.auth import create_access_token
 from app.config import settings
 from app.main import app
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services import detection_presenter
 from app.routers import events
 from app.routers.proxy import BirdObservationResponse
 
@@ -91,7 +92,7 @@ def history(monkeypatch, tmp_path):
     monkeypatch.setattr(events, "get_db", history_db)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
     # Catalogue naming is covered with its own catalogue; these tests read the stored decisions.
-    monkeypatch.setattr(events, "resolve_label_names", lambda labels, language: {})
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", lambda labels, language: {})
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.auth, "initial_setup_complete", True)
     monkeypatch.setattr(settings.auth, "username", "owner")
@@ -152,7 +153,7 @@ async def test_owner_summary_names_each_species_in_the_reader_language(history, 
         asked.append((list(labels), language))
         return {"house finch": SpeciesIdentityNames(display="Roselin du Mexique", scientific="Haemorhous mexicanus")}
 
-    monkeypatch.setattr(events, "resolve_label_names", resolve)
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", resolve)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get("/api/events", headers={**OWNER, "Accept-Language": "fr-FR"})
     rows = _by_event(response.json())
