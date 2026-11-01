@@ -42,6 +42,7 @@ from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa: F401 - compatibility for tests
 from app.utils.video_analysis import rank_video_top_frames
+from app.utils.frigate_track import compact_frigate_path_data
 
 if TYPE_CHECKING:
     from app.services.detection_service import NonBirdSaveRejection
@@ -1553,13 +1554,7 @@ class AutoVideoClassifierService:
             context["frigate_snapshot_frame_time"] = float(snapshot_time)
         raw_path_data = payload.get("path_data")
         if isinstance(raw_path_data, list):
-            path_data: list[list[object]] = []
-            for item in raw_path_data[:100]:
-                if not isinstance(item, (list, tuple)) or len(item) < 2:
-                    continue
-                point = item[0]
-                if isinstance(point, (list, tuple)) and len(point) >= 2:
-                    path_data.append([list(point[:2]), item[1]])
+            path_data = compact_frigate_path_data(raw_path_data, limit=100)
             if path_data:
                 context["frigate_path_data"] = path_data
         if clip_start_timestamp is not None:

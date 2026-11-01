@@ -11,6 +11,7 @@ from typing import Any, NamedTuple
 
 from app.models.ai_models import ClassificationInputContext
 from app.utils.frigate_coordinates import normalized_frigate_video_hint, photographed_track
+from app.utils.frigate_track import box_at_path_point, frigate_path_points, nearest_path_point
 
 
 class ClassifiedInputProvenance(NamedTuple):
@@ -52,25 +53,6 @@ def input_context_extra(input_context: ClassificationInputContext, key: str) -> 
     if key in extra:
         return extra.get(key)
     return getattr(input_context, key, None)
-
-
-def frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
-    path_points: list[tuple[float, float, float]] = []
-    for item in raw_path_data:
-        if not isinstance(item, (list, tuple)) or len(item) < 2:
-            continue
-        point = item[0]
-        if not isinstance(point, (list, tuple)) or len(point) < 2:
-            continue
-        try:
-            x = float(point[0])
-            y = float(point[1])
-            timestamp = float(item[1])
-        except (TypeError, ValueError):
-            continue
-        if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-            path_points.append((timestamp, x, y))
-    return path_points
 
 
 def frigate_snapshot_time(input_context: ClassificationInputContext) -> float | None:
@@ -144,16 +126,10 @@ def tracked_frigate_box_for_frame(
         )
         if not start <= target_timestamp < end:
             return None
-    point_timestamp, bottom_center_x, bottom_y = min(
-        path_points,
-        key=lambda item: abs(item[0] - target_timestamp),
-    )
-    if abs(point_timestamp - target_timestamp) > 0.75:
+    nearest = nearest_path_point(path_points, target_timestamp, max_distance_seconds=0.75)
+    if nearest is None:
         return None
-
-    left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
-    top = max(0.0, min(1.0 - height, bottom_y - height))
-    return [left, top, width, height]
+    return box_at_path_point(nearest, width=width, height=height)
 
 
 def video_frame_input_context(

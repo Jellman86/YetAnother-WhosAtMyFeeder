@@ -8,7 +8,6 @@ import pytest
 from app.services.inference.input_selection import (
     ClassifiedInputProvenance,
     attach_classification_input_provenance,
-    frigate_path_points,
     input_context_extra,
     normalize_classification_input_context,
     resolved_classification_input_provenance,
@@ -32,20 +31,6 @@ def test_extra_hints_are_read_from_the_context():
     assert input_context_extra(context, "frigate_box") == [0.1, 0.2, 0.3, 0.4]
     assert input_context_extra(context, "is_cropped") is False
     assert input_context_extra(context, "absent") is None
-
-
-def test_path_points_keep_only_finite_normalised_positions():
-    raw = [
-        [[0.2, 0.3], 100.0],
-        [[1.2, 0.3], 101.0],
-        [[0.2, float("nan")], 102.0],
-        [[0.4], 103.0],
-        ["not a point", 104.0],
-        [[0.5, 0.6], "late"],
-        [[0.7, 0.8], 105],
-    ]
-
-    assert frigate_path_points(raw) == [(100.0, 0.2, 0.3), (105.0, 0.7, 0.8)]
 
 
 def test_a_tracked_box_follows_the_nearest_path_point_and_refuses_a_distant_one():
