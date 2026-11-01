@@ -33,6 +33,7 @@ from app.services.hq_classification_refinement import (
 )
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
+from app.services.snapshot_evidence_commit import SnapshotEvidenceCommitPlan, build_snapshot_evidence_commit_plan
 from app.services.video_scene_cache import VideoSceneCache
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
@@ -2295,39 +2296,37 @@ class HighQualitySnapshotService:
             manual_candidate_id=chosen.get("candidate_id") if manual_choice and chosen else None,
             displayed_photo_sha256=displayed_photo_sha256,
         )
+        await self._commit_snapshot_evidence(
+            build_snapshot_evidence_commit_plan(
+                event_id,
+                candidates,
+                previous_rows=existing,
+                legacy_removed_hashes=legacy_removed_hashes,
+            )
+        )
 
-        for candidate in candidates:
-            image_ref = str(candidate.get("image_ref") or "")
-            thumbnail_ref = str(candidate.get("thumbnail_ref") or "")
-            image_bytes = candidate.get("image_bytes")
-            thumbnail_bytes = candidate.get("thumbnail_bytes")
-            if image_ref and isinstance(image_bytes, (bytes, bytearray)):
+    async def _commit_snapshot_evidence(self, plan: SnapshotEvidenceCommitPlan) -> None:
+        """Write media first, then replace the rows in one session, then prune unreferenced files."""
+        for write in plan.media_writes:
+            if write.kind == "image":
                 await media_cache.cache_snapshot(
-                    image_ref,
-                    bytes(image_bytes),
+                    write.ref,
+                    write.content,
                     source="snapshot_candidate",
-                    **({"film_alignment": candidate["film_alignment"]} if candidate.get("film_alignment") else {}),
+                    **({"film_alignment": write.film_alignment} if write.film_alignment else {}),
                 )
-            if thumbnail_ref and isinstance(thumbnail_bytes, (bytes, bytearray)):
-                await media_cache.cache_thumbnail(thumbnail_ref, bytes(thumbnail_bytes), source="snapshot_candidate")
+            else:
+                await media_cache.cache_thumbnail(write.ref, write.content, source="snapshot_candidate")
 
-        persisted_rows: list[dict[str, Any]] = []
-        for candidate in candidates:
-            row = dict(candidate)
-            row.pop("image_bytes", None)
-            row.pop("thumbnail_bytes", None)
-            row.pop("observation_boxes", None)
-            persisted_rows.append(row)
+        rows = list(plan.rows)
         async with get_db() as db:
             repo = DetectionRepository(db)
-            for row in persisted_rows:
-                old_digest = legacy_removed_hashes.get(row["candidate_id"])
-                if old_digest and old_digest == row.get("content_sha256"):
-                    await repo.bind_legacy_snapshot_candidate_dismissal(event_id, row["candidate_id"], old_digest)
-            await repo.replace_snapshot_candidates(event_id, persisted_rows)
+            for candidate_id, digest in plan.legacy_dismissals:
+                await repo.bind_legacy_snapshot_candidate_dismissal(plan.event_id, candidate_id, digest)
+            await repo.replace_snapshot_candidates(plan.event_id, rows)
         from app.services.video_snapshot_service import prune_unreferenced_photo_files
 
-        await prune_unreferenced_photo_files(existing, persisted_rows)
+        await prune_unreferenced_photo_files(list(plan.previous_rows), rows)
 
     async def _persist_scan_bundle(self, event_id: str, bundle: dict[str, Any]) -> None:
         from app.services.bird_scan_service import bird_scan_service
