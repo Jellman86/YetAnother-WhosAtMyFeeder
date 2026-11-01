@@ -12,7 +12,6 @@ import hashlib
 import importlib
 import io
 import json
-import math
 import re
 import subprocess
 import threading
@@ -30,12 +29,7 @@ from app.services.photo_presence import has_localized_bird
 from app.services.video_scene_cache import VideoSceneCache
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
-from app.utils.frigate_coordinates import (
-    frigate_snapshot_crop_box,
-    normalized_frigate_video_hint,
-    photographed_track,
-    restore_frigate_hint_box,
-)
+from app.utils.frigate_coordinates import frigate_snapshot_crop_box, restore_frigate_hint_box
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 from app.config import settings
 from app.utils.python_subprocess import python_subprocess_launch
@@ -57,6 +51,12 @@ from app.services.inference.adapters.openvino import (
 from app.services.inference.adapters.tflite import ModelInstance
 from app.services.inference.diagnostics import gpu_runtime_failure_code, summarize_runtime_exception
 from app.services.inference.errors import InvalidInferenceOutputError
+from app.services.inference.input_selection import (
+    attach_classification_input_provenance,
+    input_context_extra,
+    normalize_classification_input_context,
+    video_frame_input_context,
+)
 from app.services.inference.outputs import resolve_model_labels, strict_non_finite_output_enabled
 from app.services.inference.provider_policy import (
     apply_host_validated_providers,
@@ -211,33 +211,6 @@ class VideoClassificationWorkerError(RuntimeError):
         super().__init__(self.reason_code)
 
 
-def _normalize_classification_input_context(input_context: Any | None) -> ClassificationInputContext:
-    if isinstance(input_context, ClassificationInputContext):
-        return input_context
-    if input_context is None:
-        return ClassificationInputContext()
-
-    payload: dict[str, Any] = {}
-    if isinstance(input_context, dict):
-        payload = dict(input_context)
-    else:
-        model_dump = getattr(input_context, "model_dump", None)
-        if callable(model_dump):
-            try:
-                dumped = model_dump()
-            except Exception:
-                dumped = None
-            if isinstance(dumped, dict):
-                payload = dumped
-        elif hasattr(input_context, "__dict__"):
-            payload = {key: value for key, value in vars(input_context).items() if not key.startswith("_")}
-
-    try:
-        return ClassificationInputContext.model_validate(payload)
-    except Exception:
-        return ClassificationInputContext()
-
-
 def _select_video_frame_indices(
     *,
     total_frames: int,
@@ -322,7 +295,7 @@ def _invoke_model_classify(
     if not callable(classify_fn):
         return []
 
-    normalized_input_context = _normalize_classification_input_context(input_context)
+    normalized_input_context = normalize_classification_input_context(input_context)
     try:
         signature = inspect.signature(classify_fn)
         accepts_input_context = any(
@@ -3450,12 +3423,6 @@ class ClassifierService:
         configured_model = str(getattr(settings.classification, "model", "") or "").strip()
         return configured_model or "unknown"
 
-    def _input_context_extra(self, input_context: ClassificationInputContext, key: str) -> Any | None:
-        extra = getattr(input_context, "__pydantic_extra__", {}) or {}
-        if key in extra:
-            return extra.get(key)
-        return getattr(input_context, key, None)
-
     def _resolve_frigate_hint_crop(
         self,
         image: Image.Image,
@@ -3463,8 +3430,8 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
-            raw_hint = self._input_context_extra(input_context, hint_key)
-            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            raw_hint = input_context_extra(input_context, hint_key)
+            box = restore_frigate_hint_box(raw_hint, image.size)
             if box is None:
                 continue
             expanded = self._expand_hint_box(box, image.size)
@@ -3479,196 +3446,6 @@ class ClassifierService:
             }
         return None
 
-    @staticmethod
-    def _frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
-        path_points: list[tuple[float, float, float]] = []
-        for item in raw_path_data:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
-        return path_points
-
-    def _frigate_snapshot_time(self, input_context: ClassificationInputContext) -> float | None:
-        value = self._input_context_extra(input_context, "frigate_snapshot_frame_time")
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            return None
-        return float(value)
-
-    def _photographed_track_window(
-        self,
-        input_context: ClassificationInputContext,
-        image_size: tuple[int, int] | None,
-    ) -> tuple[float, float]:
-        """Time window in which Frigate's track still follows the photographed bird."""
-        snapshot_time = self._frigate_snapshot_time(input_context)
-        box = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        if snapshot_time is None or box is None or not isinstance(raw_path_data, list):
-            return -math.inf, math.inf
-        _points, start, end = photographed_track(
-            self._frigate_path_points(raw_path_data),
-            box=box,
-            snapshot_time=snapshot_time,
-            image_size=image_size or (1, 1),
-        )
-        return start, end
-
-    def _tracked_frigate_box_for_frame(
-        self,
-        input_context: ClassificationInputContext,
-        *,
-        frame_offset_seconds: float | None,
-        image_size: tuple[int, int] | None = None,
-    ) -> list[float] | None:
-        """Align Frigate's tracked path with the actual clip timeline."""
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        raw_box = self._input_context_extra(input_context, "frigate_box")
-        raw_clip_start = self._input_context_extra(input_context, "clip_start_timestamp")
-        if (
-            not isinstance(raw_path_data, list)
-            or not isinstance(raw_box, (list, tuple))
-            or len(raw_box) != 4
-            or frame_offset_seconds is None
-        ):
-            return None
-        try:
-            clip_start = float(raw_clip_start)
-            offset = float(frame_offset_seconds)
-        except (TypeError, ValueError):
-            return None
-        if not all(math.isfinite(value) for value in (clip_start, offset)) or offset < 0.0:
-            return None
-        if image_size is None:
-            image_size = (1, 1)
-        normalized_box = normalized_frigate_video_hint(raw_box)
-        if normalized_box is None:
-            return None
-        _left, _top, width, height = normalized_box
-        if width > 1.0 or height > 1.0:
-            return None
-
-        path_points = self._frigate_path_points(raw_path_data)
-        if not path_points:
-            return None
-
-        target_timestamp = clip_start + offset
-        snapshot_time = self._frigate_snapshot_time(input_context)
-        if snapshot_time is not None:
-            path_points, start, end = photographed_track(
-                path_points, box=normalized_box, snapshot_time=snapshot_time, image_size=image_size
-            )
-            if not start <= target_timestamp < end:
-                return None
-        point_timestamp, bottom_center_x, bottom_y = min(
-            path_points,
-            key=lambda item: abs(item[0] - target_timestamp),
-        )
-        if abs(point_timestamp - target_timestamp) > 0.75:
-            return None
-
-        left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
-        top = max(0.0, min(1.0 - height, bottom_y - height))
-        return [left, top, width, height]
-
-    def _video_frame_input_context(
-        self,
-        input_context: ClassificationInputContext,
-        *,
-        frame_offset_seconds: float | None,
-        image_size: tuple[int, int] | None = None,
-    ) -> ClassificationInputContext:
-        """Return crop hints that are valid at this frame's clip timestamp.
-
-        A Frigate event's top-level box describes one tracked instant. Reusing it
-        across a full-visit recording repeatedly classifies the same background
-        patch after a fleeting bird has moved away. Precise hints require a
-        known clip origin and aligned path data. A broader spatial prior remains
-        useful when the exact frame timing is unknown.
-        """
-        frame_context_payload = dict(input_context.model_dump())
-        clip_variant = str(self._input_context_extra(input_context, "clip_variant") or "event").strip().lower()
-        # A spatial prior survives unknown pre-capture timing and also constrains
-        # full-visit recordings. Include the observed path so a moving bird is
-        # not excluded merely because the final region covers its last position.
-        subject_region = normalized_frigate_video_hint(
-            self._input_context_extra(input_context, "frigate_region")
-        ) or normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-        for key in ("frigate_box", "frigate_region"):
-            if normalized_frigate_video_hint(frame_context_payload.get(key)) is None:
-                frame_context_payload.pop(key, None)
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        if subject_region is not None:
-            normalized_region = subject_region
-            tracked_size = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-            if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
-                left, top, width, height = normalized_region
-                right, bottom = left + width, top + height
-                # A track that moved on to another bird must not stretch the event's subject to it.
-                track_start, track_end = self._photographed_track_window(input_context, image_size)
-                for item in raw_path_data:
-                    if (
-                        not isinstance(item, (list, tuple))
-                        or not item
-                        or not isinstance(item[0], (list, tuple))
-                        or len(item[0]) < 2
-                    ):
-                        continue
-                    if math.isfinite(track_start) or math.isfinite(track_end):
-                        timestamp = item[1] if len(item) > 1 else None
-                        if (
-                            isinstance(timestamp, bool)
-                            or not isinstance(timestamp, (int, float))
-                            or not track_start <= timestamp < track_end
-                        ):
-                            continue
-                    x, y = item[0][:2]
-                    if (
-                        isinstance(x, bool)
-                        or isinstance(y, bool)
-                        or not isinstance(x, (int, float))
-                        or not isinstance(y, (int, float))
-                    ):
-                        continue
-                    if not math.isfinite(x) or not math.isfinite(y) or not 0 <= x <= 1 or not 0 <= y <= 1:
-                        continue
-                    left, top = min(left, x - tracked_size[2] / 2), min(top, y - tracked_size[3])
-                    right, bottom = max(right, x + tracked_size[2] / 2), max(bottom, y)
-                left, top, right, bottom = max(0, left), max(0, top), min(1, right), min(1, bottom)
-                subject_region = [left, top, right - left, bottom - top]
-            frame_context_payload["event_subject_region"] = subject_region
-        requires_time_aligned_hint = (
-            clip_variant == "recording"
-            or bool(raw_path_data)
-            or self._input_context_extra(input_context, "clip_start_timestamp") is None
-        )
-        if requires_time_aligned_hint:
-            frame_context_payload.pop("frigate_box", None)
-            frame_context_payload.pop("frigate_region", None)
-            tracked_box = self._tracked_frigate_box_for_frame(
-                input_context,
-                frame_offset_seconds=frame_offset_seconds,
-                image_size=image_size,
-            )
-            if tracked_box is not None:
-                frame_context_payload["frigate_box"] = tracked_box
-        return _normalize_classification_input_context(frame_context_payload)
-
-    @staticmethod
-    def _frigate_snapshot_crop_box(
-        box: tuple[int, int, int, int], image_size: tuple[int, int]
-    ) -> tuple[int, int, int, int] | None:
-        return frigate_snapshot_crop_box(box, image_size)
-
     def _resolve_frigate_snapshot_crop(
         self,
         image: Image.Image,
@@ -3676,9 +3453,9 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         """Restore the crop Frigate supplies for an active event snapshot."""
-        aligned_region = self._input_context_extra(input_context, "frigate_snapshot_crop_region")
-        if self._input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
-            crop_box = self._restore_frigate_hint_box(aligned_region, image.size)
+        aligned_region = input_context_extra(input_context, "frigate_snapshot_crop_region")
+        if input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
+            crop_box = restore_frigate_hint_box(aligned_region, image.size)
             if crop_box is not None:
                 return {
                     "crop_image": image.crop(crop_box),
@@ -3687,11 +3464,11 @@ class ClassifierService:
                     "reason": "frigate_snapshot_scaled_crop",
                 }
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
-            raw_hint = self._input_context_extra(input_context, hint_key)
-            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            raw_hint = input_context_extra(input_context, hint_key)
+            box = restore_frigate_hint_box(raw_hint, image.size)
             if box is None:
                 continue
-            crop_box = self._frigate_snapshot_crop_box(box, image.size)
+            crop_box = frigate_snapshot_crop_box(box, image.size)
             if crop_box is None:
                 continue
             return {
@@ -3778,12 +3555,10 @@ class ClassifierService:
     ) -> list[VideoFrameCandidate]:
         """Return bounded, independently evaluated views of one video frame."""
         if bool(input_context.is_cropped):
-            supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
+            supplied_source = str(input_context_extra(input_context, "input_source") or "provided_crop")
             return [VideoFrameCandidate(supplied_source, image, None)]
 
-        subject_box = restore_frigate_hint_box(
-            self._input_context_extra(input_context, "event_subject_region"), image.size
-        )
+        subject_box = restore_frigate_hint_box(input_context_extra(input_context, "event_subject_region"), image.size)
         candidates: list[VideoFrameCandidate] = (
             [VideoFrameCandidate("frigate_region_crop", image.crop(subject_box), subject_box)]
             if subject_box is not None
@@ -3892,13 +3667,6 @@ class ClassifierService:
         crop_result = self._resolve_model_crop(crop_source_image)
         return crop_result or hint_crop
 
-    def _restore_frigate_hint_box(
-        self,
-        raw_hint: Any,
-        image_size: tuple[int, int],
-    ) -> tuple[int, int, int, int] | None:
-        return restore_frigate_hint_box(raw_hint, image_size)
-
     def _expand_hint_box(
         self,
         box: tuple[int, int, int, int],
@@ -3951,7 +3719,7 @@ class ClassifierService:
         *,
         input_context: Any | None = None,
     ) -> tuple[Image.Image, dict[str, Any]]:
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         diagnostics: dict[str, Any] = {
             "crop_attempted": False,
             "crop_applied": False,
@@ -3959,7 +3727,7 @@ class ClassifierService:
             "source_reason": "standard",
         }
 
-        if bool(self._input_context_extra(normalized_input_context, "disable_crop_resolution")):
+        if bool(input_context_extra(normalized_input_context, "disable_crop_resolution")):
             diagnostics["crop_reason"] = "explicit_input_representation"
             return image, diagnostics
 
@@ -3973,9 +3741,7 @@ class ClassifierService:
             )
             return image, diagnostics
 
-        restore_frigate_crop = (
-            self._input_context_extra(normalized_input_context, "restore_frigate_snapshot_crop") is True
-        )
+        restore_frigate_crop = input_context_extra(normalized_input_context, "restore_frigate_snapshot_crop") is True
         if restore_frigate_crop:
             diagnostics["crop_attempted"] = True
             crop_result = self._resolve_frigate_snapshot_crop(
@@ -4099,55 +3865,6 @@ class ClassifierService:
         )
         return image, diagnostics
 
-    def _resolved_classification_input_provenance(
-        self,
-        *,
-        input_context: ClassificationInputContext,
-        crop_diagnostics: dict[str, Any],
-    ) -> tuple[str, bool]:
-        """Describe the image that actually reached model preprocessing."""
-        supplied_source = str(self._input_context_extra(input_context, "input_source") or "").strip().lower()
-        if bool(crop_diagnostics.get("crop_applied")):
-            crop_reason = str(crop_diagnostics.get("crop_reason") or "").strip().lower()
-            if crop_reason in {"frigate_box", "frigate_region", "frigate_snapshot_scaled_crop"}:
-                if supplied_source == "frigate_recording_snapshot":
-                    return "recording_snapshot_frigate_hint_crop", True
-                return "snapshot_frigate_hint_crop", True
-            return "snapshot_model_crop", True
-        if supplied_source:
-            return supplied_source, bool(input_context.is_cropped)
-        if bool(input_context.is_cropped):
-            return "provided_crop", True
-        return "full_frame", False
-
-    def _attach_classification_input_provenance(
-        self,
-        results: list[dict],
-        *,
-        input_context: ClassificationInputContext,
-        crop_diagnostics: dict[str, Any],
-    ) -> list[dict]:
-        input_source, input_is_cropped = self._resolved_classification_input_provenance(
-            input_context=input_context,
-            crop_diagnostics=crop_diagnostics,
-        )
-        for result in results:
-            if not isinstance(result, dict):
-                continue
-            result["input_source"] = input_source
-            result["input_is_cropped"] = input_is_cropped
-            for key in ("input_box", "input_frame_size"):
-                if key in crop_diagnostics:
-                    result[key] = crop_diagnostics[key]
-            if not crop_diagnostics.get("crop_applied") or crop_diagnostics.get("source_same_frame"):
-                frame_time = self._input_context_extra(input_context, "recording_frame_time")
-                if frame_time is not None:
-                    result["input_frame_time"] = frame_time
-                frame_hash = self._input_context_extra(input_context, "source_image_sha256")
-                if frame_hash:
-                    result["input_frame_sha256"] = frame_hash
-        return results
-
     def classify(
         self,
         image: Image.Image,
@@ -4156,7 +3873,7 @@ class ClassifierService:
         input_context: Any | None = None,
     ) -> list[dict]:
         """Classify an image using the bird model."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -4183,7 +3900,7 @@ class ClassifierService:
                     for result in results:
                         if isinstance(result, dict):
                             result["model_sha256"] = model_sha256
-                return self._attach_classification_input_provenance(
+                return attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,
                     crop_diagnostics=crop_diagnostics,
@@ -4248,7 +3965,7 @@ class ClassifierService:
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         # A lossless full frame (recording-frame identification and backfill send the
         # native picture) takes 0.3 to 1.4 s to encode; on the loop that stalled SSE,
         # MQTT and the API once per event.
@@ -4432,7 +4149,7 @@ class ClassifierService:
             except NativeCrashQuarantinedError:
                 if model_kind != "bird":
                     self._raise_native_quarantine_error(priority)
-                normalized = _normalize_classification_input_context(input_context)
+                normalized = normalize_classification_input_context(input_context)
                 return await self._run_native_cpu_recovery(
                     priority,
                     {
@@ -4833,7 +4550,7 @@ class ClassifierService:
         input_context: Any | None = None,
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         try:
             base_results = await self._run_image_inference(
                 self.classify, image, camera_name, model_id, normalized_input_context
@@ -4876,7 +4593,7 @@ class ClassifierService:
         queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         """Live image-classification path with bounded admission and accurate in-flight tracking."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         base_results = await self._run_live_image_inference(
             self.classify,
             image,
@@ -4925,7 +4642,7 @@ class ClassifierService:
         Intended for backfill/batch-style work so live MQTT classification
         remains responsive under sustained load.
         """
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         context = self._classification_admission_context(model_id=model_id)
         if self._image_execution_mode == "subprocess":
             base_results = await self._run_coordinated_supervised_inference(
@@ -4998,7 +4715,7 @@ class ClassifierService:
                 image,
                 None,
                 None,
-                input_context=_normalize_classification_input_context(input_context),
+                input_context=normalize_classification_input_context(input_context),
                 model_kind="wildlife",
                 context=context,
             )
@@ -5082,7 +4799,7 @@ class ClassifierService:
         Returns:
             List of classifications with aggregated scores.
         """
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
@@ -5116,7 +4833,7 @@ class ClassifierService:
             candidate_counts: dict[str, int] = {}
 
             sample_count = min(max_frames, total_frames)
-            clip_variant = str(self._input_context_extra(normalized_input_context, "clip_variant") or "event")
+            clip_variant = str(input_context_extra(normalized_input_context, "clip_variant") or "event")
             frame_indices = _select_video_frame_indices(
                 total_frames=total_frames,
                 sample_count=sample_count,
@@ -5124,15 +4841,13 @@ class ClassifierService:
             )
 
             if bool(normalized_input_context.is_cropped):
-                supplied_source = str(
-                    self._input_context_extra(normalized_input_context, "input_source") or "provided_crop"
-                )
+                supplied_source = str(input_context_extra(normalized_input_context, "input_source") or "provided_crop")
                 expected_input_sources = [supplied_source]
             else:
                 expected_input_sources = ["full_frame"]
                 has_frigate_hint = any(
-                    isinstance(self._input_context_extra(normalized_input_context, key), (list, tuple))
-                    and len(self._input_context_extra(normalized_input_context, key)) == 4
+                    isinstance(input_context_extra(normalized_input_context, key), (list, tuple))
+                    and len(input_context_extra(normalized_input_context, key)) == 4
                     for key in ("frigate_box", "frigate_region")
                 )
                 if has_frigate_hint:
@@ -5145,7 +4860,7 @@ class ClassifierService:
             all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
             all_offsets_by_input_source: dict[str, list[float | None]] = {}
             best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
-            scene_directory = self._input_context_extra(normalized_input_context, "_video_scene_directory")
+            scene_directory = input_context_extra(normalized_input_context, "_video_scene_directory")
             scene_cache = (
                 VideoSceneCache(clip_path=Path(video_path), clip_variant=clip_variant)
                 if isinstance(scene_directory, str)
@@ -5203,7 +4918,7 @@ class ClassifierService:
                 image = Image.fromarray(frame_rgb)
                 processed_frame_count += 1
 
-                frame_input_context = self._video_frame_input_context(
+                frame_input_context = video_frame_input_context(
                     normalized_input_context,
                     frame_offset_seconds=frame_offset_sec,
                     image_size=image.size,
@@ -5240,7 +4955,7 @@ class ClassifierService:
                     stage_started = time.perf_counter()
                     scores, active_bird_model = self._classify_raw_with_runtime_recovery(
                         candidate_image,
-                        input_context=_normalize_classification_input_context(candidate_context),
+                        input_context=normalize_classification_input_context(candidate_context),
                     )
                     stage_seconds["bird_inference"] += time.perf_counter() - stage_started
                     if active_bird_model is not None:
@@ -5369,7 +5084,7 @@ class ClassifierService:
                 SourceTemporalConsensus(input_source=input_source, consensus=assessment.consensus)
                 for input_source, assessment in source_assessments.items()
             ]
-            raw_target_labels = self._input_context_extra(normalized_input_context, "event_target_labels")
+            raw_target_labels = input_context_extra(normalized_input_context, "event_target_labels")
             target_labels = {
                 " ".join(normalize_classifier_label(str(label)).replace("_", " ").split()).casefold()
                 for label in (raw_target_labels if isinstance(raw_target_labels, list) else [])
@@ -5480,9 +5195,7 @@ class ClassifierService:
                 ),
                 "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
-                "event_target_label_source": self._input_context_extra(
-                    normalized_input_context, "event_target_label_source"
-                )
+                "event_target_label_source": input_context_extra(normalized_input_context, "event_target_label_source")
                 or "unavailable",
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
@@ -5503,7 +5216,7 @@ class ClassifierService:
                 runtime=diagnostic_payload["runtime"],
                 performance=diagnostic_payload["performance"],
             )
-            include_diagnostics = bool(self._input_context_extra(normalized_input_context, "include_video_diagnostics"))
+            include_diagnostics = bool(input_context_extra(normalized_input_context, "include_video_diagnostics"))
             if selected_source_consensus is None or selected_source_consensus.consensus is None:
                 log.info(
                     "Video classification abstained because inputs lacked consensus or disagreed",
@@ -5612,7 +5325,7 @@ class ClassifierService:
         diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
         scene_cache: VideoSceneCache | None = None,
     ) -> list[dict]:
-        context = dict(_normalize_classification_input_context(input_context).model_dump())
+        context = dict(normalize_classification_input_context(input_context).model_dump())
         # Only this request owner supplies an artifact directory. Public input
         # context must never choose a worker's output path.
         context.pop("_video_scene_directory", None)
@@ -5663,7 +5376,7 @@ class ClassifierService:
         diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
     ) -> list[dict]:
         """Async wrapper for video classification."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 

@@ -101,16 +101,15 @@
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
-    import EnrichmentSettings from '../components/settings/EnrichmentSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
-    import Errors from './Errors.svelte';
     import LazyRoute from '../components/LazyRoute.svelte';
     import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
     import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
+    import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { sectionIsDirty } from '../settings/section-adapter';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -139,6 +138,8 @@
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
     const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
+    const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
+    const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -1369,14 +1370,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let ebirdLocale = $state('en');
 
     // Enrichment sources
-    let enrichmentMode = $state<'single' | 'per_enrichment'>('per_enrichment');
-    let enrichmentSingleProvider = $state('wikipedia');
-    let enrichmentSummarySource = $state('wikipedia');
-    let enrichmentTaxonomySource = $state('inaturalist');
-    let enrichmentSightingsSource = $state('disabled');
-    let enrichmentSeasonalitySource = $state('disabled');
-    let enrichmentRaritySource = $state('disabled');
-    let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
+    let enrichmentDraft = $state<EnrichmentDraft>({
+        enrichmentMode: 'per_enrichment',
+        enrichmentSingleProvider: 'wikipedia',
+        enrichmentSummarySource: 'wikipedia',
+        enrichmentTaxonomySource: 'inaturalist',
+        enrichmentSightingsSource: 'disabled',
+        enrichmentSeasonalitySource: 'disabled',
+        enrichmentRaritySource: 'disabled',
+        enrichmentLinksSources: ['wikipedia', 'inaturalist']
+    });
 
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
@@ -1807,14 +1810,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
             { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
             { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
-            { key: 'enrichmentMode', val: enrichmentMode, store: (s.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment' },
-            { key: 'enrichmentSingleProvider', val: enrichmentSingleProvider, store: s.enrichment_single_provider ?? 'wikipedia' },
-            { key: 'enrichmentSummarySource', val: enrichmentSummarySource, store: s.enrichment_summary_source ?? 'wikipedia' },
-            { key: 'enrichmentTaxonomySource', val: enrichmentTaxonomySource, store: s.enrichment_taxonomy_source ?? 'inaturalist' },
-            { key: 'enrichmentSightingsSource', val: enrichmentSightingsSource, store: s.enrichment_sightings_source ?? 'disabled' },
-            { key: 'enrichmentSeasonalitySource', val: enrichmentSeasonalitySource, store: s.enrichment_seasonality_source ?? 'disabled' },
-            { key: 'enrichmentRaritySource', val: enrichmentRaritySource, store: s.enrichment_rarity_source ?? 'disabled' },
-            { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
             { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
             { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
             { key: 'llmApiKey', val: llmApiKey, store: normalizeSecret(s.llm_api_key) },
@@ -1922,6 +1917,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             checks.some(c => c.val !== c.store) ||
             sectionIsDirty(appearanceSection, appearanceDraft, s) ||
             sectionIsDirty(accessibilitySection, accessibilityDraft, s) ||
+            sectionIsDirty(enrichmentSection, enrichmentDraft, s) ||
             locationSettingsDirty({
                 current: {
                     latitude: locationLat,
@@ -3189,14 +3185,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
             inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
             // Enrichment settings
-            enrichmentMode = (settings.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment';
-            enrichmentSingleProvider = settings.enrichment_single_provider ?? 'wikipedia';
-            enrichmentSummarySource = settings.enrichment_summary_source ?? 'wikipedia';
-            enrichmentTaxonomySource = settings.enrichment_taxonomy_source ?? 'inaturalist';
-            enrichmentSightingsSource = settings.enrichment_sightings_source ?? 'disabled';
-            enrichmentSeasonalitySource = settings.enrichment_seasonality_source ?? 'disabled';
-            enrichmentRaritySource = settings.enrichment_rarity_source ?? 'disabled';
-            enrichmentLinksSources = settings.enrichment_links_sources || ['wikipedia', 'inaturalist'];
+            enrichmentDraft = enrichmentSection.decode(settings);
             // LLM settings
             llmEnabled = settings.llm_enabled ?? false;
             llmProvider = settings.llm_provider ?? 'gemini';
@@ -3528,14 +3517,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 inaturalist_default_latitude: inaturalistDefaultLat,
                 inaturalist_default_longitude: inaturalistDefaultLon,
                 inaturalist_default_place_guess: inaturalistDefaultPlace,
-                enrichment_mode: enrichmentMode,
-                enrichment_single_provider: enrichmentSingleProvider,
-                enrichment_summary_source: enrichmentSummarySource,
-                enrichment_taxonomy_source: enrichmentTaxonomySource,
-                enrichment_sightings_source: enrichmentSightingsSource,
-                enrichment_seasonality_source: enrichmentSeasonalitySource,
-                enrichment_rarity_source: enrichmentRaritySource,
-                enrichment_links_sources: enrichmentLinksSources,
+                ...enrichmentSection.encodePatch(enrichmentDraft),
                 llm_enabled: llmEnabled,
                 llm_provider: llmProvider,
                 llm_api_key: llmApiKey,
@@ -3834,7 +3816,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Health Tab -->
             {#if activeTab === 'health'}
                 <!-- The health page builds the System card itself, with its verdict inside it. -->
-                <Errors {onNavigate} />
+                <LazyRoute loader={loadHealthTab} label={$_('settings.tabs.health')} props={{ onNavigate }} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3903,16 +3885,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Enrichment Tab -->
             {#if activeTab === 'enrichment'}
-                <EnrichmentSettings
-                    enrichmentMode={enrichmentMode}
-                    enrichmentSingleProvider={enrichmentSingleProvider}
-                    enrichmentSummarySource={enrichmentSummarySource}
-                    enrichmentTaxonomySource={enrichmentTaxonomySource}
-                    enrichmentSightingsSource={enrichmentSightingsSource}
-                    enrichmentSeasonalitySource={enrichmentSeasonalitySource}
-                    enrichmentRaritySource={enrichmentRaritySource}
-                    enrichmentLinksSources={enrichmentLinksSources}
-                />
+                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
             {/if}
 
             <!-- AI Tab -->
