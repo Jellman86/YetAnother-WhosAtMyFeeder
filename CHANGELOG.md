@@ -6,6 +6,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- Rejected settings updates leave all settings unchanged, including public access
+  when an invalid notification instance address is submitted in the same request.
+
 - **Domestic birds you keep are Garden animals.** Chickens were thrown away in Garden:
   SpeciesNet counts a chicken as a bird, and Garden handed every bird to bird detection, so a
   greenhouse camera that Frigate watched only for cats and dogs dismissed them all. Under
