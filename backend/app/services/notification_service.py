@@ -1,9 +1,6 @@
-import logging
-import traceback
 import structlog
 import asyncio
 import httpx
-import html
 from datetime import datetime, timezone
 from typing import Optional
 import json
@@ -12,35 +9,10 @@ from collections.abc import Coroutine
 from app.config import settings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
+from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.transports.telegram import TelegramCredentials, TelegramOptions, TelegramTransport
 from app.utils.blocked_species import matches_species_filter
-from app.utils.diagnostic_redaction import redact_text
 
-
-class _TelegramCredentialLogFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        message = record.getMessage()
-        secrets = (settings.notifications.telegram.bot_token or "",)
-        sanitized = redact_text(message, secrets)
-        if sanitized != message:
-            record.msg, record.args = sanitized, ()
-        if record.exc_info:
-            record.exc_text = redact_text("".join(traceback.format_exception(*record.exc_info)), secrets)
-            record.exc_info = None
-        elif record.exc_text:
-            record.exc_text = redact_text(record.exc_text, secrets)
-        return True
-
-
-for _logger in (
-    "httpx",
-    "httpcore",
-    "httpcore.connection",
-    "httpcore.http11",
-    "httpcore.http2",
-    "httpcore.proxy",
-    "httpcore.socks",
-):
-    logging.getLogger(_logger).addFilter(_TelegramCredentialLogFilter())
 
 log = structlog.get_logger()
 
@@ -55,9 +27,8 @@ def _species_filter_mode(filters: object) -> str | None:
     return mode
 
 
-def escape_html(text: str) -> str:
-    """Escape text for Telegram HTML parse mode."""
-    return html.escape(text, quote=True)
+# Bird alerts on Telegram are the detection sentence in bold after a bird.
+BIRD_TELEGRAM = TelegramOptions(icon="🐦")
 
 
 class NotificationService:
@@ -457,66 +428,28 @@ class NotificationService:
         if not cfg.bot_token or not cfg.chat_id:
             return False
 
-        def truncate(text: str, limit: int) -> str:
-            if text is None:
-                return ""
-            if len(text) <= limit:
-                return text
-            return text[: max(0, limit - 1)].rstrip() + "…"
-
-        body = i18n_service.translate(
+        sentence = i18n_service.translate(
             "notification.detection_body", lang=lang, species=species, camera=camera, confidence=int(confidence * 100)
         )
-        base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
         # A URL button under the message is Telegram's own deep link: one tap on any client,
         # with the caption left to the detection itself.
-        detection_button = (
-            {
-                "inline_keyboard": [
-                    [{"text": i18n_service.translate("notification.view_detection", lang=lang), "url": detection_url}]
-                ]
-            }
+        link = (
+            SubjectLink(detection_url, i18n_service.translate("notification.view_detection", lang=lang))
             if detection_url
             else None
         )
-
-        try:
-            if cfg.include_snapshot and snapshot_data:
-                # Send Photo
-                url = f"{base_url}/sendPhoto"
-                # Caption hard limit is 1024 chars. Truncate raw text before escaping to avoid breaking entities.
-                clipped_body = truncate(body, 900)
-                safe_body = escape_html(clipped_body)
-                caption = f"🐦 <b>{safe_body}</b>"
-                data = {"chat_id": cfg.chat_id, "caption": caption, "parse_mode": "HTML"}
-                if detection_button:
-                    data["reply_markup"] = json.dumps(detection_button)
-                files = {"photo": ("snapshot.jpg", snapshot_data, "image/jpeg")}
-                resp = await self.client.post(url, data=data, files=files)
-            else:
-                # Send Message
-                url = f"{base_url}/sendMessage"
-                # If no snapshot, maybe include link in text
-                safe_url = escape_html(snapshot_url)
-                clipped_body = truncate(body, 3600)
-                safe_body = escape_html(clipped_body)
-                caption = f"🐦 <b>{safe_body}</b>"
-                if not detection_button:
-                    caption += f'\n<a href="{safe_url}">View Snapshot</a>'
-                data = {"chat_id": cfg.chat_id, "text": caption, "parse_mode": "HTML", "disable_web_page_preview": True}
-                if detection_button:
-                    data["reply_markup"] = detection_button
-                resp = await self.client.post(url, json=data)
-
-            resp.raise_for_status()
-            return True
-        except Exception as e:
-            log.error(
-                "Telegram notification failed",
-                error_type=type(e).__name__,
-                status_code=e.response.status_code if isinstance(e, httpx.HTTPStatusError) else None,
-            )
-            return False
+        message = NotificationMessage(
+            title=sentence,
+            link=link,
+            fallback_link=SubjectLink(snapshot_url, "View Snapshot") if snapshot_url else None,
+            attachment=Attachment("snapshot.jpg", snapshot_data) if cfg.include_snapshot and snapshot_data else None,
+        )
+        result = await TelegramTransport(self.client).send(
+            message, TelegramCredentials(cfg.bot_token, cfg.chat_id), BIRD_TELEGRAM
+        )
+        if not result.sent:
+            log.error("Telegram notification failed", error_type=result.error_type, status_code=result.status_code)
+        return result.sent
 
     async def _send_email(
         self,

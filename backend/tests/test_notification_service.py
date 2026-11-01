@@ -742,3 +742,87 @@ async def test_telegram_text_message_carries_the_button_instead_of_the_snapshot_
                 "text": "Erkennung ansehen",
                 "url": "https://feeder.example.com/events?event=abc",
             }
+
+
+# --- the bird Telegram message, sent through the shared Telegram transport ---------------------
+
+
+async def _bird_telegram_request(notification_service, monkeypatch, *, snapshot_data, detection_url, answer=None):
+    import httpx
+
+    from app.config import settings
+
+    monkeypatch.setattr(settings.notifications.telegram, "bot_token", "123:bird-token")
+    monkeypatch.setattr(settings.notifications.telegram, "chat_id", "42")
+    monkeypatch.setattr(settings.notifications.telegram, "include_snapshot", True)
+    requests = []
+
+    def receive(request):
+        requests.append(request)
+        return answer or httpx.Response(200, json={"ok": True})
+
+    await notification_service.client.aclose()
+    notification_service.client = httpx.AsyncClient(transport=httpx.MockTransport(receive))
+    try:
+        sent = await notification_service._send_telegram(
+            "Blue <Jay> & co",
+            0.95,
+            "front_feeder",
+            datetime.now(timezone.utc),
+            "http://frigate/snapshot.jpg?a=1&b=2",
+            snapshot_data,
+            "en",
+            detection_url=detection_url,
+        )
+    finally:
+        await notification_service.client.aclose()
+    assert len(requests) == 1
+    return sent, requests[0]
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_text_is_the_bold_escaped_sentence_with_the_snapshot_link(
+    notification_service, monkeypatch
+):
+    sent, request = await _bird_telegram_request(
+        notification_service, monkeypatch, snapshot_data=None, detection_url=None
+    )
+    assert sent is True
+    assert str(request.url) == "https://api.telegram.org/bot123:bird-token/sendMessage"
+    assert json.loads(request.content) == {
+        "chat_id": "42",
+        "text": (
+            "🐦 <b>Blue &lt;Jay&gt; &amp; co detected on front_feeder with 95% confidence</b>\n"
+            '<a href="http://frigate/snapshot.jpg?a=1&amp;b=2">View Snapshot</a>'
+        ),
+        "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    }
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_photo_captions_the_sentence_and_buttons_the_detection(notification_service, monkeypatch):
+    sent, request = await _bird_telegram_request(
+        notification_service, monkeypatch, snapshot_data=b"bird-jpeg", detection_url="https://feeder.test/e?id=1&x=2"
+    )
+    assert sent is True
+    assert str(request.url).endswith("/sendPhoto")
+    body = request.content.decode()
+    assert 'name="photo"; filename="snapshot.jpg"' in body and "bird-jpeg" in body
+    assert "🐦 <b>Blue &lt;Jay&gt; &amp; co detected on front_feeder with 95% confidence</b>\r\n" in body
+    assert "View Snapshot" not in body
+    assert '{"inline_keyboard": [[{"text": "View detection", "url": "https://feeder.test/e?id=1&x=2"}]]}' in body
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_reports_a_refused_send_as_not_sent(notification_service, monkeypatch):
+    import httpx
+
+    sent, _ = await _bird_telegram_request(
+        notification_service,
+        monkeypatch,
+        snapshot_data=None,
+        detection_url=None,
+        answer=httpx.Response(403, json={"ok": False}),
+    )
+    assert sent is False
