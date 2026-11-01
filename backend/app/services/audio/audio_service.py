@@ -8,6 +8,7 @@ from collections import deque
 from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.utils.birdnet_payload import extract_birdnet_id
 
 log = structlog.get_logger()
 
@@ -30,31 +31,9 @@ class AudioDetection:
 MAX_BUFFER_ENTRIES = 100_000
 
 
-def _extract_birdnet_id(raw_data: dict | None) -> int | None:
-    """Pull a stable BirdNET-Go detection id out of an MQTT payload.
-
-    Modern BirdNET-Go publishes ``detectionId`` as an integer; older builds
-    sometimes used ``id`` or string-typed ``detection_id``. We accept any of
-    those and reject anything non-numeric.
-    """
-    if not isinstance(raw_data, dict):
-        return None
-    for key in ("detectionId", "detection_id", "id"):
-        value = raw_data.get(key)
-        if isinstance(value, bool):
-            continue
-        if isinstance(value, int) and value > 0:
-            return value
-        if isinstance(value, str):
-            stripped = value.strip()
-            if stripped.isdigit():
-                return int(stripped)
-    return None
-
-
 def _build_source_event_id(sensor_id: str | None, raw_data: dict | None) -> str | None:
     """Build a source-scoped identity that remains stable across MQTT redelivery."""
-    detection_id = _extract_birdnet_id(raw_data)
+    detection_id = extract_birdnet_id(raw_data)
     if detection_id is None:
         return None
     source = (sensor_id or "unknown").strip().casefold() or "unknown"
@@ -551,7 +530,7 @@ class AudioService:
                     "confidence": d.confidence,
                     "sensor_id": d.sensor_id,
                     "scientific_name": d.scientific_name,
-                    "birdnet_id": _extract_birdnet_id(d.raw_data),
+                    "birdnet_id": extract_birdnet_id(d.raw_data),
                 }
                 for d in sorted_detections[:limit]
             ]
