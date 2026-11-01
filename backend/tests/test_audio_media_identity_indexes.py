@@ -12,7 +12,7 @@ import sys
 import aiosqlite
 import pytest
 
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 INDEX_NAMES = {"idx_audio_birdnet_detectionId", "idx_audio_birdnet_detection_id", "idx_audio_birdnet_id"}
 BACKEND = Path(__file__).resolve().parents[1]
@@ -44,7 +44,7 @@ async def actual_media_query(path):
     statements = []
     async with aiosqlite.connect(path) as db:
         await db.set_trace_callback(statements.append)
-        assert await DetectionRepository(db).public_birdnet_media_visible(
+        assert await AudioHistoryRepository(db).public_birdnet_media_visible(
             101, datetime(2026, 9, 30, tzinfo=timezone.utc)
         )
     return next(sql for sql in statements if sql.startswith("SELECT raw_data, is_hidden, sensor_id, timestamp"))

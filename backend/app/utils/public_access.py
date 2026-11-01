@@ -163,13 +163,13 @@ async def privacy_checked_db(factory):
         ) from exc
 
 
-async def refresh_public_audio_fields(detection, repo, evidence: dict | None = None) -> None:
+async def refresh_public_audio_fields(detection, audio_history, evidence: dict | None = None) -> None:
     """Authorize stored annotations using the same mapped evidence as public counts."""
     if not settings.public_access.show_audio or not detection.audio_species:
         hide_public_audio_fields(detection)
         return
     if evidence is None:
-        batch = await repo.get_public_audio_for_detections([detection])
+        batch = await audio_history.get_public_audio_for_detections([detection])
         evidence = batch.get(detection.frigate_event, {})
     best = evidence.get("primary")
     if best is None:

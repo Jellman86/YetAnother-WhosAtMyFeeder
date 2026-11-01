@@ -1,6 +1,7 @@
 import pytest
 import aiosqlite
 from datetime import datetime, timedelta
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, Detection
 from conftest import rollup_counts_by_display_name
 
@@ -1294,7 +1295,7 @@ async def test_delete_audio_detections_older_than_purges_only_old_rows():
         old_time = datetime.utcnow() - timedelta(days=30)
         recent_time = datetime.utcnow()
 
-        await repo.insert_audio_detection(
+        await AudioHistoryRepository(repo.db).insert_audio_detection(
             timestamp=old_time,
             species="OldBird",
             confidence=0.9,
@@ -1302,7 +1303,7 @@ async def test_delete_audio_detections_older_than_purges_only_old_rows():
             raw_data={"seq": 1},
             scientific_name="Erithacus rubecula",
         )
-        await repo.insert_audio_detection(
+        await AudioHistoryRepository(repo.db).insert_audio_detection(
             timestamp=recent_time,
             species="NewBird",
             confidence=0.8,
@@ -1327,7 +1328,7 @@ async def test_delete_audio_detections_older_than_returns_zero_when_nothing_expi
         await db.commit()
         repo = DetectionRepository(db)
 
-        await repo.insert_audio_detection(
+        await AudioHistoryRepository(repo.db).insert_audio_detection(
             timestamp=datetime.utcnow(),
             species="NewBird",
             confidence=0.8,

@@ -22,6 +22,7 @@ from typing import Any, Optional
 
 import structlog
 
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.species_catalog_resolver import SpeciesCatalogResolver, species_catalog_resolver
 
@@ -60,7 +61,7 @@ async def _read_names(repository: DetectionRepository) -> tuple[list[str], list[
     without_identity = await repository.distinct_scientific_names_without_identity()
     with_identity = await repository.distinct_scientific_names_with_identity()
     try:
-        pending_audio = await repository.pending_audio_scientific_names()
+        pending_audio = await AudioHistoryRepository(repository.db).pending_audio_scientific_names()
     except Exception as error:  # pragma: no cover - defensive, as the audio pass always was
         log.warning("Audio identity backfill skipped", error=str(error))
         pending_audio = []
@@ -148,7 +149,7 @@ async def _backfill_audio_and_overrides(
     # visible rather than folded into the detection numbers.
     _without, _with, pending_audio, audio_identities = plan
     try:
-        audio = await repository.assign_audio_species_ids(pending_audio, audio_identities)
+        audio = await AudioHistoryRepository(repository.db).assign_audio_species_ids(pending_audio, audio_identities)
         summary["audio_rows_identified"] = audio.get("identified", 0)
         summary["audio_rows_unresolved"] = audio.get("unresolved", 0)
     except Exception as error:  # pragma: no cover - defensive

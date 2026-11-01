@@ -2,7 +2,7 @@
 
 Split out of the detection repository without changing a statement or a commit:
 every method runs on the caller's connection and commits exactly where it did
-before. `DetectionRepository` still answers the same calls while callers move.
+before.
 """
 
 import asyncio

@@ -1,9 +1,8 @@
-from typing import Callable, Any, Optional
+from typing import Callable, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
 import asyncio
-import functools
 import json
 import re
 import time
@@ -17,7 +16,7 @@ from app.utils.canonical_species import (
     hidden_species_substrings,
     should_hide_species_label,
 )
-from app.repositories.audio_history_repository import AudioHistoryRepository, public_audio_evidence_sql
+from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.utils.api_datetime import (
     parse_storage_datetime as _parse_datetime,
     serialize_storage_datetime,
@@ -468,45 +467,10 @@ def derive_archive_state(snapshot_state: object, clip_state: object) -> str:
     return "unavailable"
 
 
-def _delegated_to_audio_history(name: str) -> Callable[..., Any]:
-    """Answer `DetectionRepository.<name>` from the audio repository, on the same connection.
-
-    Transitional: callers move to `AudioHistoryRepository` one at a time, and
-    each delegate goes once nothing calls it here.
-    """
-    target = getattr(AudioHistoryRepository, name)
-
-    @functools.wraps(target)
-    async def delegate(self: "DetectionRepository", *args: Any, **kwargs: Any) -> Any:
-        return await getattr(AudioHistoryRepository(self.db), name)(*args, **kwargs)
-
-    return delegate
-
-
 class DetectionRepository:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
-
-    # Audio history now lives in AudioHistoryRepository.
-    insert_audio_detection = _delegated_to_audio_history("insert_audio_detection")
-    insert_audio_detection_idempotent = _delegated_to_audio_history("insert_audio_detection_idempotent")
-    delete_audio_detection = _delegated_to_audio_history("delete_audio_detection")
-    set_audio_hidden = _delegated_to_audio_history("set_audio_hidden")
-    get_audio_detection_for_correlation = _delegated_to_audio_history("get_audio_detection_for_correlation")
-    audio_detection_is_visible = _delegated_to_audio_history("audio_detection_is_visible")
-    get_recent_audio_source_observations = _delegated_to_audio_history("get_recent_audio_source_observations")
-    get_public_audio_for_detections = _delegated_to_audio_history("get_public_audio_for_detections")
-    get_audio_contexts_for_detections = _delegated_to_audio_history("get_audio_contexts_for_detections")
-    get_audio_context = _delegated_to_audio_history("get_audio_context")
-    get_audio_history = _delegated_to_audio_history("get_audio_history")
-    get_audio_history_summary = _delegated_to_audio_history("get_audio_history_summary")
-    pending_audio_scientific_names = _delegated_to_audio_history("pending_audio_scientific_names")
-    assign_audio_species_ids = _delegated_to_audio_history("assign_audio_species_ids")
-    backfill_audio_species_ids = _delegated_to_audio_history("backfill_audio_species_ids")
-    get_audio_history_start = _delegated_to_audio_history("get_audio_history_start")
-    public_birdnet_media_visible = _delegated_to_audio_history("public_birdnet_media_visible")
-    get_audio_species_counts = _delegated_to_audio_history("get_audio_species_counts")
 
     async def get_initial_classification_labels(self, frigate_event: str) -> list[str] | None:
         if not await self._table_exists("detection_initial_classifications"):

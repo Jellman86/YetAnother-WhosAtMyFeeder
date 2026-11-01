@@ -7,6 +7,7 @@ import json
 import os
 import sqlite3
 from unittest.mock import AsyncMock
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import aiosqlite
 import httpx
@@ -305,16 +306,16 @@ async def test_media_identity_payload_precedence_and_hidden_collision(private_hi
         )
         await db.commit()
         repo = DetectionRepository(db)
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute(
             "UPDATE audio_detections SET raw_data = ? WHERE species='Visible'",
             (json.dumps({"detection_id": " 00101 "}),),
         )
         await db.commit()
-        assert await repo.public_birdnet_media_visible(101, today)
+        assert await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute("UPDATE audio_detections SET raw_data = ? WHERE species='Hidden'", (json.dumps({"id": 101}),))
         await db.commit()
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio

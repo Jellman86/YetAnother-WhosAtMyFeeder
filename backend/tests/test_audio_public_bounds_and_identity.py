@@ -14,6 +14,7 @@ import pytest
 from app.auth import create_access_token
 from app.config import settings
 from app.main import app
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.routers import audio
 
@@ -159,7 +160,7 @@ async def test_all_retained_media_identity_conflicts_fail_closed(bounded_audio, 
             (stamp.replace(tzinfo=None).isoformat(sep=" "), sensor, json.dumps({"id": 101}), hidden),
         )
         await db.commit()
-        assert not await DetectionRepository(db).public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
@@ -167,11 +168,11 @@ async def test_single_future_incomplete_and_oversized_identity_denied(bounded_au
     today, end, database = bounded_audio
     async with database() as db:
         repo = DetectionRepository(db)
-        assert not await repo.public_birdnet_media_visible(102, today, maximum_end=end)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(102, today, maximum_end=end)
         await db.execute("UPDATE audio_detections SET sensor_id=NULL WHERE species='Shared'")
         await db.commit()
-        assert not await repo.public_birdnet_media_visible(101, today)
-        assert not await repo.public_birdnet_media_visible(2**100, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(2**100, today)
 
 
 @pytest.mark.asyncio
@@ -182,14 +183,14 @@ async def test_duplicate_identity_normalizes_source_case_and_space(bounded_audio
             "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data) SELECT timestamp,species,confidence,'  SHARED  ',raw_data FROM audio_detections WHERE species='Shared'"
         )
         await db.commit()
-        assert await DetectionRepository(db).public_birdnet_media_visible(101, today)
+        assert await AudioHistoryRepository(db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
 async def test_context_upper_bound_precedes_mapping_suppression(bounded_audio):
     today, end, database = bounded_audio
     async with database() as db:
-        results, suppressed = await DetectionRepository(db).get_audio_context(
+        results, suppressed = await AudioHistoryRepository(db).get_audio_context(
             end - timedelta(seconds=1), 5, "unmapped-source", 1, minimum_start=today, maximum_end=end
         )
     assert results == [] and suppressed == 0
@@ -201,7 +202,7 @@ async def test_invalid_timestamp_cannot_grant_media_access(bounded_audio):
     async with database() as db:
         await db.execute("UPDATE audio_detections SET timestamp='invalid' WHERE species='Shared'")
         await db.commit()
-        assert not await DetectionRepository(db).public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
@@ -223,7 +224,7 @@ async def test_stable_source_ids_disambiguate_same_names_and_allow_renamed_alias
             (json.dumps(second),),
         )
         await db.commit()
-        assert await DetectionRepository(db).public_birdnet_media_visible(101, today) is same_device
+        assert await AudioHistoryRepository(db).public_birdnet_media_visible(101, today) is same_device
 
 
 @pytest.mark.asyncio
@@ -256,7 +257,7 @@ async def test_conflicting_source_ids_inside_payload_are_not_authority(bounded_a
             (json.dumps({"detectionId": 101, "sourceId": "device-a", "Source": {"id": "device-b"}}),),
         )
         await db.commit()
-        assert not await DetectionRepository(db).public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
@@ -268,4 +269,4 @@ async def test_invalid_numeric_identity_text_does_not_escape_as_an_error(bounded
             (json.dumps({"detectionId": "²", "id": 101}),),
         )
         await db.commit()
-        assert not await DetectionRepository(db).public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(db).public_birdnet_media_visible(101, today)
