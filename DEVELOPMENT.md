@@ -87,9 +87,10 @@ monolith locally.
 3. Add a reversible migration for every schema change in the correct stream.
    Keep one head in each stream and prove upgrade, downgrade and repeated upgrade
    against disposable databases. Never edit a released migration.
-4. Update user-facing documentation and **Unreleased** in `CHANGELOG.md` when
-   behaviour, settings, endpoints or UI labels change. Pure documentation cleanup
-   does not invent a new release version or date.
+4. Update user-facing documentation and add one
+   [`changelog.d/`](changelog.d/README.md) fragment when behaviour, settings,
+   endpoints or UI labels change. Pure documentation cleanup does not invent a new
+   release version or date.
 5. Run the gates in [testing](docs/development/testing.md), including root-level
    lint/format, backend regression coverage, frontend check/unit/dead-code/build,
    telemetry tests and documentation consistency. Add browser interactions or
