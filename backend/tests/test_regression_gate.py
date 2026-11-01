@@ -44,16 +44,28 @@ def test_branch_coverage_floor_cannot_be_accidentally_weakened():
 
 
 @pytest.mark.parametrize("returncode", [1, 124, -9])
-def test_failed_or_timed_out_tests_do_not_get_rescued_by_coverage(monkeypatch, returncode):
-    run = MagicMock(side_effect=[0, returncode])
+@pytest.mark.parametrize("failing_lane", [1, 2], ids=["pure", "application"])
+def test_failed_or_timed_out_tests_do_not_get_rescued_by_coverage(monkeypatch, returncode, failing_lane):
+    run = MagicMock(side_effect=[0] * failing_lane + [returncode])
     monkeypatch.setattr(gate, "run", run)
     assert gate.main() == returncode
-    assert run.call_count == 2
+    assert run.call_count == failing_lane + 1
 
 
 def test_coverage_failure_is_not_ignored(monkeypatch):
-    monkeypatch.setattr(gate, "run", MagicMock(side_effect=[0, 0, 2]))
+    monkeypatch.setattr(gate, "run", MagicMock(side_effect=[0, 0, 0, 2]))
     assert gate.main() == 2
+
+
+def test_pure_tests_run_alone_and_every_test_is_covered_once(monkeypatch):
+    run = MagicMock(return_value=0)
+    monkeypatch.setattr(gate, "run", run)
+    assert gate.main() == 0
+    pure, application = (call.args[0] for call in run.call_args_list[1:3])
+    assert pure[pure.index("pytest") + 1 :][0] == "tests/pure"
+    assert "--append" not in pure
+    assert "--append" in application
+    assert {"tests/", "--ignore=tests/pure"} <= set(application)
 
 
 def test_hung_test_process_is_reaped_and_fails(monkeypatch):
