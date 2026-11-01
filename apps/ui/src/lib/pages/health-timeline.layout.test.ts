@@ -25,7 +25,8 @@ describe('health page timeline', () => {
         expect(errorsSource).toContain('onNavigate?: (path: string) => void');
         expect(errorsSource).toContain("onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`)");
         expect(errorsSource).not.toContain('window.location.hash');
-        expect(settingsSource).toContain('<Errors {onNavigate} />');
+        expect(settingsSource).toContain('loader={loadHealthTab}');
+        expect(settingsSource).toContain('props={{ onNavigate }}');
         expect(timelineSource).toContain("jobs.errors_activity_view_record");
     });
 
