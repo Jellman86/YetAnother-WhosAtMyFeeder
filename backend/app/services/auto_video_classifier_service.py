@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 import random
 import shutil
-import tempfile
 import structlog
 import time
 from collections import deque
@@ -43,6 +42,7 @@ from app.utils.canonical_species import should_hide_species_label, user_facing_s
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa: F401 - compatibility for tests
 from app.utils.video_analysis import rank_video_top_frames
 from app.utils.frigate_track import compact_frigate_path_data
+from app.services.video_acquisition import ClipUnavailable, acquire_video_clip
 
 if TYPE_CHECKING:
     from app.services.detection_service import NonBirdSaveRejection
@@ -1810,24 +1810,12 @@ class AutoVideoClassifierService:
                     )
                     return
 
-            # 2. Prefer a cached recording/full-visit clip when available. The
-            # temp file is reserved first and the loader fills it directly, so
-            # the clip never passes through this process's heap (#341).
-            _fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
-            os.close(_fd)
-            try:
-                clip_loaded, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
-                    frigate_event,
-                    tmp_path,
-                    skip_delay=skip_delay,
-                )
-            except BaseException:
-                with contextlib.suppress(OSError):
-                    await asyncio.to_thread(os.remove, tmp_path)
-                raise
-            if not clip_loaded:
-                with contextlib.suppress(OSError):
-                    await asyncio.to_thread(os.remove, tmp_path)
+            # 2. Prefer a cached recording/full-visit clip when available.
+            acquired = await acquire_video_clip(
+                lambda dest_path: self._load_preferred_clip(frigate_event, dest_path, skip_delay=skip_delay)
+            )
+            if isinstance(acquired, ClipUnavailable):
+                clip_error = acquired.error
                 if snapshot_fallback_requested():
                     log.info(
                         "Falling back to snapshot classification because video is unavailable",
@@ -1870,6 +1858,9 @@ class AutoVideoClassifierService:
                     reason=clip_error or "clip_unavailable",
                 )
                 return
+            tmp_path = acquired.clip_path
+            clip_variant = acquired.clip_variant
+            clip_start_timestamp = acquired.clip_start_timestamp
 
             try:
                 # 4. Run classification
@@ -2338,7 +2329,7 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
-            # tmp_path is set by mkstemp before any await, so it is always available here.
+            # The acquisition stage removes its own file until it hands the clip over.
             if tmp_path is not None:
                 with contextlib.suppress(OSError):
                     await asyncio.to_thread(os.remove, tmp_path)
