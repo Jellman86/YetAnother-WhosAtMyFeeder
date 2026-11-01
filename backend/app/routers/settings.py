@@ -1884,6 +1884,14 @@ async def update_settings(
                 detail=f"{finder_provider} is not validated for {finder} on this host. Check this finder's devices first.",
             )
 
+    if "notifications_instance_url" in fields_set and update.notifications_instance_url is not None:
+        instance_url = update.notifications_instance_url.strip().rstrip("/") or None
+        if instance_url and not public_base(instance_url):
+            raise HTTPException(
+                status_code=400,
+                detail="Instance address must start with http:// or https://, for example https://feeder.example.com",
+            )
+
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
     if "frigate_ingest_labels" in fields_set and update.frigate_ingest_labels is not None:
@@ -2413,14 +2421,7 @@ async def update_settings(
     if "notifications_email_dashboard_url" in fields_set and update.notifications_email_dashboard_url is not None:
         settings.notifications.email.dashboard_url = update.notifications_email_dashboard_url
     if "notifications_instance_url" in fields_set and update.notifications_instance_url is not None:
-        # The email-only dashboard link is the older name for the same address; keep them equal so a
-        # clear in the UI clears both and nothing falls back to a stale value.
-        instance_url = update.notifications_instance_url.strip().rstrip("/") or None
-        if instance_url and not public_base(instance_url):
-            raise HTTPException(
-                status_code=400,
-                detail="Instance address must start with http:// or https://, for example https://feeder.example.com",
-            )
+        # Keep the legacy email address in sync, including when the address is cleared.
         settings.notifications.instance_url = instance_url
         settings.notifications.email.dashboard_url = instance_url
     if "notifications_link_target" in fields_set and update.notifications_link_target is not None:

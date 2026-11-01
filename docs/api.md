@@ -1029,7 +1029,8 @@ A detection set aside is dropped with reason `filter_out_of_range`, and `POST
 Settings writes are partial and use the flat API field names, rather than the nested
 `config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
-the classifier, as does a saved-coordinate change. For example:
+the classifier, as does a saved-coordinate change. Invalid requests are rejected
+before changing any settings, including public-access controls. For example:
 
 ```http
 POST /api/settings

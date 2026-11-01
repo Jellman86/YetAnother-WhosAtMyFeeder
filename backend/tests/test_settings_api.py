@@ -49,6 +49,51 @@ async def reset_maintenance_coordinator():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_patch, status_code",
+    [
+        ({"notifications_instance_url": "not-a-url"}, 400),
+        ({"notifications_link_target": "elsewhere"}, 422),
+        ({"auth_enabled": True}, 422),
+    ],
+)
+async def test_rejected_settings_update_preserves_memory_and_file(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, tmp_path, invalid_patch: dict, status_code: int
+):
+    snapshot = settings.model_copy(deep=True)
+    try:
+        settings.auth.enabled = False
+        settings.auth.password_hash = None
+        settings.public_access.enabled = False
+        path = tmp_path / "config.json"
+        monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+        await settings.save()
+        before = settings.model_dump(mode="json")
+        saved_before = path.read_bytes()
+        save = AsyncMock()
+        monkeypatch.setattr(Settings, "save", save)
+        broadcast = AsyncMock()
+        monkeypatch.setattr("app.services.broadcaster.broadcaster.broadcast", broadcast)
+        heartbeat = AsyncMock()
+        monkeypatch.setattr(settings_router.telemetry_service, "force_heartbeat", heartbeat)
+
+        response = await client.post(
+            "/api/settings",
+            json={"public_access_enabled": True, "telemetry_enabled": True, **invalid_patch},
+        )
+
+        assert response.status_code == status_code, response.text
+        assert settings.model_dump(mode="json") == before
+        assert path.read_bytes() == saved_before
+        save.assert_not_awaited()
+        broadcast.assert_not_awaited()
+        heartbeat.assert_not_awaited()
+    finally:
+        for field in Settings.model_fields:
+            setattr(settings, field, getattr(snapshot, field))
+
+
+@pytest.mark.asyncio
 async def test_settings_roundtrip_personalized_rerank_enabled(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
