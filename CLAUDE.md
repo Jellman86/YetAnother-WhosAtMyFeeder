@@ -171,7 +171,8 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
   placeholder, must never imply state, and must never shift layout (fixed aspect,
   lazy-loaded).
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
-  `apps/ui/src/lib/i18n/locales/en.json` (use `{ default: '…' }` fallbacks).
+  the English domain file they belong to, `apps/ui/src/lib/i18n/locales/en/<domain>.json` (for example
+  `locales/en/settings.json` for `settings.*` keys), with `{ default: '…' }` fallbacks in code.
 
 The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
 craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
