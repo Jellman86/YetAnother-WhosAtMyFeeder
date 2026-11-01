@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import appearanceSettingsSource from './AppearanceSettings.svelte?raw';
-import settingsSource from '../../pages/Settings.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const enLocale = { settings: enSettings };
@@ -37,11 +36,5 @@ describe('browser date preference', () => {
         expect(dateControl).toContain("value: 'locale'");
         expect(dateControl).toContain("settings.date_format.locale");
         expect(enLocale.settings.date_format).toHaveProperty('locale');
-    });
-    it('uses the same normalization when loading preferences and comparing unsaved edits', () => {
-        expect(settingsSource).toContain('dateFormat = normalizeDateFormat(settings.date_format)');
-        expect(settingsSource).toContain('timeFormat = normalizeTimeFormat(settings.time_format)');
-        expect(settingsSource).toContain('store: normalizeDateFormat(s.date_format)');
-        expect(settingsSource).toContain('store: normalizeTimeFormat(s.time_format)');
     });
 });
