@@ -612,6 +612,66 @@ def derive_archive_state(snapshot_state: object, clip_state: object) -> str:
     return "unavailable"
 
 
+@dataclass
+class _AudioContextWindow:
+    event_id: str
+    camera: str
+    target: datetime
+    start: str
+    end: str
+
+
+def _rank_audio_context(
+    rows: list[tuple], target_time: datetime, mapping_value: str | None, limit: int
+) -> tuple[list[dict], int]:
+    # Deferred import to avoid the circular `audio_service ->
+    # detection_repository` cycle. Reuse the same extractor that
+    # /api/audio/recent uses so payload key handling stays in lockstep
+    # (`detectionId` / `id` / `detection_id`).
+    from app.services.audio.audio_service import _extract_birdnet_id
+
+    wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
+    results: list[dict] = []
+    suppressed_by_mapping = 0
+    for row in rows:
+        if not wildcard_mapping:
+            row_keys = _extract_audio_mapping_keys(row[3], row[5])
+            if not row_keys.intersection(mapping_keys):
+                suppressed_by_mapping += 1
+                continue
+        det_time = _parse_datetime(row[0])
+        if det_time.tzinfo is None:
+            det_time = det_time.replace(tzinfo=timezone.utc)
+        offset_seconds = int((det_time - target_time).total_seconds())
+
+        # raw_data is stored as a JSON string; parse and pull the stable
+        # BirdNET-Go id out so the detection modal can render the
+        # spectrogram for the matched audio entry.
+        birdnet_id: int | None = None
+        if row[5]:
+            try:
+                payload = json.loads(row[5])
+            except Exception:
+                payload = None
+            if isinstance(payload, dict):
+                birdnet_id = _extract_birdnet_id(payload)
+
+        results.append(
+            {
+                "timestamp": det_time.isoformat(),
+                "species": row[1],
+                "confidence": row[2],
+                "sensor_id": row[3],
+                "scientific_name": row[4],
+                "birdnet_id": birdnet_id,
+                "offset_seconds": offset_seconds,
+            }
+        )
+
+    results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
+    return results[:limit], suppressed_by_mapping
+
+
 class DetectionRepository:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -5622,6 +5682,67 @@ class DetectionRepository:
                     evidence["context"].append(item)
         return result
 
+    async def get_audio_contexts_for_detections(
+        self,
+        detections: list[Detection],
+        mapping: dict[str, str],
+        window_seconds: int,
+        limit: int = 8,
+    ) -> dict[str, tuple[list[dict], int]]:
+        """Coalesce owner context windows; retain mapping counts and per-event ranking.
+
+        Rows are streamed in bounded chunks. Mapping is applied before truncation,
+        so an unrelated microphone cannot crowd out a camera's relevant calls.
+        """
+        windows: list[_AudioContextWindow] = []
+        delta = timedelta(seconds=window_seconds)
+        result: dict[str, tuple[list[dict], int]] = {}
+        for detection in detections:
+            target = detection.detection_time
+            if target.tzinfo is None:
+                target = target.replace(tzinfo=timezone.utc)
+            windows.append(
+                _AudioContextWindow(
+                    detection.frigate_event,
+                    detection.camera_name,
+                    target,
+                    serialize_storage_datetime(target - delta),
+                    serialize_storage_datetime(target + delta),
+                )
+            )
+            result[detection.frigate_event] = ([], 0)
+        windows.sort(key=lambda window: window.start)
+        intervals: list[tuple[str, str, list[_AudioContextWindow]]] = []
+        for window in windows:
+            start, end = window.start, window.end
+            if intervals and start <= intervals[-1][1]:
+                previous_start, previous_end, members = intervals[-1]
+                members.append(window)
+                intervals[-1] = (previous_start, max(previous_end, end), members)
+            else:
+                intervals.append((start, end, [window]))
+
+        for start, end, members in intervals:
+            query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
+                       FROM audio_detections
+                       WHERE is_hidden = 0 AND timestamp >= ? AND timestamp <= ?
+                       ORDER BY timestamp DESC"""
+            params = [start, end]
+            async with self.db.execute(query, params) as cursor:
+                while rows := await cursor.fetchmany(512):
+                    for window in members:
+                        # Match SQLite's existing lexical bounds even for legacy
+                        # rows whose timestamp carries an offset suffix.
+                        event_rows = [row for row in rows if window.start <= str(row[0]) <= window.end]
+                        nearby, suppressed = _rank_audio_context(
+                            event_rows, window.target, mapping.get(window.camera), limit
+                        )
+                        previous, previous_suppressed = result[window.event_id]
+                        combined = previous + nearby
+                        combined.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
+                        result[window.event_id] = (combined[:limit], previous_suppressed + suppressed)
+        return result
+
     async def get_audio_context(
         self,
         target_time: datetime,
@@ -5656,52 +5777,7 @@ class DetectionRepository:
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
 
-        # Deferred import to avoid the circular `audio_service ->
-        # detection_repository` cycle. Reuse the same extractor that
-        # /api/audio/recent uses so payload key handling stays in lockstep
-        # (`detectionId` / `id` / `detection_id`).
-        from app.services.audio.audio_service import _extract_birdnet_id
-
-        wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
-        results: list[dict] = []
-        suppressed_by_mapping = 0
-        for row in rows:
-            if not wildcard_mapping:
-                row_keys = _extract_audio_mapping_keys(row[3], row[5])
-                if not row_keys.intersection(mapping_keys):
-                    suppressed_by_mapping += 1
-                    continue
-            det_time = _parse_datetime(row[0])
-            if det_time.tzinfo is None:
-                det_time = det_time.replace(tzinfo=timezone.utc)
-            offset_seconds = int((det_time - target_time).total_seconds())
-
-            # raw_data is stored as a JSON string; parse and pull the stable
-            # BirdNET-Go id out so the detection modal can render the
-            # spectrogram for the matched audio entry.
-            birdnet_id: int | None = None
-            if row[5]:
-                try:
-                    payload = json.loads(row[5])
-                except Exception:
-                    payload = None
-                if isinstance(payload, dict):
-                    birdnet_id = _extract_birdnet_id(payload)
-
-            results.append(
-                {
-                    "timestamp": det_time.isoformat(),
-                    "species": row[1],
-                    "confidence": row[2],
-                    "sensor_id": row[3],
-                    "scientific_name": row[4],
-                    "birdnet_id": birdnet_id,
-                    "offset_seconds": offset_seconds,
-                }
-            )
-
-        results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
-        return results[:limit], suppressed_by_mapping
+        return _rank_audio_context(rows, target_time, mapping_value, limit)
 
     def _build_audio_history_filter(
         self,
