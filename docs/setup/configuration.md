@@ -489,3 +489,11 @@ publishing it to the running application. A rejected request or failed file writ
 leaves the active settings unchanged and schedules no worker reload or settings
 notification. Concurrent settings saves and imports run in order; a partial update
 starts from the last successfully saved configuration.
+
+The other changes YA-WAMF makes to its own configuration go through the same
+ordered save: activating a classifier model, replacing a retired model on
+startup, first-run setup and the anonymous telemetry identity. None of them can be
+undone by a settings save that was already in progress. **Test** in the
+notification settings sends with the credentials typed into the form without
+storing them, so an unapplied webhook, token or key is never written to
+`/config/config.json` by a save that happens at the same moment.
