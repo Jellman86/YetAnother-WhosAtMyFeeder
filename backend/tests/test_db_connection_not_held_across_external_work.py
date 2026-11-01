@@ -19,8 +19,10 @@ import pytest
 import pytest_asyncio
 
 from app.config import settings
-from app.database import close_db, get_db, get_db_pool_status, init_db
+from app.database import get_db, get_db_pool_status
 from app.main import app
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 @pytest_asyncio.fixture
@@ -28,15 +30,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -238,7 +231,11 @@ async def test_concurrent_reclassification_cannot_deadlock_the_pool(monkeypatch)
     pool_size = 3
     pool = DatabasePool(database_module._get_db_path(), pool_size=pool_size)
     await pool.initialize()
-    monkeypatch.setattr(database_module, "_db_pool", pool)
+    # Swapped by hand rather than by monkeypatch: monkeypatch is undone after the
+    # history pool fixture closes the pool it finds, which would leave the
+    # suite's own pool restored and never closed.
+    history_pool = database_module._db_pool
+    database_module._db_pool = pool
     monkeypatch.setattr(database_module, "DB_POOL_ACQUIRE_TIMEOUT_SECONDS", 5.0)
 
     event_ids = [f"evt-deadlock-{i}" for i in range(pool_size)]
@@ -288,6 +285,7 @@ async def test_concurrent_reclassification_cannot_deadlock_the_pool(monkeypatch)
         release_inference.set()
         for event_id in event_ids:
             await _delete_detection(event_id)
+        database_module._db_pool = history_pool
         await pool.close_all()
 
 
