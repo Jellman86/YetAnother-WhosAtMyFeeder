@@ -56,6 +56,13 @@ export async function fetchGardenDomesticBirds(signal?: AbortSignal): Promise<co
     return handleResponse<components['schemas']['GardenDomesticBirdOption'][]>(await apiFetch(`${API_BASE}/garden/domestic-birds`, { signal }));
 }
 
+export type GardenKeepBirdResult = components['schemas']['GardenKeepBirdResponse'];
+
+/** Declares a domestic bird the owner keeps and moves its visible bird records to Garden. */
+export async function keepGardenDomesticBird(bird: components['schemas']['GardenDomesticBirdOption']['key']): Promise<GardenKeepBirdResult> {
+    return handleResponse<GardenKeepBirdResult>(await apiFetch(`${API_BASE}/garden/domestic-birds/${encodeURIComponent(bird)}/keep`, { method: 'POST', timeoutMs: 120000 }));
+}
+
 export async function fetchGardenIdentification(signal: AbortSignal): Promise<GardenIdentificationStatus> {
     return handleResponse<GardenIdentificationStatus>(await apiFetch(`${API_BASE}/garden/identification`, { signal }));
 }

@@ -209,7 +209,14 @@
     "partial": "{count, plural, one {# cattura non è stata rinominata. Riprova.} other {# catture non sono state rinominate. Riprova.}}",
     "renamed": "{count, plural, one {# visita ora è} other {# visite ora sono}} {species}.",
     "confirmed": "{count, plural, one {# visita confermata come} other {# visite confermate come}} {species}.",
-    "hidden": "{count, plural, one {# visita nascosta come non uccello.} other {# visite nascoste come non uccelli.}}"
+    "hidden": "{count, plural, one {# visita nascosta come non uccello.} other {# visite nascoste come non uccelli.}}",
+    "kept_bird_body": "{species} potrebbe essere un uccello domestico: {kind}. Se li allevi, registrali come animali del giardino: le loro schede di uccelli passano al giardino, nascoste nella cronologia degli uccelli, non eliminate.",
+    "kept_bird_keep": "Allevo {kind}: sposta nel giardino",
+    "kept_bird_move": "Sposta le schede di {kind} nel giardino",
+    "kept_bird_working": "Spostamento nel giardino…",
+    "kept_bird_moved": "{count, plural, =0 {Nessuna scheda di uccello da spostare.} one {# scheda di uccello spostata nel giardino.} other {# schede di uccelli spostate nel giardino.}} {kind} sono ora in Uccelli domestici che allevi.",
+    "kept_bird_skipped": "{count, plural, one {# scheda non è stata spostata e resta nella cronologia degli uccelli.} other {# schede non sono state spostate e restano nella cronologia degli uccelli.}}",
+    "kept_bird_remaining": "{count, plural, one {Resta # altra scheda; scegli di nuovo l’azione per spostarla.} other {Restano # altre schede; scegli di nuovo l’azione per spostarle.}}"
   },
   "span_group": "Periodo"
 }

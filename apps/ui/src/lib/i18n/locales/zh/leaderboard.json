@@ -209,7 +209,14 @@
     "partial": "{count, plural, other {# 次拍摄无法重命名，请重试。}}",
     "renamed": "{count, plural, other {# 次来访现在是}} {species}。",
     "confirmed": "{count, plural, other {# 次来访已确认为}} {species}。",
-    "hidden": "{count, plural, other {# 次来访已作为非鸟类隐藏。}}"
+    "hidden": "{count, plural, other {# 次来访已作为非鸟类隐藏。}}",
+    "kept_bird_body": "{species} 可能是家禽：{kind}。如果您饲养它们，请将其记录为花园动物：它们的鸟类记录会移到花园，在鸟类历史中隐藏，而不是删除。",
+    "kept_bird_keep": "我饲养{kind}：移到花园",
+    "kept_bird_move": "将{kind}记录移到花园",
+    "kept_bird_working": "正在移到花园…",
+    "kept_bird_moved": "{count, plural, =0 {没有需要移动的鸟类记录。} other {已将 # 条鸟类记录移到花园。}}“{kind}”现已列入您饲养的家禽。",
+    "kept_bird_skipped": "{count, plural, other {# 条记录无法移动，仍保留在鸟类历史中。}}",
+    "kept_bird_remaining": "{count, plural, other {还有 # 条记录等待移动；请再次执行此操作。}}"
   },
   "span_group": "时间范围"
 }

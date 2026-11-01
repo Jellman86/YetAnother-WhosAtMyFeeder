@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
 import {
     dismissDomesticSuggestion,
+    keptBirdCandidates,
     dismissedDomesticSuggestions,
     domesticBirdForRecord,
     domesticBirdKind,
@@ -97,5 +98,28 @@ describe('domestic birds', () => {
         expect(gardenEntryText(pending, view, (_key, fallback) => fallback, 'owner').state).toBe(
             'Animal detected; species below the naming threshold'
         );
+    });
+});
+
+describe('keptBirdCandidates', () => {
+    const options = [
+        { key: 'chicken' as const, declared: false, scientific_names: ['Gallus gallus domesticus', 'Gallus gallus'], species_ids: [472] },
+        { key: 'turkey' as const, declared: true, scientific_names: ['Meleagris gallopavo'], species_ids: [] }
+    ];
+
+    it('names each flagged species that is a domestic bird, once per bird', () => {
+        const rows = [
+            { displayName: 'Red Junglefowl', scientificName: 'Gallus  gallus' },
+            { displayName: 'Chicken', scientificName: 'Gallus gallus domesticus' },
+            { displayName: 'Plateau Striped Whiptail', scientificName: 'Aspidoscelis velox' },
+            { displayName: 'Unknown', scientificName: null }
+        ];
+        expect(keptBirdCandidates(rows, options)).toEqual([{ bird: 'chicken', species: 'Red Junglefowl', declared: false }]);
+    });
+
+    it('still offers a declared bird whose records remain in bird history', () => {
+        expect(keptBirdCandidates([{ displayName: 'Wild Turkey', scientificName: 'Meleagris gallopavo' }], options)).toEqual([
+            { bird: 'turkey', species: 'Wild Turkey', declared: true }
+        ]);
     });
 });

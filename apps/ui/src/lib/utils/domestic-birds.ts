@@ -57,6 +57,31 @@ export function domesticBirdForRecord(
     );
 }
 
+export interface KeptBirdCandidate {
+    bird: DomesticBirdKey;
+    /** The flagged species as the leaderboard names it, for example "Red Junglefowl". */
+    species: string;
+    declared: boolean;
+}
+
+/**
+ * Flagged species that are a domestic bird under another name, one per bird. A declared bird is
+ * still offered while its records remain in bird history, so they can follow it to Garden.
+ */
+export function keptBirdCandidates(
+    rows: readonly { displayName: string; scientificName: string | null }[],
+    options: readonly DomesticBirdOption[]
+): KeptBirdCandidate[] {
+    const candidates = new Map<DomesticBirdKey, KeptBirdCandidate>();
+    for (const row of rows) {
+        const option = domesticBirdForRecord({ scientific_name: row.scientificName }, options);
+        if (option && !candidates.has(option.key)) {
+            candidates.set(option.key, { bird: option.key, species: row.displayName, declared: option.declared });
+        }
+    }
+    return [...candidates.values()];
+}
+
 const DISMISSED_KEY = 'yawamf.domesticBirdSuggestionsDismissed';
 
 /** Suggestions the owner has dismissed on this device, so a "Do you keep…?" is asked once. */

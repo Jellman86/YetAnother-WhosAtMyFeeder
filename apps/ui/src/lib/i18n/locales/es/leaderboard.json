@@ -209,7 +209,14 @@
     "partial": "{count, plural, one {# captura no se pudo renombrar. Inténtalo de nuevo.} other {# capturas no se pudieron renombrar. Inténtalo de nuevo.}}",
     "renamed": "{count, plural, one {# visita es ahora} other {# visitas son ahora}} {species}.",
     "confirmed": "{count, plural, one {# visita confirmada como} other {# visitas confirmadas como}} {species}.",
-    "hidden": "{count, plural, one {# visita ocultada por no ser un ave.} other {# visitas ocultadas por no ser aves.}}"
+    "hidden": "{count, plural, one {# visita ocultada por no ser un ave.} other {# visitas ocultadas por no ser aves.}}",
+    "kept_bird_body": "{species} puede ser un ave doméstica: {kind}. Si las tienes, regístralas como animales del jardín: sus registros de aves pasan al jardín, ocultos en el historial de aves, no eliminados.",
+    "kept_bird_keep": "Tengo {kind}: mover al jardín",
+    "kept_bird_move": "Mover registros de {kind} al jardín",
+    "kept_bird_working": "Moviendo al jardín…",
+    "kept_bird_moved": "{count, plural, =0 {No había registros de aves que mover.} one {Se movió # registro de ave al jardín.} other {Se movieron # registros de aves al jardín.}} {kind} ya están en Aves domésticas que tienes.",
+    "kept_bird_skipped": "{count, plural, one {# registro no se pudo mover y sigue en el historial de aves.} other {# registros no se pudieron mover y siguen en el historial de aves.}}",
+    "kept_bird_remaining": "{count, plural, one {Queda # registro más; elige la acción de nuevo para moverlo.} other {Quedan # registros más; elige la acción de nuevo para moverlos.}}"
   },
   "span_group": "Periodo"
 }
