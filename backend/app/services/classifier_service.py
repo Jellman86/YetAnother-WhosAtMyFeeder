@@ -58,6 +58,16 @@ from app.services.inference.adapters.tflite import ModelInstance
 from app.services.inference.diagnostics import gpu_runtime_failure_code, summarize_runtime_exception
 from app.services.inference.errors import InvalidInferenceOutputError
 from app.services.inference.outputs import resolve_model_labels, strict_non_finite_output_enabled
+from app.services.inference.provider_policy import (
+    apply_host_validated_providers,
+    is_gpu_provider_name,
+    normalize_inference_provider,
+    provider_capability_contract,
+    provider_supported_for_spec,
+    reconcile_ort_active_provider,
+    resolve_inference_selection,
+    runtime_fallback_targets_for,
+)
 from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig
 from app.services.bird_crop_service import bird_crop_service
 from app.services.crop_source_resolver import crop_source_resolver
@@ -96,7 +106,6 @@ class VideoFrameCandidate(NamedTuple):
     detector_confidence: float | None = None
 
 
-SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
 CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
 
 
@@ -379,11 +388,6 @@ def _safe_isinstance(value: Any, expected_type: Any) -> bool:
     return isinstance(expected_type, type) and isinstance(value, expected_type)
 
 
-def _normalize_inference_provider(value: Optional[str]) -> str:
-    normalized = (value or "auto").strip().lower()
-    return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
-
-
 def _host_validated_providers(
     model_id: str,
     *,
@@ -406,66 +410,16 @@ def _host_validated_providers(
 
 
 def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
-    """Resolve the effective provider contract for this exact installation.
-
-    ``supported_inference_providers`` is the globally safe baseline.
-    ``candidate_inference_providers`` is the wider set an isolated host sweep may
-    probe. Current-image validation evidence narrows the runtime to passing
-    providers and may widen it only to reviewed candidates. Evidence from an
-    older image flavor is filtered by ``host_eligible_providers``.
-    """
-    resolved = dict(spec)
-    supported = _unique_provider_names(spec.get("supported_inference_providers"))
-    candidates = _unique_provider_names(spec.get("candidate_inference_providers") or supported)
-    candidate_set = set(candidates)
+    """Read this installation's validation evidence and apply it to the model contract."""
     artifact_sha256 = str(spec.get("artifact_sha256") or "").strip().lower() or None
-    validated = [
-        provider
-        for provider in _host_validated_providers(
-            model_id,
-            artifact_sha256=artifact_sha256,
-        )
-        if provider in candidate_set
-    ]
+    validated = _host_validated_providers(model_id, artifact_sha256=artifact_sha256)
     try:
         from app.services.model_validation import host_provider_preference_order
 
-        preference = [
-            provider
-            for provider in host_provider_preference_order(
-                model_id,
-                artifact_sha256=artifact_sha256,
-            )
-            if provider in validated
-        ]
+        preference = list(host_provider_preference_order(model_id, artifact_sha256=artifact_sha256))
     except Exception:
         preference = []
-    for provider in validated:
-        if provider not in preference:
-            preference.append(provider)
-
-    # Once a sweep exists it is authoritative: providers that were available
-    # but failed must not remain selectable merely because they are globally
-    # supported. Without a current sweep, retain the safe global baseline so
-    # upgrades do not deactivate a previously working installation.
-    effective = list(preference or supported)
-    resolved["supported_inference_providers"] = effective
-    resolved["candidate_inference_providers"] = candidates
-    resolved["host_added_inference_providers"] = [provider for provider in effective if provider not in supported]
-    resolved["host_validated_inference_providers"] = list(validated)
-    resolved["host_provider_preference_order"] = list(preference)
-    resolved["host_validation_applied"] = bool(validated)
-    return resolved
-
-
-def _unique_provider_names(values: Any) -> list[str]:
-    providers: list[str] = []
-    for value in values or []:
-        provider = _normalize_inference_provider(str(value or ""))
-        if provider == "auto" or provider in providers:
-            continue
-        providers.append(provider)
-    return providers
+    return apply_host_validated_providers(spec, validated_providers=validated, preference_order=preference)
 
 
 def _host_device_eligibility_summary() -> dict[str, Any]:
@@ -478,18 +432,6 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
         return host_eligibility_summary()
     except Exception:
         return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
-
-
-def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) -> bool:
-    normalized = _normalize_inference_provider(provider)
-    allowed = {_normalize_inference_provider(item) for item in (spec or {}).get("supported_inference_providers") or []}
-    allowed.discard("auto")
-    return not allowed or normalized in allowed
-
-
-def _is_gpu_provider_name(provider: str) -> bool:
-    name = str(provider or "").strip().lower()
-    return name in {"gpu", "intel_gpu"} or name.startswith("gpu.")
 
 
 def _safe_sha256_file(path: str) -> str | None:
@@ -845,400 +787,6 @@ def _detect_cuda_hardware_available() -> bool:
     return False
 
 
-def _cuda_unavailable_reason(caps: dict) -> str:
-    probe_error = str(caps.get("cuda_probe_error") or "").strip()
-    if probe_error:
-        return f"CUDA provider detected but failed runtime probe: {probe_error}"
-    if caps.get("cuda_provider_installed") and not caps.get("cuda_hardware_available"):
-        return "CUDAExecutionProvider is installed but no NVIDIA GPU is accessible in this runtime"
-    return "CUDAExecutionProvider is not available"
-
-
-def _runtime_fallback_targets_for(
-    *,
-    active_backend: str,
-    active_provider: str,
-    caps: dict[str, Any],
-    provider_order: list[str] | tuple[str, ...] | None = None,
-) -> list[tuple[str, str]]:
-    """Return the concrete recovery order for the active inference runtime."""
-    targets: list[tuple[str, str]] = []
-
-    def _append(target_backend: str, target_provider: str) -> None:
-        target = (target_backend, target_provider)
-        if target not in targets and target != (active_backend, active_provider):
-            targets.append(target)
-
-    provider_backends = {
-        "intel_npu": ("openvino", "intel_npu"),
-        "intel_gpu": ("openvino", "intel_gpu"),
-        "cuda": ("onnxruntime", "cuda"),
-        "intel_cpu": ("openvino", "intel_cpu"),
-        "cpu": ("onnxruntime", "cpu"),
-    }
-    available = {
-        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
-        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
-        "cuda": bool(caps.get("ort_available") and caps.get("cuda_available")),
-        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
-        "cpu": bool(caps.get("ort_available")),
-    }
-    for provider in _unique_provider_names(provider_order):
-        if available.get(provider) and provider in provider_backends:
-            backend, normalized_provider = provider_backends[provider]
-            _append(backend, normalized_provider)
-
-    if active_backend == "openvino":
-        if active_provider in {"intel_gpu", "intel_npu"} and caps.get("intel_cpu_available"):
-            _append("openvino", "intel_cpu")
-        if caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        _append("tflite", "tflite")
-        return targets
-
-    if active_backend == "onnxruntime":
-        if active_provider != "cpu" and caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
-            _append("openvino", "intel_cpu")
-        _append("tflite", "tflite")
-        return targets
-
-    if active_backend == "tflite":
-        return targets
-
-    if caps.get("ort_available"):
-        _append("onnxruntime", "cpu")
-    _append("tflite", "tflite")
-    return targets
-
-
-def _provider_capability_contract(
-    *,
-    caps: dict[str, Any],
-    packaged_providers: tuple[str, ...] | list[str],
-    supported_providers: list[str] | tuple[str, ...] | None,
-    active_backend: str,
-    active_provider: str,
-    provider_order: list[str] | tuple[str, ...] | None = None,
-) -> dict[str, list[str]]:
-    """Build the provider list exposed to configuration clients.
-
-    A selectable provider must be packaged by the running image, usable on this
-    host, and supported by the active model when that model declares a provider
-    allow-list. The active runtime and its real recovery targets come first;
-    other valid manual alternatives follow without pretending they are automatic
-    fallbacks.
-    """
-    packaged = {
-        _normalize_inference_provider(provider)
-        for provider in packaged_providers
-        if _normalize_inference_provider(provider) != "auto"
-    }
-    supported = {
-        _normalize_inference_provider(provider)
-        for provider in (supported_providers or [])
-        if _normalize_inference_provider(provider) != "auto"
-    }
-    host_available = {
-        "cpu": bool(caps.get("ort_available")),
-        "cuda": bool(caps.get("cuda_available")),
-        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
-        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
-        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
-    }
-
-    def _host_selectable(provider: str) -> bool:
-        return bool(host_available.get(provider) and (not packaged or provider in packaged))
-
-    def _selectable(provider: str) -> bool:
-        return bool(_host_selectable(provider) and (not supported or provider in supported))
-
-    fallback_candidates = [active_provider]
-    fallback_candidates.extend(_unique_provider_names(provider_order))
-    fallback_candidates.extend(
-        provider
-        for _backend, provider in _runtime_fallback_targets_for(
-            active_backend=active_backend,
-            active_provider=active_provider,
-            caps=caps,
-            provider_order=provider_order,
-        )
-    )
-
-    provider_preference_order: list[str] = []
-    for provider in fallback_candidates:
-        if _selectable(provider) and provider not in provider_preference_order:
-            provider_preference_order.append(provider)
-
-    host_available_providers: list[str] = []
-    for provider in fallback_candidates:
-        if _host_selectable(provider) and provider not in host_available_providers:
-            host_available_providers.append(provider)
-
-    available_providers = list(provider_preference_order)
-    manual_candidates = _unique_provider_names(provider_order)
-    manual_candidates.extend(
-        provider
-        for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu")
-        if provider not in manual_candidates
-    )
-    for provider in manual_candidates:
-        if _host_selectable(provider) and provider not in host_available_providers:
-            host_available_providers.append(provider)
-        if _selectable(provider) and provider not in available_providers:
-            available_providers.append(provider)
-
-    return {
-        "host_available_providers": host_available_providers,
-        "available_providers": available_providers,
-        "provider_preference_order": provider_preference_order,
-    }
-
-
-def _resolve_inference_selection(
-    requested_provider: Optional[str],
-    caps: dict,
-    supported_providers: Optional[list[str]] = None,
-    preferred_providers: Optional[list[str]] = None,
-) -> dict:
-    """Resolve desired inference provider to a concrete backend/device with fallback."""
-    requested = _normalize_inference_provider(requested_provider)
-    allowed = {
-        _normalize_inference_provider(provider)
-        for provider in (supported_providers or [])
-        if _normalize_inference_provider(provider) != "auto"
-    }
-
-    def _provider_allowed(provider: str) -> bool:
-        return not allowed or provider in allowed
-
-    def _reason_with_constraint(base_reason: Optional[str], provider: str, fallback_target: str) -> str:
-        if _provider_allowed(provider):
-            return base_reason or ""
-        constraint_reason = f"Active model artifact does not support {fallback_target}"
-        if base_reason:
-            return f"{constraint_reason}; {base_reason}"
-        return constraint_reason
-
-    def _ort_cpu(reason: Optional[str] = None) -> dict:
-        if caps.get("ort_available") and _provider_allowed("cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cpu",
-                "backend": "onnxruntime",
-                "ort_providers": ["CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": reason,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            fallback_reason = reason or "ONNX Runtime unavailable or unsupported; using OpenVINO CPU"
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": fallback_reason,
-            }
-        return {
-            "requested_provider": requested,
-            "active_provider": "unavailable",
-            "backend": "unavailable",
-            "ort_providers": [],
-            "openvino_device": None,
-            "fallback_reason": reason or "No ONNX-capable runtime available (onnxruntime/OpenVINO)",
-        }
-
-    if requested == "cpu":
-        return _ort_cpu()
-
-    if requested == "cuda":
-        if caps.get("ort_available") and caps.get("cuda_available") and _provider_allowed("cuda"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cuda",
-                "backend": "onnxruntime",
-                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": None,
-            }
-        cuda_fallback_reason = _reason_with_constraint(
-            f"CUDA requested but {_cuda_unavailable_reason(caps)}",
-            "cuda",
-            "CUDA",
-        )
-        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": f"{cuda_fallback_reason}; using OpenVINO GPU",
-            }
-        return _ort_cpu(cuda_fallback_reason)
-
-    if requested == "intel_cpu":
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": None,
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "OpenVINO CPU requested but OpenVINO CPU device is not available",
-                "intel_cpu",
-                "OpenVINO CPU",
-            )
-        )
-
-    if requested == "intel_gpu":
-        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": None,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": _reason_with_constraint(
-                    "Intel GPU requested but not available; falling back to OpenVINO CPU",
-                    "intel_gpu",
-                    "Intel GPU",
-                ),
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "Intel GPU requested but OpenVINO GPU is not available",
-                "intel_gpu",
-                "Intel GPU",
-            )
-        )
-
-    if requested == "intel_npu":
-        if caps.get("openvino_available") and caps.get("intel_npu_available") and _provider_allowed("intel_npu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_npu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "NPU",
-                "fallback_reason": None,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": _reason_with_constraint(
-                    "Intel NPU requested but not available; falling back to OpenVINO CPU",
-                    "intel_npu",
-                    "Intel NPU",
-                ),
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "Intel NPU requested but OpenVINO NPU is not available",
-                "intel_npu",
-                "Intel NPU",
-            )
-        )
-
-    # ``auto`` follows this installation's measured order when available.
-    # Without sweep evidence, use a conservative accelerator-first order; the
-    # effective model contract still prevents unvalidated host-gated candidates
-    # from appearing here.
-    auto_order = _unique_provider_names(preferred_providers)
-    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
-        if provider not in auto_order:
-            auto_order.append(provider)
-
-    for provider in auto_order:
-        if not _provider_allowed(provider):
-            continue
-        if provider == "intel_npu" and caps.get("openvino_available") and caps.get("intel_npu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_npu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "NPU",
-                "fallback_reason": None,
-            }
-        if provider == "intel_gpu" and caps.get("openvino_available") and caps.get("intel_gpu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": None,
-            }
-        if provider == "cuda" and caps.get("ort_available") and caps.get("cuda_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cuda",
-                "backend": "onnxruntime",
-                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": None,
-            }
-        if provider == "intel_cpu" and caps.get("openvino_available") and caps.get("intel_cpu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": None,
-            }
-        if provider == "cpu" and caps.get("ort_available"):
-            return _ort_cpu()
-
-    return _ort_cpu("No validated provider for the active model is available on this host")
-
-
-def _reconcile_ort_active_provider(
-    requested_active_provider: str,
-    session_providers: list[str] | None,
-) -> tuple[str, Optional[str]]:
-    """Reconcile planned ORT provider with the session's actual enabled providers.
-
-    ONNX Runtime can initialize a session with CPU only even when CUDA was requested,
-    depending on runtime/library availability. Keep YA-WAMF status/fallback reporting honest.
-    """
-    actual = requested_active_provider
-    providers = list(session_providers or [])
-
-    if requested_active_provider == "cuda" and "CUDAExecutionProvider" not in providers:
-        if "CPUExecutionProvider" in providers:
-            return (
-                "cpu",
-                "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider; using CPUExecutionProvider",
-            )
-        return (
-            "cpu",
-            "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider",
-        )
-
-    return actual, None
-
-
 def _extract_openvino_unsupported_ops(error_text: Optional[str]) -> list[str]:
     if not error_text:
         return []
@@ -1509,7 +1057,7 @@ class ClassifierService:
             self._video_supervisor = isolated_supervisor
             if self._image_execution_mode == "subprocess":
                 self._classifier_supervisor = isolated_supervisor
-        self._selected_inference_provider = _normalize_inference_provider(
+        self._selected_inference_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._active_inference_provider = "tflite"
@@ -1656,7 +1204,7 @@ class ClassifierService:
             "model_sha256": artifact_digest(model_path),
             "external_weights_sha256": artifact_digest(f"{model_path}.data") if model_path else None,
             "labels_sha256": artifact_digest(str(spec.get("labels_path") or "")),
-            "provider": _normalize_inference_provider(settings.classification.inference_provider),
+            "provider": normalize_inference_provider(settings.classification.inference_provider),
             "runtime_signature": current_inference_runtime_signature(),
             "legacy_runtime_signature": legacy_inference_runtime_signature(),
             "model_runtime": spec.get("runtime"),
@@ -1767,7 +1315,7 @@ class ClassifierService:
     ) -> dict[str, Any]:
         active_model = self._active_openvino_model()
         snapshot = {
-            "selected_provider": _normalize_inference_provider(
+            "selected_provider": normalize_inference_provider(
                 getattr(settings.classification, "inference_provider", "auto")
             ),
             "active_provider": active_provider,
@@ -1859,7 +1407,7 @@ class ClassifierService:
         backend: str,
         provider: str,
     ) -> ModelType | None:
-        if not _provider_supported_for_spec(spec, provider):
+        if not provider_supported_for_spec(spec, provider):
             return None
 
         model_path = str(spec.get("model_path") or "")
@@ -2153,7 +1701,7 @@ class ClassifierService:
             provider_order = list(self._resolve_active_bird_model_spec().get("host_provider_preference_order") or [])
         except Exception:
             provider_order = []
-        return _runtime_fallback_targets_for(
+        return runtime_fallback_targets_for(
             active_backend=self._inference_backend,
             active_provider=self._active_inference_provider,
             caps=self._accel_caps,
@@ -2198,9 +1746,9 @@ class ClassifierService:
         if time.monotonic() < self._gpu_restore_not_before_monotonic:
             return False
         spec = self._resolve_active_bird_model_spec()
-        if not _provider_supported_for_spec(spec, "intel_gpu"):
+        if not provider_supported_for_spec(spec, "intel_gpu"):
             return False
-        requested_provider = _normalize_inference_provider(
+        requested_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         if requested_provider not in {"auto", "intel_gpu"}:
@@ -2566,7 +2114,7 @@ class ClassifierService:
             if (
                 self._worker_process_mode
                 and error.backend.lower() == "openvino"
-                and _is_gpu_provider_name(error.provider)
+                and is_gpu_provider_name(error.provider)
             ):
                 # A device-level GPU failure leaves native objects that must
                 # not be reloaded or even destroyed in this process: report
@@ -2693,7 +2241,7 @@ class ClassifierService:
             preprocessing=preprocessing,
         )
 
-        self._selected_inference_provider = _normalize_inference_provider(
+        self._selected_inference_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._refresh_accel_caps(force=True)
@@ -2747,18 +2295,18 @@ class ClassifierService:
 
         # Create appropriate model instance based on runtime
         if runtime == "onnx":
-            selection = _resolve_inference_selection(
+            selection = resolve_inference_selection(
                 self._selected_inference_provider,
                 self._accel_caps,
                 supported_providers=supported_inference_providers,
                 preferred_providers=host_provider_preference_order,
             )
-            self._inference_fallback_reason = selection.get("fallback_reason")
-            self._active_inference_provider = selection.get("active_provider", "unavailable")
-            self._inference_backend = selection.get("backend", "unavailable")
+            self._inference_fallback_reason = selection.fallback_reason
+            self._active_inference_provider = selection.active_provider
+            self._inference_backend = selection.backend
 
-            if selection["backend"] == "openvino":
-                openvino_device = selection["openvino_device"] or "CPU"
+            if selection.backend == "openvino":
+                openvino_device = selection.openvino_device or "CPU"
                 self._openvino_model_compile_device = openvino_device
                 bird_model = OpenVINOModelInstance(
                     "bird",
@@ -2798,7 +2346,7 @@ class ClassifierService:
                                 log.warning(
                                     "OpenVINO GPU runtime benchmark failed; retrying with ONNX Runtime CPU fallback",
                                     requested=self._selected_inference_provider,
-                                    device=selection.get("openvino_device"),
+                                    device=selection.openvino_device,
                                     benchmark=benchmark,
                                 )
                                 self._inference_backend = "onnxruntime"
@@ -2848,7 +2396,7 @@ class ClassifierService:
                             session_providers = list(bird_model.session.get_providers() or [])
                         except Exception:
                             session_providers = []
-                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                    reconciled_provider, session_fallback_reason = reconcile_ort_active_provider(
                         self._active_inference_provider,
                         session_providers,
                     )
@@ -2861,7 +2409,7 @@ class ClassifierService:
                         log.warning(
                             "ONNX Runtime session provider mismatch; applying runtime fallback status",
                             requested=self._selected_inference_provider,
-                            planned_active=selection.get("active_provider"),
+                            planned_active=selection.active_provider,
                             actual_active=self._active_inference_provider,
                             session_providers=session_providers,
                             reason=session_fallback_reason,
@@ -2886,7 +2434,7 @@ class ClassifierService:
                     log.warning(
                         "OpenVINO model load failed; retrying with ONNX Runtime CPU fallback",
                         requested=self._selected_inference_provider,
-                        device=selection.get("openvino_device"),
+                        device=selection.openvino_device,
                         error=bird_model.error,
                     )
                     self._inference_backend = "onnxruntime"
@@ -2931,14 +2479,14 @@ class ClassifierService:
                 )
                 runtime = "tflite"
 
-            if selection["backend"] == "onnxruntime":
+            if selection.backend == "onnxruntime":
                 bird_model = ONNXModelInstance(
                     "bird",
                     model_path,
                     labels_path,
                     preprocessing=preprocessing,
                     input_size=input_size,
-                    ort_providers=selection.get("ort_providers") or ["CPUExecutionProvider"],
+                    ort_providers=list(selection.ort_providers) or ["CPUExecutionProvider"],
                 )
                 if bird_model.load():
                     session_providers = []
@@ -2947,7 +2495,7 @@ class ClassifierService:
                             session_providers = list(bird_model.session.get_providers() or [])
                         except Exception:
                             session_providers = []
-                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                    reconciled_provider, session_fallback_reason = reconcile_ort_active_provider(
                         self._active_inference_provider,
                         session_providers,
                     )
@@ -2960,7 +2508,7 @@ class ClassifierService:
                         log.warning(
                             "ONNX Runtime session provider mismatch; applying runtime fallback status",
                             requested=self._selected_inference_provider,
-                            planned_active=selection.get("active_provider"),
+                            planned_active=selection.active_provider,
                             actual_active=self._active_inference_provider,
                             session_providers=session_providers,
                             reason=session_fallback_reason,
@@ -3301,7 +2849,7 @@ class ClassifierService:
         if str(spec.get("runtime") or "tflite") != "onnx":
             return {"inference_backend": "tflite", "active_provider": "tflite", "model_id": model_id}
         try:
-            selection = _resolve_inference_selection(
+            selection = resolve_inference_selection(
                 self._selected_inference_provider,
                 self._accel_caps_for_read(),
                 supported_providers=list(spec.get("supported_inference_providers") or []),
@@ -3310,8 +2858,8 @@ class ClassifierService:
         except Exception:  # noqa: BLE001
             return None
         return {
-            "inference_backend": str(selection.get("backend") or "unavailable"),
-            "active_provider": str(selection.get("active_provider") or "unavailable"),
+            "inference_backend": str(selection.backend or "unavailable"),
+            "active_provider": str(selection.active_provider or "unavailable"),
             "model_id": model_id,
         }
 
@@ -3655,9 +3203,7 @@ class ClassifierService:
         latest_execution = latest_model_execution(crop_detector_status.get("model_id"), executions)
         crop_detector_status["last_execution"] = latest_execution.model_dump(mode="json") if latest_execution else None
 
-        selected_provider = _normalize_inference_provider(
-            getattr(settings.classification, "inference_provider", "auto")
-        )
+        selected_provider = normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto"))
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
         active_model_estimated_ram_mb: Optional[int] = None
@@ -3679,7 +3225,7 @@ class ClassifierService:
             validated_providers = []
             provider_order = []
             candidate_providers = []
-        provider_capabilities = _provider_capability_contract(
+        provider_capabilities = provider_capability_contract(
             caps=caps,
             packaged_providers=packaged_providers,
             supported_providers=supported_providers,
@@ -3788,9 +3334,7 @@ class ClassifierService:
             "background_throttled": admission_metrics["background_throttled"],
             **provider_capabilities,
             # legacy compatibility (can be removed later)
-            "cuda_enabled": _normalize_inference_provider(
-                getattr(settings.classification, "inference_provider", "auto")
-            )
+            "cuda_enabled": normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto"))
             == "cuda",
             "models": {},
             "crop_detector": crop_detector_status,
