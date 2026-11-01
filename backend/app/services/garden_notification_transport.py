@@ -6,6 +6,7 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import urlencode
 
+import httpx
 import structlog
 from fastapi import HTTPException
 from httpx import URL
@@ -16,15 +17,16 @@ from app.repositories.garden_repository import GardenCapture, GardenPhotoUnavail
 from app.services import garden_motion_privacy
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import instance_base
-from app.services.notification_service import notification_service
+from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.transports.telegram import TelegramCredentials, TelegramTransport
 
 log = structlog.get_logger()
 
 # Pushover's attachment ceiling, and well inside Discord's and Telegram's photo limits.
 PHOTO_LIMIT_BYTES = 5 * 1024 * 1024
 PHOTO_NAME = "garden.jpg"
-# Telegram counts a caption after entity parsing, so the raw text is clipped before escaping.
-TELEGRAM_CAPTION_TEXT_LIMIT = 900
+# Garden alerts own their HTTP client rather than borrowing the bird notification service's.
+http_client = httpx.AsyncClient(timeout=10.0)
 
 
 def channel_configured(channel: str) -> bool:
@@ -102,10 +104,6 @@ def message(capture: GardenCapture) -> tuple[str, str, str | None]:
     return title, body, capture_link(capture)
 
 
-def _clip(text: str, limit: int) -> str:
-    return text if len(text) <= limit else text[: max(0, limit - 1)].rstrip() + "…"
-
-
 def _discord_escape(text: str) -> str:
     # Model/camera names are data, never mentions or Markdown controls.
     return re.sub(r"([\\`*_~|>\[\]()])", r"\\\1", text)
@@ -117,7 +115,7 @@ async def send_garden_notification(channel: str, capture: GardenCapture, photo: 
     title, body, url = message(capture)
     lang = settings.notifications.notification_language
     link_text = i18n_service.translate("notification.garden_view", lang=lang)
-    client = notification_service.client
+    client = http_client
     cfg = settings.notifications
     try:
         if channel == "discord":
@@ -141,28 +139,18 @@ async def send_garden_notification(channel: str, capture: GardenCapture, photo: 
             else:
                 response = await client.post(webhook, json=payload)
         elif channel == "telegram":
-            base = f"https://api.telegram.org/bot{cfg.telegram.bot_token}"
-            button = {"inline_keyboard": [[{"text": link_text, "url": url}]]} if url else None
-            if photo:
-                caption = f"<b>{html.escape(_clip(title, 300))}</b>\n{html.escape(_clip(body, TELEGRAM_CAPTION_TEXT_LIMIT - 300))}"
-                data = {"chat_id": cfg.telegram.chat_id, "caption": caption, "parse_mode": "HTML"}
-                if button:
-                    data["reply_markup"] = json.dumps(button)
-                response = await client.post(
-                    f"{base}/sendPhoto", data=data, files={"photo": (PHOTO_NAME, photo, "image/jpeg")}
-                )
-            else:
-                payload = {
-                    "chat_id": cfg.telegram.chat_id,
-                    "text": f"<b>{html.escape(title)}</b>\n{html.escape(body)}",
-                    "parse_mode": "HTML",
-                    "link_preview_options": {"is_disabled": True},
-                }
-                if button:
-                    payload["reply_markup"] = button
-                response = await client.post(f"{base}/sendMessage", json=payload)
-            response.raise_for_status()
-            return response.json().get("ok") is True
+            garden_message = NotificationMessage(
+                title=title,
+                body=body,
+                link=SubjectLink(url, link_text) if url else None,
+                attachment=Attachment(PHOTO_NAME, photo) if photo else None,
+            )
+            result = await TelegramTransport(client).send(
+                garden_message, TelegramCredentials(cfg.telegram.bot_token, cfg.telegram.chat_id)
+            )
+            if not result.sent:
+                log.warning("garden_channel_delivery_failed", channel=channel, error_type=result.error_type)
+            return result.sent
         elif channel == "pushover":
             fields = {
                 "token": cfg.pushover.api_token,

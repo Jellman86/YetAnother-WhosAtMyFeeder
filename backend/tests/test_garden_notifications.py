@@ -444,8 +444,7 @@ async def saved(capture_id):
 
 
 async def send_through_mock(monkeypatch, channel, capture, photo):
-    from app.services.garden_notification_transport import send_garden_notification
-    from app.services.notification_service import notification_service
+    from app.services import garden_notification_transport as transport
 
     requests = []
 
@@ -454,8 +453,8 @@ async def send_through_mock(monkeypatch, channel, capture, photo):
         return httpx.Response(200, json={"ok": True, "status": 1, "id": "message-1"})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(receive)) as client:
-        monkeypatch.setattr(notification_service, "client", client)
-        assert await send_garden_notification(channel, capture, photo)
+        monkeypatch.setattr(transport, "http_client", client)
+        assert await transport.send_garden_notification(channel, capture, photo)
     assert len(requests) == 1
     return requests[0]
 
@@ -528,6 +527,32 @@ async def test_photo_transports_attach_the_capture_photo_with_escaped_text(chann
     if channel == "pushover":
         assert 'name="attachment"' in text
         assert "garden_capture" in text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["refused", "timeout"])
+async def test_a_failed_telegram_alert_is_not_sent_and_logs_no_credential(channels, monkeypatch, failure):
+    from structlog.testing import capture_logs
+
+    from app.services import garden_notification_transport as transport
+
+    capture = await saved(await named())
+    requests = []
+
+    async def receive(request):
+        requests.append(request)
+        if failure == "timeout":
+            raise httpx.ReadTimeout(f"Timeout accessing {request.url}", request=request)
+        return httpx.Response(403, json={"ok": False})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(receive)) as client:
+        monkeypatch.setattr(transport, "http_client", client)
+        with capture_logs() as logs:
+            assert await transport.send_garden_notification("telegram", capture, None) is False
+    assert len(requests) == 1
+    warning = next(row for row in logs if row["event"] == "garden_channel_delivery_failed")
+    assert warning["error_type"] == ("ReadTimeout" if failure == "timeout" else "HTTPStatusError")
+    assert "private-test-token" not in json.dumps(logs)
 
 
 @pytest.mark.asyncio
