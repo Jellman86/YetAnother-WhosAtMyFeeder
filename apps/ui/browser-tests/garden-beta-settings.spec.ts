@@ -337,8 +337,9 @@ test('the view explains each capture outcome and links daily review to the Explo
     await openBeta(page);
     const outcomes = page.locator('[data-garden-outcomes]');
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
-    await expect(outcomes).toContainText('animals whose species is below the naming threshold');
-    await expect(outcomes).toContainText('uncertain photos below the naming threshold');
+    // The naming threshold is the floor for what Garden shows: below it, a photo is dismissed.
+    await expect(outcomes.getByRole('definition').first()).not.toContainText('below the naming threshold');
+    await expect(outcomes).toContainText('photos whose species score is below the naming threshold');
     await expect(outcomes).toContainText('person evidence is removed');
     await page.getByRole('button', { name: 'Review Garden animals' }).click();
     await expect(page.locator('main[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/events?visitors=garden&review=pending');

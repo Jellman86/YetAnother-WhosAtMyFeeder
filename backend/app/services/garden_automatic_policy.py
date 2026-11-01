@@ -8,6 +8,7 @@ the network.
 from dataclasses import dataclass
 from typing import Literal
 
+from app.models.garden import GardenAutomaticCheck
 from app.services.garden_domestic_birds import GardenBirdRoute
 
 Outcome = Literal["animal", "bird", "non_animal", "uncertain", "human_rejected"]
@@ -52,9 +53,13 @@ def plan_automatic_check(
 
 
 def finish_automatic_check(
-    plan: AutomaticPlan, naming: NamingResult, bird_route: GardenBirdRoute
+    plan: AutomaticPlan, naming: NamingResult, bird_route: GardenBirdRoute, *, score_below_threshold: bool = False
 ) -> tuple[Outcome, DecisionReason | None]:
-    """Combine the plan with the naming result from the same crop."""
+    """Combine the plan with the naming result from the same crop.
+
+    ``score_below_threshold`` says whether the top species score missed the naming
+    threshold; a name the catalogue cannot bind waits for a person only when it did not.
+    """
     if naming == "person":
         return "human_rejected", None
     if naming == "named":
@@ -64,16 +69,33 @@ def finish_automatic_check(
     if plan.outcome == "uncertain":
         # The top species is a bird the owner does not keep, so the photo goes with birds.
         return "uncertain", bird_route if naming == "bird" and bird_route != "domestic_bird" else plan.decision_reason
-    return plan.outcome, "identity_unavailable"
+    return plan.outcome, "below_threshold" if score_below_threshold else "identity_unavailable"
 
 
 def automatic_check_dismisses(outcome: str, decision_reason: str | None) -> bool:
     """Whether a completed check moves a pending capture to Dismissed.
 
-    An animal the check is confident is there stays in Needs review when its species
-    score is below the naming threshold: a low species score is not evidence of absence.
-    Only uncertain photos are dismissed for a low score.
+    The naming threshold is the owner's floor for what Garden shows: an animal or an
+    uncertain photo whose species score misses it is dismissed, and stays restorable.
     """
     if outcome in {"bird", "non_animal"}:
         return True
-    return outcome == "uncertain" and decision_reason in {"below_threshold", "bird_camera", "wild_bird"}
+    if decision_reason == "below_threshold":
+        return outcome in {"animal", "uncertain"}
+    return outcome == "uncertain" and decision_reason in {"bird_camera", "wild_bird"}
+
+
+def saved_check_dismisses(check: GardenAutomaticCheck) -> bool:
+    """Whether a saved check dismisses its capture under the current policy.
+
+    Checks saved before an unbound low score counted as below the threshold carry
+    ``identity_unavailable`` with the score that missed it.
+    """
+    if automatic_check_dismisses(check.outcome, check.decision_reason):
+        return True
+    return (
+        check.decision_reason == "identity_unavailable"
+        and check.naming_score is not None
+        and check.naming_threshold is not None
+        and check.naming_score < check.naming_threshold
+    )

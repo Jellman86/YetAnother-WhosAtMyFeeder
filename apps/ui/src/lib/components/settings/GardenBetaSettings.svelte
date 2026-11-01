@@ -209,7 +209,7 @@
             <SettingsRow
                 labelId="setting-garden-naming"
                 label={$_('settings.beta.garden_naming', { default: 'Name animals automatically' })}
-                description={$_('settings.beta.garden_naming_help', { default: 'Animals reaching this species confidence are confirmed and named automatically. An animal below the threshold waits in Needs review; an uncertain photo below it moves to Dismissed and can be restored. Failed checks retry; missing country or catalogue identity is explained.' })}
+                description={$_('settings.beta.garden_naming_help_floor', { default: 'Animals reaching this species confidence are confirmed and named automatically. Photos below it move to Dismissed and can be restored. Failed checks retry; missing country or catalogue identity is explained.' })}
             >
                 <SettingsToggle
                     checked={automaticNaming}
@@ -266,7 +266,7 @@
             <dl class="space-y-2 text-xs text-slate-600 dark:text-slate-400">
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.pending', { default: 'Needs review' })}</dt>
-                    <dd>{$_('settings.beta.garden_outcome_pending', { default: 'Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, animals whose species is below the naming threshold, and owner overrides.' })}</dd>
+                    <dd>{$_('settings.beta.garden_outcome_pending_review', { default: 'Checks waiting to run, failed checks waiting for retry, missing setup or catalogue identity, and owner overrides.' })}</dd>
                 </div>
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.confirmed', { default: 'Confirmed animals' })}</dt>
@@ -274,7 +274,7 @@
                 </div>
                 <div>
                     <dt class="font-semibold text-slate-800 dark:text-slate-100">{$_('garden.dismissed', { default: 'Dismissed' })}</dt>
-                    <dd>{$_('settings.beta.garden_outcome_dismissed', { default: 'Captures you dismiss, uncertain photos below the naming threshold, and photos the check is confident show a bird you do not keep, nothing or a vehicle. Return to review restores one while its photo remains.' })}</dd>
+                    <dd>{$_('settings.beta.garden_outcome_dismissed_low_score', { default: 'Captures you dismiss, photos whose species score is below the naming threshold, and photos the check is confident show a bird you do not keep, nothing or a vehicle. Return to review restores one while its photo remains.' })}</dd>
                 </div>
             </dl>
             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_outcome_person', { default: 'A capture with person evidence is removed with its photo. Garden visits never count as birds or reach bird notifications and exports.' })}</p>

@@ -5,11 +5,13 @@ from typing import get_args
 
 import pytest
 
+from app.models.garden import GardenAutomaticCheck
 from app.services.garden_automatic_policy import (
     AutomaticPlan,
     automatic_check_dismisses,
     finish_automatic_check,
     plan_automatic_check,
+    saved_check_dismisses,
 )
 from app.services.garden_domestic_birds import (
     DOMESTIC_BIRDS,
@@ -132,24 +134,58 @@ def test_automatic_plan_treats_a_declared_domestic_bird_as_an_animal(presence, r
     assert plan_automatic_check(presence, route, automatic_naming=naming, country_known=country) == expected
 
 
-def test_automatic_finish_and_dismissal_keep_a_present_animal_in_review():
+def test_automatic_finish_dismisses_a_species_score_below_the_naming_threshold():
     animal = AutomaticPlan("animal", None, True)
     uncertain = AutomaticPlan("uncertain", "below_threshold", True)
     assert finish_automatic_check(animal, "named", "bird_camera") == ("animal", None)
     assert finish_automatic_check(animal, "person", "bird_camera") == ("human_rejected", None)
     assert finish_automatic_check(animal, "low_confidence", "bird_camera") == ("animal", "below_threshold")
-    assert finish_automatic_check(animal, "unresolved", "bird_camera") == ("animal", "identity_unavailable")
+    # A name the catalogue cannot bind waits for a person only when its score would have named it.
+    assert finish_automatic_check(animal, "unresolved", "bird_camera", score_below_threshold=False) == (
+        "animal",
+        "identity_unavailable",
+    )
+    assert finish_automatic_check(animal, "unresolved", "bird_camera", score_below_threshold=True) == (
+        "animal",
+        "below_threshold",
+    )
     assert finish_automatic_check(uncertain, "bird", "bird_camera") == ("uncertain", "bird_camera")
     assert finish_automatic_check(uncertain, "bird", "wild_bird") == ("uncertain", "wild_bird")
     assert finish_automatic_check(uncertain, "unresolved", "wild_bird") == ("uncertain", "below_threshold")
-    # A confident animal below the species threshold is still an animal: it waits for a person.
-    assert not automatic_check_dismisses("animal", "below_threshold")
+    # The naming threshold is the owner's floor: an animal scored below it is dismissed, and restorable.
+    assert automatic_check_dismisses("animal", "below_threshold")
     assert automatic_check_dismisses("uncertain", "below_threshold")
     assert automatic_check_dismisses("uncertain", "wild_bird")
     assert automatic_check_dismisses("bird", "bird_camera")
     assert automatic_check_dismisses("non_animal", None)
     assert not automatic_check_dismisses("uncertain", "location_required")
     assert not automatic_check_dismisses("animal", "identity_unavailable")
+    assert not automatic_check_dismisses("animal", "naming_disabled")
+
+
+@pytest.mark.parametrize(
+    "outcome, reason, score, expected",
+    [
+        ("animal", "below_threshold", 0.12, True),
+        # Saved before unbound low scores counted as below the threshold.
+        ("animal", "identity_unavailable", 0.18, True),
+        ("animal", "identity_unavailable", 0.93, False),
+        ("animal", "identity_unavailable", None, False),
+        ("animal", "location_required", 0.12, False),
+        ("animal", None, 0.93, False),
+        ("uncertain", "below_threshold", 0.4, True),
+    ],
+)
+def test_a_saved_check_dismisses_by_the_current_policy(outcome, reason, score, expected):
+    # Only the decision fields matter here; the saved model and photo evidence are not read.
+    check = GardenAutomaticCheck.model_construct(
+        outcome=outcome,
+        checked_at="2026-11-01T19:54:26",
+        decision_reason=reason,
+        naming_score=score,
+        naming_threshold=0.8 if score is not None else None,
+    )
+    assert saved_check_dismisses(check) is expected
 
 
 def test_speciesnet_names_a_declared_domestic_bird_wherever_it_is_kept():

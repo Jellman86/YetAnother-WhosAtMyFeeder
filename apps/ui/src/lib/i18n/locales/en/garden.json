@@ -230,7 +230,7 @@
     "suggestion_open": "Open Domestic birds you keep",
     "suggestion_dismiss": "Not now"
   },
-  "automatic_animal_below_threshold": "Animal detected, but its species score is below the naming threshold. It waits in Needs review: confirm it and pick a species, or dismiss it.",
+  "automatic_animal_below_threshold_dismissed": "Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to review if you want to name it yourself.",
   "automatic_bird_camera": "Bird, handled by bird detection on this camera. Moved to Dismissed; return this photo to review if it is not a bird.",
   "automatic_wild_bird": "Wild bird. Turn on birds for this camera to record it. Moved to Dismissed; return this photo to review if the check is wrong.",
   "motion_unreadable": "{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept."

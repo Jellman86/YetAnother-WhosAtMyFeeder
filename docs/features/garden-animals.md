@@ -21,8 +21,8 @@ captures arrive; if you have not, it downloads and verifies automatically when a
 enabled Garden camera has a new photo to check. Checks use the Detection device
 preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
 missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
-enabled, an uncertain photo below the naming threshold moves to restorable **Dismissed**; an
-animal the check is confident is there waits in **Needs review** when only its species score is low.
+enabled, a photo whose species score is below the naming threshold moves to restorable
+**Dismissed**, whether or not the check is confident an animal is there.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
@@ -264,12 +264,12 @@ Garden. This does not change which devices qualify for Garden's own models.
 
 **Where captures go** in the same view summarises the outcomes:
 
-- **Needs review**: checks waiting to run or retry, missing country/catalogue identity,
-  animals whose species score is below the naming threshold, and owner overrides. Automatic
+- **Needs review**: checks waiting to run or retry, missing country/catalogue identity, and
+  owner overrides. Automatic
   work says it is waiting, rather than asking for presence verification.
 - **Confirmed animals**: animals you confirm, confident animals named automatically, and
   domestic birds you keep.
-- **Dismissed**: uncertain photos below the naming threshold, captures you dismiss, and
+- **Dismissed**: photos whose species score is below the naming threshold, captures you dismiss, and
   photos the check is confident show a bird you do not keep, nothing or a vehicle. The record
   says which: **Bird, handled by bird detection on this camera** on a camera that also watches
   for birds, or **Wild bird. Turn on birds for this camera to record it.** on a Garden-only camera.
@@ -479,10 +479,12 @@ same country filtering and person rules as a suggestion, the capture moves to **
 animals** with the name **Named automatically**. A result filtered by country is named by
 its plausible group, for example *cat family*.
 
-An animal the check is confident is present, but whose species score is below the
-threshold, waits unnamed in **Needs review** with its score and the threshold shown: a low
-species score is not evidence that nothing is there. An uncertain photo below the threshold
-moves to **Dismissed**, retaining its photo and **Return to review** action. The configured
+The naming threshold is also the floor for what Garden shows. A photo whose species score
+is below it moves to **Dismissed** with its score and the threshold shown, even when the
+check is confident an animal is there: a capture nobody can name is noise in Needs review.
+It keeps its photo and its **Return to review** action, and a capture you return is never
+dismissed automatically again. A name the catalogue cannot bind waits in **Needs review**
+only when its score reached the threshold. The configured
 species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
 Without a recognised country in **Settings → Location**, or a catalogue identity, the
