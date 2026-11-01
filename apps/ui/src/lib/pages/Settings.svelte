@@ -98,7 +98,6 @@
     import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
-    import AccessibilitySettings from '../components/settings/AccessibilitySettings.svelte';
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
@@ -111,6 +110,7 @@
     import LazyRoute from '../components/LazyRoute.svelte';
     import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
+    import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
     import { sectionIsDirty } from '../settings/section-adapter';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -138,6 +138,7 @@
 
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
+    const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -1351,10 +1352,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     // Accessibility
-    let highContrast = $state(false);
-    let dyslexiaFont = $state(false);
-    let liveAnnouncements = $state(true);
-    let reducedMotion = $state(false);
+    let accessibilityDraft = $state<AccessibilityDraft>({
+        highContrast: false,
+        dyslexiaFont: false,
+        liveAnnouncements: true,
+        reducedMotion: false
+    });
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1908,13 +1911,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             { key: 'birdModelRegionOverride', val: birdModelRegionOverride, store: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
             { key: 'birdFinderProvider', val: birdFinderProvider, store: s.bird_crop_inference_provider ?? 'auto' },
-            { key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) },
-
-            // Accessibility
-            { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
-            { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
-            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false }
+            { key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -1924,6 +1921,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         return (
             checks.some(c => c.val !== c.store) ||
             sectionIsDirty(appearanceSection, appearanceDraft, s) ||
+            sectionIsDirty(accessibilitySection, accessibilityDraft, s) ||
             locationSettingsDirty({
                 current: {
                     latitude: locationLat,
@@ -3354,11 +3352,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (settings.notifications_video_fallback_timeout !== undefined) notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout;
             if (settings.notifications_notification_cooldown_minutes !== undefined) notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes;
 
-            // Accessibility
-            highContrast = settings.accessibility_high_contrast ?? false;
-            dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
-            liveAnnouncements = settings.accessibility_live_announcements ?? true;
-            reducedMotion = settings.accessibility_reduced_motion ?? false;
+            accessibilityDraft = accessibilitySection.decode(settings);
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
@@ -3620,12 +3614,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
                 notifications_notification_cooldown_minutes: notifyCooldownMinutes,
 
-                // Accessibility
-                accessibility_high_contrast: highContrast,
-                accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements,
-                accessibility_reduced_motion: reducedMotion,
-
+                ...accessibilitySection.encodePatch(accessibilityDraft),
                 ...appearanceSection.encodePatch(appearanceDraft)
             });
             // Public access flags are also used outside Settings (guest gating, etc.)
@@ -4076,11 +4065,13 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Accessibility Tab -->
             {#if activeTab === 'accessibility'}
-                <AccessibilitySettings
-                    bind:highContrast
-                    bind:dyslexiaFont
-                    bind:liveAnnouncements
-                    bind:reducedMotion
+                <LazyRoute
+                    loader={loadAccessibilityTab}
+                    label={$_('settings.tabs.accessibility')}
+                    props={{
+                        draft: accessibilityDraft,
+                        onchange: (patch: Partial<AccessibilityDraft>) => (accessibilityDraft = { ...accessibilityDraft, ...patch })
+                    }}
                 />
             {/if}
 
