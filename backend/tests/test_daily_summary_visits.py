@@ -4,22 +4,15 @@ import httpx
 import pytest
 import pytest_asyncio
 
-from app.database import close_db, get_db, init_db
+from app.database import get_db
 from app.main import app
 from app.repositories.detection_repository import DetectionRepository
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 # A window no other test writes into, so the counts are this file's own.
 START = datetime(2031, 5, 4, 6, 0, 0)
 END = START + timedelta(hours=24)
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 async def _insert(event: str, minutes: float, species: str, camera: str, hidden: bool = False) -> None:

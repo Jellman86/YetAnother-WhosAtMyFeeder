@@ -8,7 +8,7 @@ every time and "Recording frame" never applied to a live detection.
 
 import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -22,8 +22,8 @@ NOW = 1_700_000_001.0
 @pytest.fixture(autouse=True)
 def _clock_and_mode(monkeypatch):
     monkeypatch.setattr(settings.frigate, "classification_image_source", "recording_snapshot")
-    with patch("app.services.event_processor.time.time", return_value=NOW):
-        yield
+    # Through monkeypatch, so a test that patches the clock again is undone in order.
+    monkeypatch.setattr("app.services.event_processor.time.time", lambda: NOW)
 
 
 def _payload(event_type: str, frame_time: float | None = NOW - 0.5, *, camera: str = "birdcam", event_id="evt"):
