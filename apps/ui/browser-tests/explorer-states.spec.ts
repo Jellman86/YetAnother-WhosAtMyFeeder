@@ -26,6 +26,8 @@ interface Boundary {
     visits?: (route: Route, url: URL) => Promise<void> | void;
     events?: (route: Route, url: URL) => Promise<void> | void;
     gardenVisits?: (route: Route, url: URL) => Promise<void> | void;
+    /** JSON for any other path, or undefined for the quiet default. */
+    other?: (path: string) => unknown;
 }
 
 const allVisits = (count: number) => Array.from({ length: count }, (_, index) => visit(`v${index}`, minutesAgo(10 + index * 5)));
@@ -44,6 +46,8 @@ async function openExplorer(page: Page, boundary: Boundary, query = '') {
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
+        const answer = boundary.other?.(path);
+        if (answer !== undefined) return route.fulfill({ json: answer });
         if (path === '/api/visits') return boundary.visits ? boundary.visits(route, url) : route.fulfill({ json: pageOf(url, allVisits(2)) });
         if (path === '/api/events') {
             if (boundary.events) return boundary.events(route, url);
@@ -244,5 +248,51 @@ test('an empty Garden view points to Review, Dismissed, not the retired Garden p
     const empty = page.locator('[data-explorer-garden-empty]');
     await expect(empty).toContainText('Dismissed captures are under Review, Dismissed.');
     await expect(empty).not.toContainText('Garden page');
+    expect(errors).toEqual([]);
+});
+
+test('a slower earlier read cannot replace the captures shown after it', async ({ page }) => {
+    let hold = false;
+    let release: () => void = () => {};
+    let heldResponded: Promise<unknown> = Promise.resolve();
+    const errors = await openExplorer(page, {
+        visits: async (route, url) => {
+            if (hold) await new Promise<void>(resolve => { release = resolve; });
+            await route.fulfill({ json: pageOf(url, allVisits(30)) });
+        }
+    });
+    await expect(page.locator('[data-explorer-visit="v0"] [data-detection-card]')).toBeVisible();
+    // The next page of visits is still on its way when the owner switches to individual captures,
+    // which are read with their own request and answer first.
+    hold = true;
+    heldResponded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/visits');
+    await page.getByRole('button', { name: 'Next page' }).click();
+    await page.getByRole('button', { name: 'Multi-select' }).click();
+    const toggles = page.getByRole('button', { name: /^Select Dunnock, \d{1,2}:\d{2}/ });
+    await expect(toggles).toHaveCount(2);
+
+    release();
+    await heldResponded;
+    // Let the late visits page settle; it must not reach the screen.
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    await expect(toggles).toHaveCount(2);
+    await expect(page.locator('[data-explorer-visit="v24"]')).toHaveCount(0);
+    await expect(results(page)).toHaveAttribute('aria-busy', 'false');
+    expect(errors).toEqual([]);
+});
+
+test('a linked capture that is not on the first page is read on its own and opened', async ({ page }) => {
+    const linked = { ...record('far-away', minutesAgo(600)), common_name: 'European Robin', display_name: 'Erithacus rubecula', scientific_name: 'Erithacus rubecula' };
+    const errors = await openExplorer(page, {
+        // The record's own reads answer quietly; this test is about which capture it opens.
+        other: (path) => path.startsWith('/api/audio/context/') ? []
+            : path.endsWith('/snapshot/candidates') ? { candidates: [], birds: [], current_source: 'frigate_snapshot' }
+                : undefined,
+        events: (route, url) => url.searchParams.get('event_id') === 'far-away'
+            ? route.fulfill({ json: [linked] })
+            : route.fulfill({ json: [record('c0', minutesAgo(10))] })
+    }, '&event=far-away');
+    await expect(page.locator('[data-explorer-visit="v0"] [data-detection-card]')).toBeVisible();
+    await expect(page.getByRole('dialog').locator('#detection-modal-title')).toHaveText('European Robin');
     expect(errors).toEqual([]);
 });

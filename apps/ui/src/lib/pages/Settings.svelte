@@ -1,10 +1,7 @@
-<script lang="ts" module>
-    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
-</script>
-
 <script lang="ts">
     import { onMount, onDestroy, tick, untrack } from 'svelte';
     import type { NotificationLinkTarget } from '../settings/notification-link';
+    import { canonicalSettingsPath, settingsTabFromRoute, settingsTabPath, type SettingsTab } from '../settings/settings-route';
     import {
         fetchSettings,
         updateSettings,
@@ -137,22 +134,6 @@
         currentRoute?: string;
     }>();
 
-    const SETTINGS_TABS: SettingsTab[] = [
-        'connection',
-        'detection',
-        'notifications',
-        'health',
-        'integrations',
-        'enrichment',
-        'ai',
-        'security',
-        'data',
-        'appearance',
-        'accessibility',
-        'beta',
-        'debug'
-    ];
-
     function normalizeFontTheme(value: unknown): FontTheme {
         return value === 'default' || value === 'clean' || value === 'studio'
             || value === 'classic' || value === 'compact'
@@ -170,46 +151,6 @@
 
     function normalizePublicDaysMode(value: unknown): 'retention' | 'custom' {
         return value === 'custom' ? 'custom' : 'retention';
-    }
-
-    function tabFromRoute(route: string | undefined): SettingsTab {
-        if (!route) return 'connection';
-        const match = /^\/settings\/([^/]+)/.exec(route);
-        if (!match) return 'connection';
-        const slug = match[1];
-        if (slug === 'errors') return 'health';
-        return (SETTINGS_TABS as string[]).includes(slug) ? (slug as SettingsTab) : 'connection';
-    }
-
-    // Returns the canonical /settings/<tab> URL for any pathname/hash combination,
-    // or null when the input is already canonical (so callers can no-op).
-    function canonicalSettingsPath(pathname: string, hash: string): string | null {
-        if (!pathname.startsWith('/settings')) return null;
-
-        // Trim trailing slash on /settings/ exactly (canonical paths have no trailing /).
-        if (pathname === '/settings/' || pathname === '/settings') {
-            if (hash && (SETTINGS_TABS as string[]).includes(hash)) {
-                return `/settings/${hash}`;
-            }
-            return '/settings/connection';
-        }
-
-        // /settings/errors is a documented alias for /settings/health.
-        if (pathname === '/settings/errors' || pathname.startsWith('/settings/errors/')) {
-            return '/settings/health';
-        }
-
-        const match = /^\/settings\/([^/]+)\/?$/.exec(pathname);
-        if (!match) return null; // Deep sub-path like /settings/data/foo — leave alone.
-        const slug = match[1];
-        if (!(SETTINGS_TABS as string[]).includes(slug)) {
-            // Unknown tab in URL — silently steer back to connection so the
-            // visible tab and the URL agree.
-            return '/settings/connection';
-        }
-        // Strip a trailing slash on /settings/<known>/ if present.
-        const canonical = `/settings/${slug}`;
-        return canonical === pathname ? null : canonical;
     }
 
     let frigateUrl = $state('');
@@ -2063,7 +2004,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisStatus = $state<AnalysisStatus | null>(null);
 
     // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
-    let activeTab = $derived<SettingsTab>(tabFromRoute(currentRoute));
+    let activeTab = $derived<SettingsTab>(settingsTabFromRoute(currentRoute));
 
     const parseDateOnly = (value: string): Date | null => {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -2189,7 +2130,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     function handleTabChange(tab: SettingsTab) {
-        const path = `/settings/${tab}`;
+        const path = settingsTabPath(tab);
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', toAppPath(path));
     }
