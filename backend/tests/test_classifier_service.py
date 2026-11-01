@@ -30,7 +30,6 @@ from app.services.classifier_service import (  # noqa: E402
     ONNXModelInstance,
     OpenVINOModelInstance,
     VideoClassificationWorkerError,
-    _safe_softmax,
     _detect_acceleration_capabilities,
     _extract_openvino_unsupported_ops,
     _normalize_inference_provider,
@@ -41,11 +40,13 @@ from app.services.classifier_service import (  # noqa: E402
     _read_selected_video_frames,
     _resolve_inference_selection,
     _select_video_frame_indices,
-    _summarize_numeric_array,
     _summarize_openvino_load_error,
 )
 from app.services.classification_admission import ClassificationLeaseExpiredError  # noqa: E402
 from app.services import classifier_service as classifier_service_module  # noqa: E402
+from app.services.inference import runtimes  # noqa: E402
+from app.services.inference.diagnostics import summarize_numeric_array  # noqa: E402
+from app.services.inference.outputs import safe_softmax  # noqa: E402
 from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerCircuitOpenError,
     ClassifierWorkerDeadlineExceededError,
@@ -368,7 +369,7 @@ else:
 
 @pytest.fixture
 def mock_tflite():
-    with patch("app.services.classifier_service.tflite") as mock:
+    with patch("app.services.inference.runtimes.tflite") as mock:
         yield mock
 
 
@@ -703,11 +704,11 @@ def test_onnx_model_instance_preloads_cuda_and_guards_only_sessions_created_on_c
     mock_session.get_providers.return_value = [active_provider]
 
     with (
-        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch("app.services.inference.runtimes.ONNX_AVAILABLE", True),
         patch("app.services.classifier_service.os.path.exists", return_value=True),
         patch("builtins.open", mock_open(read_data="Bird A\n")),
-        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
-        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.inference.runtimes.preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.inference.runtimes.ort") as mock_ort,
     ):
         mock_ort.SessionOptions.return_value = mock_session_options
         mock_ort.GraphOptimizationLevel.ORT_ENABLE_ALL = "ALL"
@@ -865,7 +866,7 @@ def test_model_preprocess_center_crop_removes_outer_edge_bands(factory):
 @pytest.mark.parametrize("rounding", [None, "round", "floor"])
 @pytest.mark.parametrize("size", [(137, 301), (301, 137)])
 def test_center_crop_resize_rounding_is_explicit_and_preserves_existing_default(rounding, size):
-    from app.services.classifier_service import _resize_with_preprocessing
+    from app.services.inference.preprocessing import resize_with_preprocessing
 
     width, height = size
     pixels = np.random.default_rng(13).integers(0, 256, (height, width, 3), dtype=np.uint8)
@@ -879,7 +880,7 @@ def test_center_crop_resize_rounding_is_explicit_and_preserves_existing_default(
     left, top = (round((edge - 336) / 2) for edge in resized_size)
     expected = expected.crop((left, top, left + 336, top + 336))
 
-    actual = _resize_with_preprocessing(image, 336, preprocessing=preprocessing)
+    actual = resize_with_preprocessing(image, 336, preprocessing=preprocessing)
 
     np.testing.assert_array_equal(np.asarray(actual), np.asarray(expected))
 
@@ -923,7 +924,7 @@ def test_model_preprocess_direct_resize_preserves_full_frame_edges(factory):
 
 
 def test_safe_softmax_sanitizes_non_finite_logits():
-    probs = _safe_softmax(np.array([1.0, np.nan, 3.0], dtype=np.float32), context="test")
+    probs = safe_softmax(np.array([1.0, np.nan, 3.0], dtype=np.float32), context="test")
 
     assert probs.shape == (3,)
     assert np.isfinite(probs).all()
@@ -936,7 +937,7 @@ def test_safe_softmax_non_strict_mode_coerces_all_non_finite_logits(monkeypatch)
     settings.classification.strict_non_finite_output = False
 
     try:
-        probs = _safe_softmax(np.array([np.nan, np.inf, -np.inf], dtype=np.float32), context="test")
+        probs = safe_softmax(np.array([np.nan, np.inf, -np.inf], dtype=np.float32), context="test")
     finally:
         settings.classification.strict_non_finite_output = original_value
 
@@ -2746,8 +2747,8 @@ def test_openvino_model_load_fails_when_gpu_startup_self_test_is_non_finite(mock
     fake_core.compile_model.return_value = MagicMock()
 
     with (
-        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
-        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("app.services.inference.runtimes.OPENVINO_AVAILABLE", True),
+        patch("app.services.inference.runtimes.OpenVINOCore", return_value=fake_core),
         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
         patch.object(
             OpenVINOModelInstance,
@@ -2783,8 +2784,8 @@ def test_openvino_model_load_skips_gpu_startup_self_test_when_disabled(mock_os_p
     fake_core.compile_model.return_value = fake_compiled_model
 
     with (
-        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
-        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("app.services.inference.runtimes.OPENVINO_AVAILABLE", True),
+        patch("app.services.inference.runtimes.OpenVINOCore", return_value=fake_core),
         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test") as mock_self_test,
     ):
@@ -2804,7 +2805,7 @@ def test_openvino_model_load_skips_gpu_startup_self_test_when_disabled(mock_os_p
 
 
 def test_summarize_numeric_array_marks_all_nan_output_kind():
-    summary = _summarize_numeric_array(
+    summary = summarize_numeric_array(
         np.full((1, 10000), np.nan, dtype=np.float32),
         name="output_logits",
     )
@@ -2816,7 +2817,7 @@ def test_summarize_numeric_array_marks_all_nan_output_kind():
 
 
 def test_summarize_numeric_array_marks_empty_output_kind():
-    summary = _summarize_numeric_array(
+    summary = summarize_numeric_array(
         np.array([], dtype=np.float32),
         name="output_logits",
     )
@@ -2870,8 +2871,8 @@ def test_openvino_model_load_applies_optional_gpu_debug_properties(mock_os_path_
     monkeypatch.setenv("OPENVINO_GPU_ACTIVATIONS_SCALE_FACTOR", "8.0")
 
     with (
-        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
-        patch("app.services.classifier_service.OpenVINOCore", return_value=fake_core),
+        patch("app.services.inference.runtimes.OPENVINO_AVAILABLE", True),
+        patch("app.services.inference.runtimes.OpenVINOCore", return_value=fake_core),
         patch("builtins.open", mock_open(read_data="Bird A\nBird B\n")),
         patch.object(OpenVINOModelInstance, "_run_gpu_startup_self_test", return_value=None),
     ):
@@ -5999,9 +6000,9 @@ async def test_classifier_service_respects_artifact_provider_constraints(mock_os
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_without_nvidia_device():
     with (
-        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
-        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
-        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.inference.runtimes.ONNX_AVAILABLE", True),
+        patch("app.services.inference.runtimes.preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.inference.runtimes.ort") as mock_ort,
         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False),
     ):
         mock_ort.get_available_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -6016,9 +6017,9 @@ def test_detect_acceleration_capabilities_does_not_report_cuda_available_without
 
 def test_detect_acceleration_capabilities_does_not_report_cuda_available_when_probe_fails():
     with (
-        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
-        patch("app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
-        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.inference.runtimes.ONNX_AVAILABLE", True),
+        patch("app.services.inference.runtimes.preload_onnxruntime_cuda_runtime_libraries") as mock_preload,
+        patch("app.services.inference.runtimes.ort") as mock_ort,
         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=True),
         patch(
             "app.services.classifier_service._probe_onnxruntime_cuda_provider_safe",
@@ -6048,11 +6049,11 @@ def test_detect_acceleration_capabilities_preloads_onnxruntime_cuda_runtime_befo
         return ["CUDAExecutionProvider", "CPUExecutionProvider"]
 
     with (
-        patch("app.services.classifier_service.ONNX_AVAILABLE", True),
+        patch("app.services.inference.runtimes.ONNX_AVAILABLE", True),
         patch(
-            "app.services.classifier_service._preload_onnxruntime_cuda_runtime_libraries", side_effect=_record_preload
+            "app.services.inference.runtimes.preload_onnxruntime_cuda_runtime_libraries", side_effect=_record_preload
         ),
-        patch("app.services.classifier_service.ort") as mock_ort,
+        patch("app.services.inference.runtimes.ort") as mock_ort,
         patch("app.services.classifier_service._detect_cuda_hardware_available", return_value=False),
     ):
         mock_ort.get_available_providers.side_effect = _record_provider_check
@@ -6072,7 +6073,7 @@ def test_openvino_import_supports_top_level_core_when_runtime_module_missing():
         raise AssertionError(f"unexpected import: {name}")
 
     with patch("importlib.import_module", side_effect=fake_import_module):
-        support = classifier_service_module._detect_openvino_support()
+        support = runtimes.detect_openvino_support()
 
     assert support["available"] is True
     assert support["core_class"] is object
@@ -6128,8 +6129,8 @@ def test_preload_onnxruntime_cuda_runtime_libraries_uses_empty_directory_search(
     mock_ort = MagicMock()
     mock_ort.preload_dlls = MagicMock()
 
-    with patch.object(classifier_service_module, "ort", mock_ort):
-        classifier_service_module._preload_onnxruntime_cuda_runtime_libraries()
+    with patch.object(runtimes, "ort", mock_ort):
+        runtimes.preload_onnxruntime_cuda_runtime_libraries()
 
     mock_ort.preload_dlls.assert_called_once_with(directory="")
 
@@ -6137,16 +6138,16 @@ def test_preload_onnxruntime_cuda_runtime_libraries_uses_empty_directory_search(
 def test_preload_onnxruntime_cuda_runtime_libraries_noops_without_preload_api():
     mock_ort = types.SimpleNamespace()
 
-    with patch.object(classifier_service_module, "ort", mock_ort):
-        classifier_service_module._preload_onnxruntime_cuda_runtime_libraries()
+    with patch.object(runtimes, "ort", mock_ort):
+        runtimes.preload_onnxruntime_cuda_runtime_libraries()
 
 
 def test_detect_acceleration_capabilities_uses_safe_openvino_device_probe():
     with (
-        patch("app.services.classifier_service.ONNX_AVAILABLE", False),
-        patch("app.services.classifier_service.OPENVINO_AVAILABLE", True),
+        patch("app.services.inference.runtimes.ONNX_AVAILABLE", False),
+        patch("app.services.inference.runtimes.OPENVINO_AVAILABLE", True),
         patch(
-            "app.services.classifier_service.OpenVINOCore",
+            "app.services.inference.runtimes.OpenVINOCore",
             side_effect=AssertionError("must not instantiate OpenVINO Core in-process"),
         ),
         patch(

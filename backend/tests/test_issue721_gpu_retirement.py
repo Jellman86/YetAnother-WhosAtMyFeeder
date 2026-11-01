@@ -15,14 +15,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from app.services.classifier_service import (
-    ClassifierService,
-    InvalidInferenceOutputError,
-    _summarize_runtime_exception,
-)
+from app.services.classifier_service import ClassifierService
 from app.services.classifier_supervisor import ClassifierSupervisor
 from app.services.classifier_worker_process import ClassifierWorkerProcess
 from app.services.classifier_worker_protocol import build_classify_request, decode_protocol_message
+from app.services.inference.diagnostics import summarize_runtime_exception
+from app.services.inference.errors import InvalidInferenceOutputError
 from app.services.native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
@@ -34,7 +32,7 @@ def test_runtime_exception_summary_keeps_opencl_code_from_long_nested_cause(code
         except RuntimeError as inner:
             raise RuntimeError("inference wrapper failed") from inner
     except RuntimeError as exc:
-        summary = _summarize_runtime_exception(exc)
+        summary = summarize_runtime_exception(exc)
 
     assert code in summary
     assert len(summary) <= 280

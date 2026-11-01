@@ -18,7 +18,7 @@ import onnx
 import onnxruntime as ort
 from PIL import Image
 
-from app.services.classifier_service import ONNXModelInstance
+from app.services.inference.adapters.onnx import ONNXModelInstance
 
 
 def exercise(provider: str) -> dict:

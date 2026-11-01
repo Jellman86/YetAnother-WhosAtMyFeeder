@@ -16,6 +16,7 @@ know behaves exactly as it does today.
 
 import sqlite3
 import hashlib
+import importlib
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -163,20 +164,20 @@ def test_an_unknown_model_has_no_registry_checksum():
 
 def test_the_loader_prefers_the_catalogue_and_says_which_source_it_used(monkeypatch, tmp_path):
     """The label file stays as the fallback, not the default."""
-    from app.services import classifier_service as module
+    from app.services.inference import outputs
 
     labels_file = tmp_path / "labels.txt"
     labels_file.write_text("From the file\nSecond\n", encoding="utf-8")
 
     monkeypatch.setattr(
-        module, "catalogue_labels_for_model", lambda _sha: ["From the catalogue", "Second"], raising=False
+        outputs, "catalogue_labels_for_model", lambda _sha: ["From the catalogue", "Second"], raising=False
     )
     monkeypatch.setattr(
         "app.services.catalogue_labels.catalogue_labels_for_model",
         lambda _sha: ["From the catalogue", "Second"],
     )
 
-    labels, _grouped, source = module._resolve_model_labels(
+    labels, _grouped, source = outputs.resolve_model_labels(
         str(labels_file), {}, model_sha256="sha-known", context="test"
     )
     assert source == "catalogue"
@@ -184,13 +185,13 @@ def test_the_loader_prefers_the_catalogue_and_says_which_source_it_used(monkeypa
 
 
 def test_the_loader_falls_back_to_the_file_when_the_catalogue_declines(monkeypatch, tmp_path):
-    from app.services import classifier_service as module
+    from app.services.inference import outputs
 
     labels_file = tmp_path / "labels.txt"
     labels_file.write_text("From the file\n", encoding="utf-8")
     monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lambda _sha: None)
 
-    labels, _grouped, source = module._resolve_model_labels(
+    labels, _grouped, source = outputs.resolve_model_labels(
         str(labels_file), {}, model_sha256="sha-unknown", context="test"
     )
     assert source == "label_file"
@@ -199,18 +200,18 @@ def test_the_loader_falls_back_to_the_file_when_the_catalogue_declines(monkeypat
 
 def test_a_loader_with_no_checksum_reads_the_file(tmp_path):
     """Every caller that has not been given a checksum behaves as before."""
-    from app.services import classifier_service as module
+    from app.services.inference import outputs
 
     labels_file = tmp_path / "labels.txt"
     labels_file.write_text("From the file\n", encoding="utf-8")
 
-    labels, _grouped, source = module._resolve_model_labels(str(labels_file), {}, context="test")
+    labels, _grouped, source = outputs.resolve_model_labels(str(labels_file), {}, context="test")
     assert source == "label_file"
     assert labels == ["From the file"]
 
 
 def test_a_catalogue_that_raises_never_stops_a_model_loading(monkeypatch, tmp_path):
-    from app.services import classifier_service as module
+    from app.services.inference import outputs
 
     labels_file = tmp_path / "labels.txt"
     labels_file.write_text("From the file\n", encoding="utf-8")
@@ -220,7 +221,7 @@ def test_a_catalogue_that_raises_never_stops_a_model_loading(monkeypatch, tmp_pa
 
     monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", explode)
 
-    labels, _grouped, source = module._resolve_model_labels(
+    labels, _grouped, source = outputs.resolve_model_labels(
         str(labels_file), {}, model_sha256="sha-known", context="test"
     )
     assert source == "label_file"
@@ -230,15 +231,17 @@ def test_a_catalogue_that_raises_never_stops_a_model_loading(monkeypatch, tmp_pa
 @pytest.fixture(params=["ModelInstance", "ONNXModelInstance", "OpenVINOModelInstance"])
 def native_loader(request, monkeypatch, tmp_path):
     from app.services import classifier_service as module
+    from app.services.inference import runtimes
+    from app.services.inference.adapters import openvino
 
-    monkeypatch.setattr(module, "tflite", MagicMock())
-    monkeypatch.setattr(module, "ONNX_AVAILABLE", True)
+    monkeypatch.setattr(runtimes, "tflite", MagicMock())
+    monkeypatch.setattr(runtimes, "ONNX_AVAILABLE", True)
     runtime = MagicMock()
     runtime.InferenceSession.return_value.get_providers.return_value = ["CPUExecutionProvider"]
-    monkeypatch.setattr(module, "ort", runtime)
-    monkeypatch.setattr(module, "OPENVINO_AVAILABLE", True)
-    monkeypatch.setattr(module, "OpenVINOCore", MagicMock())
-    monkeypatch.setattr(module, "resolve_openvino_cache_dir", lambda: str(tmp_path / "cache"))
+    monkeypatch.setattr(runtimes, "ort", runtime)
+    monkeypatch.setattr(runtimes, "OPENVINO_AVAILABLE", True)
+    monkeypatch.setattr(runtimes, "OpenVINOCore", MagicMock())
+    monkeypatch.setattr(openvino, "resolve_openvino_cache_dir", lambda: str(tmp_path / "cache"))
     return getattr(module, request.param)
 
 
@@ -248,8 +251,6 @@ def test_native_load_uses_its_own_weights_for_catalogue_labels(
     native_loader, catalogue, monkeypatch, tmp_path, file_present, declared_checksum
 ):
     """Startup and fallback loaders need no caller-supplied checksum or label file."""
-    from app.services import classifier_service as module
-
     weights = tmp_path / "weights"
     weights.write_bytes(b"actual fallback weights")
     digest = hashlib.sha256(weights.read_bytes()).hexdigest()
@@ -257,8 +258,9 @@ def test_native_load_uses_its_own_weights_for_catalogue_labels(
         connection.execute("UPDATE model_artifacts SET model_sha256=? WHERE id=1", (digest,))
     lookup = Mock(side_effect=lambda sha: catalogue_labels_for_model(sha, catalog_path=catalogue))
     monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lookup)
-    hash_weights = Mock(wraps=module.artifact_digest)
-    monkeypatch.setattr(module, "artifact_digest", hash_weights)
+    adapter_module = importlib.import_module(native_loader.__module__)
+    hash_weights = Mock(wraps=adapter_module.artifact_digest)
+    monkeypatch.setattr(adapter_module, "artifact_digest", hash_weights)
     labels = tmp_path / "labels.txt"
     if file_present:
         labels.write_text("Altered after installation\n", encoding="utf-8")
