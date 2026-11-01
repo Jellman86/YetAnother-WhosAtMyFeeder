@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+from unittest.mock import AsyncMock, Mock
 from app.services.broadcaster import Broadcaster
 
 
@@ -77,27 +78,18 @@ async def test_broadcast_with_no_subscribers():
 
 
 @pytest.mark.asyncio
-async def test_broadcast_continues_after_queue_error():
+async def test_broadcast_continues_after_queue_error(monkeypatch):
     """Broadcast should continue to other queues if one fails."""
     b = Broadcaster()
     queue1 = await b.subscribe()
     queue2 = await b.subscribe()
 
-    # Close queue1 to simulate error
-    # In asyncio.Queue, we can't directly "break" it, but we can test
-    # that broadcast handles exceptions gracefully
-
     message = {"type": "test", "data": "resilient"}
-
-    # Manually inject a broken queue
-    broken_queue = asyncio.Queue()
-
-    # Monkey-patch put to raise exception
-    async def broken_put(*args, **kwargs):
-        raise RuntimeError("Queue is broken")
-
-    broken_queue.put = broken_put
-    b.queues.add(broken_queue)
+    broken_queue = await b.subscribe()
+    failed_delivery = Mock(side_effect=RuntimeError("Queue is broken"))
+    blocking_delivery = AsyncMock(side_effect=AssertionError("broadcast must never await queue.put"))
+    monkeypatch.setattr(broken_queue, "put_nowait", failed_delivery)
+    monkeypatch.setattr(broken_queue, "put", blocking_delivery)
 
     # Should not raise, should remove broken queue
     await b.broadcast(message)
@@ -111,6 +103,9 @@ async def test_broadcast_continues_after_queue_error():
 
     # Broken queue should be removed
     assert broken_queue not in b.queues
+    assert broken_queue not in b._full_counts
+    failed_delivery.assert_called_once_with(message)
+    blocking_delivery.assert_not_awaited()
 
     # Cleanup
     await b.unsubscribe(queue1)
@@ -216,3 +211,27 @@ async def test_queue_isolation():
 
     await b.unsubscribe(queue1)
     await b.unsubscribe(queue2)
+
+
+@pytest.mark.asyncio
+async def test_full_subscriber_never_delays_healthy_subscriber(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.system, "broadcaster_max_queue_size", 1)
+    monkeypatch.setattr(settings.system, "broadcaster_max_consecutive_full", 2)
+    b = Broadcaster()
+    slow = await b.subscribe()
+    healthy = await b.subscribe()
+    slow.put_nowait({"type": "old"})
+    blocking_delivery = AsyncMock(side_effect=AssertionError("blocking delivery"))
+    monkeypatch.setattr(slow, "put", blocking_delivery)
+    for sequence in range(2):
+        message = {"sequence": sequence}
+        await asyncio.wait_for(b.broadcast(message), 1)
+        assert healthy.get_nowait() == message
+        if sequence == 0:
+            assert slow in b.queues
+    assert slow not in b.queues
+    assert slow not in b._full_counts
+    blocking_delivery.assert_not_awaited()
+    await b.unsubscribe(healthy)

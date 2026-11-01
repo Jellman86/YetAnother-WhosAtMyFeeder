@@ -185,17 +185,6 @@ async def cleanup_async_singletons():
     await notification_dispatcher.stop()
 
 
-# All previously skipped tests have been fixed:
-# - AudioService fixture updated to use settings instead of buffer_minutes parameter
-# - detection_repository test schema updated with ai_analysis and ai_analysis_timestamp columns
-# - event_processor tests use proper mocking and should work correctly
-#
-# Leaving this function commented out for reference:
-# def pytest_collection_modifyitems(config, items):
-#     """Skip pre-existing broken tests to allow CI/CD to pass."""
-#     pass
-
-
 async def rollup_counts_by_display_name(repo, days: int = 7) -> dict[str, int]:
     """Detections per display name in the daily rollup, read straight from it.
 

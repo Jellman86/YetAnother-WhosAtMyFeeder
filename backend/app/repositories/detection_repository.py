@@ -5446,6 +5446,9 @@ class DetectionRepository:
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
         from app.services.audio_identity import resolve_audio_identity
 
+        # Catalogue freshness checks can stat and reload SQLite tables. Finish
+        # them off-loop before beginning the history write transaction.
+        species_id = await asyncio.to_thread(resolve_audio_identity, scientific_name)
         cursor = await self.db.execute(
             """INSERT INTO audio_detections (
                    timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id,
@@ -5463,7 +5466,7 @@ class DetectionRepository:
                 # Resolved at ingest so audio and visual detections of one bird
                 # share an identity. Unresolvable names record nothing and keep
                 # behaving exactly as they do today.
-                resolve_audio_identity(scientific_name),
+                species_id,
             ),
         )
         inserted = cursor.rowcount > 0
