@@ -230,7 +230,7 @@
     "suggestion_open": "Gehaltene Hausvögel öffnen",
     "suggestion_dismiss": "Nicht jetzt"
   },
-  "automatic_animal_below_threshold": "Tier erkannt, aber der Artwert liegt unter dem Benennungsschwellenwert. Es wartet unter Zu prüfen: bestätige es und wähle eine Art oder verwirf es.",
+  "automatic_animal_below_threshold_dismissed": "Tier erkannt, aber der Artwert liegt unter dem Benennungsschwellenwert. Nach Verworfen verschoben; stelle es zur Prüfung zurück, wenn du es selbst benennen möchtest.",
   "automatic_bird_camera": "Vogel, wird auf dieser Kamera von der Vogelerkennung erfasst. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls es kein Vogel ist.",
   "automatic_wild_bird": "Wildvogel. Aktiviere Vögel für diese Kamera, um ihn zu erfassen. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls die Prüfung falsch ist.",
   "motion_unreadable": "{count, plural, one {# Aufnahme konnte} other {# Aufnahmen konnten}} in der letzten Stunde auf {camera} nicht gelesen werden und {count, plural, one {wurde} other {wurden}} übersprungen. Es wurde kein Foto behalten."

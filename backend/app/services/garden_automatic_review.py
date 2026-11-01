@@ -89,7 +89,23 @@ class GardenAutomaticReviewService:
                 await self.task
             self.task = None
 
+    async def dismiss_settled_low_scores(self) -> int:
+        """Apply the current dismissal policy to captures an earlier policy left waiting.
+
+        Uses the saved check, so nothing is re-run; a capture the owner restored is kept.
+        """
+        async with get_db() as db:
+            dismissed = await GardenRepository(db).dismiss_pending_by_saved_checks()
+        if dismissed:
+            log.info("garden_settled_low_scores_dismissed", count=dismissed)
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+        return dismissed
+
     async def _run(self) -> None:
+        try:
+            await self.dismiss_settled_low_scores()
+        except (OSError, ValueError, sqlite3.Error) as error:
+            log.warning("garden_settled_low_scores_failed", error_type=type(error).__name__)
         while True:
             try:
                 await self.process_once()
@@ -243,7 +259,14 @@ class GardenAutomaticReviewService:
                     review="accepted",
                     automatic=True,
                 )
-                outcome, decision_reason = finish_automatic_check(plan, naming_result(suggestion), bird_route)
+                outcome, decision_reason = finish_automatic_check(
+                    plan,
+                    naming_result(suggestion),
+                    bird_route,
+                    score_below_threshold=suggestion is not None
+                    and suggestion.score is not None
+                    and suggestion.score < naming_threshold,
+                )
                 if suggestion is not None and suggestion.automatic:
                     named = suggestion
                     kept = domestic_bird_for_speciesnet(suggestion.taxon_id)

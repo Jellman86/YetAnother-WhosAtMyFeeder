@@ -230,7 +230,7 @@
     "suggestion_open": "「飼っている家禽」を開く",
     "suggestion_dismiss": "今はしない"
   },
-  "automatic_animal_below_threshold": "動物は検出されましたが、種のスコアが命名しきい値未満です。「要確認」で待機しています。確認して種を選ぶか、却下してください。",
+  "automatic_animal_below_threshold_dismissed": "動物は検出されましたが、種のスコアが命名しきい値未満です。「却下」に移動しました。自分で名前を付けたい場合は「確認に戻す」で戻せます。",
   "automatic_bird_camera": "鳥です。このカメラでは鳥の検出が扱います。「却下」に移動しました。鳥でない場合は写真を確認に戻してください。",
   "automatic_wild_bird": "野鳥です。記録するには、このカメラで鳥を有効にしてください。「却下」に移動しました。チェックが誤っている場合は写真を確認に戻してください。",
   "motion_unreadable": "過去 1 時間に {camera} で {count, plural, other {# 件の録画}}を読み取れず、スキップしました。写真は保存されていません。"

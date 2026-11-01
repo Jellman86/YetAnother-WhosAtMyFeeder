@@ -24,7 +24,7 @@ from app.models.garden import (
 from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCropEvidence
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 from app.models.garden_media import KeptMediaEntry, KeptMediaRecord
-from app.services.garden_automatic_policy import automatic_check_dismisses
+from app.services.garden_automatic_policy import automatic_check_dismisses, saved_check_dismisses
 
 MOTION_PHOTO_LIMIT = 128
 MOTION_PHOTO_BYTES = 512 * 1024
@@ -719,6 +719,30 @@ class GardenRepository:
             )
         await self.db.commit()
         return changed
+
+    async def dismiss_pending_by_saved_checks(self) -> int:
+        """Dismiss pending captures whose saved check the current policy dismisses.
+
+        A capture the owner restored or reviewed (``automation_overridden``) is never moved.
+        """
+        rows = await (
+            await self.db.execute(
+                """SELECT c.id, a.result_json FROM garden_captures c
+                   JOIN garden_automatic_checks a ON a.capture_id = c.id
+                   WHERE c.status='pending' AND c.automation_overridden=0"""
+            )
+        ).fetchall()
+        dismissed = 0
+        for capture_id, result_json in rows:
+            if not saved_check_dismisses(GardenAutomaticCheck.model_validate_json(result_json)):
+                continue
+            cursor = await self.db.execute(
+                "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",
+                (capture_id,),
+            )
+            dismissed += cursor.rowcount
+        await self.db.commit()
+        return dismissed
 
     async def save_identification(self, original: GardenCapture, result: GardenIdentification) -> bool:
         cursor = await self.db.execute(
