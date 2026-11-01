@@ -25,6 +25,7 @@ from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCro
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 from app.models.garden_media import KeptMediaEntry, KeptMediaRecord
 from app.services.garden_automatic_policy import automatic_check_dismisses, saved_check_dismisses
+from pydantic import ValidationError
 
 MOTION_PHOTO_LIMIT = 128
 MOTION_PHOTO_BYTES = 512 * 1024
@@ -734,7 +735,12 @@ class GardenRepository:
         ).fetchall()
         dismissed = 0
         for capture_id, result_json in rows:
-            if not saved_check_dismisses(GardenAutomaticCheck.model_validate_json(result_json)):
+            try:
+                check = GardenAutomaticCheck.model_validate_json(result_json)
+            except ValidationError:
+                # An unreadable saved check decides nothing; the capture keeps waiting for a person.
+                continue
+            if not saved_check_dismisses(check):
                 continue
             cursor = await self.db.execute(
                 "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",

@@ -636,6 +636,24 @@ async def test_animals_left_waiting_by_the_earlier_policy_are_dismissed_unless_t
 
 
 @pytest.mark.asyncio
+async def test_an_unreadable_saved_check_is_skipped_without_stopping_the_startup_pass(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.12
+    await c.service.process_once()
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            "UPDATE garden_automatic_checks SET result_json=json_set(result_json,'$.outcome','gone') WHERE capture_id=?",
+            (c.capture_id,),
+        )
+        await db.commit()
+    assert await c.service.dismiss_settled_low_scores() == 0
+    async with get_db() as db:
+        row = await (await db.execute("SELECT status FROM garden_captures WHERE id=?", (c.capture_id,))).fetchone()
+    assert row[0] == "pending"
+
+
+@pytest.mark.asyncio
 async def test_a_species_outside_the_country_is_named_by_its_plausible_group(naming):
     c = naming
     c.native.return_value["predictions"] = [[JUNGLE_CAT, 0.9], [DOMESTIC_CAT, 0.05], [1, 0.01], [2, 0.01], [3, 0.005]]
