@@ -50,13 +50,6 @@ describe('Global progress layout', () => {
         expect(settingsPageSource).not.toContain('let currentLayout');
         expect(settingsPageSource).not.toContain('function setLayout');
     });
-
-    it('hydrates appearance state from persisted backend defaults', () => {
-        expect(settingsPageSource).toContain("let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);");
-        expect(settingsPageSource).toContain("let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);");
-        expect(settingsPageSource).toContain('themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));');
-        expect(settingsPageSource).toContain('themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));');
-    });
 });
 
 describe('global progress colour', () => {

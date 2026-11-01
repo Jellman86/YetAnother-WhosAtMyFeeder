@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { Theme, FontTheme, ColorTheme } from '../../stores/theme.svelte';
+    import type { AppearanceDraft, ExplorerView } from '../../settings/appearance-section';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
@@ -11,35 +12,18 @@
     let {
         currentTheme,
         currentLocale,
-        currentDateFormat,
-        currentTimeFormat,
+        draft,
+        onchange,
         setTheme,
-        setLanguage,
-        currentFontTheme,
-        setFontTheme,
-        currentColorTheme,
-        setColorTheme,
-        setDateFormat,
-        setTimeFormat,
-        displayCommonNames = $bindable(true),
-        scientificNamePrimary = $bindable(false),
-        explorerView = $bindable<'cards' | 'list'>('cards')
+        setLanguage
     }: {
         currentTheme: Theme;
         currentLocale: string;
-        currentDateFormat: string;
-        currentTimeFormat: string;
+        /** The saved-for-everyone Appearance choices as currently edited; Apply saves them. */
+        draft: AppearanceDraft;
+        onchange: (patch: Partial<AppearanceDraft>) => void;
         setTheme: (theme: Theme) => void;
         setLanguage: (lang: string) => void | Promise<void>;
-        currentFontTheme: FontTheme;
-        setFontTheme: (font: FontTheme) => void;
-        currentColorTheme: ColorTheme;
-        setColorTheme: (color: ColorTheme) => void;
-        setDateFormat: (format: string) => void;
-        setTimeFormat: (format: string) => void;
-        displayCommonNames: boolean;
-        scientificNamePrimary: boolean;
-        explorerView: 'cards' | 'list';
     } = $props();
 
     // Each choice previews itself: the "Aa" grows step by step, on the constrained type scale.
@@ -56,17 +40,15 @@
     type NamingMode = 'standard' | 'hobbyist' | 'scientific';
 
     const currentNamingMode: NamingMode = $derived(
-        !displayCommonNames ? 'scientific' : scientificNamePrimary ? 'hobbyist' : 'standard'
+        !draft.displayCommonNames ? 'scientific' : draft.scientificNamePrimary ? 'hobbyist' : 'standard'
     );
 
     function setNamingMode(mode: NamingMode) {
         if (mode === 'scientific') {
-            displayCommonNames = false;
-            scientificNamePrimary = false;
+            onchange({ displayCommonNames: false, scientificNamePrimary: false });
             return;
         }
-        displayCommonNames = true;
-        scientificNamePrimary = mode === 'hobbyist';
+        onchange({ displayCommonNames: true, scientificNamePrimary: mode === 'hobbyist' });
     }
 </script>
 
@@ -152,9 +134,9 @@
     >
         <SettingsSelect
             id="explorer-view-select"
-            value={explorerView}
+            value={draft.explorerView}
             ariaLabel={$_('settings.explorer_view.label')}
-            onchange={(v) => (explorerView = v as 'cards' | 'list')}
+            onchange={(v) => onchange({ explorerView: v as ExplorerView })}
             options={[
                 { value: 'cards', label: $_('settings.explorer_view.cards') },
                 { value: 'list', label: $_('settings.explorer_view.list') }
@@ -170,9 +152,9 @@
     >
         <SettingsSelect
             id="date-format-select"
-            value={currentDateFormat}
+            value={draft.dateFormat}
             ariaLabel={$_('settings.date_format.label')}
-            onchange={(v) => setDateFormat(v)}
+            onchange={(v) => onchange({ dateFormat: v as AppearanceDraft['dateFormat'] })}
             options={[
                 { value: 'locale', label: $_('settings.date_format.locale', { default: 'Follow browser language' }) },
                 { value: 'mdy', label: $_('settings.date_format.us') },
@@ -190,9 +172,9 @@
     >
         <SettingsSelect
             id="time-format-select"
-            value={currentTimeFormat}
+            value={draft.timeFormat}
             ariaLabel={$_('settings.time_format.label')}
-            onchange={(v) => setTimeFormat(v)}
+            onchange={(v) => onchange({ timeFormat: v as AppearanceDraft['timeFormat'] })}
             options={[
                 { value: 'locale', label: $_('settings.time_format.locale') },
                 { value: '12h', label: $_('settings.time_format.h12') },
@@ -231,10 +213,10 @@
             layout="stacked"
         >
             <SettingsSegmented
-                value={currentFontTheme}
+                value={draft.fontTheme}
                 layout="card"
                 ariaLabelTemplate={(label) => label}
-                onchange={(v) => setFontTheme(v as FontTheme)}
+                onchange={(v) => onchange({ fontTheme: v as FontTheme })}
                 options={[
                     { value: 'default', label: $_('theme.font_default'), sub: 'Instrument Sans / Bricolage', meta: $_('theme.font_lang_default') },
                     { value: 'clean', label: $_('theme.font_clean'), sub: 'Manrope / Sora', meta: $_('theme.font_lang_clean') },
@@ -252,10 +234,10 @@
             layout="stacked"
         >
             <SettingsSegmented
-                value={currentColorTheme}
+                value={draft.colorTheme}
                 layout="card"
                 ariaLabelTemplate={(label) => label}
-                onchange={(v) => setColorTheme(v as ColorTheme)}
+                onchange={(v) => onchange({ colorTheme: v as ColorTheme })}
                 options={[
                     { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-brand-500' },
                     { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
