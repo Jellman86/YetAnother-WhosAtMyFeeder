@@ -29,8 +29,19 @@ The backend command collects everything in `backend/tests`, including the former
 orphaned Python tests under the root `tests` directory. Both PR checks and image
 builds use this same command and `backend/.coveragerc`: branch measurement with a
 70% total floor. This is a minimum, not evidence that every important path works.
-The test process must exit successfully within eight minutes. A printed pass
-summary does not excuse a teardown hang or a failed coverage report.
+
+It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
+run first, alone, within two minutes: they migrate no database and never import
+the FastAPI app, and that subtree's conftest fails any test that opens a database
+or imports `app.main`. Every other test then runs against a suite database migrated
+once, within eight minutes. Coverage from both lanes is combined into one report.
+A printed pass summary does not excuse a teardown hang or a failed coverage report.
+
+A test that needs an empty schema at head takes the `migrated_history_db` fixture,
+a private copy of the suite database taken right after migration, instead of
+running Alembic again. Tests about a migration itself still run the real chain.
+For a quick loop on decision logic, `pytest tests/pure` from `backend/` runs in
+seconds because it skips migration and application imports.
 
 The image build also starts and stops the backend with both databases under its
 temporary directory. Set `SPECIES_CATALOG_PATH` explicitly when reproducing that
