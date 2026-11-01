@@ -2,15 +2,12 @@
 
 import html
 import json
-import logging
-import traceback
 from dataclasses import dataclass, field
 
 import httpx
 
-from app.config import settings
 from app.services.notifications.message import DeliveryResult, NotificationMessage
-from app.utils.diagnostic_redaction import redact_text
+from app.services.notifications.transports import http_logging  # noqa: F401  (installs the log filter)
 
 API_BASE = "https://api.telegram.org"
 # Telegram counts a caption (1,024) or message (4,096) after entity parsing, so raw text is
@@ -19,35 +16,6 @@ CAPTION_TEXT_LIMIT = 900
 MESSAGE_TEXT_LIMIT = 3600
 # With a body under it, the bold title keeps to this and the body has the rest.
 TITLE_LIMIT_WITH_BODY = 300
-
-
-class _TelegramCredentialLogFilter(logging.Filter):
-    """The bot token is part of every request URL, so verbose HTTP logs must never print it."""
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        message = record.getMessage()
-        secrets = (settings.notifications.telegram.bot_token or "",)
-        sanitized = redact_text(message, secrets)
-        if sanitized != message:
-            record.msg, record.args = sanitized, ()
-        if record.exc_info:
-            record.exc_text = redact_text("".join(traceback.format_exception(*record.exc_info)), secrets)
-            record.exc_info = None
-        elif record.exc_text:
-            record.exc_text = redact_text(record.exc_text, secrets)
-        return True
-
-
-for _logger in (
-    "httpx",
-    "httpcore",
-    "httpcore.connection",
-    "httpcore.http11",
-    "httpcore.http2",
-    "httpcore.proxy",
-    "httpcore.socks",
-):
-    logging.getLogger(_logger).addFilter(_TelegramCredentialLogFilter())
 
 
 @dataclass(frozen=True)

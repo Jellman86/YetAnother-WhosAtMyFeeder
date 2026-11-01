@@ -3,13 +3,14 @@ import asyncio
 import httpx
 from datetime import datetime, timezone
 from typing import Optional
-import json
 from collections.abc import Coroutine
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
 from app.services.notification_links import notification_link
 from app.services.notifications.message import Attachment, NotificationMessage, SubjectLink
+from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
 from app.services.notifications.transports.telegram import TelegramCredentials, TelegramOptions, TelegramTransport
 from app.utils.blocked_species import matches_species_filter
 
@@ -29,6 +30,8 @@ def _species_filter_mode(filters: object) -> str | None:
 
 # Bird alerts on Telegram are the detection sentence in bold after a bird.
 BIRD_TELEGRAM = TelegramOptions(icon="🐦")
+# Bird Discord embeds are teal, with every line in bold.
+BIRD_DISCORD_COLOR = 3066993
 
 
 class NotificationService:
@@ -300,65 +303,36 @@ class NotificationService:
         detection_url: Optional[str] = None,
     ) -> bool:
         """Send Discord webhook notification."""
-        if not settings.notifications.discord.webhook_url:
+        cfg = settings.notifications.discord
+        if not cfg.webhook_url:
             return False
 
         title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
-        description = i18n_service.translate(
-            "notification.detection_body", lang=lang, species=species, camera=camera, confidence=int(confidence * 100)
-        )
-        # Bold formatting for Discord
-        description = f"**{description}**"
-
-        if audio_confirmed:
-            audio_text = i18n_service.translate("notification.audio_confirmed", lang=lang)
-            description += f"\n**{audio_text}**"
-
-        # Ensure timestamp is timezone-aware for Discord
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(tzinfo=timezone.utc)
-
-        embed = {
-            "title": title,
-            "description": description,
-            "color": 3066993,  # Teal-ish
-            "timestamp": timestamp.isoformat(),
-            "footer": {"text": "YA-WAMF"},
-        }
-        if detection_url:
-            embed["url"] = detection_url
-
-        if settings.notifications.discord.include_snapshot:
-            if snapshot_data:
-                embed["image"] = {"url": "attachment://snapshot.jpg"}
-            else:
-                embed["image"] = {"url": snapshot_url}
-
-        payload = {"username": settings.notifications.discord.username, "embeds": [embed]}
-
-        try:
-            if snapshot_data and settings.notifications.discord.include_snapshot:
-                resp = await self.client.post(
-                    settings.notifications.discord.webhook_url,
-                    data={"payload_json": json.dumps(payload)},
-                    files={"file": ("snapshot.jpg", snapshot_data, "image/jpeg")},
-                )
-            else:
-                resp = await self.client.post(settings.notifications.discord.webhook_url, json=payload)
-            resp.raise_for_status()
-            return True
-        except httpx.HTTPStatusError as e:
-            # Avoid logging str(e) directly — it can include the webhook URL from the request URL.
-            log.error(
-                "Discord notification failed",
-                error=type(e).__name__,
-                status_code=e.response.status_code,
-                response_body=e.response.text[:500],
+        lines = [
+            i18n_service.translate(
+                "notification.detection_body",
+                lang=lang,
+                species=species,
+                camera=camera,
+                confidence=int(confidence * 100),
             )
-            return False
-        except Exception as e:
-            log.error("Discord notification failed", error=type(e).__name__, detail=str(e)[:200])
-            return False
+        ]
+        if audio_confirmed:
+            lines.append(i18n_service.translate("notification.audio_confirmed", lang=lang))
+        photo = snapshot_data if cfg.include_snapshot else None
+        message = NotificationMessage(
+            title=title,
+            body="\n".join(lines),
+            link=SubjectLink(detection_url, title) if detection_url else None,
+            attachment=Attachment("snapshot.jpg", photo) if photo else None,
+            image_url=snapshot_url if cfg.include_snapshot and not photo else None,
+            occurred_at=timestamp,
+        )
+        options = DiscordOptions(username=cfg.username, footer="YA-WAMF", color=BIRD_DISCORD_COLOR, bold_body=True)
+        result = await DiscordTransport(self.client).send(message, DiscordCredentials(cfg.webhook_url), options)
+        if not result.sent:
+            log.error("Discord notification failed", error_type=result.error_type, status_code=result.status_code)
+        return result.sent
 
     async def _send_pushover(
         self,
@@ -376,41 +350,32 @@ class NotificationService:
         if not cfg.user_key or not cfg.api_token:
             return False
 
-        title = i18n_service.translate("notification.new_detection", lang=lang, species=species)
-        message = i18n_service.translate(
-            "notification.detection_body", lang=lang, species=species, camera=camera, confidence=int(confidence * 100)
+        message = NotificationMessage(
+            title=i18n_service.translate("notification.new_detection", lang=lang, species=species),
+            body=i18n_service.translate(
+                "notification.detection_body",
+                lang=lang,
+                species=species,
+                camera=camera,
+                confidence=int(confidence * 100),
+            ),
+            link=(
+                SubjectLink(detection_url, i18n_service.translate("notification.view_detection", lang=lang))
+                if detection_url
+                else None
+            ),
+            fallback_link=SubjectLink(snapshot_url, "View Snapshot") if snapshot_url else None,
+            attachment=Attachment("snapshot.jpg", snapshot_data) if cfg.include_snapshot and snapshot_data else None,
+            occurred_at=timestamp,
         )
-
-        data = {
-            "token": cfg.api_token,
-            "user": cfg.user_key,
-            "title": title,
-            "message": message,
-            "priority": str(cfg.priority),
-            "timestamp": int(timestamp.timestamp()),
-            "url": snapshot_url,
-            "url_title": "View Snapshot",
-        }
-        if detection_url:
-            data["url"] = detection_url
-            data["url_title"] = i18n_service.translate("notification.view_detection", lang=lang)
-        if cfg.device:
-            data["device"] = cfg.device
-
-        files = {}
-        if cfg.include_snapshot and snapshot_data:
-            files["attachment"] = ("snapshot.jpg", snapshot_data, "image/jpeg")
-
-        try:
-            if files:
-                resp = await self.client.post("https://api.pushover.net/1/messages.json", data=data, files=files)
-            else:
-                resp = await self.client.post("https://api.pushover.net/1/messages.json", data=data)
-            resp.raise_for_status()
-            return True
-        except Exception as e:
-            log.error("Pushover notification failed", error=str(e))
-            return False
+        result = await PushoverTransport(self.client).send(
+            message,
+            PushoverCredentials(cfg.api_token, cfg.user_key),
+            PushoverOptions(priority=cfg.priority, device=cfg.device),
+        )
+        if not result.sent:
+            log.error("Pushover notification failed", error_type=result.error_type, status_code=result.status_code)
+        return result.sent
 
     async def _send_telegram(
         self,

@@ -13,7 +13,16 @@ import httpx
 import pytest
 from structlog.testing import capture_logs
 
+from datetime import datetime, timedelta, timezone
+
 from app.services.notifications.message import Attachment, DeliveryResult, NotificationMessage, SubjectLink
+from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+from app.services.notifications.transports.pushover import (
+    API_URL as PUSHOVER_URL,
+    PushoverCredentials,
+    PushoverOptions,
+    PushoverTransport,
+)
 from app.services.notifications.transports.telegram import (
     CAPTION_TEXT_LIMIT,
     MESSAGE_TEXT_LIMIT,
@@ -61,7 +70,21 @@ def multipart_fields(request: httpx.Request) -> dict[str, str]:
     return fields
 
 
-CONFORMANCE = {"telegram": telegram_send}
+WEBHOOK = f"https://discord.com/api/webhooks/1/{TOKEN}?thread_id=7"
+GARDEN_DISCORD = DiscordOptions(username="YA-WAMF", footer="YA-WAMF Garden")
+
+
+async def discord_send(recorder: Recorder, message: NotificationMessage, options=GARDEN_DISCORD):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(recorder)) as client:
+        return await DiscordTransport(client).send(message, DiscordCredentials(WEBHOOK), options)
+
+
+async def pushover_send(recorder: Recorder, message: NotificationMessage, options=PushoverOptions()):
+    async with httpx.AsyncClient(transport=httpx.MockTransport(recorder)) as client:
+        return await PushoverTransport(client).send(message, PushoverCredentials(TOKEN, "owner-key"), options)
+
+
+CONFORMANCE = {"telegram": telegram_send, "discord": discord_send, "pushover": pushover_send}
 
 
 # --- Conformance: every channel transport -------------------------------------------------------
@@ -186,3 +209,128 @@ async def test_telegram_clips_raw_text_before_escaping_so_entities_stay_whole(at
 async def test_telegram_counts_only_an_ok_answer_as_sent():
     recorder = Recorder(httpx.Response(200, json={"ok": False}))
     assert await telegram_send(recorder, NotificationMessage("Title")) == DeliveryResult(sent=False, status_code=200)
+
+
+# --- Discord ------------------------------------------------------------------------------------
+
+
+def test_discord_and_pushover_credentials_never_print_their_values():
+    assert TOKEN not in repr(DiscordCredentials(WEBHOOK))
+    assert TOKEN not in repr(PushoverCredentials(TOKEN, "owner-key")) and "owner-key" not in repr(
+        PushoverCredentials(TOKEN, "owner-key")
+    )
+
+
+@pytest.mark.asyncio
+async def test_discord_escapes_data_never_mentions_and_waits_for_the_created_message():
+    recorder = Recorder()
+    seen = datetime(2026, 11, 1, 9, 30, tzinfo=timezone(timedelta(hours=2)))
+    message = NotificationMessage("Cat *x* @everyone", "on [patio](x)\nnamed_one", link=LINK, occurred_at=seen)
+    assert (await discord_send(recorder, message)).sent is True
+    request = recorder.requests[0]
+    assert request.url.params["wait"] == "true" and request.url.params["thread_id"] == "7"
+    assert json.loads(request.content) == {
+        "username": "YA-WAMF",
+        "allowed_mentions": {"parse": []},
+        "embeds": [
+            {
+                "title": "Cat \\*x\\* @everyone",
+                "description": "on \\[patio\\]\\(x\\)\nnamed\\_one",
+                "timestamp": "2026-11-01T07:30:00+00:00",
+                "footer": {"text": "YA-WAMF Garden"},
+                "url": LINK.url,
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_discord_bird_options_bold_each_line_add_colour_and_show_a_snapshot_by_address():
+    recorder = Recorder()
+    bird = DiscordOptions(username="Feeder", footer="YA-WAMF", color=3066993, bold_body=True)
+    message = NotificationMessage("Robin", "Robin seen\nHeard too", image_url="http://frigate/snap.jpg")
+    await discord_send(recorder, message, bird)
+    embed = json.loads(recorder.requests[0].content)["embeds"][0]
+    assert embed["description"] == "**Robin seen**\n**Heard too**"
+    assert embed["color"] == 3066993 and embed["footer"] == {"text": "YA-WAMF"}
+    assert embed["image"] == {"url": "http://frigate/snap.jpg"} and "timestamp" not in embed
+
+
+@pytest.mark.asyncio
+async def test_discord_photo_is_attached_and_named_by_the_embed_instead_of_any_address():
+    recorder = Recorder()
+    await discord_send(recorder, NotificationMessage("Cat", "Seen", attachment=PHOTO, image_url="http://frigate/x.jpg"))
+    request = recorder.requests[0]
+    assert request.headers["content-type"].startswith("multipart/form-data")
+    assert b'name="files[0]"; filename="garden.jpg"' in request.content
+    payload = json.loads(multipart_fields(request)["payload_json"])
+    assert payload["embeds"][0]["image"] == {"url": "attachment://garden.jpg"}
+    assert b"frigate/x.jpg" not in request.content
+
+
+# --- Pushover -----------------------------------------------------------------------------------
+
+
+def pushover_fields(request: httpx.Request) -> dict[str, str]:
+    from urllib.parse import parse_qs
+
+    if request.headers["content-type"].startswith("multipart/form-data"):
+        return multipart_fields(request)
+    return {key: values[0] for key, values in parse_qs(request.content.decode()).items()}
+
+
+@pytest.mark.asyncio
+async def test_pushover_sends_plain_text_with_the_subject_link_time_priority_and_device():
+    recorder = Recorder()
+    message = NotificationMessage(
+        "Cat <b>",
+        "Seen & named",
+        link=LINK,
+        fallback_link=SubjectLink("http://frigate/snap.jpg", "View Snapshot"),
+        occurred_at=datetime(2026, 11, 1, 9, 30),
+    )
+    assert (await pushover_send(recorder, message, PushoverOptions(priority=1, device="phone"))).sent is True
+    request = recorder.requests[0]
+    assert str(request.url) == PUSHOVER_URL
+    assert pushover_fields(request) == {
+        "token": TOKEN,
+        "user": "owner-key",
+        "title": "Cat <b>",
+        "message": "Seen & named",
+        "html": "0",
+        "priority": "1",
+        "timestamp": str(int(datetime(2026, 11, 1, 9, 30, tzinfo=timezone.utc).timestamp())),
+        "url": LINK.url,
+        "url_title": "View capture",
+        "device": "phone",
+    }
+
+
+@pytest.mark.asyncio
+async def test_pushover_falls_back_to_the_snapshot_link_and_attaches_a_photo():
+    recorder = Recorder()
+    fallback = SubjectLink("http://frigate/snap.jpg", "View Snapshot")
+    await pushover_send(recorder, NotificationMessage("Robin", "Seen", fallback_link=fallback, attachment=PHOTO))
+    request = recorder.requests[0]
+    assert b'name="attachment"; filename="garden.jpg"' in request.content
+    fields = pushover_fields(request)
+    assert fields["url"] == fallback.url and fields["url_title"] == "View Snapshot"
+    assert "timestamp" not in fields and "device" not in fields
+
+
+@pytest.mark.asyncio
+async def test_pushover_counts_only_an_accepted_answer_as_sent():
+    recorder = Recorder(httpx.Response(200, json={"status": 0}))
+    assert await pushover_send(recorder, NotificationMessage("Title")) == DeliveryResult(sent=False, status_code=200)
+
+
+@pytest.mark.parametrize("logger", ["httpx", "httpcore.http11"])
+def test_verbose_http_logs_hide_a_configured_discord_webhook_on_any_host(monkeypatch, caplog, logger):
+    from app.config import settings
+
+    webhook = "https://discord.example.test/api/webhooks/9/DUMMY-SELF-HOSTED-WEBHOOK"
+    monkeypatch.setattr(settings.notifications.discord, "webhook_url", webhook)
+    caplog.set_level(logging.DEBUG, logger=logger)
+    logging.getLogger(logger).info("HTTP Request: POST %s", webhook + "?wait=true")
+    assert "DUMMY-SELF-HOSTED-WEBHOOK" not in caplog.text
+    assert "REDACTED" in caplog.text and "HTTP Request" in caplog.text
