@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import json
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import httpx
 import pytest
@@ -956,16 +957,18 @@ async def test_owner_can_hide_restore_audio_and_summary_excludes_hidden(client):
     async with get_db() as db:
         await db.execute("DELETE FROM audio_detections")
         repo = DetectionRepository(db)
-        row_id = await repo.insert_audio_detection(now, "Robin", 0.95, "mic", {}, source_event_id="hide-test")
+        row_id = await AudioHistoryRepository(repo.db).insert_audio_detection(
+            now, "Robin", 0.95, "mic", {}, source_event_id="hide-test"
+        )
     response = await client.patch(f"/api/audio/history/{row_id}", json={"hidden": True})
     assert response.status_code == 200
     assert (await client.get("/api/audio/history")).json()["total"] == 0
     assert (await client.get("/api/audio/summary")).json()["total"] == 0
     async with get_db() as db:
         repo = DetectionRepository(db)
-        assert (await repo.get_audio_context(now, 30, None, 10))[0] == []
+        assert (await AudioHistoryRepository(repo.db).get_audio_context(now, 30, None, 10))[0] == []
         assert (
-            await repo.get_audio_species_counts(
+            await AudioHistoryRepository(repo.db).get_audio_species_counts(
                 window_start=now - timedelta(days=1),
                 window_end=now + timedelta(days=1),
                 prev_start=now - timedelta(days=2),

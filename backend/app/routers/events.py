@@ -12,6 +12,7 @@ from app.database import get_db
 from app.models import DetectionBirdSummary, DetectionListItemResponse, DetectionResponse
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.services.bird_summary_names import name_summaries, resolve_label_names, summary_labels
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
 from app.config import settings
 from app.services.classifier_service import get_classifier
@@ -771,7 +772,7 @@ async def present_events(
     clip_availability = await batch_check_clips(event_ids)
 
     async with get_db() as db:
-        repo = DetectionRepository(db)
+        audio_history = AudioHistoryRepository(db)
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
@@ -801,9 +802,9 @@ async def present_events(
         public_audio = {}
         if not auth.is_owner:
             if settings.public_access.show_audio:
-                public_audio = await repo.get_public_audio_for_detections(events)
+                public_audio = await audio_history.get_public_audio_for_detections(events)
             for event in events:
-                await refresh_public_audio_fields(event, repo, public_audio.get(event.frigate_event, {}))
+                await refresh_public_audio_fields(event, audio_history, public_audio.get(event.frigate_event, {}))
 
         # Pre-resolve unconfirmed audio_species names concurrently.
         # audio_confirmed species are resolved via localized_names[taxa_id] in the loop below.
@@ -821,7 +822,7 @@ async def present_events(
 
         owner_audio_contexts = {}
         if auth.is_owner:
-            owner_audio_contexts = await repo.get_audio_contexts_for_detections(
+            owner_audio_contexts = await audio_history.get_audio_contexts_for_detections(
                 [event for event in events if event.audio_species and not event.audio_confirmed],
                 settings.frigate.camera_audio_mapping or {},
                 settings.frigate.audio_correlation_window_seconds,

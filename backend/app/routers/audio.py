@@ -22,6 +22,7 @@ from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
 from app.utils.audio_localization import localize_audio_detections
@@ -256,7 +257,7 @@ async def get_recent_audio(
         now = datetime.now(timezone.utc)
         public_start, public_end = public_events_window(now)
         async with privacy_checked_db(get_db) as db:
-            result = await DetectionRepository(db).get_audio_history(
+            result = await AudioHistoryRepository(db).get_audio_history(
                 start_date=public_start,
                 end_date=now,
                 limit=limit,
@@ -300,7 +301,7 @@ async def get_audio_history(
         source = None
     async with privacy_checked_db(get_db) as db:
         repo = DetectionRepository(db)
-        result = await repo.get_audio_history(
+        result = await AudioHistoryRepository(db).get_audio_history(
             start_date=window.start_date,
             end_date=window.end_date,
             species=species,
@@ -370,7 +371,7 @@ async def get_audio_summary(
     if hide_sensor:
         source = None
     async with privacy_checked_db(get_db) as db:
-        repo = DetectionRepository(db)
+        repo = AudioHistoryRepository(db)
         result = await repo.get_audio_history_summary(
             start_date=window.start_date,
             end_date=window.end_date,
@@ -454,7 +455,7 @@ async def get_heard_groups(
 
     correlation_window = max(0, int(settings.frigate.audio_correlation_window_seconds))
     async with privacy_checked_db(get_db) as db:
-        result = await DetectionRepository(db).get_audio_history(
+        result = await AudioHistoryRepository(db).get_audio_history(
             start_date=window.start_date,
             end_date=window.end_date,
             maximum_end=window.public_end,
@@ -584,7 +585,7 @@ async def get_audio_species_leaderboard(
     unknown_labels = getattr(settings.classification, "unknown_bird_labels", None) or []
 
     async with privacy_checked_db(get_db) as db:
-        repo = DetectionRepository(db)
+        repo = AudioHistoryRepository(db)
         rows = await repo.get_audio_species_counts(
             window_start=window_start,
             window_end=window_end,
@@ -636,7 +637,7 @@ async def _require_audio_media_visibility(birdnet_id: int, auth: AuthContext) ->
         return
     public_start, public_end = public_events_window()
     async with privacy_checked_db(get_db) as db:
-        visible = await DetectionRepository(db).public_birdnet_media_visible(
+        visible = await AudioHistoryRepository(db).public_birdnet_media_visible(
             birdnet_id, public_start, maximum_end=public_end
         )
     if not visible:
@@ -758,7 +759,7 @@ async def get_audio_context(
     lang = get_user_language(request) or "en"
     public_start, public_end = (None, None) if auth.is_owner else public_events_window()
     async with privacy_checked_db(get_db) as db:
-        repo = DetectionRepository(db)
+        repo = AudioHistoryRepository(db)
         detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=target_time,
             window_seconds=window_seconds,
@@ -811,7 +812,7 @@ async def get_event_audio_context(
         if settings.frigate.camera_audio_mapping:
             mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
 
-        detections, suppressed_by_mapping = await repo.get_audio_context(
+        detections, suppressed_by_mapping = await AudioHistoryRepository(db).get_audio_context(
             target_time=event.detection_time,
             window_seconds=settings.frigate.audio_correlation_window_seconds,
             mapping_value=mapping_value,
@@ -856,7 +857,7 @@ async def get_audio_sources(
         return []
     public_start, public_end = (None, None) if auth.is_owner else public_events_window()
     async with privacy_checked_db(get_db) as db:
-        repo = DetectionRepository(db)
+        repo = AudioHistoryRepository(db)
         # Fetch more rows than requested to support deduplication by source_name.
         rows = await repo.get_recent_audio_source_observations(
             limit=max(limit * 10, 50),

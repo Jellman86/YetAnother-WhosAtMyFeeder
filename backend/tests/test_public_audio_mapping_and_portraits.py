@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import AsyncMock
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import httpx
 import pytest
@@ -256,7 +257,7 @@ async def test_public_audio_batch_bounds_rows_and_chunks_before_mapping(private_
         targets = await repo.get_all(limit=51)
         queries = []
         await db.set_trace_callback(queries.append)
-        evidence = await repo.get_public_audio_for_detections(targets)
+        evidence = await AudioHistoryRepository(repo.db).get_public_audio_for_detections(targets)
         plans = []
         for query in list(queries):
             if query.lstrip().startswith("WITH d("):
@@ -345,7 +346,7 @@ async def test_public_audio_lookup_work_depends_on_capture_window_not_shared_his
 
         monkeypatch.setattr(db, "create_function", counted_registration)
         repo = DetectionRepository(db)
-        evidence = await repo.get_public_audio_for_detections(await repo.get_all())
+        evidence = await AudioHistoryRepository(repo.db).get_public_audio_for_detections(await repo.get_all())
     assert evidence["capture"]["primary"]["confidence"] == 0.75
     assert evidence["capture"]["context"] == []
     assert calls < 20, "The indexed capture lookup scanned unrelated shared audio history"

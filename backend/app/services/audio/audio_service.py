@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from collections import deque
 from app.config import settings
 from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.utils.birdnet_payload import extract_birdnet_id
 
 log = structlog.get_logger()
@@ -246,7 +246,7 @@ class AudioService:
 
             try:
                 async with get_db() as db:
-                    repo = DetectionRepository(db)
+                    repo = AudioHistoryRepository(db)
                     detection_id, inserted = await repo.insert_audio_detection_idempotent(
                         timestamp=timestamp,
                         species=species,
@@ -273,7 +273,7 @@ class AudioService:
                 # Serialize the visibility check with removal so an in-flight MQTT
                 # replay cannot append after its record was hidden.
                 async with get_db() as db:
-                    if not await DetectionRepository(db).audio_detection_is_visible(detection_id):
+                    if not await AudioHistoryRepository(db).audio_detection_is_visible(detection_id):
                         return True
                 buffered = self._append_to_buffer_once(detection)
                 log.info(
@@ -298,7 +298,7 @@ class AudioService:
         async with self._lock:
             restored = None
             async with get_db() as db:
-                repo = DetectionRepository(db)
+                repo = AudioHistoryRepository(db)
                 found = await repo.set_audio_hidden(detection_id, hidden)
                 if found and not hidden:
                     restored = await repo.get_audio_detection_for_correlation(detection_id)

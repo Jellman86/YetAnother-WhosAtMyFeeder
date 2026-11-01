@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
@@ -580,7 +581,7 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         if latest_raw:
             d = latest_raw[0]
             if not auth.is_owner:
-                await refresh_public_audio_fields(d, repo)
+                await refresh_public_audio_fields(d, AudioHistoryRepository(db))
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":

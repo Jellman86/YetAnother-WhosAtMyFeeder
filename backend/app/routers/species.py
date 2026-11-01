@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -1275,13 +1276,13 @@ async def get_species_stats(
         # Also transform display_name for unknown bird labels
         recent_detections = []
         public_audio = (
-            await repo.get_public_audio_for_detections(recent)
+            await AudioHistoryRepository(db).get_public_audio_for_detections(recent)
             if not auth.is_owner and settings.public_access.show_audio
             else {}
         )
         for d in recent:
             if not auth.is_owner:
-                await refresh_public_audio_fields(d, repo, public_audio.get(d.frigate_event, {}))
+                await refresh_public_audio_fields(d, AudioHistoryRepository(db), public_audio.get(d.frigate_event, {}))
             common_name = d.common_name
             if d.taxa_id:
                 if lang != "en":

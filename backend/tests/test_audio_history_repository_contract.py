@@ -2,10 +2,8 @@
 
 The expected values in `fixtures/golden/audio_history_repository.json` were
 captured from `DetectionRepository` before its audio methods moved, over the
-seeded history below. Each method is called through the facade every caller
-uses today and through the audio repository directly; both must reproduce the
-capture exactly, including ordering, suppression counts and which rows a write
-touched.
+seeded history below. The audio repository must reproduce the capture exactly,
+including ordering, suppression counts and which rows a write touched.
 """
 
 import json
@@ -17,7 +15,6 @@ import aiosqlite
 import pytest
 
 from app.repositories.audio_history_repository import AudioHistoryRepository
-from app.repositories.detection_repository import DetectionRepository
 
 GOLDEN = Path(__file__).parent / "fixtures" / "golden" / "audio_history_repository.json"
 NOW = datetime(2033, 6, 10, 12, 0, 0)
@@ -242,12 +239,9 @@ async def _capture(repo, db: aiosqlite.Connection, monkeypatch) -> dict:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("repository", [DetectionRepository, AudioHistoryRepository], ids=["facade", "audio"])
-async def test_audio_history_methods_reproduce_the_captured_results(
-    migrated_history_db, audio_settings, monkeypatch, repository
-):
+async def test_audio_history_methods_reproduce_the_captured_results(migrated_history_db, audio_settings, monkeypatch):
     async with aiosqlite.connect(migrated_history_db) as db:
         await _seed(db)
-        captured = await _capture(repository(db), db, monkeypatch)
+        captured = await _capture(AudioHistoryRepository(db), db, monkeypatch)
 
     assert captured == json.loads(GOLDEN.read_text(encoding="utf-8"))
