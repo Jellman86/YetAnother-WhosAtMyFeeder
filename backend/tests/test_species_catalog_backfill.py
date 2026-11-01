@@ -347,11 +347,9 @@ async def _delete_pool_detection(event_id: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_the_startup_backfill_never_consults_the_catalogue_under_a_held_connection():
-    from app.database import init_db
+async def test_the_startup_backfill_never_consults_the_catalogue_under_a_held_connection(history_pool):
     from app.services.species_catalog_backfill import backfill_catalog_identity_in_short_holds
 
-    await init_db()
     resolver = _RecordingResolver()
     await _seed_pool_detection("evt-short-hold", "Nonexistus shorthold")
     try:
@@ -368,11 +366,10 @@ async def test_the_startup_backfill_never_consults_the_catalogue_under_a_held_co
 
 
 @pytest.mark.asyncio
-async def test_the_startup_backfill_writes_nothing_when_the_catalogue_is_unavailable():
-    from app.database import get_db, init_db
+async def test_the_startup_backfill_writes_nothing_when_the_catalogue_is_unavailable(history_pool):
+    from app.database import get_db
     from app.services.species_catalog_backfill import backfill_catalog_identity_in_short_holds
 
-    await init_db()
     await _seed_pool_detection("evt-unavailable", "Cyanistes caeruleus")
     try:
         summary = await backfill_catalog_identity_in_short_holds(resolver=_RecordingResolver("unavailable"))

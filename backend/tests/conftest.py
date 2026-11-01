@@ -13,12 +13,15 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import weakref
 from contextlib import closing
 from pathlib import Path
 
+import aiosqlite.core
 import pytest
 import pytest_asyncio
 
+from tests import process_globals
 from tests.model_fixture_support import group_model_cases
 from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
 
@@ -32,48 +35,40 @@ def pytest_collection_modifyitems(items):
     group_model_cases(items)
 
 
-def _make_aiosqlite_threads_daemon() -> None:
-    """Force aiosqlite connection worker threads to be daemon threads.
+# Every aiosqlite connection the process opens, so a test that leaves one open can be named.
+_aiosqlite_connections: "weakref.WeakSet[aiosqlite.Connection]" = weakref.WeakSet()
+_OPEN_BEFORE_TEST = pytest.StashKey[set[int]]()
 
-    aiosqlite runs each connection on a dedicated worker thread. Across the suite,
-    connections are opened on many short-lived (pytest-asyncio) event loops and are
-    not always closed before their loop goes away, leaving non-daemon worker threads
-    alive. Those threads then block interpreter shutdown *after* the tests have
-    already passed, hanging CI until the `timeout` wrapper kills the run (exit 124).
-    Marking the threads daemon lets the process exit promptly once testing is done;
-    the temporary test database is discarded regardless.
+
+def _track_aiosqlite_connections() -> None:
+    """Record every aiosqlite connection, and run its worker thread as a daemon.
+
+    Each connection runs on a dedicated worker thread. A connection left open
+    on a short-lived pytest-asyncio loop keeps a non-daemon thread alive, which
+    blocks interpreter shutdown after the tests have passed and hangs CI until
+    the gate's deadline. The teardown check below now fails the test that
+    leaves one open; the daemon flag stays as a backstop until a run of the
+    whole suite under that check has proved it unnecessary.
     """
-    import aiosqlite.core
-
     connection_cls = aiosqlite.core.Connection
+    original_init = connection_cls.__init__
 
-    if hasattr(connection_cls, "start"):
-        # aiosqlite < 0.20: Connection subclasses Thread, so it starts itself.
-        original_start = connection_cls.start
+    def init_tracked_daemon(self, *args, **kwargs):
+        original_init(self, *args, **kwargs)
+        self._thread.daemon = True
+        _aiosqlite_connections.add(self)
 
-        def start_as_daemon(self, *args, **kwargs):
-            self.daemon = True
-            return original_start(self, *args, **kwargs)
+    connection_cls.__init__ = init_tracked_daemon
 
-        connection_cls.start = start_as_daemon
-    else:
-        # aiosqlite >= 0.20: Connection composes a worker Thread as self._thread.
-        # Mark it daemon right after construction, before it is started in _connect().
-        original_init = connection_cls.__init__
 
-        def init_with_daemon_thread(self, *args, **kwargs):
-            original_init(self, *args, **kwargs)
-            worker = getattr(self, "_thread", None)
-            if worker is not None:
-                worker.daemon = True
-
-        connection_cls.__init__ = init_with_daemon_thread
+def _running_aiosqlite_connections() -> set[int]:
+    return {id(connection) for connection in list(_aiosqlite_connections) if connection._running}
 
 
 def pytest_configure(config):
     """Point every path the application reads at a private directory before any test module imports it."""
     global _suite_dir
-    _make_aiosqlite_threads_daemon()
+    _track_aiosqlite_connections()
 
     _suite_dir = Path(tempfile.mkdtemp(prefix="yawamf_test_"))
     os.environ["MEDIA_CACHE_DIR"] = str(_suite_dir / "media_cache")
@@ -129,6 +124,37 @@ def _migrate_suite_database() -> None:
     os.environ["YA_WAMF_TEST_DB_INITIALIZED"] = "1"
 
 
+# Taken at import, before any test could have patched them.
+_REAL_PROCESS_GLOBALS = process_globals.snapshot()
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item):
+    item.stash[_OPEN_BEFORE_TEST] = _running_aiosqlite_connections()
+    return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Fail the test that leaves a clock patched or a database connection open.
+
+    Checked after every fixture has been torn down, because fixture teardown
+    order does not follow the order patches and connections were made in. A
+    leaked clock is also put back, so one leak cannot fail every later test.
+    """
+    result = yield
+    leaked = process_globals.restore_leaked(_REAL_PROCESS_GLOBALS)
+    if leaked:
+        pytest.fail(f"This test left {', '.join(leaked)} patched for every later test in the process.")
+    left_open = _running_aiosqlite_connections() - item.stash.get(_OPEN_BEFORE_TEST, set())
+    if left_open:
+        pytest.fail(
+            f"This test left {len(left_open)} aiosqlite connection(s) open; close them, or take the"
+            " `history_pool` fixture instead of calling init_db() directly."
+        )
+    return result
+
+
 def pytest_unconfigure(config):
     if _suite_dir is not None:
         shutil.rmtree(_suite_dir, ignore_errors=True)
@@ -146,6 +172,23 @@ def migrated_history_db(tmp_path) -> Path:
     path = tmp_path / "speciesid.db"
     shutil.copyfile(_history_template, path)
     return path
+
+
+@pytest_asyncio.fixture
+async def history_pool():
+    """The application's connection pool on the suite database, opened and closed in this test's loop.
+
+    A pool opened on one test's event loop and left for the next one is the
+    leak the daemon-thread workaround above papers over; a test that needs the
+    pool takes this fixture rather than calling `init_db()` itself.
+    """
+    from app.database import close_db, init_db
+
+    await init_db()
+    try:
+        yield
+    finally:
+        await close_db()
 
 
 @pytest.fixture(autouse=True)

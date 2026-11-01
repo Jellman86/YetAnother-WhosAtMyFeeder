@@ -11,8 +11,10 @@ from PIL import Image
 from app.auth import AuthContext, AuthLevel, require_owner
 from app.main import app
 from app.config import settings
-from app.database import get_db, init_db, close_db
+from app.database import get_db
 from app.routers import classifier as classifier_router
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 @pytest_asyncio.fixture
@@ -20,15 +22,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
