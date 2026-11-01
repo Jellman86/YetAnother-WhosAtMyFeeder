@@ -106,7 +106,6 @@
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
     import AISettings from '../components/settings/AISettings.svelte';
-    import Errors from './Errors.svelte';
     import LazyRoute from '../components/LazyRoute.svelte';
     import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
@@ -139,6 +138,7 @@
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
     const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
+    const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -3834,7 +3834,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Health Tab -->
             {#if activeTab === 'health'}
                 <!-- The health page builds the System card itself, with its verdict inside it. -->
-                <Errors {onNavigate} />
+                <LazyRoute loader={loadHealthTab} label={$_('settings.tabs.health')} props={{ onNavigate }} />
             {/if}
 
             <!-- Integrations Tab -->
