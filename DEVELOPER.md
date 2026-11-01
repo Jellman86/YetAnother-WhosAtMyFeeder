@@ -56,7 +56,7 @@ for their operational behaviour.
 | `backend/migrations_catalog/` | Independent species-catalogue Alembic stream. |
 | `apps/ui/src/lib/api/` | Typed frontend API client and generated OpenAPI types. |
 | `apps/ui/src/lib/pages/`, `components/`, `stores/` | Svelte 5 views, shared controls and application state. |
-| `apps/ui/src/lib/i18n/` | Translated user-facing strings. |
+| `apps/ui/src/lib/i18n/` | Translated user-facing strings, authored one file per top-level domain: `locales/<language>/<domain>.json` (for example `locales/en/settings.json` holds every `settings.*` key). `locales/<language>.ts` joins them; English is always loaded as the fallback. |
 | `apps/ui/browser-tests/` | Rendered production-component fixtures with substituted APIs/media. |
 | `apps/telemetry-worker/` | Optional anonymous telemetry service, with local tests. |
 | `custom_components/yawamf/` | Home Assistant integration. |

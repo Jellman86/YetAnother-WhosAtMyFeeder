@@ -14,7 +14,9 @@ import telemetryStepSource from './TelemetryStep.svelte?raw';
 import historyStepSource from './HistoryStep.svelte?raw';
 import accountStepSource from './AccountStep.svelte?raw';
 import { WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
-import en from '../../i18n/locales/en.json';
+import enSetup from '../../i18n/locales/en/setup.json';
+
+const en = { setup: enSetup };
 
 const stepNames = en.setup.step_names;
 

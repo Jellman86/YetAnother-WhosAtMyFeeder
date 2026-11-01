@@ -1,20 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import de from './locales/de.json';
-import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import itLocale from './locales/it.json';
-import ja from './locales/ja.json';
-import pt from './locales/pt.json';
-import ru from './locales/ru.json';
-import zh from './locales/zh.json';
+import { authoredLocale } from './authored-locales';
 import baseline from './locales.identical-baseline.json';
+
+const de = authoredLocale('de');
+const en = authoredLocale('en');
+const es = authoredLocale('es');
+const fr = authoredLocale('fr');
+const itLocale = authoredLocale('it');
+const ja = authoredLocale('ja');
+const pt = authoredLocale('pt');
+const ru = authoredLocale('ru');
+const zh = authoredLocale('zh');
 
 // Ratchet guard against silent translation rot. The structural audit
 // (`locales.audit.test.ts`) already enforces key parity and placeholder
 // preservation; this test catches the other failure mode: a *new* user-facing
 // string that lands in a locale still byte-identical to English (the classic
-// "copied en.json verbatim" regression). Every string currently identical to
+// "copied English verbatim" regression). Every string currently identical to
 // English is captured in `locales.identical-baseline.json` — legitimately shared
 // values (brand names, URL/host placeholders, cross-language cognates like the
 // French "Notifications"/"Latitude"). Anything newly identical fails here until

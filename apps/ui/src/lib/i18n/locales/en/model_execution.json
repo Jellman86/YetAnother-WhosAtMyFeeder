@@ -1,0 +1,6 @@
+{
+  "completed": "Last completed run: {device} · {time}",
+  "fallback": "CPU fallback: the requested accelerator did not complete its current check or inference successfully.",
+  "unreported": "No completed run has reported its device yet. A recommendation is not an execution record.",
+  "garden_preference": "Automatic check device preference: {device}. A new accelerator must agree with CPU first."
+}

@@ -1,0 +1,22 @@
+{
+  "dashboard": "ダッシュボード",
+  "explorer": "エクスプローラー",
+  "add_observation": "観察を追加",
+  "leaderboard": "リーダーボード",
+  "observe": "観察",
+  "manage": "管理",
+  "audio_history": "音声履歴",
+  "settings": "設定",
+  "setup_wizard": "セットアップウィザード",
+  "about": "このアプリについて",
+  "toggle_menu": "メニューの切り替え",
+  "collapse_sidebar": "サイドバーを折りたたむ",
+  "expand_sidebar": "サイドバーを展開",
+  "jobs": "ジョブ",
+  "close_menu": "メニューを閉じる",
+  "close_language_selector": "言語セレクターを閉じる",
+  "events": "イベント",
+  "notifications": "通知",
+  "species": "種",
+  "navigation": "メインナビゲーション"
+}

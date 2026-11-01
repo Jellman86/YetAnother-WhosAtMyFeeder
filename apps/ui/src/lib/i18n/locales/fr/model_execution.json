@@ -1,0 +1,6 @@
+{
+  "completed": "Dernière exécution terminée : {device} · {time}",
+  "fallback": "Repli sur CPU : l’accélérateur demandé n’a pas terminé correctement sa vérification ou son inférence actuelle.",
+  "garden_preference": "Appareil préféré pour les vérifications automatiques : {device}. Un nouvel accélérateur doit d’abord correspondre au CPU.",
+  "unreported": "Aucune exécution terminée n’a indiqué son appareil. Une recommandation ne prouve pas une exécution."
+}

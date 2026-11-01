@@ -1,0 +1,6 @@
+{
+  "loading": "{page} wird geöffnet…",
+  "error_title": "Diese Seite konnte nicht geöffnet werden",
+  "error_description": "Die Seitendatei ist nicht angekommen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+  "retry": "Erneut öffnen"
+}

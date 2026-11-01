@@ -1,0 +1,10 @@
+{
+  "boundary_title": "Algo correu mal",
+  "boundary_subtitle": "Ocorreu um erro inesperado. Tente novamente ou contacte o suporte se o problema persistir.",
+  "show_details": "Mostrar detalhes do erro",
+  "try_again": "Tentar novamente",
+  "copy_details": "Copiar detalhes do erro",
+  "copied": "Copiado",
+  "reload_page": "Recarregar página",
+  "deploy_refresh_required": "O YA-WAMF foi atualizado enquanto este separador estava aberto. Atualize a página para carregar a versão mais recente."
+}

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import wallSource from './CaptureWall.svelte?raw';
 import checksSource from './SpeciesChecks.svelte?raw';
 import leaderboardSource from '../pages/Species.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enLeaderboard from '../i18n/locales/en/leaderboard.json';
+
+const en = { leaderboard: enLeaderboard };
 
 describe('the leaderboard share bar, now the wall\'s navigation', () => {
     it('sits on top of the wall in place of species chips, and no longer has a component of its own', () => {

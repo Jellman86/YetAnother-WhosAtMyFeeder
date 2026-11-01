@@ -1,0 +1,6 @@
+{
+  "loading": "A abrir {page}…",
+  "error_title": "Não foi possível abrir esta página",
+  "error_description": "O arquivo da página não chegou. Verifique sua conexão e tente novamente.",
+  "retry": "Tentar abrir novamente"
+}

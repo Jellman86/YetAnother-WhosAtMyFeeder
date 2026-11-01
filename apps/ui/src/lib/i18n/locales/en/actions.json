@@ -1,0 +1,17 @@
+{
+  "confirm_delete": "Delete this whole {species} visit? The record and its media leave the history permanently. Hiding it instead keeps the record.",
+  "play_video": "Play Video",
+  "deep_reclassify": "Deep Reclassify",
+  "manual_tag": "Manual Tag",
+  "reclassify": "Reclassify",
+  "species_info": "Species Info",
+  "delete_detection": "Delete this visit permanently",
+  "hide_detection": "Hide Detection",
+  "unhide_detection": "Unhide Detection",
+  "read_more_wikipedia": "Read more on Wikipedia",
+  "read_more_source": "Read more on {source}",
+  "delete_selected": "Delete Selected",
+  "reclassify_selected": "Reclassify Selected",
+  "confirm_species": "Confirm {species}",
+  "pick_species": "Pick a different species"
+}

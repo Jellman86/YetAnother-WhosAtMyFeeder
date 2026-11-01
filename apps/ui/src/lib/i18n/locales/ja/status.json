@@ -1,0 +1,12 @@
+{
+  "title": "システム状態",
+  "live_updates": "ライブ更新",
+  "online": "オンライン",
+  "offline": "オフライン",
+  "audio_analysis": "音声分析",
+  "notifications": "通知",
+  "open_health": "システムの状態",
+  "tile_live": "ライブ",
+  "tile_audio": "音声",
+  "tile_alerts": "通知"
+}

@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "Bester validierter Anbieter",
+  "col_median_inference": "Median-Inferenzzeit",
+  "col_model": "Modell",
+  "col_validated_providers": "Validierte Anbieter",
+  "compat_only_body": "Dieser Lauf hat geprüft, ob jeder Anbieter lädt, endliche Ausgaben liefert und mit der CPU-Referenz übereinstimmt. Die Genauigkeit wurde nicht gemessen, daher werden keine Genauigkeitswerte angezeigt. Starten Sie eine Evaluierung, um die Genauigkeit zu messen.",
+  "compat_only_title": "Nur Kompatibilitätsprüfung"
+}

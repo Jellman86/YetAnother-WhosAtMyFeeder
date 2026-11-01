@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import en from '../i18n/locales/en.json';
+import { authoredLocale } from '../i18n/authored-locales';
+
+const en = authoredLocale('en');
 
 describe('the delete control names its own effect (#256)', () => {
     // A destructive action is the worst place to be vague: the old wording

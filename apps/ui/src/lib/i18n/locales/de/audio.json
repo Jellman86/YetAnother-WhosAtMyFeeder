@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "Gehört",
+    "daily_title": "Aktivität im Zeitverlauf",
+    "daily_sub": "Pro Tag gehörte BirdNET-Go-Erkennungen",
+    "hourly_title": "Tageszeit",
+    "species_title": "Artenverteilung",
+    "empty": "Keine Aktivität in diesem Zeitraum."
+  },
+  "stat": {
+    "heard": "Gehört",
+    "heard_sub": "Angezeigte BirdNET-Erkennungen",
+    "species": "Arten",
+    "species_sub": "Durch Audio erkannte Arten",
+    "peak_hour": "Aktivste Stunde",
+    "peak_hour_sub": "{count, plural, one {# Erkennung} other {# Erkennungen}}",
+    "no_activity": "Noch keine Aktivität",
+    "sources": "Quellen",
+    "sources_sub": "Mikrofone oder Streams"
+  },
+  "filter": {
+    "window": "Zeitraum",
+    "24h": "24 Stunden",
+    "7d": "7 Tage",
+    "30d": "30 Tage",
+    "90d": "90 Tage",
+    "1y": "1 Jahr",
+    "species": "Art",
+    "source": "Quelle",
+    "min_confidence": "Mindestkonfidenz",
+    "changed": "Filter geändert. Übernehmen, um die Liste zu aktualisieren."
+  },
+  "top_species": "Am häufigsten gehörte Arten",
+  "card": {
+    "last_heard": "Zuletzt gehört",
+    "avg": "Ø",
+    "max": "Max."
+  },
+  "history": {
+    "title": "Erkennungsverlauf",
+    "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
+    "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
+    "showing": "{from}–{to} von {total} werden angezeigt",
+    "hide": "Lokal ausblenden",
+    "undo": "Rückgängig",
+    "hidden_message": "Audioerkennung ausgeblendet.",
+    "local_only": "Ausblenden entfernt einen Eintrag aus dem YA-WAMF-Verlauf und zukünftigen Audioabgleichen. BirdNET-Go bleibt unverändert; dortige Löschungen werden nicht automatisch synchronisiert."
+  },
+  "table": {
+    "sound": "Ton",
+    "time": "Zeit",
+    "species": "Art",
+    "source": "Quelle",
+    "confidence": "Konfidenz",
+    "open_birdnet": "In BirdNET-Go öffnen",
+    "open_visual_match": "Passende visuelle Erkennung öffnen",
+    "unknown_source": "Unbekannte Quelle",
+    "spectrogram_alt": "Spektrogramm des Rufs von {species}"
+  },
+  "sources": {
+    "title": "Quellen",
+    "empty": "Noch keine Quellen."
+  },
+  "not_shared_title": "Audio wird nicht öffentlich geteilt",
+  "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Besucher deaktiviert."
+}

@@ -1,0 +1,10 @@
+{
+  "about": "Version, changelog, contributors, and support links.",
+  "dashboard": "Live detections, recent activity, and feeder health at a glance.",
+  "events": "Browse, filter, and manage every classified visit.",
+  "add_observation": "Classify your own photo or video, review the evidence, and add it to your history.",
+  "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
+  "notifications": "Alerts, reminders, and active background jobs.",
+  "settings": "Connections, classification, integrations, and personalization.",
+  "species": "Leaderboard, totals, and taxonomy details for the birds you have seen."
+}

@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest';
 import modalSource from './DetectionModal.svelte?raw';
 import dataSettingsSource from './settings/DataSettings.svelte?raw';
 import liveUpdatesSource from '../app/live-updates.ts?raw';
-import en from '../i18n/locales/en.json';
+import enDetection from '../i18n/locales/en/detection.json';
+import enSettings from '../i18n/locales/en/settings.json';
+
+const en = { detection: enDetection, settings: enSettings };
 
 describe('a favourite is durable, and says so (#178)', () => {
     it('shows the archive state beside the star and polls only while pending', () => {

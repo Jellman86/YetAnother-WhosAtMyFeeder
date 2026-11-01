@@ -1,0 +1,17 @@
+{
+  "title": "欢迎使用 YA-WAMF",
+  "subtitle": "设置管理员密码以保护你的安装。",
+  "language_label": "语言",
+  "language_desc": "可在设置中稍后更改。",
+  "admin_username": "管理员用户名",
+  "password": "密码",
+  "password_hint": "至少 8 个字符",
+  "confirm_password": "确认密码",
+  "skip_auth": "跳过认证（不推荐）",
+  "setting_up": "正在设置…",
+  "continue_without_password": "不设密码继续",
+  "set_password": "设置密码并继续",
+  "password_mismatch": "两次密码不一致",
+  "password_min": "密码至少需要 8 个字符",
+  "setup_failed": "设置失败"
+}

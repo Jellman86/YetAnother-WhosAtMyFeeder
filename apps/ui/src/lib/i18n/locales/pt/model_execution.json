@@ -1,0 +1,6 @@
+{
+  "completed": "Última execução concluída: {device} · {time}",
+  "fallback": "Alternativa CPU: o acelerador pedido não concluiu corretamente a verificação ou inferência atual.",
+  "garden_preference": "Dispositivo preferido para verificações automáticas: {device}. Um acelerador novo deve primeiro concordar com a CPU.",
+  "unreported": "Nenhuma execução concluída indicou o dispositivo. Uma recomendação não comprova uma execução."
+}
