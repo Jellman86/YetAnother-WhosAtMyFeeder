@@ -23,7 +23,7 @@ RUN set -eux; \
 COPY apps/ui/ .
 RUN npm run build
 
-FROM python:3.12-slim AS backend-builder
+FROM python:3.15-slim AS backend-builder
 
 WORKDIR /app
 
@@ -47,7 +47,7 @@ RUN runtime_arch="${TARGETARCH:-amd64}"; \
         -r /requirements/requirements-base.txt \
         -r "/requirements/$provider_requirements"
 
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
