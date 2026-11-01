@@ -3405,6 +3405,166 @@
         "title": "ClassificationStatusResponse",
         "type": "object"
       },
+      "ClassifierCropDeviceCheck": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "state": {
+            "enum": [
+              "idle",
+              "waiting",
+              "running",
+              "succeeded",
+              "failed",
+              "superseded",
+              "interrupted"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "model_id",
+          "providers",
+          "reason",
+          "checked_at"
+        ],
+        "title": "ClassifierCropDeviceCheck",
+        "type": "object"
+      },
+      "ClassifierCropStatus": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "chosen_model_id": {
+            "default": "",
+            "title": "Chosen Model Id",
+            "type": "string"
+          },
+          "device_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierCropDeviceCheck"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "enabled_for_runtime": {
+            "default": false,
+            "title": "Enabled For Runtime",
+            "type": "boolean"
+          },
+          "healthy": {
+            "default": false,
+            "title": "Healthy",
+            "type": "boolean"
+          },
+          "installed": {
+            "default": false,
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "last_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "load_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Load Error"
+          },
+          "model_id": {
+            "default": "",
+            "title": "Model Id",
+            "type": "string"
+          },
+          "model_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Path"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "resolved_tier": {
+            "default": "",
+            "title": "Resolved Tier",
+            "type": "string"
+          },
+          "selected_tier": {
+            "default": "",
+            "title": "Selected Tier",
+            "type": "string"
+          }
+        },
+        "title": "ClassifierCropStatus",
+        "type": "object"
+      },
       "ClassifierDownloadResponse": {
         "properties": {
           "input_size": {
@@ -3467,6 +3627,70 @@
         "title": "ClassifierDownloadResponse",
         "type": "object"
       },
+      "ClassifierHostEligibility": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "model_count": {
+            "default": 0,
+            "title": "Model Count",
+            "type": "integer"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "verified_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verified Providers",
+            "type": "array"
+          }
+        },
+        "title": "ClassifierHostEligibility",
+        "type": "object"
+      },
+      "ClassifierInferenceHealth": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "status": {
+            "enum": [
+              "ok",
+              "degraded",
+              "unhealthy"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ClassifierInferenceHealth",
+        "type": "object"
+      },
       "ClassifierLabelsResponse": {
         "properties": {
           "labels": {
@@ -3481,6 +3705,31 @@
           "labels"
         ],
         "title": "ClassifierLabelsResponse",
+        "type": "object"
+      },
+      "ClassifierNativeQuarantine": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "restart_recommended": {
+            "title": "Restart Recommended",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "recovering",
+              "recovered"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "restart_recommended"
+        ],
+        "title": "ClassifierNativeQuarantine",
         "type": "object"
       },
       "ClassifierPredictionResponse": {
@@ -3504,6 +3753,500 @@
           "score"
         ],
         "title": "ClassifierPredictionResponse",
+        "type": "object"
+      },
+      "ClassifierStatusResponse": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "description": "Loaded/error/enabled describe a resident model; workers may omit them.",
+        "properties": {
+          "active_model_candidate_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Model Candidate Providers",
+            "type": "array"
+          },
+          "active_model_estimated_ram_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Model Estimated Ram Mb"
+          },
+          "active_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Model Id"
+          },
+          "active_model_validated_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Active Model Validated Providers",
+            "type": "array"
+          },
+          "active_provider": {
+            "default": "",
+            "title": "Active Provider",
+            "type": "string"
+          },
+          "available_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Providers",
+            "type": "array"
+          },
+          "crop_detector": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierCropStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cuda_available": {
+            "default": false,
+            "title": "Cuda Available",
+            "type": "boolean"
+          },
+          "cuda_enabled": {
+            "default": false,
+            "title": "Cuda Enabled",
+            "type": "boolean"
+          },
+          "cuda_hardware_available": {
+            "default": false,
+            "title": "Cuda Hardware Available",
+            "type": "boolean"
+          },
+          "cuda_probe_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cuda Probe Error"
+          },
+          "cuda_provider_installed": {
+            "default": false,
+            "title": "Cuda Provider Installed",
+            "type": "boolean"
+          },
+          "dev_accel_present": {
+            "default": false,
+            "title": "Dev Accel Present",
+            "type": "boolean"
+          },
+          "dev_dri_entries": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Dev Dri Entries",
+            "type": "array"
+          },
+          "dev_dri_present": {
+            "default": false,
+            "title": "Dev Dri Present",
+            "type": "boolean"
+          },
+          "effective_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Model Id"
+          },
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "host_available_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Host Available Providers",
+            "type": "array"
+          },
+          "host_device_eligibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierHostEligibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image_execution_mode": {
+            "default": "in_process",
+            "enum": [
+              "in_process",
+              "subprocess"
+            ],
+            "title": "Image Execution Mode",
+            "type": "string"
+          },
+          "image_flavor": {
+            "default": "",
+            "title": "Image Flavor",
+            "type": "string"
+          },
+          "image_flavor_warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Flavor Warning"
+          },
+          "inference_backend": {
+            "default": "",
+            "title": "Inference Backend",
+            "type": "string"
+          },
+          "inference_health": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierInferenceHealth"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intel_cpu_available": {
+            "default": false,
+            "title": "Intel Cpu Available",
+            "type": "boolean"
+          },
+          "intel_gpu_available": {
+            "default": false,
+            "title": "Intel Gpu Available",
+            "type": "boolean"
+          },
+          "intel_npu_available": {
+            "default": false,
+            "title": "Intel Npu Available",
+            "type": "boolean"
+          },
+          "labels_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels Count"
+          },
+          "loaded": {
+            "default": false,
+            "title": "Loaded",
+            "type": "boolean"
+          },
+          "model_config_warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Config Warnings",
+            "type": "array"
+          },
+          "native_runtime_quarantine": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierNativeQuarantine"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "onnx_available": {
+            "default": false,
+            "title": "Onnx Available",
+            "type": "boolean"
+          },
+          "openvino_available": {
+            "default": false,
+            "title": "Openvino Available",
+            "type": "boolean"
+          },
+          "openvino_devices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Openvino Devices",
+            "type": "array"
+          },
+          "openvino_gpu_probe_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Gpu Probe Error"
+          },
+          "openvino_import_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Import Error"
+          },
+          "openvino_import_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Import Path"
+          },
+          "openvino_model_compile_device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Model Compile Device"
+          },
+          "openvino_model_compile_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Model Compile Error"
+          },
+          "openvino_model_compile_ok": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Model Compile Ok"
+          },
+          "openvino_model_compile_unsupported_ops": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Openvino Model Compile Unsupported Ops",
+            "type": "array"
+          },
+          "openvino_probe_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Probe Error"
+          },
+          "openvino_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Openvino Version"
+          },
+          "packaged_inference_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Packaged Inference Providers",
+            "type": "array"
+          },
+          "personalization_active_camera_models": {
+            "default": 0,
+            "title": "Personalization Active Camera Models",
+            "type": "integer"
+          },
+          "personalization_feedback_rows": {
+            "default": 0,
+            "title": "Personalization Feedback Rows",
+            "type": "integer"
+          },
+          "personalization_min_feedback_tags": {
+            "default": 0,
+            "title": "Personalization Min Feedback Tags",
+            "type": "integer"
+          },
+          "personalized_rerank_enabled": {
+            "default": false,
+            "title": "Personalized Rerank Enabled",
+            "type": "boolean"
+          },
+          "process_gid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Gid"
+          },
+          "process_groups": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Process Groups",
+            "type": "array"
+          },
+          "process_uid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Uid"
+          },
+          "provider_preference_order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Preference Order",
+            "type": "array"
+          },
+          "resolved_background_workers": {
+            "default": 0,
+            "title": "Resolved Background Workers",
+            "type": "integer"
+          },
+          "resolved_live_workers": {
+            "default": 0,
+            "title": "Resolved Live Workers",
+            "type": "integer"
+          },
+          "runtime_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "worker",
+                  "planned",
+                  "in_process",
+                  "in_process_fallback",
+                  "default"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Source"
+          },
+          "selected_provider": {
+            "default": "",
+            "title": "Selected Provider",
+            "type": "string"
+          },
+          "validated_provider_preference_order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Provider Preference Order",
+            "type": "array"
+          },
+          "worker_in_process_fallback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerFallback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "worker_pools": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerPools"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ClassifierStatusResponse",
         "type": "object"
       },
       "ClassifierTestResponse": {
@@ -3585,6 +4328,211 @@
           }
         },
         "title": "ClassifierTestResponse",
+        "type": "object"
+      },
+      "ClassifierWorkerFallback": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "active_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Seconds"
+          },
+          "classifications": {
+            "title": "Classifications",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "active",
+          "reason",
+          "active_seconds",
+          "classifications"
+        ],
+        "title": "ClassifierWorkerFallback",
+        "type": "object"
+      },
+      "ClassifierWorkerPool": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "circuit_open": {
+            "default": false,
+            "title": "Circuit Open",
+            "type": "boolean"
+          },
+          "circuit_open_until_monotonic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Circuit Open Until Monotonic"
+          },
+          "crop_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "last_exit_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Exit Reason"
+          },
+          "last_stderr_excerpt": {
+            "default": "",
+            "title": "Last Stderr Excerpt",
+            "type": "string"
+          },
+          "last_stderr_truncated_bytes": {
+            "default": 0,
+            "title": "Last Stderr Truncated Bytes",
+            "type": "integer"
+          },
+          "restarts": {
+            "default": 0,
+            "title": "Restarts",
+            "type": "integer"
+          },
+          "runtime": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerRuntime"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workers": {
+            "default": 0,
+            "title": "Workers",
+            "type": "integer"
+          }
+        },
+        "title": "ClassifierWorkerPool",
+        "type": "object"
+      },
+      "ClassifierWorkerPools": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "background": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerPool"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "late_results_ignored": {
+            "default": 0,
+            "title": "Late Results Ignored",
+            "type": "integer"
+          },
+          "live": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerPool"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "video": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ClassifierWorkerPool"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "ClassifierWorkerPools",
+        "type": "object"
+      },
+      "ClassifierWorkerRuntime": {
+        "additionalProperties": {
+          "$ref": "#/components/schemas/JsonValue"
+        },
+        "properties": {
+          "backend": {
+            "default": "",
+            "title": "Backend",
+            "type": "string"
+          },
+          "crop_execution": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/InferenceExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "provider": {
+            "default": "",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "title": "ClassifierWorkerRuntime",
         "type": "object"
       },
       "CleanupResponse": {
@@ -23811,11 +24759,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response Classifier Status Api Classifier Status Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ClassifierStatusResponse"
                 }
               }
             },

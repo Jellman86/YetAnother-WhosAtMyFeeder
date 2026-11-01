@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import bandSource from './DetectionStatusBand.svelte?raw';
-import classifierApiSource from '../../api/classifier.ts?raw';
+import type { ClassifierStatus } from '../../api/classifier';
 
 describe('the status band states the in-process fallback in words', () => {
     // When the isolated workers keep dying, classification silently moving
@@ -8,7 +8,7 @@ describe('the status band states the in-process fallback in words', () => {
     // reserved for work that needs a person; this is that work.
 
     it('the API type carries the fallback state', () => {
-        expect(classifierApiSource).toContain('worker_in_process_fallback?:');
+        expectTypeOf<NonNullable<ClassifierStatus['worker_in_process_fallback']>['active']>().toEqualTypeOf<boolean>();
     });
 
     it('the workers cell turns amber and says what is happening', () => {
@@ -27,8 +27,9 @@ describe('the status band does not claim a runtime that has not loaded yet', () 
     // happened; the band says the model loads on first detection instead.
 
     it('the API type carries where the runtime figure comes from', () => {
-        expect(classifierApiSource).toContain('runtime_source?:');
-        expect(classifierApiSource).toContain("'planned'");
+        expectTypeOf<ClassifierStatus['runtime_source']>().toEqualTypeOf<
+            'worker' | 'planned' | 'in_process' | 'in_process_fallback' | 'default' | null | undefined
+        >();
     });
 
     it('a planned runtime is labelled as such, ahead of the verified mark', () => {
