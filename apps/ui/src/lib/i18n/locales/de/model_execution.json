@@ -1,0 +1,6 @@
+{
+  "completed": "Letzter abgeschlossener Lauf: {device} · {time}",
+  "fallback": "CPU-Ausweichbetrieb: Der angeforderte Beschleuniger konnte die aktuelle Prüfung oder Inferenz nicht erfolgreich abschließen.",
+  "garden_preference": "Gerätepräferenz für automatische Prüfungen: {device}. Ein neuer Beschleuniger muss zuerst mit der CPU übereinstimmen.",
+  "unreported": "Noch kein abgeschlossener Lauf mit Geräteangabe. Eine Empfehlung ist kein Ausführungsnachweis."
+}

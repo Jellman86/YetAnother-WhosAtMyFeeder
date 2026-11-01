@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import en from './i18n/locales/en.json';
+import enAuth from './i18n/locales/en/auth.json';
 import {
     AUTH_PASSWORD_REQUIREMENTS,
     passwordProblemMessage,
@@ -8,6 +8,8 @@ import {
     validateAuthPasswordPolicy,
     type PasswordProblem
 } from './auth-password-policy';
+
+const en = { auth: enAuth };
 
 describe('validateAuthPasswordPolicy', () => {
     it('accepts empty input so unchanged settings passwords can pass through', () => {

@@ -1,0 +1,6 @@
+{
+  "loading": "正在打开{page}…",
+  "error_title": "无法打开此页面",
+  "error_description": "页面文件未能加载。请检查网络连接后重试。",
+  "retry": "重新打开"
+}

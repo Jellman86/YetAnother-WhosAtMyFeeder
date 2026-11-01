@@ -9,7 +9,9 @@ import gardenBetaSource from './GardenBetaSettings.svelte?raw';
 import gardenModelsSource from './GardenModelSetup.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
-import en from '../../i18n/locales/en.json';
+import enSettings from '../../i18n/locales/en/settings.json';
+
+const en = { settings: enSettings };
 
 describe('Garden animals is a beta feature', () => {
     it('has its own Beta features tab with a labelled switch that saves', () => {

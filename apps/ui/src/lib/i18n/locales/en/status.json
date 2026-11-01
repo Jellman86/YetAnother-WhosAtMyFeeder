@@ -1,0 +1,12 @@
+{
+  "title": "System status",
+  "live_updates": "Live updates",
+  "online": "Online",
+  "offline": "Offline",
+  "audio_analysis": "Audio analysis",
+  "notifications": "Notifications",
+  "open_health": "System health",
+  "tile_live": "Live",
+  "tile_audio": "Audio",
+  "tile_alerts": "Alerts"
+}

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import appearanceSettingsSource from './AppearanceSettings.svelte?raw';
 import settingsSource from '../../pages/Settings.svelte?raw';
-import enLocale from '../../i18n/locales/en.json';
+import enSettings from '../../i18n/locales/en/settings.json';
+
+const enLocale = { settings: enSettings };
 
 describe('time format control', () => {
     it('sits beside the date format control in Appearance', () => {

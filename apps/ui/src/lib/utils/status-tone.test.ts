@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import en from '../i18n/locales/en.json';
+import enJobs from '../i18n/locales/en/jobs.json';
 import { KNOWN_STATUSES, STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone, type StatusTone } from './status-tone';
+
+const en = { jobs: enJobs };
 
 /**
  * NT-04: the Errors panel painted running work amber while Notifications says a

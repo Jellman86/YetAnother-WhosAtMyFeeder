@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import source from './Notifications.svelte?raw';
 import appSource from '../../App.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enNotifications from '../i18n/locales/en/notifications.json';
+
+const en = { notifications: enNotifications };
 
 describe('Notifications timeline layout', () => {
     it('replaces the tab split with one filtered river', () => {

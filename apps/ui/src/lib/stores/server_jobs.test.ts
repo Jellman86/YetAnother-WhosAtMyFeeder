@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { addMessages, init, locale } from 'svelte-i18n';
-import en from '../i18n/locales/en.json';
+import { authoredLocale } from '../i18n/authored-locales';
 import { ServerJobsStore } from './server_jobs.svelte';
+
+const en = authoredLocale('en');
 
 describe('ServerJobsStore', () => {
     it('describes photo work while the video job is still running', () => {

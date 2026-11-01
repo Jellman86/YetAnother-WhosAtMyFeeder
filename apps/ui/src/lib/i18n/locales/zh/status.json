@@ -1,0 +1,12 @@
+{
+  "title": "系统状态",
+  "live_updates": "实时更新",
+  "online": "在线",
+  "offline": "离线",
+  "audio_analysis": "音频分析",
+  "notifications": "通知",
+  "open_health": "系统状态",
+  "tile_live": "实时",
+  "tile_audio": "音频",
+  "tile_alerts": "通知"
+}

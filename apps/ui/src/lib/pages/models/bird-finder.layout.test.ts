@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import modelManagerSource from './ModelManager.svelte?raw';
-import en from '../../i18n/locales/en.json';
+import enSettings from '../../i18n/locales/en/settings.json';
+
+const en = { settings: enSettings };
 
 describe('bird finder choice', () => {
     it('offers both accurate detectors as one labelled radio group on the default surface', () => {

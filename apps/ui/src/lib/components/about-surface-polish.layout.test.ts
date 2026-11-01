@@ -3,7 +3,9 @@ import pipelineSource from './InstancePipeline.svelte?raw';
 import instanceSource from './InstanceSummary.svelte?raw';
 import privacySummarySource from './PrivacySummary.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enAbout from '../i18n/locales/en/about.json';
+
+const en = { about: enAbout };
 
 describe('About surface polish', () => {
     it('gives the quick links and credit links a full touch target', () => {

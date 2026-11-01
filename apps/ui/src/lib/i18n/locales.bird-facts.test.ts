@@ -1,14 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import de from './locales/de.json';
-import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import itLocale from './locales/it.json';
-import ja from './locales/ja.json';
-import pt from './locales/pt.json';
-import ru from './locales/ru.json';
-import zh from './locales/zh.json';
+import deFooter from './locales/de/footer.json';
+import enFooter from './locales/en/footer.json';
+import esFooter from './locales/es/footer.json';
+import frFooter from './locales/fr/footer.json';
+import itFooter from './locales/it/footer.json';
+import jaFooter from './locales/ja/footer.json';
+import ptFooter from './locales/pt/footer.json';
+import ruFooter from './locales/ru/footer.json';
+import zhFooter from './locales/zh/footer.json';
 import footerSource from '../components/Footer.svelte?raw';
+
+const de = { footer: deFooter };
+const en = { footer: enFooter };
+const es = { footer: esFooter };
+const fr = { footer: frFooter };
+const itLocale = { footer: itFooter };
+const ja = { footer: jaFooter };
+const pt = { footer: ptFooter };
+const ru = { footer: ruFooter };
+const zh = { footer: zhFooter };
 
 const locales = { de, en, es, fr, it: itLocale, ja, pt, ru, zh } as const;
 

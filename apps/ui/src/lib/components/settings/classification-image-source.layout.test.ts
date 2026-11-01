@@ -8,15 +8,26 @@ import connectionSettingsSource from './ConnectionSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import settingsApiSource from '../../api/settings.ts?raw';
 import type { ClassificationImageSource } from '../../api/settings';
-import de from '../../i18n/locales/de.json';
-import en from '../../i18n/locales/en.json';
-import es from '../../i18n/locales/es.json';
-import fr from '../../i18n/locales/fr.json';
-import itLocale from '../../i18n/locales/it.json';
-import ja from '../../i18n/locales/ja.json';
-import pt from '../../i18n/locales/pt.json';
-import ru from '../../i18n/locales/ru.json';
-import zh from '../../i18n/locales/zh.json';
+import { authoredLocale } from '../../i18n/authored-locales';
+import deSettings from '../../i18n/locales/de/settings.json';
+import enSettings from '../../i18n/locales/en/settings.json';
+import esSettings from '../../i18n/locales/es/settings.json';
+import frSettings from '../../i18n/locales/fr/settings.json';
+import itSettings from '../../i18n/locales/it/settings.json';
+import jaSettings from '../../i18n/locales/ja/settings.json';
+import ptSettings from '../../i18n/locales/pt/settings.json';
+import ruSettings from '../../i18n/locales/ru/settings.json';
+import zhSettings from '../../i18n/locales/zh/settings.json';
+
+const de = { settings: deSettings };
+const en = { settings: enSettings };
+const es = { settings: esSettings };
+const fr = { settings: frSettings };
+const itLocale = { settings: itSettings };
+const ja = { settings: jaSettings };
+const pt = { settings: ptSettings };
+const ru = { settings: ruSettings };
+const zh = { settings: zhSettings };
 
 const OPTION_ORDER = ['frigate_snapshot', 'recording_snapshot'] as const satisfies readonly ClassificationImageSource[];
 const OPTIONS_COVER_CONTRACT: [Exclude<ClassificationImageSource, (typeof OPTION_ORDER)[number]>] extends [never] ? true : false = true;
@@ -50,7 +61,7 @@ function selectedValue(body: string): string | null {
 }
 
 beforeAll(() => {
-    addMessages('en', en);
+    addMessages('en', authoredLocale('en'));
     init({ fallbackLocale: 'en', initialLocale: 'en' });
 });
 

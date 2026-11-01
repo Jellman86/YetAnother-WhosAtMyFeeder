@@ -1,0 +1,9 @@
+{
+  "title": "YA-WAMF {version} 已发布",
+  "title_dev": "有更新的开发版本可用（{version}）",
+  "body": "当前运行的是 {current}。请从容器管理器拉取新镜像以更新。",
+  "release_notes": "发行说明 →",
+  "dismiss": "忽略",
+  "sidebar_title": "有可用更新：{version}",
+  "sidebar_label": "有可用更新"
+}

@@ -7,7 +7,11 @@ import mobileTopBarSource from './MobileTopBar.svelte?raw';
 import loginSource from './Login.svelte?raw';
 import toastSource from './Toast.svelte?raw';
 import pipelineSource from './InstancePipeline.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enAuth from '../i18n/locales/en/auth.json';
+import enNotFound from '../i18n/locales/en/not_found.json';
+import enNotifications from '../i18n/locales/en/notifications.json';
+
+const en = { auth: enAuth, not_found: enNotFound, notifications: enNotifications };
 
 describe('the app shell', () => {
     it('titles pages with their navigation labels and names the browser tab', () => {

@@ -1,0 +1,22 @@
+{
+  "dashboard": "Дашборд",
+  "explorer": "Просмотр",
+  "add_observation": "Добавить наблюдение",
+  "leaderboard": "Рейтинг",
+  "observe": "Наблюдение",
+  "manage": "Управление",
+  "audio_history": "История аудио",
+  "settings": "Настройки",
+  "setup_wizard": "Мастер настройки",
+  "about": "О проекте",
+  "toggle_menu": "Переключить меню",
+  "collapse_sidebar": "Свернуть панель",
+  "expand_sidebar": "Развернуть панель",
+  "jobs": "Задачи",
+  "close_menu": "Закрыть меню",
+  "close_language_selector": "Закрыть выбор языка",
+  "events": "События",
+  "notifications": "Уведомления",
+  "species": "Виды",
+  "navigation": "Основная навигация"
+}
