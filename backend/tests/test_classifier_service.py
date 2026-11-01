@@ -42,6 +42,12 @@ from app.services.classification_admission import ClassificationLeaseExpiredErro
 from app.services import classifier_service as classifier_service_module  # noqa: E402
 from app.services.inference import runtimes  # noqa: E402
 from app.services.inference.diagnostics import summarize_numeric_array  # noqa: E402
+from app.services.inference.input_selection import (  # noqa: E402
+    input_context_extra,
+    normalize_classification_input_context,
+    tracked_frigate_box_for_frame,
+    video_frame_input_context,
+)
 from app.services.inference.outputs import safe_softmax  # noqa: E402
 from app.services.inference.provider_policy import (  # noqa: E402
     InferenceSelection,
@@ -261,7 +267,7 @@ async def test_empty_frigate_hint_search_does_not_depend_on_species_provenance(
     monkeypatch.setattr(service, "_resolve_model_candidate_crop", lambda image, **kwargs: None)
     candidates = service._video_frame_candidates(
         Image.new("RGB", (100, 100)),
-        input_context=classifier_service_module._normalize_classification_input_context(
+        input_context=normalize_classification_input_context(
             {
                 "frigate_box": [0.1, 0.1, 0.78, 0.78],
                 "event_target_labels": targets,
@@ -4565,7 +4571,7 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
         service = ClassifierService()
         crop_service = _CropService()
         service._bird_crop_service = crop_service
-        input_context = classifier_service_module._normalize_classification_input_context(
+        input_context = normalize_classification_input_context(
             {"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]}
         )
 
@@ -4583,7 +4589,7 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
 async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        context = classifier_service_module._normalize_classification_input_context(
+        context = normalize_classification_input_context(
             {
                 "is_cropped": False,
                 "frigate_box": [0.1, 0.1, 0.2, 0.2],
@@ -4595,9 +4601,9 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
             }
         )
 
-        first_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=0.0)
-        last_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=2.0)
-        unaligned_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=1.0)
+        first_box = tracked_frigate_box_for_frame(context, frame_offset_seconds=0.0)
+        last_box = tracked_frigate_box_for_frame(context, frame_offset_seconds=2.0)
+        unaligned_box = tracked_frigate_box_for_frame(context, frame_offset_seconds=1.0)
 
         assert first_box == pytest.approx([0.1, 0.1, 0.2, 0.2])
         assert last_box == pytest.approx([0.7, 0.7, 0.2, 0.2])
@@ -4609,7 +4615,7 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
 async def test_video_withholds_pixel_tracking_size_when_detect_resolution_is_unknown(mock_tflite, mock_os_path_exists):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        context = classifier_service_module._normalize_classification_input_context(
+        context = normalize_classification_input_context(
             {
                 "is_cropped": False,
                 "frigate_box": [10, 20, 30, 40],
@@ -4618,7 +4624,7 @@ async def test_video_withholds_pixel_tracking_size_when_detect_resolution_is_unk
             }
         )
 
-        tracked = service._tracked_frigate_box_for_frame(
+        tracked = tracked_frigate_box_for_frame(
             context,
             frame_offset_seconds=0.0,
             image_size=(100, 100),
@@ -4634,7 +4640,7 @@ async def test_recording_frames_never_reuse_a_static_frigate_box_outside_its_tra
 ):
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
-        context = classifier_service_module._normalize_classification_input_context(
+        context = normalize_classification_input_context(
             {
                 "is_cropped": False,
                 "clip_variant": "recording",
@@ -4645,13 +4651,13 @@ async def test_recording_frames_never_reuse_a_static_frigate_box_outside_its_tra
             }
         )
 
-        aligned = service._video_frame_input_context(context, frame_offset_seconds=2.0)
-        unaligned = service._video_frame_input_context(context, frame_offset_seconds=8.0)
+        aligned = video_frame_input_context(context, frame_offset_seconds=2.0)
+        unaligned = video_frame_input_context(context, frame_offset_seconds=8.0)
 
-        assert service._input_context_extra(aligned, "frigate_box") == pytest.approx([0.7, 0.7, 0.2, 0.2])
-        assert service._input_context_extra(aligned, "frigate_region") is None
-        assert service._input_context_extra(unaligned, "frigate_box") is None
-        assert service._input_context_extra(unaligned, "frigate_region") is None
+        assert input_context_extra(aligned, "frigate_box") == pytest.approx([0.7, 0.7, 0.2, 0.2])
+        assert input_context_extra(aligned, "frigate_region") is None
+        assert input_context_extra(unaligned, "frigate_box") is None
+        assert input_context_extra(unaligned, "frigate_region") is None
         await service.shutdown()
 
 
@@ -6913,7 +6919,7 @@ def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_
 
     service._bird_crop_service = Detector()
     monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
-    context = classifier_service_module._normalize_classification_input_context(
+    context = normalize_classification_input_context(
         {
             "clip_variant": "event",
             "frigate_region": [0.17, 0.31, 0.17, 0.30],
@@ -6922,7 +6928,7 @@ def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_
             "event_target_labels": targets,
         }
     )
-    frame_context = service._video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))
+    frame_context = video_frame_input_context(context, frame_offset_seconds=14, image_size=(100, 100))
     candidates = service._video_frame_candidates(Image.new("RGB", (100, 100)), input_context=frame_context)
     assert "frigate_box" not in frame_context.model_dump()
     assert all(candidate.crop_box is not None for candidate in candidates)
@@ -6933,8 +6939,7 @@ def test_unknown_clip_timeline_cannot_search_for_the_event_species_in_unrelated_
 
 @pytest.mark.parametrize("variant", ["event", "recording"])
 def test_unknown_timeline_subject_region_includes_moving_path_without_precise_hints(variant):
-    service = ClassifierService.__new__(ClassifierService)
-    context = classifier_service_module._normalize_classification_input_context(
+    context = normalize_classification_input_context(
         {
             "clip_variant": variant,
             "frigate_box": [0.2, 0.3, 0.1, 0.2],
@@ -6942,7 +6947,7 @@ def test_unknown_timeline_subject_region_includes_moving_path_without_precise_hi
             "frigate_path_data": [[[0.8, 0.9], 100], [[float("nan"), 0.5], 101], [[True, 0.5], 102]],
         }
     )
-    frame = service._video_frame_input_context(context, frame_offset_seconds=1, image_size=(1000, 1000)).model_dump()
+    frame = video_frame_input_context(context, frame_offset_seconds=1, image_size=(1000, 1000)).model_dump()
     assert frame["event_subject_region"] == pytest.approx([0.1, 0.2, 0.75, 0.7])
     assert "frigate_box" not in frame
     assert "frigate_region" not in frame
@@ -6952,7 +6957,7 @@ def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolu
     service = ClassifierService.__new__(ClassifierService)
     service._bird_crop_service = None
     monkeypatch.setattr(service, "_resolve_frigate_hint_crop", lambda image, **kwargs: None)
-    context = classifier_service_module._normalize_classification_input_context(
+    context = normalize_classification_input_context(
         {
             "frigate_box": [326, 255, 378, 353],
             "frigate_region": [220, 230, 434, 444],
@@ -6960,7 +6965,7 @@ def test_video_does_not_apply_detect_pixel_hints_to_a_different_recording_resolu
             "clip_start_timestamp": 100,
         }
     )
-    frame = service._video_frame_input_context(context, frame_offset_seconds=0, image_size=(3840, 2160))
+    frame = video_frame_input_context(context, frame_offset_seconds=0, image_size=(3840, 2160))
     assert "event_subject_region" not in frame.model_dump()
     assert "frigate_box" not in frame.model_dump()
     assert service._video_frame_candidates(Image.new("RGB", (3840, 2160)), input_context=frame)[0][0] == "full_frame"
