@@ -34,7 +34,7 @@ It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
 run first, alone, within two minutes: they migrate no database and never import
 the FastAPI app, and that subtree's conftest fails any test that opens a database
 or imports `app.main`. Every other test then runs against a suite database migrated
-once, within eight minutes. Coverage from both lanes is combined into one report.
+once, within ten minutes. Coverage from both lanes is combined into one report.
 A printed pass summary does not excuse a teardown hang or a failed coverage report.
 
 A test that needs an empty schema at head takes the `migrated_history_db` fixture,
