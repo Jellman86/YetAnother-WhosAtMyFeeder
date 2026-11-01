@@ -68,6 +68,8 @@
 
     import { getBirdNames } from '../naming';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
+    import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
+    import { createLatestRequest } from '../utils/latest-request';
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
@@ -171,7 +173,7 @@
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
     let eventMetadataRefreshTimeout: number | null = null;
-    let eventsLoadGeneration = 0;
+    const eventsLoad = createLatestRequest();
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
 
@@ -242,7 +244,7 @@
     });
 
     async function loadEvents() {
-        const loadGeneration = ++eventsLoadGeneration;
+        const load = eventsLoad.begin();
         writeAddress();
         loading = true;
         error = null;
@@ -264,7 +266,7 @@
                     limit: effectivePageSize,
                     offset: (currentPage - 1) * effectivePageSize
                 });
-                if (loadGeneration !== eventsLoadGeneration || gardenGeneration !== gardenLoadGeneration) return;
+                if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;
                 events = [];
                 pageVisits = [];
                 previousVisit = null;
@@ -289,7 +291,7 @@
                     startDate: range.start, endDate: range.end,
                     species: speciesFilter || undefined, camera: cameraFilter || undefined,
                     sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
-                    requestKey: 'events-page:visits'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
                 });
                 nextPrevious = padded ? (result.visits[0] ?? null) : null;
                 nextVisits = result.visits.slice(padded);
@@ -310,7 +312,7 @@
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
                     fields: 'list',
-                    requestKey: 'events-page:list'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.list
                 }),
                 fetchEventsCount({
                     startDate: range.start,
@@ -321,13 +323,13 @@
                     favoritesOnly,
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
-                    requestKey: 'events-page:count'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.count
                 })
                 ]);
                 newEvents = captures;
                 nextTotal = countRes.count;
             }
-            if (loadGeneration !== eventsLoadGeneration) return;
+            if (!load.isCurrent()) return;
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
@@ -346,7 +348,7 @@
                 }
             }
         } catch (e) {
-            if (loadGeneration !== eventsLoadGeneration) return;
+            if (!load.isCurrent()) return;
             if (e instanceof Error && e.name === 'AbortError') {
                 // Request cancellation is expected when filter changes trigger a newer fetch.
                 return;
@@ -361,7 +363,7 @@
                 : $_('events.load_failed_captures', { default: 'The captures could not be loaded. Your history is unchanged.' });
             console.error('Failed to load events', e);
         } finally {
-            if (loadGeneration === eventsLoadGeneration) loading = false;
+            if (load.isCurrent()) loading = false;
         }
     }
 
@@ -371,7 +373,7 @@
                 eventId,
                 limit: 1,
                 fields: 'detail',
-                requestKey: 'events-page:deep-link'
+                requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
             });
             if (!target || pendingEventId !== eventId) return;
             selectedEvent = target;
@@ -781,7 +783,7 @@
         if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
         handledPublicHistoryVersion = version;
         if (version > 0 && authStore.isGuest) untrack(() => {
-            eventsLoadGeneration += 1;
+            eventsLoad.supersede();
             events = [];
             pageVisits = [];
             totalCount = 0;

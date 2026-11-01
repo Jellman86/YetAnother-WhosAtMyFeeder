@@ -17,6 +17,12 @@ interface FrameResult {
     frameIndex?: number | null;
 }
 
+/** The dashboard store's cancellation keys, distinct from every page's own. */
+export const DETECTIONS_STORE_REQUEST_KEYS = {
+    list: 'detections-store:list',
+    count: 'detections-store:count'
+} as const;
+
 export interface ReclassificationProgress {
     eventId: string;
     strategy?: string | null;
@@ -202,12 +208,12 @@ export class DetectionsStore {
                     fetchEvents({
                         limit: this.MAX_ITEMS,
                         startDate,
-                        requestKey: 'detections-store:list'
+                        requestKey: DETECTIONS_STORE_REQUEST_KEYS.list
                     }),
                     fetchEventsCount({
                         startDate: toLocalYMD(),
                         endDate: toLocalYMD(),
-                        requestKey: 'detections-store:count'
+                        requestKey: DETECTIONS_STORE_REQUEST_KEYS.count
                     })
                 ]);
                 if (generation !== this.accessGeneration) return false;
