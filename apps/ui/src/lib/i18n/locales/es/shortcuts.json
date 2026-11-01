@@ -1,0 +1,13 @@
+{
+  "title": "Atajos de Teclado",
+  "navigation": "Navegacion",
+  "actions": "Acciones",
+  "open_panel": "Abrir panel de atajos",
+  "go_dashboard": "Ir al Tablero",
+  "go_events": "Ir a Eventos",
+  "go_species": "Ir a Clasificación",
+  "go_settings": "Ir a Ajustes",
+  "close_modal": "Cerrar modal",
+  "refresh": "Refrescar página",
+  "go_notifications": "Ir a Notificaciones"
+}

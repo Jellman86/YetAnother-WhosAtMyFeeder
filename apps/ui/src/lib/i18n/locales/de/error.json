@@ -1,0 +1,10 @@
+{
+  "boundary_title": "Etwas ist schiefgelaufen",
+  "boundary_subtitle": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut oder kontaktiere den Support, wenn das Problem weiterhin besteht.",
+  "show_details": "Fehlerdetails anzeigen",
+  "try_again": "Erneut versuchen",
+  "copy_details": "Fehlerdetails kopieren",
+  "copied": "Kopiert",
+  "reload_page": "Seite neu laden",
+  "deploy_refresh_required": "YA-WAMF wurde aktualisiert, während dieser Tab geöffnet war. Aktualisieren Sie die Seite, um die neueste Version zu laden."
+}

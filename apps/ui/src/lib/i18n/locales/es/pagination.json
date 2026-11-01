@@ -1,0 +1,8 @@
+{
+  "navigation": "Paginación",
+  "previous_page": "Página anterior",
+  "next_page": "Página siguiente",
+  "page_number": "Página {number}",
+  "showing": "Mostrando {from}-{to} de {total}",
+  "page_size_label": "Mostrar:"
+}

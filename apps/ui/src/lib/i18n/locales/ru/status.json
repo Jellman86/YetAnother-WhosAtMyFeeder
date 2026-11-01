@@ -1,0 +1,12 @@
+{
+  "title": "Состояние системы",
+  "live_updates": "Обновления в реальном времени",
+  "online": "Онлайн",
+  "offline": "Офлайн",
+  "audio_analysis": "Аудиоанализ",
+  "notifications": "Уведомления",
+  "open_health": "Состояние системы",
+  "tile_live": "Онлайн",
+  "tile_audio": "Звук",
+  "tile_alerts": "Оповещения"
+}

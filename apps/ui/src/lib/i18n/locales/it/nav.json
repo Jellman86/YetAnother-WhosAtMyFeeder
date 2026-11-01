@@ -1,0 +1,22 @@
+{
+  "dashboard": "Dashboard",
+  "explorer": "Esplora",
+  "add_observation": "Aggiungi osservazione",
+  "leaderboard": "Classifica",
+  "observe": "Osserva",
+  "manage": "Gestisci",
+  "audio_history": "Cronologia audio",
+  "settings": "Impostazioni",
+  "setup_wizard": "Configurazione guidata",
+  "about": "Informazioni",
+  "toggle_menu": "Attiva/disattiva menu",
+  "collapse_sidebar": "Comprimi barra laterale",
+  "expand_sidebar": "Espandi barra laterale",
+  "jobs": "Attività",
+  "close_menu": "Chiudi menu",
+  "close_language_selector": "Chiudi selettore lingua",
+  "events": "Eventi",
+  "notifications": "Notifiche",
+  "species": "Specie",
+  "navigation": "Navigazione principale"
+}

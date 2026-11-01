@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "最佳已验证提供程序",
+  "col_median_inference": "推理中位耗时",
+  "col_model": "模型",
+  "col_validated_providers": "已验证的提供程序",
+  "compat_only_body": "此次运行检查了每个提供程序能否加载、输出有限值并与 CPU 基准一致。未测量准确率，因此不显示准确率数据。运行评估以测量准确率。",
+  "compat_only_title": "仅兼容性检查"
+}

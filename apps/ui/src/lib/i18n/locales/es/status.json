@@ -1,0 +1,12 @@
+{
+  "title": "Estado del sistema",
+  "live_updates": "Actualizaciones en directo",
+  "online": "En línea",
+  "offline": "Desconectado",
+  "audio_analysis": "Análisis de audio",
+  "notifications": "Notificaciones",
+  "open_health": "Estado del sistema",
+  "tile_live": "En vivo",
+  "tile_audio": "Sonido",
+  "tile_alerts": "Avisos"
+}

@@ -1,0 +1,6 @@
+{
+  "completed": "上次完成的运行：{device} · {time}",
+  "fallback": "已回退至CPU：所选加速器未能成功完成当前检查或推理。",
+  "garden_preference": "自动检查的首选设备：{device}。新加速器必须先通过与CPU的一致性检查。",
+  "unreported": "尚无已完成运行报告其设备。推荐设备不等于执行记录。"
+}

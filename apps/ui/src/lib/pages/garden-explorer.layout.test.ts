@@ -5,7 +5,10 @@ import cardSource from '../components/GardenExplorerCard.svelte?raw';
 import modalSource from '../components/GardenCaptureModal.svelte?raw';
 import markerSource from '../components/GardenExplorerMarker.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enGarden from '../i18n/locales/en/garden.json';
+import enSettings from '../i18n/locales/en/settings.json';
+
+const en = { garden: enGarden, settings: enSettings };
 
 describe('Garden captures in the Explorer', () => {
     it('shows them only to an owner with the Garden beta on, and lets that owner choose birds, Garden or both', () => {

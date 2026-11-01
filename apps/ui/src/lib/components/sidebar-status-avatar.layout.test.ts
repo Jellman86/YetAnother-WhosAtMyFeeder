@@ -3,7 +3,10 @@ import statusSource from './ConnectionStatus.svelte?raw';
 import sidebarSource from './Sidebar.svelte?raw';
 import avatarStoreSource from '../stores/avatar.svelte.ts?raw';
 import authSettingsSource from './settings/AuthenticationSettings.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enSettings from '../i18n/locales/en/settings.json';
+import enStatus from '../i18n/locales/en/status.json';
+
+const en = { settings: enSettings, status: enStatus };
 
 describe('the sidebar status tiles', () => {
     it('shows icon tiles with one-word names instead of sentences', () => {

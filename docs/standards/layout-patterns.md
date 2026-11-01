@@ -495,8 +495,12 @@ build something better."*
 - Identifiers are not copy. Table names, topics and model ids render as literal monospace strings
   and never go through i18n.
 - Every user-facing string goes through `svelte-i18n` with a `{ default: '…' }` fallback, and lands
-  in all nine locales. The locale audit enforces key parity; genuine cognates and product names go
-  in `locales.identical-baseline.json`.
+  in all nine locales. A key lives in the file named after its top-level domain,
+  `apps/ui/src/lib/i18n/locales/<language>/<domain>.json`, so `garden.explorer.title` is in
+  `locales/en/garden.json` and its eight translations. A new top-level domain is a new file in
+  every language. The locale audit enforces key parity; genuine cognates and product names go in
+  `locales.identical-baseline.json`. A key a translation still lacks renders in English, never as
+  the raw key.
 - A count chooses its word. Write `{count, plural, one {# visit} other {# visits}}`, never
   "{count} visits" or "visit(s)", and give each locale the forms it needs: Russian takes `one`,
   `few`, `many` and `other`; Japanese and Chinese take `other` alone. Pass the number, not a

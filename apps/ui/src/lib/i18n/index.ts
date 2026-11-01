@@ -1,10 +1,9 @@
 import { _, init, locale, register } from 'svelte-i18n';
 
 import { lazyComponent } from '../app/lazy-component';
+import { SUPPORTED_LOCALES, type LocaleDictionary, type SupportedLocale } from './locale-partition';
 
-const SUPPORTED_LOCALES = ['en', 'es', 'fr', 'de', 'ja', 'zh', 'ru', 'pt', 'it'] as const;
-type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
-type LocaleModule = { default: Record<string, unknown> };
+type LocaleModule = { default: LocaleDictionary };
 
 const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
 void appVersion; // version available in diagnostics reports and window.__APP_VERSION__
@@ -52,15 +51,16 @@ function registerLocaleWithRetry(
     register(localeCode, registeredLoader);
 }
 
-registerLocaleWithRetry('en', () => import('./locales/en.json'));
-registerLocaleWithRetry('es', () => import('./locales/es.json'));
-registerLocaleWithRetry('fr', () => import('./locales/fr.json'));
-registerLocaleWithRetry('de', () => import('./locales/de.json'));
-registerLocaleWithRetry('ja', () => import('./locales/ja.json'));
-registerLocaleWithRetry('zh', () => import('./locales/zh.json'));
-registerLocaleWithRetry('ru', () => import('./locales/ru.json'));
-registerLocaleWithRetry('pt', () => import('./locales/pt.json'));
-registerLocaleWithRetry('it', () => import('./locales/it.json'));
+// Each language is one lazily loaded chunk joining its domain files (see locale-partition.ts).
+registerLocaleWithRetry('en', () => import('./locales/en'));
+registerLocaleWithRetry('es', () => import('./locales/es'));
+registerLocaleWithRetry('fr', () => import('./locales/fr'));
+registerLocaleWithRetry('de', () => import('./locales/de'));
+registerLocaleWithRetry('ja', () => import('./locales/ja'));
+registerLocaleWithRetry('zh', () => import('./locales/zh'));
+registerLocaleWithRetry('ru', () => import('./locales/ru'));
+registerLocaleWithRetry('pt', () => import('./locales/pt'));
+registerLocaleWithRetry('it', () => import('./locales/it'));
 
 const initialLocale = determineLocale();
 

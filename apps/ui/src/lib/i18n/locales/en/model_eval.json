@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "Best validated provider",
+  "col_median_inference": "Median inference",
+  "col_model": "Model",
+  "col_validated_providers": "Validated providers",
+  "compat_only_body": "This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.",
+  "compat_only_title": "Compatibility check only"
+}

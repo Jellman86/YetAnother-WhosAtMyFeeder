@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import dataSource from './DataSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
-import en from '../../i18n/locales/en.json';
+import enSettings from '../../i18n/locales/en/settings.json';
+
+const en = { settings: enSettings };
 
 describe('history retention', () => {
     it('shows the saved policy in the stat tiles, in plain words', () => {

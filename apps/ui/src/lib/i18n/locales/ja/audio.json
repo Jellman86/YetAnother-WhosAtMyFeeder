@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "検出数",
+    "daily_title": "時間ごとのアクティビティ",
+    "daily_sub": "1日ごとの BirdNET-Go 音声検出数",
+    "hourly_title": "時間帯",
+    "species_title": "種の構成",
+    "empty": "この期間にアクティビティはありません。"
+  },
+  "stat": {
+    "heard": "検出数",
+    "heard_sub": "表示中の BirdNET 検出",
+    "species": "種",
+    "species_sub": "音声から特定された種",
+    "peak_hour": "ピーク時間",
+    "peak_hour_sub": "{count, plural, other {# 件の検出}}",
+    "no_activity": "まだアクティビティはありません",
+    "sources": "音源",
+    "sources_sub": "マイクまたはストリーム"
+  },
+  "filter": {
+    "window": "期間",
+    "24h": "24時間",
+    "7d": "7日",
+    "30d": "30日",
+    "90d": "90日",
+    "1y": "1年",
+    "species": "種",
+    "source": "音源",
+    "min_confidence": "最低信頼度",
+    "changed": "フィルターが変更されました。一覧を更新するには適用してください。"
+  },
+  "top_species": "最も多く聞かれた種",
+  "card": {
+    "last_heard": "最終検出",
+    "avg": "平均",
+    "max": "最大"
+  },
+  "history": {
+    "title": "検出履歴",
+    "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
+    "empty": "このフィルターに一致する BirdNET 検出はありません。",
+    "showing": "{total} 件中 {from}～{to} 件を表示",
+    "hide": "ローカルで非表示",
+    "undo": "元に戻す",
+    "hidden_message": "音声検出を非表示にしました。",
+    "local_only": "非表示にするとYA-WAMFの履歴と今後の音声照合から除外されます。BirdNET-Goは変更されません。上流の削除は自動同期されません。"
+  },
+  "table": {
+    "sound": "音声",
+    "time": "時刻",
+    "species": "種",
+    "source": "音源",
+    "confidence": "信頼度",
+    "open_birdnet": "BirdNET-Go で開く",
+    "open_visual_match": "一致する映像検出を開く",
+    "unknown_source": "不明な音源",
+    "spectrogram_alt": "{species} の鳴き声のスペクトログラム"
+  },
+  "sources": {
+    "title": "音源",
+    "empty": "音源はまだありません。"
+  },
+  "not_shared_title": "音声は公開されていません",
+  "not_shared_body": "このインスタンスの所有者は訪問者向けの音声をオフにしています。"
+}

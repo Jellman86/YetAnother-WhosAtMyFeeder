@@ -1,0 +1,9 @@
+{
+  "title": "YA-WAMF {version} を利用できます",
+  "title_dev": "新しい開発ビルドを利用できます（{version}）",
+  "body": "現在 {current} を実行中です。更新するにはコンテナマネージャーから新しいイメージを取得してください。",
+  "release_notes": "リリースノート →",
+  "dismiss": "閉じる",
+  "sidebar_title": "更新があります: {version}",
+  "sidebar_label": "更新があります"
+}

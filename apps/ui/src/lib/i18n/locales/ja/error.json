@@ -1,0 +1,10 @@
+{
+  "boundary_title": "問題が発生しました",
+  "boundary_subtitle": "予期しないエラーが発生しました。もう一度お試しいただくか、問題が続く場合はサポートにご連絡ください。",
+  "show_details": "エラー詳細を表示",
+  "try_again": "もう一度試す",
+  "copy_details": "エラー詳細をコピー",
+  "copied": "コピーしました",
+  "reload_page": "ページを再読み込み",
+  "deploy_refresh_required": "このタブを開いている間に YA-WAMF が更新されました。ページを再読み込みして最新のビルドを適用してください。"
+}

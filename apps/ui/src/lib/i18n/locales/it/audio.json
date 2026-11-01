@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "Ascoltate",
+    "daily_title": "Attività nel tempo",
+    "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno",
+    "hourly_title": "Ora del giorno",
+    "species_title": "Distribuzione delle specie",
+    "empty": "Nessuna attività in questo periodo."
+  },
+  "stat": {
+    "heard": "Ascoltate",
+    "heard_sub": "Rilevamenti BirdNET visualizzati",
+    "species": "Specie",
+    "species_sub": "Specie identificate dall'audio",
+    "peak_hour": "Ora di punta",
+    "peak_hour_sub": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
+    "no_activity": "Nessuna attività per ora",
+    "sources": "Fonti",
+    "sources_sub": "Microfoni o flussi"
+  },
+  "filter": {
+    "window": "Periodo",
+    "24h": "24 ore",
+    "7d": "7 giorni",
+    "30d": "30 giorni",
+    "90d": "90 giorni",
+    "1y": "1 anno",
+    "species": "Specie",
+    "source": "Fonte",
+    "min_confidence": "Confidenza minima",
+    "changed": "Filtri modificati. Applica per aggiornare l’elenco."
+  },
+  "top_species": "Specie più ascoltate",
+  "card": {
+    "last_heard": "Ultimo ascolto",
+    "avg": "media",
+    "max": "max"
+  },
+  "history": {
+    "title": "Cronologia rilevamenti",
+    "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
+    "empty": "Nessun rilevamento BirdNET corrisponde a questi filtri.",
+    "showing": "Visualizzati {from}-{to} di {total}",
+    "hide": "Nascondi localmente",
+    "undo": "Annulla",
+    "hidden_message": "Rilevamento audio nascosto.",
+    "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente."
+  },
+  "table": {
+    "sound": "Suono",
+    "time": "Ora",
+    "species": "Specie",
+    "source": "Fonte",
+    "confidence": "Confidenza",
+    "open_birdnet": "Apri in BirdNET-Go",
+    "open_visual_match": "Apri il rilevamento visivo corrispondente",
+    "unknown_source": "Fonte sconosciuta",
+    "spectrogram_alt": "Spettrogramma del richiamo di {species}"
+  },
+  "sources": {
+    "title": "Fonti",
+    "empty": "Ancora nessuna fonte."
+  },
+  "not_shared_title": "L'audio non è condiviso pubblicamente",
+  "not_shared_body": "Il proprietario di questa istanza ha disattivato l'audio per i visitatori."
+}
