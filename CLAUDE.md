@@ -196,7 +196,11 @@ A change is done when **all** of these hold:
 4. Schema changes have a reversible migration, a single Alembic head, and re-running
    them is a no-op (§3).
 5. The safety/data-integrity model (§1) is intact or strengthened — never weakened.
-6. `CHANGELOG.md` (Unreleased section) records the change.
+6. The change is recorded for the next release: one fragment under
+   [`changelog.d/`](changelog.d/README.md), named after the issue or branch and in
+   the same human-first voice as `CHANGELOG.md`. Do not edit `## [Unreleased]`
+   directly; parallel branches conflict there. The release folds fragments into
+   `CHANGELOG.md` (see [`docs/development/releasing.md`](docs/development/releasing.md)).
 7. Documentation is updated when behaviour, settings, API, or UI labels change
    (`docs/`, `README.md`, and `docs/api.md` for endpoints).
 8. Code is self-documenting and matches surrounding style (§4).
