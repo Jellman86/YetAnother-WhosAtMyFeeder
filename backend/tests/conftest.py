@@ -1,13 +1,31 @@
-"""Pytest configuration and fixtures for all tests."""
+"""Pytest configuration and fixtures for all tests.
+
+Tests under `tests/pure/` exercise decision logic only. They get the private
+paths every test gets, but no migrated database, and `tests/pure/conftest.py`
+overrides the application-state fixtures below with no-ops, so running them
+alone neither migrates a schema nor imports the FastAPI app. Every other test
+runs against the application and gets both.
+"""
 
 import os
-import tempfile
-import pytest
-import pytest_asyncio
+import shutil
+import sqlite3
+import subprocess
 import sys
+import tempfile
+from contextlib import closing
 from pathlib import Path
 
+import pytest
+import pytest_asyncio
+
 from tests.model_fixture_support import group_model_cases
+from tests.pure_lane import PURE_ONLY_SESSION, is_pure_test
+
+BACKEND_DIR = Path(__file__).parent.parent.resolve()
+
+_suite_dir: Path | None = None
+_history_template: Path | None = None
 
 
 def pytest_collection_modifyitems(items):
@@ -53,53 +71,40 @@ def _make_aiosqlite_threads_daemon() -> None:
 
 
 def pytest_configure(config):
-    """
-    Configure pytest environment BEFORE test collection.
-    This runs before any modules are imported, allowing us to set
-    environment variables that affect module-level code.
-    """
+    """Point every path the application reads at a private directory before any test module imports it."""
+    global _suite_dir
     _make_aiosqlite_threads_daemon()
 
-    # Create a temporary directory for test data
-    temp_dir = tempfile.mkdtemp(prefix="yawamf_test_")
+    _suite_dir = Path(tempfile.mkdtemp(prefix="yawamf_test_"))
+    os.environ["MEDIA_CACHE_DIR"] = str(_suite_dir / "media_cache")
+    os.environ["DATA_DIR"] = str(_suite_dir / "data")
+    os.environ["CONFIG_DIR"] = str(_suite_dir / "config")
+    os.environ["CONFIG_FILE"] = str(_suite_dir / "config" / "config.json")
+    os.environ["DB_PATH"] = str(_suite_dir / "test_speciesid.db")
+    for directory in ("MEDIA_CACHE_DIR", "DATA_DIR", "CONFIG_DIR"):
+        Path(os.environ[directory]).mkdir(parents=True, exist_ok=True)
 
-    # Set environment variables to use temp directory instead of /config
-    os.environ["MEDIA_CACHE_DIR"] = os.path.join(temp_dir, "media_cache")
-    os.environ["DATA_DIR"] = os.path.join(temp_dir, "data")
-    os.environ["CONFIG_DIR"] = os.path.join(temp_dir, "config")
-    os.environ["CONFIG_FILE"] = os.path.join(temp_dir, "config", "config.json")
+    # Alembic's env.py imports `app`, so the backend must be importable.
+    if str(BACKEND_DIR) not in sys.path:
+        sys.path.insert(0, str(BACKEND_DIR))
 
-    # Create necessary directories
-    Path(os.environ["MEDIA_CACHE_DIR"]).mkdir(parents=True, exist_ok=True)
-    Path(os.environ["DATA_DIR"]).mkdir(parents=True, exist_ok=True)
-    Path(os.environ["CONFIG_DIR"]).mkdir(parents=True, exist_ok=True)
 
-    # Set test database to use temp directory
-    db_path = os.path.join(temp_dir, "test_speciesid.db")
-    os.environ["DB_PATH"] = db_path
+def pytest_collection_finish(session):
+    """Migrate the suite database once, and only when a collected test runs against the application."""
+    pure_only = bool(session.items) and all(is_pure_test(item.path) for item in session.items)
+    session.config.stash[PURE_ONLY_SESSION] = pure_only
+    if session.config.option.collectonly or pure_only or not session.items:
+        return
+    _migrate_suite_database()
 
-    # Initialize test database schema using Alembic
-    backend_dir = Path(__file__).parent.parent.resolve()
 
-    # We must ensure the backend_dir is in sys.path so alembic's env.py can find 'app'
-    if str(backend_dir) not in sys.path:
-        sys.path.insert(0, str(backend_dir))
-
-    print(f"\nInitializing test database schema at {db_path}...")
-
-    # Use synchronous subprocess to run alembic upgrade
-    import subprocess
-
-    env = os.environ.copy()
-    env["PYTHONPATH"] = str(backend_dir)
-    env["DB_PATH"] = db_path
-
-    # Alembic usually looks for 'alembic.ini' in the current dir.
-    # We'll run it from backend_dir.
+def _migrate_suite_database() -> None:
+    global _history_template
+    db_path = Path(os.environ["DB_PATH"])
     result = subprocess.run(
         [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=str(backend_dir),
-        env=env,
+        cwd=str(BACKEND_DIR),
+        env={**os.environ, "PYTHONPATH": str(BACKEND_DIR), "DB_PATH": str(db_path)},
         capture_output=True,
         text=True,
     )
@@ -116,12 +121,31 @@ def pytest_configure(config):
             "'<revision> 2.py', is sitting in migrations/versions. Those are "
             "git-ignored but Alembic still reads them off disk."
         )
-    print("Test database schema initialized successfully")
-
-    # Flag to tell app.database.init_db to skip migrations if already done
+    # Taken before any test writes, so every copy starts from the same empty schema at head.
+    _history_template = db_path.with_name("history_schema_at_head.db")
+    with closing(sqlite3.connect(db_path)) as source, closing(sqlite3.connect(_history_template)) as target:
+        source.backup(target)
+    # Tells app.database.init_db that the schema is already at head.
     os.environ["YA_WAMF_TEST_DB_INITIALIZED"] = "1"
 
-    # Cleanup is handled by tempfile when process exits
+
+def pytest_unconfigure(config):
+    if _suite_dir is not None:
+        shutil.rmtree(_suite_dir, ignore_errors=True)
+
+
+@pytest.fixture
+def migrated_history_db(tmp_path) -> Path:
+    """A private history database at the head revision, copied rather than migrated again.
+
+    For tests that inspect the schema or seed their own rows. Tests about a
+    migration itself must still run the real upgrade and downgrade chain.
+    """
+    if _history_template is None:
+        pytest.fail("The suite database was not migrated; pure tests cannot use a history database.")
+    path = tmp_path / "speciesid.db"
+    shutil.copyfile(_history_template, path)
+    return path
 
 
 @pytest.fixture(autouse=True)
