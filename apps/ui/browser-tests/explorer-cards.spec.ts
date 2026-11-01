@@ -11,7 +11,8 @@ function record(id: string, at: string) {
     };
 }
 
-async function openExplorer(page: Page, query = '') {
+/** `other` answers any further path with JSON, or returns undefined for the quiet default. */
+async function openExplorer(page: Page, query = '', other?: (path: string, method: string) => unknown) {
     const errors: string[] = [];
     page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
     const visitAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -24,6 +25,8 @@ async function openExplorer(page: Page, query = '') {
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const path = new URL(route.request().url()).pathname;
+        const answer = other?.(path, route.request().method());
+        if (answer !== undefined) return route.fulfill({ json: answer });
         if (path === '/api/events') return route.fulfill({ json: [record('first', visitAt), record('single', singleAt)] });
         if (path === '/api/visits') return route.fulfill({ json: { total: 2, gap_seconds: 60, visits: [visit('first', visitAt, 3), visit('single', singleAt, 1)] } });
         if (path === '/api/visits/first/captures') {
@@ -168,3 +171,40 @@ for (const theme of ['light', 'dark']) {
         expect(errors).toEqual([]);
     });
 }
+
+test('favouriting a capture opened from its visit marks that capture in the visit\'s list', async ({ page }) => {
+    const favourites = new Set<string>();
+    const errors = await openExplorer(page, '', (path, method) => {
+        const favourite = /^\/api\/events\/([^/]+)\/favorite$/.exec(path);
+        if (favourite && method === 'POST') {
+            favourites.add(decodeURIComponent(favourite[1]));
+            return { status: 'favorited', archive_state: 'pending' };
+        }
+        // The server's own answer after the change, if the list reads it again.
+        if (path === '/api/visits/first/captures') {
+            return { total: 3, captures: ['first', 'first-1', 'first-2'].map(id => ({ ...record(id, new Date(Date.now() - 60 * 60 * 1000).toISOString()), is_favorite: favourites.has(id) })) };
+        }
+        if (path.startsWith('/api/audio/context/')) return [];
+        if (path.endsWith('/snapshot/candidates')) return { candidates: [], birds: [], current_source: 'frigate_snapshot' };
+        return undefined;
+    });
+    const item = page.locator('[data-explorer-visit="first"]');
+    const toggle = item.locator('[data-visit-captures-toggle]');
+    await toggle.click();
+    const row = item.locator('[data-visit-capture="first-1"]');
+    await expect(row).toBeVisible();
+    await expect(row).not.toContainText('Favorited');
+
+    await row.getByRole('button', { name: /^Open Dunnock capture at/ }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Add favorite', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: 'Remove favorite', exact: true })).toBeVisible();
+    expect([...favourites]).toEqual(['first-1']);
+    await dialog.locator('[data-detection-modal-close]').click();
+    await expect(dialog).toHaveCount(0);
+
+    await toggle.click();
+    await expect(row).toContainText('Favorited');
+    await expect(item.locator('[data-visit-capture="first-2"]')).not.toContainText('Favorited');
+    expect(errors).toEqual([]);
+});
