@@ -50,6 +50,12 @@ from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.frigate_coordinates import normalized_frigate_video_hint, restore_frigate_hint_box
+from app.utils.frigate_track import (
+    box_at_path_point,
+    compact_frigate_path_data,
+    frigate_path_points,
+    nearest_path_point,
+)
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
@@ -2015,21 +2021,7 @@ class HighQualitySnapshotService:
             return None
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
-        path_points: list[tuple[float, float, float]] = []
-        for item in payload.get("path_data") or []:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
+        path_points = frigate_path_points(payload.get("path_data"))
         if not path_points:
             return None
         try:
@@ -2039,12 +2031,10 @@ class HighQualitySnapshotService:
             return None
         if not math.isfinite(start_time) or not math.isfinite(offset) or offset < 0.0:
             return None
-        target_timestamp = start_time + offset
-        point_timestamp, bottom_center_x, bottom_y = min(
-            path_points,
-            key=lambda item: abs(item[0] - target_timestamp),
+        nearest = nearest_path_point(
+            path_points, start_time + offset, max_distance_seconds=HQ_PATH_HINT_MAX_DISTANCE_SECONDS
         )
-        if abs(point_timestamp - target_timestamp) > HQ_PATH_HINT_MAX_DISTANCE_SECONDS:
+        if nearest is None:
             return None
 
         raw_box = payload.get("box")
@@ -2057,11 +2047,8 @@ class HighQualitySnapshotService:
         if width > 1.0 or height > 1.0:
             return None
 
-        # Frigate path_data stores the tracked box's bottom-centre point.
-        left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
-        top = max(0.0, min(1.0 - height, bottom_y - height))
         adjusted_payload = dict(payload)
-        adjusted_payload["box"] = [left, top, width, height]
+        adjusted_payload["box"] = box_at_path_point(nearest, width=width, height=height)
         adjusted_event = dict(event_data)
         adjusted_event["data"] = adjusted_payload
         return adjusted_event
@@ -2869,12 +2856,7 @@ class HighQualitySnapshotService:
                 payload[key] = list(raw_hint)
         raw_path_data = raw_payload.get("path_data")
         if isinstance(raw_path_data, list):
-            path_data = []
-            for item in raw_path_data[:50]:
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    point, timestamp = item[0], item[1]
-                    if isinstance(point, (list, tuple)) and len(point) >= 2:
-                        path_data.append([list(point[:2]), timestamp])
+            path_data = compact_frigate_path_data(raw_path_data, limit=50)
             if path_data:
                 payload["path_data"] = path_data
 
@@ -3436,21 +3418,7 @@ class HighQualitySnapshotService:
 
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
-        path_points: list[tuple[float, float, float]] = []
-        for item in payload.get("path_data") or []:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if math.isfinite(x) and math.isfinite(y) and math.isfinite(timestamp):
-                path_points.append((timestamp, x, y))
+        path_points = frigate_path_points(payload.get("path_data"), within_frame=False)
         if not path_points:
             return []
 
