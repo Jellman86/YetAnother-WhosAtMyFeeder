@@ -11,6 +11,7 @@ from app.config import Settings, settings
 from app.main import app
 from app.routers import settings as settings_router
 from app.routers import backfill as backfill_router
+from app.services.settings_update import publish_settings
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.ai_service import AIConnectionTestResult
 
@@ -88,6 +89,210 @@ async def test_rejected_settings_update_preserves_memory_and_file(
         save.assert_not_awaited()
         broadcast.assert_not_awaited()
         heartbeat.assert_not_awaited()
+    finally:
+        for field in Settings.model_fields:
+            setattr(settings, field, getattr(snapshot, field))
+
+
+@pytest.mark.asyncio
+async def test_failed_settings_save_preserves_live_references_file_and_side_effects(monkeypatch, tmp_path):
+    from fastapi import BackgroundTasks
+    from app.auth import AuthContext, AuthLevel
+
+    from app.services import settings_update
+
+    monkeypatch.setattr(settings_update, "settings_update_lock", asyncio.Lock())
+    snapshot = settings.model_copy(deep=True)
+    path = tmp_path / "config.json"
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    settings.public_access.enabled = False
+    await settings.save()
+    before = settings.model_dump(mode="json")
+    saved_before = path.read_bytes()
+    public = settings.public_access
+    telegram = settings.notifications.telegram
+    broadcast = AsyncMock()
+    monkeypatch.setattr("app.services.broadcaster.broadcaster.broadcast", broadcast)
+    monkeypatch.setattr(Settings, "save", AsyncMock(side_effect=OSError("disk full")))
+    tasks = BackgroundTasks()
+    try:
+        with pytest.raises(OSError, match="disk full"):
+            await settings_router.update_settings(
+                settings_router.SettingsUpdate(public_access_enabled=True, telemetry_enabled=True),
+                tasks,
+                AuthContext(auth_level=AuthLevel.OWNER, username="test"),
+            )
+        assert settings.model_dump(mode="json") == before
+        assert path.read_bytes() == saved_before
+        assert settings.public_access is public
+        assert settings.notifications.telegram is telegram
+        assert tasks.tasks == []
+        broadcast.assert_not_awaited()
+    finally:
+        for field in Settings.model_fields:
+            setattr(settings, field, getattr(snapshot, field))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fail_first", [False, True])
+async def test_settings_writers_serialize_candidate_creation_and_publish_after_save(monkeypatch, tmp_path, fail_first):
+    from fastapi import BackgroundTasks
+    from app.auth import AuthContext, AuthLevel
+
+    from app.services import settings_update
+
+    monkeypatch.setattr(settings_update, "settings_update_lock", asyncio.Lock())
+    snapshot = settings.model_copy(deep=True)
+    path = tmp_path / "config.json"
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    settings.public_access.enabled = False
+    settings.appearance.color_theme = "default"
+    await settings.save()
+    before = settings.model_dump(mode="json")
+    saved_before = path.read_bytes()
+    public = settings.public_access
+    telegram = settings.notifications.telegram
+    entered = asyncio.Event()
+    release = asyncio.Event()
+    second_started = asyncio.Event()
+    original_save = Settings.save
+    saved = []
+
+    async def controlled_save(candidate):
+        saved.append(candidate.model_dump(mode="json"))
+        if len(saved) == 1:
+            entered.set()
+            await release.wait()
+            if fail_first:
+                raise OSError("disk full")
+        await original_save(candidate)
+
+    monkeypatch.setattr(Settings, "save", controlled_save)
+    broadcasts = []
+
+    async def broadcast(_event):
+        assert json.loads(path.read_text()) == settings.model_dump(mode="json")
+        broadcasts.append(settings.model_dump(mode="json"))
+
+    monkeypatch.setattr("app.services.broadcaster.broadcaster.broadcast", broadcast)
+    auth = AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    first = asyncio.create_task(
+        settings_router.update_settings(
+            settings_router.SettingsUpdate(public_access_enabled=True), BackgroundTasks(), auth
+        )
+    )
+
+    async def second_update():
+        second_started.set()
+        return await settings_router.update_settings(
+            settings_router.SettingsUpdate(appearance_color_theme="bluetit"), BackgroundTasks(), auth
+        )
+
+    second = None
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        second = asyncio.create_task(second_update())
+        await asyncio.wait_for(second_started.wait(), 5)
+        assert settings.model_dump(mode="json") == before
+        assert path.read_bytes() == saved_before
+        assert len(saved) == 1
+        release.set()
+        results = await asyncio.wait_for(asyncio.gather(first, second, return_exceptions=True), 5)
+        assert isinstance(results[0], OSError) if fail_first else results[0].status == "updated"
+        assert results[1].status == "updated"
+        assert len(saved) == 2
+        assert saved[0]["public_access"]["enabled"] is True
+        assert saved[1]["public_access"]["enabled"] is not fail_first
+        assert settings.public_access.enabled is not fail_first
+        assert settings.appearance.color_theme == "bluetit"
+        assert json.loads(path.read_text()) == settings.model_dump(mode="json")
+        assert len(broadcasts) == (1 if fail_first else 2)
+        assert settings.public_access is public
+        assert settings.notifications.telegram is telegram
+    finally:
+        release.set()
+        await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+        for field in Settings.model_fields:
+            setattr(settings, field, getattr(snapshot, field))
+
+
+@pytest.mark.asyncio
+async def test_cancelled_settings_writer_finishes_persistence_before_next_writer(monkeypatch, tmp_path):
+    from fastapi import BackgroundTasks
+    from app.auth import AuthContext, AuthLevel
+    from app.services import settings_update
+
+    monkeypatch.setattr(settings_update, "settings_update_lock", asyncio.Lock())
+    snapshot = settings.model_copy(deep=True)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.json")
+    entered, release, cancelled = asyncio.Event(), asyncio.Event(), asyncio.Event()
+    original_save = Settings.save
+    saves = 0
+
+    async def controlled_save(candidate):
+        nonlocal saves
+        saves += 1
+        if saves == 1:
+            entered.set()
+            await release.wait()
+        await original_save(candidate)
+
+    monkeypatch.setattr(Settings, "save", controlled_save)
+    auth = AuthContext(auth_level=AuthLevel.OWNER, username="test")
+
+    async def update(patch):
+        try:
+            return await settings_router.update_settings(patch, BackgroundTasks(), auth)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    first = asyncio.create_task(update(settings_router.SettingsUpdate(public_access_enabled=True)))
+    second = None
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        first.cancel()
+        second = asyncio.create_task(update(settings_router.SettingsUpdate(appearance_font_theme="classic")))
+        release.set()
+        results = await asyncio.wait_for(asyncio.gather(first, second, return_exceptions=True), 5)
+        assert isinstance(results[0], asyncio.CancelledError)
+        assert cancelled.is_set()
+        assert saves == 2
+        assert settings.public_access.enabled is True
+        assert json.loads(config_module.CONFIG_PATH.read_text()) == settings.model_dump(mode="json")
+    finally:
+        release.set()
+        await asyncio.gather(first, *([second] if second else []), return_exceptions=True)
+        for field in Settings.model_fields:
+            setattr(settings, field, getattr(snapshot, field))
+
+
+@pytest.mark.asyncio
+async def test_failed_settings_import_preserves_memory_and_file(monkeypatch, tmp_path):
+    from fastapi import BackgroundTasks
+    from app.auth import AuthContext, AuthLevel
+    from app.services import settings_update
+
+    monkeypatch.setattr(settings_update, "settings_update_lock", asyncio.Lock())
+    snapshot = settings.model_copy(deep=True)
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.json")
+    await settings.save()
+    saved_before = config_module.CONFIG_PATH.read_bytes()
+    payload = settings_router._config_backup_payload()
+    payload["config"]["public_access"]["enabled"] = not settings.public_access.enabled
+    monkeypatch.setattr(Settings, "save", AsyncMock(side_effect=OSError("disk full")))
+    broadcast = AsyncMock()
+    monkeypatch.setattr("app.services.broadcaster.broadcaster.broadcast", broadcast)
+    tasks = BackgroundTasks()
+    try:
+        with pytest.raises(OSError, match="disk full"):
+            await settings_router.import_settings(
+                tasks, payload, AuthContext(auth_level=AuthLevel.OWNER, username="test")
+            )
+        assert settings.model_dump() == snapshot.model_dump()
+        assert config_module.CONFIG_PATH.read_bytes() == saved_before
+        assert tasks.tasks == []
+        broadcast.assert_not_awaited()
     finally:
         for field in Settings.model_fields:
             setattr(settings, field, getattr(snapshot, field))
@@ -405,7 +610,7 @@ async def test_settings_import_replaces_config_and_persists(
         assert settings.llm.api_key == "imported-llm-secret"
         assert settings.maintenance.retention_days == 14
     finally:
-        settings_router._apply_imported_settings(snapshot)
+        publish_settings(settings, snapshot)
 
 
 @pytest.mark.asyncio
@@ -1776,7 +1981,7 @@ async def test_settings_import_keeps_this_installations_session_and_token_keys(
         assert settings.auth.oauth_token_secret == "current-oauth-key"
         assert settings.maintenance.retention_days == 21
     finally:
-        settings_router._apply_imported_settings(snapshot)
+        publish_settings(settings, snapshot)
 
 
 @pytest.mark.asyncio
@@ -1814,7 +2019,7 @@ async def test_settings_import_reloads_the_classifier_like_a_save_does(
         assert response.status_code == 200, response.text
         reload.assert_awaited_once_with(full_restart=full_restart)
     finally:
-        settings_router._apply_imported_settings(snapshot)
+        publish_settings(settings, snapshot)
 
 
 @pytest.mark.asyncio
@@ -1840,7 +2045,7 @@ async def test_settings_import_that_opts_out_of_telemetry_forgets_the_installati
         assert response.status_code == 200, response.text
         forget.assert_awaited_once_with("install-123")
     finally:
-        settings_router._apply_imported_settings(snapshot)
+        publish_settings(settings, snapshot)
 
 
 @pytest.mark.asyncio

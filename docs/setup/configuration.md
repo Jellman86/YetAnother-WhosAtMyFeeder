@@ -481,3 +481,11 @@ for eligibility, photos, privacy and delivery status.
 
 Environment overrides take precedence on restart. Without overrides, the Garden
 notification choices persist in `/config/config.json`.
+
+## Saving settings safely
+
+**Apply Settings** and configuration backup imports save a private candidate before
+publishing it to the running application. A rejected request or failed file write
+leaves the active settings unchanged and schedules no worker reload or settings
+notification. Concurrent settings saves and imports run in order; a partial update
+starts from the last successfully saved configuration.
