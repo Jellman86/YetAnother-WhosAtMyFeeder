@@ -17,6 +17,7 @@ import time
 import pytest
 from PIL import Image
 
+from app.services.inference.provider_policy import InferenceSelection
 from app.services.classifier_supervisor import (
     ClassifierSupervisor,
     ClassifierWorkerCircuitOpenError,
@@ -452,8 +453,10 @@ def _subprocess_service(monkeypatch, *, planned_backend="openvino", planned_prov
     }
     monkeypatch.setattr(
         module,
-        "_resolve_inference_selection",
-        lambda *_a, **_k: {"backend": planned_backend, "active_provider": planned_provider, "fallback_reason": None},
+        "resolve_inference_selection",
+        lambda *_a, **_k: InferenceSelection(
+            requested_provider="auto", active_provider=planned_provider, backend=planned_backend
+        ),
     )
     return service
 
