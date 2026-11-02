@@ -7,5 +7,6 @@
 - **Garden animals count in their tree.** Confirmed Garden visits show on the animal's species and
   groups, with your saved crop as its photograph.
 - **Every fact says when it is loading, missing or failed,** with **Try again** for a failed one,
-  and a species never seen says "No visits recorded". The card no longer covers the name it
-  describes, and a pinned card can be reached with Tab and closed with Escape.
+  and a species never seen says "No visits recorded". The card stays inside the family tree and
+  never covers the name it describes, fades at its foot when there is more to scroll, and a pinned
+  card can be reached with Tab and closed with Escape.

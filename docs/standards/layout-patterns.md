@@ -327,9 +327,13 @@ taxon per page: a species by its scientific name as the hint, so a mammal is not
 birds, and a family or order by its name and rank, which the route describes only from the taxon of
 that exact name and rank and caches apart from species. A genus is never described, because genus
 names repeat across kingdoms. Every fact has its own loading, absent and failed state; a failed one
-offers Try again, and one that is not known is left out. The card never covers the name it describes:
-below it, else above, else beside it on the roomier side, else on the roomier side with its own
-scroll. A pinned card takes Tab into its controls; Tab past them, or Escape, hands focus back to the
+offers Try again, and one that is not known is left out. The card stays inside the dialog its name sits in (the family
+tree, a record), else the window, and never covers the name it describes: below it, else above, else
+beside it on the roomier side, else on the roomier side with its own scroll (`taxonomy/card-placement.ts`).
+A card that scrolls inside fades into the surface at its foot until its end, so cut-off text never
+reads as the whole card. Garden animals are named as the Garden record names them: the taxonomy
+routes case SpeciesNet's lowercase names with the same `vernacular_case` the Field log and Explorer
+use, and scientific names are never re-cased. A pinned card takes Tab into its controls; Tab past them, or Escape, hands focus back to the
 name without reopening the card. Selecting a species, which has nothing to open, pins its card; the
 species details show the same ladder. The tree is a ranked classification, and the footer says so: it
 shows grouping, not divergence.

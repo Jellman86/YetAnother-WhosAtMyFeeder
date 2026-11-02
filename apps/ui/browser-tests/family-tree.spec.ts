@@ -33,19 +33,20 @@ const families = [
 const genera = [lineage[6]];
 const species = [t(51, 'species', 'Prunella collaris', 'Alpine Accentor', 40, 1), lineage[7], t(52, 'species', 'Prunella montanella', 'Siberian Accentor', 40, 1)];
 const columbidae = [t(60, 'family', 'Columbidae', 'Pigeons, Doves', 22, 350, 1, 3)];
-// A Garden animal's lineage, as SpeciesNet's catalogue holds it: its sizes are the model's, not the world's.
+// A Garden animal's lineage, as the lineage route returns it: SpeciesNet stores "red fox", and the
+// route cases it as the Garden record does. Its sizes are the model's, not the world's.
 const animalLineage = [
     t(1, 'kingdom', 'Animalia', null, null, 3539, 2, 31),
     t(2, 'phylum', 'Chordata', null, 1, 3539, 2, 31),
-    t(70, 'class', 'Mammalia', 'mammals', 2, 600, 2, 31),
-    t(71, 'order', 'Carnivora', 'carnivores', 70, 120, 1, 27),
-    t(72, 'family', 'Canidae', 'dog family', 71, 20, 1, 27),
+    t(70, 'class', 'Mammalia', 'Mammal', 2, 600, 2, 31),
+    t(71, 'order', 'Carnivora', 'Carnivorous Mammal', 70, 120, 1, 27),
+    t(72, 'family', 'Canidae', 'Canine Family', 71, 20, 1, 27),
     t(73, 'genus', 'Vulpes', null, 72, 6, 1, 27),
-    t(74, 'species', 'Vulpes vulpes', 'red fox', 73, 1, 1, 27)
+    t(74, 'species', 'Vulpes vulpes', 'Red Fox', 73, 1, 1, 27)
 ];
 const children: Record<number, Taxon[]> = {
     10: orders, 20: families, 30: genera, 40: species, 22: columbidae, 60: [],
-    70: [animalLineage[3], t(75, 'order', 'Rodentia', 'rodents', 70, 200)], 71: [animalLineage[4]], 72: [animalLineage[5]], 73: [animalLineage[6]]
+    70: [animalLineage[3], t(75, 'order', 'Rodentia', 'Rodent', 70, 200)], 71: [animalLineage[4]], 72: [animalLineage[5]], 73: [animalLineage[6]]
 };
 
 type Photo = { url: string; kind: 'camera' | 'garden'; species_id: number; scientific_name: string; name: string | null; taken_at: string };
@@ -62,7 +63,7 @@ const FIRST = '2025-03-14T09:12:00Z';
 const LAST = '2026-11-02T08:41:00Z';
 const OWN = '/api/about/showcase/1793633976.87781-2kuz0c.jpg';
 const OWN_DUNNOCK: Photo = { url: OWN, kind: 'camera', species_id: 50, scientific_name: 'Prunella modularis', name: 'Dunnock', taken_at: LAST };
-const FOX_CROP: Photo = { url: `/api/garden/${'a'.repeat(32)}/crop`, kind: 'garden', species_id: 74, scientific_name: 'Vulpes vulpes', name: 'red fox', taken_at: LAST };
+const FOX_CROP: Photo = { url: `/api/garden/${'a'.repeat(32)}/crop`, kind: 'garden', species_id: 74, scientific_name: 'Vulpes vulpes', name: 'Red Fox', taken_at: LAST };
 /** What the facts route says by default: visits and calls, and no photograph of this install's own. */
 function defaultFacts(): Record<number, Facts> {
     const found: Record<number, Facts> = {};
@@ -78,6 +79,8 @@ function defaultFacts(): Record<number, Facts> {
     found[75] = unseen(75, 'order');
     return found;
 }
+// Long enough to need the card's three-line clamp at any width.
+const FOX_SUMMARY = 'The red fox is the largest of the true foxes and one of the most widely distributed members of the order Carnivora, present across the entire Northern Hemisphere including most of North America, Europe and Asia, plus parts of North Africa. It is listed as least concern.';
 const NAMES = [
     { language: 'fr', name: 'Accenteur mouchet', preferred: true },
     { language: 'fr', name: 'Mouchet', preferred: false },
@@ -117,7 +120,8 @@ async function prepare(page: Page, path = '/browser-tests/family-tree.html', fam
             if (rank) return route.fulfill({ json: { title: name, scientific_name: name, extract: `The ${name} family summary.`, summary_source: 'iNaturalist', thumbnail_url: REFERENCE } });
             return route.fulfill({ json: {
                 title: name, scientific_name: name, thumbnail_url: name === 'Prunella modularis' ? REFERENCE : null, source: 'Wikipedia',
-                extract: name === 'Prunella modularis' ? 'The dunnock is a small passerine.' : null, summary_source: 'Wikipedia',
+                extract: name === 'Prunella modularis' ? 'The dunnock is a small passerine.' : name === 'Vulpes vulpes' ? FOX_SUMMARY : null,
+                summary_source: 'Wikipedia',
                 conservation_status: options.conservation === undefined ? 'LC' : options.conservation
             } });
         }
@@ -477,8 +481,11 @@ test('a node in the tree opens its card on hover, with the group size and what w
 
 test('a Garden animal gets the same tree with its own Garden visits and no worldwide counts', async ({ page }) => {
     const { errors } = await prepare(page, '/browser-tests/family-tree.html?name=Vulpes%20vulpes&subject=animal', undefined, false, {
-        facts: { ...defaultFacts(), 74: { ...defaultFacts()[74], photo: FOX_CROP } }
+        facts: { ...defaultFacts(), 72: { ...defaultFacts()[72], photo: FOX_CROP }, 74: { ...defaultFacts()[74], photo: FOX_CROP } }
     });
+    // The animal is named as the Garden record names it, in the ladder, the tree, its card and a group's caption.
+    await expect(page.locator('[data-taxonomy-ladder] li[data-taxon-rank="species"] [data-taxon-name="common"]')).toHaveText('Red Fox');
+    await expect(page.locator('[data-taxonomy-ladder] li[data-taxon-rank="species"] [data-taxon-name="scientific"]')).toHaveText('Vulpes vulpes');
     // SpeciesNet's group sizes are the model's, so the record makes no worldwide claim.
     await expect(page.locator('[data-taxonomy-lineage-context]')).toHaveCount(0);
     await page.locator('[data-taxonomy-ladder] li[data-taxon-rank="family"] button').hover();
@@ -492,13 +499,21 @@ test('a Garden animal gets the same tree with its own Garden visits and no world
     await expect(legend).toContainText('Seen here');
     await expect(legend).not.toContainText('at this feeder');
     const svg = page.locator('[data-family-tree-svg="tree"]');
-    await expect(svg.getByRole('treeitem', { name: /red fox, Vulpes vulpes, Species, 27 visits, this animal$/ })).toHaveCount(1);
-    await expect(svg.getByRole('treeitem', { name: /dog family, Canidae, Family, 1 seen here$/ })).toHaveCount(1);
+    await expect(page.getByRole('dialog', { name: 'Family tree of Red Fox' })).toBeVisible();
+    await expect(svg.getByRole('treeitem', { name: /Red Fox, Vulpes vulpes, Species, 27 visits, this animal$/ })).toHaveCount(1);
+    await expect(svg.getByRole('treeitem', { name: /Canine Family, Canidae, Family, 1 seen here$/ })).toHaveCount(1);
+    await expect(svg.locator('[data-family-tree-node="72"] [data-family-tree-label]')).toHaveText('Canine Family');
     // Its own Garden crop is the node's thumbnail and the card's photograph.
     await expect(svg.locator('[data-family-tree-node="74"] [data-family-tree-photo]')).toHaveAttribute('href', FOX_CROP.url);
     await svg.locator('[data-family-tree-node="74"]').hover();
+    await expect(card).toHaveAttribute('aria-label', 'Red Fox');
     await expect(card.locator('[data-taxon-card-own-picture]')).toHaveAttribute('src', FOX_CROP.url);
+    await expect(card.locator('[data-taxon-card-own-picture]')).toHaveAttribute('alt', 'Your photograph of Red Fox');
     await expect(card.locator('[data-fact="visits"]')).toHaveText('27');
+    await page.mouse.move(2, 2);
+    await expect(card).toHaveCount(0);
+    await svg.locator('[data-family-tree-node="72"]').hover();
+    await expect(card.locator('[data-taxon-card-caption]')).toHaveText('Your photo of Red Fox');
     await expect(page.locator('[data-family-tree] footer')).toContainText('SpeciesNet taxonomy');
     expect(errors).toEqual([]);
 });
@@ -640,4 +655,70 @@ test('facts that fail to load say so, and Try again reads them', async ({ page }
     await expect(card.locator('[data-taxon-card-facts-failed]')).toContainText('What was recorded here could not load.');
     await card.getByRole('button', { name: 'Try again' }).click();
     await expect(card.locator('[data-fact="visits"]')).toHaveText('41');
+});
+
+test('a card stays inside the family-tree dialog, even for a node near its foot', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 640 });
+    const facts = defaultFacts();
+    for (const id of [30, 50, 52]) facts[id] = { ...facts[id], ...seen(id, id === 30 ? 'family' : 'species', 41, 1, FIRST, LAST, 1203, OWN_DUNNOCK) };
+    await prepare(page, undefined, undefined, false, { facts });
+    await page.getByRole('button', { name: 'Open the family tree' }).click();
+    const svg = page.locator('[data-family-tree-svg="tree"]');
+    await page.mouse.move(2, 2);
+    await svg.locator('[data-family-tree-node="more:40"]').click();
+    await page.mouse.move(2, 2);
+    const dialog = await page.locator('[data-family-tree]').boundingBox();
+    const card = page.locator('[data-taxon-card]');
+    // The lowest species, the family, and the bird: each card inside the dialog, none over its own node.
+    for (const id of [52, 30, 50]) {
+        const node = svg.locator(`[data-family-tree-node="${id}"]`);
+        await node.hover();
+        await expect(card).toBeVisible();
+        await expect(card.locator('[data-fact="visits"]')).toBeVisible();
+        const [box, marker] = await Promise.all([card.boundingBox(), node.locator('[data-tree-anchor]').boundingBox()]);
+        expect(box && dialog && marker).toBeTruthy();
+        if (!box || !dialog || !marker) return;
+        expect(box.y).toBeGreaterThanOrEqual(dialog.y);
+        expect(box.y + box.height).toBeLessThanOrEqual(dialog.y + dialog.height);
+        expect(box.x).toBeGreaterThanOrEqual(dialog.x);
+        expect(box.x + box.width).toBeLessThanOrEqual(dialog.x + dialog.width);
+        const covers = box.x < marker.x + marker.width && marker.x < box.x + box.width && box.y < marker.y + marker.height && marker.y < box.y + box.height;
+        expect(covers).toBe(false);
+        await page.mouse.move(2, 2);
+        await expect(card).toHaveCount(0);
+    }
+});
+
+test('a card that scrolls inside fades at its foot until its end, where the description and source show whole', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 560 });
+    const facts = { ...defaultFacts(), 74: { ...defaultFacts()[74], photo: FOX_CROP } };
+    await prepare(page, '/browser-tests/family-tree.html?name=Vulpes%20vulpes&subject=animal', undefined, false, { facts });
+    await page.getByRole('button', { name: 'Open the family tree' }).click();
+    await page.mouse.move(2, 2);
+    const node = page.locator('[data-family-tree-outline] [data-family-tree-node="74"]');
+    await node.hover();
+    const card = page.locator('[data-taxon-card]');
+    await expect(card.locator('[data-taxon-card-description]')).toBeVisible();
+    const fade = card.locator('[data-taxon-card-more]');
+    await expect(fade).toBeVisible();
+    // The fade belongs to the surface, not the pointer: it never takes a click.
+    expect(await fade.evaluate((element) => getComputedStyle(element).pointerEvents)).toBe('none');
+    const scroller = card.locator('[data-taxon-card-scroll]');
+    await scroller.evaluate((element) => element.scrollTo({ top: element.scrollHeight }));
+    await expect(fade).toHaveCount(0);
+    const [view, text, source] = await Promise.all([
+        scroller.boundingBox(),
+        card.locator('[data-taxon-card-description] p').first().boundingBox(),
+        card.locator('[data-taxon-card-description-source]').boundingBox()
+    ]);
+    expect(view && text && source).toBeTruthy();
+    if (!view || !text || !source) return;
+    for (const box of [text, source]) {
+        expect(box.y).toBeGreaterThanOrEqual(view.y);
+        expect(box.y + box.height).toBeLessThanOrEqual(view.y + view.height);
+    }
+    // The description is still clamped to three lines.
+    const lines = await card.locator('[data-taxon-card-description] p').first().evaluate((element) =>
+        Math.round(element.getBoundingClientRect().height / parseFloat(getComputedStyle(element).lineHeight)));
+    expect(lines).toBeLessThanOrEqual(3);
 });
