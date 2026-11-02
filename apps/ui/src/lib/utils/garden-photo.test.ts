@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GardenCapture } from '../api/garden';
-import { gardenPhotoOutline, gardenPreviewStyle } from './garden-photo';
+import { gardenCapturePhoto, gardenPhotoOutline, gardenPreviewStyle } from './garden-photo';
 
 const capture: GardenCapture = {
     id: 'capture', camera: 'patio', frigate_label: 'animal', observed_at: '2026-10-13T18:00:00Z',
@@ -95,4 +95,30 @@ it('never shrinks a near-full-frame animal below a full-photo fit', () => {
     const style = gardenPreviewStyle(full, [1000, 500], 4 / 3);
     expect(style?.width).toBeCloseTo(100);
     expect(style?.height).toBeCloseTo(100 * (4 / 3) / 2);
+});
+
+describe('garden capture photo choice', () => {
+    const listed: GardenCapture = { ...capture, crop_url: '/api/garden/capture/crop' };
+    const authorise = (url: string): string => `${url}?token=t`;
+
+    it('prefers the saved crop, addressed with the reader auth', () => {
+        expect(gardenCapturePhoto(listed, new Set(), authorise)).toEqual({ src: '/api/garden/capture/crop?token=t', cropped: true });
+    });
+
+    it('uses the snapshot when no crop was saved', () => {
+        expect(gardenCapturePhoto({ ...listed, crop_url: null }, new Set(), authorise)).toEqual({
+            src: '/api/garden/capture/snapshot?token=t', cropped: false
+        });
+    });
+
+    it('falls back to the snapshot once the crop fails, then to nothing once that fails too', () => {
+        const cropFailed = new Set(['/api/garden/capture/crop?token=t']);
+        expect(gardenCapturePhoto(listed, cropFailed, authorise)?.src).toBe('/api/garden/capture/snapshot?token=t');
+        expect(gardenCapturePhoto(listed, new Set([...cropFailed, '/api/garden/capture/snapshot?token=t']), authorise)).toBeNull();
+    });
+
+    it('offers nothing when the server listed no media for this reader', () => {
+        // A visitor's copy carries no addresses for a photo the owner does not share.
+        expect(gardenCapturePhoto({ ...listed, crop_url: null, snapshot_url: null }, new Set(), authorise)).toBeNull();
+    });
 });
