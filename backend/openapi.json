@@ -21332,6 +21332,145 @@
         "title": "TaxonChildrenResponse",
         "type": "object"
       },
+      "TaxonFactsItem": {
+        "properties": {
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Seen"
+          },
+          "heard": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "BirdNET-Go detections at or beneath this taxon; null when audio is not shared with the reader",
+            "title": "Heard"
+          },
+          "last_heard": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Heard"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The most recent visit at or beneath this taxon",
+            "title": "Last Seen"
+          },
+          "photo": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaxonPhotoResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "This install's newest stored crop the reader may load; null when there is none"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "string"
+          },
+          "sources": {
+            "description": "Where the visits were recorded",
+            "items": {
+              "enum": [
+                "camera",
+                "garden"
+              ],
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "species_seen": {
+            "description": "Species at or beneath this taxon with a visit here",
+            "title": "Species Seen",
+            "type": "integer"
+          },
+          "taxon_id": {
+            "title": "Taxon Id",
+            "type": "integer"
+          },
+          "visits": {
+            "description": "Bird visits by the shared visit rule plus confirmed Garden visits; 0 when none",
+            "title": "Visits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "taxon_id",
+          "rank",
+          "visits",
+          "species_seen",
+          "sources"
+        ],
+        "title": "TaxonFactsItem",
+        "type": "object"
+      },
+      "TaxonFactsResponse": {
+        "properties": {
+          "facts": {
+            "description": "One entry per taxon asked for that the catalogue holds",
+            "items": {
+              "$ref": "#/components/schemas/TaxonFactsItem"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "scope": {
+            "description": "All history, or the window shared with visitors",
+            "enum": [
+              "all",
+              "shared"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "shared_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The shared window's length in days, for a visitor",
+            "title": "Shared Days"
+          }
+        },
+        "required": [
+          "scope",
+          "facts"
+        ],
+        "title": "TaxonFactsResponse",
+        "type": "object"
+      },
       "TaxonLineageResponse": {
         "properties": {
           "lineage": {
@@ -21349,8 +21488,129 @@
         "title": "TaxonLineageResponse",
         "type": "object"
       },
+      "TaxonNamesResponse": {
+        "properties": {
+          "languages": {
+            "description": "Languages among all the other names, before the limit",
+            "title": "Languages",
+            "type": "integer"
+          },
+          "names": {
+            "description": "By language, the preferred name first in each",
+            "items": {
+              "$ref": "#/components/schemas/TaxonOtherNameResponse"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "taxon_id": {
+            "title": "Taxon Id",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "taxon_id",
+          "names",
+          "languages",
+          "truncated"
+        ],
+        "title": "TaxonNamesResponse",
+        "type": "object"
+      },
+      "TaxonOtherNameResponse": {
+        "properties": {
+          "language": {
+            "description": "BCP 47 language tag",
+            "title": "Language",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "preferred": {
+            "title": "Preferred",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "language",
+          "name",
+          "preferred"
+        ],
+        "title": "TaxonOtherNameResponse",
+        "type": "object"
+      },
+      "TaxonPhotoResponse": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "camera",
+              "garden"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pictured species' common name in the reader's language",
+            "title": "Name"
+          },
+          "scientific_name": {
+            "description": "The pictured species' scientific name",
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "species_id": {
+            "description": "The species pictured: the taxon, or a group's most-seen member",
+            "title": "Species Id",
+            "type": "integer"
+          },
+          "taken_at": {
+            "title": "Taken At",
+            "type": "string"
+          },
+          "url": {
+            "description": "A card-sized photograph, served under the access rules of the record it shows",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "kind",
+          "species_id",
+          "scientific_name",
+          "taken_at"
+        ],
+        "title": "TaxonPhotoResponse",
+        "type": "object"
+      },
       "TaxonResponse": {
         "properties": {
+          "authorship": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The accepted concept's authority and year exactly as the catalogue stores it",
+            "title": "Authorship"
+          },
           "name": {
             "anyOf": [
               {
@@ -21397,7 +21657,7 @@
                 "type": "null"
               }
             ],
-            "description": "Detections of those species here, in the reader's window",
+            "description": "Detections and confirmed Garden captures of those species here, in the reader's window",
             "title": "Seen Count"
           },
           "seen_species": {
@@ -34596,6 +34856,28 @@
               ],
               "title": "Scientific Name"
             }
+          },
+          {
+            "description": "With scientific_name, describe the family or order of that name at that rank instead of a species",
+            "in": "query",
+            "name": "rank",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "family",
+                    "order"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With scientific_name, describe the family or order of that name at that rank instead of a species",
+              "title": "Rank"
+            }
           }
         ],
         "responses": {
@@ -35272,6 +35554,65 @@
         ]
       }
     },
+    "/api/taxonomy/facts": {
+      "get": {
+        "description": "What this install recorded of each taxon: visits, first and last seen, calls heard and its own photograph.\n\nA group rolls these up over the species seen beneath it. One open level of the family tree\nis one request. A visitor reads the shared window only.",
+        "operationId": "get_taxon_facts_api_taxonomy_facts_get",
+        "parameters": [
+          {
+            "description": "Taxa to describe, at most 100",
+            "in": "query",
+            "name": "ids",
+            "required": true,
+            "schema": {
+              "description": "Taxa to describe, at most 100",
+              "items": {
+                "type": "integer"
+              },
+              "title": "Ids",
+              "type": "array"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonFactsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Facts",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
     "/api/taxonomy/lineage": {
       "get": {
         "description": "Where a species sits, found by its scientific name through the catalogue (synonyms included).",
@@ -35443,6 +35784,72 @@
           }
         ],
         "summary": "Get Taxon Lineage",
+        "tags": [
+          "taxonomy"
+        ]
+      }
+    },
+    "/api/taxonomy/{taxon_id}/names": {
+      "get": {
+        "description": "A taxon's common names in the catalogue's other languages, the preferred name first in each.",
+        "operationId": "get_taxon_names_api_taxonomy__taxon_id__names_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "taxon_id",
+            "required": true,
+            "schema": {
+              "title": "Taxon Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 40,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaxonNamesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Taxon Names",
         "tags": [
           "taxonomy"
         ]

@@ -88,6 +88,26 @@ class GardenVisitRepository(GardenRepository):
             [*values, *position_values],
         )
 
+    async def species_visit_spans(
+        self, *, start: datetime | None, end: datetime | None
+    ) -> dict[int, tuple[int, str, str]]:
+        """Confirmed visits per catalogue species, with the first and last capture time.
+
+        Only confirmed captures: an unreviewed or dismissed one is not a visit anyone has claimed.
+        """
+        cte, values = await self._groups(start=start, end=end, camera=None, status="confirmed")
+        async with self.db.execute(
+            f"""{cte} SELECT {self._SPECIES_IDENTITY} AS species, COUNT(DISTINCT m.visit_id),
+                       MIN(m.observed_at), MAX(m.observed_at)
+                FROM members m JOIN garden_captures ON garden_captures.id = m.id
+                WHERE species IS NOT NULL GROUP BY species""",
+            values,
+        ) as cursor:
+            return {
+                int(species): (int(visits), str(first), str(last))
+                for species, visits, first, last in await cursor.fetchall()
+            }
+
     async def visits(
         self,
         *,

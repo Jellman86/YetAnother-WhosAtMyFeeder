@@ -353,6 +353,7 @@ def test_the_taxonomy_routes_answer_lineage_and_branches_and_404_an_unknown_taxo
             "species_count": 2,
             "seen_species": 0,
             "seen_count": 0,
+            "authorship": None,
         }
         children = client.get(f"/api/taxonomy/{_id(seed, 'Passeriformes')}/children").json()["children"]
         assert [(c["scientific_name"], c["species_count"]) for c in children] == [("Paridae", 1), ("Prunellidae", 2)]

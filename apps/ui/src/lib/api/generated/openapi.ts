@@ -2803,10 +2803,47 @@ export interface components {
     children: Array<components['schemas']['TaxonResponse']>;
     parent_id: number;
 };
+    TaxonFactsItem: {
+    first_seen?: string | null;
+    heard?: number | null;
+    last_heard?: string | null;
+    last_seen?: string | null;
+    photo?: components['schemas']['TaxonPhotoResponse'] | null;
+    rank: string;
+    sources: Array<"camera" | "garden">;
+    species_seen: number;
+    taxon_id: number;
+    visits: number;
+};
+    TaxonFactsResponse: {
+    facts: Array<components['schemas']['TaxonFactsItem']>;
+    scope: "all" | "shared";
+    shared_days?: number | null;
+};
     TaxonLineageResponse: {
     lineage: Array<components['schemas']['TaxonResponse']>;
 };
+    TaxonNamesResponse: {
+    languages: number;
+    names: Array<components['schemas']['TaxonOtherNameResponse']>;
+    taxon_id: number;
+    truncated: boolean;
+};
+    TaxonOtherNameResponse: {
+    language: string;
+    name: string;
+    preferred: boolean;
+};
+    TaxonPhotoResponse: {
+    kind: "camera" | "garden";
+    name?: string | null;
+    scientific_name: string;
+    species_id: number;
+    taken_at: string;
+    url: string;
+};
     TaxonResponse: {
+    authorship?: string | null;
     name?: string | null;
     parent_id?: number | null;
     principal: boolean;
@@ -5293,6 +5330,7 @@ export interface paths {
     species_name: string;
 };
       query: {
+    rank?: "family" | "order" | null;
     refresh?: boolean;
     scientific_name?: string | null;
 };
@@ -5426,6 +5464,17 @@ export interface paths {
       response: components['schemas']['SystemTelemetryHistoryResponse'];
     };
   };
+  "/api/taxonomy/facts": {
+    get: {
+      operationId: "get_taxon_facts_api_taxonomy_facts_get";
+      path: never;
+      query: {
+    ids: Array<number>;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonFactsResponse'];
+    };
+  };
   "/api/taxonomy/lineage": {
     get: {
       operationId: "get_species_lineage_api_taxonomy_lineage_get";
@@ -5459,6 +5508,19 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['TaxonLineageResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/names": {
+    get: {
+      operationId: "get_taxon_names_api_taxonomy__taxon_id__names_get";
+      path: {
+    taxon_id: number;
+};
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonNamesResponse'];
     };
   };
   "/api/update-status": {

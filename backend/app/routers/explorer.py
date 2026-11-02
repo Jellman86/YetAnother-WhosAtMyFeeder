@@ -60,7 +60,7 @@ class ExplorerSearchResponse(BaseModel):
 
 
 def _garden_visible(auth: AuthContext) -> bool:
-    return settings.system.beta_garden_animals and (auth.is_owner or settings.public_access.enabled)
+    return garden_public.garden_visible(is_owner=auth.is_owner)
 
 
 def _camera(auth: AuthContext, camera: str) -> Optional[str]:
