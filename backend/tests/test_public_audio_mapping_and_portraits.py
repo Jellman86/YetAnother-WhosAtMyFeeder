@@ -12,6 +12,7 @@ import pytest
 from app.auth import create_access_token
 from app.config import settings
 from app.main import app
+from app.services import detection_presenter
 from app.routers import events, species
 from test_guest_privacy_review import private_history as private_history
 
@@ -140,8 +141,10 @@ async def test_public_page_batches_audio_and_excludes_future_secondary(private_h
             yield db
 
     monkeypatch.setattr(events, "get_db", traced_db)
-    monkeypatch.setattr(events, "localize_audio_species_name", AsyncMock(side_effect=lambda name, lang, db: name))
-    monkeypatch.setattr(events, "localize_audio_detections", AsyncMock())
+    monkeypatch.setattr(
+        detection_presenter, "localize_audio_species_name", AsyncMock(side_effect=lambda name, lang, db: name)
+    )
+    monkeypatch.setattr(detection_presenter, "localize_audio_detections", AsyncMock())
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get("/api/events?limit=20")
     assert response.status_code == 200, response.text

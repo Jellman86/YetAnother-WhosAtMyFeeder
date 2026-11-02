@@ -14,33 +14,33 @@ reported it sometimes missing. Two causes, both real:
 
 import pytest
 
-from app.routers.events import _video_classification_model_name
+from app.services.detection_presenter import video_classification_model_name
 
 
 def test_a_top_level_model_resolves_to_its_name():
-    assert _video_classification_model_name("rope_vit_b14_inat21")
+    assert video_classification_model_name("rope_vit_b14_inat21")
 
 
 def test_a_region_variant_resolves_rather_than_vanishing():
     """`small_birds/eu` is nested under `small_birds`, which owns the id."""
-    name = _video_classification_model_name("small_birds/eu")
+    name = video_classification_model_name("small_birds/eu")
     assert name, "a regional model must still name itself"
 
 
 def test_a_region_variant_name_distinguishes_the_region():
-    eu = _video_classification_model_name("small_birds/eu")
-    na = _video_classification_model_name("small_birds/na")
+    eu = video_classification_model_name("small_birds/eu")
+    na = video_classification_model_name("small_birds/na")
     assert eu and na and eu != na, f"regions must be distinguishable: {eu!r} vs {na!r}"
 
 
 def test_an_unknown_model_id_is_reported_rather_than_hidden():
     """§5: showing nothing invents a state. The id itself is honest."""
-    assert _video_classification_model_name("some_model_we_retired") == "some_model_we_retired"
+    assert video_classification_model_name("some_model_we_retired") == "some_model_we_retired"
 
 
 @pytest.mark.parametrize("value", [None, "", "   "])
 def test_no_model_id_stays_absent(value):
-    assert _video_classification_model_name(value) is None
+    assert video_classification_model_name(value) is None
 
 
 def test_provenance_never_overwrites_what_the_classifier_already_reported():
