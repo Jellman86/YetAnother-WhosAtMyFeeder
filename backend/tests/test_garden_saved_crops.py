@@ -500,32 +500,56 @@ async def test_frigate_crops_use_only_the_aligned_clean_frame_and_keep_person_re
 
 
 @pytest.mark.asyncio
-async def test_a_crop_that_keeps_failing_is_retried_less_often_then_given_up(captured):
+async def test_a_crop_that_keeps_failing_is_retried_less_often_and_offered_again_once_due(captured):
     from datetime import datetime
 
-    original, _ = captured
+    original, image = captured
 
-    async def waits():
+    async def schedule():
         async with get_db() as db:
-            row = await (
+            return await (
                 await db.execute(
                     "SELECT retry_after, updated_at FROM garden_saved_crops WHERE capture_id=?", (original.id,)
                 )
             ).fetchone()
-        if row[0] is None:
-            return None
-        return round((datetime.fromisoformat(row[0]) - datetime.fromisoformat(row[1])).total_seconds() / 3600)
 
-    seen = []
-    for _ in range(6):
+    async def offered():
+        async with get_db() as db:
+            return await GardenRepository(db).next_crop(["patio"])
+
+    waits = []
+    for _ in range(7):
         async with get_db() as db:
             await GardenRepository(db).crop_unavailable(original.id)
-        seen.append(await waits())
-    assert seen == [1, 2, 4, 8, 16, None]
-    # Given up: even once every retry time has passed, it is never offered again.
+        retry_after, updated_at = await schedule()
+        waits.append(
+            round((datetime.fromisoformat(retry_after) - datetime.fromisoformat(updated_at)).total_seconds() / 3600)
+        )
+        # Not offered before its retry time.
+        assert await offered() is None
+    assert waits == [1, 2, 4, 8, 16, 24, 24]
+    # Offered again once due: never abandoned.
     async with get_db() as db:
         await db.execute(
-            "UPDATE garden_saved_crops SET updated_at='2000-01-01T00:00:00' WHERE capture_id=?", (original.id,)
+            "UPDATE garden_saved_crops SET retry_after='2000-01-01T00:00:00' WHERE capture_id=?", (original.id,)
         )
         await db.commit()
-        assert await GardenRepository(db).next_crop(["patio"]) is None
+    assert (await offered()).id == original.id
+    # A crop that later succeeds is kept; a late failure cannot overwrite it.
+    evidence, cropped = crop(image, original)
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        assert await repo.save_crop(original, evidence, cropped)
+        await repo.crop_unavailable(original.id)
+        assert await repo.crop_photo(original.id) == cropped
+
+
+@pytest.mark.asyncio
+async def test_a_failed_crop_is_not_recorded_for_a_dismissed_capture(captured):
+    original, _ = captured
+    async with get_db() as db:
+        repo = GardenRepository(db)
+        await repo.review(original.id, "dismissed")
+        await repo.crop_unavailable(original.id)
+        row = await (await db.execute("SELECT 1 FROM garden_saved_crops WHERE capture_id=?", (original.id,))).fetchone()
+    assert row is None

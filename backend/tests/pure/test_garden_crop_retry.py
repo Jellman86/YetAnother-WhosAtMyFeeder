@@ -1,4 +1,4 @@
-"""A crop that cannot be built is retried less and less often, then not at all."""
+"""A crop that cannot be built is retried less and less often, but never abandoned."""
 
 from datetime import datetime, timedelta
 
@@ -16,10 +16,10 @@ def test_each_repeated_failure_doubles_the_wait():
     assert next_crop_retry(timedelta(hours=8), NOW) == NOW + timedelta(hours=16)
 
 
-def test_a_wait_that_would_reach_a_day_gives_up():
-    # 1 + 2 + 4 + 8 + 16 hours of retries outlast any Frigate outage; a snapshot past
-    # retention never returns.
-    assert next_crop_retry(timedelta(hours=16), NOW) is None
+def test_the_wait_settles_at_a_day_and_never_gives_up():
+    # A Frigate outage can outlast any fixed number of tries; once a day is quiet and recoverable.
+    assert next_crop_retry(timedelta(hours=16), NOW) == NOW + timedelta(hours=24)
+    assert next_crop_retry(timedelta(hours=24), NOW) == NOW + timedelta(hours=24)
 
 
 def test_an_unreadable_previous_wait_starts_again_at_an_hour():

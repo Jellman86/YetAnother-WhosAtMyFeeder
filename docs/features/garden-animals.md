@@ -736,9 +736,9 @@ aligned snapshot time, and saved-image checksum. Motion crops use the saved dete
 box and photo. Frigate crops require its clean best frame and matching snapshot
 alignment; a JPEG of unknown crop/resize policy is not treated as a full frame.
 Missing or unaligned source evidence leaves the capture confirmed without a crop.
-A crop that cannot be built is retried after 1 hour, then 2, 4, 8 and 16 hours. After
-those five tries (about 31 hours) the capture keeps no crop and is not retried, because a
-snapshot past Frigate's retention does not come back.
+A crop that cannot be built is retried after 1 hour, then 2, 4, 8 and 16 hours, and then
+once a day for as long as the capture is kept. It is never abandoned, so a crop that failed
+during a Frigate outage is still built once the snapshot is reachable again.
 
 A crop follows its capture: owner-only until confirmed, then shared with guests as the
 capture's photograph is. Person/false-positive revocation, dismissal and history
