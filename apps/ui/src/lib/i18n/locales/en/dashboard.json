@@ -111,7 +111,17 @@
     "loading": "Checking for visits that need you…",
     "unavailable": "The queue could not be checked, so it is not known whether anything is waiting.",
     "reason_unknown_species": "Unknown species",
-    "reason_low_score": "Below the naming threshold"
+    "reason_low_score": "Below the naming threshold",
+    "visits_clear": "Every visit in the last 24 hours has a species.",
+    "checks_summary": "{count, plural, one {# species may be misnamed: {species}.} other {# species may be misnamed: {species}.}}",
+    "checks_body": "{count, plural, one {Only the camera backs it and no birder has reported it within {radius} km.} other {Only the camera backs them and no birder has reported them within {radius} km.}}",
+    "checks_body_plain": "{count, plural, one {Only the camera backs it.} other {Only the camera backs them.}}",
+    "checks_open": "Open the checks on the Species page",
+    "checks_loading": "Checking for species that may be misnamed…",
+    "checks_unavailable": "The range check could not be read, so it is not known whether a species may be misnamed.",
+    "checks_more": "{count} more",
+    "visits_stale": "The visit history could not be read again, so this list may be out of date.",
+    "checks_stale": "The range check could not be read again, so this list may be out of date."
   },
   "review_session": {
     "position": "{position} of {total}",

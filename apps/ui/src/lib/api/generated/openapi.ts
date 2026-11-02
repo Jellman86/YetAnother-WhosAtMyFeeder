@@ -1626,6 +1626,7 @@ export interface components {
 };
     LeaderboardSpeciesResponse: {
     history_start?: string | null;
+    nearby_check: "checked" | "off" | "unavailable";
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
     previous_window_complete?: boolean;

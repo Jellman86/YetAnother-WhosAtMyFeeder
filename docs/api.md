@@ -838,7 +838,11 @@ Notes:
 - `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
-  the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
+  the `nearby_radius_km` / `nearby_days_back` of that check; `nearby_check` says whether that check
+  ran: `checked` (a report measured within the six-hour cache), `off` (eBird or the feeder location
+  is not set up) or `unavailable` (set up, but the lookup failed: `reported_nearby` is null, or comes
+  from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
+  current check); `window_visit_count` and
   `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
   dashboard does, while `window_count` stays frames)
 

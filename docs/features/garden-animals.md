@@ -600,6 +600,8 @@ add a bird only if you keep it. A record of a declared bird is named by it, for 
   **I keep Chickens: move to Garden**. That declares the bird and moves its visible bird
   records to Garden in one step, each one exactly as **Move to Garden** does, up to 500 at a
   time; the message states how many moved, how many could not and how many are still waiting.
+  The dashboard's **Needs your call** offers the same action for a species flagged in its last
+  24 hours, with the same result message.
 - **Notifications.** A declared bird found by a Garden check is announced like any automatically
   named animal. One recorded from a Frigate bird event or moved from bird history sends no
   Garden alert.
