@@ -8,7 +8,8 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
-    import { portal } from '../utils/portal';
+    import { HoverPopout } from '../utils/hover-popout.svelte';
+    import HoverPopoutPanel from './HoverPopoutPanel.svelte';
 
     interface Props {
         /** The clearest frame, used when a visit has only one. */
@@ -56,135 +57,7 @@
 
     // Each frame owns its preview, so hovering the second thumbnail of a visit shows the
     // second frame rather than repeating the clearest one.
-    let openIndex = $state<number | null>(null);
-    let rootEl = $state<HTMLElement | null>(null);
-    let closeTimer: ReturnType<typeof setTimeout> | null = null;
-
-    // A pointer travelling from the thumbnail to the panel crosses a gap; closing on the
-    // first mouseleave would make the panel impossible to reach (WCAG 2.2 SC 1.4.13).
-    const CLOSE_GRACE_MS = 120;
-
-    /**
-     * The panel is portalled to the body and placed in viewport coordinates.
-     *
-     * Positioned inside the row, it was clipped by any ancestor that hides its
-     * overflow, which the Explorer's list frame does to round its corners, and
-     * it could be painted under a later row's controls. Neither is fixable from
-     * inside the row, so the panel leaves it.
-     */
-    const PANEL_WIDTH = 240;
-    const GAP = 8;
-    const VIEWPORT_MARGIN = 8;
-    let triggers = $state<HTMLElement[]>([]);
-    let anchor = $state<{ x: number; y: number; above: boolean } | null>(null);
-
-    function place(index: number): void {
-        const trigger = triggers[index];
-        if (!trigger) return;
-        const rect = trigger.getBoundingClientRect();
-        // A row near the bottom of the window has no space beneath it, so the
-        // panel flips above its thumbnail rather than running off the screen.
-        const estimatedHeight = 220;
-        const above = rect.bottom + GAP + estimatedHeight > window.innerHeight;
-        const half = PANEL_WIDTH / 2;
-        const centre = Math.min(
-            Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
-            window.innerWidth - half - VIEWPORT_MARGIN
-        );
-        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above };
-    }
-
-    // A touch browser replays a tap as mouseenter and, on Chrome, focus before the click; a
-    // pop-out that opened on either would swallow the tap (iOS) or sit under the record (Chrome).
-    // Hover is for a hovering pointer and focus is for the keyboard; a tap opens by its click.
-    function isKeyboardFocus(target: EventTarget | null): boolean {
-        if (!(target instanceof Element)) return true;
-        try {
-            return target.matches(':focus-visible');
-        } catch {
-            return true;
-        }
-    }
-
-    function show(index: number): void {
-        if (closeTimer) {
-            clearTimeout(closeTimer);
-            closeTimer = null;
-        }
-        place(index);
-        openIndex = index;
-    }
-
-    function cancelScheduledClose(): void {
-        if (closeTimer) {
-            clearTimeout(closeTimer);
-            closeTimer = null;
-        }
-    }
-
-    function hide(immediate = false): void {
-        if (closeTimer) clearTimeout(closeTimer);
-        if (immediate) {
-            closeTimer = null;
-            openIndex = null;
-            return;
-        }
-        closeTimer = setTimeout(() => {
-            openIndex = null;
-            closeTimer = null;
-        }, CLOSE_GRACE_MS);
-    }
-
-    function handleFocusOut(event: FocusEvent): void {
-        const next = event.relatedTarget;
-        if (next instanceof Node && rootEl?.contains(next)) return;
-        hide(true);
-    }
-
-    function handleKeydown(event: KeyboardEvent): void {
-        if (event.key === 'Escape' && openIndex !== null) {
-            event.preventDefault();
-            event.stopPropagation();
-            hide(true);
-        }
-    }
-
-    $effect(() => {
-        return () => {
-            if (closeTimer) clearTimeout(closeTimer);
-        };
-    });
-
-    // Placed in viewport coordinates, so the panel follows its trigger as the
-    // page moves. Closing on the first scroll broke the keyboard path: focusing
-    // a trigger below the fold scrolls it into view, and that scroll landed
-    // right after the panel opened, dismissing it in the same frame. A trigger
-    // scrolled out of sight still closes it - a panel pointing at nothing is
-    // honest to no one.
-    $effect(() => {
-        if (openIndex === null) return;
-        const index = openIndex;
-        let pending: number | null = null;
-        const follow = () => {
-            if (pending !== null) return;
-            pending = requestAnimationFrame(() => {
-                pending = null;
-                const rect = triggers[index]?.getBoundingClientRect();
-                if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) {
-                    hide(true);
-                    return;
-                }
-                place(index);
-            });
-        };
-        window.addEventListener('scroll', follow, true);
-        window.addEventListener('resize', follow);
-        return () => {
-            if (pending !== null) cancelAnimationFrame(pending);
-            window.removeEventListener('scroll', follow, true);
-            window.removeEventListener('resize', follow);
-        };
-    });
+    const popout = new HoverPopout();
 
     function thumbnailUrl(frame: Detection): string {
         return getThumbnailUrl(frame.frigate_event, detectionsStore.settledMediaVersion(frame.frigate_event));
@@ -216,12 +89,12 @@
 </script>
 
 <div
-    bind:this={rootEl}
+    bind:this={popout.root}
     class="relative flex items-center"
     data-detection-preview
-    onmouseleave={() => hide()}
-    onfocusout={handleFocusOut}
-    onkeydown={handleKeydown}
+    onmouseleave={() => popout.hide()}
+    onfocusout={popout.focusOut}
+    onkeydown={popout.keydown}
     role="presentation"
 >
     {#if stackBehind}
@@ -249,8 +122,8 @@
             class:-ml-1={index > 0}
             class:hidden={index > 0}
             class:sm:block={index > 0}
-            onpointerenter={(event) => { if (event.pointerType !== 'touch') show(index); }}
-            onfocusin={(event) => { if (isKeyboardFocus(event.target)) show(index); }}
+            onpointerenter={(event) => popout.pointerEnter(event, index)}
+            onfocusin={(event) => popout.focusIn(event, index)}
             role="presentation"
         >
             {#snippet thumbnail(frame: Detection)}
@@ -280,7 +153,7 @@
             {#if interactive}
                 <button
                     type="button"
-                    bind:this={triggers[index]}
+                    bind:this={popout.triggers[index]}
                     class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
                     onclick={() => onopen?.(frame)}
                 >
@@ -293,23 +166,13 @@
                     {@render thumbnail(frame)}
                 </button>
             {:else}
-                <span bind:this={triggers[index]} class="grid min-h-11 min-w-11 place-items-center rounded-lg" aria-hidden="true">
+                <span bind:this={popout.triggers[index]} class="grid min-h-11 min-w-11 place-items-center rounded-lg" aria-hidden="true">
                     {@render thumbnail(frame)}
                 </span>
             {/if}
 
-            {#if openIndex === index && anchor}
-                <div
-                    use:portal={rootEl?.closest<HTMLElement>('[popover]') ?? document.body}
-                    style="left: {anchor.x}px; top: {anchor.y}px;"
-                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {anchor.above
-                        ? '-translate-x-1/2 -translate-y-full'
-                        : '-translate-x-1/2'}"
-                    role="tooltip"
-                    data-detection-preview-panel
-                    onmouseenter={cancelScheduledClose}
-                    onmouseleave={() => hide()}
-                >
+            {#if popout.openIndex === index}
+                <HoverPopoutPanel {popout} data-detection-preview-panel>
                     {#if failed.has(thumbnailUrl(frame))}
                         <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -359,7 +222,7 @@
                             </p>
                         {/if}
                     </div>
-                </div>
+                </HoverPopoutPanel>
             {/if}
         </div>
     {/each}

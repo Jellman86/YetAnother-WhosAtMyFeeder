@@ -144,7 +144,10 @@ does) or the kit button itself.
 Small thumbnails let a day fit on a screen, and a 34px thumbnail cannot settle whether a 56% blur
 is a Dunnock. So every small capture opens: hover or keyboard focus expands `DetectionPreview` to
 the full frame with score, camera, time and conditions. Density plus an escape hatch beats a large
-hero that only ever shows one record.
+hero that only ever shows one record. A Garden animal's thumbnail opens the same way through
+`GardenCapturePreview`: its saved crop, else its snapshot, with the Garden name, score, state, time
+and camera. It previews only the media the server listed for the reader, so a visitor sees no
+pop-out for a photo the owner does not share; that thumbnail stays a plain frame in the same cell.
 
 ### 1.5 Never claim health you have not measured
 
@@ -395,6 +398,7 @@ off with update checks, and absent rather than zero when unknown.
 | `VisitCaptures` | A visit's chronological captures: `inline` inside a Health row, `footer` closing an Explorer card or row | Render for a single capture, repeat the visit's camera or day on each line, or sum birds across captures |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
+| `GardenCapturePreview` | A Garden capture's thumbnail in the field log, the Explorer list or a Garden visit's captures | Show media the server did not list for the reader, or copy the hover handling instead of using `HoverPopout` |
 | `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
 | `ReviewQueueCard` | Outstanding decisions | Use for notifications or job progress |
 | `DayBar` | The window label plus its headline metrics | Add a seventh metric; cut one instead |
@@ -484,7 +488,11 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
 - Respects `prefers-reduced-motion`: it appears without the scale transition.
 - The trigger is a real `button` with `aria-expanded` and a visible focus ring.
 
-Model any new popover on this and on `CameraStatus.svelte`, which established the pattern.
+Model any new popover on this and on `CameraStatus.svelte`, which established the pattern. A small
+capture's preview takes the shared controller rather than its own copy: `HoverPopout`
+(`utils/hover-popout.svelte.ts`) owns opening, the grace window, Escape, focus leaving and following
+the trigger on scroll, and `HoverPopoutPanel` is the portalled panel. `DetectionPreview` and
+`GardenCapturePreview` both use them.
 A pop-out that holds a control (`FrameStrip`) is a `group` named for its subject, not a `tooltip`, and
 its Escape closes the pop-out before the dialog behind it.
 

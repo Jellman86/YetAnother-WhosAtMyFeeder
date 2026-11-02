@@ -5,6 +5,9 @@ import cardSource from '../components/GardenExplorerCard.svelte?raw';
 import modalSource from '../components/GardenCaptureModal.svelte?raw';
 import markerSource from '../components/GardenExplorerMarker.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
+import fieldLogRowSource from '../components/FieldLogGardenRow.svelte?raw';
+import capturesSource from '../components/GardenVisitCaptures.svelte?raw';
+import previewSource from '../components/GardenCapturePreview.svelte?raw';
 import enGarden from '../i18n/locales/en/garden.json';
 import enSettings from '../i18n/locales/en/settings.json';
 
@@ -108,5 +111,28 @@ describe('Garden captures in the Explorer', () => {
 
     it('writes its copy without em dashes', () => {
         for (const value of Object.values(en.garden.explorer)) expect(value).not.toContain('—');
+    });
+});
+
+describe('Garden thumbnails open the bird pop-out', () => {
+    it('gives every small Garden capture the shared preview rather than a static frame', () => {
+        for (const source of [rowSource, fieldLogRowSource, capturesSource]) {
+            expect(source).toContain('<GardenCapturePreview {capture}');
+            expect(source).not.toContain('<GardenPhotoPreview');
+        }
+    });
+
+    it('shares the hover contract and panel with the bird preview instead of copying them', () => {
+        expect(previewSource).toContain("import { HoverPopout } from '../utils/hover-popout.svelte'");
+        expect(previewSource).toContain('<HoverPopoutPanel {popout}');
+        // A tooltip trigger discloses no region it owns, as the bird trigger does not.
+        expect(previewSource).not.toContain('aria-expanded');
+        expect(previewSource).not.toContain('setTimeout');
+    });
+
+    it('shows only the media the server listed for this reader, with the thumbnail auth', () => {
+        expect(previewSource).toContain('gardenCapturePhoto(capture, failed, withAuthParams)');
+        expect(previewSource).toContain('{#if listed}');
+        expect(previewSource).not.toMatch(/['"`]\/api\//);
     });
 });
