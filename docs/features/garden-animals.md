@@ -23,6 +23,15 @@ preference, one photo at a time, while birds and Frigate cameras are idle. They 
 missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
 enabled, a photo whose species score is below the naming threshold moves to restorable
 **Dismissed**, whether or not the check is confident an animal is there.
+A candidate from the motion scan stays out of sight until its automatic check decides:
+the timeline, Dashboard and **Needs review** count it as *waiting for the automatic check*
+rather than listing it. It appears only if the check names an animal (in **Confirmed
+animals**) or cannot decide (in **Needs review**, with the reason). Candidates are held only
+while their camera's checks are making progress: if no check there has finished for 30
+minutes, for example because the camera stays under pressure, its candidates appear in
+**Needs review** instead. A failed check also releases its capture. Checking candidates
+already found takes priority over scanning recordings for more, but a camera that cannot
+be checked never holds up checks or scans on the others.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.

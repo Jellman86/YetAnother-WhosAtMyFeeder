@@ -166,7 +166,9 @@
     "play_clip_short": "Clip abspielen",
     "state_below_threshold": "Tier erkannt; Art unter dem Benennungsschwellenwert",
     "state_domestic": "Automatisch als gehaltener Hausvogel benannt",
-    "state_domestic_moved": "Als gehaltener Hausvogel aus den Vögeln verschoben"
+    "state_domestic_moved": "Als gehaltener Hausvogel aus den Vögeln verschoben",
+    "awaiting_check": "{count, plural, one {# Kameraaufnahme wartet auf die automatische Prüfung} other {# Kameraaufnahmen warten auf die automatische Prüfung}}",
+    "awaiting_check_empty": "{count, plural, one {# Kameraaufnahme wartet auf die automatische Prüfung.} other {# Kameraaufnahmen warten auf die automatische Prüfung.}} Benannte Tiere kommen zu Bestätigte Tiere, Fotos ohne Tier zu Verworfen, und was sie nicht entscheiden kann, erscheint hier."
   },
   "automatic_animal_manual": "Tier erkannt. Automatische Benennung ist aus oder dieses ältere Ergebnis wartet auf eine neue automatische Prüfung.",
   "automatic_below_threshold": "Unter dem automatischen Schwellenwert. Nach Verworfen verschoben; das Foto kann zur Prüfung wiederhergestellt werden.",

@@ -217,6 +217,10 @@ class GardenIdentificationService:
         self.models = Path(MODELS_DIR) / "garden"
         self.busy = False
         self.error: str | None = None
+        # A saved candidate's check can start once the slot is free; the motion scan yields it.
+        self.check_due = False
+        # When each camera's checks last progressed (monotonic): a check finished or none was due.
+        self.check_progress: dict[str, float] = {}
         self._photo_review_generation = 0
         self.automatic_message = "Automatic checks wait for an enabled Garden camera and idle bird inference."
 

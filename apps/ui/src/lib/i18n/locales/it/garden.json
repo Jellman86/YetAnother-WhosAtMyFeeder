@@ -166,7 +166,9 @@
     "play_clip_short": "Riproduci clip",
     "state_below_threshold": "Animale rilevato; specie sotto la soglia di denominazione",
     "state_domestic": "Nominato automaticamente come uccello domestico che allevi",
-    "state_domestic_moved": "Spostato dagli uccelli come uccello domestico che allevi"
+    "state_domestic_moved": "Spostato dagli uccelli come uccello domestico che allevi",
+    "awaiting_check": "{count, plural, one {# cattura della fotocamera in attesa del controllo automatico} other {# catture della fotocamera in attesa del controllo automatico}}",
+    "awaiting_check_empty": "{count, plural, one {# cattura della fotocamera attende il controllo automatico.} other {# catture della fotocamera attendono il controllo automatico.}} Gli animali che nomina vanno in Animali confermati, le foto senza animale in Scartate, e ciò che non può decidere compare qui."
   },
   "automatic_animal_manual": "Animale rilevato. La denominazione automatica è disattivata o questo risultato precedente attende una nuova verifica.",
   "automatic_below_threshold": "Sotto la soglia automatica. Spostato in Scartati; ripristina la foto per esaminarla.",

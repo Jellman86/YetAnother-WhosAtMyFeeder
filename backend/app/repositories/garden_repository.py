@@ -99,8 +99,22 @@ class GardenRepository:
                 'source_model',source_model,'detection_id',detection_id,'routed_at',routed_at)
           FROM garden_domestic_routes WHERE capture_id=garden_captures.id)"""
 
-    def __init__(self, db: aiosqlite.Connection) -> None:
+    def __init__(self, db: aiosqlite.Connection, *, held_cameras: tuple[str, ...] = ()) -> None:
         self.db = db
+        # On these cameras a motion candidate stays out of the timeline until its automatic
+        # check decides, unless the owner already acted on it.
+        self.held_cameras = held_cameras
+
+    def _awaiting_check(self) -> tuple[str, list[str]]:
+        if not self.held_cameras:
+            return "0", []
+        return (
+            f"""(status = 'pending' AND automation_overridden = 0
+                AND camera IN ({",".join("?" * len(self.held_cameras))})
+                AND EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
+                AND NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id))""",
+            list(self.held_cameras),
+        )
 
     @staticmethod
     def _key(event_id: str) -> str:
@@ -205,19 +219,9 @@ class GardenRepository:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
-    def _timeline_filter(
-        self, start: datetime | None, end: datetime | None, camera: str | None, status: GardenTimelineStatus
-    ) -> tuple[str, list[str]]:
-        # A pending capture without a photo cannot be reviewed, as on the review list.
-        reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}))"
-        clauses = [
-            {
-                "reviewable": f"(status = 'confirmed' OR {reviewable_pending})",
-                "pending": reviewable_pending,
-                "confirmed": "status = 'confirmed'",
-                "dismissed": "status = 'dismissed'",
-            }[status]
-        ]
+    @staticmethod
+    def _scope_filter(start: datetime | None, end: datetime | None, camera: str | None) -> tuple[list[str], list[str]]:
+        clauses: list[str] = []
         values: list[str] = []
         if start is not None:
             clauses.append("observed_at >= ?")
@@ -228,7 +232,22 @@ class GardenRepository:
         if camera:
             clauses.append("camera = ?")
             values.append(camera)
-        return " AND ".join(clauses), values
+        return clauses, values
+
+    def _timeline_filter(
+        self, start: datetime | None, end: datetime | None, camera: str | None, status: GardenTimelineStatus
+    ) -> tuple[str, list[str]]:
+        # A pending capture without a photo cannot be reviewed, as on the review list.
+        awaiting, held = self._awaiting_check()
+        reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}) AND NOT {awaiting})"
+        status_clause = {
+            "reviewable": f"(status = 'confirmed' OR {reviewable_pending})",
+            "pending": reviewable_pending,
+            "confirmed": "status = 'confirmed'",
+            "dismissed": "status = 'dismissed'",
+        }[status]
+        scope, values = self._scope_filter(start, end, camera)
+        return " AND ".join([status_clause, *scope]), [*(held if status in {"reviewable", "pending"} else []), *values]
 
     async def timeline(
         self,
@@ -261,6 +280,16 @@ class GardenRepository:
     ) -> int:
         where, values = self._timeline_filter(start, end, camera, status)
         async with self.db.execute(f"SELECT COUNT(*) FROM garden_captures WHERE {where}", values) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    async def awaiting_check_count(self, *, start: datetime | None, end: datetime | None, camera: str | None) -> int:
+        """Motion candidates held out of sight while their automatic check is due."""
+        awaiting, held = self._awaiting_check()
+        scope, values = self._scope_filter(start, end, camera)
+        async with self.db.execute(
+            f"SELECT COUNT(*) FROM garden_captures WHERE {' AND '.join([awaiting, *scope])}", [*held, *values]
+        ) as cursor:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 

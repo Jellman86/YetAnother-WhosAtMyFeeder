@@ -166,7 +166,9 @@
     "play_clip_short": "クリップを再生",
     "state_below_threshold": "動物を検出、種は命名しきい値未満",
     "state_domestic": "飼っている家禽として自動で命名",
-    "state_domestic_moved": "飼っている家禽として鳥から移動"
+    "state_domestic_moved": "飼っている家禽として鳥から移動",
+    "awaiting_check": "{count, plural, other {自動チェック待ちのカメラキャプチャ # 件}}",
+    "awaiting_check_empty": "{count, plural, other {# 件のカメラキャプチャが自動チェックを待っています。}}名前が付いた動物は「確認済みの動物」へ、動物のいない写真は「却下」へ移り、判断できないものだけがここに表示されます。"
   },
   "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
   "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",

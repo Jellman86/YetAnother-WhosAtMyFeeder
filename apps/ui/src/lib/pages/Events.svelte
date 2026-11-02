@@ -125,6 +125,8 @@
     let gardenItems = $state.raw<GardenCapture[] | null>(null);
     let serverGardenVisits = $state.raw<GardenServerVisit[]>([]);
     let gardenCaptureTotal = $state(0);
+    // Camera candidates held back until their automatic check decides; only the owner is told.
+    let gardenAwaitingCheck = $state(0);
     let openedGardenGroup = $state.raw<GardenVisit | null>(null);
     let gardenGroupOffset = $state(0);
     let gardenGroupLoading = $state(false);
@@ -275,6 +277,7 @@
                 gardenItems = page.visits.map((visit) => visit.representative);
                 gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
                 gardenCaptureTotal = page.capture_total;
+            gardenAwaitingCheck = page.awaiting_check ?? 0;
                 gardenTotal = page.total;
                 gardenFailed = false;
                 measured = true;
@@ -1559,6 +1562,7 @@
             gardenItems = page.visits.map((visit) => visit.representative);
             gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
             gardenCaptureTotal = page.capture_total;
+            gardenAwaitingCheck = page.awaiting_check ?? 0;
             gardenTotal = page.total;
             gardenFailed = false;
         } catch (e) {
@@ -1807,6 +1811,10 @@
                     : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
+                {/if}
+                {#if pane.count === 'measured' && gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
+                    <span aria-hidden="true">&middot;</span>
+                    <span data-garden-awaiting-check>{$_('garden.explorer.awaiting_check', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}' })}</span>
                 {/if}
                 {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
                     <span aria-hidden="true">&middot;</span>
@@ -2216,6 +2224,11 @@
                             ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
                 </h3>
+                {#if gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-garden-awaiting-check-empty>
+                        {$_('garden.explorer.awaiting_check_empty', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.' })}
+                    </p>
+                {/if}
                 <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
                     ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>

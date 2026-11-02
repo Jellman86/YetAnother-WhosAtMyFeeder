@@ -166,7 +166,9 @@
     "play_clip_short": "Reproducir clip",
     "state_below_threshold": "Animal detectado; especie por debajo del umbral de nombre",
     "state_domestic": "Nombrada automáticamente como ave doméstica que tienes",
-    "state_domestic_moved": "Movida desde las aves como ave doméstica que tienes"
+    "state_domestic_moved": "Movida desde las aves como ave doméstica que tienes",
+    "awaiting_check": "{count, plural, one {# captura de cámara espera la comprobación automática} other {# capturas de cámara esperan la comprobación automática}}",
+    "awaiting_check_empty": "{count, plural, one {# captura de cámara espera la comprobación automática.} other {# capturas de cámara esperan la comprobación automática.}} Los animales que nombra pasan a Animales confirmados, las fotos sin animal a Descartadas, y lo que no pueda decidir aparece aquí."
   },
   "automatic_animal_manual": "Animal detectado. El nombrado automático está desactivado o este resultado anterior espera una nueva comprobación.",
   "automatic_below_threshold": "Por debajo del umbral automático. Movido a Descartados; puedes restaurar la foto para revisarla.",

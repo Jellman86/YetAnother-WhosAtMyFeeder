@@ -208,3 +208,72 @@ def test_position_comparison_requires_same_camera_detector_and_bounded_extent(bo
     other = first.model_copy(update={"box_xywh": box, "detector_sha256": detector * 64})
     assert same_position(first, other) is expected
     assert not same_position(first, other.model_copy(update={"camera": "lawn"}))
+
+
+async def add_motion(repo, seconds, *, camera="patio"):
+    import hashlib
+
+    from app.models.garden_motion import MotionSource
+
+    # Recent, so the photo has not expired: an expired photo is never reviewable anyway.
+    start = datetime.now(timezone.utc).timestamp() - 3600 + seconds
+    source = MotionSource(
+        camera=camera,
+        clip_start=start,
+        clip_end=start + 10,
+        frame_index=1,
+        frame_offset=1,
+        clip_sha256="a" * 64,
+        image_sha256=hashlib.sha256(f"photo-{seconds}".encode()).hexdigest(),
+        detector_sha256="b" * 64,
+        detector_score=0.66,
+        box_xywh=(0.1 + seconds / 1000, 0.1, 0.2, 0.2),
+    )
+    return await repo.capture_motion(source, f"photo-{seconds}".encode())
+
+
+@pytest.mark.asyncio
+async def test_a_camera_candidate_waits_out_of_sight_until_its_automatic_check_decides(history, monkeypatch):
+    import time
+
+    from app.services.garden_identification import garden_identification_service
+
+    monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "lawn"])
+    # Patio's checks are making progress, so its unchecked candidates wait for them.
+    monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic()})
+    unchecked = await add_motion(history, 0)
+    checked = await add_motion(history, 100)
+    other_camera = await add_motion(history, 200, camera="yard")
+    await add(history, "frigate-cat", 300, status="pending")
+    await history.db.execute(
+        "INSERT INTO garden_automatic_checks(capture_id,result_json) VALUES (?,?)",
+        (checked, '{"outcome":"unavailable","checked_at":"2026-10-24T00:02:00"}'),
+    )
+    await history.db.commit()
+
+    async def shown(client, status):
+        params = {"status": status, "limit": 50}
+        timeline = (await client.get("/api/garden/timeline", params=params)).json()
+        page = (await client.get("/api/garden/visits", params=params)).json()
+        return {item["id"] for item in timeline["items"]}, page["awaiting_check"]
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        for status in ["reviewable", "pending"]:
+            ids, waiting = await shown(client, status)
+            # A failed check, a camera without automatic checks and a Frigate event all stay visible.
+            assert unchecked not in ids and checked in ids and other_camera in ids, (status, ids)
+            assert waiting == 1
+        await history.db.execute("UPDATE garden_captures SET automation_overridden=1 WHERE id=?", (unchecked,))
+        await history.db.commit()
+        ids, waiting = await shown(client, "pending")
+        assert unchecked in ids and waiting == 0
+        await history.db.execute("UPDATE garden_captures SET automation_overridden=0 WHERE id=?", (unchecked,))
+        await history.db.commit()
+        # Checks that stopped progressing, or cannot run, never hold anything back.
+        monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic() - 7200})
+        ids, waiting = await shown(client, "pending")
+        assert unchecked in ids and waiting == 0
+        monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic()})
+        monkeypatch.setattr(garden_identification_service, "error", "worker did not stop")
+        ids, waiting = await shown(client, "pending")
+        assert unchecked in ids and waiting == 0

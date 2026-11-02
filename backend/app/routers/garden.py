@@ -50,6 +50,7 @@ from app.models.garden_motion import MotionSource, GardenMotionStatus
 from app.models.garden_crop import GardenCropEvidence, GardenCropStorage
 from app.services.garden_crop_service import garden_crop_service
 from app.services.garden_motion import garden_motion_service
+from app.services.garden_automatic_review import automatic_hold_cameras
 from app.services.garden_identification import garden_identification_service
 from app.services.species_names import SpeciesIdentityNames, species_name_lookup, vernacular_case
 from app.utils.api_datetime import utc_naive_now
@@ -323,7 +324,7 @@ async def capture_timeline(
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
-        repository = GardenRepository(db)
+        repository = GardenRepository(db, held_cameras=automatic_hold_cameras())
         items = await repository.timeline(
             start=scope.start,
             end=scope.end,
@@ -354,6 +355,10 @@ class GardenVisitPage(BaseModel):
     capture_total: int
     limit: int
     offset: int
+    awaiting_check: int = Field(
+        0,
+        description="Motion candidates in scope held out of the list until their automatic check decides; 0 for guests",
+    )
 
 
 @public_router.get("/visits", response_model=GardenVisitPage)
@@ -376,7 +381,7 @@ async def garden_visits(
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
-        repo = GardenVisitRepository(db)
+        repo = GardenVisitRepository(db, held_cameras=automatic_hold_cameras())
         rows, total, captures = await repo.visits(
             start=scope.start,
             end=scope.end,
@@ -387,6 +392,10 @@ async def garden_visits(
             offset=offset,
             page_start=_as_utc(page_start),
             page_end=_as_utc(page_end),
+        )
+        # Only the owner learns that held candidates exist; a guest sees what is reviewed or decided.
+        awaiting_check = (
+            0 if scope.guest else await repo.awaiting_check_count(start=scope.start, end=scope.end, camera=scope.camera)
         )
         records = await repo.get_many([row["representative"] for row in rows])
         presented = await _page(records, len(records), limit, offset, language, guest=scope.guest)
@@ -403,7 +412,14 @@ async def garden_visits(
             for row in rows
             if row["representative"] in by_id
         ]
-    return GardenVisitPage(visits=visits, total=total, capture_total=captures, limit=limit, offset=offset)
+    return GardenVisitPage(
+        visits=visits,
+        total=total,
+        capture_total=captures,
+        limit=limit,
+        offset=offset,
+        awaiting_check=awaiting_check,
+    )
 
 
 @public_router.get("/visits/{visit_id}/captures", response_model=GardenCapturePage)
@@ -422,7 +438,7 @@ async def garden_visit_captures(
 ) -> GardenCapturePage:
     scope = _history_scope(auth, start, end, camera, status)
     async with get_db() as db:
-        items, total = await GardenVisitRepository(db).visit_captures(
+        items, total = await GardenVisitRepository(db, held_cameras=automatic_hold_cameras()).visit_captures(
             visit_id,
             start=scope.start,
             end=scope.end,

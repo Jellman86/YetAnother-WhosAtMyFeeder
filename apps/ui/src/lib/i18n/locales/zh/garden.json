@@ -166,7 +166,9 @@
     "play_clip_short": "播放片段",
     "state_below_threshold": "已检测到动物；物种低于命名阈值",
     "state_domestic": "已自动命名为您饲养的家禽",
-    "state_domestic_moved": "已作为您饲养的家禽从鸟类中移出"
+    "state_domestic_moved": "已作为您饲养的家禽从鸟类中移出",
+    "awaiting_check": "{count, plural, other {# 个摄像头捕获正在等待自动检查}}",
+    "awaiting_check_empty": "{count, plural, other {# 个摄像头捕获正在等待自动检查。}}被命名的动物会进入“已确认的动物”，没有动物的照片会进入“已忽略”，无法判断的才会显示在这里。"
   },
   "automatic_animal_manual": "已检测到动物。自动命名已关闭，或此旧结果正在等待更新后的自动检查。",
   "automatic_below_threshold": "低于自动判定阈值。已移至“已忽略”；如需复核，可恢复照片。",

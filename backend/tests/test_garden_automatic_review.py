@@ -2,7 +2,7 @@
 
 import hashlib
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -1014,3 +1014,78 @@ async def test_declaring_a_bird_during_inference_prevents_a_stale_decision(namin
     finally:
         c.native.side_effect = original
     assert (await capture(c.capture_id)).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_a_due_check_is_announced_even_while_the_motion_scan_holds_the_slot(context):
+    c = context
+    c.identification.busy = True
+    await c.service.process_once()
+    assert c.identification.check_due
+    assert c.native.await_count == 0
+    c.identification.busy = False
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).automatic_check is not None
+    await c.service.process_once()
+    assert not c.identification.check_due
+
+
+@pytest.mark.asyncio
+async def test_the_motion_scan_yields_the_slot_to_a_due_check(context, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr(garden_motion, "garden_identification_service", c := context.identification)
+    monkeypatch.setattr(garden_motion.garden_motion_service, "cameras", lambda: ["patio"])
+    pressure = MagicMock()
+    monkeypatch.setattr(garden_motion, "garden_inference_pressure", pressure)
+    c.check_due = True
+    await garden_motion.garden_motion_service.scan_once()
+    # Checking candidates already found comes before scanning for more.
+    assert not c.busy and pressure.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_camera_under_permanent_pressure_never_blocks_checks_or_scans_elsewhere(context, monkeypatch):
+    c = context
+    monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "lawn"])
+    async with get_db() as db:
+        lawn = await GardenRepository(db).capture_motion(
+            c.source.model_copy(
+                update={
+                    "camera": "lawn",
+                    "clip_start": c.source.clip_start + 30,
+                    "clip_end": c.source.clip_end + 30,
+                    "image_sha256": hashlib.sha256(b"lawn").hexdigest(),
+                }
+            ),
+            b"lawn",
+        )
+    clear = {"patio": False, "lawn": False}
+    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(side_effect=lambda cam: clear[cam]))
+    # Only the busy cameras have work: nothing can start, so scanning is not held up.
+    await c.service.process_once()
+    assert not c.identification.check_due and c.native.await_count == 0
+    # The idle camera's newer capture is checked although the busy camera's is older.
+    clear["lawn"] = True
+    await c.service.process_once()
+    assert c.native.await_count == 1
+    assert (await capture(lawn)).automatic_check is not None
+    assert (await capture(c.capture_id)).automatic_check is None
+    await c.service.process_once()
+    assert not c.identification.check_due
+
+
+@pytest.mark.asyncio
+async def test_candidates_are_held_only_while_their_cameras_checks_make_progress(context, monkeypatch):
+    c = context
+    hold = c.module.automatic_hold_cameras
+    # Nothing is known yet after a start: nothing is held.
+    assert hold() == ()
+    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=False))
+    await c.service.process_once()
+    # A capture is due on a camera that never clears: no progress, so nothing is held for it.
+    assert hold() == ()
+    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=True))
+    await c.service.process_once()
+    assert hold() == ("patio",)
+    assert hold(now=time.monotonic() + c.module.HOLD_PROGRESS_SECONDS + 1) == ()

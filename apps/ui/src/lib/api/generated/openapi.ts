@@ -1407,6 +1407,7 @@ export interface components {
     species_id: number;
 };
     GardenVisitPage: {
+    awaiting_check?: number;
     capture_total: number;
     limit: number;
     offset: number;

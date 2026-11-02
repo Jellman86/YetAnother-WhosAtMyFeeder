@@ -292,6 +292,11 @@ class GardenMotionService:
             return
         if time.monotonic() < self.next_scan:
             return
+        if garden_identification_service.check_due:
+            # Candidates already found are checked before the scan looks for more.
+            self.interval_seconds = MOTION_INTERVAL_SECONDS
+            self.message = "Waiting for automatic checks of saved candidates."
+            return
         if bird_work_pending(garden_inference_pressure()):
             self.interval_seconds = MOTION_INTERVAL_SECONDS
             self.message = "Waiting for bird inference to become idle."
