@@ -3,6 +3,7 @@
 import hashlib
 import asyncio
 from contextlib import suppress
+from datetime import datetime, timedelta
 from io import BytesIO
 import math
 import sqlite3
@@ -68,6 +69,21 @@ def build_saved_crop(
         frame_time=frame_time,
     )
     return evidence, result
+
+
+# A crop that cannot be built waits this long first, then twice as long after each failure.
+CROP_RETRY_FIRST = timedelta(hours=1)
+# A wait that would reach this gives up: about 31 hours of retries outlast any Frigate outage,
+# and a snapshot past Frigate's retention never returns.
+CROP_RETRY_GIVE_UP = timedelta(hours=24)
+
+
+def next_crop_retry(previous_wait: timedelta | None, now: datetime) -> datetime | None:
+    """When to try a failed crop again, from the wait before this failure; None gives up."""
+    wait = previous_wait * 2 if previous_wait is not None and previous_wait > timedelta(0) else CROP_RETRY_FIRST
+    if wait >= CROP_RETRY_GIVE_UP:
+        return None
+    return now + wait
 
 
 class GardenCropService:
@@ -196,8 +212,8 @@ class GardenCropService:
                         if generation == garden_motion_privacy.generation and original is not None:
                             async with get_db() as db:
                                 repo = GardenRepository(db)
-                                if await repo.get(capture_id) == original:
-                                    await repo.crop_unavailable(capture_id)
+                                if await repo.get(capture_id) == original and await repo.crop_unavailable(capture_id):
+                                    log.info("garden_crop_given_up", capture_id=capture_id)
 
 
 garden_crop_service = GardenCropService()

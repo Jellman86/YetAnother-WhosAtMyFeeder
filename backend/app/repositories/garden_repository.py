@@ -979,15 +979,32 @@ class GardenRepository:
             row = await cursor.fetchone()
         return self._capture(row) if row else None
 
-    async def crop_unavailable(self, capture_id: str) -> None:
+    async def crop_unavailable(self, capture_id: str) -> bool:
+        """Record a failed crop and schedule its retry. True when this failure gives up for good.
+
+        The previous wait is read back from the last schedule, so no attempt counter is stored.
+        """
+        from app.services.garden_crop_service import next_crop_retry
+
+        async with self.db.execute(
+            "SELECT retry_after, updated_at FROM garden_saved_crops WHERE capture_id=? AND state='unavailable'",
+            (capture_id,),
+        ) as cursor:
+            previous = await cursor.fetchone()
+        if previous is not None and previous[0] is None:
+            return True
+        previous_wait = datetime.fromisoformat(previous[0]) - datetime.fromisoformat(previous[1]) if previous else None
+        now = utc_naive_now()
+        retry = next_crop_retry(previous_wait, now)
         await self.db.execute(
             """INSERT INTO garden_saved_crops(capture_id,image,evidence_json,state,retry_after,updated_at)
                SELECT id,NULL,NULL,'unavailable',?,? FROM garden_captures WHERE id=? AND status='confirmed'
                ON CONFLICT(capture_id) DO UPDATE SET retry_after=excluded.retry_after,updated_at=excluded.updated_at
                WHERE garden_saved_crops.state='unavailable'""",
-            ((utc_naive_now() + timedelta(hours=1)).isoformat(), utc_naive_now().isoformat(), capture_id),
+            (retry.isoformat() if retry else None, now.isoformat(), capture_id),
         )
         await self.db.commit()
+        return retry is None
 
     async def crop_storage(self) -> dict[str, int]:
         async with self.db.execute(

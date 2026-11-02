@@ -497,3 +497,35 @@ async def test_frigate_crops_use_only_the_aligned_clean_frame_and_keep_person_re
         await repo.block_motion_overlap("patio", start + 1, start + 3)
         assert await repo.get(confirmed.id) is None
         assert await repo.crop_photo(confirmed.id) is None
+
+
+@pytest.mark.asyncio
+async def test_a_crop_that_keeps_failing_is_retried_less_often_then_given_up(captured):
+    from datetime import datetime
+
+    original, _ = captured
+
+    async def waits():
+        async with get_db() as db:
+            row = await (
+                await db.execute(
+                    "SELECT retry_after, updated_at FROM garden_saved_crops WHERE capture_id=?", (original.id,)
+                )
+            ).fetchone()
+        if row[0] is None:
+            return None
+        return round((datetime.fromisoformat(row[0]) - datetime.fromisoformat(row[1])).total_seconds() / 3600)
+
+    seen = []
+    for _ in range(6):
+        async with get_db() as db:
+            await GardenRepository(db).crop_unavailable(original.id)
+        seen.append(await waits())
+    assert seen == [1, 2, 4, 8, 16, None]
+    # Given up: even once every retry time has passed, it is never offered again.
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE garden_saved_crops SET updated_at='2000-01-01T00:00:00' WHERE capture_id=?", (original.id,)
+        )
+        await db.commit()
+        assert await GardenRepository(db).next_crop(["patio"]) is None
