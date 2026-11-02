@@ -32,6 +32,12 @@ minutes, for example because the camera stays under pressure, its candidates app
 **Needs review** instead. A failed check also releases its capture. Checking candidates
 already found takes priority over scanning recordings for more, but a camera that cannot
 be checked never holds up checks or scans on the others.
+Checks go in order: candidates away from a *known blank spot* first, then never-checked,
+then oldest. A known blank spot is a box where an automatic check found nothing in the last
+12 hours, on the same camera with the same detector; a spot you reviewed yourself does not
+count. Dawn and dusk bursts at one bush or shadow therefore wait behind candidates elsewhere,
+so a real animal is not queued behind them. They are still checked, never skipped or
+dismissed without their own check.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.

@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.models.garden_motion import MotionSource
 from app.repositories.garden_repository import GardenRepository
+from app.utils.api_datetime import utc_naive_now
 
 
 def test_complete_presence_mass_distinguishes_empty_from_unresolved_and_other_animals():
@@ -45,6 +46,15 @@ def test_complete_presence_mass_distinguishes_empty_from_unresolved_and_other_an
     assert animal_presence_prediction([0.2, 0, 0, 0, 0.79, 0, 0.01], outputs, expected_width=7).outcome == "uncertain"
     with pytest.raises(ValueError):
         animal_presence_prediction([float("nan")] * 7, outputs, expected_width=7)
+
+
+def set_clear(monkeypatch, module, rule):
+    """Which cameras Frigate reports clear, for both the cycle's selection and a running check's watch."""
+    service = module.garden_motion_service
+    monkeypatch.setattr(service, "_camera_clear", AsyncMock(side_effect=rule))
+    monkeypatch.setattr(
+        service, "clear_cameras", AsyncMock(side_effect=lambda cameras: {c for c in cameras if rule(c)})
+    )
 
 
 @pytest_asyncio.fixture
@@ -84,7 +94,7 @@ async def context(tmp_path, monkeypatch):
     monkeypatch.setattr(identification.catalog, "load", lambda: bundle)
     monkeypatch.setattr(module, "garden_identification_service", identification)
     monkeypatch.setattr(module, "garden_inference_pressure", lambda: {"live": {}, "background": {}})
-    monkeypatch.setattr(module.garden_motion_service, "_camera_clear", AsyncMock(return_value=True))
+    set_clear(monkeypatch, module, lambda camera: True)
     native = AsyncMock(
         return_value={
             "assessment": {
@@ -260,7 +270,7 @@ async def test_automatic_checks_do_not_start_when_garden_or_hardware_is_unavaila
     if reason == "bird":
         monkeypatch.setattr(c.module, "garden_inference_pressure", lambda: None)
     if reason == "camera_pressure":
-        monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=False))
+        set_clear(monkeypatch, c.module, lambda camera: False)
     if reason == "busy":
         c.identification.busy = True
     if reason == "quarantine":
@@ -1061,7 +1071,7 @@ async def test_a_camera_under_permanent_pressure_never_blocks_checks_or_scans_el
             b"lawn",
         )
     clear = {"patio": False, "lawn": False}
-    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(side_effect=lambda cam: clear[cam]))
+    set_clear(monkeypatch, c.module, lambda camera: clear[camera])
     # Only the busy cameras have work: nothing can start, so scanning is not held up.
     await c.service.process_once()
     assert not c.identification.check_due and c.native.await_count == 0
@@ -1081,11 +1091,56 @@ async def test_candidates_are_held_only_while_their_cameras_checks_make_progress
     hold = c.module.automatic_hold_cameras
     # Nothing is known yet after a start: nothing is held.
     assert hold() == ()
-    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=False))
+    set_clear(monkeypatch, c.module, lambda camera: False)
     await c.service.process_once()
     # A capture is due on a camera that never clears: no progress, so nothing is held for it.
     assert hold() == ()
-    monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=True))
+    set_clear(monkeypatch, c.module, lambda camera: True)
     await c.service.process_once()
     assert hold() == ("patio",)
     assert hold(now=time.monotonic() + c.module.HOLD_PROGRESS_SECONDS + 1) == ()
+
+
+async def motion_capture(c, offset, box, *, image=None):
+    image = image or f"photo-{offset}".encode()
+    source = c.source.model_copy(
+        update={
+            "clip_start": c.source.clip_start + offset,
+            "clip_end": c.source.clip_end + offset,
+            "image_sha256": hashlib.sha256(image).hexdigest(),
+            "box_xywh": box,
+        }
+    )
+    async with get_db() as db:
+        return await GardenRepository(db).capture_motion(source, image)
+
+
+async def mark_blank(capture_id, *, overridden=False):
+    async with get_db() as db:
+        await db.execute(
+            "INSERT INTO garden_automatic_checks(capture_id,result_json) VALUES (?,json_object('outcome','non_animal','checked_at',?))",
+            (capture_id, utc_naive_now().isoformat()),
+        )
+        await db.execute(
+            "UPDATE garden_captures SET status=?, automation_overridden=? WHERE id=?",
+            ("confirmed" if overridden else "dismissed", int(overridden), capture_id),
+        )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owner_confirmed_the_spot", [False, True])
+async def test_candidates_at_a_recent_blank_spot_are_checked_after_those_elsewhere(context, owner_confirmed_the_spot):
+    c = context
+    # c.capture_id is the oldest candidate, at the box (0.1, 0.1, 0.2, 0.2).
+    blank = await motion_capture(c, -30, c.source.box_xywh)
+    await mark_blank(blank, overridden=owner_confirmed_the_spot)
+    elsewhere = await motion_capture(c, 20, (0.6, 0.6, 0.2, 0.2))
+    await c.service.process_once()
+    first = c.capture_id if owner_confirmed_the_spot else elsewhere
+    later = elsewhere if owner_confirmed_the_spot else c.capture_id
+    assert (await capture(first)).automatic_check is not None
+    assert (await capture(later)).automatic_check is None
+    # Deferred, never skipped: the next cycle checks it.
+    await c.service.process_once()
+    assert (await capture(later)).automatic_check is not None

@@ -584,30 +584,68 @@ class GardenRepository:
             row = await cursor.fetchone()
         return GardenAutomaticCheck.model_validate_json(row[0]) if row else None
 
-    async def next_automatic_check(
-        self, cameras: list[str], retry_before: str, *, policy_version: int | None = None, country: str | None = None
-    ) -> GardenCapture | None:
+    async def due_automatic_checks(
+        self,
+        cameras: list[str],
+        retry_before: str,
+        *,
+        policy_version: int | None = None,
+        country: str | None = None,
+        per_camera: int = MOTION_PHOTO_LIMIT,
+    ) -> list[GardenCapture]:
+        """Captures whose automatic check is due, up to ``per_camera`` on each camera.
+
+        Within a camera, never-checked captures come first, then the oldest. One query
+        serves every camera. The default bound matches motion photo storage, so a burst
+        of candidates at one spot cannot push a newer candidate out of the list.
+        """
         if not cameras:
-            return None
+            return []
         placeholders = ",".join("?" for _ in cameras)
         async with self.db.execute(
-            f"""SELECT {self._COLUMNS} FROM garden_captures
-                WHERE status='pending' AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
-                AND camera IN ({placeholders}) AND (
-                  NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.outcome')='unavailable'
-                    AND json_extract(result_json,'$.checked_at') < ?)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.outcome') != 'unavailable'
-                    AND ? IS NOT NULL AND COALESCE(json_extract(result_json,'$.policy_version'),0) < ?)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.decision_reason')='location_required' AND ? IS NOT NULL))
-                ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id), observed_at, id LIMIT 1""",
-            (*cameras, retry_before, policy_version, policy_version, country),
+            f"""WITH due AS (
+                  SELECT {self._COLUMNS}, ROW_NUMBER() OVER (
+                    PARTITION BY camera
+                    ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id),
+                             observed_at, id
+                  ) AS due_rank
+                  FROM garden_captures
+                  WHERE status='pending' AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
+                  AND camera IN ({placeholders}) AND (
+                    NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.outcome')='unavailable'
+                      AND json_extract(result_json,'$.checked_at') < ?)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.outcome') != 'unavailable'
+                      AND ? IS NOT NULL AND COALESCE(json_extract(result_json,'$.policy_version'),0) < ?)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.decision_reason')='location_required' AND ? IS NOT NULL))
+                )
+                SELECT * FROM due WHERE due_rank <= ? ORDER BY due_rank""",
+            (*cameras, retry_before, policy_version, policy_version, country, per_camera),
         ) as cursor:
-            row = await cursor.fetchone()
-        return self._capture(row) if row else None
+            return [self._capture(row[:-1]) for row in await cursor.fetchall()]
+
+    async def recent_blank_spots(self, cameras: list[str], since: str, limit: int = 256) -> list[MotionSource]:
+        """Where recent automatic checks found nothing, newest first.
+
+        A capture the owner reviewed is not evidence of a blank spot: they may have found an animal there.
+        """
+        if not cameras:
+            return []
+        placeholders = ",".join("?" for _ in cameras)
+        async with self.db.execute(
+            f"""SELECT m.source_json FROM garden_automatic_checks a
+                JOIN garden_captures c ON c.id=a.capture_id
+                JOIN garden_motion_sources m ON m.capture_id=a.capture_id
+                WHERE json_extract(a.result_json,'$.outcome')='non_animal'
+                AND json_extract(a.result_json,'$.checked_at') >= ?
+                AND c.automation_overridden=0 AND c.camera IN ({placeholders})
+                ORDER BY json_extract(a.result_json,'$.checked_at') DESC LIMIT ?""",
+            (since, *cameras, limit),
+        ) as cursor:
+            return [MotionSource.model_validate_json(row[0]) for row in await cursor.fetchall()]
 
     async def _write_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
         # A single write transaction compares both the previous assessment and

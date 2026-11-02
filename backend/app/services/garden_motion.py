@@ -243,12 +243,17 @@ class GardenMotionService:
         return False
 
     async def _camera_clear(self, camera: str) -> bool:
+        return camera in await self.clear_cameras([camera])
+
+    async def clear_cameras(self, cameras: Iterable[str]) -> set[str]:
+        """The cameras free of Frigate pressure, from a single stats read; none when it fails."""
         try:
             response = await frigate_client.get("api/stats", timeout=1)
             response.raise_for_status()
-            return not camera_pressure(response.json(), camera)
+            stats = response.json()
         except (ValueError, httpx.HTTPError):
-            return False
+            return set()
+        return {camera for camera in cameras if not camera_pressure(stats, camera)}
 
     async def _native(self, payload: dict[str, Any], blocked: Callable[[], bool]) -> dict[str, Any]:
         environment = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}

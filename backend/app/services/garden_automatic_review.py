@@ -41,6 +41,7 @@ from app.services.garden_identification import (
 )
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_automatic_policy import (
+    at_blank_spot,
     NamingResult,
     automatic_check_dismisses,
     finish_automatic_check,
@@ -75,6 +76,8 @@ def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
 
 # A camera whose checks have not progressed for this long releases its held candidates to review.
 HOLD_PROGRESS_SECONDS = 30 * 60
+# How long a blank automatic check marks its box as a known blank spot.
+BLANK_SPOT_SECONDS = 12 * 60 * 60
 
 
 def automatic_hold_cameras(now: float | None = None) -> tuple[str, ...]:
@@ -177,17 +180,15 @@ class GardenAutomaticReviewService:
         country = normalize_country(settings.location.country) if settings.frigate.garden_automatic_naming else None
         async with get_db() as db:
             repo = GardenRepository(db)
-            waiting = {
-                camera: await repo.next_automatic_check(
-                    [camera], retry_before, policy_version=policy_version, country=country
-                )
-                for camera in cameras
-            }
+            due_checks = await repo.due_automatic_checks(
+                cameras, retry_before, policy_version=policy_version, country=country
+            )
+            blanks = await repo.recent_blank_spots(
+                cameras, (utc_naive_now() - timedelta(seconds=BLANK_SPOT_SECONDS)).isoformat()
+            )
         now = time.monotonic()
-        for camera, due in waiting.items():
-            if due is None:
-                service.check_progress[camera] = now
-        due_checks = [due for due in waiting.values() if due is not None]
+        for camera in set(cameras) - {due.camera for due in due_checks}:
+            service.check_progress[camera] = now
         if not due_checks:
             service.check_due = False
             service.automatic_message = (
@@ -195,12 +196,20 @@ class GardenAutomaticReviewService:
             )
             return
         # A camera under pressure cannot be checked now; it must not hold up the others.
-        clear_cameras = {
-            camera for camera in {due.camera for due in due_checks} if await garden_motion_service._camera_clear(camera)
-        }
+        clear_cameras = await garden_motion_service.clear_cameras({due.camera for due in due_checks})
         ready = [due for due in due_checks if due.camera in clear_cameras]
-        # Within a camera the repository orders unchecked first, then oldest; across cameras likewise.
-        original = min(ready, key=lambda due: (due.automatic_check is not None, due.observed_at, due.id), default=None)
+        # Candidates away from recent blank spots first, so a real animal is not queued behind a
+        # dawn burst at one bush; then never-checked, then oldest. Deferred, never skipped.
+        original = min(
+            ready,
+            key=lambda due: (
+                at_blank_spot(due.motion_source, blanks),
+                due.automatic_check is not None,
+                due.observed_at,
+                due.id,
+            ),
+            default=None,
+        )
         # Priority only for a check that can start once the slot is free, so scanning is never stopped
         # by a check that cannot run.
         service.check_due = original is not None

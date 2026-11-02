@@ -430,3 +430,25 @@ async def test_expired_motion_photo_cannot_be_confirmed_from_a_stale_page(monkey
         capture_id = await GardenRepository(db).capture_motion(evidence(start=time.time() - 4 * 86400), b"photo")
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         assert (await client.post(f"/api/garden/{capture_id}/confirm")).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_camera_clearance_reads_frigate_stats_once_for_every_camera(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+
+    from app.services import garden_motion
+
+    stats = {
+        "cameras": {
+            "patio": {"camera_fps": 10, "process_fps": 10, "skipped_fps": 0, "detection_enabled": True},
+            "lawn": {"camera_fps": 5, "process_fps": 1, "skipped_fps": 0, "detection_enabled": True},
+        }
+    }
+    response = MagicMock(json=MagicMock(return_value=stats), raise_for_status=MagicMock())
+    get = AsyncMock(return_value=response)
+    monkeypatch.setattr(garden_motion.frigate_client, "get", get)
+    # Any camera under pressure blocks the rest, as for one camera: both read as busy here.
+    assert await garden_motion.garden_motion_service.clear_cameras(["patio", "lawn"]) == set()
+    stats["cameras"]["lawn"]["process_fps"] = 5
+    assert await garden_motion.garden_motion_service.clear_cameras(["patio", "lawn"]) == {"patio", "lawn"}
+    assert get.await_count == 2
