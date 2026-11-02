@@ -614,7 +614,11 @@ test('an open pop-out describes its trigger, for a bird and for a Garden animal,
     const ids = new Set<string>();
     for (const trigger of [row(page, 'blackbird').locator('[data-detection-preview] button').first(), gardenTrigger(page.locator('[data-field-log-garden="fox"]')), gardenTrigger(page.locator('[data-field-log-garden="hedgehog"]'))]) {
         await trigger.hover();
+        await expect(trigger).toHaveAttribute('aria-describedby', /.+/);
         ids.add((await trigger.getAttribute('aria-describedby')) ?? '');
+        // Leave, so the open panel no longer sits over the next thumbnail.
+        await page.mouse.move(5, 5);
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
     }
     expect(ids.size).toBe(3);
     expect(errors).toEqual([]);

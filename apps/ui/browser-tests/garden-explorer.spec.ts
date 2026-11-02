@@ -888,6 +888,8 @@ test('a visitor sees a Garden row pop-out only for a photo the owner shares', as
     // The server shares confirmed animals only; this one's photo is not shared, so no address is listed.
     garden.splice(garden.findIndex(item => item.status === 'pending'), 1);
     garden[0] = { ...garden[0], review_token: null as unknown as string, snapshot_url: null, crop_url: null };
+    // Lazy images from the first render may still be loading; only requests after this point are the guest's.
+    await page.waitForLoadState('networkidle');
     requested.length = 0;
     await reopenList(page);
     const row = page.locator('[data-garden-row="confirmed"]');
