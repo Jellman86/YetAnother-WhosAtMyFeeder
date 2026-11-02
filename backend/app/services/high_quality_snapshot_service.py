@@ -28,8 +28,12 @@ from app.services.species_reference import species_reference
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
     HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS,
+    WHOLE_FRAME_CORRECTION_REASON,
     choose_hq_classification_refinement,
+    crop_labels_disputing_full_frame,
     crop_labels_with_independent_support,
+    identity_labels,
+    identity_rests_on_whole_frame,
 )
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
@@ -427,13 +431,17 @@ class HighQualitySnapshotService:
                     event_data=event_data,
                     clip_variant=clip_variant,
                     include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                 )
             else:
                 final_candidates = await self._load_final_frigate_snapshot_candidates(
                     event_id, event_data, include_additional_birds=include_additional_birds
                 )
                 candidate_bundle = await self._score_and_select_snapshot_candidates(
-                    event_id, final_candidates, include_additional_birds=include_additional_birds
+                    event_id,
+                    final_candidates,
+                    include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                 )
             if candidate_bundle:
                 candidates = candidate_bundle.get("candidates") or []
@@ -643,6 +651,7 @@ class HighQualitySnapshotService:
                     clip_variant=clip_variant,
                     clip_start_timestamp=clip_start_timestamp,
                     include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                     **({"scene_cache": scene_cache} if scene_cache is not None else {}),
                 )
                 if candidate_bundle:
@@ -811,6 +820,7 @@ class HighQualitySnapshotService:
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
@@ -822,6 +832,7 @@ class HighQualitySnapshotService:
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
                 include_additional_birds=include_additional_birds,
+                correct_whole_frame_identity=correct_whole_frame_identity,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -837,8 +848,14 @@ class HighQualitySnapshotService:
         clip_start_timestamp: float | None = None,
         scene_cache: VideoSceneCache | None = None,
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
-        """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
+        """Candidate generation against a clip already on disk; the caller owns the file (#341).
+
+        ``correct_whole_frame_identity`` lets an HQ run settle a crop-consensus correction of a
+        whole-frame name before the photo is chosen, so the photo shows the corrected species.
+        Evidence-only scans leave it off and never change the identification.
+        """
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
@@ -875,7 +892,10 @@ class HighQualitySnapshotService:
             raise extraction_error
 
         return await self._score_and_select_snapshot_candidates(
-            event_id, raw_candidates, include_additional_birds=include_additional_birds
+            event_id,
+            raw_candidates,
+            include_additional_birds=include_additional_birds,
+            correct_whole_frame_identity=correct_whole_frame_identity,
         )
 
     async def _score_and_select_snapshot_candidates(
@@ -883,6 +903,7 @@ class HighQualitySnapshotService:
         event_id: str,
         raw_candidates: list[dict[str, Any]],
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
         """Score, select, and bound candidates independent of their media source."""
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
@@ -907,7 +928,13 @@ class HighQualitySnapshotService:
             }
 
         ranked = self._rank_snapshot_candidates(scored)
+        if correct_whole_frame_identity:
+            await self._apply_classification_refinement(event_id, scored, whole_frame_correction_only=True)
         expected_labels = await self._load_expected_species_labels(event_id)
+        if expected_labels and await self._whole_frame_identity_disputed_by_crops(event_id, scored):
+            # The name came from one whole frame and every crop names another species, so it
+            # is not evidence for choosing the photo: choose as if the visit were unnamed.
+            expected_labels = set()
         # Target crop geometry remains photo-presence evidence even when optional
         # whole-scene enumeration and recovered-bird classification are disabled.
         observation_candidates = await self._detect_count_candidates(scored) if include_additional_birds else []
@@ -1428,6 +1455,30 @@ class HighQualitySnapshotService:
         }
         labels.discard("")
         return labels
+
+    async def _whole_frame_identity_disputed_by_crops(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
+        """Whether the visit's name was read from one whole frame that every named crop disputes."""
+        try:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+                owner_choice = await repo.get_owner_species_choice_labels(event_id) if detection else None
+        except Exception:
+            return False
+        if detection is None or not identity_rests_on_whole_frame(
+            detection, owner_species_chosen=owner_choice is not None
+        ):
+            return False
+        crop_labels = crop_labels_disputing_full_frame(identity_labels(detection), candidates)
+        if crop_labels:
+            log.info(
+                "HQ photo choice set aside a whole-frame name that every crop disputes",
+                event_id=event_id,
+                species=detection.display_name,
+                input_source=detection.classification_input.source if detection.classification_input else None,
+                crop_labels=crop_labels,
+            )
+        return bool(crop_labels)
 
     @staticmethod
     def _candidate_label_key(value: Any) -> str:
@@ -2110,8 +2161,15 @@ class HighQualitySnapshotService:
         enriched["ranking_score"] = ranking_score
         return enriched
 
-    async def _apply_classification_refinement(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
-        """Promote a trustworthy crop consensus through the canonical detection write path."""
+    async def _apply_classification_refinement(
+        self, event_id: str, candidates: list[dict[str, Any]], *, whole_frame_correction_only: bool = False
+    ) -> bool:
+        """Promote a trustworthy crop consensus through the canonical detection write path.
+
+        ``whole_frame_correction_only`` is the HQ pass that runs before the photo is chosen. It
+        applies only a correction of a whole-frame name; when it applies nothing it counts nothing,
+        leaving that outcome to the ordinary pass that follows the photo.
+        """
         # Avoid a database lookup when candidate scoring did not produce enough usable evidence.
         crop_votes = [
             item
@@ -2122,14 +2180,18 @@ class HighQualitySnapshotService:
             and item.get("classifier_index") is not None
         ]
         if not crop_labels_with_independent_support(crop_votes):
-            self._classification_refinements["insufficient_evidence"] += 1
+            if not whole_frame_correction_only:
+                self._classification_refinements["insufficient_evidence"] += 1
             return False
 
         try:
             async with get_db() as db:
-                detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+                owner_choice = await repo.get_owner_species_choice_labels(event_id) if detection else None
             if detection is None:
-                self._classification_refinements["detection_missing"] += 1
+                if not whole_frame_correction_only:
+                    self._classification_refinements["detection_missing"] += 1
                 return False
 
             from app.services.model_manager import model_manager
@@ -2140,7 +2202,10 @@ class HighQualitySnapshotService:
                 detection=detection,
                 candidates=candidates,
                 minimum_score=recommended_threshold,
+                owner_species_chosen=owner_choice is not None,
             )
+            if whole_frame_correction_only and (decision is None or decision.reason != WHOLE_FRAME_CORRECTION_REASON):
+                return False
             if decision is None:
                 self._classification_refinements["policy_rejected"] += 1
                 return False
@@ -2183,6 +2248,9 @@ class HighQualitySnapshotService:
                 median_score=decision.median_score,
                 supporting_frames=decision.supporting_frame_count,
                 reason=decision.reason,
+                previous_species=detection.display_name,
+                previous_score=detection.score,
+                previous_input_source=getattr(getattr(detection, "classification_input", None), "source", None),
                 promoted=bool(applied),
                 model_id=model_spec.get("model_id"),
                 preprocessing=model_spec.get("preprocessing"),

@@ -60,6 +60,32 @@ to be offered as the photo. **Notifications → Errors** records it as
 `snapshot_whole_frame_disputed_by_crops`, with the crop species. An owner-requested **Score again**
 is still applied, and so is the manual species picker.
 
+### Correcting a name read from a whole frame
+
+The photo search classifies crops of the bird from several moments of the visit. Crops that agree
+on one species can improve the score of the current name, or name a bird recorded as Unknown. They
+can replace a different known name in one case only: the name was read from a single uncropped
+whole frame, such as a recording frame used when Frigate kept no snapshot. On a distant camera the
+bird fills little of that frame, which is the misreading the crops correct. A replacement needs
+all of the following:
+
+- at least two crop moments at least 250 ms apart naming the species, with a median and best score
+  at or above the model's recommended threshold (never below 0.60), and no close second species;
+- no manual tag and no species chosen by you for the visit;
+- a species that is not Unknown, blocked or outside the range list, and a score at or above the
+  current one.
+
+A name from a crop, from video analysis, from a Frigate sublabel or from you is never replaced this
+way. The new name records the crop source and how many moments support it, and the first
+classification stays on record. The change reaches open pages like any automatic reclassification.
+It sends no new alert, and BirdWeather is not sent a second sighting. Counts and eBird exports
+follow the new name.
+
+The photo is chosen after the name is settled, so it shows the corrected species. When every crop
+disputes a whole-frame name that cannot be corrected, for example because the crops come from one
+moment, that name does not decide the photo; the photo is chosen as it would be for an unnamed
+visit.
+
 ### Photograph progress
 
 Photo work can reuse the winning decoded frame to avoid decoding it again. Invalid or unavailable

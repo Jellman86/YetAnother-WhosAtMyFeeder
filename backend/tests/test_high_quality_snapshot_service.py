@@ -482,11 +482,14 @@ async def test_replace_from_clip_path_persists_and_selects_ranked_snapshot_candi
         clip_variant="event",
         clip_start_timestamp=None,
         include_additional_birds=None,
+        correct_whole_frame_identity=False,
     ):
         assert event_id == "evt_candidates"
         # The clip reaches candidate generation as a file, never as bytes (#341).
         assert Path(clip_path).read_bytes() == b"clip-bytes"
         assert clip_variant == "event"
+        # An HQ run may correct a whole-frame name before it chooses the photo.
+        assert correct_whole_frame_identity is True
         return {
             "selected_candidate": {
                 "candidate_id": "cand-best",
@@ -1485,6 +1488,9 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
         async def get_by_frigate_event(self, event_id):
             assert event_id == "evt-refine"
             return detection
+
+        async def get_owner_species_choice_labels(self, event_id):
+            return None
 
     applied_calls: list[dict] = []
 
@@ -2600,7 +2606,13 @@ async def test_process_event_uses_persisted_hints_when_frigate_event_is_gone(tmp
     captured: dict[str, object] = {}
 
     async def fake_generate(
-        _event_id, _clip_bytes, *, event_data=None, clip_variant="event", include_additional_birds=None
+        _event_id,
+        _clip_bytes,
+        *,
+        event_data=None,
+        clip_variant="event",
+        include_additional_birds=None,
+        correct_whole_frame_identity=False,
     ):
         captured["event_data"] = event_data
         captured["clip_variant"] = clip_variant
@@ -3005,7 +3017,9 @@ async def test_process_event_uses_final_frigate_snapshot_when_all_clip_sources_a
 
     assert result == "replaced"
     load_final.assert_awaited_once()
-    score_and_select.assert_awaited_once_with("evt_final_only", [final_candidate], include_additional_birds=True)
+    score_and_select.assert_awaited_once_with(
+        "evt_final_only", [final_candidate], include_additional_birds=True, correct_whole_frame_identity=True
+    )
     persist.assert_awaited_once_with("evt_final_only", [final_candidate])
     assert await cache_service.get_snapshot("evt_final_only") == final_bytes
 
