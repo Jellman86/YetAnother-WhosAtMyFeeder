@@ -52,6 +52,14 @@ consensus; YA-WAMF does not invent their original classification.
 or erase an explicit choice. A below-threshold or abstaining run tries the retained snapshot; if
 neither route qualifies, it keeps the identification and reports **No confident result**.
 
+When the retained photo is a whole frame from the photo search, an automatic snapshot fallback
+reads it only if the visit's bird crops do not contradict it. If the crops name species and none of
+them is the whole frame's species, YA-WAMF keeps the existing identification, its score and its
+recorded input, and reports **No confident result**. Every crop counts, including crops too faint
+to be offered as the photo. **Notifications → Errors** records it as
+`snapshot_whole_frame_disputed_by_crops`, with the crop species. An owner-requested **Score again**
+is still applied, and so is the manual species picker.
+
 ### Photograph progress
 
 Photo work can reuse the winning decoded frame to avoid decoding it again. Invalid or unavailable

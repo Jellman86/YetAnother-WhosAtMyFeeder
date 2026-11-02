@@ -2,7 +2,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.hq_classification_refinement import choose_hq_classification_refinement
+from app.services.hq_classification_refinement import (
+    choose_hq_classification_refinement,
+    crop_labels_disputing_full_frame,
+)
 
 
 def _candidate(
@@ -208,3 +211,68 @@ def test_the_decision_names_the_model_that_scored_its_winning_crop():
 
     assert decision is not None
     assert decision.model_sha256 == "c" * 64
+
+
+def _persisted_row(source_mode: str, label: str | None, score: float | None, crop_confidence: float | None) -> dict:
+    return {
+        "source_mode": source_mode,
+        "classifier_label": label,
+        "classifier_score": score,
+        "crop_confidence": crop_confidence,
+    }
+
+
+# The photo choices saved for a greenhouse visit whose whole frames read as Pica pica while
+# every crop of the birds read as Columba palumbus. The frame-510 crops sit below the
+# detector-confidence floor and the frame-255 crops share one frame, so none of them may
+# vote or be offered as the photo; they are still evidence against the whole frame.
+WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS = [
+    _persisted_row("model_crop", "Columba palumbus", 0.977, 0.35),
+    _persisted_row("model_crop", "Columba palumbus", 0.957, 0.45),
+    _persisted_row("model_crop", "Columba palumbus", 0.942, 0.85),
+    _persisted_row("model_crop", "Columba palumbus", 0.854, 0.80),
+    _persisted_row("full_frame", "Pica pica", 0.768, None),
+    _persisted_row("full_frame", "Pica pica", 0.726, 0.45),
+    _persisted_row("full_frame", "Pica pica", 0.462, 0.85),
+    _persisted_row("retained_photo", None, None, None),
+]
+
+
+def test_crops_that_name_another_species_contradict_a_whole_frame_label_even_when_too_weak_to_vote():
+    assert crop_labels_disputing_full_frame("Pica pica", WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS) == ["Columba palumbus"]
+    # The same crops cannot form a consensus, which is why selection fell back to whole frames.
+    assert (
+        choose_hq_classification_refinement(
+            detection=_detection(),
+            candidates=[row for row in WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS if row["source_mode"] == "model_crop"],
+        )
+        is None
+    )
+
+
+def test_a_whole_frame_that_agrees_with_a_crop_is_not_contradicted():
+    assert not crop_labels_disputing_full_frame("Columba palumbus", WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS)
+    assert not crop_labels_disputing_full_frame("columba_palumbus", WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS)
+
+
+def test_one_agreeing_crop_corroborates_a_whole_frame_in_a_mixed_scene():
+    rows = [
+        _persisted_row("model_crop", "Columba palumbus", 0.95, 0.9),
+        _persisted_row("frigate_hint_crop", "Pica pica", 0.81, None),
+        _persisted_row("full_frame", "Pica pica", 0.77, None),
+    ]
+
+    assert not crop_labels_disputing_full_frame("Pica pica", rows)
+
+
+def test_a_whole_frame_is_not_contradicted_when_the_event_has_no_named_crop():
+    whole_frames_only = [row for row in WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS if row["source_mode"] != "model_crop"]
+    unnamed_crops = [
+        _persisted_row("model_crop", "Unknown Bird", 0.4, 0.9),
+        _persisted_row("frigate_hint_crop", None, None, None),
+        _persisted_row("model_observation", "Columba palumbus", 0.9, 0.9),
+    ]
+
+    assert not crop_labels_disputing_full_frame("Pica pica", whole_frames_only)
+    assert not crop_labels_disputing_full_frame("Pica pica", unnamed_crops)
+    assert not crop_labels_disputing_full_frame("Pica pica", [])
