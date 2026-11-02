@@ -398,3 +398,68 @@ async def test_unavailable_optional_garden_catalogue_does_not_fail_bird_startup(
     assert not status.catalogue_ready
     assert not status.busy
     assert service.error is None
+
+
+class _AcceleratorWorker:
+    """Records retirement; the binding is an accelerator, so settling must free it unless kept warm."""
+
+    key = ("model.onnx", "a" * 64, "4.0.3a", "intel_npu")
+
+    def __init__(self) -> None:
+        self.retired: list[str] = []
+
+    async def retire(self, reason: str) -> None:
+        await asyncio.sleep(0)
+        self.retired.append(reason)
+
+
+def _settling_service(monkeypatch):
+    from app.services import garden_identification as module
+
+    service = module.GardenIdentificationService()
+    service.worker = _AcceleratorWorker()
+    monkeypatch.setattr(module, "garden_inference_pressure", lambda: {"live": {}, "background": {}})
+    monkeypatch.setattr(module, "bird_work_pending", lambda status: False)
+    return service
+
+
+@pytest.mark.asyncio
+async def test_cancelling_settlement_while_asking_for_the_next_check_still_frees_the_accelerator(monkeypatch):
+    service = _settling_service(monkeypatch)
+    asking = asyncio.Event()
+
+    async def next_check_due() -> bool:
+        asking.set()
+        await asyncio.Event().wait()
+        return True
+
+    task = asyncio.create_task(service.settle_worker(next_check_due))
+    await asking.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    # The caller's finally releases the Garden slot next: the device must already be free.
+    assert service.worker.retired == ["accelerator_yielded"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_next_check_query_frees_the_accelerator_before_the_error_propagates(monkeypatch):
+    service = _settling_service(monkeypatch)
+
+    async def next_check_due() -> bool:
+        raise RuntimeError("database closed")
+
+    with pytest.raises(RuntimeError):
+        await service.settle_worker(next_check_due)
+    assert service.worker.retired == ["accelerator_yielded"]
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_stays_loaded_only_when_the_next_check_is_confirmed_due(monkeypatch):
+    service = _settling_service(monkeypatch)
+
+    async def due() -> bool:
+        return True
+
+    await service.settle_worker(due)
+    assert service.worker.retired == []

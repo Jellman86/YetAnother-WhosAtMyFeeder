@@ -42,6 +42,7 @@ from app.services.garden_worker_supervisor import (
     GardenBusy,
     GardenCleanupFailed,
     GardenWarmWorker,
+    finish_despite_cancellation,
     worker_failure_fields,
 )
 from app.services.model_manager import MODELS_DIR
@@ -147,8 +148,16 @@ class GardenIdentificationService:
         binding = self.worker.key
         if not isinstance(binding, tuple) or binding[3] in CPU_PROVIDERS:
             return
-        if not bird_work_pending(garden_inference_pressure()) and await next_check_due():
-            return
+        keep = False
+        try:
+            keep = not bird_work_pending(garden_inference_pressure()) and await next_check_due()
+        finally:
+            # Anything short of a confirmed reason to stay warm frees the device first:
+            # a cancelled or failed question about the next check still releases the slot.
+            if not keep:
+                await finish_despite_cancellation(self._retire_accelerator())
+
+    async def _retire_accelerator(self) -> None:
         try:
             await self.worker.retire("accelerator_yielded")
         except GardenCleanupFailed:
