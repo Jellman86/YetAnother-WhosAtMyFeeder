@@ -3,6 +3,7 @@
 import hashlib
 import asyncio
 from contextlib import suppress
+from datetime import datetime, timedelta
 from io import BytesIO
 import math
 import sqlite3
@@ -68,6 +69,19 @@ def build_saved_crop(
         frame_time=frame_time,
     )
     return evidence, result
+
+
+# A crop that cannot be built waits this long first, then twice as long after each failure.
+CROP_RETRY_FIRST = timedelta(hours=1)
+# The wait settles here and the crop is retried once a day for as long as the capture stays:
+# a Frigate outage can outlast any fixed number of tries, so a crop is never abandoned.
+CROP_RETRY_LONGEST = timedelta(hours=24)
+
+
+def next_crop_retry(previous_wait: timedelta | None, now: datetime) -> datetime:
+    """When to try a failed crop again, from the wait before this failure."""
+    wait = previous_wait * 2 if previous_wait is not None and previous_wait > timedelta(0) else CROP_RETRY_FIRST
+    return now + min(wait, CROP_RETRY_LONGEST)
 
 
 class GardenCropService:
