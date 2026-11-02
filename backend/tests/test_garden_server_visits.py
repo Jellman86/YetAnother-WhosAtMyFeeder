@@ -234,9 +234,13 @@ async def add_motion(repo, seconds, *, camera="patio"):
 
 @pytest.mark.asyncio
 async def test_a_camera_candidate_waits_out_of_sight_until_its_automatic_check_decides(history, monkeypatch):
+    import time
+
     from app.services.garden_identification import garden_identification_service
 
     monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "lawn"])
+    # Patio's checks are making progress, so its unchecked candidates wait for them.
+    monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic()})
     unchecked = await add_motion(history, 0)
     checked = await add_motion(history, 100)
     other_camera = await add_motion(history, 200, camera="yard")
@@ -265,7 +269,11 @@ async def test_a_camera_candidate_waits_out_of_sight_until_its_automatic_check_d
         assert unchecked in ids and waiting == 0
         await history.db.execute("UPDATE garden_captures SET automation_overridden=0 WHERE id=?", (unchecked,))
         await history.db.commit()
-        # Checks that cannot run never hold anything back.
+        # Checks that stopped progressing, or cannot run, never hold anything back.
+        monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic() - 7200})
+        ids, waiting = await shown(client, "pending")
+        assert unchecked in ids and waiting == 0
+        monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic()})
         monkeypatch.setattr(garden_identification_service, "error", "worker did not stop")
         ids, waiting = await shown(client, "pending")
         assert unchecked in ids and waiting == 0

@@ -73,14 +73,27 @@ def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
     return {"low_confidence": "low_confidence", "bird_excluded": "bird"}.get(suggestion.reason, "unresolved")
 
 
-def automatic_hold_cameras() -> tuple[str, ...]:
+# A camera whose checks have not progressed for this long releases its held candidates to review.
+HOLD_PROGRESS_SECONDS = 30 * 60
+
+
+def automatic_hold_cameras(now: float | None = None) -> tuple[str, ...]:
     """Cameras whose unchecked candidates wait for their automatic check before anyone sees them.
 
-    None while checks cannot run, so a capture is never held for a check that will not come.
+    Only cameras whose checks are progressing: a check finished there, or none was due,
+    within ``HOLD_PROGRESS_SECONDS``. A camera under lasting pressure, a service in error or
+    a fresh start holds nothing, so a capture is never hidden waiting for a check that will
+    not come.
     """
-    if garden_identification_service.error:
+    service = garden_identification_service
+    if service.error:
         return ()
-    return tuple(garden_collection_cameras())
+    moment = time.monotonic() if now is None else now
+    return tuple(
+        camera
+        for camera in garden_collection_cameras()
+        if moment - service.check_progress.get(camera, float("-inf")) < HOLD_PROGRESS_SECONDS
+    )
 
 
 class GardenAutomaticReviewService:
@@ -160,27 +173,42 @@ class GardenAutomaticReviewService:
             service.check_due = False
             return
         retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
+        policy_version = 1 if settings.frigate.garden_automatic_naming else None
+        country = normalize_country(settings.location.country) if settings.frigate.garden_automatic_naming else None
         async with get_db() as db:
-            original = await GardenRepository(db).next_automatic_check(
-                cameras,
-                retry_before,
-                policy_version=1 if settings.frigate.garden_automatic_naming else None,
-                country=normalize_country(settings.location.country)
-                if settings.frigate.garden_automatic_naming
-                else None,
-            )
-        # Announced before waiting for the slot, so the motion scan stops taking it.
-        service.check_due = original is not None
-        if original is None:
+            repo = GardenRepository(db)
+            waiting = {
+                camera: await repo.next_automatic_check(
+                    [camera], retry_before, policy_version=policy_version, country=country
+                )
+                for camera in cameras
+            }
+        now = time.monotonic()
+        for camera, due in waiting.items():
+            if due is None:
+                service.check_progress[camera] = now
+        due_checks = [due for due in waiting.values() if due is not None]
+        if not due_checks:
+            service.check_due = False
             service.automatic_message = (
                 "No automatic check is due. Unavailable checks remain in Needs review until their retry."
             )
             return
+        # A camera under pressure cannot be checked now; it must not hold up the others.
+        clear_cameras = {
+            camera for camera in {due.camera for due in due_checks} if await garden_motion_service._camera_clear(camera)
+        }
+        ready = [due for due in due_checks if due.camera in clear_cameras]
+        # Within a camera the repository orders unchecked first, then oldest; across cameras likewise.
+        original = min(ready, key=lambda due: (due.automatic_check is not None, due.observed_at, due.id), default=None)
+        # Priority only for a check that can start once the slot is free, so scanning is never stopped
+        # by a check that cannot run.
+        service.check_due = original is not None
+        if original is None:
+            return
         if service.busy or bird_work_pending(garden_inference_pressure()):
             return
-        clear = await garden_motion_service._camera_clear(original.camera)
-        if not clear or service.busy:
-            return
+        clear = True
         service.busy = True
         generation = garden_motion_privacy.generation
         review_generation = service._photo_review_generation
@@ -189,6 +217,8 @@ class GardenAutomaticReviewService:
         changed = False
         named_saved = False
         named: GardenIdentification | None = None
+        # A paused check made no progress; any finished one, saved or unavailable, did.
+        progressed = True
 
         def blocked() -> bool:
             return (
@@ -385,6 +415,7 @@ class GardenAutomaticReviewService:
                     " CPU fallback was used; the preferred accelerator has not passed its current Garden check."
                 )
         except GardenBusy:
+            progressed = False
             service.automatic_message = "Automatic check paused. It will resume when birds and cameras are idle."
         except GardenCleanupFailed:
             service.error = "Garden worker did not stop. Restart the application before running more Garden work."
@@ -417,6 +448,8 @@ class GardenAutomaticReviewService:
                                 ),
                             )
         finally:
+            if progressed:
+                service.check_progress[original.camera] = time.monotonic()
             if watcher is not None:
                 watcher.cancel()
                 with suppress(asyncio.CancelledError):
