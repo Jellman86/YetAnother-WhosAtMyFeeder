@@ -50,7 +50,7 @@ from app.models.garden_motion import MotionSource, GardenMotionStatus
 from app.models.garden_crop import GardenCropEvidence, GardenCropStorage
 from app.services.garden_crop_service import garden_crop_service
 from app.services.garden_motion import garden_motion_service
-from app.services.garden_automatic_review import automatic_hold_cameras
+from app.services.garden_automatic_review import automatic_hold_cameras, automatic_hold_since
 from app.services.garden_identification import garden_identification_service
 from app.services.species_names import SpeciesIdentityNames, species_name_lookup, vernacular_case
 from app.utils.api_datetime import utc_naive_now
@@ -324,7 +324,7 @@ async def capture_timeline(
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
-        repository = GardenRepository(db, held_cameras=automatic_hold_cameras())
+        repository = GardenRepository(db, held_cameras=automatic_hold_cameras(), held_since=automatic_hold_since())
         items = await repository.timeline(
             start=scope.start,
             end=scope.end,
@@ -381,7 +381,7 @@ async def garden_visits(
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
-        repo = GardenVisitRepository(db, held_cameras=automatic_hold_cameras())
+        repo = GardenVisitRepository(db, held_cameras=automatic_hold_cameras(), held_since=automatic_hold_since())
         rows, total, captures = await repo.visits(
             start=scope.start,
             end=scope.end,
@@ -438,7 +438,9 @@ async def garden_visit_captures(
 ) -> GardenCapturePage:
     scope = _history_scope(auth, start, end, camera, status)
     async with get_db() as db:
-        items, total = await GardenVisitRepository(db, held_cameras=automatic_hold_cameras()).visit_captures(
+        items, total = await GardenVisitRepository(
+            db, held_cameras=automatic_hold_cameras(), held_since=automatic_hold_since()
+        ).visit_captures(
             visit_id,
             start=scope.start,
             end=scope.end,

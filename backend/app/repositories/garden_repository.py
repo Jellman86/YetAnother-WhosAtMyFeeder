@@ -99,21 +99,25 @@ class GardenRepository:
                 'source_model',source_model,'detection_id',detection_id,'routed_at',routed_at)
           FROM garden_domestic_routes WHERE capture_id=garden_captures.id)"""
 
-    def __init__(self, db: aiosqlite.Connection, *, held_cameras: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self, db: aiosqlite.Connection, *, held_cameras: tuple[str, ...] = (), held_since: str | None = None
+    ) -> None:
         self.db = db
-        # On these cameras a motion candidate stays out of the timeline until its automatic
-        # check decides, unless the owner already acted on it.
+        # On these cameras a motion candidate observed since ``held_since`` stays out of the
+        # timeline until its automatic check decides, unless the owner already acted on it.
+        # An older one is shown however its camera's checks are doing.
         self.held_cameras = held_cameras
+        self.held_since = held_since
 
     def _awaiting_check(self) -> tuple[str, list[str]]:
-        if not self.held_cameras:
+        if not self.held_cameras or self.held_since is None:
             return "0", []
         return (
-            f"""(status = 'pending' AND automation_overridden = 0
+            f"""(status = 'pending' AND automation_overridden = 0 AND observed_at >= ?
                 AND camera IN ({",".join("?" * len(self.held_cameras))})
                 AND EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
                 AND NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id))""",
-            list(self.held_cameras),
+            [self.held_since, *self.held_cameras],
         )
 
     @staticmethod

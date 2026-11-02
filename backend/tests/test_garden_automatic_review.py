@@ -1144,3 +1144,17 @@ async def test_candidates_at_a_recent_blank_spot_are_checked_after_those_elsewhe
     # Deferred, never skipped: the next cycle checks it.
     await c.service.process_once()
     assert (await capture(later)).automatic_check is not None
+
+
+@pytest.mark.asyncio
+async def test_a_blank_spot_candidate_is_deferred_for_at_most_its_limit_under_sustained_arrivals(context):
+    c = context
+    limit = c.module.HOLD_PROGRESS_SECONDS
+    blank = await motion_capture(c, -limit - 600, c.source.box_xywh)
+    await mark_blank(blank)
+    # Older than the limit, at a blank spot: no longer deferred, so it is the next check.
+    overdue = await motion_capture(c, -limit - 300, c.source.box_xywh)
+    for offset in [10, 20, 30]:
+        await motion_capture(c, offset, (0.5 + offset / 100, 0.6, 0.1, 0.1))
+    await c.service.process_once()
+    assert (await capture(overdue)).automatic_check is not None

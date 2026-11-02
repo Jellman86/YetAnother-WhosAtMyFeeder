@@ -392,7 +392,8 @@ species identification have separate reviews; `frigate_label` remains an upstrea
   scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`
   count groups. The response has `visits`, group `total`, `capture_total`, `limit`,
   `offset` and `awaiting_check`. A motion candidate with no automatic check yet, on a camera
-  whose checks have progressed within the last 30 minutes, is left out of `reviewable` and `pending` (here, in
+  whose checks have progressed within the last 30 minutes, observed within the last 30 minutes,
+  is left out of `reviewable` and `pending` (here, in
   `/api/garden/timeline` and in a visit's captures) until its check decides, unless the owner
   has already acted on it. `awaiting_check` counts those held candidates in scope; it is 0 for
   guests. Each visit includes `id`, `kind` (`visit` or `position`), start/end,

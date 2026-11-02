@@ -80,6 +80,11 @@ HOLD_PROGRESS_SECONDS = 30 * 60
 BLANK_SPOT_SECONDS = 12 * 60 * 60
 
 
+def automatic_hold_since() -> str:
+    """Candidates observed before this are never held: a check overdue this long is shown for review."""
+    return (utc_naive_now() - timedelta(seconds=HOLD_PROGRESS_SECONDS)).isoformat()
+
+
 def automatic_hold_cameras(now: float | None = None) -> tuple[str, ...]:
     """Cameras whose unchecked candidates wait for their automatic check before anyone sees them.
 
@@ -199,11 +204,13 @@ class GardenAutomaticReviewService:
         clear_cameras = await garden_motion_service.clear_cameras({due.camera for due in due_checks})
         ready = [due for due in due_checks if due.camera in clear_cameras]
         # Candidates away from recent blank spots first, so a real animal is not queued behind a
-        # dawn burst at one bush; then never-checked, then oldest. Deferred, never skipped.
+        # dawn burst at one bush; then never-checked, then oldest. A deferral lasts only while the
+        # candidate is younger than the hold limit, so sustained arrivals elsewhere cannot starve it.
+        defer_since = automatic_hold_since()
         original = min(
             ready,
             key=lambda due: (
-                at_blank_spot(due.motion_source, blanks),
+                due.observed_at >= defer_since and at_blank_spot(due.motion_source, blanks),
                 due.automatic_check is not None,
                 due.observed_at,
                 due.id,
