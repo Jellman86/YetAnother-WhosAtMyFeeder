@@ -15,7 +15,9 @@ export function speciesPicture(scientificName: string): Promise<string | null> {
     if (!key) return Promise.resolve(null);
     let picture = pictures.get(key);
     if (!picture) {
-        picture = fetchSpeciesInfo(key)
+        // The scientific name doubles as the lookup hint: without it the species route tries
+        // the bird sources first and finds nothing for a mammal, such as a dog.
+        picture = fetchSpeciesInfo(key, undefined, key)
             .then((info) => info.thumbnail_url ?? null)
             .catch(() => {
                 // A failed lookup may succeed later in the session.
