@@ -207,10 +207,39 @@ def crop_labels_disputing_full_frame(labels: Iterable[Any], candidates: Iterable
     return sorted(crop_labels.values())
 
 
-def identity_rests_on_whole_frame(detection: Any, *, owner_species_chosen: bool = False) -> bool:
-    """Whether the current name was read from one uncropped whole frame and no person chose it."""
+def strongest_crop_by_species(candidates: Iterable[dict[str, Any]], labels: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The highest-scoring crop naming each of ``labels``, keyed by that label."""
 
-    if owner_species_chosen or bool(getattr(detection, "manual_tagged", False)):
+    wanted = {_label_key(label): str(label) for label in labels}
+    strongest: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or candidate.get("source_mode") not in _CROP_SOURCE_MODES:
+            continue
+        label = wanted.get(_label_key(candidate.get("classifier_label")))
+        if label is None:
+            continue
+        try:
+            score = float(candidate.get("classifier_score"))
+        except (TypeError, ValueError):
+            continue
+        current = strongest.get(label)
+        if math.isfinite(score) and (current is None or score > float(current["classifier_score"])):
+            strongest[label] = candidate
+    return strongest
+
+
+def identity_rests_on_whole_frame(detection: Any, *, owner_species_chosen: bool = False) -> bool:
+    """Whether the current name was read from one uncropped whole frame and no person decided it.
+
+    A hidden visit counts as decided: the owner has already acted on it, often because it was
+    misnamed, and an automatic rename must not overrule that.
+    """
+
+    if (
+        owner_species_chosen
+        or bool(getattr(detection, "manual_tagged", False))
+        or bool(getattr(detection, "is_hidden", False))
+    ):
         return False
     evidence = getattr(detection, "classification_input", None)
     return (

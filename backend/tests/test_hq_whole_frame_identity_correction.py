@@ -166,6 +166,7 @@ async def _seed(
     manual_tagged=False,
     classification_input=WHOLE_FRAME_INPUT,
     owner_choice=False,
+    hidden=False,
 ):
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -181,6 +182,7 @@ async def _seed(
                 frigate_event=event_id,
                 camera_name="greenhousecam",
                 manual_tagged=manual_tagged,
+                is_hidden=hidden,
                 classification_input=classification_input,
             )
         )
@@ -256,7 +258,17 @@ async def test_hq_renames_detection_1564_from_whole_frame_magpie_to_pigeon_crop_
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "case",
-    ["manual_tag", "owner_choice", "crop_identity", "single_frame", "below_bar", "blocked", "hidden"],
+    [
+        "manual_tag",
+        "owner_choice",
+        "hidden_visit",
+        "crop_identity",
+        "single_frame",
+        "below_bar",
+        "blocked",
+        "out_of_range",
+        "unknown_consensus",
+    ],
 )
 async def test_hq_keeps_a_name_the_correction_may_not_replace(tmp_path, monkeypatch, media, downstream, case):
     event_id = f"whole-frame-kept-{case}"
@@ -266,6 +278,8 @@ async def test_hq_keeps_a_name_the_correction_may_not_replace(tmp_path, monkeypa
         seed["manual_tagged"] = True
     elif case == "owner_choice":
         seed["owner_choice"] = True
+    elif case == "hidden_visit":
+        seed["hidden"] = True
     elif case == "crop_identity":
         seed["classification_input"] = ClassificationEvidence(source="snapshot_model_crop", is_cropped=True)
     elif case == "single_frame":
@@ -276,7 +290,14 @@ async def test_hq_keeps_a_name_the_correction_may_not_replace(tmp_path, monkeypa
         raw = [{**item, "classifier_score": 0.62} if item["source_mode"] == "model_crop" else item for item in raw]
     elif case == "blocked":
         monkeypatch.setattr(settings.classification, "blocked_labels", ["Columba palumbus"])
-    elif case == "hidden":
+    elif case == "out_of_range":
+        from app.services import range_filter as range_module
+        from app.services.range_filter_service import range_filter_service
+
+        monkeypatch.setattr(range_filter_service, "active_list", lambda: object())
+        monkeypatch.setattr(range_filter_service, "species_id_for", lambda classification: 3048)
+        monkeypatch.setattr(range_module, "species_verdict", lambda active_list, species_id: "out_of_range")
+    elif case == "unknown_consensus":
         raw = [
             {**item, "classifier_label": "Unknown Bird"} if item["source_mode"] == "model_crop" else item
             for item in raw
@@ -296,13 +317,11 @@ async def test_hq_keeps_a_name_the_correction_may_not_replace(tmp_path, monkeypa
     )
     downstream.notify.assert_not_awaited()
     selected = [row for row in rows if row["selected"]]
-    if case in {"manual_tag", "owner_choice", "crop_identity"}:
-        # A protected name still decides the photo, exactly as before.
+    if case in {"manual_tag", "owner_choice", "hidden_visit", "crop_identity", "blocked", "out_of_range"}:
+        # A protected name still decides the photo, and so does a whole-frame name whose
+        # crops name a species the bird could never be renamed to: the photo choice is
+        # exactly what it was before the correction existed.
         assert [row["classifier_label"] for row in selected] == ["Pica pica"]
-    elif case == "blocked":
-        # The disputed whole-frame name no longer filters the crops out, so the photo is chosen
-        # as for an unnamed visit; the blocked consensus still cannot rename the bird.
-        assert [row["classifier_label"] for row in selected] == ["Columba palumbus"]
 
 
 @pytest.mark.asyncio
@@ -320,3 +339,81 @@ async def test_an_evidence_only_scan_never_renames_the_bird(tmp_path, monkeypatc
     downstream.sse.assert_not_awaited()
     # The disputed name still does not decide the photo the scan offers.
     assert bundle["selected_candidate"]["classifier_label"] == "Columba palumbus"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owner_action", ["hide", "video_identity", "manual_tag", "delete"])
+async def test_correction_refuses_when_the_visit_changes_between_read_and_write(
+    tmp_path, monkeypatch, media, downstream, owner_action
+):
+    """The write itself re-checks eligibility, so a change after the service's read is honoured."""
+    event_id = f"whole-frame-race-{owner_action}"
+    await _seed(event_id)
+    changed_input = '{"source":"full_frame","is_cropped":false,"supporting_frames":6}'
+
+    async def change_the_visit(**_kwargs):
+        # Runs inside apply_video_result after the detection was read and before the update.
+        async with get_db() as db:
+            if owner_action == "hide":
+                await db.execute("UPDATE detections SET is_hidden = 1 WHERE frigate_event = ?", (event_id,))
+            elif owner_action == "video_identity":
+                await db.execute(
+                    "UPDATE detections SET classification_input_json = ? WHERE frigate_event = ?",
+                    (changed_input, event_id),
+                )
+            elif owner_action == "manual_tag":
+                await db.execute("UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?", (event_id,))
+            else:
+                await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+            await db.commit()
+        return False, None, None
+
+    from app.services.audio.audio_service import audio_service
+
+    monkeypatch.setattr(audio_service, "correlate_species", AsyncMock(side_effect=change_the_visit))
+    service = _hq_service(monkeypatch, _visit_1564())
+
+    await service.replace_from_clip_path(event_id, _clip(tmp_path), clip_variant="recording")
+
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT category_name, score, classification_input_json FROM detections WHERE frigate_event = ?",
+            (event_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+    if owner_action == "delete":
+        assert row is None
+    else:
+        assert (row[0], row[1]) == ("Pica pica", pytest.approx(0.7245))
+        if owner_action == "video_identity":
+            assert row[2] == changed_input
+    assert not [call for call in downstream.sse.await_args_list if call.args[0]["type"] == "detection_updated"]
+
+
+@pytest.mark.asyncio
+async def test_correction_write_guard_is_scoped_to_the_whole_frame_correction():
+    """Ordinary automatic writes keep today's behaviour on hidden visits."""
+    event_id = "whole-frame-guard-scope"
+    await _seed(event_id, hidden=True)
+    pigeon = {
+        "display_name": "Common Wood-Pigeon",
+        "category_name": "Columba palumbus",
+        "score": 0.977,
+        "detection_index": 2610,
+        "scientific_name": "Columba palumbus",
+        "common_name": "Common Wood-Pigeon",
+        "taxa_id": 3048,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+        "manual_override": False,
+    }
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        corrected = await repo.update_primary_classification(
+            frigate_event=event_id, whole_frame_correction_of=WHOLE_FRAME_INPUT, **pigeon
+        )
+        ordinary = await repo.update_primary_classification(frigate_event=event_id, **pigeon)
+
+    assert corrected is False
+    assert ordinary is True

@@ -71,7 +71,7 @@ all of the following:
 
 - at least two crop moments at least 250 ms apart naming the species, with a median and best score
   at or above the model's recommended threshold (never below 0.60), and no close second species;
-- no manual tag and no species chosen by you for the visit;
+- the visit is not hidden, has no manual tag and has no species chosen by you;
 - a species that is not Unknown, blocked or outside the range list, and a score at or above the
   current one.
 
@@ -81,10 +81,20 @@ classification stays on record. The change reaches open pages like any automatic
 It sends no new alert, and BirdWeather is not sent a second sighting. Counts and eBird exports
 follow the new name.
 
-The photo is chosen after the name is settled, so it shows the corrected species. When every crop
-disputes a whole-frame name that cannot be corrected, for example because the crops come from one
-moment, that name does not decide the photo; the photo is chosen as it would be for an unnamed
-visit.
+If you hide the visit, tag it or choose its species while the photo search is running, or a newer
+identification arrives, the correction is not saved. The final write checks again rather than
+relying on what was read at the start.
+
+The photo is chosen after the name is settled, so a renamed visit's photo is chosen for the new
+species. If no crop of that species qualifies as a photo, the earlier photo stays.
+
+When every crop disputes a whole-frame name but the name is not corrected, for example because the
+crops come from a single moment or agree too weakly, that name does not decide the photo. The photo
+is chosen as it would be for an unnamed visit, so it may show what the crops saw while the old name
+stays. That disagreement is a cue to check the visit and choose its species. It does not happen
+when the crops' species is one YA-WAMF would never assign: blocked, outside the range list, Unknown
+or not a bird. Then the earlier photo choice stays. It also does not happen for a hidden, tagged
+or owner-chosen visit.
 
 ### Photograph progress
 

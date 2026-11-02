@@ -881,6 +881,45 @@ class DetectionService:
             repo = DetectionRepository(db)
             return await repo.get_by_frigate_event(frigate_event)
 
+    @staticmethod
+    def _range_skips_result(
+        *, label: str, score: float, index: int | None, model_sha256: str | None, owner_confirmed: bool
+    ) -> bool:
+        """Whether the range rule sets aside an asynchronous result for this visit (#696)."""
+        decision = decide_range_admission(
+            [
+                range_filter_service.candidate(
+                    {"label": label, "score": score, "index": index, "model_sha256": model_sha256},
+                    admissible=True,
+                )
+            ],
+            active_list=range_filter_service.active_list(),
+            threshold=float(settings.classification.threshold or 0.0),
+            owner_confirmed=owner_confirmed,
+        )
+        return decision.outcome == "skipped"
+
+    async def automatic_species_refusal(
+        self, *, label: str, score: float, index: int | None, model_sha256: str | None = None
+    ) -> str | None:
+        """Why ``apply_video_result`` would refuse to name a visit ``label`` automatically, or None.
+
+        The same species gates the automatic write applies: Unknown or abstention labels,
+        catalogued non-birds, blocked species and the range rule. Score and identity-specific
+        gates are not judged here.
+        """
+        if should_hide_species_label(normalize_classifier_label(label)):
+            return "unknown"
+        if await self.is_known_nonbird({"model_sha256": model_sha256, "index": index, "label": label}):
+            return "non_bird"
+        if await self._is_blocked_with_taxonomy(label=label):
+            return "blocked"
+        if self._range_skips_result(
+            label=label, score=score, index=index, model_sha256=model_sha256, owner_confirmed=False
+        ):
+            return "out_of_range"
+        return None
+
     async def apply_video_result(
         self,
         frigate_event: str,
@@ -898,12 +937,17 @@ class DetectionService:
         input_evidence: ClassificationEvidence | None = None,
         admission_candidates: list[dict] | None = None,
         range_fallback: dict | None = None,
+        whole_frame_correction_of: ClassificationEvidence | None = None,
     ) -> bool | None | NonBirdSaveRejection:
         """
         Process a trustworthy asynchronous classification result.
 
         ``persist_video_result`` is false for HQ crop consensus so refinement cannot mark a
         concurrently running deep-video job complete or replace its provenance columns.
+
+        ``whole_frame_correction_of`` is the whole-frame input an HQ crop consensus is
+        correcting. That correction never touches a hidden visit, and the write applies only
+        while the visit is still visible and still carries that input.
 
         Override the primary ID when:
         - the action is an explicit/manual reclassification, or
@@ -974,6 +1018,14 @@ class DetectionService:
                 )
                 return False
 
+            if whole_frame_correction_of is not None and getattr(existing, "is_hidden", False):
+                log.info(
+                    "Whole-frame correction skipped because the owner hid the visit",
+                    event_id=frigate_event,
+                    video_label=normalized_video_label,
+                )
+                return False
+
             if hidden_video_label and not manual_tagged:
                 log.debug(
                     "Video analysis produced Unknown; recording completion without promotion",
@@ -984,23 +1036,13 @@ class DetectionService:
 
             # An explicit reclassification already chose an in-range result when it
             # selected this one; automatic refinements meet the rule here (#696).
-            range_decision = decide_range_admission(
-                [
-                    range_filter_service.candidate(
-                        {
-                            "label": video_label,
-                            "score": video_score,
-                            "index": video_index,
-                            "model_sha256": video_model_sha256,
-                        },
-                        admissible=True,
-                    )
-                ],
-                active_list=range_filter_service.active_list(),
-                threshold=float(settings.classification.threshold or 0.0),
+            if self._range_skips_result(
+                label=video_label,
+                score=video_score,
+                index=video_index,
+                model_sha256=video_model_sha256,
                 owner_confirmed=manual_tagged,
-            )
-            if range_decision.outcome == "skipped":
+            ):
                 log.info(
                     "Out-of-range refinement recorded without replacing the identification",
                     event_id=frigate_event,
@@ -1176,10 +1218,13 @@ class DetectionService:
                     species_id=shadow.species_id,
                     model_artifact_id=shadow.model_artifact_id,
                     model_output_index=shadow.model_output_index,
+                    whole_frame_correction_of=whole_frame_correction_of,
                 )
                 if not primary_updated:
                     log.info(
-                        "Primary refinement skipped because identification became manual",
+                        "Whole-frame correction skipped because the visit changed before the write"
+                        if whole_frame_correction_of is not None
+                        else "Primary refinement skipped because identification became manual",
                         event_id=frigate_event,
                         video_label=new_species,
                     )

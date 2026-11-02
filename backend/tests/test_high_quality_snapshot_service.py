@@ -1555,6 +1555,8 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
             # The candidates carry no producing checksum, so no provenance is borrowed.
             "video_model_sha256": None,
             "persist_video_result": False,
+            # Upgrading Unknown is not a whole-frame correction, so the write is not narrowed.
+            "whole_frame_correction_of": None,
             "input_evidence": ClassificationEvidence(
                 source="hq_candidate_frigate_hint_crop", is_cropped=True, supporting_frames=2
             ),

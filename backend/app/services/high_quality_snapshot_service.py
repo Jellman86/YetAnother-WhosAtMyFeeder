@@ -34,6 +34,7 @@ from app.services.hq_classification_refinement import (
     crop_labels_with_independent_support,
     identity_labels,
     identity_rests_on_whole_frame,
+    strongest_crop_by_species,
 )
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
@@ -1457,7 +1458,14 @@ class HighQualitySnapshotService:
         return labels
 
     async def _whole_frame_identity_disputed_by_crops(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
-        """Whether the visit's name was read from one whole frame that every named crop disputes."""
+        """Whether the photo choice should set aside a doubtful whole-frame name.
+
+        True when the visit's name was read from one whole frame, every named crop disputes it,
+        and the visit could be renamed to each crop species. The photo may then show what the
+        crops saw while the name stays, a visible disagreement the owner can settle. A crop species
+        the automatic write would refuse (blocked, out of range, a non-bird or Unknown) never
+        displaces the existing photo choice.
+        """
         try:
             async with get_db() as db:
                 repo = DetectionRepository(db)
@@ -1470,15 +1478,34 @@ class HighQualitySnapshotService:
         ):
             return False
         crop_labels = crop_labels_disputing_full_frame(identity_labels(detection), candidates)
-        if crop_labels:
-            log.info(
-                "HQ photo choice set aside a whole-frame name that every crop disputes",
-                event_id=event_id,
-                species=detection.display_name,
-                input_source=detection.classification_input.source if detection.classification_input else None,
-                crop_labels=crop_labels,
+        if not crop_labels:
+            return False
+
+        from app.services.detection_service import DetectionService
+
+        classifier_module = sys.modules.get("app.services.classifier_service")
+        gates = DetectionService(getattr(classifier_module, "_classifier_instance", None))
+        refusals: dict[str, str] = {}
+        for label, crop in strongest_crop_by_species(candidates, crop_labels).items():
+            refusal = await gates.automatic_species_refusal(
+                label=label,
+                score=self._finite_candidate_score(crop.get("classifier_score")),
+                index=crop.get("classifier_index"),
+                model_sha256=str(crop.get("classifier_model_sha256") or "") or None,
             )
-        return bool(crop_labels)
+            if refusal:
+                refusals[label] = refusal
+        log.info(
+            "HQ photo choice kept a disputed whole-frame name because a crop species cannot be named"
+            if refusals
+            else "HQ photo choice set aside a whole-frame name that every crop disputes",
+            event_id=event_id,
+            species=detection.display_name,
+            input_source=getattr(detection.classification_input, "source", None),
+            crop_labels=crop_labels,
+            refusals=refusals or None,
+        )
+        return not refusals
 
     @staticmethod
     def _candidate_label_key(value: Any) -> str:
@@ -2230,6 +2257,9 @@ class HighQualitySnapshotService:
                 video_model_id=str(model_spec.get("model_id") or "") or None,
                 video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
+                whole_frame_correction_of=detection.classification_input
+                if decision.reason == WHOLE_FRAME_CORRECTION_REASON
+                else None,
                 input_evidence=ClassificationEvidence(
                     source="hq_candidate_" + decision.source_mode,
                     is_cropped=decision.source_mode != "full_frame",

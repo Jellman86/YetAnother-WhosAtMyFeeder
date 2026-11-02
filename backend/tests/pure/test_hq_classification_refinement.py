@@ -7,6 +7,7 @@ from app.services.hq_classification_refinement import (
     choose_hq_classification_refinement,
     crop_labels_disputing_full_frame,
     identity_rests_on_whole_frame,
+    strongest_crop_by_species,
 )
 
 
@@ -301,6 +302,7 @@ def test_crop_consensus_corrects_a_name_read_from_an_uncropped_whole_frame(sourc
     ("overrides", "owner_species_chosen"),
     [
         ({"manual_tagged": True}, False),
+        ({"is_hidden": True}, False),
         ({}, True),
         ({"classification_input": ClassificationEvidence(source="owner_species_choice")}, False),
         # Crop-based and video-based identifications are never replaced.
@@ -329,6 +331,7 @@ def test_crop_consensus_corrects_a_name_read_from_an_uncropped_whole_frame(sourc
     ],
     ids=[
         "manual-tag",
+        "hidden-visit",
         "owner-species-choice",
         "owner-source",
         "crop-consensus",
@@ -405,3 +408,10 @@ def test_a_whole_frame_is_not_contradicted_when_the_event_has_no_named_crop():
     assert not crop_labels_disputing_full_frame(["Pica pica"], whole_frames_only)
     assert not crop_labels_disputing_full_frame(["Pica pica"], unnamed_crops)
     assert not crop_labels_disputing_full_frame(["Pica pica"], [])
+
+
+def test_strongest_crop_by_species_ignores_whole_frames_and_other_species():
+    strongest = strongest_crop_by_species(WHOLE_FRAME_MAGPIE_OVER_PIGEON_CROPS, ["Columba palumbus", "Pica pica"])
+
+    assert set(strongest) == {"Columba palumbus"}
+    assert strongest["Columba palumbus"]["classifier_score"] == 0.977
