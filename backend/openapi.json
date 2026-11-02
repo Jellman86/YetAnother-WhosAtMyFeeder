@@ -7942,6 +7942,182 @@
         "title": "EventsCountResponse",
         "type": "object"
       },
+      "ExplorerSearchRecord": {
+        "properties": {
+          "camera": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Absent when the owner does not share camera names",
+            "title": "Camera"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "hidden": {
+            "default": false,
+            "description": "A hidden detection; only the owner is ever shown one",
+            "title": "Hidden",
+            "type": "boolean"
+          },
+          "id": {
+            "description": "The Frigate event of a detection, or a Garden capture id",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "detection",
+              "garden"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "observed_at": {
+            "title": "Observed At",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "observed_at"
+        ],
+        "title": "ExplorerSearchRecord",
+        "type": "object"
+      },
+      "ExplorerSearchResponse": {
+        "properties": {
+          "record": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExplorerSearchRecord"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The record the query names, when visible"
+          },
+          "taxa": {
+            "items": {
+              "$ref": "#/components/schemas/ExplorerSearchTaxon"
+            },
+            "title": "Taxa",
+            "type": "array"
+          },
+          "truncated": {
+            "description": "More taxa matched than the limit returned",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "taxa",
+          "truncated"
+        ],
+        "title": "ExplorerSearchResponse",
+        "type": "object"
+      },
+      "ExplorerSearchTaxon": {
+        "properties": {
+          "bird_detections": {
+            "title": "Bird Detections",
+            "type": "integer"
+          },
+          "bird_species": {
+            "description": "Species at or beneath this taxon with a bird detection the reader sees",
+            "title": "Bird Species",
+            "type": "integer"
+          },
+          "garden_captures": {
+            "title": "Garden Captures",
+            "type": "integer"
+          },
+          "garden_species": {
+            "description": "Species at or beneath this taxon in Garden captures the reader sees",
+            "title": "Garden Species",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Common name in the reader's language, else English",
+            "title": "Name"
+          },
+          "rank": {
+            "enum": [
+              "species",
+              "genus",
+              "family",
+              "order"
+            ],
+            "title": "Rank",
+            "type": "string"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          },
+          "taxon_id": {
+            "description": "Catalogue identity; the Explorer's `taxon` filter takes it",
+            "title": "Taxon Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "taxon_id",
+          "rank",
+          "scientific_name",
+          "bird_species",
+          "bird_detections",
+          "garden_species",
+          "garden_captures"
+        ],
+        "title": "ExplorerSearchTaxon",
+        "type": "object"
+      },
       "FavoriteResponse": {
         "description": "Response for favorite/unfavorite action.",
         "properties": {
@@ -26664,6 +26840,25 @@
             }
           },
           {
+            "description": "Catalogue taxon: only species at or beneath it (see /explorer/search)",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it (see /explorer/search)",
+              "title": "Taxon"
+            }
+          },
+          {
             "description": "Only return favorited detections",
             "in": "query",
             "name": "favorites",
@@ -27056,6 +27251,25 @@
               "description": "Count only hidden/ignored detections",
               "title": "Only Hidden",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Catalogue taxon: only species at or beneath it (see /explorer/search)",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it (see /explorer/search)",
+              "title": "Taxon"
             }
           }
         ],
@@ -28036,6 +28250,77 @@
           }
         ],
         "summary": "Reclassify Event"
+      }
+    },
+    "/api/explorer/search": {
+      "get": {
+        "description": "Species and groups seen here whose names match, and the record an id names, as this reader sees them.",
+        "operationId": "search_explorer_api_explorer_search_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "pattern": "^[^\\x00-\\x1f\\x7f]+$",
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Most taxa to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 8,
+              "description": "Most taxa to return",
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplorerSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Search Explorer",
+        "tags": [
+          "explorer"
+        ]
       }
     },
     "/api/frigate/camera/{camera}/latest.jpg": {
@@ -30161,6 +30446,25 @@
               "title": "Offset",
               "type": "integer"
             }
+          },
+          {
+            "description": "Catalogue taxon: only species at or beneath it",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it",
+              "title": "Taxon"
+            }
           }
         ],
         "responses": {
@@ -30343,6 +30647,25 @@
               ],
               "title": "Page End"
             }
+          },
+          {
+            "description": "Catalogue taxon: only species at or beneath it",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it",
+              "title": "Taxon"
+            }
           }
         ],
         "responses": {
@@ -30485,6 +30808,25 @@
               "minimum": 0,
               "title": "Offset",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Catalogue taxon: only species at or beneath it",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it",
+              "title": "Taxon"
             }
           }
         ],
@@ -35621,6 +35963,25 @@
               "pattern": "^(newest|oldest|confidence)$",
               "title": "Sort",
               "type": "string"
+            }
+          },
+          {
+            "description": "Catalogue taxon: only species at or beneath it",
+            "in": "query",
+            "name": "taxon",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Catalogue taxon: only species at or beneath it",
+              "title": "Taxon"
             }
           }
         ],

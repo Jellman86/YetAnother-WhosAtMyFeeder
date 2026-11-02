@@ -1,3 +1,4 @@
+from collections.abc import Collection
 from datetime import datetime
 
 from app.repositories.detection_repository import (
@@ -6,6 +7,7 @@ from app.repositories.detection_repository import (
     DetectionRepository,
     _row_to_detection,
 )
+from app.repositories.catalogue_identity import species_ids_condition
 from app.repositories.audio_history_repository import public_audio_evidence_sql
 from app.services.visit_grouping import VISIT_GAP_SECONDS, valid_event_bounds
 from app.utils.canonical_species import hidden_species_exact_labels
@@ -141,6 +143,7 @@ class VisitRepository(DetectionRepository):
         end: datetime | None = None,
         camera: str | None = None,
         hidden_only: bool = False,
+        species_ids: Collection[int] | None = None,
     ) -> tuple[str, list]:
         clauses = []
         params: list = []
@@ -159,6 +162,10 @@ class VisitRepository(DetectionRepository):
         if taxa_id is not None:
             clauses.append("d.taxa_id = ?")
             params.append(taxa_id)
+        species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
+        if species_ids_clause:
+            clauses.append(species_ids_clause)
+            params.extend(species_ids_params)
         if multiple_species_only:
             from app.repositories.bird_observation_repository import BirdObservationRepository
 
@@ -196,9 +203,11 @@ class VisitRepository(DetectionRepository):
         audio_only: bool = False,
         public_audio: bool = False,
         multiple_species_only: bool = False,
+        species_ids: Collection[int] | None = None,
     ) -> tuple[list[dict], int]:
         cte, params = await self.grouping_cte(start=start, end=end, camera=camera, hidden_only=hidden_only)
         condition, values = await self._matching_condition(
+            species_ids=species_ids,
             species=species,
             species_any=species_any,
             taxa_id=taxa_id,
