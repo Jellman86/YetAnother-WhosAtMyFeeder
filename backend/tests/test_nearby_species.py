@@ -287,6 +287,31 @@ async def test_a_failed_refresh_of_an_expired_report_is_unavailable_through_the_
 
 
 @pytest.mark.asyncio
+async def test_lookups_queued_behind_a_failing_refresh_honour_the_backoff(monkeypatch, ebird_configured):
+    calls = 0
+    release = asyncio.Event()
+
+    async def failing(**_kwargs):
+        nonlocal calls
+        calls += 1
+        await release.wait()
+        raise RuntimeError("eBird down")
+
+    monkeypatch.setattr(nearby_module.ebird_service, "get_recent_observations", failing)
+    service = NearbySpeciesService()
+    # Three readers arrive together at expiry; all pass the unlocked check before the first fails.
+    lookups = [asyncio.create_task(service.lookup()) for _ in range(3)]
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    release.set()
+    results = await asyncio.gather(*lookups)
+
+    # One eBird call for the outage, not one per queued reader.
+    assert calls == 1
+    assert [result.check for result in results] == ["unavailable"] * 3
+
+
+@pytest.mark.asyncio
 async def test_the_check_is_off_without_ebird_and_unavailable_when_it_never_succeeded(monkeypatch, ebird_configured):
     async def failing(**_kwargs):
         raise RuntimeError("eBird down")

@@ -85,6 +85,10 @@ def reported_nearby(
     return any(candidate in report.names for candidate in candidates)
 
 
+class _BackingOff(Exception):
+    """A recent failed lookup is still within its back-off; no upstream call is made."""
+
+
 class NearbySpeciesService:
     def __init__(self) -> None:
         self._cached: tuple[tuple[float, float], NearbyReport] | None = None
@@ -113,6 +117,8 @@ class NearbySpeciesService:
             return self._unrefreshed(location)
         try:
             report = await asyncio.wait_for(self._refresh(location), timeout=LOOKUP_TIMEOUT_SECONDS)
+        except _BackingOff:
+            return self._unrefreshed(location)
         except Exception as error:  # noqa: BLE001 - any failure means "unknown", never an error page
             self._failed_at = time.monotonic()
             log.warning("Nearby species lookup unavailable", error=type(error).__name__)
@@ -126,15 +132,24 @@ class NearbySpeciesService:
 
     async def _refresh(self, location: tuple[float, float]) -> NearbyReport:
         async with self._lock:
-            if self._cached and self._cached[0] == location and time.monotonic() - self._cached_at < CACHE_TTL_SECONDS:
+            now = time.monotonic()
+            if self._cached and self._cached[0] == location and now - self._cached_at < CACHE_TTL_SECONDS:
                 return self._cached[1]
-            items = await ebird_service.get_recent_observations(
-                lat=location[0],
-                lng=location[1],
-                dist_km=NEARBY_RADIUS_KM,
-                back_days=NEARBY_DAYS_BACK,
-                max_results=NEARBY_MAX_RESULTS,
-            )
+            # Readers queued behind a refresh that just failed must not each call eBird again.
+            if self._failed_at is not None and now - self._failed_at < FAILURE_RETRY_SECONDS:
+                raise _BackingOff
+            try:
+                items = await ebird_service.get_recent_observations(
+                    lat=location[0],
+                    lng=location[1],
+                    dist_km=NEARBY_RADIUS_KM,
+                    back_days=NEARBY_DAYS_BACK,
+                    max_results=NEARBY_MAX_RESULTS,
+                )
+            except Exception:
+                # Recorded while the lock is held, so the next queued reader sees the back-off.
+                self._failed_at = time.monotonic()
+                raise
             report = build_nearby_report(items, radius_km=NEARBY_RADIUS_KM, days_back=NEARBY_DAYS_BACK)
             self._cached = (location, report)
             self._cached_at = time.monotonic()
