@@ -1,7 +1,8 @@
 <script lang="ts">
+    import type { Snippet } from 'svelte';
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
-    import { filterExplorerSpecies, shownExplorerSpecies } from '../utils/explorer-species';
+    import { shownExplorerSpecies, sortExplorerSpecies } from '../utils/explorer-species';
     import type { ExplorerSubjects, GardenReview } from '../utils/garden-explorer';
     import { formatCalendarDay } from '../utils/datetime';
     import type { ExplorerDatePreset as DatePreset } from '../utils/explorer-query';
@@ -20,10 +21,14 @@
         oncollapsechange?: (collapsed: boolean) => void;
         datePreset: DatePreset;
         speciesFilter: string;
+        /** The group of species chosen in the search, named for its token; empty when none is. */
+        taxonLabel?: string;
         cameraFilter: string;
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
         multipleSpeciesOnly?: boolean;
+        /** The Explorer search, at the head of the rail where a phone sees it too. */
+        search?: Snippet;
         /** How results are shown: a species' visits, or every capture on its own. */
         groupVisits?: boolean;
         /** Selecting works on captures, so the choice is held while selecting. */
@@ -46,6 +51,7 @@
             gardenReview?: GardenReview;
             datePreset?: DatePreset;
             speciesFilter?: string;
+            taxonFilter?: null;
             cameraFilter?: string;
             favoritesOnly?: boolean;
             audioConfirmedOnly?: boolean;
@@ -68,10 +74,12 @@
         oncollapsechange,
         datePreset,
         speciesFilter,
+        taxonLabel = '',
         cameraFilter,
         favoritesOnly,
         audioConfirmedOnly,
         multipleSpeciesOnly = false,
+        search,
         groupVisits = true,
         groupingLocked = false,
         showHidden,
@@ -104,8 +112,6 @@
         }
         previousCollapsed = current;
     });
-    let search = $state('');
-
     const totals = $derived(filters?.totals ?? null);
 
     const datePresets: DatePreset[] = ['all', 'today', 'week', 'month', 'custom'];
@@ -174,6 +180,13 @@
                 clear: () => onchange({ speciesFilter: '' })
             });
         }
+        if (taxonLabel) {
+            applied.push({
+                key: 'taxon',
+                label: taxonLabel,
+                clear: () => onchange({ taxonFilter: null })
+            });
+        }
         if (cameraFilter) {
             applied.push({
                 key: 'camera',
@@ -208,9 +221,8 @@
 
     let speciesExpanded = $state(false);
     const shownSpecies = $derived(
-        shownExplorerSpecies(filterExplorerSpecies(species, search), {
+        shownExplorerSpecies(sortExplorerSpecies(species), {
             expanded: speciesExpanded,
-            searching: search.trim() !== '',
             selected: speciesFilter
         })
     );
@@ -245,6 +257,10 @@
                 </button>
             {/if}
         </div>
+
+        {#if search}
+            <div class="w-full">{@render search()}</div>
+        {/if}
 
         {#each tokens as token (token.key)}
             <button
@@ -414,10 +430,6 @@
                 <p class="eyebrow">
                     {$_('events.filters.all_species')}
                 </p>
-                <label class="mt-2 block">
-                    <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
-                    <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
-                </label>
                 <!-- One scrolling rail: the list grows in place rather than scrolling inside it. -->
                 <div id="explorer-species-list" class="mt-2 space-y-0.5" data-explorer-species-list>
                     {#each shownSpecies.items as item (item.value)}
@@ -438,7 +450,7 @@
                         </button>
                     {:else}
                         <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
-                            {$_('events.filters.no_species_match', { default: 'No species matches that.' })}
+                            {$_('events.filters.no_species', { default: 'No species recorded yet.' })}
                         </p>
                     {/each}
                 </div>

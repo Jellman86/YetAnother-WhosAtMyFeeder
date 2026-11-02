@@ -15,6 +15,8 @@ export interface FetchEventsOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    /** A catalogue taxon: species at or beneath it, from the Explorer search. */
+    taxon?: number;
     eventId?: string;
     fields?: 'list' | 'detail' | string;
     requestKey?: string | null;
@@ -22,7 +24,7 @@ export interface FetchEventsOptions {
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, eventId, fields, requestKey, signal } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -36,6 +38,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (taxon) params.set('taxon', String(taxon));
     if (eventId) params.set('event_id', eventId);
     if (fields) params.set('fields', fields);
 
@@ -48,6 +51,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        taxon ? `taxon-${taxon}` : 'all-taxa',
         eventId || 'all-events',
         fields || 'full',
         startDate || 'none',
@@ -95,13 +99,14 @@ export interface EventsCountOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     multipleSpeciesOnly?: boolean;
+    taxon?: number;
     requestKey?: string | null;
 }
 
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, requestKey } = options;
+    const { startDate, endDate, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, taxon, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
@@ -112,6 +117,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (multipleSpeciesOnly) params.set('multiple_species_only', 'true');
+    if (taxon) params.set('taxon', String(taxon));
 
     const filterKey = [
         'events-count',
@@ -121,6 +127,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         multipleSpeciesOnly ? 'multi-species' : 'all',
+        taxon ? `taxon-${taxon}` : 'all-taxa',
         startDate || 'none',
         endDate || 'none'
     ].join('-');

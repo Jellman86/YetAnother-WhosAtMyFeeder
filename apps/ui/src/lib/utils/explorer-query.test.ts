@@ -33,6 +33,13 @@ describe('writeExplorerQuery', () => {
         expect(parseExplorerQuery(search, owner)).toEqual(state);
     });
 
+    it('round-trips a group of species chosen in the search', () => {
+        const state = chosen({ subjects: 'all', taxonFilter: 4512 });
+        const search = writeExplorerQuery('', state, owner);
+        expect(search).toBe('visitors=all&taxon=4512');
+        expect(parseExplorerQuery(search, owner)).toEqual(state);
+    });
+
     it('keeps the addresses other features own, such as a shared clip or a fixture flag', () => {
         const search = writeExplorerQuery('?event=abc&share=tok&video=1&surface=explorer&species=Old', chosen({ speciesFilter: 'New' }), owner);
         const params = new URLSearchParams(search);
@@ -81,6 +88,20 @@ describe('writeExplorerQuery', () => {
 });
 
 describe('parseExplorerQuery', () => {
+    it('reads a group of species chosen in the search as a whole positive catalogue id', () => {
+        expect(parseExplorerQuery('taxon=4512', owner).taxonFilter).toBe(4512);
+        expect(parseExplorerQuery('taxon=4512', guest).taxonFilter).toBe(4512);
+        for (const value of ['0', '-3', '4.5', 'family', '99999999999', '']) {
+            expect(parseExplorerQuery(`taxon=${value}`, owner).taxonFilter).toBeNull();
+        }
+    });
+
+    it('never holds a species and a group of species at once; the species wins', () => {
+        const query = parseExplorerQuery('species=Prunella%20modularis&taxon=4512', owner);
+        expect(query.speciesFilter).toBe('Prunella modularis');
+        expect(query.taxonFilter).toBeNull();
+    });
+
     it('opens a pasted link with its filters', () => {
         const query = parseExplorerQuery('?visitors=birds&date=month&species=Erithacus%20rubecula&camera=birdcam&favorites=true&audio=1&show=captures&page=2', owner);
         expect(query).toEqual(chosen({

@@ -19,6 +19,8 @@ export interface ExplorerQuery {
     customStartDate: string;
     customEndDate: string;
     speciesFilter: string;
+    /** A catalogue taxon chosen in the search: species at or beneath it. Never set beside a species. */
+    taxonFilter: number | null;
     cameraFilter: string;
     favoritesOnly: boolean;
     audioConfirmedOnly: boolean;
@@ -35,7 +37,7 @@ export interface ExplorerQueryAccess {
     gardenAvailable: boolean;
 }
 
-const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'camera', 'favorites', 'audio', 'multiple', 'hidden', 'show', 'page'] as const;
+const OWNED_KEYS = ['visitors', 'review', 'date', 'start', 'end', 'species', 'taxon', 'camera', 'favorites', 'audio', 'multiple', 'hidden', 'show', 'page'] as const;
 const GARDEN_KEYS = new Set<string>(['visitors', 'review']);
 const SUBJECTS: readonly ExplorerSubjects[] = ['birds', 'garden', 'all'];
 const REVIEWS: readonly GardenReview[] = ['pending', 'confirmed', 'dismissed'];
@@ -44,6 +46,8 @@ const DATE_PRESETS: readonly ExplorerDatePreset[] = ['all', 'today', 'week', 'mo
 const MAX_NAME_LENGTH = 128;
 const MAX_SPECIES_LENGTH = 256;
 const MAX_PAGE = 100_000;
+// Catalogue ids are SQLite integers; anything this large is not one the catalogue gave out.
+const MAX_TAXON_ID = 2_147_483_647;
 
 export function defaultExplorerQuery(): ExplorerQuery {
     return {
@@ -53,6 +57,7 @@ export function defaultExplorerQuery(): ExplorerQuery {
         customStartDate: '',
         customEndDate: '',
         speciesFilter: '',
+        taxonFilter: null,
         cameraFilter: '',
         favoritesOnly: false,
         audioConfirmedOnly: false,
@@ -86,6 +91,12 @@ function calendarDay(value: string | null): string {
     return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day ? value : '';
 }
 
+function taxonId(value: string | null): number | null {
+    if (!value || !/^\d+$/.test(value)) return null;
+    const id = Number(value);
+    return id >= 1 && id <= MAX_TAXON_ID ? id : null;
+}
+
 function pageNumber(value: string | null): number {
     if (!value || !/^\d+$/.test(value)) return 1;
     const page = Number(value);
@@ -114,6 +125,7 @@ export function parseExplorerQuery(search: string | URLSearchParams, access: Pic
     }
 
     query.speciesFilter = name(params.get('species'), MAX_SPECIES_LENGTH);
+    query.taxonFilter = query.speciesFilter ? null : taxonId(params.get('taxon'));
     query.cameraFilter = name(params.get('camera'), MAX_NAME_LENGTH);
     query.favoritesOnly = flag(params.get('favorites'));
     query.audioConfirmedOnly = flag(params.get('audio'));
@@ -146,6 +158,7 @@ export function writeExplorerQuery(current: string | URLSearchParams, query: Exp
         if (query.customEndDate) params.set('end', query.customEndDate);
     }
     if (query.speciesFilter) params.set('species', query.speciesFilter);
+    else if (query.taxonFilter) params.set('taxon', String(query.taxonFilter));
     if (query.cameraFilter) params.set('camera', query.cameraFilter);
     if (query.favoritesOnly) params.set('favorites', '1');
     if (query.audioConfirmedOnly) params.set('audio', '1');

@@ -36,6 +36,9 @@
         type SearchResult
     } from '../api';
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
+    import ExplorerSearch from '../components/ExplorerSearch.svelte';
+    import { explorerSearchChoice, taxonAppliesTo, type SearchOption, type TaxonChoice } from '../utils/explorer-search';
+    import { fetchTaxonLineage } from '../api/taxonomy';
     import { detectionsStore } from '../stores/detections.svelte';
     import { explorerViewStore } from '../stores/explorer_view.svelte';
     import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
@@ -95,6 +98,10 @@
     let customStartDate = $state('');
     let customEndDate = $state('');
     let speciesFilter = $state('');
+    /** A group of species chosen in the search, by catalogue id; never set beside a species. */
+    let taxonFilter = $state<number | null>(null);
+    /** The chosen group's names, for its token; read from the catalogue when a link names only its id. */
+    let taxonChoice = $state.raw<TaxonChoice | null>(null);
     let cameraFilter = $state('');
     let favoritesOnly = $state(false);
     let audioConfirmedOnly = $state(false);
@@ -263,6 +270,7 @@
                     start: localDayBound(range.start, false)?.toISOString() ?? null,
                     end: localDayBound(range.end, true)?.toISOString(),
                     camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
                     order: sortOrder === 'oldest' ? 'oldest' : 'newest',
                     status: gardenReview,
                     limit: effectivePageSize,
@@ -292,7 +300,7 @@
                 const result = await fetchVisits({
                     limit: pageSize + padded, offset: offset - padded,
                     startDate: range.start, endDate: range.end,
-                    species: speciesFilter || undefined, camera: cameraFilter || undefined,
+                    species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
                     sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
                     requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
                 });
@@ -309,6 +317,7 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
                     sort: sortOrder,
                     onlyHidden: showHidden,
                     favoritesOnly,
@@ -322,6 +331,7 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
@@ -499,6 +509,7 @@
             customStartDate,
             customEndDate,
             speciesFilter,
+            taxonFilter,
             cameraFilter,
             favoritesOnly,
             audioConfirmedOnly,
@@ -517,6 +528,7 @@
         customStartDate = query.customStartDate;
         customEndDate = query.customEndDate;
         speciesFilter = query.speciesFilter;
+        taxonFilter = query.taxonFilter;
         cameraFilter = query.cameraFilter;
         favoritesOnly = query.favoritesOnly;
         audioConfirmedOnly = query.audioConfirmedOnly;
@@ -1034,6 +1046,7 @@
     let hasActiveExplorerFilters = $derived(
         Boolean(
             speciesFilter ||
+                taxonFilter !== null ||
                 cameraFilter ||
                 favoritesOnly ||
                 audioConfirmedOnly ||
@@ -1427,7 +1440,7 @@
         if (favoritesOnly || showHidden || multipleSpeciesOnly || audioConfirmedOnly) {
             return $_('events.heard.blocked_visit_filter', { default: 'Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.' });
         }
-        if (speciesFilter.startsWith('taxa:')) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
+        if (speciesFilter.startsWith('taxa:') || taxonFilter !== null) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
         if (sortOrder === 'confidence') return $_('events.heard.blocked_sort', { default: 'Heard calls show between visits only when visits are in time order.' });
         return null;
     });
@@ -1554,6 +1567,7 @@
                 pageStart: span.start?.toISOString(),
                 pageEnd: span.end.toISOString(),
                 camera: cameraFilter || undefined,
+                taxon: taxonFilter ?? undefined,
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
@@ -1574,10 +1588,10 @@
         }
     }
 
-    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; status: GardenReview } {
+    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
         return { start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
             end: localDayBound(dateRange.end, true)?.toISOString(), camera: cameraFilter || undefined,
-            status: gardenOnly ? gardenReview : 'reviewable' };
+            taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
     }
 
     async function loadGardenCapturePage(index: number, selectCapture = true): Promise<void> {
@@ -1615,6 +1629,88 @@
     function setSubjects(next: ExplorerSubjects): void {
         explorerSubjectsStore.set(next);
     }
+
+    /** A search result narrows the Explorer through the filters the rail already holds, or opens its record. */
+    function handleSearchChoice(option: SearchOption): void {
+        const choice = explorerSearchChoice(option, { subjects, gardenAvailable, today: toLocalYMD(new Date()) });
+        if (choice.kind === 'open') {
+            if (choice.record.kind === 'garden') {
+                void openSearchedGardenCapture(choice.record.id);
+            } else {
+                void openSearchedEvent(choice.record.id, choice.record.hidden === true);
+            }
+            return;
+        }
+        if (choice.subjects) setSubjects(choice.subjects);
+        if (choice.speciesFilter !== undefined) speciesFilter = choice.speciesFilter;
+        if (choice.taxon !== undefined) {
+            taxonFilter = choice.taxon?.id ?? null;
+            taxonChoice = choice.taxon;
+        }
+        if (choice.cameraFilter !== undefined) cameraFilter = choice.cameraFilter;
+        if (choice.datePreset !== undefined) {
+            datePreset = choice.datePreset;
+            customStartDate = choice.customStartDate ?? '';
+            customEndDate = choice.customEndDate ?? '';
+        }
+        gardenUndo = null;
+        currentPage = 1;
+        void loadEvents();
+    }
+
+    async function openSearchedEvent(id: string, hidden: boolean): Promise<void> {
+        try {
+            const [target] = await fetchEvents({
+                eventId: id,
+                includeHidden: hidden || undefined,
+                limit: 1,
+                fields: 'detail',
+                requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
+            });
+            if (!target) throw new Error('The searched detection was not returned');
+            selectedEvent = target;
+        } catch (failure) {
+            if (failure instanceof Error && failure.name === 'AbortError') return;
+            console.error('Failed to open the searched detection', failure);
+            toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
+        }
+    }
+
+    async function openSearchedGardenCapture(id: string): Promise<void> {
+        try {
+            openGardenCapture(await fetchGardenCapture(id));
+        } catch (failure) {
+            console.error('Failed to open the searched Garden capture', failure);
+            toastStore.warning($_('garden.capture_link_unavailable', { default: 'This Garden capture is no longer available, or is not shared here.' }));
+        }
+    }
+
+    // A group named in a link arrives as its id alone; its names are read from the catalogue for the token.
+    $effect(() => {
+        const id = taxonFilter;
+        if (id === null || taxonChoice?.id === id) return;
+        const controller = new AbortController();
+        fetchTaxonLineage(id, controller.signal)
+            .then(({ lineage }) => {
+                const taxon = lineage.at(-1);
+                if (taxon && taxon.taxon_id === id) taxonChoice = { id, rank: taxon.rank, name: taxon.name ?? null, scientificName: taxon.scientific_name };
+            })
+            .catch((failure: unknown) => {
+                if (!(failure instanceof Error && failure.name === 'AbortError')) console.error('Failed to name the chosen group of species', failure);
+            });
+        return () => controller.abort();
+    });
+
+    /** The chosen group's token: its rank and the name the owner reads species by. */
+    const taxonLabel = $derived.by((): string => {
+        if (taxonFilter === null) return '';
+        const known = taxonChoice?.id === taxonFilter ? taxonChoice : null;
+        if (!known) return $_('events.search.taxon_token_unnamed', { default: 'Chosen group of species' });
+        const name = known.rank === 'species'
+            ? getBirdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+            : known.name ?? known.scientificName;
+        return $_('events.search.taxon_token', { values: { rank: $_(`taxonomy.rank.${known.rank}`, { default: known.rank }), name }, default: '{rank}: {name}' });
+    });
 
     /** A capture after a review: kept where it still belongs, otherwise the next photo of its group opens. */
     function gardenChanged(next: GardenCapture): void {
@@ -1982,6 +2078,7 @@
             filters={eventFilters}
             {datePreset}
             {speciesFilter}
+            {taxonLabel}
             {cameraFilter}
             {favoritesOnly}
             {audioConfirmedOnly}
@@ -1999,11 +2096,23 @@
             {subjects}
             {gardenReview}
             onchange={(next) => {
-                if (next.subjects !== undefined) setSubjects(next.subjects);
+                if (next.subjects !== undefined) {
+                    setSubjects(next.subjects);
+                    // A group with no visitors in the new view would only show an empty page.
+                    if (taxonFilter !== null && taxonChoice?.id === taxonFilter && !taxonAppliesTo(taxonChoice, next.subjects)) {
+                        taxonFilter = null;
+                        toastStore.info($_('events.search.taxon_dropped', { default: 'The group filter was removed because it has no visitors in this view.' }));
+                    }
+                }
                 if (next.gardenReview !== undefined) gardenReview = next.gardenReview;
                 gardenUndo = null;
                 if (next.datePreset !== undefined) datePreset = next.datePreset;
-                if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
+                if (next.speciesFilter !== undefined) {
+                    speciesFilter = next.speciesFilter;
+                    // A species and a group of species are one choice: picking one replaces the other.
+                    if (next.speciesFilter) taxonFilter = null;
+                }
+                if (next.taxonFilter !== undefined) taxonFilter = next.taxonFilter;
                 if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
@@ -2021,6 +2130,7 @@
                 gardenUndo = null;
                 datePreset = 'all';
                 speciesFilter = '';
+                taxonFilter = null;
                 cameraFilter = '';
                 favoritesOnly = false;
                 audioConfirmedOnly = false;
@@ -2032,7 +2142,17 @@
                 loadEvents();
             }}
             onrefresh={() => refreshEventMetadata(true, true)}
-        />
+        >
+            {#snippet search()}
+                <ExplorerSearch
+                    species={displaySpecies}
+                    cameras={cameraOptions.cameras}
+                    cameraCounts={cameraOptions.counts}
+                    shortcutEnabled={!selectedEvent && !showVideo && !selectedGarden && !showBulkTagModal}
+                    onchoose={handleSearchChoice}
+                />
+            {/snippet}
+        </ExplorerFilters>
         </div>
 
         <div class="min-w-0">
@@ -2252,6 +2372,7 @@
                         onclick={() => {
                             datePreset = 'all';
                             speciesFilter = '';
+                            taxonFilter = null;
                             cameraFilter = '';
                             favoritesOnly = false;
                             audioConfirmedOnly = false;

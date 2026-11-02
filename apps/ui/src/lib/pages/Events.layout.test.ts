@@ -26,8 +26,10 @@ describe('Explorer page layout', () => {
     });
 
     it('puts the window first and keeps every species reachable in one scrolling rail', () => {
-        expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
-        // The short list hides nothing for good: Show all and search reach every species.
+        expect(filtersSource).toContain('sortExplorerSpecies(species)');
+        // The short list hides nothing for good: Show all reaches every species, and the one search box finds any by name.
+        expect(filtersSource).toContain('{@render search()}');
+        expect(eventsSource).toContain('<ExplorerSearch');
         expect(filtersSource).toContain('shownExplorerSpecies(');
         expect(filtersSource).toContain('data-explorer-species-more');
         expect(filtersSource).toContain('data-explorer-species-facet');
