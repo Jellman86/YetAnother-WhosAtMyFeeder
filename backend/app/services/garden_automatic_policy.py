@@ -8,7 +8,10 @@ the network.
 from dataclasses import dataclass
 from typing import Literal
 
+from collections.abc import Sequence
+
 from app.models.garden import GardenAutomaticCheck
+from app.models.garden_motion import MotionSource
 from app.services.garden_domestic_birds import GardenBirdRoute
 
 Outcome = Literal["animal", "bird", "non_animal", "uncertain", "human_rejected"]
@@ -99,3 +102,14 @@ def saved_check_dismisses(check: GardenAutomaticCheck) -> bool:
         and check.naming_threshold is not None
         and check.naming_score < check.naming_threshold
     )
+
+
+def at_blank_spot(source: MotionSource | None, blanks: Sequence[MotionSource]) -> bool:
+    """Whether a candidate sits where a recent automatic check found nothing.
+
+    Such a candidate is checked after the others, never skipped: a real animal can still
+    stand in a spot where light or foliage fooled the detector before.
+    """
+    from app.services.garden_visit_grouping import same_position
+
+    return source is not None and any(same_position(source, blank) for blank in blanks)

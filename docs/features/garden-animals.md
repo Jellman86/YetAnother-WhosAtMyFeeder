@@ -27,11 +27,19 @@ A candidate from the motion scan stays out of sight until its automatic check de
 the timeline, Dashboard and **Needs review** count it as *waiting for the automatic check*
 rather than listing it. It appears only if the check names an animal (in **Confirmed
 animals**) or cannot decide (in **Needs review**, with the reason). Candidates are held only
-while their camera's checks are making progress: if no check there has finished for 30
-minutes, for example because the camera stays under pressure, its candidates appear in
+while their camera's checks are making progress, and for at most 30 minutes each: if no
+check there has finished for 30 minutes, for example because the camera stays under pressure,
+or a candidate is itself more than 30 minutes old and still unchecked, it appears in
 **Needs review** instead. A failed check also releases its capture. Checking candidates
 already found takes priority over scanning recordings for more, but a camera that cannot
 be checked never holds up checks or scans on the others.
+Checks go in order: candidates away from a *known blank spot* first, then never-checked,
+then oldest. A known blank spot is a box where an automatic check found nothing in the last
+12 hours, on the same camera with the same detector; a spot you reviewed yourself does not
+count. Dawn and dusk bursts at one bush or shadow therefore wait behind candidates elsewhere,
+so a real animal is not queued behind them. The deferral lasts at most 30 minutes per
+candidate; after that it is checked next, even while new candidates keep arriving elsewhere.
+They are never skipped or dismissed without their own check.
 Model, download or runtime failures also stay there and retry no sooner than five
 minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.

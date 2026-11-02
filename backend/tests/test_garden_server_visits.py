@@ -216,7 +216,7 @@ async def add_motion(repo, seconds, *, camera="patio"):
     from app.models.garden_motion import MotionSource
 
     # Recent, so the photo has not expired: an expired photo is never reviewable anyway.
-    start = datetime.now(timezone.utc).timestamp() - 3600 + seconds
+    start = datetime.now(timezone.utc).timestamp() - 600 + seconds
     source = MotionSource(
         camera=camera,
         clip_start=start,
@@ -269,6 +269,21 @@ async def test_a_camera_candidate_waits_out_of_sight_until_its_automatic_check_d
         assert unchecked in ids and waiting == 0
         await history.db.execute("UPDATE garden_captures SET automation_overridden=0 WHERE id=?", (unchecked,))
         await history.db.commit()
+        # A candidate unchecked for longer than the limit appears, whatever its camera's progress.
+        await history.db.execute(
+            "UPDATE garden_captures SET observed_at=? WHERE id=?",
+            ((datetime.now(timezone.utc) - timedelta(hours=1)).replace(tzinfo=None).isoformat(), unchecked),
+        )
+        await history.db.commit()
+        ids, waiting = await shown(client, "pending")
+        assert unchecked in ids and waiting == 0
+        await history.db.execute(
+            "UPDATE garden_captures SET observed_at=? WHERE id=?",
+            (datetime.now(timezone.utc).replace(tzinfo=None).isoformat(), unchecked),
+        )
+        await history.db.commit()
+        ids, waiting = await shown(client, "pending")
+        assert unchecked not in ids and waiting == 1
         # Checks that stopped progressing, or cannot run, never hold anything back.
         monkeypatch.setattr(garden_identification_service, "check_progress", {"patio": time.monotonic() - 7200})
         ids, waiting = await shown(client, "pending")
