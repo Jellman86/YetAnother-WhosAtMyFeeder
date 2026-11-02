@@ -111,7 +111,15 @@
     "loading": "確認が必要な訪問を調べています…",
     "unavailable": "キューを確認できなかったため、待機中の項目があるかは不明です。",
     "reason_unknown_species": "種が不明",
-    "reason_low_score": "識別のしきい値未満"
+    "reason_low_score": "識別のしきい値未満",
+    "visits_clear": "過去24時間の訪問にはすべて種名が付いています。",
+    "checks_summary": "{count, plural, other {#種の名前が誤っている可能性があります: {species}。}}",
+    "checks_body": "{count, plural, other {カメラのみが根拠で、半径{radius} km以内で観察者の報告はありません。}}",
+    "checks_body_plain": "{count, plural, other {カメラのみが根拠です。}}",
+    "checks_open": "種ページで確認を開く",
+    "checks_loading": "名前が誤っている可能性のある種を確認しています…",
+    "checks_unavailable": "分布チェックを読み込めなかったため、名前が誤っている種があるかは不明です。",
+    "checks_more": "他{count}種"
   },
   "review_session": {
     "position": "{total} 件中 {position} 件目",

@@ -314,3 +314,22 @@ test('the trend chart keeps its set height on a wide screen', async ({ page }) =
     expect(height).toBeLessThanOrEqual(38 * rem);
     expect(width / height).toBeLessThanOrEqual(4.5);
 });
+
+test('the Dashboard link opens the 24 hour window at the species checks', async ({ page }) => {
+    const spans: string[] = [];
+    const junglefowl = {
+        ...species[0], species: 'Red Junglefowl', common_name: 'Red Junglefowl', scientific_name: 'Gallus gallus',
+        window_count: 3, window_confirmed_count: 0, reported_nearby: false
+    };
+    await page.route('**/api/leaderboard/species?*', (route) => {
+        spans.push(new URL(route.request().url()).searchParams.get('span') ?? '');
+        return route.fulfill({ json: { span: 'day', species: [...species, junglefowl], window_start: start, window_end: end, nearby_radius_km: 50, nearby_days_back: 14 } });
+    });
+    await page.goto('/browser-tests/species-charts.html?span=day#checks');
+    await expect(page.getByRole('button', { name: 'Day', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const checks = page.locator('[data-spotlight-checks]');
+    await expect(checks).toContainText('Red Junglefowl');
+    await expect(checks.getByRole('button').first()).toBeFocused();
+    // The shared beforeEach already opened the page on its default window; this load asks for the day.
+    expect(spans).toContain('day');
+});

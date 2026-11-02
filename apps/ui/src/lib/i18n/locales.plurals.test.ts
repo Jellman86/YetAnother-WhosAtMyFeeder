@@ -54,6 +54,7 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'dashboard.field_log.birds_none_counted',
     'dashboard.field_log.birds_unknown',
     'dashboard.field_log.preview_frame_position',
+    'dashboard.review_queue.checks_more',
     'dashboard.review_queue.remaining',
     'events.filters.only_active',
     'events.heard.more_species',

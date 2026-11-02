@@ -120,7 +120,7 @@
         onretry={() => (retried += 1)}
     />
     {#if phase !== 'ready'}
-        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} />
+        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} checks={{ status: phase === 'loading' ? 'loading' : 'unavailable', names: [], nearbyRadiusKm: null, keptBirds: [] }} />
         <DeskContextCards detections={[]} visits={[]} cameraVisits={null} loading={phase === 'loading'} unavailable={phase === 'unavailable'} />
     {/if}
 </main>

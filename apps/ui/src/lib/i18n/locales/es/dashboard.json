@@ -111,7 +111,15 @@
     "loading": "Comprobando si hay visitas pendientes de revisión…",
     "unavailable": "No se pudo comprobar la cola, así que no se sabe si hay algo pendiente.",
     "reason_unknown_species": "Especie desconocida",
-    "reason_low_score": "Por debajo del umbral de identificación"
+    "reason_low_score": "Por debajo del umbral de identificación",
+    "visits_clear": "Todas las visitas de las últimas 24 horas tienen especie.",
+    "checks_summary": "{count, plural, one {# especie puede tener un nombre erróneo: {species}.} other {# especies pueden tener un nombre erróneo: {species}.}}",
+    "checks_body": "{count, plural, one {Solo la cámara la respalda y ningún observador la ha registrado a menos de {radius} km.} other {Solo la cámara las respalda y ningún observador las ha registrado a menos de {radius} km.}}",
+    "checks_body_plain": "{count, plural, one {Solo la cámara la respalda.} other {Solo la cámara las respalda.}}",
+    "checks_open": "Abrir las comprobaciones en la página de especies",
+    "checks_loading": "Buscando especies que puedan tener un nombre erróneo…",
+    "checks_unavailable": "No se pudo leer la comprobación de distribución, así que no se sabe si alguna especie tiene un nombre erróneo.",
+    "checks_more": "{count} más"
   },
   "review_session": {
     "position": "{position} de {total}",

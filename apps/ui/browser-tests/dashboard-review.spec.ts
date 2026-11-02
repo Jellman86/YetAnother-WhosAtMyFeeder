@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test';
 
+// The range check read and found nothing, so "Nothing waiting" rests on the visits alone.
+const noSpeciesChecks = { span: 'day', window_start: new Date(Date.now() - 86400000).toISOString(), window_end: new Date().toISOString(), species: [] };
+
 test('accepted historical choice survives an older pending count and omission from fresh history', async ({ page }) => {
     const record = { frigate_event: 'historical-choice', display_name: 'Dunnock', category_name: 'Dunnock', camera_name: 'birdcam',
         detection_time: new Date(Date.now() - 48 * 3600000).toISOString(), score: .98, manual_tagged: false,
@@ -24,6 +27,7 @@ test('accepted historical choice survives an older pending count and omission fr
             return route.fulfill({ json: { status: 'unchanged', event_id: record.frigate_event, new_species: 'Dunnock', category_name: 'Dunnock', manual_tagged: true } });
         }
         if (path === '/api/events/new-species') return route.fulfill({ json: { items: [{ ...record, species_sightings: 1 }] } });
+        if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
         if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
@@ -75,6 +79,7 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
             if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
             if (path === '/api/species/feeder') return route.fulfill({ json: [] });
+            if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
             // Supporting dashboard readings are unavailable; the ready review history remains usable.
             return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
         });

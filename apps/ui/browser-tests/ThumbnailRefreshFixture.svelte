@@ -54,7 +54,7 @@
     <output aria-label="Played clips">{played}</output>
 {/if}
 <div class="p-4" data-surface="queue-card">
-    <ReviewQueueCard queue={{ items: [a, b], total: 2, remaining: 0, oldest: a, reasons: new Map(), newSpeciesSightings: new Map() }} />
+    <ReviewQueueCard queue={{ items: [a, b], total: 2, remaining: 0, oldest: a, reasons: new Map(), newSpeciesSightings: new Map() }} checks={{ status: 'ready', names: [], nearbyRadiusKm: null, keptBirds: [] }} />
 </div>
 <div class="p-4" data-surface="preview">
     <DetectionPreview detection={a} frames={[a, b]} frameCount={2} primaryName="Capture A" />

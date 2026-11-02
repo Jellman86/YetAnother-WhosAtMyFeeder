@@ -3,8 +3,8 @@
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
-    import { fetchGardenDomesticBirds } from '../api/garden';
-    import { keptBirdCandidates, type DomesticBirdOption } from '../utils/domestic-birds';
+    import { keptBirdCandidates } from '../utils/domestic-birds';
+    import { DomesticBirdOptions } from '../utils/domestic-bird-options.svelte';
     import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
@@ -61,7 +61,8 @@
     import type { ChartDataset, Plugin } from 'chart.js';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
-    import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
     import { busiestHourOfDay } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
@@ -108,7 +109,9 @@
     let pageElement: HTMLDivElement | undefined;
     let refreshHeight = $state(0);
     let error = $state<string | null>(null);
-    let span = $state<LeaderboardSpan>('month');
+    // A link can ask for a window and for the checks card, as the Dashboard's "Needs your call" does.
+    const pageLink = parseSpeciesPageLink(window.location.search, window.location.hash);
+    let span = $state<LeaderboardSpan>(pageLink.span ?? 'month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let historyStart = $state<string | null>(null);
     let countsAreVisits = $state(false);
@@ -262,7 +265,7 @@
         buildShowcaseRows(leaderboardRows, {
             sourceMode,
             portraits,
-            isFlagged: (row) => isUnlikelyHere(evidenceFor(row, { audioKnown }), row.reported_nearby),
+            isFlagged: (row) => needsSpeciesCheck(row, { audioKnown }),
             referenceFor: (name) => ({
                 url: getCachedSpeciesInfo(name)?.thumbnail_url ?? null,
                 source: getCachedSpeciesInfo(name)?.source ?? null
@@ -272,21 +275,8 @@
     // A flagged species can be a domestic bird the owner keeps under its wild name: the bird model
     // calls chickens Red Junglefowl. Only an owner with Garden on can move those records.
     const gardenOwner = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
-    let domesticOptions = $state.raw<DomesticBirdOption[]>([]);
-    let domesticOptionsRun = $state(0);
-    $effect(() => {
-        void domesticOptionsRun;
-        if (!gardenOwner) {
-            domesticOptions = [];
-            return;
-        }
-        const controller = new AbortController();
-        fetchGardenDomesticBirds(controller.signal)
-            .then((options) => (domesticOptions = options))
-            .catch((error: unknown) => logger.debug('Domestic bird options unavailable', { message: getErrorMessage(error) }));
-        return () => controller.abort();
-    });
-    const keptBirds = $derived(gardenOwner ? keptBirdCandidates(showcaseRows.filter((row) => row.flagged), domesticOptions) : []);
+    const domesticBirds = new DomesticBirdOptions(() => gardenOwner);
+    const keptBirds = $derived(gardenOwner ? keptBirdCandidates(showcaseRows.filter((row) => row.flagged), domesticBirds.options) : []);
 
     function showcaseCountLabel(count: number): string {
         if (sourceMode === 'both') {
@@ -379,6 +369,13 @@
         checks.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
         checks.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }
+    // A link to the checks lands on them once the window has loaded; with none left, the page simply opens.
+    let checksFocusPending = pageLink.focusChecks;
+    $effect(() => {
+        if (!checksFocusPending || loading) return;
+        checksFocusPending = false;
+        if (showcaseRows.some((row) => row.flagged)) void tick().then(scrollToChecks);
+    });
     let topByTrend = $derived(
         !trendAvailable
             ? null
@@ -415,7 +412,7 @@
         return '—';
     }
     let unlikelyRows = $derived(
-        leaderboardRows.filter((row) => isUnlikelyHere(evidenceOf(row), row.reported_nearby))
+        leaderboardRows.filter((row) => needsSpeciesCheck(row, { audioKnown }))
     );
     let unlikelyKeys = $derived(new Set(unlikelyRows.map((row) => `${row.species}|${row.audio_only}`)));
     function unlikelyHere(row: LeaderboardTableRow): boolean {
@@ -471,25 +468,7 @@
             : null
     );
 
-    // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
-    // localized species name, so we can merge them onto the visual leaderboard rows.
-    let audioByKey = $derived(() => {
-        const map = new Map<string, AudioSpeciesLeaderboardItem>();
-        for (const a of audioSpecies) {
-            if (a.scientific_name) map.set(`sci:${a.scientific_name.toLowerCase()}`, a);
-            if (a.species) map.set(`nm:${a.species.toLowerCase()}`, a);
-        }
-        return map;
-    });
-
-    function heardForRow(row: LeaderboardRow, map: Map<string, AudioSpeciesLeaderboardItem>) {
-        if (row.scientific_name) {
-            const bySci = map.get(`sci:${row.scientific_name.toLowerCase()}`);
-            if (bySci) return bySci;
-        }
-        if (row.species) return map.get(`nm:${row.species.toLowerCase()}`);
-        return undefined;
-    }
+    let audioByKey = $derived(heardLookup(audioSpecies));
 
     // Rows for the leaderboard table: visual species with heard data merged in, plus
     // (in Heard/Both modes) audio-only species that were never seen on camera. Sort key
@@ -498,12 +477,12 @@
     function leaderboardTableRows(mode: SourceMode): LeaderboardTableRow[] {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
-        const map = audioByKey();
+        const map = audioByKey;
         const usedAudioKeys = new Set<string>();
 
         const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
             const naming = getBirdNames(item, showCommon, preferSci);
-            const heard = heardForRow(item, map);
+            const heard = heardFor(item, map);
             if (heard) {
                 if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);
                 if (heard.species) usedAudioKeys.add(`nm:${heard.species.toLowerCase()}`);
@@ -1810,7 +1789,7 @@
                 oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
                 {keptBirds}
                 onkept={() => {
-                    domesticOptionsRun += 1;
+                    domesticBirds.reload();
                     void loadLeaderboard();
                 }}
             />

@@ -111,7 +111,15 @@
     "loading": "Es wird geprüft, ob Besuche auf Sie warten…",
     "unavailable": "Die Warteschlange konnte nicht geprüft werden, daher ist unbekannt, ob etwas wartet.",
     "reason_unknown_species": "Art unbekannt",
-    "reason_low_score": "Unter der Benennungsschwelle"
+    "reason_low_score": "Unter der Benennungsschwelle",
+    "visits_clear": "Jeder Besuch der letzten 24 Stunden hat eine Art.",
+    "checks_summary": "{count, plural, one {# Art ist möglicherweise falsch benannt: {species}.} other {# Arten sind möglicherweise falsch benannt: {species}.}}",
+    "checks_body": "{count, plural, one {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {radius} km gemeldet.} other {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {radius} km gemeldet.}}",
+    "checks_body_plain": "{count, plural, one {Nur die Kamera stützt sie.} other {Nur die Kamera stützt sie.}}",
+    "checks_open": "Prüfungen auf der Artenseite öffnen",
+    "checks_loading": "Suche nach Arten, die möglicherweise falsch benannt sind…",
+    "checks_unavailable": "Die Gebietsprüfung konnte nicht gelesen werden, daher ist unbekannt, ob eine Art falsch benannt ist.",
+    "checks_more": "{count} weitere"
   },
   "review_session": {
     "position": "{position} von {total}",

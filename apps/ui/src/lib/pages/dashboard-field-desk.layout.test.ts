@@ -74,7 +74,8 @@ describe('dashboard field desk layout', () => {
     it('keeps the review queue and its actions to owners', () => {
         // Identify and hide are owner-only calls, so a guest must not be offered them.
         expect(dashboardSource).toContain('let canReview = $derived(authStore.hasOwnerAccess)');
-        expect(dashboardSource).toContain('{#if canReview}');
+        expect(dashboardSource).toContain('needsYourCall({\n        canReview,');
+        expect(dashboardSource).toContain('{#if needsCall.visible}');
         expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
         expect(dashboardSource).toContain('canIdentify={canReview}');
         expect(visitRowSource).toContain('{#if visit.needsReview && canIdentify}');
