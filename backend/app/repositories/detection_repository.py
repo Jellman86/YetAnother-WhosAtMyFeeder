@@ -4198,6 +4198,35 @@ class DetectionRepository:
         async with self.db.execute(query, bounds_params) as cursor:
             return {int(species_id): int(count) for species_id, count in await cursor.fetchall()}
 
+    async def newest_events_by_species(
+        self,
+        species_ids: Collection[int],
+        *,
+        per_species: int,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[int, list[tuple[str, str]]]:
+        """Each species' newest visible Frigate events and their times, newest first, ``per_species`` at most."""
+        ids = sorted({int(species_id) for species_id in species_ids})
+        if not ids:
+            return {}
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            SELECT species_id, frigate_event, detection_time FROM (
+                SELECT d.species_id, d.frigate_event, d.detection_time, ROW_NUMBER() OVER (
+                    PARTITION BY d.species_id ORDER BY d.detection_time DESC, d.id DESC
+                ) AS position
+                FROM detections d
+                WHERE d.species_id IN ({",".join("?" * len(ids))})
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
+            ) WHERE position <= ? ORDER BY species_id, position
+        """
+        found: dict[int, list[tuple[str, str]]] = {}
+        async with self.db.execute(query, [*ids, *bounds_params, max(1, int(per_species))]) as cursor:
+            for species_id, event, detected_at in await cursor.fetchall():
+                found.setdefault(int(species_id), []).append((str(event), str(detected_at)))
+        return found
+
     async def seen_species_ids(self) -> set[int]:
         """Every catalogue identity with a detection, hidden ones included, for resolving a group of species."""
         async with self.db.execute("SELECT DISTINCT species_id FROM detections WHERE species_id IS NOT NULL") as cursor:

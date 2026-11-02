@@ -1430,6 +1430,30 @@ async def clear_species_cache(
     return SpeciesCacheClearResponse(status="cleared", species=species_name)
 
 
+#: The groups a reference lookup can describe. A genus is left out: genus names repeat across
+#: kingdoms (Prunella is a bird and a plant), and rank alone cannot tell them apart.
+GroupRank = Literal["family", "order"]
+
+#: The IUCN Red List categories by the number iNaturalist stores beside each.
+_IUCN_CATEGORIES = {5: "DD", 10: "LC", 20: "NT", 30: "VU", 40: "EN", 50: "CR", 60: "EW", 70: "EX"}
+
+
+def _global_iucn_status(taxon: dict) -> str | None:
+    """The IUCN Red List's global category for a taxon; a regional list or another authority is not it."""
+    for status in taxon.get("conservation_statuses") or []:
+        if not isinstance(status, dict) or status.get("place"):
+            continue
+        if str(status.get("authority") or "").strip().casefold() != "iucn red list":
+            continue
+        code = str(status.get("status") or "").strip().upper()
+        if code in _IUCN_CATEGORIES.values():
+            return code
+        number = status.get("iucn")
+        if isinstance(number, int) and number in _IUCN_CATEGORIES:
+            return _IUCN_CATEGORIES[number]
+    return None
+
+
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
 @guest_rate_limit()
 async def get_species_info(
@@ -1438,6 +1462,10 @@ async def get_species_info(
     refresh: bool = False,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
     scientific_name: str | None = Query(None, min_length=1, max_length=200),
+    rank: GroupRank | None = Query(
+        None,
+        description="With scientific_name, describe the family or order of that name at that rank instead of a species",
+    ),
 ):
     """Get species information for a species. Use refresh=true to bypass cache."""
     lang = get_user_language(request) or "en"
@@ -1445,7 +1473,7 @@ async def get_species_info(
         identity = scientific_name.strip()
         if not identity:
             raise HTTPException(422, "Scientific name cannot be blank")
-        return await _get_taxon_reference_info(species_name, identity, lang, refresh)
+        return await _get_taxon_reference_info(species_name, identity, lang, refresh, rank=rank)
     log.info("Fetching species info", species=species_name, refresh=refresh, language=lang)
 
     # Skip Wikipedia lookup for non-identifiable species (e.g., "Unknown Bird")
@@ -1676,13 +1704,39 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     )
 
 
-async def _get_taxon_reference_info(species_name: str, scientific_name: str, lang: str, refresh: bool) -> SpeciesInfo:
+async def _group_reference_info(species_name: str, scientific_name: str, lang: str, rank: GroupRank) -> SpeciesInfo:
+    """A family or order described by the one iNaturalist taxon of that name and rank, never a name search.
+
+    Without iNaturalist's own summary, the Wikipedia page that taxon links to stands in, and only
+    when the page names the group.
+    """
+    info = await _fetch_inaturalist_info(species_name, lang, scientific_name, require_scientific_name=True, rank=rank)
+    info.conservation_status = None
+    if not info.extract and info.wikipedia_url:
+        page = await _fetch_wikipedia_info_from_url(
+            info.wikipedia_url, species_name, lang, expected_scientific_name=scientific_name
+        )
+        if page and page.extract:
+            info.description = page.description
+            info.extract = page.extract
+            info.summary_source = page.source
+            info.summary_source_url = page.source_url
+    return info
+
+
+async def _get_taxon_reference_info(
+    species_name: str, scientific_name: str, lang: str, refresh: bool, *, rank: GroupRank | None = None
+) -> SpeciesInfo:
     # Name-only bird results may already contain an unrelated article. Never
     # reuse or overwrite those persistent entries for a catalogue-bound lookup.
-    cache_key = f"{species_name}:{lang}:taxon:{scientific_name}"
+    cache_key = f"{species_name}:{lang}:taxon:{scientific_name}" + (f":{rank}" if rank else "")
     cached = _wiki_cache.get(cache_key)
     if not refresh and cached and _is_cache_valid(*cached):
         return cached[0]
+    if rank is not None:
+        info = await _group_reference_info(species_name, scientific_name, lang, rank)
+        _wiki_cache[cache_key] = (info, datetime.now())
+        return info
 
     providers = (
         (_fetch_wikipedia_info, _fetch_inaturalist_info)
@@ -1690,8 +1744,12 @@ async def _get_taxon_reference_info(species_name: str, scientific_name: str, lan
         else (_fetch_inaturalist_info, _fetch_wikipedia_info)
     )
     info = await providers[0](species_name, lang, scientific_name, require_scientific_name=True)
-    if not info.extract or not info.thumbnail_url:
+    # Only iNaturalist records the IUCN category, so it is asked even when Wikipedia answered.
+    needs_status = info.conservation_status is None and providers[1] is _fetch_inaturalist_info
+    if not info.extract or not info.thumbnail_url or needs_status:
         fallback = await providers[1](species_name, lang, scientific_name, require_scientific_name=True)
+        if not info.conservation_status:
+            info.conservation_status = fallback.conservation_status
         if not info.extract and fallback.extract:
             info.description = fallback.description
             info.extract = fallback.extract
@@ -1773,7 +1831,9 @@ async def _fetch_wikipedia_info(
     )
 
 
-async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, lang: str) -> SpeciesInfo | None:
+async def _fetch_wikipedia_info_from_url(
+    wikipedia_url: str, species_name: str, lang: str, *, expected_scientific_name: str | None = None
+) -> SpeciesInfo | None:
     """Fetch Wikipedia summary directly from a known article URL."""
     from urllib.parse import urlparse, unquote
 
@@ -1800,7 +1860,9 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, 
 
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
-            return await _get_wikipedia_summary(client, title, species_name, url_lang)
+            return await _get_wikipedia_summary(
+                client, title, species_name, url_lang, expected_scientific_name=expected_scientific_name
+            )
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
     except httpx.RequestError as e:
@@ -1880,8 +1942,13 @@ async def _fetch_inaturalist_info(
     expected_scientific_name: str | None = None,
     *,
     require_scientific_name: bool = False,
+    rank: str | None = None,
 ) -> SpeciesInfo:
-    """Fetch species information from iNaturalist API with scored candidate matching."""
+    """Fetch species information from iNaturalist API with scored candidate matching.
+
+    With a rank, only the one taxon of exactly that name and rank is accepted: two such taxa
+    (a homonym across kingdoms) describe nothing rather than the wrong one.
+    """
     requested_locale = (lang or "en").strip().replace("_", "-")
     if not requested_locale:
         requested_locale = "en"
@@ -1910,6 +1977,10 @@ async def _fetch_inaturalist_info(
                     if _normalize_lookup_text(candidate.get("name")) == _normalize_lookup_text(expected_scientific_name)
                     and candidate.get("is_active", True)
                 ]
+                if rank is not None:
+                    candidates = [candidate for candidate in candidates if candidate.get("rank") == rank]
+                    if len(candidates) > 1:
+                        candidates = []
             taxon, score = _select_inaturalist_candidate(
                 candidates,
                 requested_name=species_name,
@@ -1932,7 +2003,11 @@ async def _fetch_inaturalist_info(
             # Enrich with full taxon details when autocomplete payload is sparse.
             taxa_id = taxon.get("id")
             if isinstance(taxa_id, int):
-                if not taxon.get("wikipedia_summary") or not taxon.get("default_photo"):
+                if (
+                    not taxon.get("wikipedia_summary")
+                    or not taxon.get("default_photo")
+                    or "conservation_statuses" not in taxon
+                ):
                     details = await _inaturalist_fetch_taxon_details(client, taxa_id, requested_locale)
                     if details:
                         merged = details.copy()
@@ -1974,7 +2049,7 @@ async def _fetch_inaturalist_info(
                 summary_source="iNaturalist" if extract else None,
                 summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
-                conservation_status=None,
+                conservation_status=_global_iucn_status(taxon),
                 taxa_id=taxa_id if isinstance(taxa_id, int) else None,
                 cached_at=datetime.now(),
             )

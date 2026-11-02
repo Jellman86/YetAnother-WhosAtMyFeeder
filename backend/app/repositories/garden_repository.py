@@ -323,6 +323,32 @@ class GardenRepository:
         ) as cursor:
             return {int(species): int(count) for species, count in await cursor.fetchall()}
 
+    async def newest_crops(
+        self, species_ids: Collection[int], *, start: datetime | None, end: datetime | None
+    ) -> dict[int, tuple[str, str]]:
+        """Each species' newest confirmed capture with a saved crop: its id and when it was seen."""
+        ids = sorted({int(species_id) for species_id in species_ids})
+        if not ids:
+            return {}
+        scope, values = self._scope_filter(start, end, None)
+        where = " AND ".join(
+            [
+                "status = 'confirmed'",
+                "EXISTS (SELECT 1 FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL)",
+                *scope,
+            ]
+        )
+        async with self.db.execute(
+            f"""SELECT species, id, observed_at FROM (
+                SELECT {self._SPECIES_IDENTITY} AS species, id, observed_at FROM garden_captures WHERE {where}
+            ) WHERE species IN ({",".join("?" * len(ids))}) ORDER BY observed_at DESC, id DESC""",
+            [*values, *ids],
+        ) as cursor:
+            newest: dict[int, tuple[str, str]] = {}
+            for species, capture_id, observed_at in await cursor.fetchall():
+                newest.setdefault(int(species), (str(capture_id), str(observed_at)))
+            return newest
+
     async def seen_species_ids(self) -> set[int]:
         """Every catalogue identity a capture was named as, for resolving a group of species."""
         async with self.db.execute(

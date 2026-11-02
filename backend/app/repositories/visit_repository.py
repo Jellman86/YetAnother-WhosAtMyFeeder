@@ -129,6 +129,24 @@ class VisitRepository(DetectionRepository):
         """
         return sql, [*params, *labels, *([camera] if camera else [])]
 
+    async def species_visit_spans(
+        self, *, start: datetime | None = None, end: datetime | None = None
+    ) -> dict[int, tuple[int, str, str]]:
+        """Visits per catalogue species by the shared visit rule, with the first and last capture time.
+
+        Hidden records, unknown birds and hidden labels never form a species visit.
+        """
+        cte, params = await self.grouping_cte(start=start, end=end)
+        query = f"""WITH {cte}
+            SELECT CAST(substr(visit_identity, 9) AS INTEGER) AS species_id,
+                   SUM(CASE WHEN visit_position = 1 THEN 1 ELSE 0 END), MIN(detection_time), MAX(detection_time)
+            FROM visit_members WHERE visit_identity LIKE 'species:%' GROUP BY visit_identity"""
+        async with self.db.execute(query, params) as cursor:
+            return {
+                int(species_id): (int(visits), str(first), str(last))
+                for species_id, visits, first, last in await cursor.fetchall()
+            }
+
     async def _matching_condition(
         self,
         *,

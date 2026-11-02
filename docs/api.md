@@ -855,6 +855,16 @@ Notes:
   scripts and styles are removed, entities are decoded and paragraph breaks are
   retained. This also applies when reading older cached summaries, without a
   cache refresh or database rewrite.
+  `conservation_status` is the IUCN Red List's global category (`DD`, `LC`, `NT`, `VU`, `EN`, `CR`,
+  `EW` or `EX`) as iNaturalist records it, or null when there is no global assessment; a regional
+  list or another authority never stands in. For a `scientific_name` lookup iNaturalist is asked for
+  it even when Wikipedia supplied the text and photograph.
+  With `scientific_name`, an optional `rank` of `family` or `order` describes that group instead of
+  a species. Only the one active iNaturalist taxon with exactly that name and rank is accepted (two,
+  as with a homonym across kingdoms, describe nothing); without its own summary, the Wikipedia page
+  that taxon links to is used only when it names the group. A group is never looked up by a name
+  search, and its lookups are cached apart from species lookups. `conservation_status` is null for a
+  group.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
@@ -889,8 +899,32 @@ for a species it is the same `species_id` detections carry.
   (IOC sequence for birds), each with `species_count`. Query: `limit` (1 to 5000, default 500).
 
 Every taxon in these responses also carries what this feeder has seen beneath it: `seen_species`
-(distinct species) and `seen_count` (visible detections). The owner sees the whole history; a
-guest sees the window public access allows, as everywhere else.
+(distinct species) and `seen_count` (visible detections plus confirmed Garden captures while Garden
+animals are on). The owner sees the whole history; a guest sees the window public access allows, as
+everywhere else. `authorship` is the accepted concept's authority and year exactly as the catalogue
+stores it (parentheses included when the source writes them), or null when unrecorded.
+
+- `GET /api/taxonomy/facts?ids=` — what this install recorded of each taxon, for one open level of
+  the family tree in one request. `ids` repeats, 1 to 100 catalogue ids (422 outside that); repeats
+  are answered once and an id the catalogue does not hold is left out. Per taxon: `visits` (bird
+  visits by the shared 60-second visit rule plus confirmed Garden visits, 0 when none),
+  `species_seen` (species at or beneath it with a visit), `first_seen`, `last_seen` (the most recent
+  visit), `heard` and `last_heard` (visible BirdNET-Go detections; `heard` is null when audio is not
+  shared with the reader), `sources` (`camera`, `garden`) and `photo`. A group rolls these up over
+  the species beneath it. Hidden detections, unknown birds and unconfirmed Garden captures never
+  count. `photo` is the newest stored crop the reader may load (the leaderboard's rule: a camera
+  crop through `/api/about/showcase/{event}.jpg` or a Garden crop through
+  `/api/garden/{capture_id}/crop`, whichever is newer); a group shows its most-seen member's, and
+  `photo.species_id`, `photo.scientific_name` and `photo.name` (in the reader's language) say whose it is. `scope` is `all` for the owner, `shared` for a visitor with
+  `shared_days` the shared window's length; a visitor reads that window only, gets `photo` only while
+  photographs are shared and inside the photograph window, and gets 403 while public access is off.
+  Results are reused for up to a minute (photographs two), keyed by the sharing settings, so a
+  settings change applies at once.
+- `GET /api/taxonomy/{taxon_id}/names` — the taxon's common names in the catalogue's other
+  languages (the reader's own language left out), ordered by language with the preferred name first
+  in each, repeats that differ only in case removed. `languages` counts the languages among all of
+  them and `truncated` says the list was cut. Query: `limit` (1 to 100, default 40). 404 when the
+  catalogue does not hold the taxon.
 
 ### Statistics
 

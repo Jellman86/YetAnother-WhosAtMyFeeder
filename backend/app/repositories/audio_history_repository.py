@@ -855,6 +855,24 @@ class AudioHistoryRepository:
             )
         return results
 
+    async def heard_by_species(
+        self, *, start: datetime | None = None, end: datetime | None = None
+    ) -> dict[int, tuple[int, str]]:
+        """Visible BirdNET-Go detections per catalogue species, with the newest one's time."""
+        clauses, params = ["is_hidden = 0", "species_id IS NOT NULL"], []
+        if start is not None:
+            clauses.append("timestamp >= ?")
+            params.append(serialize_storage_datetime(start))
+        if end is not None:
+            clauses.append("timestamp < ?")
+            params.append(serialize_storage_datetime(end))
+        async with self.db.execute(
+            f"SELECT species_id, COUNT(*), MAX(timestamp) FROM audio_detections"
+            f" WHERE {' AND '.join(clauses)} GROUP BY species_id",
+            params,
+        ) as cursor:
+            return {int(species_id): (int(count), str(last)) for species_id, count, last in await cursor.fetchall()}
+
     async def _last_statement_changes(self) -> int:
         """Return rows changed by the most recent write statement on this connection."""
         cursor = await self.db.execute("SELECT changes()")

@@ -49,6 +49,25 @@ class Taxon:
     #: Species beneath this taxon (or this species itself) with a detection here, and how many detections.
     seen_species: Optional[int] = None
     seen_count: Optional[int] = None
+    #: The accepted concept's authority and year exactly as the source publishes it; None when unrecorded.
+    authorship: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class OtherName:
+    language: str
+    name: str
+    preferred: bool
+
+
+@dataclass(frozen=True)
+class OtherNames:
+    """A taxon's common names outside the reader's language, preferred first within each language."""
+
+    names: tuple[OtherName, ...]
+    #: Languages among all of them, so a reader knows how many a bounded list stands for.
+    languages: int
+    truncated: bool
 
 
 @dataclass(frozen=True)
@@ -82,6 +101,27 @@ def _with_seen(taxon: "Taxon", seen: Optional[dict[int, tuple[int, int]]]) -> "T
         return taxon
     species, count = seen.get(taxon.taxon_id, (0, 0))
     return replace(taxon, seen_species=species, seen_count=count)
+
+
+def _taxon(
+    row: sqlite3.Row,
+    names: Mapping[int, str],
+    concepts: Mapping[int, tuple[str, str, Optional[str]]],
+    counts: Mapping[int, int],
+) -> "Taxon":
+    taxon_id = int(row["species_id"])
+    scientific_name, source, authorship = concepts.get(taxon_id, ("", None, None))
+    return Taxon(
+        taxon_id=taxon_id,
+        rank=str(row["rank"]),
+        scientific_name=scientific_name,
+        name=_display_name(names.get(taxon_id), scientific_name),
+        source=source,
+        principal=str(row["rank"]) in PRINCIPAL_RANKS,
+        parent_id=row["parent_species_id"],
+        species_count=counts.get(taxon_id),
+        authorship=authorship,
+    )
 
 
 class TaxonomyTree:
@@ -152,19 +192,35 @@ class TaxonomyTree:
         return found
 
     @staticmethod
-    def _concepts(connection: sqlite3.Connection, ids: list[int]) -> dict[int, tuple[str, str]]:
+    def _concepts(connection: sqlite3.Connection, ids: list[int]) -> dict[int, tuple[str, str, Optional[str]]]:
+        """Each taxon's accepted concept: its scientific name, provider and authorship.
+
+        The authorship is the one stored for that name, taken from another concept of the same
+        name when the leading one has none, because an authority belongs to a name. It is used as
+        the source wrote it, parentheses and all; nothing here adds or removes them.
+        """
         if not ids:
             return {}
         placeholders = ",".join("?" * len(ids))
-        concepts: dict[int, tuple[str, str]] = {}
+        concepts: dict[int, tuple[str, str, Optional[str]]] = {}
+        authorities: dict[tuple[int, str], str] = {}
         # IOC first where a taxon carries several concepts: it owns bird naming.
         for row in connection.execute(
-            f"SELECT species_id, scientific_name, provider FROM species_concepts WHERE species_id IN ({placeholders})"
-            " ORDER BY species_id, CASE provider WHEN 'ioc-world-bird-list' THEN 0 ELSE 1 END, provider",
+            f"SELECT species_id, scientific_name, provider, authorship FROM species_concepts"
+            f" WHERE species_id IN ({placeholders})"
+            " ORDER BY species_id, CASE provider WHEN 'ioc-world-bird-list' THEN 0 ELSE 1 END,"
+            " CASE status WHEN 'accepted' THEN 0 ELSE 1 END, provider",
             ids,
         ):
-            concepts.setdefault(int(row["species_id"]), (str(row["scientific_name"]), str(row["provider"])))
-        return concepts
+            taxon_id, scientific = int(row["species_id"]), str(row["scientific_name"])
+            concepts.setdefault(taxon_id, (scientific, str(row["provider"]), None))
+            authority = " ".join(str(row["authorship"] or "").split())
+            if authority:
+                authorities.setdefault((taxon_id, scientific.casefold()), authority)
+        return {
+            taxon_id: (scientific, provider, authorities.get((taxon_id, scientific.casefold())))
+            for taxon_id, (scientific, provider, _none) in concepts.items()
+        }
 
     @staticmethod
     def _chains(connection: sqlite3.Connection, taxon_ids: Iterable[int]) -> dict[int, list[int]]:
@@ -260,7 +316,7 @@ class TaxonomyTree:
             connection.close()
         taxa: list[NamedTaxon] = []
         for taxon_id in ids:
-            scientific_name = concepts.get(taxon_id, ("", ""))[0]
+            scientific_name = concepts.get(taxon_id, ("", "", None))[0]
             if not scientific_name:
                 continue
             name = _display_name(display.get(taxon_id), scientific_name)
@@ -286,6 +342,118 @@ class TaxonomyTree:
         finally:
             connection.close()
         return {species_id for species_id, chain in chains.items() if int(taxon_id) in chain}
+
+    def ranks(self, taxon_ids: Iterable[int]) -> dict[int, str]:
+        """The rank of each taxon the catalogue holds; an id it does not hold is left out."""
+        ids = sorted({int(taxon_id) for taxon_id in taxon_ids if 0 < int(taxon_id) < 2**63})
+        if not ids:
+            return {}
+        connection = self._connect()
+        if connection is None:
+            return {}
+        try:
+            found: dict[int, str] = {}
+            for start in range(0, len(ids), 500):
+                batch = ids[start : start + 500]
+                for row in connection.execute(
+                    f"SELECT species_id, rank FROM species WHERE species_id IN ({','.join('?' * len(batch))})", batch
+                ):
+                    found[int(row["species_id"])] = str(row["rank"])
+            return found
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return {}
+        finally:
+            connection.close()
+
+    def display_names(
+        self, taxon_ids: Iterable[int], *, language: Optional[str] = None
+    ) -> dict[int, tuple[str, Optional[str]]]:
+        """Each taxon's scientific name and common name in the reader's language, as a lineage names it."""
+        ids = sorted({int(taxon_id) for taxon_id in taxon_ids if 0 < int(taxon_id) < 2**63})
+        if not ids:
+            return {}
+        connection = self._connect()
+        if connection is None:
+            return {}
+        try:
+            concepts = self._concepts(connection, ids)
+            names = self._names(connection, ids, normalize_language(language))
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return {}
+        finally:
+            connection.close()
+        return {
+            taxon_id: (scientific, _display_name(names.get(taxon_id), scientific))
+            for taxon_id, (scientific, _provider, _authorship) in concepts.items()
+        }
+
+    def members_by_taxon(self, species_ids: Iterable[int]) -> dict[int, list[int]]:
+        """For every taxon at or above the given species, which of them sit beneath it.
+
+        Walks up from each species, a few hundred at most, rather than down from every taxon.
+        """
+        connection = self._connect()
+        if connection is None:
+            return {}
+        try:
+            chains = self._chains(connection, species_ids)
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return {}
+        finally:
+            connection.close()
+        members: dict[int, list[int]] = {}
+        for species_id, chain in chains.items():
+            for taxon_id in chain:
+                members.setdefault(taxon_id, []).append(species_id)
+        return members
+
+    def other_names(self, taxon_id: int, *, language: Optional[str] = None, limit: int = 40) -> Optional[OtherNames]:
+        """A taxon's common names in the catalogue's other languages. None when the catalogue lacks the taxon.
+
+        The reader's own language is left out: its name is already the one they read. Repeats
+        that differ only in case are one name; within a language the preferred name leads.
+        """
+        if not 0 < taxon_id < 2**63:
+            return None
+        connection = self._connect()
+        if connection is None:
+            return None
+        tag = normalize_language(language)
+        try:
+            if connection.execute("SELECT 1 FROM species WHERE species_id = ?", (taxon_id,)).fetchone() is None:
+                return None
+            rows = connection.execute(
+                "SELECT language_tag, name, preferred, provider FROM species_names"
+                " WHERE species_id = ? AND language_tag != ? ORDER BY language_tag, preferred DESC, name, id",
+                (taxon_id, tag),
+            ).fetchall()
+            scientific = self._concepts(connection, [taxon_id]).get(taxon_id, ("", "", None))[0]
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return None
+        finally:
+            connection.close()
+        names: list[OtherName] = []
+        seen: set[tuple[str, str]] = set()
+        for row in rows:
+            raw = vernacular_case(str(row["name"])) if row["provider"] == "google-speciesnet" else str(row["name"])
+            name = _display_name(raw.strip(), scientific)
+            if not name:
+                continue
+            key = (str(row["language_tag"]), name.casefold())
+            if key in seen:
+                continue
+            seen.add(key)
+            names.append(OtherName(language=key[0], name=name, preferred=bool(row["preferred"])))
+        bound = max(1, int(limit))
+        return OtherNames(
+            names=tuple(names[:bound]),
+            languages=len({name.language for name in names}),
+            truncated=len(names) > bound,
+        )
 
     def lineage(
         self, taxon_id: int, *, language: Optional[str] = None, seen: Optional[Mapping[int, int]] = None
@@ -318,24 +486,7 @@ class TaxonomyTree:
             return []
         finally:
             connection.close()
-        return [
-            _with_seen(
-                Taxon(
-                    taxon_id=int(row["species_id"]),
-                    rank=str(row["rank"]),
-                    scientific_name=concepts.get(int(row["species_id"]), ("", ""))[0],
-                    name=_display_name(
-                        names.get(int(row["species_id"])), concepts.get(int(row["species_id"]), ("", ""))[0]
-                    ),
-                    source=concepts.get(int(row["species_id"]), ("", None))[1],
-                    principal=str(row["rank"]) in PRINCIPAL_RANKS,
-                    parent_id=row["parent_species_id"],
-                    species_count=counts.get(int(row["species_id"])),
-                ),
-                rolled,
-            )
-            for row in reversed(chain)
-        ]
+        return [_with_seen(_taxon(row, names, concepts, counts), rolled) for row in reversed(chain)]
 
     def children(
         self,
@@ -366,24 +517,7 @@ class TaxonomyTree:
             return []
         finally:
             connection.close()
-        return [
-            _with_seen(
-                Taxon(
-                    taxon_id=int(row["species_id"]),
-                    rank=str(row["rank"]),
-                    scientific_name=concepts.get(int(row["species_id"]), ("", ""))[0],
-                    name=_display_name(
-                        names.get(int(row["species_id"])), concepts.get(int(row["species_id"]), ("", ""))[0]
-                    ),
-                    source=concepts.get(int(row["species_id"]), ("", None))[1],
-                    principal=str(row["rank"]) in PRINCIPAL_RANKS,
-                    parent_id=row["parent_species_id"],
-                    species_count=counts.get(int(row["species_id"])),
-                ),
-                rolled,
-            )
-            for row in rows
-        ]
+        return [_with_seen(_taxon(row, names, concepts, counts), rolled) for row in rows]
 
 
 taxonomy_tree = TaxonomyTree()
