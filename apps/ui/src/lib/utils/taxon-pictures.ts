@@ -8,9 +8,15 @@ import { fetchSpeciesInfo } from '../api/species';
  * Species only: a family or genus has no reliable reference picture, and asking the species
  * information route about one would fill its cache with things that are not species.
  */
-const pictures = new Map<string, Promise<string | null>>();
+export interface ReferencePicture {
+    url: string;
+    /** Where the photograph comes from, such as Wikipedia, for its attribution. */
+    source: string | null;
+}
 
-export function speciesPicture(scientificName: string): Promise<string | null> {
+const pictures = new Map<string, Promise<ReferencePicture | null>>();
+
+export function speciesPicture(scientificName: string): Promise<ReferencePicture | null> {
     const key = scientificName.trim();
     if (!key) return Promise.resolve(null);
     let picture = pictures.get(key);
@@ -18,7 +24,7 @@ export function speciesPicture(scientificName: string): Promise<string | null> {
         // The scientific name doubles as the lookup hint: without it the species route tries
         // the bird sources first and finds nothing for a mammal, such as a dog.
         picture = fetchSpeciesInfo(key, undefined, key)
-            .then((info) => info.thumbnail_url ?? null)
+            .then((info) => (info.thumbnail_url ? { url: info.thumbnail_url, source: info.source?.trim() || null } : null))
             .catch(() => {
                 // A failed lookup may succeed later in the session.
                 pictures.delete(key);

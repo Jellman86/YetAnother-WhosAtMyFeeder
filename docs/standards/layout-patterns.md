@@ -266,24 +266,46 @@ scientific naming preferences as the full record.
 On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
 own Close, because there is no hover to lose.
 
-Beneath the identification, `TaxonomyLineage` shows where the bird sits: one line from class to
-species with each rank named, the family's species worldwide against those seen here, and "Open
-the family tree". It shows nothing when the catalogue does not hold the bird; a missing lineage is
-not an error worth the space. A Garden record passes `subject="animal"`: the ladder and tree come
-from the SpeciesNet taxonomy, so they drop the worldwide and seen-here counts (those count bird
-visits) and say "this animal" rather than "this bird". `FamilyTreeDialog` is the full view: a horizontal tree centred on
-the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a breadcrumb rather
-than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
-everything else in an open group is summed in one "more" node. A group's label sits above its node
-so branches never cross it, and every node is a keyboard button with `aria-expanded`. The fan and
-the outline list read the same visible tree, and a narrow screen opens on the outline until the
-reader picks another. Every name in the ladder, the tree and the outline opens a `TaxonCard` under
-the §4 contract, one card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its
-reference photograph (one species-information request per species per page, through
-`utils/taxon-pictures.ts`), a group shows its size and what was seen here. A group never asks for a
+Beneath the identification, `TaxonomyLineage` shows where the bird sits: a ladder from class to
+species, one rank per row, each rank named in small tracked capitals (`.taxon-rank`) in a column of
+its own and joined to the rank above by one right-angled branch. It shows the family's species
+worldwide against those seen here, and "Open the family tree". It shows nothing when the catalogue
+does not hold the bird; a missing lineage is not an error worth the space. `FamilyTreeDialog` is the
+full view: a horizontal cladogram centred on the bird, with Animalia and Chordata as a ranked
+breadcrumb rather than branches and each rank named once at the head of its column. Its path is a
+heavy line with solid dots; groups seen at this feeder are green and say how many; everything else
+in an open group is summed in one "more" node. A group's label sits above its node so branches never
+cross it, and every node is a keyboard button with `aria-expanded`. The tree's whole row is the
+click target, 44px tall, not just its glyphs. The tree, the fan and the outline are one ARIA tree
+with one tab stop: the arrow keys move through the visible nodes, Right and Left open and close a
+group or step into and out of it, and Home and End reach the ends (`taxonomy/tree-navigation.ts`).
+A narrow screen opens on the outline until the reader picks another layout. A legend names every
+mark, and a mark is never colour alone: this bird is a ringed dot, a closed group carries a plus, a
+"more" node is a dashed ring (`TaxonMarker`, one drawing for the tree, the fan, the outline and the
+legend).
+
+**Names follow the zoological convention, everywhere a taxon is named** (`taxonomy/nomenclature.ts`,
+set through `TaxonNameText`): the genus and every rank beneath it is italic, a genus is capitalised
+and an epithet is not, and a family and every rank above it stays upright. A common name is never
+italic. The reader's Bird Naming Style decides which name leads: common first with the scientific
+name beneath, scientific first with the common name beneath, or the scientific name alone. A common
+name that only repeats the scientific one is shown once. Ranks always read from the highest down,
+whatever order a source returns them in, and each rank is labelled in words. The tree never
+invents what the classification does not hold: no author or year, no dates or branch lengths, and
+nothing about how individual birds relate.
+
+**Counts are stated one way.** A group says "N species, M seen here" on its node, in its card and in
+the outline; a species says how many captures it has here, and its card says so when it has none. A Garden
+animal makes no such claim: the catalogue holds only the model's animals and the counts are birds'.
+
+Every name in the ladder, the tree and the outline opens a `TaxonCard` under the §4 contract, one
+card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its reference photograph
+with where it comes from (one species-information request per species per page, through
+`utils/taxon-pictures.ts`, which passes the scientific name as the lookup hint so a mammal is not
+searched for among birds), a group shows its size and what was seen here. A group never asks for a
 picture, because the species-information route would cache it as a species. Selecting a species,
-which has nothing to open, pins its card; the species details show the same ladder. The tree is a ranked classification, and the footer
-says so: it shows grouping, not divergence.
+which has nothing to open, pins its card; the species details show the same ladder. The tree is a
+ranked classification, and the footer says so: it shows grouping, not divergence.
 
 ### Standing (Leaderboard)
 

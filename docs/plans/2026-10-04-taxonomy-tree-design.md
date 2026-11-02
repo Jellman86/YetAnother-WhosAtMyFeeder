@@ -64,6 +64,20 @@ ancestors, and a taxon with no recorded parent is shown as a gap.
   and what was seen here. Pictures come from the existing species information, one request per
   species per page, and are never asked for a genus or family (#624).
 
+## Delivered fourth: a scientific, type-led reading
+
+- Names follow the zoological convention on every surface: the genus and the ranks beneath it are
+  italic, the family and the ranks above it upright, common names never italic. The reader's Bird
+  Naming Style chooses which name leads (`taxonomy/nomenclature.ts`).
+- Ranks are labelled in words and always read from the top down, in the ladder, the tree's column
+  headings and the breadcrumb, whatever order the lineage arrives in.
+- The tree is drawn as a cladogram with right-angled branches (a fan branch follows the parent's
+  ring and then the child's spoke), one marker drawing shared by every layout and the legend, and one
+  wording for counts.
+- The tree, the fan and the outline are one ARIA tree with arrow-key movement
+  (`taxonomy/tree-navigation.ts`); a node's whole 44px row is its click target.
+- A species card credits where its reference photograph comes from.
+
 ## Next
 
 1. Search by common or scientific name inside the tree, landing on the same taxon either way.

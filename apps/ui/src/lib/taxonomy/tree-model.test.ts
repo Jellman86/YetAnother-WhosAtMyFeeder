@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Taxon } from '../api/taxonomy';
 import { layoutTree } from './tree-layout';
-import { taxonLabel, visibleTree, type BranchState, type TreeItem } from './tree-model';
+import { nodeMarker, visibleTree, type BranchState, type TreeItem } from './tree-model';
 
 const taxon = (taxon_id: number, scientific_name: string, rank: string, seen_species = 0, name: string | null = null): Taxon => ({
     taxon_id, scientific_name, rank, name, principal: true, seen_species, seen_count: seen_species * 10
@@ -55,8 +55,17 @@ describe('the family tree model', () => {
         expect(accentors).toMatchObject({ kind: 'taxon', onPath: true, current: true, expandable: true });
     });
 
-    it('names a taxon by its common name, falling back to the scientific one', () => {
-        expect(taxonLabel(prunellidae)).toBe('Accentors');
-        expect(taxonLabel(paridae)).toBe('Paridae');
+    it('marks the bird, its path, what was seen here and closed groups by shape as well as tone', () => {
+        const item = (overrides: Partial<Extract<TreeItem, { kind: 'taxon' }>>): TreeItem => ({
+            kind: 'taxon', taxon: paridae, onPath: false, current: false, expandable: true, expanded: false, loading: false, ...overrides
+        });
+        expect(nodeMarker(item({ current: true, onPath: true, expanded: true }), true)).toEqual({ tone: 'current', closed: false });
+        expect(nodeMarker(item({ onPath: true, expanded: true }), true)).toEqual({ tone: 'path', closed: false });
+        expect(nodeMarker(item({}), true)).toEqual({ tone: 'seen', closed: true });
+        // A Garden tree counts no bird visits, so nothing is marked as seen there.
+        expect(nodeMarker(item({}), false)).toEqual({ tone: 'plain', closed: true });
+        expect(nodeMarker(item({ taxon: corvidae, expanded: true }), true)).toEqual({ tone: 'plain', closed: false });
+        expect(nodeMarker(item({ taxon: { ...corvidae, rank: 'species' }, expandable: false }), true)).toEqual({ tone: 'plain', closed: false });
+        expect(nodeMarker({ kind: 'more', parentId: 1, hidden: 3 }, true)).toEqual({ tone: 'more', closed: false });
     });
 });

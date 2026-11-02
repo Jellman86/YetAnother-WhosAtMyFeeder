@@ -71,8 +71,7 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
     'settings.detection.band_needs_attention',
     'settings.detection.model_manager_count',
     'settings.detection.model_manager_show_advanced',
-    'taxonomy.more',
-    'taxonomy.seen_here'
+    'taxonomy.more'
 ]);
 
 const COUNT_BEFORE_WORD = /\{count\}\s+[\p{L}{]/u;
