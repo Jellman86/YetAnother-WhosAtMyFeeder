@@ -81,7 +81,7 @@ def wikipedia_titles(calls: list[httpx.Request]) -> list[str]:
     return [
         unquote(request.url.path.split("/")[-1]).replace("_", " ")
         for request in calls
-        if request.url.host.endswith("wikipedia.org")
+        if request.url.host.endswith(".wikipedia.org")
     ]
 
 
