@@ -217,6 +217,8 @@ class GardenIdentificationService:
         self.models = Path(MODELS_DIR) / "garden"
         self.busy = False
         self.error: str | None = None
+        # A saved candidate waits for its automatic check; the motion scan yields the slot to it.
+        self.check_due = False
         self._photo_review_generation = 0
         self.automatic_message = "Automatic checks wait for an enabled Garden camera and idle bird inference."
 

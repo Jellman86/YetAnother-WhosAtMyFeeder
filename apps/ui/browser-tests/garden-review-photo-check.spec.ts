@@ -139,3 +139,16 @@ test('a single pending capture is dismissed by a labelled button, and a busy mod
     await dismiss.click();
     await expect.poll(() => dismissed).toBe(1);
 });
+
+test('captures waiting for the automatic check are counted, not listed', async ({ page }) => {
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        const url = new URL(route.request().url());
+        return route.fulfill({ json: { ...gardenVisitResponse([], url), awaiting_check: 4 } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden&review=pending');
+    await expect(page.locator('[data-explorer-garden-empty]')).toContainText('No Garden captures need review');
+    await expect(page.locator('[data-garden-awaiting-check-empty]')).toHaveText(
+        '4 camera captures are waiting for the automatic check. Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.'
+    );
+    await expect(page.locator('[data-garden-card]')).toHaveCount(0);
+});

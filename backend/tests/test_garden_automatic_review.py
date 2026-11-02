@@ -2,7 +2,7 @@
 
 import hashlib
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -1014,3 +1014,31 @@ async def test_declaring_a_bird_during_inference_prevents_a_stale_decision(namin
     finally:
         c.native.side_effect = original
     assert (await capture(c.capture_id)).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_a_due_check_is_announced_even_while_the_motion_scan_holds_the_slot(context):
+    c = context
+    c.identification.busy = True
+    await c.service.process_once()
+    assert c.identification.check_due
+    assert c.native.await_count == 0
+    c.identification.busy = False
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).automatic_check is not None
+    await c.service.process_once()
+    assert not c.identification.check_due
+
+
+@pytest.mark.asyncio
+async def test_the_motion_scan_yields_the_slot_to_a_due_check(context, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr(garden_motion, "garden_identification_service", c := context.identification)
+    monkeypatch.setattr(garden_motion.garden_motion_service, "cameras", lambda: ["patio"])
+    pressure = MagicMock()
+    monkeypatch.setattr(garden_motion, "garden_inference_pressure", pressure)
+    c.check_due = True
+    await garden_motion.garden_motion_service.scan_once()
+    # Checking candidates already found comes before scanning for more.
+    assert not c.busy and pressure.call_count == 0

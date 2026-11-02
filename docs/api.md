@@ -390,8 +390,12 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/visits` returns Garden entries, grouped before pagination.
   `start`/`end`, `camera` and `status` (`reviewable`, `pending`, `confirmed`, `dismissed`)
   scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`
-  count groups. The response has `visits`, group `total`, `capture_total`, `limit` and
-  `offset`. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
+  count groups. The response has `visits`, group `total`, `capture_total`, `limit`,
+  `offset` and `awaiting_check`. A motion candidate with no automatic check yet, on a camera
+  whose checks can run, is left out of `reviewable` and `pending` (here, in
+  `/api/garden/timeline` and in a visit's captures) until its check decides, unless the owner
+  has already acted on it. `awaiting_check` counts those held candidates in scope; it is 0 for
+  guests. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
   `capture_count` and its latest `representative`. Canonical identity, camera and
   review state separate timed stays; gaps over 60 seconds start another stay.
   Pending motion proposals retain fixed-anchor position stacks instead of joining by time.

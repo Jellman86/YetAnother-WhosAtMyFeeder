@@ -9941,6 +9941,12 @@
       },
       "GardenVisitPage": {
         "properties": {
+          "awaiting_check": {
+            "default": 0,
+            "description": "Motion candidates in scope held out of the list until their automatic check decides; 0 for guests",
+            "title": "Awaiting Check",
+            "type": "integer"
+          },
           "capture_total": {
             "title": "Capture Total",
             "type": "integer"

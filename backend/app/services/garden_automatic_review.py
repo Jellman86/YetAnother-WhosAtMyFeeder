@@ -73,6 +73,16 @@ def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
     return {"low_confidence": "low_confidence", "bird_excluded": "bird"}.get(suggestion.reason, "unresolved")
 
 
+def automatic_hold_cameras() -> tuple[str, ...]:
+    """Cameras whose unchecked candidates wait for their automatic check before anyone sees them.
+
+    None while checks cannot run, so a capture is never held for a check that will not come.
+    """
+    if garden_identification_service.error:
+        return ()
+    return tuple(garden_collection_cameras())
+
+
 class GardenAutomaticReviewService:
     def __init__(self) -> None:
         self.task: asyncio.Task | None = None
@@ -146,7 +156,8 @@ class GardenAutomaticReviewService:
     async def process_once(self) -> None:
         service = garden_identification_service
         cameras = garden_collection_cameras()
-        if not cameras or service.busy or service.error or bird_work_pending(garden_inference_pressure()):
+        if not cameras or service.error:
+            service.check_due = False
             return
         retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
         async with get_db() as db:
@@ -158,13 +169,17 @@ class GardenAutomaticReviewService:
                 if settings.frigate.garden_automatic_naming
                 else None,
             )
+        # Announced before waiting for the slot, so the motion scan stops taking it.
+        service.check_due = original is not None
         if original is None:
             service.automatic_message = (
                 "No automatic check is due. Unavailable checks remain in Needs review until their retry."
             )
             return
+        if service.busy or bird_work_pending(garden_inference_pressure()):
+            return
         clear = await garden_motion_service._camera_clear(original.camera)
-        if not clear or service.busy or bird_work_pending(garden_inference_pressure()):
+        if not clear or service.busy:
             return
         service.busy = True
         generation = garden_motion_privacy.generation
