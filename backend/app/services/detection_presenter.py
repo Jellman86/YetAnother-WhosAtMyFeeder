@@ -74,6 +74,97 @@ def video_classification_model_name(model_id: str | None) -> str | None:
     return normalized
 
 
+@dataclass(frozen=True)
+class PresentedNames:
+    """The names one detection shows a viewer."""
+
+    display_name: str
+    category_name: str | None
+    scientific_name: str | None
+    common_name: str | None
+    taxa_id: int | None
+    audio_species: str | None
+
+
+async def present_names(detection: StoredDetection, language: str, db: aiosqlite.Connection) -> PresentedNames:
+    """Common name in the viewer's language, unknown labels folded, heard species named the same way.
+
+    One detection at a time, for surfaces that show only a handful; the event
+    list resolves a whole page's names together in `present_detections`.
+    """
+    common_name = detection.common_name
+    if detection.taxa_id:
+        if language != "en":
+            localized = await taxonomy_service.get_localized_common_name(detection.taxa_id, language, db=db)
+            if localized:
+                common_name = localized
+        else:
+            canonical = await taxonomy_service.get_canonical_english_name(detection.taxa_id, db=db)
+            if canonical:
+                common_name = canonical
+
+    public_species = user_facing_species_fields(
+        display_name=detection.display_name,
+        category_name=detection.category_name,
+        scientific_name=detection.scientific_name,
+        common_name=common_name,
+        taxa_id=detection.taxa_id,
+        extra_unknown_labels=settings.classification.unknown_bird_labels,
+    )
+
+    audio_species = detection.audio_species
+    if audio_species:
+        confirmed_taxa_id = (
+            int(public_species["taxa_id"]) if detection.audio_confirmed and public_species.get("taxa_id") else None
+        )
+        resolved = await localize_audio_species_name(audio_species, language, db, confirmed_taxa_id=confirmed_taxa_id)
+        if resolved:
+            audio_species = resolved
+
+    return PresentedNames(
+        display_name=str(public_species["display_name"]),
+        category_name=public_species["category_name"],
+        scientific_name=public_species["scientific_name"],
+        common_name=public_species["common_name"],
+        taxa_id=public_species["taxa_id"],
+        audio_species=audio_species,
+    )
+
+
+def summary_detection_fields(
+    detection: StoredDetection, names: PresentedNames, *, hides_camera_names: bool
+) -> dict[str, object]:
+    """The fields a summarised detection carries on the daily summary and species detail."""
+    return {
+        "id": detection.id,
+        "detection_time": detection.detection_time,
+        "detection_index": detection.detection_index,
+        "score": detection.score,
+        "display_name": names.display_name,
+        "category_name": names.category_name,
+        "frigate_event": detection.frigate_event,
+        "camera_name": "Hidden" if hides_camera_names else detection.camera_name,
+        "is_hidden": detection.is_hidden,
+        "is_favorite": detection.is_favorite,
+        "frigate_score": detection.frigate_score,
+        "sub_label": detection.sub_label,
+        "audio_confirmed": detection.audio_confirmed,
+        "audio_species": names.audio_species,
+        "audio_score": detection.audio_score,
+        "temperature": detection.temperature,
+        "weather_condition": detection.weather_condition,
+        "weather_cloud_cover": detection.weather_cloud_cover,
+        "weather_wind_speed": detection.weather_wind_speed,
+        "weather_wind_direction": detection.weather_wind_direction,
+        "weather_precipitation": detection.weather_precipitation,
+        "weather_rain": detection.weather_rain,
+        "weather_snowfall": detection.weather_snowfall,
+        "scientific_name": names.scientific_name,
+        "common_name": names.common_name,
+        "taxa_id": names.taxa_id,
+    }
+
+
 async def present_detections(
     events: list[StoredDetection],
     scope: PresentationScope,
