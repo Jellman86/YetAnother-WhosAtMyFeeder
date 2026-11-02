@@ -1,6 +1,6 @@
 """Qualified RGB letterbox and raw three-class detector contract.
 
-Native inference belongs in the disposable motion worker, never the API process.
+Native inference belongs in the supervised motion worker, never the API process.
 """
 
 import cv2

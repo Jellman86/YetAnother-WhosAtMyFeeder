@@ -774,11 +774,13 @@ async def lifespan(app: FastAPI):
     if not test_mode:
         from app.services.garden_motion import garden_motion_service
         from app.services.garden_automatic_review import garden_automatic_review_service
+        from app.services.garden_identification import garden_identification_service
 
         await _run_lifecycle_phase(
             app, "garden_automatic_review_stop", garden_automatic_review_service.stop, fatal=False
         )
         await _run_lifecycle_phase(app, "garden_motion_stop", garden_motion_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "garden_identification_stop", garden_identification_service.stop, fatal=False)
         # Quiesce external intake first. MQTT drains in-flight handlers before
         # downstream queues are stopped, preventing late work from being
         # accepted into a service that has already shut down.

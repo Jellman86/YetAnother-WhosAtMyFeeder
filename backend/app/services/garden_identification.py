@@ -1,19 +1,14 @@
-"""Explicit owner suggestions, with disposable inference subordinate to birds."""
+"""Explicit owner suggestions, with supervised inference subordinate to birds."""
 
 import asyncio
 from collections.abc import Callable
-from contextlib import suppress
 import hashlib
-import json
 import os
 from pathlib import Path
-import re
-import signal
 import tempfile
-import time
 import sqlite3
 import sys
-from typing import Any, Literal
+from typing import Literal
 
 import aiofiles
 from fastapi import HTTPException
@@ -43,11 +38,15 @@ from app.services import garden_motion_privacy
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_model_runtime import digest
 from app.services.garden_visitors import GardenPolicy, Taxon, decide_prediction
+from app.services.garden_worker_supervisor import (
+    GardenBusy,
+    GardenCleanupFailed,
+    GardenWarmWorker,
+    worker_failure_fields,
+)
 from app.services.model_manager import MODELS_DIR
 from app.utils.api_datetime import utc_naive_now
-from app.utils.child_signals import kill_child, terminate_child
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
-from app.utils.python_subprocess import python_subprocess_launch
 
 log = structlog.get_logger()
 MODEL_SIZES = {"4.0.3a": 223998782, "4.0.3b": 223999179}
@@ -107,110 +106,6 @@ def bird_work_pending(status: dict | None) -> bool:
     )
 
 
-class GardenBusy(RuntimeError):
-    pass
-
-
-def exit_signal_name(exit_code: int | None) -> str | None:
-    """The signal that ended a child, from asyncio's negative return code."""
-    if exit_code is None or exit_code >= 0:
-        return None
-    try:
-        return signal.Signals(-exit_code).name
-    except ValueError:
-        return f"signal {-exit_code}"
-
-
-def worker_error_type(output: bytes) -> str | None:
-    """The exception type a Garden worker named before exiting non-zero, if any."""
-    for line in output.splitlines():
-        if line.startswith(b"WORKER_ERROR:"):
-            name = line[len(b"WORKER_ERROR:") :].decode("ascii", "replace").strip()
-            return name if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,63}", name) else None
-    return None
-
-
-class GardenNativeWorkerFailed(ValueError):
-    """A Garden worker exited non-zero.
-
-    A signal (negative exit code) is a native fault or a kill; a positive code is a
-    Python exception inside the worker, named by ``error_type`` when it said so.
-    """
-
-    def __init__(self, exit_code: int, error_type: str | None = None) -> None:
-        self.exit_code = exit_code
-        self.signal_name = exit_signal_name(exit_code)
-        self.error_type = error_type
-        cause = f"was stopped by {self.signal_name}" if self.signal_name else f"exited with status {exit_code}"
-        super().__init__(f"Garden worker {cause}" + (f" after {error_type}" if error_type else ""))
-
-    def log_fields(self) -> dict[str, int | str | None]:
-        return {"exit_code": self.exit_code, "signal": self.signal_name, "worker_error": self.error_type}
-
-
-def worker_failure_fields(error: BaseException) -> dict[str, int | str | None]:
-    """Exit details for a failure log; empty for anything but a failed worker."""
-    return error.log_fields() if isinstance(error, GardenNativeWorkerFailed) else {}
-
-
-class GardenCleanupFailed(RuntimeError):
-    pass
-
-
-async def _stop_worker(process: Any) -> None:
-    with suppress(ProcessLookupError):
-        terminate_child(process)
-    try:
-        await asyncio.wait_for(process.wait(), 2)
-    except TimeoutError:
-        with suppress(ProcessLookupError):
-            kill_child(process)
-        try:
-            await asyncio.wait_for(process.wait(), 2)
-        except TimeoutError as error:
-            raise GardenCleanupFailed("Garden worker did not stop") from error
-
-
-async def supervise_worker(
-    process: Any,
-    blocked: Callable[[], bool],
-    *,
-    payload: bytes | None = None,
-    timeout_seconds: float = 120,
-    poll_seconds: float = 0.1,
-) -> bytes:
-    completion = asyncio.create_task(process.communicate(payload) if payload is not None else process.communicate())
-    deadline = time.monotonic() + timeout_seconds
-    try:
-        while True:
-            if blocked():
-                raise GardenBusy("Bird inference needs the hardware. Try again when it is idle.")
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError("Garden identification exceeded its deadline")
-            done, _ = await asyncio.wait({completion}, timeout=min(poll_seconds, remaining))
-            if done:
-                output, _ = completion.result()
-                if process.returncode != 0:
-                    raise GardenNativeWorkerFailed(process.returncode, worker_error_type(output or b""))
-                if len(output) > 65536:
-                    raise ValueError("Garden worker output exceeded its bound")
-                return output
-    finally:
-        # Request cancellation cannot leave a native call using the device.
-        cleanup = asyncio.create_task(_stop_worker(process))
-        try:
-            while not cleanup.done():
-                with suppress(asyncio.CancelledError):
-                    await asyncio.shield(cleanup)
-            cleanup.result()
-        finally:
-            if not completion.done():
-                completion.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await completion
-
-
 class GardenIdentificationService:
     def __init__(self) -> None:
         self.catalog = GardenCatalog()
@@ -223,6 +118,18 @@ class GardenIdentificationService:
         self.check_progress: dict[str, float] = {}
         self._photo_review_generation = 0
         self.automatic_message = "Automatic checks wait for an enabled Garden camera and idle bird inference."
+        self.worker = GardenWarmWorker(
+            "app.services.garden_worker",
+            b"GARDEN_RESULT:",
+            release=lambda: bird_work_pending(garden_inference_pressure()),
+            on_stuck=self._worker_stuck,
+        )
+
+    def _worker_stuck(self) -> None:
+        self.error = "Garden worker did not stop. Restart the application before running more Garden work."
+
+    async def stop(self) -> None:
+        await self.worker.stop()
 
     async def initialize(self) -> None:
         try:
@@ -499,8 +406,7 @@ class GardenIdentificationService:
                 frame_size=frame_size,
             )
 
-    @staticmethod
-    async def _run_photo_worker(image: bytes, payload: dict, blocked: Callable[[], bool]) -> dict:
+    async def _run_photo_worker(self, image: bytes, payload: dict, blocked: Callable[[], bool]) -> dict:
         if len(image) > 16 * 1024 * 1024:
             raise ValueError("Garden snapshot exceeds the byte limit")
         if blocked():
@@ -513,18 +419,9 @@ class GardenIdentificationService:
             payload = {**payload, "image": str(image_path)}
             if blocked():
                 raise GardenBusy("The photo context changed or bird inference needs the hardware. Try again when idle.")
-            environment = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
-            executable, environment = python_subprocess_launch(environment)
-            process = await asyncio.create_subprocess_exec(
-                executable,
-                "-m",
-                "app.services.garden_worker",
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
-                env=environment,
-            )
-            output = await supervise_worker(process, blocked, payload=json.dumps(payload).encode() + b"\n")
+            # A warm worker serves only the exact model, variant and device it loaded.
+            binding = (payload["model"], payload["model_sha256"], payload["variant"], payload["provider"])
+            native = await self.worker.request(binding, payload, blocked, timeout_seconds=120)
         finally:
             import shutil
 
@@ -546,12 +443,6 @@ class GardenIdentificationService:
                 log.warning("garden_photo_temporary_cleanup_failed")
             if interrupted and pending_error is None:
                 raise asyncio.CancelledError
-        lines = [line[len(b"GARDEN_RESULT:") :] for line in output.splitlines() if line.startswith(b"GARDEN_RESULT:")]
-        if len(lines) != 1:
-            raise ValueError("Garden worker returned no valid result")
-        native = json.loads(lines[0])
-        if not isinstance(native, dict):
-            raise ValueError("Invalid garden worker result")
         return native
 
     async def identify(self, capture_id: str, request: GardenIdentifyRequest) -> None:

@@ -1,13 +1,12 @@
-"""One bounded CPU recording scan. Parent supervises deadline and bird priority.
+"""Bounded CPU recording scans in a warm child. Parent supervises deadline and bird priority.
 
-No application settings, database, network, species identification or reporting.
+The detector loads once, for the first scan's model binding. No application settings,
+database, network, species identification or reporting.
 """
 
 import hashlib
-import json
 import math
 from pathlib import Path
-import sys
 from typing import Any
 
 import cv2
@@ -15,6 +14,7 @@ import cv2
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
 from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
+from app.services.garden_worker_loop import BoundModel, serve
 from app.models.garden_motion import MOTION_KEYFRAME_PREROLL_SECONDS, UNUSABLE_RECORDING_REASONS
 
 
@@ -32,18 +32,34 @@ class UnusableRecording(ValueError):
         self.reason = reason
 
 
-def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[str, Any]:
-    """Nine samples are an explicit offline comparison, never a payload setting."""
+def model_binding(payload: dict[str, Any]) -> tuple[str, str]:
+    return (payload["model"], payload["model_sha256"])
+
+
+def load_detector(payload: dict[str, Any]) -> Runtime:
+    model = Path(payload["model"]).resolve()
+    if digest(model) != payload["model_sha256"]:
+        raise ValueError("Garden detector differs from its pinned model")
+    return Runtime(model, "cpu")
+
+
+def scan_clip(
+    payload: dict[str, Any], *, samples_per_window: int = 3, runtime: Runtime | None = None
+) -> dict[str, Any]:
+    """Nine samples are an explicit offline comparison, never a payload setting.
+
+    ``runtime`` is the warm detector already loaded for this payload's model binding.
+    """
     if type(samples_per_window) is not int or samples_per_window not in (3, 9):
         raise ValueError("Motion sampling supports only three live or nine offline samples")
-    model, clip, photo = (Path(payload[name]).resolve() for name in ("model", "clip", "photo"))
+    clip, photo = (Path(payload[name]).resolve() for name in ("clip", "photo"))
     duration_limit = float(payload["duration"])
     if not 0.1 <= duration_limit <= 10 or photo.parent != clip.parent:
         raise ValueError("Motion scan requires bounded temporary recording and photo paths")
     if clip.stat().st_size > 16 * 1024 * 1024 or digest(clip) != payload["clip_sha256"]:
         raise ValueError("Motion recording exceeds its limit or differs from its checksum")
-    if digest(model) != payload["model_sha256"]:
-        raise ValueError("Garden detector differs from its pinned model")
+    if runtime is None:
+        runtime = load_detector(payload)
     cv2.setNumThreads(1)
     reader = cv2.VideoCapture(str(clip), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
     try:
@@ -60,7 +76,6 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
         # belongs to the window before this one; samples stay inside the requested window.
         preroll = max(0.0, duration - duration_limit)
         span = min(duration - preroll - 0.1, duration_limit)
-        runtime = Runtime(model, "cpu")
         best = None
         greys = []
         seen: dict[int, str] = {}
@@ -148,18 +163,15 @@ def scan_clip(payload: dict[str, Any], *, samples_per_window: int = 3) -> dict[s
 
 
 def main() -> None:
-    payload = json.loads(sys.stdin.buffer.readline(8192))
-    try:
-        result = scan_clip(payload)
-    except UnusableRecording as error:
-        result = {"outcome": "unusable_recording", "reason": error.reason}
-    except Exception as error:
-        # stderr is discarded, so name the failure before the non-zero exit.
-        sys.stdout.write("WORKER_ERROR:" + type(error).__name__ + "\n")
-        sys.stdout.flush()
-        raise
-    sys.stdout.write("MOTION_RESULT:" + json.dumps(result, allow_nan=False) + "\n")
-    sys.stdout.flush()
+    detector = BoundModel(load_detector, model_binding)
+
+    def handle(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return scan_clip(payload, runtime=detector.get(payload))
+        except UnusableRecording as error:
+            return {"outcome": "unusable_recording", "reason": error.reason}
+
+    serve("MOTION_RESULT:", handle)
 
 
 if __name__ == "__main__":

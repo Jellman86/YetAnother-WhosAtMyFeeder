@@ -31,13 +31,10 @@ from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_crop_service import garden_crop_service, build_saved_crop
 from app.services.garden_media_cache import garden_media_cache
 from app.services.garden_identification import (
-    GardenBusy,
-    GardenCleanupFailed,
     bird_work_pending,
     garden_identification_service,
     identification_from_predictions,
     normalize_country,
-    worker_failure_fields,
 )
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_automatic_policy import (
@@ -50,6 +47,7 @@ from app.services.garden_automatic_policy import (
 from app.services.garden_automatic_runtime import GardenAutomaticRuntime, candidate_providers
 from app.services.garden_domestic_birds import camera_watches_birds, domestic_bird_for_speciesnet, garden_bird_route
 from app.services.garden_visitors import GardenPolicy, presence_outcome
+from app.services.garden_worker_supervisor import GardenBusy, GardenCleanupFailed, worker_failure_fields
 from app.utils.api_datetime import utc_naive_now
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
 

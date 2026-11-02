@@ -358,11 +358,9 @@ def check_context(tmp_path, monkeypatch):
         "frame_size": [640, 360],
         "package_sha256": bundle["package_sha256"],
     }
-    process = AsyncMock()
-    process.returncode = 0
 
-    async def response(payload):
-        request = json.loads(payload)
+    async def response(binding, request, blocked, **kwargs):
+        assert binding == (request["model"], request["model_sha256"], "4.0.3a", request["provider"])
         assert request["mode"] == "preview" and request["variant"] == "4.0.3a"
         assert request["box"] == list(source.box_xywh) and request["package_sha256"] == bundle["package_sha256"]
         from pathlib import Path
@@ -370,11 +368,10 @@ def check_context(tmp_path, monkeypatch):
         assert Path(request["image"]).read_bytes() == b"photo"
         if state.change:
             state.change()
-        return b"GARDEN_RESULT:" + json.dumps(native).encode(), b""
+        return json.loads(json.dumps(native))
 
-    process.communicate = AsyncMock(side_effect=response)
-    launch = AsyncMock(return_value=process)
-    monkeypatch.setattr(module.asyncio, "create_subprocess_exec", launch)
+    launch = AsyncMock(side_effect=response)
+    monkeypatch.setattr(service.worker, "request", launch)
 
     def no_repository():
         raise AssertionError("A photo check must not write/review repository state")
@@ -494,16 +491,14 @@ async def test_preview_and_identification_share_the_same_native_busy_state(check
 
     c = check_context
 
-    async def competing(payload):
+    async def competing(*args, **kwargs):
         assert c.service.busy
         with pytest.raises(HTTPException) as failure:
             await c.service.identify(c.state.capture.id, GardenIdentifyRequest())
         assert failure.value.status_code == 409
-        import json
+        return c.native
 
-        return b"GARDEN_RESULT:" + json.dumps(c.native).encode(), b""
-
-    c.launch.return_value.communicate.side_effect = competing
+    c.launch.side_effect = competing
     await c.service.check_photo(c.state.capture.id, GardenPhotoCheckRequest(image_sha256=c.source.image_sha256))
     assert not c.service.busy
     c.launch.assert_awaited_once()
@@ -550,16 +545,13 @@ async def test_unreaped_worker_quarantine_survives_a_second_temporary_cleanup_er
 ):
     from app.models.garden import GardenPhotoCheckRequest
     from fastapi import HTTPException
-    from unittest.mock import AsyncMock
     import shutil
 
     c = check_context
     temporary = tmp_path / "temporary-photo"
     temporary.mkdir()
     monkeypatch.setattr(c.module.tempfile, "mkdtemp", lambda **kwargs: str(temporary))
-    monkeypatch.setattr(
-        c.module, "supervise_worker", AsyncMock(side_effect=c.module.GardenCleanupFailed("worker did not stop"))
-    )
+    c.launch.side_effect = c.module.GardenCleanupFailed("worker did not stop")
     remove = shutil.rmtree
 
     def failed(*args, **kwargs):

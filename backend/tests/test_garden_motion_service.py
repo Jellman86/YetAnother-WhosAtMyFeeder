@@ -335,7 +335,7 @@ async def test_failed_scan_backoff_starts_after_processing_finishes(collector, m
 
 @pytest.mark.asyncio
 async def test_preemption_keeps_window_for_retry_and_camera_round_robin_is_fair(collector, monkeypatch):
-    from app.services.garden_identification import GardenBusy
+    from app.services.garden_worker_supervisor import GardenBusy
 
     monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "side"])
     monkeypatch.setattr(settings.frigate, "garden_motion_cameras", ["patio", "side"])
@@ -637,22 +637,20 @@ async def test_unreadable_recording_is_skipped_counted_and_never_retried(collect
 async def test_unknown_unreadable_reason_is_a_failure_not_a_skip(collector, monkeypatch):
     from app.services import garden_motion
 
-    process = AsyncMock()
-    monkeypatch.setattr(garden_motion.asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
     monkeypatch.setattr(
-        garden_motion,
-        "supervise_worker",
-        AsyncMock(return_value=b'MOTION_RESULT:{"outcome": "unusable_recording", "reason": "secret"}\n'),
+        collector.worker, "request", AsyncMock(return_value={"outcome": "unusable_recording", "reason": "secret"})
     )
+    payload = {"model": "cedar.onnx", "model_sha256": "e" * 64}
     with pytest.raises(ValueError, match="unknown"):
-        await garden_motion.GardenMotionService._native(collector, {}, lambda: False)
+        await garden_motion.GardenMotionService._native(collector, payload, lambda: False)
+    assert collector.worker.request.await_args.args[0] == ("cedar.onnx", "e" * 64)
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("exit_code", "signal_name"), [(1, None), (-11, "SIGSEGV")])
 async def test_worker_failure_logs_camera_window_exit_code_and_signal(collector, monkeypatch, exit_code, signal_name):
     from app.services import garden_motion
-    from app.services.garden_identification import GardenNativeWorkerFailed
+    from app.services.garden_worker_supervisor import GardenNativeWorkerFailed
 
     monkeypatch.setattr(collector, "_native", AsyncMock(side_effect=GardenNativeWorkerFailed(exit_code, None)))
     warning = Mock()
