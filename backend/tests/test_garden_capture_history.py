@@ -564,11 +564,8 @@ async def garden_inference(monkeypatch, tmp_path):
         "devices": ["CPUExecutionProvider"],
         "frame_size": [640, 360],
     }
-    process = AsyncMock()
-    process.returncode = 0
-    process.communicate = AsyncMock(side_effect=lambda _: (b"GARDEN_RESULT:" + json.dumps(native).encode(), b""))
-    launch = AsyncMock(return_value=process)
-    monkeypatch.setattr("app.services.garden_identification.asyncio.create_subprocess_exec", launch)
+    launch = AsyncMock(side_effect=lambda *args, **kwargs: json.loads(json.dumps(native)))
+    monkeypatch.setattr(service.worker, "request", launch)
     await garden_capture_service.process(event())
     async with get_db() as db:
         repository = GardenRepository(db)

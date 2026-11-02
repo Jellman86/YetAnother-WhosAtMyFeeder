@@ -267,9 +267,14 @@ one operation at a time, so downloads wait while a check, scan or other download
 running; the view says so. There is no percentage progress: the server reports only
 when the download has finished, which can take up to three minutes.
 
-Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Each check loads its model in a separate
-process and releases the memory afterwards; memory use has not been measured for this
-beta. Checks you start from a Garden capture in the Explorer use the device you choose there and
+Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Checks run in a separate
+process that can keep its model loaded between checks, so a burst of checks pays for loading it
+only once. On an accelerator (NPU, Intel GPU or CUDA), Garden stops that process and waits for it
+to exit before it lets other work start, unless another automatic check is already due and no
+bird work is waiting. Bird classification does not wait for Garden, so the device is free whenever
+Garden is not using it for a run of checks. On CPU the process stays loaded for up to 60 seconds
+without a check. Either way it stops as soon as bird work is waiting, when the model or device
+changes, and after 500 checks; memory use has not been measured for this beta. Checks you start from a Garden capture in the Explorer use the device you choose there and
 fail rather than silently switch devices. Automatic naming and species suggestions need a
 country in **Settings → Location**; the view says when it is missing.
 
@@ -378,7 +383,9 @@ perfectly still for the whole window can be missed the same way.
 Cedar runs on CPU with two inference threads and one video-decoding thread. It
 yields to queued or running bird inference and stops if active Frigate cameras
 fall behind. One garden operation runs at a time, with a 45-second motion-worker
-deadline. Busy systems may collect no photos until pressure clears.
+deadline. The detector stays loaded between scans and is released after 60 seconds without a
+scan, as soon as bird work is waiting, and after any failed or interrupted scan. Busy systems
+may collect no photos until pressure clears.
 
 Candidates appear in **Needs review**, labelled **Candidate from retained motion
 footage**. Each motion photo outlines the saved Cedar candidate before presence
@@ -464,8 +471,11 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 
 Bird inference has priority. If it is busy or begins while SpeciesNet is running,
 the garden request stops and can be retried later. One garden operation runs at a
-time, with a two-minute native deadline. Loading the model for each request costs
-more time than a warm inference, but its process and memory are released afterward.
+time, with a two-minute native deadline. On CPU the model stays loaded between requests
+for the same model and device, so a request soon after another skips the load; it is released
+after 60 seconds without a request. On an accelerator it is released when the request finishes,
+unless an automatic check is already due and birds are idle. Either way it is released as soon
+as bird work is waiting and after any failed, interrupted or timed-out request.
 
 The catalogue holds both models’ ordered outputs, canonical identities, taxonomy
 and country rules; there is no runtime labels file. Country filtering can broaden
@@ -529,7 +539,7 @@ identity permit another check. Never copy validation or quarantine records betwe
 
 The first check can load the model twice, once for CPU and once for the candidate device.
 Compilation can take longer than inference, and accelerators share memory and capacity with bird
-work. Bird or camera activity interrupts the disposable worker before other Garden work starts.
+work. Bird or camera activity interrupts and stops the Garden worker before other Garden work starts.
 If worker cleanup fails, Garden stops rather than starting a CPU fallback beside it. CPU fallback
 preserves the same thresholds, person veto, naming policy and owner-review protections.
 
@@ -608,7 +618,8 @@ available after a successful check and does not change the identification model.
 **Settings → Beta features → Garden models** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and
 time of its own automatic result. These are completed records, not a promise that a
-model is currently loaded. Garden releases its worker after each operation.
+model is currently loaded. A CPU worker stays loaded for up to 60 seconds after a check; an
+accelerator worker stays loaded only while further automatic checks are due and birds are idle.
 Manual checks also follow the Detection device preference. Capture records show
 the model, device, source, timestamps and retained checksums in the same read-only
 terminal-style **Details** panel used by bird records. Historical CPU results

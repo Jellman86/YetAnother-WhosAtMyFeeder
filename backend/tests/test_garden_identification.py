@@ -1,7 +1,7 @@
 """Species suggestions remain private, explicit and subordinate to bird work."""
 
 import asyncio
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -118,31 +118,27 @@ def test_recovered_cpu_evidence_never_overrides_bird_work_or_an_unsafe_worker_st
     assert bird_work_pending(idle_cpu_recovery)
 
 
-@pytest.mark.asyncio
-async def test_worker_is_reaped_before_yielding_to_a_bird():
-    from app.services.garden_identification import supervise_worker, GardenBusy
-
+def native_process(readline, *, exit_code=-15):
+    """A warm child double: requests go to stdin, one reply line comes from stdout."""
     process = AsyncMock()
+    process.pid = 4321
     process.returncode = None
     process.terminate = lambda: setattr(process, "returncode", -15)
-    process.communicate = AsyncMock(side_effect=wait_for_native_call)
-    pressures = iter([False, True])
-    with pytest.raises(GardenBusy):
-        await supervise_worker(process, lambda: next(pressures, True), poll_seconds=0.001)
-    process.wait.assert_awaited()
+    process.stdin = Mock()
+    process.stdin.drain = AsyncMock()
+    process.stdout.readline = readline
+    process.wait = AsyncMock(return_value=exit_code)
+    return process
 
 
-@pytest.mark.asyncio
-async def test_timeout_reaps_native_worker_and_ignores_late_results():
-    from app.services.garden_identification import supervise_worker
+async def request_native(monkeypatch, process, blocked, **options):
+    from app.services import garden_worker_supervisor as supervisor
 
-    process = AsyncMock()
-    process.returncode = None
-    process.terminate = lambda: setattr(process, "returncode", -15)
-    process.communicate = AsyncMock(side_effect=wait_for_native_call)
-    with pytest.raises(TimeoutError):
-        await supervise_worker(process, lambda: False, timeout_seconds=0.01, poll_seconds=0.001)
-    process.wait.assert_awaited()
+    monkeypatch.setattr(supervisor.asyncio, "create_subprocess_exec", AsyncMock(return_value=process))
+    worker = supervisor.GardenWarmWorker(
+        "app.services.garden_worker", b"GARDEN_RESULT:", release=lambda: False, on_stuck=lambda: None
+    )
+    return await worker.request("binding", {}, blocked, **{"timeout_seconds": 120, "poll_seconds": 0.001, **options})
 
 
 async def wait_for_native_call():
@@ -150,15 +146,30 @@ async def wait_for_native_call():
 
 
 @pytest.mark.asyncio
-async def test_request_cancellation_reaps_the_native_worker():
-    from app.services.garden_identification import supervise_worker
+async def test_worker_is_reaped_before_yielding_to_a_bird(monkeypatch):
+    from app.services.garden_worker_supervisor import GardenBusy
 
-    process = AsyncMock()
-    process.returncode = None
-    process.terminate = lambda: setattr(process, "returncode", -15)
-    process.communicate = AsyncMock(side_effect=wait_for_native_call)
-    task = asyncio.create_task(supervise_worker(process, lambda: False, poll_seconds=0.001))
-    await asyncio.sleep(0.002)
+    process = native_process(AsyncMock(side_effect=wait_for_native_call))
+    pressures = iter([False, True])
+    with pytest.raises(GardenBusy):
+        await request_native(monkeypatch, process, lambda: next(pressures, True))
+    process.wait.assert_awaited()
+    assert process.returncode == -15
+
+
+@pytest.mark.asyncio
+async def test_timeout_reaps_native_worker_and_ignores_late_results(monkeypatch):
+    process = native_process(AsyncMock(side_effect=wait_for_native_call))
+    with pytest.raises(TimeoutError):
+        await request_native(monkeypatch, process, lambda: False, timeout_seconds=0.01)
+    process.wait.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_request_cancellation_reaps_the_native_worker(monkeypatch):
+    process = native_process(AsyncMock(side_effect=wait_for_native_call))
+    task = asyncio.create_task(request_native(monkeypatch, process, lambda: False))
+    await asyncio.sleep(0.01)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await task
@@ -175,18 +186,14 @@ async def test_request_cancellation_reaps_the_native_worker():
         (1, b"WORKER_ERROR:../x\n", None, None),
     ],
 )
-async def test_failed_worker_reports_its_exit_code_signal_and_named_error(returncode, output, signal_name, error_type):
-    from app.services.garden_identification import (
-        GardenNativeWorkerFailed,
-        supervise_worker,
-        worker_failure_fields,
-    )
+async def test_failed_worker_reports_its_exit_code_signal_and_named_error(
+    monkeypatch, returncode, output, signal_name, error_type
+):
+    from app.services.garden_worker_supervisor import GardenNativeWorkerFailed, worker_failure_fields
 
-    process = AsyncMock()
-    process.returncode = returncode
-    process.communicate = AsyncMock(return_value=(output, b""))
+    process = native_process(AsyncMock(return_value=output), exit_code=returncode)
     with pytest.raises(GardenNativeWorkerFailed) as raised:
-        await supervise_worker(process, lambda: False, poll_seconds=0.001)
+        await request_native(monkeypatch, process, lambda: False)
     # A Python exception (exit 1) and a native fault (SIGSEGV) are told apart, never merged.
     assert worker_failure_fields(raised.value) == {
         "exit_code": returncode,
@@ -283,7 +290,7 @@ async def test_installer_verifies_before_atomic_replacement_and_clears_busy(tmp_
 
 @pytest.mark.asyncio
 async def test_native_cleanup_escalates_to_kill_then_quarantines_if_still_unreaped():
-    from app.services.garden_identification import _stop_worker, GardenCleanupFailed
+    from app.services.garden_worker_supervisor import stop_worker, GardenCleanupFailed
 
     process = AsyncMock()
     process.returncode = None
@@ -292,7 +299,7 @@ async def test_native_cleanup_escalates_to_kill_then_quarantines_if_still_unreap
     killed = []
     process.kill = lambda: killed.append(True)
     with pytest.raises(GardenCleanupFailed):
-        await _stop_worker(process)
+        await stop_worker(process)
     assert killed == [True]
     assert process.wait.await_count == 2
 
@@ -301,7 +308,8 @@ async def test_native_cleanup_escalates_to_kill_then_quarantines_if_still_unreap
 async def test_unreaped_worker_prevents_all_later_garden_native_requests(monkeypatch):
     from fastapi import HTTPException
     from app.models.garden import GardenIdentifyRequest
-    from app.services.garden_identification import GardenIdentificationService, GardenCleanupFailed
+    from app.services.garden_identification import GardenIdentificationService
+    from app.services.garden_worker_supervisor import GardenCleanupFailed
 
     service = GardenIdentificationService()
     identify = AsyncMock(side_effect=GardenCleanupFailed())
@@ -339,22 +347,20 @@ async def test_existing_model_status_does_not_clear_a_new_operation_busy_flag(tm
 
 
 @pytest.mark.asyncio
-async def test_reader_error_cannot_hide_an_unreaped_native_worker():
-    from app.services.garden_identification import supervise_worker, GardenCleanupFailed
+async def test_reader_error_cannot_hide_an_unreaped_native_worker(monkeypatch):
+    from app.services.garden_worker_supervisor import GardenCleanupFailed
 
-    process = AsyncMock()
-    process.returncode = None
-    process.communicate.side_effect = OSError("reader failed")
+    process = native_process(AsyncMock(side_effect=OSError("reader failed")))
     process.wait.side_effect = TimeoutError
     process.terminate = lambda: None
     process.kill = lambda: None
     with pytest.raises(GardenCleanupFailed):
-        await supervise_worker(process, lambda: False)
+        await request_native(monkeypatch, process, lambda: False)
 
 
 @pytest.mark.asyncio
-async def test_failed_native_cleanup_still_cancels_the_pipe_reader():
-    from app.services.garden_identification import supervise_worker, GardenCleanupFailed
+async def test_failed_native_cleanup_still_cancels_the_pipe_reader(monkeypatch):
+    from app.services.garden_worker_supervisor import GardenCleanupFailed
 
     closed = []
 
@@ -364,14 +370,14 @@ async def test_failed_native_cleanup_still_cancels_the_pipe_reader():
         finally:
             closed.append(True)
 
-    process = AsyncMock()
-    process.returncode = None
-    process.communicate = reader
+    process = native_process(reader)
     process.wait.side_effect = TimeoutError
     process.terminate = lambda: None
     process.kill = lambda: None
+    # Birds arrive once the reader is waiting on the native call.
+    pressures = iter([False])
     with pytest.raises(GardenCleanupFailed):
-        await supervise_worker(process, lambda: True)
+        await request_native(monkeypatch, process, lambda: next(pressures, True))
     assert closed == [True]
 
 
@@ -392,3 +398,68 @@ async def test_unavailable_optional_garden_catalogue_does_not_fail_bird_startup(
     assert not status.catalogue_ready
     assert not status.busy
     assert service.error is None
+
+
+class _AcceleratorWorker:
+    """Records retirement; the binding is an accelerator, so settling must free it unless kept warm."""
+
+    key = ("model.onnx", "a" * 64, "4.0.3a", "intel_npu")
+
+    def __init__(self) -> None:
+        self.retired: list[str] = []
+
+    async def retire(self, reason: str) -> None:
+        await asyncio.sleep(0)
+        self.retired.append(reason)
+
+
+def _settling_service(monkeypatch):
+    from app.services import garden_identification as module
+
+    service = module.GardenIdentificationService()
+    service.worker = _AcceleratorWorker()
+    monkeypatch.setattr(module, "garden_inference_pressure", lambda: {"live": {}, "background": {}})
+    monkeypatch.setattr(module, "bird_work_pending", lambda status: False)
+    return service
+
+
+@pytest.mark.asyncio
+async def test_cancelling_settlement_while_asking_for_the_next_check_still_frees_the_accelerator(monkeypatch):
+    service = _settling_service(monkeypatch)
+    asking = asyncio.Event()
+
+    async def next_check_due() -> bool:
+        asking.set()
+        await asyncio.Event().wait()
+        return True
+
+    task = asyncio.create_task(service.settle_worker(next_check_due))
+    await asking.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    # The caller's finally releases the Garden slot next: the device must already be free.
+    assert service.worker.retired == ["accelerator_yielded"]
+
+
+@pytest.mark.asyncio
+async def test_a_failed_next_check_query_frees_the_accelerator_before_the_error_propagates(monkeypatch):
+    service = _settling_service(monkeypatch)
+
+    async def next_check_due() -> bool:
+        raise RuntimeError("database closed")
+
+    with pytest.raises(RuntimeError):
+        await service.settle_worker(next_check_due)
+    assert service.worker.retired == ["accelerator_yielded"]
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_stays_loaded_only_when_the_next_check_is_confirmed_due(monkeypatch):
+    service = _settling_service(monkeypatch)
+
+    async def due() -> bool:
+        return True
+
+    await service.settle_worker(due)
+    assert service.worker.retired == []

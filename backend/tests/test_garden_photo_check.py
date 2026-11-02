@@ -358,11 +358,9 @@ def check_context(tmp_path, monkeypatch):
         "frame_size": [640, 360],
         "package_sha256": bundle["package_sha256"],
     }
-    process = AsyncMock()
-    process.returncode = 0
 
-    async def response(payload):
-        request = json.loads(payload)
+    async def response(binding, request, blocked, **kwargs):
+        assert binding == (request["model"], request["model_sha256"], "4.0.3a", request["provider"])
         assert request["mode"] == "preview" and request["variant"] == "4.0.3a"
         assert request["box"] == list(source.box_xywh) and request["package_sha256"] == bundle["package_sha256"]
         from pathlib import Path
@@ -370,11 +368,10 @@ def check_context(tmp_path, monkeypatch):
         assert Path(request["image"]).read_bytes() == b"photo"
         if state.change:
             state.change()
-        return b"GARDEN_RESULT:" + json.dumps(native).encode(), b""
+        return json.loads(json.dumps(native))
 
-    process.communicate = AsyncMock(side_effect=response)
-    launch = AsyncMock(return_value=process)
-    monkeypatch.setattr(module.asyncio, "create_subprocess_exec", launch)
+    launch = AsyncMock(side_effect=response)
+    monkeypatch.setattr(service.worker, "request", launch)
 
     def no_repository():
         raise AssertionError("A photo check must not write/review repository state")
@@ -494,16 +491,14 @@ async def test_preview_and_identification_share_the_same_native_busy_state(check
 
     c = check_context
 
-    async def competing(payload):
+    async def competing(*args, **kwargs):
         assert c.service.busy
         with pytest.raises(HTTPException) as failure:
             await c.service.identify(c.state.capture.id, GardenIdentifyRequest())
         assert failure.value.status_code == 409
-        import json
+        return c.native
 
-        return b"GARDEN_RESULT:" + json.dumps(c.native).encode(), b""
-
-    c.launch.return_value.communicate.side_effect = competing
+    c.launch.side_effect = competing
     await c.service.check_photo(c.state.capture.id, GardenPhotoCheckRequest(image_sha256=c.source.image_sha256))
     assert not c.service.busy
     c.launch.assert_awaited_once()
@@ -550,16 +545,13 @@ async def test_unreaped_worker_quarantine_survives_a_second_temporary_cleanup_er
 ):
     from app.models.garden import GardenPhotoCheckRequest
     from fastapi import HTTPException
-    from unittest.mock import AsyncMock
     import shutil
 
     c = check_context
     temporary = tmp_path / "temporary-photo"
     temporary.mkdir()
     monkeypatch.setattr(c.module.tempfile, "mkdtemp", lambda **kwargs: str(temporary))
-    monkeypatch.setattr(
-        c.module, "supervise_worker", AsyncMock(side_effect=c.module.GardenCleanupFailed("worker did not stop"))
-    )
+    c.launch.side_effect = c.module.GardenCleanupFailed("worker did not stop")
     remove = shutil.rmtree
 
     def failed(*args, **kwargs):
@@ -586,3 +578,140 @@ def test_list_ranks_cannot_turn_a_human_into_a_nonhuman_mammal():
     outputs[3] = Taxon("human", "different common name", ["mammalia", "primates", "hominidae", "homo", "sapiens"])
     with pytest.raises(ValueError):
         assess([0.01, 0.01, 0.87, 0.1, 0.005, 0.003, 0.002], outputs)
+
+
+ECHO_CHILD = """
+import json, os, sys
+native = json.loads(open(sys.argv[1]).read())
+with open(sys.argv[2], "a") as loads:
+    loads.write(f"{os.getpid()}\\n")
+devices = {"cpu": ["CPUExecutionProvider"], "intel_cpu": ["CPU"], "intel_npu": ["NPU"]}
+for line in sys.stdin:
+    request = json.loads(line)
+    sys.stdout.write("GARDEN_RESULT:" + json.dumps(native | {"devices": devices[request["provider"]]}) + "\\n")
+    sys.stdout.flush()
+"""
+
+
+def child_running(pid: int) -> bool:
+    import os
+    from pathlib import Path
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    status = Path(f"/proc/{pid}/stat")
+    return not status.exists() or status.read_text().split(")")[-1].split()[0] != "Z"
+
+
+@pytest.fixture
+def warm_check(check_context, monkeypatch, tmp_path):
+    """A real warm child that answers every photo check, and a record of what runs when the slot is released."""
+    import json
+    from types import SimpleNamespace
+    from app.services.garden_worker_supervisor import GardenWarmWorker
+
+    c = check_context
+    script, native, loads = tmp_path / "echo.py", tmp_path / "native.json", tmp_path / "loads"
+    script.write_text(ECHO_CHILD)
+    native.write_text(json.dumps(c.native))
+    loads.touch()
+    worker = GardenWarmWorker(
+        "garden_worker",
+        b"GARDEN_RESULT:",
+        release=lambda: False,
+        on_stuck=lambda: None,
+        launch_args=(str(script), str(native), str(loads)),
+    )
+    monkeypatch.setattr(c.service, "worker", worker)
+    birds = {"pending": False}
+    monkeypatch.setattr(
+        c.module, "garden_inference_pressure", lambda: {"live": {"queued": int(birds["pending"])}, "background": {}}
+    )
+
+    def children() -> list[int]:
+        return [int(line) for line in loads.read_text().split()]
+
+    released: list[list[int]] = []
+
+    def get_busy(service):
+        return service.__dict__["busy"]
+
+    def set_busy(service, value):
+        if service.__dict__.get("busy") and not value:
+            released.append([pid for pid in children() if child_running(pid)])
+        service.__dict__["busy"] = value
+
+    monkeypatch.setattr(type(c.service), "busy", property(get_busy, set_busy), raising=False)
+    yield SimpleNamespace(c=c, worker=worker, birds=birds, released=released, children=children)
+    if worker._process is not None and worker._process.returncode is None:
+        worker._process.kill()
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_has_exited_before_the_garden_slot_is_released_to_birds(warm_check, monkeypatch):
+    from fastapi import HTTPException
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    request = w.worker.request
+
+    async def birds_arrive_with_the_reply(*args, **kwargs):
+        result = await request(*args, **kwargs)
+        w.birds["pending"] = True
+        return result
+
+    monkeypatch.setattr(w.worker, "request", birds_arrive_with_the_reply)
+    with pytest.raises(HTTPException) as failure:
+        await w.c.service.check_photo(
+            w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+        )
+    assert failure.value.status_code == 409
+    assert len(w.children()) == 1 and w.released == [[]]
+    assert w.worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_is_released_after_a_check_when_no_other_check_is_due(warm_check):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = False
+    result = await w.c.service.check_photo(
+        w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+    )
+    assert result.devices == ["NPU"]
+    assert w.released == [[]] and w.worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_stays_warm_across_due_checks_while_birds_are_idle(warm_check):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = True
+    check = GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+    for _ in range(2):
+        assert (await w.c.service.check_photo(w.c.state.capture.id, check)).devices == ["NPU"]
+    (child,) = w.children()
+    assert w.released == [[child], [child]] and w.worker.pid == child
+    # Nothing more is due: the next check leaves the device before the slot is released.
+    w.c.service.check_due = False
+    await w.c.service.check_photo(w.c.state.capture.id, check)
+    assert w.released[-1] == [] and w.children() == [child]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["cpu", "intel_cpu"])
+async def test_a_cpu_worker_stays_warm_after_the_slot_is_released(warm_check, provider):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = False
+    await w.c.service.check_photo(
+        w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider=provider)
+    )
+    (child,) = w.children()
+    assert w.released == [[child]] and w.worker.pid == child
+    await w.worker.stop()

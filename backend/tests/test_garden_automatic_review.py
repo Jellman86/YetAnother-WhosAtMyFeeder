@@ -318,6 +318,34 @@ async def test_invalid_or_changed_native_evidence_never_rejects_a_photo(context,
 
 
 @pytest.mark.asyncio
+async def test_the_slot_is_released_only_after_the_worker_settles_with_what_is_due_next(context, monkeypatch):
+    c = context
+    async with get_db() as db:
+        later = c.source.model_copy(
+            update={"clip_start": c.source.clip_start + 20, "clip_end": c.source.clip_end + 20, "clip_sha256": "d" * 64}
+        )
+        second = await GardenRepository(db).capture_motion(later, b"photo")
+    settled = []
+
+    async def settle(next_check_due):
+        settled.append((c.identification.busy, await next_check_due()))
+
+    monkeypatch.setattr(c.identification, "settle_worker", settle)
+    await c.service.process_once()
+    # The first check settles while it still holds the slot, knowing the second is due.
+    assert settled[0] == (True, True)
+    assert (await capture(c.capture_id)).automatic_check is not None
+    settled.clear()
+    await c.service.process_once()
+    assert settled[0] == (True, False)
+    assert (await capture(second)).automatic_check is not None
+    settled.clear()
+    # With nothing due, a cycle that runs no check still leaves no accelerator loaded.
+    await c.service.process_once()
+    assert settled == [(False, False)]
+
+
+@pytest.mark.asyncio
 async def test_two_concurrent_cycles_share_the_single_garden_admission_slot(context):
     import asyncio
 

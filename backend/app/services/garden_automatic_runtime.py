@@ -9,7 +9,7 @@ import math
 from typing import Any
 
 from app.config import settings
-from app.services.garden_identification import GardenBusy, GardenCleanupFailed, GardenNativeWorkerFailed
+from app.services.garden_worker_supervisor import GardenBusy, GardenCleanupFailed, GardenNativeWorkerFailed
 from app.services.garden_visitors import presence_outcome
 from app.services.model_validation import current_inference_runtime_signature, current_provider_runtime_signature
 from app.services.native_crash_quarantine import (
