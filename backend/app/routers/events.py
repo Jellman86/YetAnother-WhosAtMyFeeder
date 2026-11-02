@@ -25,6 +25,7 @@ from app.services.detection_presenter import (
     present_detections,
     video_classification_model_name,
 )
+from app.services.explorer_search import bird_taxon_members
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
@@ -631,6 +632,9 @@ async def get_events(
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
     event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
+    taxon: Optional[int] = Query(
+        default=None, ge=1, description="Catalogue taxon: only species at or beneath it (see /explorer/search)"
+    ),
     favorites: bool = Query(default=False, description="Only return favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     multiple_species_only: bool = Query(
@@ -682,6 +686,7 @@ async def get_events(
             camera = None
 
     _enforce_max_date_range(start_date, end_date)
+    species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -709,6 +714,7 @@ async def get_events(
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
             frigate_event=event_id,
+            species_ids=species_ids,
         )
 
     return await present_events(events, request, auth, fields)
@@ -858,6 +864,9 @@ async def get_events_count(
     ),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
     only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
+    taxon: Optional[int] = Query(
+        default=None, ge=1, description="Catalogue taxon: only species at or beneath it (see /explorer/search)"
+    ),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get total count of events (optionally filtered). Public users see limited historical data."""
@@ -883,6 +892,7 @@ async def get_events_count(
             camera = None
 
     _enforce_max_date_range(start_date, end_date)
+    species_ids = await bird_taxon_members(taxon) if taxon else None
 
     async with get_db() as db:
         repo = DetectionRepository(db)
@@ -905,10 +915,11 @@ async def get_events_count(
             audio_confirmed_only=audio_confirmed_only,
             public_audio_evidence=not auth.is_owner,
             multiple_species_only=multiple_species_only and auth.is_owner,
+            species_ids=species_ids,
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden])
+        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden, taxon])
 
         return EventsCountResponse(count=count, filtered=filtered)
 

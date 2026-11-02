@@ -203,6 +203,22 @@ fresh day. This does not cache sharing preferences.
 
 - `GET /api/events`
 - `GET /api/events/count`
+- `GET /api/explorer/search?q=` searches species, genera, families and orders with
+  visible history. It matches scientific names, common names in the reader's language
+  and English, and owner name overrides. Matching ignores case, accents and name
+  separators. `q` must contain 1 to 100 characters, including at least one non-space
+  character; control characters are rejected. `limit` defaults to 8, with a maximum
+  of 20. Results contain `taxa`, `truncated` and an optional `record` for an exact
+  Frigate event ID or Garden capture ID. Each taxon includes its catalogue `taxon_id`,
+  rank, scientific/common names, and separate species and capture counts for birds
+  and Garden animals. Closer name matches come first, then more frequent visitors.
+  Only confirmed Garden captures in the shared history window are searchable by
+  guests. Garden results are absent while the beta is off. Hidden detections are
+  absent from species counts; an owner can still find one by its exact event ID.
+  Hidden, older private and unavailable records all return `record: null` for
+  guests. Camera names are omitted when sharing them is off. The response is
+  private and cannot be cached; switching public access off rejects guest searches.
+  Search reads the local catalogue and history without external lookups or inference.
 - `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
   `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
@@ -234,6 +250,15 @@ captures without verified bounds continue to use their stored capture time.
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
 among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
 not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+
+`GET /api/events`, `GET /api/events/count`, `GET /api/visits`,
+`GET /api/garden/timeline`, `GET /api/garden/visits` and
+`GET /api/garden/visits/{visit_id}/captures` also accept `taxon`, a positive catalogue
+taxon ID from the search response. It narrows results to that taxon and the species
+beneath it, together with the existing date, camera and access filters. An unknown
+taxon or one without matching history returns no matches. This is the catalogue ID,
+not an iNaturalist taxon ID. The parameter is optional; existing requests keep their
+current behaviour.
 
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
   for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;

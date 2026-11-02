@@ -1,4 +1,4 @@
-from typing import Callable, Optional
+from typing import Callable, Collection, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -17,6 +17,7 @@ from app.utils.canonical_species import (
     should_hide_species_label,
 )
 from app.repositories.audio_history_repository import public_audio_evidence_sql
+from app.repositories.catalogue_identity import species_ids_condition
 from app.utils.api_datetime import (
     parse_storage_datetime as _parse_datetime,
     serialize_storage_datetime,
@@ -2483,18 +2484,23 @@ class DetectionRepository:
         public_audio_evidence: bool = False,
         multiple_species_only: bool = False,
         frigate_event: str | None = None,
+        species_ids: Collection[int] | None = None,
     ) -> list[Detection]:
-        if not multiple_species_only and self._species_fast_path_eligible(
-            species=species,
-            species_any=species_any,
-            taxa_id=taxa_id,
-            sort=sort,
-            start_date=start_date,
-            end_date=end_date,
-            camera=camera,
-            favorite_only=favorite_only,
-            audio_confirmed_only=audio_confirmed_only,
-            frigate_event=frigate_event,
+        if (
+            species_ids is None
+            and not multiple_species_only
+            and self._species_fast_path_eligible(
+                species=species,
+                species_any=species_any,
+                taxa_id=taxa_id,
+                sort=sort,
+                start_date=start_date,
+                end_date=end_date,
+                camera=camera,
+                favorite_only=favorite_only,
+                audio_confirmed_only=audio_confirmed_only,
+                frigate_event=frigate_event,
+            )
         ):
             taxa_ids, names, cache_terms = await self._collect_species_filter_terms(species, species_any, taxa_id)
             if taxa_ids or names:
@@ -2594,6 +2600,10 @@ class DetectionRepository:
         if frigate_event:
             conditions.append("d.frigate_event = ?")
             params.append(frigate_event)
+        species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
+        if species_ids_clause:
+            conditions.append(species_ids_clause)
+            params.extend(species_ids_params)
 
         if multiple_species_only:
             from app.repositories.bird_observation_repository import BirdObservationRepository
@@ -2637,6 +2647,7 @@ class DetectionRepository:
         public_audio_evidence: bool = False,
         exclude_species_floor: int = 0,
         multiple_species_only: bool = False,
+        species_ids: Collection[int] | None = None,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
@@ -2720,6 +2731,10 @@ class DetectionRepository:
                 params.extend(evidence_params)
         if exclude_species_floor > 0:
             conditions.append(f"d.id NOT IN ({self._species_floor_sql(exclude_species_floor)})")
+        species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
+        if species_ids_clause:
+            conditions.append(species_ids_clause)
+            params.extend(species_ids_params)
 
         if multiple_species_only:
             from app.repositories.bird_observation_repository import BirdObservationRepository
@@ -4182,6 +4197,32 @@ class DetectionRepository:
         """
         async with self.db.execute(query, bounds_params) as cursor:
             return {int(species_id): int(count) for species_id, count in await cursor.fetchall()}
+
+    async def seen_species_ids(self) -> set[int]:
+        """Every catalogue identity with a detection, hidden ones included, for resolving a group of species."""
+        async with self.db.execute("SELECT DISTINCT species_id FROM detections WHERE species_id IS NOT NULL") as cursor:
+            return {int(row[0]) for row in await cursor.fetchall()}
+
+    async def find_record(
+        self,
+        frigate_event: str,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        include_hidden: bool = False,
+    ) -> Detection | None:
+        """One detection by its Frigate event, only when it lies in the window and, unless asked, is not hidden."""
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        hidden_sql = "" if include_hidden else " AND (d.is_hidden = 0 OR d.is_hidden IS NULL)"
+        async with self.db.execute(
+            f"""SELECT {DETECTION_SELECT_COLUMNS}
+               FROM detections d
+               LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               WHERE d.frigate_event = ?{hidden_sql}{bounds_sql}""",
+            (frigate_event, *bounds_params),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return _row_to_detection(row) if row else None
 
     async def get_species_leaderboard_base(
         self, *, start_date: datetime | None = None, end_date: datetime | None = None

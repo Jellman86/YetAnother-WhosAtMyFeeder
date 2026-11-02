@@ -1143,6 +1143,31 @@ export interface components {
     count: number;
     filtered: boolean;
 };
+    ExplorerSearchRecord: {
+    camera?: string | null;
+    common_name?: string | null;
+    display_name?: string | null;
+    hidden?: boolean;
+    id: string;
+    kind: "detection" | "garden";
+    observed_at: string;
+    scientific_name?: string | null;
+};
+    ExplorerSearchResponse: {
+    record?: components['schemas']['ExplorerSearchRecord'] | null;
+    taxa: Array<components['schemas']['ExplorerSearchTaxon']>;
+    truncated: boolean;
+};
+    ExplorerSearchTaxon: {
+    bird_detections: number;
+    bird_species: number;
+    garden_captures: number;
+    garden_species: number;
+    name?: string | null;
+    rank: "species" | "genus" | "family" | "order";
+    scientific_name: string;
+    taxon_id: number;
+};
     FavoriteResponse: {
     archive_state?: string | null;
     event_id: string;
@@ -3784,6 +3809,7 @@ export interface paths {
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: Array<components['schemas']['DetectionResponse']> | Array<components['schemas']['DetectionListItemResponse']>;
@@ -3821,6 +3847,7 @@ export interface paths {
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['EventsCountResponse'];
@@ -4010,6 +4037,18 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['ReclassifyResponse'];
+    };
+  };
+  "/api/explorer/search": {
+    get: {
+      operationId: "search_explorer_api_explorer_search_get";
+      path: never;
+      query: {
+    limit?: number;
+    q: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['ExplorerSearchResponse'];
     };
   };
   "/api/frigate/camera/{camera}/latest.jpg": {
@@ -4431,6 +4470,7 @@ export interface paths {
     order?: "newest" | "oldest";
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];
@@ -4450,6 +4490,7 @@ export interface paths {
     page_start?: string | null;
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenVisitPage'];
@@ -4468,6 +4509,7 @@ export interface paths {
     offset?: number;
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];
@@ -5510,6 +5552,7 @@ export interface paths {
     species?: string | null;
     start_date?: string | null;
     start_time?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['DetectionVisitsResponse'];

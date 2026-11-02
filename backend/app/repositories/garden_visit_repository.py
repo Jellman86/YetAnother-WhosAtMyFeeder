@@ -1,5 +1,6 @@
 """Page Garden groups before loading their captures; no animal data enters bird history."""
 
+from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
@@ -16,8 +17,9 @@ class GardenVisitRepository(GardenRepository):
         end: datetime | None,
         camera: str | None,
         status: GardenTimelineStatus = "reviewable",
+        species_ids: Collection[int] | None = None,
     ) -> tuple[str, list[Any]]:
-        where, values = self._timeline_filter(start, end, camera, status)
+        where, values = self._timeline_filter(start, end, camera, status, species_ids)
         source = f"""scoped AS (
             SELECT garden_captures.id, camera, observed_at, status, i.result_json AS identification,
                    m.source_json AS motion, o.species_id AS owner_species, d.domestic_bird AS domestic,
@@ -98,8 +100,9 @@ class GardenVisitRepository(GardenRepository):
         status: GardenTimelineStatus = "reviewable",
         page_start: datetime | None = None,
         page_end: datetime | None = None,
+        species_ids: Collection[int] | None = None,
     ) -> tuple[list[dict[str, Any]], int, int]:
-        cte, values = await self._groups(start=start, end=end, camera=camera, status=status)
+        cte, values = await self._groups(start=start, end=end, camera=camera, status=status, species_ids=species_ids)
         clauses, bounds = ["1=1"], []
         for bound, operator in [(page_start, ">=" if newest_first else ">"), (page_end, "<" if newest_first else "<=")]:
             if bound is not None:
@@ -138,8 +141,9 @@ class GardenVisitRepository(GardenRepository):
         status: GardenTimelineStatus,
         limit: int,
         offset: int,
+        species_ids: Collection[int] | None = None,
     ) -> tuple[list[GardenCapture], int]:
-        cte, values = await self._groups(start=start, end=end, camera=camera, status=status)
+        cte, values = await self._groups(start=start, end=end, camera=camera, status=status, species_ids=species_ids)
         async with self.db.execute(
             f"{cte} SELECT COUNT(*) FROM members WHERE visit_id=?", [*values, visit_id]
         ) as cursor:

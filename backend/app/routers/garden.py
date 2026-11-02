@@ -26,6 +26,7 @@ from app.services.garden_notifications import (
     current_delivery_channels,
     garden_notification_service,
 )
+from app.services.explorer_search import garden_taxon_members
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_domestic_birds import DOMESTIC_BIRDS, DomesticBirdKey
 from app.services.garden_media_cache import garden_media_cache
@@ -318,9 +319,11 @@ async def capture_timeline(
     status: GardenTimelineStatus = "reviewable",
     limit: int = Query(48, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
 ) -> GardenCapturePage:
     """Captures by time for the Explorer: confirmed and awaiting review unless one review state is asked for."""
     scope = _history_scope(auth, start, end, camera, status)
+    species_ids = await garden_taxon_members(taxon) if taxon else None
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
@@ -333,9 +336,10 @@ async def capture_timeline(
             limit=limit,
             offset=offset,
             status=scope.status,
+            species_ids=species_ids,
         )
         total = await repository.timeline_count(
-            start=scope.start, end=scope.end, camera=scope.camera, status=scope.status
+            start=scope.start, end=scope.end, camera=scope.camera, status=scope.status, species_ids=species_ids
         )
     return await _page(items, total, limit, offset, language, guest=scope.guest)
 
@@ -376,8 +380,10 @@ async def garden_visits(
     offset: int = Query(0, ge=0),
     page_start: datetime | None = None,
     page_end: datetime | None = None,
+    taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
 ) -> GardenVisitPage:
     scope = _history_scope(auth, start, end, camera, status)
+    species_ids = await garden_taxon_members(taxon) if taxon else None
     if scope.guest:
         limit = min(limit, 50)
     async with get_db() as db:
@@ -392,6 +398,7 @@ async def garden_visits(
             offset=offset,
             page_start=_as_utc(page_start),
             page_end=_as_utc(page_end),
+            species_ids=species_ids,
         )
         # Only the owner learns that held candidates exist; a guest sees what is reviewed or decided.
         awaiting_check = (
@@ -435,8 +442,10 @@ async def garden_visit_captures(
     status: GardenTimelineStatus = "reviewable",
     limit: int = Query(128, ge=1, le=128),
     offset: int = Query(0, ge=0),
+    taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
 ) -> GardenCapturePage:
     scope = _history_scope(auth, start, end, camera, status)
+    species_ids = await garden_taxon_members(taxon) if taxon else None
     async with get_db() as db:
         items, total = await GardenVisitRepository(
             db, held_cameras=automatic_hold_cameras(), held_since=automatic_hold_since()
@@ -448,6 +457,7 @@ async def garden_visit_captures(
             status=scope.status,
             limit=limit,
             offset=offset,
+            species_ids=species_ids,
         )
     if not total:
         raise HTTPException(404, "Garden visit is no longer available. Refresh the history.")

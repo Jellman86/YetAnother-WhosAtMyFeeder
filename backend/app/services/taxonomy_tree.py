@@ -15,7 +15,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Iterable, Mapping, Optional
 
 import structlog
 
@@ -27,6 +27,10 @@ log = structlog.get_logger()
 #: puts subphylum, infraphylum, parvphylum and megaclass between Chordata and Aves) are kept and
 #: returned, flagged so a view can collapse them.
 PRINCIPAL_RANKS = ("kingdom", "phylum", "class", "order", "family", "genus", "species")
+
+#: The ranks a person searches by: a species and the groups it is named in. Ranks above order
+#: would match nearly everything seen here.
+SEARCHABLE_RANKS = ("species", "genus", "family", "order")
 
 #: A guard against a cycle in the parent links: no real lineage is this deep.
 _MAX_DEPTH = 40
@@ -45,6 +49,19 @@ class Taxon:
     #: Species beneath this taxon (or this species itself) with a detection here, and how many detections.
     seen_species: Optional[int] = None
     seen_count: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class NamedTaxon:
+    """A taxon with every name a reader might search it by."""
+
+    taxon_id: int
+    rank: str
+    scientific_name: str
+    #: The reader's language, else English, as a lineage names it.
+    name: Optional[str]
+    #: The reader's language, English, the owner's own name and the scientific name.
+    names: tuple[str, ...]
 
 
 def _display_name(name: Optional[str], scientific_name: str) -> Optional[str]:
@@ -113,6 +130,28 @@ class TaxonomyTree:
         }
 
     @staticmethod
+    def _searchable_names(connection: sqlite3.Connection, ids: list[int], language: str) -> dict[int, list[str]]:
+        """Every vernacular name a reader may type for each taxon: their language's, English and the owner's own."""
+        if not ids:
+            return {}
+        placeholders = ",".join("?" * len(ids))
+        found: dict[int, list[str]] = {}
+        for row in connection.execute(
+            f"SELECT species_id, name, provider FROM species_names"
+            f" WHERE species_id IN ({placeholders}) AND language_tag IN (?, ?)",
+            [*ids, language, DEFAULT_LANGUAGE],
+        ):
+            name = vernacular_case(str(row["name"])) if row["provider"] == "google-speciesnet" else str(row["name"])
+            found.setdefault(int(row["species_id"]), []).append(name)
+        for row in connection.execute(
+            f"SELECT species_id, language_tag, name FROM species_name_overrides WHERE species_id IN ({placeholders})",
+            ids,
+        ):
+            if str(row["language_tag"] or "") in ("", language):
+                found.setdefault(int(row["species_id"]), []).append(str(row["name"]))
+        return found
+
+    @staticmethod
     def _concepts(connection: sqlite3.Connection, ids: list[int]) -> dict[int, tuple[str, str]]:
         if not ids:
             return {}
@@ -128,11 +167,8 @@ class TaxonomyTree:
         return concepts
 
     @staticmethod
-    def _seen_by_taxon(connection: sqlite3.Connection, counts: Mapping[int, int]) -> dict[int, tuple[int, int]]:
-        """Roll detection counts up the classification: each taxon gets its species seen and their detections.
-
-        Walks up from each species seen here, a few dozen at most, rather than down from every taxon.
-        """
+    def _chains(connection: sqlite3.Connection, taxon_ids: Iterable[int]) -> dict[int, list[int]]:
+        """Each taxon and every taxon above it, nearest first, sharing one parent lookup across them."""
         parents: dict[int, Optional[int]] = {}
 
         def parent_of(taxon_id: int) -> Optional[int]:
@@ -143,18 +179,29 @@ class TaxonomyTree:
                 parents[taxon_id] = row[0] if row else None
             return parents[taxon_id]
 
-        rolled: dict[int, list[int]] = {}
-        for species_id, count in counts.items():
-            if count <= 0:
-                continue
-            current: Optional[int] = int(species_id)
-            visited: set[int] = set()
-            while current is not None and current not in visited and len(visited) < _MAX_DEPTH:
-                visited.add(current)
-                entry = rolled.setdefault(current, [0, 0])
-                entry[0] += 1
-                entry[1] += int(count)
+        chains: dict[int, list[int]] = {}
+        for start in taxon_ids:
+            chain: list[int] = []
+            current: Optional[int] = int(start)
+            while current is not None and current not in chain and len(chain) < _MAX_DEPTH:
+                chain.append(current)
                 current = parent_of(current)
+            chains[int(start)] = chain
+        return chains
+
+    @classmethod
+    def _seen_by_taxon(cls, connection: sqlite3.Connection, counts: Mapping[int, int]) -> dict[int, tuple[int, int]]:
+        """Roll detection counts up the classification: each taxon gets its species seen and their detections.
+
+        Walks up from each species seen here, a few dozen at most, rather than down from every taxon.
+        """
+        seen = {int(species_id): int(count) for species_id, count in counts.items() if count > 0}
+        rolled: dict[int, list[int]] = {}
+        for species_id, chain in cls._chains(connection, seen).items():
+            for taxon_id in chain:
+                entry = rolled.setdefault(taxon_id, [0, 0])
+                entry[0] += 1
+                entry[1] += seen[species_id]
         return {taxon_id: (species, total) for taxon_id, (species, total) in rolled.items()}
 
     @staticmethod
@@ -182,6 +229,63 @@ class TaxonomyTree:
             return {}
         finally:
             connection.close()
+
+    def seen_taxa(
+        self, seen_ids: Iterable[int], *, language: Optional[str] = None, ranks: tuple[str, ...] = SEARCHABLE_RANKS
+    ) -> list[NamedTaxon]:
+        """The taxa of the given ranks at or above any species seen here, each with every name it answers to."""
+        connection = self._connect()
+        if connection is None:
+            return []
+        tag = normalize_language(language)
+        try:
+            chains = self._chains(connection, seen_ids)
+            above = sorted({taxon_id for chain in chains.values() for taxon_id in chain})
+            ranked: dict[int, str] = {}
+            for start in range(0, len(above), 500):
+                batch = above[start : start + 500]
+                for row in connection.execute(
+                    f"SELECT species_id, rank FROM species WHERE species_id IN ({','.join('?' * len(batch))})", batch
+                ):
+                    if str(row["rank"]) in ranks:
+                        ranked[int(row["species_id"])] = str(row["rank"])
+            ids = sorted(ranked)
+            display = self._names(connection, ids, tag)
+            searchable = self._searchable_names(connection, ids, tag)
+            concepts = self._concepts(connection, ids)
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return []
+        finally:
+            connection.close()
+        taxa: list[NamedTaxon] = []
+        for taxon_id in ids:
+            scientific_name = concepts.get(taxon_id, ("", ""))[0]
+            if not scientific_name:
+                continue
+            name = _display_name(display.get(taxon_id), scientific_name)
+            spoken = [_display_name(value, scientific_name) for value in searchable.get(taxon_id, [])]
+            names = tuple(dict.fromkeys(value for value in [name, *spoken, scientific_name] if value))
+            taxa.append(NamedTaxon(taxon_id, ranked[taxon_id], scientific_name, name, names))
+        return taxa
+
+    def members_beneath(self, taxon_id: int, candidates: Iterable[int]) -> set[int]:
+        """The candidates that are the taxon or sit anywhere beneath it."""
+        if not 0 < taxon_id < 2**63:
+            return set()
+        connection = self._connect()
+        if connection is None:
+            return set()
+        try:
+            if connection.execute("SELECT 1 FROM species WHERE species_id = ?", (taxon_id,)).fetchone() is None:
+                return set()
+            chains = self._chains(connection, candidates)
+        except sqlite3.Error as error:
+            log.debug("Species catalogue unreadable for the taxonomy", error=str(error))
+            return set()
+        finally:
+            connection.close()
+        return {species_id for species_id, chain in chains.items() if int(taxon_id) in chain}
 
     def lineage(
         self, taxon_id: int, *, language: Optional[str] = None, seen: Optional[Mapping[int, int]] = None

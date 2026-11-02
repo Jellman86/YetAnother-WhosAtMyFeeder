@@ -8,10 +8,13 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import sqlite3
+from collections.abc import Collection
 from typing import Literal
 import uuid
 
 import aiosqlite
+
+from app.repositories.catalogue_identity import species_ids_condition
 
 from app.utils.api_datetime import utc_naive_now
 from app.models.garden import (
@@ -98,6 +101,13 @@ class GardenRepository:
                 'source_scientific_name',source_scientific_name,'source_score',source_score,
                 'source_model',source_model,'detection_id',detection_id,'routed_at',routed_at)
           FROM garden_domestic_routes WHERE capture_id=garden_captures.id)"""
+
+    # The species a capture is of: the owner's own naming, else a suggestion nobody dismissed.
+    _SPECIES_IDENTITY = """COALESCE(
+        (SELECT species_id FROM garden_owner_identifications WHERE capture_id=garden_captures.id),
+        (SELECT json_extract(result_json,'$.species_id') FROM garden_identifications
+          WHERE capture_id=garden_captures.id AND json_extract(result_json,'$.outcome')='suggestion'
+            AND COALESCE(json_extract(result_json,'$.review'),'unreviewed') != 'dismissed'))"""
 
     def __init__(
         self, db: aiosqlite.Connection, *, held_cameras: tuple[str, ...] = (), held_since: str | None = None
@@ -239,8 +249,13 @@ class GardenRepository:
         return clauses, values
 
     def _timeline_filter(
-        self, start: datetime | None, end: datetime | None, camera: str | None, status: GardenTimelineStatus
-    ) -> tuple[str, list[str]]:
+        self,
+        start: datetime | None,
+        end: datetime | None,
+        camera: str | None,
+        status: GardenTimelineStatus,
+        species_ids: Collection[int] | None = None,
+    ) -> tuple[str, list[str | int]]:
         # A pending capture without a photo cannot be reviewed, as on the review list.
         awaiting, held = self._awaiting_check()
         reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}) AND NOT {awaiting})"
@@ -251,7 +266,14 @@ class GardenRepository:
             "dismissed": "status = 'dismissed'",
         }[status]
         scope, values = self._scope_filter(start, end, camera)
-        return " AND ".join([status_clause, *scope]), [*(held if status in {"reviewable", "pending"} else []), *values]
+        species_clause, species_values = species_ids_condition(species_ids, self._SPECIES_IDENTITY)
+        if species_clause:
+            scope.append(species_clause)
+        return " AND ".join([status_clause, *scope]), [
+            *(held if status in {"reviewable", "pending"} else []),
+            *values,
+            *species_values,
+        ]
 
     async def timeline(
         self,
@@ -263,9 +285,10 @@ class GardenRepository:
         limit: int,
         offset: int,
         status: GardenTimelineStatus = "reviewable",
+        species_ids: Collection[int] | None = None,
     ) -> list[GardenCapture]:
         """Captures the Explorer shows: by default confirmed animals and those awaiting review."""
-        where, values = self._timeline_filter(start, end, camera, status)
+        where, values = self._timeline_filter(start, end, camera, status, species_ids)
         direction = "DESC" if newest_first else "ASC"
         async with self.db.execute(
             f"SELECT {self._COLUMNS} FROM garden_captures WHERE {where} "
@@ -281,11 +304,40 @@ class GardenRepository:
         end: datetime | None,
         camera: str | None,
         status: GardenTimelineStatus = "reviewable",
+        species_ids: Collection[int] | None = None,
     ) -> int:
-        where, values = self._timeline_filter(start, end, camera, status)
+        where, values = self._timeline_filter(start, end, camera, status, species_ids)
         async with self.db.execute(f"SELECT COUNT(*) FROM garden_captures WHERE {where}", values) as cursor:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
+
+    async def species_identity_counts(
+        self, *, start: datetime | None, end: datetime | None, status: GardenTimelineStatus
+    ) -> dict[int, int]:
+        """Captures per catalogue identity among those the Explorer would list, for placing them on the taxonomy."""
+        where, values = self._timeline_filter(start, end, None, status)
+        async with self.db.execute(
+            f"SELECT {self._SPECIES_IDENTITY} AS species, COUNT(*) FROM garden_captures"
+            f" WHERE {where} AND species IS NOT NULL GROUP BY species",
+            values,
+        ) as cursor:
+            return {int(species): int(count) for species, count in await cursor.fetchall()}
+
+    async def seen_species_ids(self) -> set[int]:
+        """Every catalogue identity a capture was named as, for resolving a group of species."""
+        async with self.db.execute(
+            f"SELECT DISTINCT {self._SPECIES_IDENTITY} AS species FROM garden_captures"
+            " WHERE status != 'blocked' AND species IS NOT NULL"
+        ) as cursor:
+            return {int(row[0]) for row in await cursor.fetchall()}
+
+    async def find_by_frigate_event(self, frigate_event: str) -> GardenCapture | None:
+        async with self.db.execute(
+            f"SELECT {self._COLUMNS} FROM garden_captures WHERE frigate_event = ? AND status != 'blocked'",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return self._capture(row) if row else None
 
     async def awaiting_check_count(self, *, start: datetime | None, end: datetime | None, camera: str | None) -> int:
         """Motion candidates held out of sight while their automatic check is due."""
