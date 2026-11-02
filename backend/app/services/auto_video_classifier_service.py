@@ -3338,7 +3338,7 @@ class AutoVideoClassifierService:
             return False
         async with get_db() as db:
             candidates = await DetectionRepository(db).list_snapshot_candidates(frigate_event)
-        crop_labels = crop_labels_disputing_full_frame(top.get("label"), candidates)
+        crop_labels = crop_labels_disputing_full_frame([top.get("label")], candidates)
         if not crop_labels:
             return False
         log.info(

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from itertools import combinations
 from typing import Any, Iterable
 
+from app.models.classification_evidence import ClassificationEvidence
 from app.utils.canonical_species import should_hide_species_label, unknown_species_labels
 from app.utils.classifier_labels import normalize_classifier_label
 
@@ -20,8 +21,22 @@ HQ_REFINEMENT_MIN_EXISTING_SCORE_GAIN = 0.02
 # Requiring a quarter-second gap keeps the evidence useful for short feeder
 # visits while preventing decode neighbours from becoming independent votes.
 HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS = 0.25
+WHOLE_FRAME_CORRECTION_REASON = "correct_whole_frame_from_crop_consensus"
 # A whole frame or a whole-scene count observation is not a crop of the visit's bird.
 _CROP_SOURCE_MODES = frozenset({"model_crop", "frigate_hint_crop"})
+# Single stills that show the camera's whole view. Video results, Frigate's object thumbnail
+# and photos cut from a video moment are deliberately absent: they are not this kind of read.
+_WHOLE_FRAME_STILL_SOURCES = frozenset(
+    {
+        "frigate_snapshot",
+        "frigate_snapshot_uncropped",
+        "frigate_snapshot_unverified",
+        "frigate_recording_frame",
+        "frigate_recording_snapshot",
+        "high_quality_snapshot",
+        "hq_candidate_full_frame",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -171,8 +186,8 @@ def crop_labels_with_independent_support(candidates: Iterable[dict[str, Any]]) -
     return {item.key for item in _build_consensus(candidates)}
 
 
-def crop_labels_disputing_full_frame(label: Any, candidates: Iterable[dict[str, Any]]) -> list[str]:
-    """Return the species the event's crops name when none of them is ``label``, else nothing.
+def crop_labels_disputing_full_frame(labels: Iterable[Any], candidates: Iterable[dict[str, Any]]) -> list[str]:
+    """Return the species the event's crops name when none of them is one of ``labels``, else nothing.
 
     Every crop of the visit counts here, including crops too weak to vote in a consensus or to be
     offered as the photo: a whole frame reads a small, distant bird poorly, so a crop naming a
@@ -187,9 +202,68 @@ def crop_labels_disputing_full_frame(label: Any, candidates: Iterable[dict[str, 
         crop_label = _canonical_label(candidate.get("classifier_label"))
         if crop_label and not should_hide_species_label(crop_label, extra_unknown_labels=unknown_species_labels()):
             crop_labels.setdefault(crop_label.casefold(), crop_label)
-    if _label_key(label) in crop_labels:
+    if any(_label_key(label) in crop_labels for label in labels):
         return []
     return sorted(crop_labels.values())
+
+
+def strongest_crop_by_species(candidates: Iterable[dict[str, Any]], labels: Iterable[str]) -> dict[str, dict[str, Any]]:
+    """The highest-scoring crop naming each of ``labels``, keyed by that label."""
+
+    wanted = {_label_key(label): str(label) for label in labels}
+    strongest: dict[str, dict[str, Any]] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or candidate.get("source_mode") not in _CROP_SOURCE_MODES:
+            continue
+        label = wanted.get(_label_key(candidate.get("classifier_label")))
+        if label is None:
+            continue
+        try:
+            score = float(candidate.get("classifier_score"))
+        except (TypeError, ValueError):
+            continue
+        current = strongest.get(label)
+        if math.isfinite(score) and (current is None or score > float(current["classifier_score"])):
+            strongest[label] = candidate
+    return strongest
+
+
+def identity_rests_on_whole_frame(detection: Any, *, owner_species_chosen: bool = False) -> bool:
+    """Whether the current name was read from one uncropped whole frame and no person decided it.
+
+    A hidden visit counts as decided: the owner has already acted on it, often because it was
+    misnamed, and an automatic rename must not overrule that.
+    """
+
+    if (
+        owner_species_chosen
+        or bool(getattr(detection, "manual_tagged", False))
+        or bool(getattr(detection, "is_hidden", False))
+    ):
+        return False
+    evidence = getattr(detection, "classification_input", None)
+    return (
+        isinstance(evidence, ClassificationEvidence)
+        and evidence.source in _WHOLE_FRAME_STILL_SOURCES
+        and evidence.is_cropped is False
+        and evidence.box is None
+        and evidence.supporting_frames is None
+    )
+
+
+def identity_labels(detection: Any) -> list[str]:
+    """Every populated name of the detection's current identification."""
+
+    return [
+        str(value)
+        for value in (
+            getattr(detection, "display_name", None),
+            getattr(detection, "category_name", None),
+            getattr(detection, "scientific_name", None),
+            getattr(detection, "common_name", None),
+        )
+        if str(value or "").strip()
+    ]
 
 
 def choose_hq_classification_refinement(
@@ -197,13 +271,16 @@ def choose_hq_classification_refinement(
     detection: Any,
     candidates: Iterable[dict[str, Any]],
     minimum_score: float = HQ_REFINEMENT_MIN_SCORE,
+    owner_species_chosen: bool = False,
 ) -> HQClassificationRefinement | None:
     """Return a conservative multi-frame crop refinement, or ``None``.
 
     Full frames never vote because this policy exists specifically to recover detail lost when
     the subject occupies a small portion of a distant camera frame. Multiple crop sources from the
     same frame count once. A crop consensus may upgrade Unknown or improve the score for the same
-    canonical species, but it never replaces a manual or conflicting known identification.
+    canonical species. It replaces a conflicting known identification only when that name was read
+    from one uncropped whole frame and no person chose it, which is exactly the read this policy
+    exists to correct; a manual, crop-based or video-based identification is never replaced.
     """
 
     if bool(getattr(detection, "manual_tagged", False)):
@@ -221,18 +298,12 @@ def choose_hq_classification_refinement(
     if len(ranked) > 1 and winner.median_score - ranked[1].median_score < HQ_REFINEMENT_MIN_WINNER_MARGIN:
         return None
 
-    identity_values = (
-        getattr(detection, "display_name", None),
-        getattr(detection, "category_name", None),
-        getattr(detection, "scientific_name", None),
-        getattr(detection, "common_name", None),
-    )
-    populated_identity_values = [value for value in identity_values if str(value or "").strip()]
+    populated_identity_values = identity_labels(detection)
     existing_is_unknown = bool(populated_identity_values) and all(
         should_hide_species_label(value, extra_unknown_labels=unknown_species_labels())
         for value in populated_identity_values
     )
-    existing_keys = {_label_key(value) for value in identity_values if _label_key(value)}
+    existing_keys = {_label_key(value) for value in populated_identity_values if _label_key(value)}
 
     if existing_is_unknown:
         reason = "upgrade_unknown_from_crop_consensus"
@@ -241,6 +312,8 @@ def choose_hq_classification_refinement(
         if best_score < current_score + HQ_REFINEMENT_MIN_EXISTING_SCORE_GAIN:
             return None
         reason = "reinforce_existing_from_crop_consensus"
+    elif identity_rests_on_whole_frame(detection, owner_species_chosen=owner_species_chosen):
+        reason = WHOLE_FRAME_CORRECTION_REASON
     else:
         return None
 

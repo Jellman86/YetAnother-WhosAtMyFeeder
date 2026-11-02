@@ -1299,6 +1299,7 @@ class DetectionRepository:
         model_artifact_id: int | None = None,
         model_output_index: int | None = None,
         classification_input: ClassificationEvidence | None = None,
+        whole_frame_correction_of: ClassificationEvidence | None = None,
     ) -> bool:
         """Update the canonical identity without racing a manual correction.
 
@@ -1306,7 +1307,15 @@ class DetectionRepository:
         columns, but they must never replace an identity a user has confirmed.
         The permission check belongs in the same SQL statement as the write so a
         concurrent manual tag cannot be lost between a service read and update.
+
+        ``whole_frame_correction_of`` marks a crop-consensus correction of a name read
+        from one whole frame. It is applied only while the visit is still visible and
+        still carries exactly that whole-frame input, so hiding the visit, or a newer
+        identification landing, after the service's read wins over the correction.
         """
+        expected_input = (
+            _classification_input_json(whole_frame_correction_of) if whole_frame_correction_of is not None else None
+        )
         await self.db.execute(
             """
             UPDATE detections
@@ -1327,6 +1336,7 @@ class DetectionRepository:
                 manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
             WHERE frigate_event = ?
               AND (? = 1 OR COALESCE(manual_tagged, 0) = 0)
+              AND (? IS NULL OR (COALESCE(is_hidden, 0) = 0 AND classification_input_json IS ?))
             """,
             (
                 display_name,
@@ -1346,6 +1356,8 @@ class DetectionRepository:
                 1 if manual_override else 0,
                 frigate_event,
                 1 if manual_override else 0,
+                expected_input,
+                expected_input,
             ),
         )
         changed = await self._last_statement_changes() > 0
