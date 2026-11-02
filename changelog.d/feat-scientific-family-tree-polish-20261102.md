@@ -8,5 +8,4 @@
   dot for groups seen at this feeder. Every group says "N species, M seen here" in the same words in
   the tree, the outline and its card, and a Garden animal makes no claim about bird visits.
 - The tree, fan and outline can be walked with the arrow keys, Home and End, and each node is a full
-  44 px row to click or tap. A species card now says where its reference photograph comes from. The
-  tree shows grouping only: no authors, dates or relationships between individual birds are implied.
+  44 px row to click or tap. The tree shows grouping only: no authors, dates or relationships between individual birds are implied.

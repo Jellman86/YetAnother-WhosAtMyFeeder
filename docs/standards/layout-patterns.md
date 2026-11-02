@@ -300,9 +300,10 @@ animal makes no such claim: the catalogue holds only the model's animals and the
 
 Every name in the ladder, the tree and the outline opens a `TaxonCard` under the §4 contract, one
 card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its reference photograph
-with where it comes from (one species-information request per species per page, through
+captioned only "Reference photo" (one species-information request per species per page, through
 `utils/taxon-pictures.ts`, which passes the scientific name as the lookup hint so a mammal is not
-searched for among birds), a group shows its size and what was seen here. A group never asks for a
+searched for among birds; the route's `source` names the summary provider, not necessarily the
+photograph's, so the card names no provider), a group shows its size and what was seen here. A group never asks for a
 picture, because the species-information route would cache it as a species. Selecting a species,
 which has nothing to open, pins its card; the species details show the same ladder. The tree is a
 ranked classification, and the footer says so: it shows grouping, not divergence.

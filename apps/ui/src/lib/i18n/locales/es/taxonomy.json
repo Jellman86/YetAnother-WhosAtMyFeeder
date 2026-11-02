@@ -52,6 +52,5 @@
   "legend_closed": "Grupo cerrado, selecciónalo para abrirlo",
   "legend_keys": "Las flechas del teclado recorren el árbol.",
   "tree_label": "Árbol de clasificación",
-  "breadcrumb_label": "Rangos por encima de la clase",
-  "photo_source": "Foto de referencia: {source}"
+  "breadcrumb_label": "Rangos por encima de la clase"
 }

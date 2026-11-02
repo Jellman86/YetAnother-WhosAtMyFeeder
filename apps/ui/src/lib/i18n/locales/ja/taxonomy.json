@@ -52,6 +52,5 @@
   "legend_closed": "閉じたグループ（選ぶと開きます）",
   "legend_keys": "矢印キーでツリー内を移動できます。",
   "tree_label": "分類ツリー",
-  "breadcrumb_label": "綱より上の階級",
-  "photo_source": "参考写真：{source}"
+  "breadcrumb_label": "綱より上の階級"
 }

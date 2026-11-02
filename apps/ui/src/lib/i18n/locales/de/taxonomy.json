@@ -52,6 +52,5 @@
   "legend_closed": "Geschlossene Gruppe, zum Öffnen auswählen",
   "legend_keys": "Mit den Pfeiltasten durch den Baum bewegen.",
   "tree_label": "Systematischer Baum",
-  "breadcrumb_label": "Ränge oberhalb der Klasse",
-  "photo_source": "Referenzfoto: {source}"
+  "breadcrumb_label": "Ränge oberhalb der Klasse"
 }

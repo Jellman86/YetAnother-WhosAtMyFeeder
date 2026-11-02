@@ -378,11 +378,12 @@ test('a node in the tree opens its card on hover, with the group size and what w
     ]);
     expect(Math.abs((cardBox?.x ?? 0) + (cardBox?.width ?? 0) / 2 - ((markerBox?.x ?? 0) + (markerBox?.width ?? 0) / 2))).toBeLessThan(4);
     await expect(card.locator('[data-taxon-card-seen]')).toHaveText('64 species worldwide, 1 seen here');
-    // The bird's own card names it as this bird and credits its reference photo.
+    // The bird's own card names it as this bird. Its photo is captioned generically: the lookup's
+    // `source` is the summary provider and may not be where the photograph came from.
     await page.locator('[data-family-tree-svg="tree"] [data-family-tree-node="50"]').hover();
     await expect(card).toHaveAttribute('aria-label', 'Dunnock');
     await expect(card.locator('[data-taxon-card-rank]')).toHaveText('Species · This bird');
-    await expect(card.locator('[data-taxon-card-attribution]')).toHaveText('Reference photo: Wikipedia');
+    await expect(card.locator('[data-taxon-card-caption]')).toHaveText('Reference photo');
 });
 
 test('a Garden animal gets the same tree without a claim about bird visits', async ({ page }) => {

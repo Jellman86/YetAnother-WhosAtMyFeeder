@@ -52,6 +52,5 @@
   "legend_closed": "未展开的类群，选择即可展开",
   "legend_keys": "用方向键在树中移动。",
   "tree_label": "分类树",
-  "breadcrumb_label": "纲以上的分类阶元",
-  "photo_source": "参考照片：{source}"
+  "breadcrumb_label": "纲以上的分类阶元"
 }

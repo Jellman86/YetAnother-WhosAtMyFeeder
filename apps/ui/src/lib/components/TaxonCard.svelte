@@ -3,7 +3,7 @@
     import { _ } from 'svelte-i18n';
     import { currentNamingStyle } from '../taxonomy/naming-style';
     import { taxonNames } from '../taxonomy/nomenclature';
-    import { speciesPicture, type ReferencePicture } from '../utils/taxon-pictures';
+    import { speciesPicture } from '../utils/taxon-pictures';
     import type { TaxonPeek } from '../utils/taxon-peek.svelte';
     import { portal } from '../utils/portal';
     import TaxonNameText from './TaxonNameText.svelte';
@@ -88,7 +88,7 @@
         };
     });
 
-    let picture = $state<{ name: string; reference: ReferencePicture | null; state: 'loading' | 'ready' | 'none' | 'failed' } | null>(null);
+    let picture = $state<{ name: string; url: string | null; state: 'loading' | 'ready' | 'none' | 'failed' } | null>(null);
 
     // Keyed by the name, not the taxon object: hovering, focusing or pinning the same species
     // places a fresh proxied taxon, and re-running the lookup for it once stranded the card loading.
@@ -99,10 +99,10 @@
         if (!name) return;
         // Read untracked: the picture this effect sets must not re-run it.
         if (untrack(() => picture?.name) === name) return;
-        picture = { name, reference: null, state: 'loading' };
+        picture = { name, url: null, state: 'loading' };
         // A result for a name the card has moved away from is dropped by the name check.
-        void speciesPicture(name).then((reference) => {
-            if (picture?.name === name) picture = { name, reference, state: reference ? 'ready' : 'none' };
+        void speciesPicture(name).then((url) => {
+            if (picture?.name === name) picture = { name, url, state: url ? 'ready' : 'none' };
         });
     });
 
@@ -136,9 +136,9 @@
     >
         {#if isSpecies}
             <div class="relative h-36 w-full bg-surface-raised">
-                {#if picture?.state === 'ready' && picture.reference}
+                {#if picture?.state === 'ready' && picture.url}
                     <img
-                        src={picture.reference.url}
+                        src={picture.url}
                         alt={$_('detection.species_reference_alt', { values: { species: names.primary.text }, default: 'Reference photograph of {species}' })}
                         class="h-full w-full object-cover"
                         onerror={() => {
@@ -146,10 +146,8 @@
                         }}
                         data-taxon-card-picture
                     />
-                    <span class="absolute bottom-1.5 left-1.5 max-w-full truncate rounded-md bg-slate-950/70 px-1.5 py-0.5 text-3xs font-medium text-white" data-taxon-card-attribution>
-                        {picture.reference.source
-                            ? $_('taxonomy.photo_source', { values: { source: picture.reference.source }, default: 'Reference photo: {source}' })
-                            : $_('taxonomy.reference_photo', { default: 'Reference photo' })}
+                    <span class="absolute bottom-1.5 left-1.5 max-w-full truncate rounded-md bg-slate-950/70 px-1.5 py-0.5 text-3xs font-medium text-white" data-taxon-card-caption>
+                        {$_('taxonomy.reference_photo', { default: 'Reference photo' })}
                     </span>
                 {:else if picture?.state === 'loading'}
                     <div class="h-full w-full animate-pulse motion-reduce:animate-none" aria-hidden="true"></div>

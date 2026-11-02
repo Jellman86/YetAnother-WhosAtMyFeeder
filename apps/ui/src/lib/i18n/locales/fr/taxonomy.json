@@ -52,6 +52,5 @@
   "legend_closed": "Groupe fermé, sélectionnez-le pour l’ouvrir",
   "legend_keys": "Les flèches du clavier parcourent l’arbre.",
   "tree_label": "Arbre de classification",
-  "breadcrumb_label": "Rangs au-dessus de la classe",
-  "photo_source": "Photo de référence : {source}"
+  "breadcrumb_label": "Rangs au-dessus de la classe"
 }

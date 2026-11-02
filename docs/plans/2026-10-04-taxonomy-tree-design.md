@@ -76,7 +76,9 @@ ancestors, and a taxon with no recorded parent is shown as a gap.
   wording for counts.
 - The tree, the fan and the outline are one ARIA tree with arrow-key movement
   (`taxonomy/tree-navigation.ts`); a node's whole 44px row is its click target.
-- A species card credits where its reference photograph comes from.
+- A species card captions its reference photograph generically. The species information
+  route does not say which provider supplied the photograph (its `source` can be the summary's
+  provider), so the card names none.
 
 ## Next
 

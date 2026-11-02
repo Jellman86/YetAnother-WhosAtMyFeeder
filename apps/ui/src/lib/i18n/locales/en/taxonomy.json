@@ -52,6 +52,5 @@
   "legend_closed": "Closed group, select to open",
   "legend_keys": "Arrow keys move through the tree.",
   "tree_label": "Classification tree",
-  "breadcrumb_label": "Ranks above the class",
-  "photo_source": "Reference photo: {source}"
+  "breadcrumb_label": "Ranks above the class"
 }
