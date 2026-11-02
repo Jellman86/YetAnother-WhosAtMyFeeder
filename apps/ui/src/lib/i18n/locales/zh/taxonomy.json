@@ -2,7 +2,7 @@
   "title": "{name} 的系统树",
   "small_heading": "系统树",
   "lineage_label": "分类（从纲到种）",
-  "context": "{group}：全球 {total} 种，此喂食器见到 {seen} 种。",
+  "context": "{group}：全球 {total, plural, other {# 个物种}}，此喂食器见到 {seen} 种。",
   "open": "打开系统树",
   "layouts": "视图",
   "layout_tree": "树形",
@@ -16,7 +16,6 @@
   "branch_failed": "部分分支未能加载。重新展开即可重试。",
   "source_note": "鸟类分类依据 IOC World Bird List，更高阶元依据 Catalogue of Life。它展示物种如何归类，而非何时分化。",
   "more": "另外 {count} 个",
-  "seen_here": "此处见到 {count} 种",
   "captures_here": "{count, plural, other {此处 # 次拍摄}}",
   "this_bird": "这只鸟",
   "rank": {
@@ -30,13 +29,28 @@
     "subphylum": "亚门",
     "infraphylum": "下门",
     "parvphylum": "小门",
-    "megaclass": "大纲"
+    "megaclass": "大纲",
+    "subclass": "亚纲",
+    "superorder": "总目",
+    "suborder": "亚目",
+    "superfamily": "总科",
+    "subfamily": "亚科",
+    "tribe": "族",
+    "subgenus": "亚属",
+    "subspecies": "亚种"
   },
   "reference_photo": "参考照片",
   "no_reference_photo": "没有参考照片",
   "not_seen_here": "此喂食器尚未观察到",
-  "group_summary": "全球 {total} 个物种，此处已见 {seen} 个",
   "this_animal": "这只动物",
   "legend_path_animal": "通往这只动物的路径",
-  "source_note_animal": "花园动物的分类来自 SpeciesNet 分类体系。它显示物种如何归类，而不是何时分化。"
+  "source_note_animal": "花园动物的分类来自 SpeciesNet 分类体系。它显示物种如何归类，而不是何时分化。",
+  "group_counts": "全球 {total, plural, other {# 个物种}}，此处已见 {seen} 个",
+  "node_counts": "{total, plural, other {# 个物种}}，此处已见 {seen} 个",
+  "legend_this_bird": "这只鸟",
+  "legend_this_animal": "这只动物",
+  "legend_closed": "未展开的类群，选择即可展开",
+  "legend_keys": "用方向键在树中移动。",
+  "tree_label": "分类树",
+  "breadcrumb_label": "纲以上的分类阶元"
 }

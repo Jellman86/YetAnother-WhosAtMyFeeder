@@ -17,6 +17,17 @@ describe('speciesPicture', () => {
         expect(fetchSpeciesInfo).toHaveBeenCalledWith('Canis familiaris', undefined, 'Canis familiaris');
     });
 
+    it('returns only the photograph, never the unrelated provider the lookup reports', async () => {
+        // The species route keeps the summary provider in `source` even when the photograph came from the fallback provider.
+        fetchSpeciesInfo.mockResolvedValue({
+            thumbnail_url: 'https://static.inaturalist.org/photos/123/medium.jpg',
+            source: 'Wikipedia',
+            summary_source: 'Wikipedia'
+        });
+        const { speciesPicture } = await import('./taxon-pictures');
+        await expect(speciesPicture('Prunella modularis')).resolves.toBe('https://static.inaturalist.org/photos/123/medium.jpg');
+    });
+
     it('looks each species up once, and again after a failure', async () => {
         fetchSpeciesInfo.mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ thumbnail_url: null });
         const { speciesPicture } = await import('./taxon-pictures');

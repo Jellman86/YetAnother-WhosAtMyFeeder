@@ -40,7 +40,7 @@ describe('species detail field-record layout', () => {
         // does not know the bird; a wrapper section here would leave an empty ruled band.
         expect(speciesDetailSource).not.toMatch(/<section data-species-taxonomy[^>]*>\s*<TaxonomyLineage/);
         expect(speciesDetailSource).toMatch(/<TaxonomyLineage[^>]*class="border-t border-slate-200 pt-8 dark:border-slate-700"/);
-        expect(lineageSource).toMatch(/<section class="space-y-2 \{className\}"/);
+        expect(lineageSource).toMatch(/<section class="space-y-3 \{className\}"/);
     });
 
     it('keeps the reference description out of the header, where it repeated the section below', () => {

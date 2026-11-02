@@ -173,6 +173,12 @@ html[data-theme='dark'] {
     @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
   }
 
+  /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
+     appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
+  .taxon-rank {
+    @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  }
+
   /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
   .figure {
     font-family: var(--font-display);
