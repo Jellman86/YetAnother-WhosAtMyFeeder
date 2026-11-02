@@ -27,9 +27,9 @@
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
     import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchNewSpeciesQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
-    import { SPECIES_CHECKS_LINK, windowSpeciesChecks, type WindowSpeciesCheck } from '../leaderboard/species-checks';
+    import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
-    import { keptBirdCandidates } from '../utils/domestic-birds';
+    import { keptBirdCandidates, offersStillOpen, type DomesticBirdKey } from '../utils/domestic-birds';
     import { DomesticBirdOptions } from '../utils/domestic-bird-options.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
@@ -221,9 +221,11 @@
 
     // The range check over the desk's 24 hours: the Species page's day window, flagged the same way,
     // so the desk never says nothing is waiting while a species check is.
-    let speciesChecks = $state.raw<WindowSpeciesCheck[]>([]);
-    let checksRadiusKm = $state<number | null>(null);
-    let checksStatus = $state<ReadingStatus>('loading');
+    const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
+    let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
+    // Birds moved to Garden since the list was last measured: their offers close at once, even if
+    // the reload that would drop them fails.
+    let keptSinceRead = $state.raw<ReadonlySet<DomesticBirdKey>>(new Set());
     const speciesChecksLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
             // BirdNET silence only means "not heard" when its rollup for the same window loaded.
@@ -237,20 +239,20 @@
             return { leaderboard, audio };
         },
         apply: ({ leaderboard, audio }) => {
-            speciesChecks = windowSpeciesChecks(leaderboard, audio);
-            checksRadiusKm = leaderboard.nearby_radius_km ?? null;
-            checksStatus = 'ready';
+            const next = readRangeCheck(rangeCheck, leaderboard, audio);
+            if (next.status !== 'unavailable') keptSinceRead = new Set();
+            rangeCheck = next;
         },
-        clear: () => { speciesChecks = []; checksRadiusKm = null; checksStatus = 'loading'; },
+        clear: () => { rangeCheck = UNREAD_RANGE_CHECK; keptSinceRead = new Set(); },
         fail: (e) => {
-            checksStatus = 'unavailable';
+            rangeCheck = { ...rangeCheck, status: 'unavailable' };
             logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
         }
     });
-    function loadSpeciesChecks(): void {
+    /** A person's retry shows it is checking again; a background poll leaves the stated failure in place. */
+    function loadSpeciesChecks({ retry = false }: { retry?: boolean } = {}): void {
         if (!canReview) return;
-        // A retry after a failed read is checking again, not still failed.
-        if (checksStatus === 'unavailable' && speciesChecks.length === 0) checksStatus = 'loading';
+        if (retry && rangeCheck.status === 'unavailable') rangeCheck = { ...rangeCheck, status: 'loading' };
         void speciesChecksLoader.load();
     }
     $effect(() => {
@@ -263,18 +265,19 @@
     // A flagged species can be a domestic bird the owner keeps under its wild name, as on the Species page.
     const gardenOwner = $derived(canReview && settingsStore.settings?.beta_garden_animals === true);
     const domesticBirds = new DomesticBirdOptions(() => gardenOwner);
-    let namedChecks = $derived(speciesChecks.map((check) => ({
+    let namedChecks = $derived(rangeCheck.checks.map((check) => ({
         displayName: getBirdNames(check, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary,
         scientificName: check.scientific_name ?? null
     })));
     let checksView = $derived<SpeciesChecksView>({
-        status: checksStatus,
+        status: rangeCheck.status,
         names: namedChecks.map((check) => check.displayName),
-        nearbyRadiusKm: checksRadiusKm,
-        keptBirds: gardenOwner ? keptBirdCandidates(namedChecks, domesticBirds.options) : []
+        nearbyRadiusKm: rangeCheck.nearbyRadiusKm,
+        keptBirds: gardenOwner ? offersStillOpen(keptBirdCandidates(namedChecks, domesticBirds.options), keptSinceRead) : []
     });
 
-    function speciesKept(): void {
+    function speciesKept(bird: DomesticBirdKey): void {
+        keptSinceRead = new Set([...keptSinceRead, bird]);
         domesticBirds.reload();
         loadSpeciesChecks();
         handleBirdsChanged();
@@ -513,7 +516,7 @@
         return pageRefreshAction.register(async () => {
             summaryLoading = true;
             notableRefreshKey += 1;
-            loadSpeciesChecks();
+            loadSpeciesChecks({ retry: true });
             await Promise.all([
                 detectionsStore.loadInitial(),
                 loadSummary()
@@ -600,7 +603,7 @@
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? last24hSpecies : null}
         unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
-        othersAwaitReview={canReview && needsCall.checks !== 'clear'}
+        othersAwaitReview={canReview && needsCall.checks !== 'clear' && needsCall.checks !== 'off'}
         audioCalls={audioSummary?.total ?? null}
         audioConfirmations={summary ? audioConfirmations : null}
         slots={daySlots}
@@ -650,7 +653,7 @@
                         onreview={openRecord}
                         onreviewall={() => (reviewSessionOpen = true)}
                         onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
-                        onretrychecks={loadSpeciesChecks}
+                        onretrychecks={() => loadSpeciesChecks({ retry: true })}
                         onkept={speciesKept}
                     />
                 {/if}

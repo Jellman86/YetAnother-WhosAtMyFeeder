@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 // The range check read and found nothing, so "Nothing waiting" rests on the visits alone.
-const noSpeciesChecks = { span: 'day', window_start: new Date(Date.now() - 86400000).toISOString(), window_end: new Date().toISOString(), species: [] };
+const noSpeciesChecks = { span: 'day', window_start: new Date(Date.now() - 86400000).toISOString(), window_end: new Date().toISOString(), nearby_check: 'checked', species: [] };
 
 test('accepted historical choice survives an older pending count and omission from fresh history', async ({ page }) => {
     const record = { frigate_event: 'historical-choice', display_name: 'Dunnock', category_name: 'Dunnock', camera_name: 'birdcam',

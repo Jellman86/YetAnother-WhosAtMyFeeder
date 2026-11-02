@@ -119,7 +119,9 @@
     "checks_open": "種ページで確認を開く",
     "checks_loading": "名前が誤っている可能性のある種を確認しています…",
     "checks_unavailable": "分布チェックを読み込めなかったため、名前が誤っている種があるかは不明です。",
-    "checks_more": "他{count}種"
+    "checks_more": "他{count}種",
+    "visits_stale": "訪問履歴を再読み込みできなかったため、この一覧は古い可能性があります。",
+    "checks_stale": "分布チェックを再読み込みできなかったため、この一覧は古い可能性があります。"
   },
   "review_session": {
     "position": "{total} 件中 {position} 件目",

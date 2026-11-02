@@ -81,6 +81,10 @@ class NearbySpeciesService:
             return None
         return lat, lng
 
+    def is_configured(self) -> bool:
+        """Whether the check is set up to run: eBird configured and a feeder location known."""
+        return ebird_service.is_configured() and self._location() is not None
+
     async def get_report(self) -> NearbyReport | None:
         if not ebird_service.is_configured():
             return None

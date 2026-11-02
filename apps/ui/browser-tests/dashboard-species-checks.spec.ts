@@ -16,10 +16,19 @@ function windowSpecies(name: string, scientificName: string, overrides: Record<s
 
 const flagged = {
     span: 'day', window_start: '2026-11-01T12:00:00Z', window_end: '2026-11-02T12:00:00Z',
-    nearby_radius_km: 50, nearby_days_back: 14,
+    nearby_check: 'checked', nearby_radius_km: 50, nearby_days_back: 14,
     species: [windowSpecies('Red Junglefowl', 'Gallus gallus'), windowSpecies('Dunnock', 'Prunella modularis', { reported_nearby: true })]
 };
 const cleared = { ...flagged, species: [windowSpecies('Dunnock', 'Prunella modularis', { reported_nearby: true })] };
+// eBird is set up but its lookup failed: a 200 whose rows cannot say whether anyone reported them.
+const unmeasured = {
+    ...flagged, nearby_check: 'unavailable', nearby_radius_km: null, nearby_days_back: null,
+    species: flagged.species.map((row) => ({ ...row, reported_nearby: null }))
+};
+const switchedOff = { ...unmeasured, nearby_check: 'off' };
+const UNAVAILABLE = 'The range check could not be read, so it is not known whether a species may be misnamed.';
+const STALE = 'The range check could not be read again, so this list may be out of date.';
+const unavailableResponse = (route: Route) => route.fulfill({ status: 503, json: { detail: 'Unavailable' } });
 
 interface Served {
     leaderboard: (route: Route) => Promise<void> | void;
@@ -106,4 +115,58 @@ test('a visitor sees no Needs your call panel and no keep action', async ({ page
     await expect(page.locator('[data-dashboard-review-queue]')).toHaveCount(0);
     await expect(page.locator('[data-spotlight-kept-bird]')).toHaveCount(0);
     expect(served.requests.filter((request) => request.includes('/api/leaderboard/species') || request.includes('/api/garden/domestic-birds'))).toEqual([]);
+});
+
+test('a 200 whose nearby evidence was unavailable is not read as zero checks', async ({ page }) => {
+    const served: Served = { requests: [], leaderboard: (route) => route.fulfill({ json: unmeasured }) };
+    await serve(page, served);
+    await page.goto('/browser-tests/dashboard-species-checks.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card).toContainText(UNAVAILABLE);
+    await expect(card.getByRole('button', { name: 'Try again' })).toBeVisible();
+    await expect(card).not.toContainText(NOTHING_WAITING);
+    await expect(card.locator('[data-review-queue-count]')).toHaveCount(0);
+});
+
+test('a range check that is switched off is neither an error nor a claim that names were checked', async ({ page }) => {
+    const served: Served = { requests: [], leaderboard: (route) => route.fulfill({ json: switchedOff }) };
+    await serve(page, served);
+    await page.goto('/browser-tests/dashboard-species-checks.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-visits-clear]')).toHaveText('Every visit in the last 24 hours has a species.');
+    await expect(card).not.toContainText(NOTHING_WAITING);
+    await expect(card).not.toContainText(UNAVAILABLE);
+    await expect(card.getByRole('button', { name: 'Try again' })).toHaveCount(0);
+    await expect(card.locator('[data-review-queue-checks]')).toHaveCount(0);
+});
+
+test('a failed refresh keeps the last checks but says they may be out of date, and Try again reads them', async ({ page }) => {
+    const answers = [(route: Route) => route.fulfill({ json: flagged }), unavailableResponse, (route: Route) => route.fulfill({ json: cleared })];
+    const served: Served = { requests: [], leaderboard: (route) => (answers.shift() ?? unavailableResponse)(route) };
+    await serve(page, served);
+    await page.goto('/browser-tests/dashboard-species-checks.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card).toContainText('1 species may be misnamed: Red Junglefowl.');
+    await page.evaluate(() => window.dispatchEvent(new Event('test-page-refresh')));
+    await expect(card.locator('[data-review-queue-checks-stale]')).toHaveText(STALE);
+    await expect(card).toContainText('1 species may be misnamed: Red Junglefowl.');
+    await card.locator('[data-review-queue-checks="stale"]').getByRole('button', { name: 'Try again' }).click();
+    await expect(card).toContainText(`Every visit in the last 24 hours has a species. ${NOTHING_WAITING}.`);
+    await expect(card.locator('[data-review-queue-checks-stale]')).toHaveCount(0);
+});
+
+test('a kept bird whose reload fails is not offered again, and the list is marked out of date', async ({ page }) => {
+    let reads = 0;
+    const served: Served = {
+        requests: [],
+        leaderboard: (route) => (reads++ === 0 ? route.fulfill({ json: flagged }) : unavailableResponse(route))
+    };
+    await serve(page, served);
+    await page.goto('/browser-tests/dashboard-species-checks.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await card.getByRole('button', { name: 'I keep Chickens: move to Garden' }).click();
+    await expect(page.getByText('Moved 8 bird records to Garden. Chickens are now in Domestic birds you keep.')).toBeVisible();
+    await expect(card.locator('[data-review-queue-checks-stale]')).toHaveText(STALE);
+    await expect(card.locator('[data-spotlight-kept-bird]')).toHaveCount(0);
+    expect(served.requests.filter((request) => request.startsWith('POST'))).toEqual(['POST /api/garden/domestic-birds/chicken/keep']);
 });

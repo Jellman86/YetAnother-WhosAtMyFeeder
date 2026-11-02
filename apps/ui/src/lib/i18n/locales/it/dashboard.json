@@ -119,7 +119,9 @@
     "checks_open": "Apri i controlli nella pagina Specie",
     "checks_loading": "Ricerca di specie con un nome forse errato…",
     "checks_unavailable": "Impossibile leggere il controllo di areale, quindi non si sa se una specie ha un nome errato.",
-    "checks_more": "altre {count}"
+    "checks_more": "altre {count}",
+    "visits_stale": "Impossibile rileggere la cronologia delle visite, quindi questo elenco potrebbe non essere aggiornato.",
+    "checks_stale": "Impossibile rileggere il controllo di areale, quindi questo elenco potrebbe non essere aggiornato."
   },
   "review_session": {
     "position": "{position} di {total}",

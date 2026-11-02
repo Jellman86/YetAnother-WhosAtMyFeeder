@@ -11396,6 +11396,15 @@
             ],
             "title": "History Start"
           },
+          "nearby_check": {
+            "enum": [
+              "checked",
+              "off",
+              "unavailable"
+            ],
+            "title": "Nearby Check",
+            "type": "string"
+          },
           "nearby_days_back": {
             "anyOf": [
               {
@@ -11452,6 +11461,7 @@
           "span",
           "window_start",
           "window_end",
+          "nearby_check",
           "species"
         ],
         "title": "LeaderboardSpeciesResponse",

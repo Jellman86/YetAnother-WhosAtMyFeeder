@@ -82,6 +82,18 @@ export function keptBirdCandidates(
     return [...candidates.values()];
 }
 
+/**
+ * Offers whose bird was not kept since the list was last read. A successful keep closes its offer
+ * at once, so a failed reload afterwards never leaves an action that has already been taken.
+ */
+export function offersStillOpen(
+    candidates: KeptBirdCandidate[],
+    keptSinceRead: ReadonlySet<DomesticBirdKey>
+): KeptBirdCandidate[] {
+    if (keptSinceRead.size === 0) return candidates;
+    return candidates.filter((candidate) => !keptSinceRead.has(candidate.bird));
+}
+
 const DISMISSED_KEY = 'yawamf.domesticBirdSuggestionsDismissed';
 
 /** Suggestions the owner has dismissed on this device, so a "Do you keep…?" is asked once. */

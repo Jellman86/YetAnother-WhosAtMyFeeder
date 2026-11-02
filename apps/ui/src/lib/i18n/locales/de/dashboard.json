@@ -119,7 +119,9 @@
     "checks_open": "Prüfungen auf der Artenseite öffnen",
     "checks_loading": "Suche nach Arten, die möglicherweise falsch benannt sind…",
     "checks_unavailable": "Die Gebietsprüfung konnte nicht gelesen werden, daher ist unbekannt, ob eine Art falsch benannt ist.",
-    "checks_more": "{count} weitere"
+    "checks_more": "{count} weitere",
+    "visits_stale": "Der Besuchsverlauf konnte nicht erneut gelesen werden, daher ist diese Liste möglicherweise veraltet.",
+    "checks_stale": "Die Gebietsprüfung konnte nicht erneut gelesen werden, daher ist diese Liste möglicherweise veraltet."
   },
   "review_session": {
     "position": "{position} von {total}",

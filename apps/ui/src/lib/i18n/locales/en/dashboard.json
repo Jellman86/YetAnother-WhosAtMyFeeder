@@ -119,7 +119,9 @@
     "checks_open": "Open the checks on the Species page",
     "checks_loading": "Checking for species that may be misnamed…",
     "checks_unavailable": "The range check could not be read, so it is not known whether a species may be misnamed.",
-    "checks_more": "{count} more"
+    "checks_more": "{count} more",
+    "visits_stale": "The visit history could not be read again, so this list may be out of date.",
+    "checks_stale": "The range check could not be read again, so this list may be out of date."
   },
   "review_session": {
     "position": "{position} of {total}",

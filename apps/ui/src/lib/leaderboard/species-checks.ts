@@ -1,4 +1,5 @@
 import type { AudioSpeciesLeaderboardItem, LeaderboardSpan, LeaderboardSpeciesResponse } from '../api';
+import type { ChecksStatus } from '../utils/needs-your-call';
 import { evidenceFor, isUnlikelyHere, type EvidenceContext, type EvidenceRow } from './evidence';
 
 /**
@@ -63,6 +64,29 @@ export function windowSpeciesChecks(
             context
         )
     );
+}
+
+export interface RangeCheckReading {
+    status: ChecksStatus;
+    checks: WindowSpeciesCheck[];
+    nearbyRadiusKm: number | null;
+}
+
+/**
+ * The next state of the range check after a leaderboard read. Only a check that ran measures
+ * anything: a switched-off check is no pending work, and one that could not run keeps the last
+ * measured list, marked unavailable, rather than reading its unknown rows as zero.
+ */
+export function readRangeCheck(
+    previous: RangeCheckReading,
+    response: LeaderboardSpeciesResponse,
+    audio: readonly AudioSpeciesLeaderboardItem[] | null
+): RangeCheckReading {
+    if (response.nearby_check === 'checked') {
+        return { status: 'ready', checks: windowSpeciesChecks(response, audio), nearbyRadiusKm: response.nearby_radius_km ?? null };
+    }
+    if (response.nearby_check === 'off') return { status: 'off', checks: [], nearbyRadiusKm: null };
+    return { ...previous, status: 'unavailable' };
 }
 
 const LINK_SPANS: readonly LeaderboardSpan[] = ['day', 'week', 'month', 'all'];

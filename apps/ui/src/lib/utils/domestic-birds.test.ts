@@ -3,6 +3,7 @@ import type { GardenCapture } from '../api/garden';
 import {
     dismissDomesticSuggestion,
     keptBirdCandidates,
+    offersStillOpen,
     dismissedDomesticSuggestions,
     domesticBirdForRecord,
     domesticBirdKind,
@@ -121,5 +122,20 @@ describe('keptBirdCandidates', () => {
         expect(keptBirdCandidates([{ displayName: 'Wild Turkey', scientificName: 'Meleagris gallopavo' }], options)).toEqual([
             { bird: 'turkey', species: 'Wild Turkey', declared: true }
         ]);
+    });
+});
+
+describe('offersStillOpen', () => {
+    const offers = [
+        { bird: 'chicken' as const, species: 'Red Junglefowl', declared: false },
+        { bird: 'domestic_duck' as const, species: 'Mallard', declared: false }
+    ];
+
+    it('closes the offer for a bird already kept, until a fresh read replaces the list', () => {
+        expect(offersStillOpen(offers, new Set(['chicken']))).toEqual([offers[1]]);
+    });
+
+    it('leaves every offer open when nothing was kept since the last read', () => {
+        expect(offersStillOpen(offers, new Set())).toBe(offers);
     });
 });

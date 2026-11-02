@@ -119,7 +119,9 @@
     "checks_open": "Ouvrir les vérifications sur la page Espèces",
     "checks_loading": "Recherche d’espèces peut-être mal nommées…",
     "checks_unavailable": "La vérification de répartition n’a pas pu être lue. On ne sait donc pas si une espèce est mal nommée.",
-    "checks_more": "{count} de plus"
+    "checks_more": "{count} de plus",
+    "visits_stale": "L’historique des visites n’a pas pu être relu. Cette liste n’est peut-être plus à jour.",
+    "checks_stale": "La vérification de répartition n’a pas pu être relue. Cette liste n’est peut-être plus à jour."
   },
   "review_session": {
     "position": "{position} sur {total}",

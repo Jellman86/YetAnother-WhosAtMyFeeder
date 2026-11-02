@@ -12,8 +12,8 @@
      */
     interface Props {
         candidates: KeptBirdCandidate[];
-        /** Called after records moved to Garden, so the caller reloads without them. */
-        onkept?: () => void;
+        /** Called with the bird after its records moved to Garden, so the caller closes its offer and reloads. */
+        onkept?: (bird: DomesticBirdKey) => void;
         /** A narrow column stacks the sentence over the button at every width. */
         stacked?: boolean;
         size?: 'base' | 'small';
@@ -52,7 +52,7 @@
         try {
             const result = await keepGardenDomesticBird(candidate.bird);
             toastStore.success(keptMessage(domesticBirdKind(candidate.bird, translate), result), 10000);
-            onkept?.();
+            onkept?.(candidate.bird);
         } catch (error) {
             toastStore.error(getErrorMessage(error));
         } finally {

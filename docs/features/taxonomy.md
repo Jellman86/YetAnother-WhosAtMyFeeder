@@ -58,7 +58,9 @@ in this sheet. See [Explorer and reviewing visits](explorer.md#check-a-doubtful-
 The dashboard's **Needs your call** names the species this check flags over its last 24 hours, for
 example "1 species may be misnamed: Red Junglefowl", with **Open the checks on the Species page**,
 which opens the leaderboard's **Day** window at **Needs a check**. While the check is loading or
-cannot be read, the panel says so instead of "Nothing waiting on you". The check sends eBird
+cannot be read, the panel says so instead of "Nothing waiting on you", and a list from an earlier
+read whose refresh failed is marked as possibly out of date, with **Try again**. Without eBird or a
+feeder location the check does not run; the panel then says only that every visit has a species. The check sends eBird
 your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
 is simply absent when eBird is off or does not answer.
 

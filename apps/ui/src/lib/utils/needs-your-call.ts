@@ -6,14 +6,17 @@ import type { KeptBirdCandidate } from './domestic-birds';
  * stated on its own, and "nothing waiting" is said only once both were measured as zero.
  */
 export type ReadingStatus = 'loading' | 'ready' | 'unavailable';
-type PartState = 'loading' | 'unavailable' | 'clear' | 'waiting';
+/** The range check can also be switched off (no eBird or no feeder location): no pending work, nothing measured. */
+export type ChecksStatus = ReadingStatus | 'off';
+/** `stale`: work from an earlier read, shown with the failure of the latest one. */
+type PartState = 'loading' | 'unavailable' | 'clear' | 'waiting' | 'stale' | 'off';
 
 export interface NeedsYourCallInput {
     /** Reviewing is an owner capability; a guest is never shown the panel. */
     canReview: boolean;
     queueStatus: ReadingStatus;
     queueTotal: number;
-    checksStatus: ReadingStatus;
+    checksStatus: ChecksStatus;
     checkCount: number;
 }
 
@@ -26,9 +29,9 @@ export interface NeedsYourCall {
     nothingWaiting: boolean;
 }
 
-// Work already shown stays shown while a later reading is in flight or fails.
-function partState(status: ReadingStatus, count: number): PartState {
-    if (count > 0) return 'waiting';
+// Work already shown stays shown while a later reading is in flight, and is marked stale when it fails.
+function partState(status: ChecksStatus, count: number): PartState {
+    if (count > 0) return status === 'unavailable' ? 'stale' : 'waiting';
     if (status === 'ready') return 'clear';
     return status;
 }
@@ -48,7 +51,7 @@ export function needsYourCall(input: NeedsYourCallInput): NeedsYourCall {
 
 /** The species the range check flags in the same 24 hours, named as the Species page names them. */
 export interface SpeciesChecksView {
-    status: ReadingStatus;
+    status: ChecksStatus;
     names: string[];
     nearbyRadiusKm: number | null;
     /** For an owner with Garden on: flagged species that are a domestic bird under another name. */

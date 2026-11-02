@@ -116,6 +116,9 @@ class LeaderboardSpeciesResponse(BaseModel):
     # The eBird check behind reported_nearby, or null when it did not run.
     nearby_radius_km: int | None = None
     nearby_days_back: int | None = None
+    # Whether that check ran: "off" when eBird or the feeder location is not set up, which is not
+    # pending work; "unavailable" when it is set up but the lookup failed, so nothing was measured.
+    nearby_check: Literal["checked", "off", "unavailable"]
     species: list[LeaderboardSpeciesItemResponse]
 
 
@@ -1152,6 +1155,7 @@ async def get_leaderboard_species(
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
         "nearby_days_back": nearby.days_back if nearby else None,
+        "nearby_check": "checked" if nearby else ("unavailable" if nearby_species_service.is_configured() else "off"),
         "species": filtered,
     }
 

@@ -172,3 +172,70 @@ async def test_leaderboard_says_which_species_were_reported_nearby(client: httpx
         async with get_db() as db:
             await db.execute("DELETE FROM detections WHERE frigate_event LIKE ?", (f"{prefix}%",))
             await db.commit()
+
+
+def test_the_check_is_configured_only_with_ebird_and_a_location(monkeypatch, ebird_configured):
+    service = NearbySpeciesService()
+    assert service.is_configured() is True
+    monkeypatch.setattr(settings.location, "latitude", None)
+    assert service.is_configured() is False
+    monkeypatch.setattr(settings.location, "latitude", 52.1)
+    monkeypatch.setattr(settings.ebird, "enabled", False)
+    assert service.is_configured() is False
+
+
+async def _leaderboard_with_nearby(client, monkeypatch, *, report, configured: bool) -> dict:
+    prefix = f"lb-check-{uuid.uuid4().hex[:8]}"
+    name = f"Lonely Finch {prefix}"
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged, scientific_name
+            ) VALUES (?, 1, 0.8, ?, ?, ?, 'test-camera', 0, 0, ?)
+            """,
+            ((now - timedelta(hours=1)).isoformat(sep=" "), name, name, f"{prefix}-1", name),
+        )
+        await db.commit()
+
+    async def fake_report():
+        return report
+
+    monkeypatch.setattr(nearby_module.nearby_species_service, "get_report", fake_report)
+    monkeypatch.setattr(nearby_module.nearby_species_service, "is_configured", lambda: configured)
+    try:
+        response = await client.get("/api/leaderboard/species?span=day")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        assert {row["species"]: row for row in payload["species"]}[name]["reported_nearby"] is (
+            None if report is None else False
+        )
+        return payload
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event LIKE ?", (f"{prefix}%",))
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_says_the_range_check_ran(client: httpx.AsyncClient, monkeypatch):
+    report = build_nearby_report(EBIRD_ROWS, radius_km=50, days_back=30)
+    payload = await _leaderboard_with_nearby(client, monkeypatch, report=report, configured=True)
+    assert payload["nearby_check"] == "checked"
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_says_the_range_check_could_not_run_when_it_is_set_up(client: httpx.AsyncClient, monkeypatch):
+    payload = await _leaderboard_with_nearby(client, monkeypatch, report=None, configured=True)
+    assert payload["nearby_check"] == "unavailable"
+    assert payload["nearby_radius_km"] is None
+
+
+@pytest.mark.asyncio
+async def test_leaderboard_says_the_range_check_is_off_without_ebird_or_a_location(
+    client: httpx.AsyncClient, monkeypatch
+):
+    payload = await _leaderboard_with_nearby(client, monkeypatch, report=None, configured=False)
+    assert payload["nearby_check"] == "off"

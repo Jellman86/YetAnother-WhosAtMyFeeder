@@ -51,9 +51,26 @@ describe('needsYourCall', () => {
     });
 
     it('keeps shown work while a later reading is in flight', () => {
-        const state = needsYourCall({ ...measuredClear, queueStatus: 'loading', queueTotal: 2, checksStatus: 'unavailable', checkCount: 0 });
+        const state = needsYourCall({ ...measuredClear, queueStatus: 'loading', queueTotal: 2, checksStatus: 'loading', checkCount: 1 });
         expect(state.visits).toBe('waiting');
-        expect(state.total).toBe(2);
+        expect(state.checks).toBe('waiting');
+        expect(state.total).toBe(3);
+    });
+
+    it('marks species checks stale when a later read failed, keeping them counted', () => {
+        const state = needsYourCall({ ...measuredClear, checksStatus: 'unavailable', checkCount: 1 });
+        expect(state.checks).toBe('stale');
+        expect(state.total).toBe(1);
+        expect(state.nothingWaiting).toBe(false);
+    });
+
+    it('marks waiting visits stale when the history could not be read again', () => {
+        expect(needsYourCall({ ...measuredClear, queueStatus: 'unavailable', queueTotal: 2 }).visits).toBe('stale');
+    });
+
+    it('does not claim nothing is waiting when the range check is switched off', () => {
+        const state = needsYourCall({ ...measuredClear, checksStatus: 'off' });
+        expect(state).toEqual({ visible: true, visits: 'clear', checks: 'off', total: 0, nothingWaiting: false });
     });
 
     it('hides the panel from a guest, as it always has', () => {

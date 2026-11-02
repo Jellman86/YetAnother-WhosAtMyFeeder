@@ -119,7 +119,9 @@
     "checks_open": "Abrir as verificações na página de espécies",
     "checks_loading": "Procurando espécies que podem estar com o nome errado…",
     "checks_unavailable": "Não foi possível ler a verificação de distribuição, então não se sabe se alguma espécie está com o nome errado.",
-    "checks_more": "mais {count}"
+    "checks_more": "mais {count}",
+    "visits_stale": "Não foi possível ler o histórico de visitas novamente, então esta lista pode estar desatualizada.",
+    "checks_stale": "Não foi possível ler a verificação de distribuição novamente, então esta lista pode estar desatualizada."
   },
   "review_session": {
     "position": "{position} de {total}",

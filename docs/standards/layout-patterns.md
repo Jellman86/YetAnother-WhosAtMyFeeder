@@ -105,8 +105,13 @@ also names the species the leaderboard's range check flags over the same 24 hour
 **Needs a check** uses), links to them at `/species?span=day#checks`, and offers the kept-bird
 action through the same `KeptBirdOffers` component. `needsYourCall()` in
 `utils/needs-your-call.ts` decides what the card may say: each reading (visits, species checks)
-is loading, unavailable, clear or waiting on its own, and "Nothing waiting on you" appears only
-when both were measured and are zero. The day bar's "nothing to review" follows the same rule.
+is loading, unavailable, clear, waiting or stale on its own, and "Nothing waiting on you" appears
+only when both were measured and are zero. A leaderboard answer measures the species checks only
+when its `nearby_check` is `checked` (`readRangeCheck()`): a check that is switched off is no
+pending work and no error, so the card says only that every visit has a species; one that could not
+run is unavailable. Work from an earlier read whose refresh failed stays on screen, marked as
+possibly out of date with Try again, and a kept bird's offer closes as soon as its move succeeds,
+whatever the reload does. The day bar's "nothing to review" follows the same rule.
 
 Amber is reserved for "this needs a person". It is not decoration and it is not a second accent.
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to

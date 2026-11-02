@@ -5,8 +5,10 @@ import {
     heardLookup,
     needsSpeciesCheck,
     parseSpeciesPageLink,
+    readRangeCheck,
     SPECIES_CHECKS_LINK,
-    windowSpeciesChecks
+    windowSpeciesChecks,
+    type RangeCheckReading
 } from './species-checks';
 
 type WindowSpecies = LeaderboardSpeciesResponse['species'][number];
@@ -29,8 +31,15 @@ function species(name: string, overrides: Partial<WindowSpecies> = {}): WindowSp
     } as WindowSpecies;
 }
 
-function response(rows: WindowSpecies[]): LeaderboardSpeciesResponse {
-    return { span: 'day', window_start: '2026-11-01T12:00:00Z', window_end: '2026-11-02T12:00:00Z', species: rows } as LeaderboardSpeciesResponse;
+function response(rows: WindowSpecies[], nearbyCheck: LeaderboardSpeciesResponse['nearby_check'] = 'checked'): LeaderboardSpeciesResponse {
+    return {
+        span: 'day',
+        window_start: '2026-11-01T12:00:00Z',
+        window_end: '2026-11-02T12:00:00Z',
+        nearby_check: nearbyCheck,
+        nearby_radius_km: nearbyCheck === 'checked' ? 50 : null,
+        species: rows
+    } as LeaderboardSpeciesResponse;
 }
 
 function heard(name: string, scientificName: string | null, count: number): AudioSpeciesLeaderboardItem {
@@ -100,5 +109,38 @@ describe('the link to the Species page checks', () => {
         expect(parseSpeciesPageLink('', '')).toEqual({ span: null, focusChecks: false });
         expect(parseSpeciesPageLink('?span=decade', '#other')).toEqual({ span: null, focusChecks: false });
         expect(parseSpeciesPageLink('?span=all', '')).toEqual({ span: 'all', focusChecks: false });
+    });
+});
+
+describe('readRangeCheck', () => {
+    const unread: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
+
+    it('reads a check that ran as measured, with its radius', () => {
+        const reading = readRangeCheck(unread, response([species('Red Junglefowl', { scientific_name: 'Gallus gallus' })]), []);
+        expect(reading.status).toBe('ready');
+        expect(reading.checks.map((check) => check.species)).toEqual(['Red Junglefowl']);
+        expect(reading.nearbyRadiusKm).toBe(50);
+    });
+
+    it('does not read zero checks from a 200 whose nearby evidence was unavailable', () => {
+        const unmeasured = response([species('Red Junglefowl', { reported_nearby: null }), species('Dunnock', { reported_nearby: null })], 'unavailable');
+        expect(readRangeCheck(unread, unmeasured, [])).toEqual({ status: 'unavailable', checks: [], nearbyRadiusKm: null });
+    });
+
+    it('keeps the last measured list, marked unavailable, when a later read cannot measure', () => {
+        const measured = readRangeCheck(unread, response([species('Red Junglefowl')]), []);
+        const later = readRangeCheck(measured, response([species('Red Junglefowl', { reported_nearby: null })], 'unavailable'), []);
+        expect(later.status).toBe('unavailable');
+        expect(later.checks).toBe(measured.checks);
+        expect(later.nearbyRadiusKm).toBe(50);
+    });
+
+    it('treats a check that is switched off as no pending work, not as a failure', () => {
+        const measured = readRangeCheck(unread, response([species('Red Junglefowl')]), []);
+        expect(readRangeCheck(measured, response([species('Red Junglefowl', { reported_nearby: null })], 'off'), [])).toEqual({
+            status: 'off',
+            checks: [],
+            nearbyRadiusKm: null
+        });
     });
 });

@@ -6,6 +6,7 @@
     import MediaImage from './MediaImage.svelte';
     import { formatDate, formatTime } from '../utils/datetime';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
+    import type { DomesticBirdKey } from '../utils/domestic-birds';
     import KeptBirdOffers from './KeptBirdOffers.svelte';
     import { _, locale } from 'svelte-i18n';
 
@@ -19,7 +20,7 @@
         onretry?: () => void;
         onopenchecks?: () => void;
         onretrychecks?: () => void;
-        onkept?: () => void;
+        onkept?: (bird: DomesticBirdKey) => void;
     }
 
     let { queue, status = 'ready', checks, onreview, onreviewall, onretry, onopenchecks, onretrychecks, onkept }: Props = $props();
@@ -124,6 +125,18 @@
             {$_('dashboard.review_queue.visits_clear', { default: 'Every visit in the last 24 hours has a species.' })}
         </p>
     {:else}
+        {#if call.visits === 'stale'}
+            <p class="mt-2 text-xs text-slate-600 dark:text-slate-300" data-review-queue-visits-stale>
+                {$_('dashboard.review_queue.visits_stale', {
+                    default: 'The visit history could not be read again, so this list may be out of date.'
+                })}
+            </p>
+            {#if onretry}
+                <button type="button" class="btn btn-secondary mt-2 min-h-11 px-3 text-xs" onclick={() => onretry?.()}>
+                    {$_('dashboard.field_log.retry', { default: 'Try again' })}
+                </button>
+            {/if}
+        {/if}
         <ul class="mt-3 space-y-2">
             {#each queue.items as detection (detection.frigate_event)}
                 <li>
@@ -173,7 +186,7 @@
         </button>
     {/if}
 
-    {#if !call.nothingWaiting && call.checks !== 'clear'}
+    {#if !call.nothingWaiting && call.checks !== 'clear' && call.checks !== 'off'}
         <div class="mt-3 border-t border-line-soft pt-3" data-review-queue-checks={call.checks}>
             {#if call.checks === 'loading'}
                 <p role="status" class="sr-only">
@@ -192,6 +205,18 @@
                     </button>
                 {/if}
             {:else}
+                {#if call.checks === 'stale'}
+                    <p class="mb-2 text-xs text-slate-600 dark:text-slate-300" data-review-queue-checks-stale>
+                        {$_('dashboard.review_queue.checks_stale', {
+                            default: 'The range check could not be read again, so this list may be out of date.'
+                        })}
+                    </p>
+                    {#if onretrychecks}
+                        <button type="button" class="btn btn-secondary mb-3 min-h-11 px-3 text-xs" onclick={() => onretrychecks?.()}>
+                            {$_('dashboard.field_log.retry', { default: 'Try again' })}
+                        </button>
+                    {/if}
+                {/if}
                 <p class="flex items-start gap-2 text-xs font-semibold text-attention-800 dark:text-attention-300">
                     <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>
                     <span>
