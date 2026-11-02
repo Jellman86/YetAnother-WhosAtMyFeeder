@@ -99,6 +99,7 @@
     "setup.connection.mqtt_port",
     "shortcuts.navigation",
     "status.tile_audio",
+    "taxonomy.iucn_label",
     "theme.font_default",
     "theme.font_studio",
     "theme.horizontal",
@@ -188,6 +189,7 @@
     "settings.system_health.role_main",
     "settings.tabs.debug",
     "settings.telegram.bot_token_placeholder",
+    "taxonomy.iucn.VU",
     "theme.font_studio",
     "theme.horizontal",
     "theme.vertical",
@@ -408,6 +410,7 @@
     "settings.text_size.standard",
     "setup.step_names.account",
     "status.tile_audio",
+    "taxonomy.iucn_label",
     "theme.font_studio",
     "video_player.clip_badge"
   ],
@@ -468,7 +471,8 @@
     "settings.notifications.sentence.channel_telegram",
     "settings.system_health.role_ffmpeg",
     "settings.system_health.role_main",
-    "settings.telegram.bot_token_placeholder"
+    "settings.telegram.bot_token_placeholder",
+    "taxonomy.iucn_label"
   ],
   "pt": [
     "about.instance.uptime_hours",
@@ -677,6 +681,7 @@
     "settings.notifications.sentence.channel_telegram",
     "settings.system_health.role_ffmpeg",
     "settings.system_health.role_main",
-    "settings.telegram.bot_token_placeholder"
+    "settings.telegram.bot_token_placeholder",
+    "taxonomy.iucn_label"
   ]
 }

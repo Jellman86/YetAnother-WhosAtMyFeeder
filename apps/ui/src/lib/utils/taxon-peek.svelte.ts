@@ -26,6 +26,7 @@ export class TaxonPeek {
     anchor = $state<PeekAnchor | null>(null);
     private openTimer: ReturnType<typeof setTimeout> | null = null;
     private closeTimer: ReturnType<typeof setTimeout> | null = null;
+    private returning = false;
 
     isOpen(taxonId: number): boolean {
         return this.anchor?.taxon.taxon_id === taxonId;
@@ -49,8 +50,9 @@ export class TaxonPeek {
         this.openTimer = setTimeout(() => this.place(taxon, current, element, false), OPEN_DELAY_MS);
     }
 
-    /** Keyboard focus: opens at once. */
+    /** Keyboard focus: opens at once, unless the focus is the card handing it back as it closes. */
     focus(taxon: Taxon, current: boolean, element: Element): void {
+        if (this.returning) return;
         this.clearTimers();
         this.place(taxon, current, element, false);
     }
@@ -86,6 +88,17 @@ export class TaxonPeek {
     close(): void {
         this.clearTimers();
         this.anchor = null;
+    }
+
+    /** Close the card and give focus back to the name that opened it, without that focus reopening it. */
+    closeTo(opener: HTMLElement | null): void {
+        this.close();
+        this.returning = true;
+        try {
+            opener?.focus();
+        } finally {
+            this.returning = false;
+        }
     }
 }
 

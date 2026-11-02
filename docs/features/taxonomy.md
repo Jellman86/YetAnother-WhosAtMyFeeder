@@ -106,6 +106,26 @@ The bundled reference is generated from the IOC World Bird List and redistribute
 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/); see
 `backend/app/assets/species_reference.NOTICE.md` for the attribution.
 
+## The family tree
+
+A bird or Garden animal record shows where it sits, from its class to its species, and **Open the
+family tree** opens the whole classification around it. The tree is your feeder's: each species seen
+here shows your own newest photograph, its visits and, when BirdNET-Go recorded it, that it was heard.
+Point at or focus any name for its card:
+
+- **A species** shows your photograph (or the reference photograph when you have none), its visits,
+  first and last seen, its BirdNET calls, its IUCN Red List category where iNaturalist records one,
+  a short description and its names in the catalogue's other languages.
+- **A genus, family or order** shows how many of its species were seen here, their visits and the
+  most recent one, pictured by your photograph of its most-seen member. Families and orders add a
+  short description, taken only from the taxon of exactly that name and rank so it never describes
+  something else with the same name.
+
+Visits use the same rule as the leaderboard; hidden records and unconfirmed Garden captures never
+count. Visitors see the window you share with them, and photographs and calls only if you share
+those. An authority and year appear when the species catalogue records one; the catalogue shipped
+today does not, so none show yet.
+
 ## The species catalogue
 
 Newer installs also carry a **species catalogue** at `/data/species_catalog.db`: a versioned
