@@ -20,6 +20,8 @@ HQ_REFINEMENT_MIN_EXISTING_SCORE_GAIN = 0.02
 # Requiring a quarter-second gap keeps the evidence useful for short feeder
 # visits while preventing decode neighbours from becoming independent votes.
 HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS = 0.25
+# A whole frame or a whole-scene count observation is not a crop of the visit's bird.
+_CROP_SOURCE_MODES = frozenset({"model_crop", "frigate_hint_crop"})
 
 
 @dataclass(frozen=True)
@@ -167,6 +169,27 @@ def crop_labels_with_independent_support(candidates: Iterable[dict[str, Any]]) -
     """Return canonical label keys backed by temporally independent crop evidence."""
 
     return {item.key for item in _build_consensus(candidates)}
+
+
+def crop_labels_disputing_full_frame(label: Any, candidates: Iterable[dict[str, Any]]) -> list[str]:
+    """Return the species the event's crops name when none of them is ``label``, else nothing.
+
+    Every crop of the visit counts here, including crops too weak to vote in a consensus or to be
+    offered as the photo: a whole frame reads a small, distant bird poorly, so a crop naming a
+    different species is evidence against the whole frame even when it cannot stand on its own.
+    One agreeing crop is enough corroboration, so a scene holding two species is not penalised.
+    """
+
+    crop_labels: dict[str, str] = {}
+    for candidate in candidates:
+        if not isinstance(candidate, dict) or candidate.get("source_mode") not in _CROP_SOURCE_MODES:
+            continue
+        crop_label = _canonical_label(candidate.get("classifier_label"))
+        if crop_label and not should_hide_species_label(crop_label, extra_unknown_labels=unknown_species_labels()):
+            crop_labels.setdefault(crop_label.casefold(), crop_label)
+    if _label_key(label) in crop_labels:
+        return []
+    return sorted(crop_labels.values())
 
 
 def choose_hq_classification_refinement(

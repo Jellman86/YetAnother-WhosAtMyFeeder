@@ -18,6 +18,7 @@ from PIL import Image
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.hq_classification_refinement import crop_labels_disputing_full_frame
 from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
@@ -140,6 +141,8 @@ _NON_BREAKER_VIDEO_OUTCOMES: frozenset[str] = frozenset(
     }
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
+# Whole frames the high-quality photo pipeline may leave as the event photograph.
+_HQ_WHOLE_FRAME_SNAPSHOT_SOURCES = frozenset({"hq_candidate_full_frame", "high_quality_snapshot"})
 SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
 _VIDEO_TOP_FRAMES_LIMIT = 8
 # When the precheck aborts because Frigate has no event yet AND no clip is
@@ -3273,6 +3276,17 @@ class AutoVideoClassifierService:
                 photo_outcome=photo_outcome,
             )
             return reason or "snapshot_no_usable_result"
+        if not manual_tagged and await self._crops_dispute_hq_whole_frame(frigate_event, provenance, top):
+            photo_outcome = await settle_photo()
+            await self._update_status(frigate_event, "failed", error="snapshot_no_usable_result", broadcast=True)
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason="snapshot_no_usable_result",
+                photo_outcome=photo_outcome,
+            )
+            return "snapshot_no_usable_result"
         top_with_provenance = attach_classification_provenance(
             top,
             input_source=provenance.input_source,
@@ -3310,6 +3324,39 @@ class AutoVideoClassifierService:
             score=top["score"],
         )
         return None
+
+    async def _crops_dispute_hq_whole_frame(
+        self, frigate_event: str, provenance: ClassificationInputProvenance, top: dict
+    ) -> bool:
+        """Whether the photo is an HQ whole frame whose species every crop of the visit disputes.
+
+        HQ may display a whole frame when no crop is trusted enough to be the photo. That choice
+        is about the picture; it must not let an automatic re-read of the whole frame rename the
+        bird, or re-confirm a name, against crops of the same visit.
+        """
+        if provenance.is_cropped or provenance.input_source not in _HQ_WHOLE_FRAME_SNAPSHOT_SOURCES:
+            return False
+        async with get_db() as db:
+            candidates = await DetectionRepository(db).list_snapshot_candidates(frigate_event)
+        crop_labels = crop_labels_disputing_full_frame(top.get("label"), candidates)
+        if not crop_labels:
+            return False
+        log.info(
+            "Snapshot fallback result not applied: crops of the visit name a different species than the whole frame",
+            event_id=frigate_event,
+            input_source=provenance.input_source,
+            label=top.get("label"),
+            score=top.get("score"),
+            crop_labels=crop_labels,
+        )
+        self._record_diagnostic(
+            frigate_event,
+            reason_code="snapshot_whole_frame_disputed_by_crops",
+            message="Snapshot fallback kept the existing identification because the visit's crops name another species",
+            severity="info",
+            context={"input_source": provenance.input_source, "label": top.get("label"), "crop_labels": crop_labels},
+        )
+        return True
 
     @staticmethod
     async def _broadcast_snapshot_fallback(
