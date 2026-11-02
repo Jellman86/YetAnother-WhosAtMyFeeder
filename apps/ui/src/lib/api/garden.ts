@@ -21,6 +21,8 @@ export interface GardenTimelineQuery {
     camera?: string;
     order: 'newest' | 'oldest';
     status?: 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
+    /** A catalogue taxon: animals at or beneath it, from the Explorer search. */
+    taxon?: number;
     limit: number;
     offset?: number;
 }
@@ -32,6 +34,7 @@ export async function fetchGardenTimeline(query: GardenTimelineQuery, signal?: A
     if (query.end) params.set('end', query.end);
     if (query.camera) params.set('camera', query.camera);
     if (query.status && query.status !== 'reviewable') params.set('status', query.status);
+    if (query.taxon) params.set('taxon', String(query.taxon));
     return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/timeline?${params}`, { signal, timeoutMs: 15000 }));
 }
 
@@ -96,12 +99,13 @@ export interface GardenVisitQuery extends GardenTimelineQuery {
     pageEnd?: string;
 }
 
-function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>): URLSearchParams {
+function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status' | 'taxon'>): URLSearchParams {
     const params = new URLSearchParams();
     if (query.start) params.set('start', query.start);
     if (query.end) params.set('end', query.end);
     if (query.camera) params.set('camera', query.camera);
     if (query.status && query.status !== 'reviewable') params.set('status', query.status);
+    if (query.taxon) params.set('taxon', String(query.taxon));
     return params;
 }
 
@@ -117,7 +121,7 @@ export async function fetchGardenVisits(query: GardenVisitQuery, signal?: AbortS
 
 export async function fetchGardenVisitCaptures(
     id: string,
-    query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>,
+    query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status' | 'taxon'>,
     offset: number,
     options: { limit?: number; signal?: AbortSignal } = {}
 ): Promise<GardenPage> {

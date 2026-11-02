@@ -30,10 +30,50 @@ choose a single species to see its calls. The page explains the active restricti
 truncated, narrow the date range. If a spectrogram or clip has expired upstream, the visit and
 stored call information remain available. A call-loading failure does not remove camera visits.
 
+## Search the Explorer
+
+The search box at the top of the filters finds things by name, so you do not need to scroll the
+species list. Press `/` anywhere on the page that is not a text field to jump to it, and `Escape`
+to clear it.
+
+| Type | It finds |
+|---|---|
+| A bird or animal name, in your language, in English or the scientific name | The species seen here, with its detections and Garden captures |
+| A genus, family or order, such as "tits" or "Paridae" | That group, and every species of it seen here |
+| Part of a camera name | The cameras the Explorer already offers you |
+| A day such as "yesterday", "2 Nov" or "2026-11-02" | That day, set as the time window |
+| A Frigate event ID or a Garden capture ID | The record itself, which opens |
+
+Choosing a species applies the same species filter as the list. Choosing a genus, family or order
+applies a **group** filter, shown as a token such as **Family: Tits**, and it covers every species of
+that group in the chosen visitors. A species and a group are one choice: picking one replaces the
+other. A group that holds only Garden animals switches the visitors to **Garden animals**, and a
+group of birds to **Birds**, so the result is not empty. If you later switch to visitors the group
+does not have, the group filter is removed and the page says so, rather than leaving an empty page.
+
+- Results come from the species and history you may see. A public visitor is never offered a hidden
+  detection, a record outside the shared history window, an unconfirmed Garden capture or a camera
+  name the owner does not share. A record you cannot open is reported as no record with that ID,
+  the same as one that does not exist.
+- A group filter is part of the address (`taxon`), so reloading or sharing the link keeps it. A
+  link that names a group the catalogue does not know shows **Chosen group of species** and
+  matches nothing; its token removes it.
+- The search shows names and counts only. It loads no photographs, clips or spectrograms, and it
+  asks the server only for two or more characters, once you pause typing.
+- While the species catalogue cannot be searched the box says so, and cameras and the species
+  already listed are still found.
+- A group filter hides **Heard calls**, which describe single species: choose one species to see
+  its calls.
+- The box is a labelled combobox: the arrow keys move through results while focus stays in the
+  box, `Enter` chooses and the number of results is announced. Its keyboard focus is a solid ring
+  drawn inside the box, so it is complete even where the box meets the edge of a narrow screen.
+- Opening a record takes a moment to read. If you choose something else meanwhile, another record
+  or a filter, the earlier record is not opened and says nothing: only your latest choice acts.
+
 ## Keep, reload and share a view
 
 The address of the Explorer states its filters: the visitors (birds, Garden animals or both), the
-Garden review state, the time window with any custom dates, the species, the camera,
+Garden review state, the time window with any custom dates, the species or group of species, the camera,
 **Favourites**, **Audio matches**, **Multiple species**, **Hidden**, whether visits or captures are
 shown, and the page. Reloading the page, or opening a copied link, shows the same view.
 

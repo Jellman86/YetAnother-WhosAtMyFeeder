@@ -58,7 +58,8 @@ function query(options: VisitOptions): URLSearchParams {
         start_time: options.startTime, end_time: options.endTime,
         species: options.species, camera: options.camera, sort: options.sort,
         favorites: options.favoritesOnly, audio_confirmed_only: options.audioConfirmedOnly,
-        only_hidden: options.onlyHidden, multiple_species_only: options.multipleSpeciesOnly
+        only_hidden: options.onlyHidden, multiple_species_only: options.multipleSpeciesOnly,
+        taxon: options.taxon
     };
     for (const [key, value] of Object.entries(fields)) {
         if (value !== undefined && value !== false) params.set(key, String(value));

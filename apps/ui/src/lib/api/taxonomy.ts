@@ -12,6 +12,15 @@ export async function fetchSpeciesLineage(scientificName: string, signal?: Abort
     return handleResponse<TaxonLineage>(response);
 }
 
+/** Where a taxon sits, root first; the last entry is the taxon itself. */
+export async function fetchTaxonLineage(taxonId: number, signal?: AbortSignal): Promise<TaxonLineage> {
+    const response = await apiFetch(`${API_BASE}/taxonomy/${encodeURIComponent(String(taxonId))}/lineage`, {
+        signal,
+        timeoutMs: 15_000
+    });
+    return handleResponse<TaxonLineage>(response);
+}
+
 /** The taxa directly beneath one, in the source's order. */
 export async function fetchTaxonChildren(taxonId: number, signal?: AbortSignal): Promise<TaxonChildren> {
     const response = await apiFetch(`${API_BASE}/taxonomy/${encodeURIComponent(String(taxonId))}/children`, {

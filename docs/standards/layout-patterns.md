@@ -175,8 +175,9 @@ Four shapes cover the app. Pick one; do not blend them.
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
 beneath them. **When** follows, always open. The species list shows the eight most
-recorded species, plus any chosen one, then **Show all N species**; search lists every
-match. Cameras and **Only** stay in native collapsible sections, initially closed, and
+recorded species, plus any chosen one, then **Show all N species**. One search box heads
+the rail (`ExplorerSearch`, a combobox) and finds species, groups, cameras, days and record IDs;
+it never filters the list beneath it. Cameras and **Only** stay in native collapsible sections, initially closed, and
 their summaries name what is chosen inside. A chosen row carries a bar and weight as
 well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
 visible as removable tokens, with **Clear all** beside the rail's title. Phones use the

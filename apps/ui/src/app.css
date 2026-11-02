@@ -239,6 +239,12 @@ html[data-theme='dark'] {
     @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
   }
 
+  /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
+     inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+  .input-focus-inset {
+    @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
+  }
+
   .select-base {
     @apply input-base pr-9 appearance-none;
     /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
