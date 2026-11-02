@@ -4,7 +4,11 @@ A worker loads one model for one exact binding (model path, model checksum, vari
 provider) and answers one newline-framed request at a time. Anything other than a clean
 result (bird pre-emption, a deadline, cancellation, a crash, an error or malformed
 output) stops it, so the next request starts a fresh process. An idle worker is
-stopped after ``WARM_IDLE_SECONDS`` or as soon as bird work is pending.
+stopped after ``WARM_IDLE_SECONDS`` or as soon as bird work is pending, and every worker
+is replaced after ``WARM_MAX_REQUESTS`` so slow growth inside a native runtime is bounded.
+
+The worker owns its child until the child is reaped: retirement runs to completion even
+when its caller is cancelled, and anyone else who needs the child gone joins it.
 """
 
 import asyncio
@@ -26,6 +30,7 @@ log = structlog.get_logger()
 
 RESULT_LIMIT_BYTES = 64 * 1024
 WARM_IDLE_SECONDS = 60.0
+WARM_MAX_REQUESTS = 500
 
 
 class GardenBusy(RuntimeError):
@@ -120,6 +125,7 @@ class GardenWarmWorker:
         on_stuck: Callable[[], None],
         idle_seconds: float = WARM_IDLE_SECONDS,
         poll_seconds: float = 0.5,
+        max_requests: int = WARM_MAX_REQUESTS,
         launch_args: tuple[str, ...] | None = None,
     ) -> None:
         self.module = module
@@ -128,17 +134,25 @@ class GardenWarmWorker:
         self.on_stuck = on_stuck
         self.idle_seconds = idle_seconds
         self.poll_seconds = poll_seconds
+        self.max_requests = max_requests
         self.launch_args = launch_args or ("-m", module)
         self.stuck = False
         self._process: Any = None
         self._key: Hashable | None = None
+        self._served = 0
         self._idle_since = 0.0
         self._lock = asyncio.Lock()
         self._monitor: asyncio.Task | None = None
+        self._retiring: asyncio.Task | None = None
 
     @property
     def pid(self) -> int | None:
         return None if self._process is None else self._process.pid
+
+    @property
+    def key(self) -> Hashable | None:
+        """The binding of the child currently held, if any."""
+        return self._key
 
     async def request(
         self,
@@ -161,7 +175,8 @@ class GardenWarmWorker:
             kept = False
             try:
                 result = await self._exchange(message, blocked, timeout_seconds, poll_seconds)
-                kept = True
+                self._served += 1
+                kept = self._served < self.max_requests
                 return result
             finally:
                 if kept:
@@ -169,16 +184,21 @@ class GardenWarmWorker:
                     self._watch_idle()
                 else:
                     # Request cancellation cannot leave a native call using the device.
-                    await finish_despite_cancellation(self._retire("request_ended"))
+                    await self._retire("request_ended" if self._served < self.max_requests else "recycled")
+
+    async def retire(self, reason: str) -> None:
+        """Stop the child now and wait until it has exited; the next request starts a fresh one."""
+        async with self._lock:
+            await self._retire(reason)
 
     async def stop(self) -> None:
         if self._monitor is not None:
             self._monitor.cancel()
+            # A release the monitor already started finishes before the monitor ends.
             with suppress(asyncio.CancelledError):
                 await self._monitor
             self._monitor = None
-        async with self._lock:
-            await finish_despite_cancellation(self._retire("shutdown"))
+        await self.retire("shutdown")
 
     async def _spawn(self, key: Hashable) -> None:
         environment = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
@@ -193,6 +213,7 @@ class GardenWarmWorker:
             limit=RESULT_LIMIT_BYTES,
         )
         self._key = key
+        self._served = 0
         log.info("garden_worker_started", module=self.module, pid=self._process.pid)
 
     async def _exchange(
@@ -243,18 +264,30 @@ class GardenWarmWorker:
                 await reply
 
     async def _retire(self, reason: str) -> None:
-        process, self._process, self._key = self._process, None, None
-        if process is None:
-            return
+        """Stop the held child, or join a stop already under way, until it is reaped.
+
+        A cancelled caller still waits for the reap and is cancelled afterwards, so no
+        cancellation can leave a child running that nothing owns.
+        """
+        if self._retiring is None or self._retiring.done():
+            if self._process is None:
+                return
+            self._retiring = asyncio.create_task(self._reap(self._process, reason))
+        await finish_despite_cancellation(self._retiring)
+
+    async def _reap(self, process: Any, reason: str) -> None:
         try:
             await stop_worker(process)
         except GardenCleanupFailed:
+            # Still owned: shutdown tries again rather than forgetting a live child.
             self.stuck = True
             log.error("garden_worker_stop_failed", module=self.module, pid=process.pid, reason=reason)
             raise
         finally:
             with suppress(OSError, RuntimeError):
                 process.stdin.close()
+        if self._process is process:
+            self._process, self._key = None, None
         log.info("garden_worker_stopped", module=self.module, reason=reason, exit_code=process.returncode)
 
     def _watch_idle(self) -> None:

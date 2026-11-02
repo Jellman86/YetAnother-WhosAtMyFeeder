@@ -578,3 +578,140 @@ def test_list_ranks_cannot_turn_a_human_into_a_nonhuman_mammal():
     outputs[3] = Taxon("human", "different common name", ["mammalia", "primates", "hominidae", "homo", "sapiens"])
     with pytest.raises(ValueError):
         assess([0.01, 0.01, 0.87, 0.1, 0.005, 0.003, 0.002], outputs)
+
+
+ECHO_CHILD = """
+import json, os, sys
+native = json.loads(open(sys.argv[1]).read())
+with open(sys.argv[2], "a") as loads:
+    loads.write(f"{os.getpid()}\\n")
+devices = {"cpu": ["CPUExecutionProvider"], "intel_cpu": ["CPU"], "intel_npu": ["NPU"]}
+for line in sys.stdin:
+    request = json.loads(line)
+    sys.stdout.write("GARDEN_RESULT:" + json.dumps(native | {"devices": devices[request["provider"]]}) + "\\n")
+    sys.stdout.flush()
+"""
+
+
+def child_running(pid: int) -> bool:
+    import os
+    from pathlib import Path
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    status = Path(f"/proc/{pid}/stat")
+    return not status.exists() or status.read_text().split(")")[-1].split()[0] != "Z"
+
+
+@pytest.fixture
+def warm_check(check_context, monkeypatch, tmp_path):
+    """A real warm child that answers every photo check, and a record of what runs when the slot is released."""
+    import json
+    from types import SimpleNamespace
+    from app.services.garden_worker_supervisor import GardenWarmWorker
+
+    c = check_context
+    script, native, loads = tmp_path / "echo.py", tmp_path / "native.json", tmp_path / "loads"
+    script.write_text(ECHO_CHILD)
+    native.write_text(json.dumps(c.native))
+    loads.touch()
+    worker = GardenWarmWorker(
+        "garden_worker",
+        b"GARDEN_RESULT:",
+        release=lambda: False,
+        on_stuck=lambda: None,
+        launch_args=(str(script), str(native), str(loads)),
+    )
+    monkeypatch.setattr(c.service, "worker", worker)
+    birds = {"pending": False}
+    monkeypatch.setattr(
+        c.module, "garden_inference_pressure", lambda: {"live": {"queued": int(birds["pending"])}, "background": {}}
+    )
+
+    def children() -> list[int]:
+        return [int(line) for line in loads.read_text().split()]
+
+    released: list[list[int]] = []
+
+    def get_busy(service):
+        return service.__dict__["busy"]
+
+    def set_busy(service, value):
+        if service.__dict__.get("busy") and not value:
+            released.append([pid for pid in children() if child_running(pid)])
+        service.__dict__["busy"] = value
+
+    monkeypatch.setattr(type(c.service), "busy", property(get_busy, set_busy), raising=False)
+    yield SimpleNamespace(c=c, worker=worker, birds=birds, released=released, children=children)
+    if worker._process is not None and worker._process.returncode is None:
+        worker._process.kill()
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_has_exited_before_the_garden_slot_is_released_to_birds(warm_check, monkeypatch):
+    from fastapi import HTTPException
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    request = w.worker.request
+
+    async def birds_arrive_with_the_reply(*args, **kwargs):
+        result = await request(*args, **kwargs)
+        w.birds["pending"] = True
+        return result
+
+    monkeypatch.setattr(w.worker, "request", birds_arrive_with_the_reply)
+    with pytest.raises(HTTPException) as failure:
+        await w.c.service.check_photo(
+            w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+        )
+    assert failure.value.status_code == 409
+    assert len(w.children()) == 1 and w.released == [[]]
+    assert w.worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_is_released_after_a_check_when_no_other_check_is_due(warm_check):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = False
+    result = await w.c.service.check_photo(
+        w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+    )
+    assert result.devices == ["NPU"]
+    assert w.released == [[]] and w.worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_an_accelerator_worker_stays_warm_across_due_checks_while_birds_are_idle(warm_check):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = True
+    check = GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider="intel_npu")
+    for _ in range(2):
+        assert (await w.c.service.check_photo(w.c.state.capture.id, check)).devices == ["NPU"]
+    (child,) = w.children()
+    assert w.released == [[child], [child]] and w.worker.pid == child
+    # Nothing more is due: the next check leaves the device before the slot is released.
+    w.c.service.check_due = False
+    await w.c.service.check_photo(w.c.state.capture.id, check)
+    assert w.released[-1] == [] and w.children() == [child]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["cpu", "intel_cpu"])
+async def test_a_cpu_worker_stays_warm_after_the_slot_is_released(warm_check, provider):
+    from app.models.garden import GardenPhotoCheckRequest
+
+    w = warm_check
+    w.c.service.check_due = False
+    await w.c.service.check_photo(
+        w.c.state.capture.id, GardenPhotoCheckRequest(image_sha256=w.c.source.image_sha256, provider=provider)
+    )
+    (child,) = w.children()
+    assert w.released == [[child]] and w.worker.pid == child
+    await w.worker.stop()

@@ -173,6 +173,24 @@ class GardenAutomaticReviewService:
         return None
 
     async def process_once(self) -> None:
+        try:
+            await self._check_next()
+        finally:
+            service = garden_identification_service
+            # A cycle that ran no check, or kept a model for a check that can no longer start,
+            # still leaves no accelerator loaded while nothing is due.
+            if not service.busy:
+                await service.settle_worker(service.check_already_due)
+
+    async def _another_check_due(self, finished: GardenCapture, query: dict) -> bool:
+        try:
+            async with get_db() as db:
+                due = await GardenRepository(db).due_automatic_checks(**query)
+        except (OSError, sqlite3.Error):
+            return False
+        return any(item.id != finished.id for item in due)
+
+    async def _check_next(self) -> None:
         service = garden_identification_service
         cameras = garden_collection_cameras()
         if not cameras or service.error:
@@ -181,11 +199,15 @@ class GardenAutomaticReviewService:
         retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
         policy_version = 1 if settings.frigate.garden_automatic_naming else None
         country = normalize_country(settings.location.country) if settings.frigate.garden_automatic_naming else None
+        due_query = {
+            "cameras": cameras,
+            "retry_before": retry_before,
+            "policy_version": policy_version,
+            "country": country,
+        }
         async with get_db() as db:
             repo = GardenRepository(db)
-            due_checks = await repo.due_automatic_checks(
-                cameras, retry_before, policy_version=policy_version, country=country
-            )
+            due_checks = await repo.due_automatic_checks(**due_query)
             blanks = await repo.recent_blank_spots(
                 cameras, (utc_naive_now() - timedelta(seconds=BLANK_SPOT_SECONDS)).isoformat()
             )
@@ -468,7 +490,10 @@ class GardenAutomaticReviewService:
                 watcher.cancel()
                 with suppress(asyncio.CancelledError):
                     await watcher
-            service.busy = False
+            try:
+                await service.settle_worker(lambda: self._another_check_due(original, due_query))
+            finally:
+                service.busy = False
         if changed:
             await broadcaster.broadcast({"type": "garden_history_changed"})
             if named_saved:

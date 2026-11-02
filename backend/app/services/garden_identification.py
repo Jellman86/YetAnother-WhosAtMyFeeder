@@ -1,7 +1,7 @@
 """Explicit owner suggestions, with supervised inference subordinate to birds."""
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 import hashlib
 import os
 from pathlib import Path
@@ -50,6 +50,8 @@ from app.utils.frigate_coordinates import normalized_frigate_video_hint
 
 log = structlog.get_logger()
 MODEL_SIZES = {"4.0.3a": 223998782, "4.0.3b": 223999179}
+# Providers that run on the host CPU; any other provider holds an accelerator bird inference may need.
+CPU_PROVIDERS = frozenset({"cpu", "intel_cpu"})
 MODEL_BASE_URL = "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models"
 
 
@@ -130,6 +132,27 @@ class GardenIdentificationService:
 
     async def stop(self) -> None:
         await self.worker.stop()
+
+    async def check_already_due(self) -> bool:
+        return self.check_due
+
+    async def settle_worker(self, next_check_due: Callable[[], Awaitable[bool]]) -> None:
+        """Run before the Garden slot is released: an accelerator model leaves its device and has exited.
+
+        Bird admission does not wait for Garden, so the device must be free once Garden yields.
+        The one exception keeps a burst of automatic checks fast: while birds are idle and
+        another check is already due, the model stays loaded for it. CPU workers keep their
+        idle and bird-pending release.
+        """
+        binding = self.worker.key
+        if not isinstance(binding, tuple) or binding[3] in CPU_PROVIDERS:
+            return
+        if not bird_work_pending(garden_inference_pressure()) and await next_check_due():
+            return
+        try:
+            await self.worker.retire("accelerator_yielded")
+        except GardenCleanupFailed:
+            self._worker_stuck()
 
     async def initialize(self) -> None:
         try:
@@ -291,7 +314,10 @@ class GardenIdentificationService:
                 503, "The photo check failed. Check the installed crop model and provider, then retry."
             ) from error
         finally:
-            self.busy = False
+            try:
+                await self.settle_worker(self.check_already_due)
+            finally:
+                self.busy = False
 
     async def _check_photo(
         self,
@@ -466,7 +492,10 @@ class GardenIdentificationService:
                 503, "Garden identification failed on the selected provider. Check the model and provider, then retry."
             ) from error
         finally:
-            self.busy = False
+            try:
+                await self.settle_worker(self.check_already_due)
+            finally:
+                self.busy = False
 
     async def _identify(self, capture_id: str, request: GardenIdentifyRequest) -> None:
         capture = await garden_capture_service.get(capture_id)

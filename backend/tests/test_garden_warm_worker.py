@@ -30,6 +30,9 @@ import numpy as np
 from app.services import garden_worker
 
 LOADS = Path(sys.argv[1])
+if sys.argv[2:] == ["ignore-term"]:
+    # A native runtime that does not honour SIGTERM; only SIGKILL stops it.
+    signal.signal(signal.SIGTERM, signal.SIG_IGN)
 DEVICES = {{"cpu": "CPUExecutionProvider", "cuda": "CUDAExecutionProvider",
            "intel_cpu": "CPU", "intel_gpu": "GPU", "intel_npu": "NPU"}}
 
@@ -159,9 +162,10 @@ def speciesnet(tmp_path):
     launch_args, loads = child(tmp_path, SPECIESNET_CHILD, "speciesnet")
     workers: list[GardenWarmWorker] = []
 
-    def make(**options) -> GardenWarmWorker:
+    def make(*, resistant: bool = False, **options) -> GardenWarmWorker:
         options = {"release": lambda: False, "on_stuck": lambda: None, **options}
-        worker = GardenWarmWorker("garden_worker", b"GARDEN_RESULT:", launch_args=launch_args, **options)
+        arguments = launch_args + (("ignore-term",) if resistant else ())
+        worker = GardenWarmWorker("garden_worker", b"GARDEN_RESULT:", launch_args=arguments, **options)
         workers.append(worker)
         return worker
 
@@ -375,6 +379,71 @@ async def test_pending_bird_work_releases_an_idle_worker_at_once(speciesnet):
             break
         await asyncio.sleep(0.05)
     assert worker.pid is None and not alive(pid)
+
+
+@pytest.mark.asyncio
+async def test_shutdown_during_idle_release_still_kills_a_child_that_ignores_sigterm(speciesnet):
+    worker = speciesnet.make(resistant=True, idle_seconds=0.1, poll_seconds=0.02)
+    await run(worker, speciesnet.request(speciesnet.image("photo", seed=1)))
+    pid = worker.pid
+    # The idle release has sent SIGTERM and is waiting out its grace period.
+    await asyncio.sleep(0.5)
+    assert alive(pid)
+    await worker.stop()
+    assert not alive(pid) and worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_cancelling_a_binding_change_still_reaps_the_old_child(speciesnet):
+    worker = speciesnet.make(resistant=True)
+    photo = speciesnet.image("photo", seed=1)
+    await run(worker, speciesnet.request(photo))
+    cpu = worker.pid
+    task = asyncio.create_task(run(worker, speciesnet.request(photo, provider="intel_npu")))
+    # The CPU worker is being retired for the accelerator binding and ignores SIGTERM.
+    await asyncio.sleep(0.5)
+    assert alive(cpu)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert not alive(cpu) and worker.pid is None
+    assert len(load_lines(speciesnet.loads)) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_failed_reap_keeps_ownership_so_shutdown_tries_again(speciesnet, monkeypatch):
+    from app.services import garden_worker_supervisor as supervisor
+
+    worker = speciesnet.make()
+    await run(worker, speciesnet.request(speciesnet.image("photo", seed=1)))
+    pid = worker.pid
+    real_stop = supervisor.stop_worker
+    attempts = []
+
+    async def fails_once(process):
+        attempts.append(process.pid)
+        if len(attempts) == 1:
+            raise GardenCleanupFailed("Garden worker did not stop")
+        await real_stop(process)
+
+    monkeypatch.setattr(supervisor, "stop_worker", fails_once)
+    with pytest.raises(GardenCleanupFailed):
+        await worker.retire("test")
+    assert worker.stuck and worker.pid == pid
+    await worker.stop()
+    assert attempts == [pid, pid] and not alive(pid) and worker.pid is None
+
+
+@pytest.mark.asyncio
+async def test_a_worker_is_recycled_after_its_request_limit(speciesnet):
+    worker = speciesnet.make(max_requests=2)
+    photo = speciesnet.image("photo", seed=1)
+    first = [await run(worker, speciesnet.request(photo)) for _ in range(2)]
+    assert worker.pid is None
+    third = await run(worker, speciesnet.request(photo))
+    assert first[0] == first[1] == third
+    assert len(load_lines(speciesnet.loads)) == 2
+    await worker.stop()
 
 
 @pytest.mark.asyncio
