@@ -873,6 +873,7 @@
 
     onDestroy(() => {
         explorerPath = null;
+        cancelSearchedRecordRead();
         if (eventsSyncFrame !== null && typeof window !== 'undefined') {
             window.cancelAnimationFrame(eventsSyncFrame);
             eventsSyncFrame = null;
@@ -1630,14 +1631,31 @@
         explorerSubjectsStore.set(next);
     }
 
+    // Opening a searched record is a read that can outlive the choice that began it, so a newer choice
+    // or leaving the page cancels it, and a read that was cancelled can neither open nor warn.
+    let searchedRecordRead: AbortController | null = null;
+
+    function cancelSearchedRecordRead(): void {
+        searchedRecordRead?.abort();
+        searchedRecordRead = null;
+    }
+
+    function beginSearchedRecordRead(): AbortSignal {
+        cancelSearchedRecordRead();
+        searchedRecordRead = new AbortController();
+        return searchedRecordRead.signal;
+    }
+
     /** A search result narrows the Explorer through the filters the rail already holds, or opens its record. */
     function handleSearchChoice(option: SearchOption): void {
         const choice = explorerSearchChoice(option, { subjects, gardenAvailable, today: toLocalYMD(new Date()) });
+        cancelSearchedRecordRead();
         if (choice.kind === 'open') {
+            const signal = beginSearchedRecordRead();
             if (choice.record.kind === 'garden') {
-                void openSearchedGardenCapture(choice.record.id);
+                void openSearchedGardenCapture(choice.record.id, signal);
             } else {
-                void openSearchedEvent(choice.record.id, choice.record.hidden === true);
+                void openSearchedEvent(choice.record.id, choice.record.hidden === true, signal);
             }
             return;
         }
@@ -1658,28 +1676,34 @@
         void loadEvents();
     }
 
-    async function openSearchedEvent(id: string, hidden: boolean): Promise<void> {
+    async function openSearchedEvent(id: string, hidden: boolean, signal: AbortSignal): Promise<void> {
         try {
+            // No request key: the key would replace the signal, and this read is cancelled by the search choice.
             const [target] = await fetchEvents({
                 eventId: id,
                 includeHidden: hidden || undefined,
                 limit: 1,
                 fields: 'detail',
-                requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
+                requestKey: null,
+                signal
             });
+            if (signal.aborted) return;
             if (!target) throw new Error('The searched detection was not returned');
             selectedEvent = target;
         } catch (failure) {
-            if (failure instanceof Error && failure.name === 'AbortError') return;
+            if (signal.aborted) return;
             console.error('Failed to open the searched detection', failure);
             toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
         }
     }
 
-    async function openSearchedGardenCapture(id: string): Promise<void> {
+    async function openSearchedGardenCapture(id: string, signal: AbortSignal): Promise<void> {
         try {
-            openGardenCapture(await fetchGardenCapture(id));
+            const capture = await fetchGardenCapture(id, signal);
+            if (signal.aborted) return;
+            openGardenCapture(capture);
         } catch (failure) {
+            if (signal.aborted) return;
             console.error('Failed to open the searched Garden capture', failure);
             toastStore.warning($_('garden.capture_link_unavailable', { default: 'This Garden capture is no longer available, or is not shared here.' }));
         }

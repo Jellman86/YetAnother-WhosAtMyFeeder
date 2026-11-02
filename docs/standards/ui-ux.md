@@ -43,7 +43,9 @@ The baseline checklist for every screen, feature, and flow:
   alone** (pair with text/icon/shape); real `alt` text for informative images, and decorative
   media hidden from assistive tech.
 - **Operable** — everything works from the **keyboard**; **visible focus** states; logical tab
-  order; no keyboard traps; respect `prefers-reduced-motion`.
+  order; no keyboard traps; respect `prefers-reduced-motion`. A field that can sit flush against an
+  edge that clips (a phone's edge, a scrolling rail) adds `input-focus-inset` to `input-base`, so its
+  focus ring is drawn inside the border and cannot be cut off.
 - **Understandable** — labelled form controls with associated error messaging; predictable,
   consistent navigation; clear language.
 - **Robust** — **semantic HTML first**; add ARIA roles/names only to fill genuine gaps, never to

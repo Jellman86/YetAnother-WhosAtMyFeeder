@@ -15,12 +15,31 @@ const parus = { value: 'Parus major', display_name: 'Great Tit', common_name: 'G
 
 const FRIGATE_ID = '1793624285.74056-6j3htl';
 const GARDEN_ID = 'f'.repeat(32);
+const GARDEN_ID_NEWER = 'e'.repeat(32);
+
+const gardenSearchRecord = (id: string, name: string) => ({ kind: 'garden', id, observed_at: '2026-11-02T08:00:00Z', display_name: name, scientific_name: null, common_name: name, camera: 'patio', hidden: false });
+
+function gardenCapture(id: string, name: string) {
+    return {
+        id, camera: 'patio', frigate_label: 'cat', observed_at: '2026-11-02T08:00:00Z', status: 'confirmed', reviewed_at: null,
+        snapshot_url: null, crop_url: null, source_kind: 'frigate_event', motion_source: null, automatic_check: null, automatic_check_overridden: false,
+        review_token: 'a'.repeat(64), owner_identification: null,
+        identification: { outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: false, name, rank: 'species', score: 0.93, country: 'GBR', variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 1, input_kind: 'whole_image', box_xywh: null, frame_size: [160, 120], identified_at: '2026-11-02T08:00:00Z' }
+    };
+}
+
+const DETECTION = { frigate_event: FRIGATE_ID, display_name: 'Parus major', scientific_name: 'Parus major', common_name: 'Great Tit', camera_name: 'birdcam', detection_time: new Date().toISOString(), score: 0.93, has_clip: false, has_snapshot: false };
 
 interface Mock {
     requests: URL[];
     searchQueries: string[];
     /** Answers one search; a test replaces it to delay or fail. */
     answer: (query: string, route: Route) => Promise<void> | void;
+    /** Ids of the Garden captures read to open a record, and answers each; a test replaces it to hold one back. */
+    captureReads: string[];
+    answerCapture: (id: string, route: Route) => Promise<void> | void;
+    /** Answers the read that opens a searched detection. */
+    answerEvent: (route: Route) => Promise<void> | void;
 }
 
 const TAXA: Record<string, unknown[]> = {
@@ -35,6 +54,9 @@ async function mockApi(page: Page, options: { cameras?: string[]; record?: unkno
     const mock: Mock = {
         requests: [],
         searchQueries: [],
+        captureReads: [],
+        answerCapture: (id, route) => route.fulfill({ json: gardenCapture(id, 'Red fox') }),
+        answerEvent: route => route.fulfill({ json: [DETECTION] }),
         answer: (query, route) => {
             const key = Object.keys(TAXA).find(word => query.toLowerCase().includes(word));
             const record = query === FRIGATE_ID || query === GARDEN_ID ? options.record ?? null : null;
@@ -64,9 +86,12 @@ async function mockApi(page: Page, options: { cameras?: string[]; record?: unkno
         if (url.pathname === '/api/visits') return route.fulfill({ json: { total: 0, gap_seconds: 60, visits: [] } });
         if (url.pathname === '/api/garden/visits') return route.fulfill({ json: { visits: [], total: 0, capture_total: 0, limit: 25, offset: 0 } });
         if (url.pathname === '/api/events/count') return route.fulfill({ json: { count: 0 } });
-        if (url.pathname === '/api/events' && url.searchParams.get('event_id') === FRIGATE_ID) {
-            return route.fulfill({ json: [{ frigate_event: FRIGATE_ID, display_name: 'Parus major', scientific_name: 'Parus major', common_name: 'Great Tit', camera_name: 'birdcam', detection_time: new Date().toISOString(), score: 0.93, has_clip: false, has_snapshot: false }] });
+        if (url.pathname.startsWith('/api/garden/captures/')) {
+            const id = url.pathname.split('/')[4];
+            mock.captureReads.push(id);
+            return mock.answerCapture(id, route);
         }
+        if (url.pathname === '/api/events' && url.searchParams.get('event_id') === FRIGATE_ID) return mock.answerEvent(route);
         if (url.pathname === '/api/events' || url.pathname.endsWith('/labels')) return route.fulfill({ json: [] });
         return route.fulfill({ json: {} });
     });
@@ -304,3 +329,170 @@ test('the results stay readable in the dark theme', async ({ page }) => {
     await expect(page.locator('[data-explorer-token]').filter({ hasText: 'Family: Tits' })).toBeVisible();
     if (shots) await page.screenshot({ path: `${shots}/explorer-search-dark-token-${test.info().project.name}.png` });
 });
+
+// Opening a record is a read that can outlive the choice that began it, so only the newest choice may open anything.
+const staleToast = (page: Page) => page.getByText('no longer available, or is not shared here');
+
+/** Holds each named Garden capture's read until the test releases it, so the order of the answers is the test's. */
+function holdCaptures(mock: Mock, ids: string[]): Record<string, () => void> {
+    const release: Record<string, () => void> = {};
+    const gates = new Map(ids.map(id => [id, new Promise<void>(resolve => { release[id] = resolve; })]));
+    mock.answerCapture = async (id, route) => {
+        await gates.get(id);
+        const name = id === GARDEN_ID ? 'Red fox' : 'Hedgehog';
+        await route.fulfill({ json: gardenCapture(id, name) }).catch(() => undefined);
+    };
+    return release;
+}
+
+async function chooseRecord(page: Page, id: string): Promise<void> {
+    const box = searchBox(page);
+    await box.fill(id);
+    await expect(option(page, /Open record/)).toBeVisible();
+    await box.press('Enter');
+}
+
+function searchesRecords(mock: Mock, records: Record<string, unknown>): void {
+    mock.answer = (query, route) => route.fulfill({ json: { taxa: query.toLowerCase().includes('tit') ? [tits] : [], truncated: false, record: records[query] ?? null } });
+}
+
+test('a slow Garden record never replaces the newer one chosen after it, whichever answers last', async ({ page }) => {
+    const mock = await openExplorer(page, '&garden=1');
+    searchesRecords(mock, { [GARDEN_ID]: gardenSearchRecord(GARDEN_ID, 'Red fox'), [GARDEN_ID_NEWER]: gardenSearchRecord(GARDEN_ID_NEWER, 'Hedgehog') });
+    const release = holdCaptures(mock, [GARDEN_ID, GARDEN_ID_NEWER]);
+    const cancelled: string[] = [];
+    page.on('requestfailed', request => cancelled.push(request.url()));
+
+    await chooseRecord(page, GARDEN_ID);
+    await expect.poll(() => mock.captureReads).toEqual([GARDEN_ID]);
+    await chooseRecord(page, GARDEN_ID_NEWER);
+    await expect.poll(() => mock.captureReads).toEqual([GARDEN_ID, GARDEN_ID_NEWER]);
+    release[GARDEN_ID_NEWER]();
+    await expect(page.locator('[data-garden-capture-modal]')).toContainText('Hedgehog');
+    release[GARDEN_ID]();
+    await page.waitForTimeout(250);
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(1);
+    await expect(page.locator('[data-garden-capture-modal]')).toContainText('Hedgehog');
+    await expect(page.locator('[data-garden-capture-modal]')).not.toContainText('Red fox');
+    await expect(staleToast(page)).toHaveCount(0);
+    expect(cancelled.some(url => url.includes(`/garden/captures/${GARDEN_ID}`))).toBe(true);
+});
+
+test('an older Garden record that fails after a newer choice says nothing', async ({ page }) => {
+    const mock = await openExplorer(page, '&garden=1');
+    searchesRecords(mock, { [GARDEN_ID]: gardenSearchRecord(GARDEN_ID, 'Red fox'), [GARDEN_ID_NEWER]: gardenSearchRecord(GARDEN_ID_NEWER, 'Hedgehog') });
+    let failOld: () => void = () => undefined;
+    const oldFails = new Promise<void>(resolve => { failOld = resolve; });
+    mock.answerCapture = async (id, route) => {
+        if (id === GARDEN_ID) {
+            await oldFails;
+            await route.fulfill({ status: 404, json: { detail: 'Garden capture not found' } }).catch(() => undefined);
+            return;
+        }
+        await route.fulfill({ json: gardenCapture(id, 'Hedgehog') });
+    };
+    await chooseRecord(page, GARDEN_ID);
+    await expect.poll(() => mock.captureReads).toEqual([GARDEN_ID]);
+    await chooseRecord(page, GARDEN_ID_NEWER);
+    await expect(page.locator('[data-garden-capture-modal]')).toContainText('Hedgehog');
+    failOld();
+    await page.waitForTimeout(250);
+    await expect(staleToast(page)).toHaveCount(0);
+    await expect(page.locator('[data-garden-capture-modal]')).toContainText('Hedgehog');
+});
+
+test('a detection chosen after a slow Garden record is the only record that opens', async ({ page }) => {
+    const mock = await openExplorer(page, '&garden=1', { record: null });
+    searchesRecords(mock, { [GARDEN_ID]: gardenSearchRecord(GARDEN_ID, 'Red fox'), [FRIGATE_ID]: { kind: 'detection', id: FRIGATE_ID, observed_at: '2026-11-02T08:00:00Z', display_name: 'Great Tit', scientific_name: 'Parus major', common_name: 'Great Tit', camera: 'birdcam', hidden: false } });
+    const release = holdCaptures(mock, [GARDEN_ID]);
+    await chooseRecord(page, GARDEN_ID);
+    await expect.poll(() => mock.captureReads).toEqual([GARDEN_ID]);
+    await chooseRecord(page, FRIGATE_ID);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    release[GARDEN_ID]();
+    await page.waitForTimeout(250);
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
+    await expect(page.getByRole('dialog')).toHaveCount(1);
+    await expect(staleToast(page)).toHaveCount(0);
+});
+
+test('a Garden record chosen after a slow detection is the only record that opens', async ({ page }) => {
+    const mock = await openExplorer(page, '&garden=1');
+    searchesRecords(mock, { [GARDEN_ID]: gardenSearchRecord(GARDEN_ID, 'Red fox'), [FRIGATE_ID]: { kind: 'detection', id: FRIGATE_ID, observed_at: '2026-11-02T08:00:00Z', display_name: 'Great Tit', scientific_name: 'Parus major', common_name: 'Great Tit', camera: 'birdcam', hidden: false } });
+    let releaseEvent: () => void = () => undefined;
+    const held = new Promise<void>(resolve => { releaseEvent = resolve; });
+    let eventReads = 0;
+    mock.answerEvent = async route => {
+        eventReads += 1;
+        await held;
+        await route.fulfill({ json: [DETECTION] }).catch(() => undefined);
+    };
+    await chooseRecord(page, FRIGATE_ID);
+    await expect.poll(() => eventReads).toBe(1);
+    await chooseRecord(page, GARDEN_ID);
+    await expect(page.locator('[data-garden-capture-modal]')).toContainText('Red fox');
+    releaseEvent();
+    await page.waitForTimeout(250);
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(1);
+    await expect(page.getByRole('dialog', { name: /Great Tit/ })).toHaveCount(0);
+});
+
+test('narrowing the Explorer while a record is still being read leaves that record closed', async ({ page }) => {
+    const mock = await openExplorer(page, '&garden=1');
+    searchesRecords(mock, { [GARDEN_ID]: gardenSearchRecord(GARDEN_ID, 'Red fox') });
+    const release = holdCaptures(mock, [GARDEN_ID]);
+    await chooseRecord(page, GARDEN_ID);
+    await expect.poll(() => mock.captureReads).toEqual([GARDEN_ID]);
+    const box = searchBox(page);
+    await box.fill('tit');
+    await option(page, /^Tits/).click();
+    await expect(page.locator('[data-explorer-token]').filter({ hasText: 'Family: Tits' })).toBeVisible();
+    release[GARDEN_ID]();
+    await page.waitForTimeout(250);
+    await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
+    await expect(staleToast(page)).toHaveCount(0);
+});
+
+// A ring drawn outside the box is cut off by any clipping edge it touches, so the box carries it inside.
+async function focusRing(page: Page) {
+    return page.evaluate(() => {
+        const input = document.getElementById('explorer-search-input');
+        if (!input) throw new Error('The search box is missing');
+        const box = input.getBoundingClientRect();
+        // Computed shadows read `colour x y blur spread [inset]`; the offset layer has no spread.
+        const shadows = getComputedStyle(input).boxShadow.split(/,\s*(?=rgb)/).map(layer => /^(rgba?\([^)]*\))\s+\S+\s+\S+\s+\S+\s+([\d.]+)px(\s+inset)?$/.exec(layer.trim()));
+        const ring = shadows.find(layer => layer && Number(layer[2]) > 0);
+        const spread = Number(ring?.[2] ?? 0);
+        const colour = ring?.[1] ?? '';
+        const reach = ring?.[3] ? 0 : spread;
+        // Every ancestor that clips, and the viewport, must hold the whole ring.
+        const clips: DOMRect[] = [new DOMRect(0, 0, document.documentElement.clientWidth, window.innerHeight)];
+        for (let node = input.parentElement; node; node = node.parentElement) {
+            const style = getComputedStyle(node);
+            if (style.overflowX !== 'visible' || style.overflowY !== 'visible') clips.push(node.getBoundingClientRect());
+        }
+        const clipped = clips.some(clip => box.left - reach < clip.left || box.right + reach > clip.right || box.top - reach < clip.top || box.bottom + reach > clip.bottom);
+        const holder = input.closest('[data-explorer-search]')?.getBoundingClientRect();
+        return { spread, colour, clipped, width: box.width, holderWidth: holder?.width ?? 0 };
+    });
+}
+
+const surfaces = [{ name: 'phone', size: { width: 390, height: 844 } }, { name: 'desktop', size: { width: 1280, height: 800 } }];
+for (const { name, size } of surfaces) for (const theme of ['light', 'dark']) {
+    test(`on a ${name} the keyboard focus ring of the search box is whole and solid in the ${theme} theme`, async ({ page }) => {
+        await page.setViewportSize(size);
+        await openExplorer(page, theme === 'dark' ? '&theme=dark' : '');
+        await page.keyboard.press('Tab');
+        await searchBox(page).focus();
+        await page.keyboard.press('ArrowDown');
+        await expect(searchBox(page)).toBeFocused();
+        const ring = await focusRing(page);
+        expect(ring.spread).toBeGreaterThanOrEqual(2);
+        expect(ring.clipped).toBe(false);
+        // Opaque, so it keeps its contrast against the page it sits on.
+        expect(ring.colour).toMatch(/^rgb\(/);
+        // The box still fills its place in the rail.
+        expect(ring.width).toBe(ring.holderWidth);
+        if (shots) await page.screenshot({ path: `${shots}/explorer-search-focus-${name}-${theme}-${test.info().project.name}.png` });
+    });
+}

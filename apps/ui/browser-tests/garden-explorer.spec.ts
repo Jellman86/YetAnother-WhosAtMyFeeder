@@ -712,6 +712,8 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
     // greenhousecam watches Garden animals only, so the bird filter read never names it.
     const { timelineQueries, errors } = await openExplorer(page, '&garden=1&gardencams=patio,greenhousecam', false, { birdcam: 12 });
     const cameras = page.locator('[data-explorer-camera-facet]');
+    // On a phone the filter rail opens from the Filters button.
+    if (!(await cameras.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await cameras.locator('summary').click();
     // Both: every camera once, and no count, because the bird counts do not cover animals.
     await expect(cameras.getByRole('button')).toHaveText(['birdcam', 'greenhousecam', 'patio']);
@@ -735,6 +737,8 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
 test('a visitor is offered the Garden cameras the shared captures came from', async ({ page }) => {
     const { errors } = await openExplorer(page, '&guest=1', false, { birdcam: 4 });
     const option = page.locator('[data-explorer-subjects-option="garden"]');
+    // On a phone the filter rail opens from the Filters button.
+    if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     const cameras = page.locator('[data-explorer-camera-facet]');
     await cameras.locator('summary').click();

@@ -261,7 +261,7 @@
             bind:this={input}
             bind:value={text}
             id="explorer-search-input"
-            class="input-base min-h-11 pl-9 pr-9 text-sm [&::-webkit-search-cancel-button]:hidden"
+            class="input-base input-focus-inset min-h-11 pl-9 pr-9 text-sm [&::-webkit-search-cancel-button]:hidden"
             type="search"
             role="combobox"
             autocomplete="off"

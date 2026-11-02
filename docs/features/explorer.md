@@ -65,7 +65,10 @@ does not have, the group filter is removed and the page says so, rather than lea
 - A group filter hides **Heard calls**, which describe single species: choose one species to see
   its calls.
 - The box is a labelled combobox: the arrow keys move through results while focus stays in the
-  box, `Enter` chooses and the number of results is announced.
+  box, `Enter` chooses and the number of results is announced. Its keyboard focus is a solid ring
+  drawn inside the box, so it is complete even where the box meets the edge of a narrow screen.
+- Opening a record takes a moment to read. If you choose something else meanwhile, another record
+  or a filter, the earlier record is not opened and says nothing: only your latest choice acts.
 
 ## Keep, reload and share a view
 
