@@ -85,7 +85,7 @@ describe('the Explorer list row preview', () => {
         // could paint over what survived. Neither is fixable from inside the
         // row, so the panel is portalled to the body and placed in viewport
         // coordinates.
-        expect(previewSource).toContain('<HoverPopoutPanel {popout} data-detection-preview-panel>');
+        expect(previewSource).toContain('<HoverPopoutPanel {popout} {index} data-detection-preview-panel>');
         expect(panelSource).toContain('use:portal');
         expect(popoutSource).toContain('getBoundingClientRect()');
         expect(panelSource).toMatch(/class="fixed z-\[70\]/);

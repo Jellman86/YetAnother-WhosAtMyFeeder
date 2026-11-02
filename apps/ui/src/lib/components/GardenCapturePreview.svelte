@@ -34,7 +34,8 @@
     // The panel's image box, so a snapshot is framed on the animal at the shape it is shown in.
     const PANEL_ASPECT = 240 / 128;
 
-    const popout = new HoverPopout();
+    const uid = $props.id();
+    const popout = new HoverPopout(uid);
     let failed = $state.raw<ReadonlySet<string>>(new Set());
     const listed = $derived(Boolean(capture.crop_url || capture.snapshot_url));
     const photo = $derived(gardenCapturePhoto(capture, failed, withAuthParams));
@@ -83,7 +84,7 @@
         onkeydown={popout.keydown}
         role="presentation"
     >
-        <button type="button" bind:this={popout.triggers[0]} class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring" onclick={onopen}>
+        <button type="button" bind:this={popout.triggers[0]} aria-describedby={popout.describedBy()} class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring" onclick={onopen}>
             <span class="sr-only">
                 {$_('dashboard.field_log.preview_trigger', { values: { species: text.title }, default: 'Preview {species}' })}
             </span>
@@ -92,12 +93,14 @@
 
         {#if popout.openIndex === 0}
             <HoverPopoutPanel {popout} data-garden-capture-preview-panel={photo ? (photo.cropped ? 'crop' : 'snapshot') : 'unavailable'}>
-                <div class="h-32 w-full bg-slate-100 dark:bg-slate-800">
+                <!-- A saved crop is already framed on the animal, so it fills the box as a bird's photo does. -->
+                <div class="h-32 w-full bg-slate-100 dark:bg-slate-800" data-garden-capture-preview-image>
                     {#if photo}
                         <GardenPhotoPreview
                             {capture}
                             src={photo.src}
                             cropped={photo.cropped}
+                            fill
                             aspect={PANEL_ASPECT}
                             alt={$_('dashboard.field_log.preview_alt', { values: { species: text.title, camera: capture.camera }, default: '{species} on {camera}' })}
                             onerror={() => markFailed(photo.src)}

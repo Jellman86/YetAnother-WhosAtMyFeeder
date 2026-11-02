@@ -57,7 +57,8 @@
 
     // Each frame owns its preview, so hovering the second thumbnail of a visit shows the
     // second frame rather than repeating the clearest one.
-    const popout = new HoverPopout();
+    const uid = $props.id();
+    const popout = new HoverPopout(uid);
 
     function thumbnailUrl(frame: Detection): string {
         return getThumbnailUrl(frame.frigate_event, detectionsStore.settledMediaVersion(frame.frigate_event));
@@ -154,6 +155,7 @@
                 <button
                     type="button"
                     bind:this={popout.triggers[index]}
+                    aria-describedby={popout.describedBy(index)}
                     class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
                     onclick={() => onopen?.(frame)}
                 >
@@ -172,7 +174,7 @@
             {/if}
 
             {#if popout.openIndex === index}
-                <HoverPopoutPanel {popout} data-detection-preview-panel>
+                <HoverPopoutPanel {popout} {index} data-detection-preview-panel>
                     {#if failed.has(thumbnailUrl(frame))}
                         <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">

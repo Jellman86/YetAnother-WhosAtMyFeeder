@@ -57,8 +57,9 @@ function isKeyboardFocus(target: EventTarget | null): boolean {
 
 /**
  * One component's pop-outs, one per trigger index, at most one open. Construct it during
- * component initialisation: it follows its trigger while the page scrolls and clears its timer
- * when the component goes away.
+ * component initialisation, with the component's `$props.id()`: it follows its trigger while the
+ * page scrolls, clears its timer when the component goes away, and names each panel so its
+ * trigger can point at it.
  */
 export class HoverPopout {
     openIndex = $state<number | null>(null);
@@ -67,9 +68,11 @@ export class HoverPopout {
     root = $state<HTMLElement | null>(null);
     triggers = $state<HTMLElement[]>([]);
     #closeTimer: ReturnType<typeof setTimeout> | null = null;
+    readonly #id: string;
     readonly #size: PopoutSize;
 
-    constructor(size: PopoutSize = { width: 240, estimatedHeight: 220 }) {
+    constructor(id: string, size: PopoutSize = { width: 240, estimatedHeight: 220 }) {
+        this.#id = id;
         this.#size = size;
         $effect(() => () => this.#clearTimer());
         // Placed in viewport coordinates, so the panel follows its trigger as the page moves.
@@ -111,6 +114,18 @@ export class HoverPopout {
         const trigger = this.triggers[index];
         if (!trigger) return;
         this.anchor = popoutAnchor(trigger.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }, this.#size);
+    }
+
+    panelId(index = 0): string {
+        return `${this.#id}-popout-${index}`;
+    }
+
+    /**
+     * The trigger's `aria-describedby`: the open panel, so a screen reader reads its name, score,
+     * state and camera after the trigger's own label. Absent while closed, as there is nothing to read.
+     */
+    describedBy(index = 0): string | undefined {
+        return this.openIndex === index && this.anchor ? this.panelId(index) : undefined;
     }
 
     show(index = 0): void {

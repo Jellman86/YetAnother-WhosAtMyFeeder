@@ -487,6 +487,9 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
 - Reuses the image already fetched. A preview must not cost a second request.
 - Respects `prefers-reduced-motion`: it appears without the scale transition.
 - The trigger is a real `button` with `aria-expanded` and a visible focus ring.
+- While open, the panel has a unique stable `id` and its trigger points at it with `aria-describedby`, so
+  a screen reader reads the name, score, state and camera after the trigger's label. The attribute is
+  removed when the panel closes. `HoverPopout` takes the component's `$props.id()` and supplies both.
 
 Model any new popover on this and on `CameraStatus.svelte`, which established the pattern. A small
 capture's preview takes the shared controller rather than its own copy: `HoverPopout`

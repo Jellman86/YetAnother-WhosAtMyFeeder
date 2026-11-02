@@ -128,6 +128,13 @@ describe('Garden thumbnails open the bird pop-out', () => {
         // A tooltip trigger discloses no region it owns, as the bird trigger does not.
         expect(previewSource).not.toContain('aria-expanded');
         expect(previewSource).not.toContain('setTimeout');
+        // The open panel is named, and its trigger points at it only while it is open.
+        expect(previewSource).toContain('new HoverPopout(uid)');
+        expect(previewSource).toContain('aria-describedby={popout.describedBy()}');
+    });
+
+    it('fills the panel image box with a saved crop, as the bird preview does', () => {
+        expect(previewSource).toMatch(/<GardenPhotoPreview[^>]*\bfill\b/s);
     });
 
     it('shows only the media the server listed for this reader, with the thumbnail auth', () => {

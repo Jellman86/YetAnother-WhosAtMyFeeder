@@ -468,6 +468,13 @@ test('a Garden visit opens the bird pop-out on hover, with its crop, name, score
     await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'crop');
     await expect(panel.locator('img')).toHaveAttribute('src', /\/api\/garden\/fox\/crop/);
     await expect(panel.locator('img')).toHaveAttribute('alt', 'Red Fox on patio');
+    // A saved crop fills the panel's image box as the bird pop-out does: no letterbox bars.
+    const image = panel.locator('img');
+    await expect(image).toHaveCSS('object-fit', 'cover');
+    const frame = await box(panel.locator('[data-garden-capture-preview-image]'));
+    const drawn = await box(image);
+    expect(drawn.width).toBeCloseTo(frame.width, 0);
+    expect(drawn.height).toBeCloseTo(frame.height, 0);
     await expect(panel).toContainText('Red Fox');
     await expect(panel).toContainText('93%');
     await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Named automatically');
@@ -575,5 +582,40 @@ test('a visitor sees a Garden pop-out only for a photo the owner shares', async 
     await frame.hover();
     await expect(gardenPanel(page)).toHaveCount(0);
     expect(media.some(path => path.startsWith('/api/garden/hedgehog/'))).toBe(false);
+    expect(errors).toEqual([]);
+});
+
+test('an open pop-out describes its trigger, for a bird and for a Garden animal, and only while open', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    const cases = [
+        { trigger: row(page, 'blackbird').locator('[data-detection-preview] button').first(), panel: page.locator('[data-detection-preview-panel]'), facts: [/\d+%/, 'birdcam'] },
+        { trigger: gardenTrigger(page.locator('[data-field-log-garden="fox"]')), panel: gardenPanel(page), facts: ['93%', 'Named automatically', 'patio'] }
+    ];
+    for (const { trigger, panel, facts } of cases) {
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
+        // By keyboard, the path a screen reader user takes.
+        await trigger.focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await expect(panel).toBeVisible();
+        const id = await panel.getAttribute('id');
+        expect(id).toBeTruthy();
+        await expect(trigger).toHaveAttribute('aria-describedby', id ?? '');
+        for (const fact of facts) {
+            await expect(panel).toContainText(fact);
+            await expect(trigger).toHaveAccessibleDescription(typeof fact === 'string' ? new RegExp(fact) : fact);
+        }
+        await page.keyboard.press('Escape');
+        await expect(panel).toHaveCount(0);
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
+    }
+    // Each thumbnail names its own panel, so two open in turn never share an id.
+    const ids = new Set<string>();
+    for (const trigger of [row(page, 'blackbird').locator('[data-detection-preview] button').first(), gardenTrigger(page.locator('[data-field-log-garden="fox"]')), gardenTrigger(page.locator('[data-field-log-garden="hedgehog"]'))]) {
+        await trigger.hover();
+        ids.add((await trigger.getAttribute('aria-describedby')) ?? '');
+    }
+    expect(ids.size).toBe(3);
     expect(errors).toEqual([]);
 });
