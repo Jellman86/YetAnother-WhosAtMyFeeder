@@ -3,8 +3,7 @@
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
-    import { keptBirdCandidates } from '../utils/domestic-birds';
-    import { DomesticBirdOptions } from '../utils/domestic-bird-options.svelte';
+    import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
@@ -275,8 +274,8 @@
     // A flagged species can be a domestic bird the owner keeps under its wild name: the bird model
     // calls chickens Red Junglefowl. Only an owner with Garden on can move those records.
     const gardenOwner = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
-    const domesticBirds = new DomesticBirdOptions(() => gardenOwner);
-    const keptBirds = $derived(gardenOwner ? keptBirdCandidates(showcaseRows.filter((row) => row.flagged), domesticBirds.options) : []);
+    const domesticOffers = new DomesticBirdOffers(() => gardenOwner);
+    const keptBirds = $derived(gardenOwner ? domesticOffers.offersFor(showcaseRows.filter((row) => row.flagged)) : []);
 
     function showcaseCountLabel(count: number): string {
         if (sourceMode === 'both') {
@@ -690,6 +689,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 species = mapAllTimeSpecies(allSpecies);
                 countsAreVisits = false;
+                domesticOffers.measured();
                 leaderboardWindow = null;
                 historyStart = null;
                 previousWindowComplete = false;
@@ -699,6 +699,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 countsAreVisits = windowCountsAreVisits(response);
                 species = mapWindowSpecies(response, countsAreVisits);
+                domesticOffers.measured();
                 leaderboardWindow = {
                     start: response.window_start,
                     end: response.window_end
@@ -1788,8 +1789,8 @@
                 onopen={(key) => (selectedSpecies = key)}
                 oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
                 {keptBirds}
-                onkept={() => {
-                    domesticBirds.reload();
+                onkept={(bird) => {
+                    domesticOffers.kept(bird);
                     void loadLeaderboard();
                 }}
             />

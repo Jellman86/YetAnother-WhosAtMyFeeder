@@ -2,7 +2,7 @@
     import { _ } from 'svelte-i18n';
     import { withAuthParams } from '../api/core';
     import type { ShowcaseRow } from '../leaderboard/showcase';
-    import type { KeptBirdCandidate } from '../utils/domestic-birds';
+    import type { DomesticBirdKey, KeptBirdCandidate } from '../utils/domestic-birds';
     import KeptBirdOffers from './KeptBirdOffers.svelte';
 
     /**
@@ -21,8 +21,8 @@
         oncheck?: (key: string) => void;
         /** For an owner with Garden on: flagged species that are a domestic bird under another name. */
         keptBirds?: KeptBirdCandidate[];
-        /** Called after records moved to Garden, so the rankings reload without them. */
-        onkept?: () => void;
+        /** Called with the bird after its records moved to Garden, so its offer closes and the rankings reload. */
+        onkept?: (bird: DomesticBirdKey) => void;
     }
 
     let { checks, countLabel, nearbyRadiusKm = null, onopen, oncheck, keptBirds = [], onkept }: Props = $props();

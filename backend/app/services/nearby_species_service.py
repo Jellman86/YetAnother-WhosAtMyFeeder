@@ -13,6 +13,7 @@ a 50 km radius the extra precision changes nothing.
 import asyncio
 import time
 from dataclasses import dataclass
+from typing import Literal
 
 import structlog
 
@@ -37,6 +38,25 @@ class NearbyReport:
     radius_km: int
     days_back: int
     names: frozenset[str]
+
+
+@dataclass(frozen=True)
+class NearbyLookup:
+    """The last report for this location, and whether it is a current measurement.
+
+    An expired report kept after a failed refresh is still the last thing eBird said, but it was
+    not measured now, so the check it backs is unavailable rather than checked.
+    """
+
+    report: NearbyReport | None
+    current: bool
+    configured: bool
+
+    @property
+    def check(self) -> Literal["checked", "off", "unavailable"]:
+        if self.current and self.report is not None:
+            return "checked"
+        return "unavailable" if self.configured else "off"
 
 
 def build_nearby_report(items: list[dict], *, radius_km: int, days_back: int) -> NearbyReport:
@@ -81,27 +101,28 @@ class NearbySpeciesService:
             return None
         return lat, lng
 
-    def is_configured(self) -> bool:
-        """Whether the check is set up to run: eBird configured and a feeder location known."""
-        return ebird_service.is_configured() and self._location() is not None
-
-    async def get_report(self) -> NearbyReport | None:
-        if not ebird_service.is_configured():
-            return None
+    async def lookup(self) -> NearbyLookup:
         location = self._location()
-        if location is None:
-            return None
+        # Without eBird or a feeder location the check is off: no pending work, nothing measured.
+        if not ebird_service.is_configured() or location is None:
+            return NearbyLookup(report=None, current=False, configured=False)
         now = time.monotonic()
         if self._cached and self._cached[0] == location and now - self._cached_at < CACHE_TTL_SECONDS:
-            return self._cached[1]
+            return NearbyLookup(report=self._cached[1], current=True, configured=True)
         if self._failed_at is not None and now - self._failed_at < FAILURE_RETRY_SECONDS:
-            return self._cached[1] if self._cached and self._cached[0] == location else None
+            return self._unrefreshed(location)
         try:
-            return await asyncio.wait_for(self._refresh(location), timeout=LOOKUP_TIMEOUT_SECONDS)
+            report = await asyncio.wait_for(self._refresh(location), timeout=LOOKUP_TIMEOUT_SECONDS)
         except Exception as error:  # noqa: BLE001 - any failure means "unknown", never an error page
             self._failed_at = time.monotonic()
             log.warning("Nearby species lookup unavailable", error=type(error).__name__)
-            return self._cached[1] if self._cached and self._cached[0] == location else None
+            return self._unrefreshed(location)
+        return NearbyLookup(report=report, current=True, configured=True)
+
+    def _unrefreshed(self, location: tuple[float, float]) -> NearbyLookup:
+        """The expired report for this location, if any, kept as content but never as a current check."""
+        report = self._cached[1] if self._cached and self._cached[0] == location else None
+        return NearbyLookup(report=report, current=False, configured=True)
 
     async def _refresh(self, location: tuple[float, float]) -> NearbyReport:
         async with self._lock:

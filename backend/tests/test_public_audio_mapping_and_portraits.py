@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import AsyncMock
+from app.services.nearby_species_service import NearbyLookup
 from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import httpx
@@ -16,6 +17,8 @@ from app.services import detection_presenter
 from app.routers import events, species
 from test_guest_privacy_review import private_history as private_history
 
+
+NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
 
 ROUTES = (
     "/api/events?audio_confirmed_only=true",
@@ -40,7 +43,7 @@ def confirmation_count(route, body):
 async def test_public_aggregate_does_not_substitute_another_microphone(private_history, monkeypatch, route):
     _, factory = private_history
     monkeypatch.setattr(settings.frigate, "camera_audio_mapping", {"secret-camera": "micA"})
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value=None))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with factory() as db:
         await db.execute("UPDATE detections SET audio_confirmed=1,audio_species='Robin' WHERE frigate_event='visible'")
         await db.execute(

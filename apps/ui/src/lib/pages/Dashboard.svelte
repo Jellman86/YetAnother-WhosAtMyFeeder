@@ -29,8 +29,8 @@
     import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchNewSpeciesQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
     import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
-    import { keptBirdCandidates, offersStillOpen, type DomesticBirdKey } from '../utils/domestic-birds';
-    import { DomesticBirdOptions } from '../utils/domestic-bird-options.svelte';
+    import type { DomesticBirdKey } from '../utils/domestic-birds';
+    import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
@@ -223,9 +223,6 @@
     // so the desk never says nothing is waiting while a species check is.
     const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
     let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
-    // Birds moved to Garden since the list was last measured: their offers close at once, even if
-    // the reload that would drop them fails.
-    let keptSinceRead = $state.raw<ReadonlySet<DomesticBirdKey>>(new Set());
     const speciesChecksLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
             // BirdNET silence only means "not heard" when its rollup for the same window loaded.
@@ -240,10 +237,10 @@
         },
         apply: ({ leaderboard, audio }) => {
             const next = readRangeCheck(rangeCheck, leaderboard, audio);
-            if (next.status !== 'unavailable') keptSinceRead = new Set();
+            if (next.status !== 'unavailable') domesticOffers.measured();
             rangeCheck = next;
         },
-        clear: () => { rangeCheck = UNREAD_RANGE_CHECK; keptSinceRead = new Set(); },
+        clear: () => { rangeCheck = UNREAD_RANGE_CHECK; domesticOffers.measured(); },
         fail: (e) => {
             rangeCheck = { ...rangeCheck, status: 'unavailable' };
             logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
@@ -264,7 +261,7 @@
 
     // A flagged species can be a domestic bird the owner keeps under its wild name, as on the Species page.
     const gardenOwner = $derived(canReview && settingsStore.settings?.beta_garden_animals === true);
-    const domesticBirds = new DomesticBirdOptions(() => gardenOwner);
+    const domesticOffers = new DomesticBirdOffers(() => gardenOwner);
     let namedChecks = $derived(rangeCheck.checks.map((check) => ({
         displayName: getBirdNames(check, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary,
         scientificName: check.scientific_name ?? null
@@ -273,12 +270,11 @@
         status: rangeCheck.status,
         names: namedChecks.map((check) => check.displayName),
         nearbyRadiusKm: rangeCheck.nearbyRadiusKm,
-        keptBirds: gardenOwner ? offersStillOpen(keptBirdCandidates(namedChecks, domesticBirds.options), keptSinceRead) : []
+        keptBirds: gardenOwner ? domesticOffers.offersFor(namedChecks) : []
     });
 
     function speciesKept(bird: DomesticBirdKey): void {
-        keptSinceRead = new Set([...keptSinceRead, bird]);
-        domesticBirds.reload();
+        domesticOffers.kept(bird);
         loadSpeciesChecks();
         handleBirdsChanged();
     }

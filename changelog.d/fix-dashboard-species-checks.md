@@ -8,6 +8,9 @@
   waiting, and the day bar's "nothing to review" follows the same rule. Without eBird or a feeder
   location the check does not run, and the panel says only that every visit has a species. A list
   whose refresh failed stays visible, marked as possibly out of date with **Try again**, and a bird
-  just moved to Garden is not offered again while the reload is failing.
+  just moved to Garden, from the dashboard or the leaderboard, is not offered again while the reload
+  is failing.
 - `GET /api/leaderboard/species` now reports `nearby_check` (`checked`, `off` or `unavailable`), so
-  a client can tell a range check that ran from one that is switched off or failed.
+  a client can tell a range check that ran from one that is switched off or failed. When eBird
+  cannot be reached after its six-hour cache has expired, the answer is `unavailable` rather than
+  the expired report passed off as current.

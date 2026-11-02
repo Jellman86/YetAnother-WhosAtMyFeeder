@@ -333,3 +333,41 @@ test('the Dashboard link opens the 24 hour window at the species checks', async 
     // The shared beforeEach already opened the page on its default window; this load asks for the day.
     expect(spans).toContain('day');
 });
+
+test('a bird kept from the Species page is not offered again while its reload fails', async ({ page }) => {
+    const junglefowl = {
+        ...species[0], species: 'Red Junglefowl', common_name: 'Red Junglefowl', scientific_name: 'Gallus gallus',
+        window_count: 3, window_confirmed_count: 0, reported_nearby: false
+    };
+    // Reads before the move (including the shared beforeEach page's) flag the bird; every reload after it fails.
+    let kept = false;
+    let reloads = 0;
+    let releaseReload: () => void = () => undefined;
+    const reloadHeld = new Promise<void>((resolve) => { releaseReload = resolve; });
+    await page.route('**/api/leaderboard/species?*', async (route) => {
+        if (!kept) {
+            return route.fulfill({ json: { span: 'month', species: [...species, junglefowl], window_start: start, window_end: end, nearby_check: 'checked', nearby_radius_km: 50, nearby_days_back: 30 } });
+        }
+        reloads++;
+        await reloadHeld;
+        return route.fulfill({ status: 503, json: { detail: 'Unavailable' } });
+    });
+    await page.route('**/api/garden/domestic-birds', (route) =>
+        route.fulfill({ json: [{ key: 'chicken', declared: false, species_ids: [], scientific_names: ['Gallus gallus'] }] }));
+    const keeps: string[] = [];
+    await page.route('**/api/garden/domestic-birds/chicken/keep', (route) => {
+        keeps.push(route.request().method());
+        kept = true;
+        return route.fulfill({ json: { bird: 'chicken', declared: true, moved: 3, skipped: 0, remaining: 0 } });
+    });
+    await page.goto('/browser-tests/species-charts.html?garden');
+    const offer = page.locator('[data-spotlight-kept-bird="chicken"]');
+    await offer.getByRole('button', { name: 'I keep Chickens: move to Garden' }).click();
+    // Closed as soon as the move succeeds, while the reload is still in flight...
+    await expect(offer).toHaveCount(0);
+    releaseReload();
+    // ...and still closed once that reload has failed.
+    await expect.poll(() => reloads).toBeGreaterThanOrEqual(1);
+    await expect(page.locator('[data-spotlight-kept-bird]')).toHaveCount(0);
+    expect(keeps).toEqual(['POST']);
+});

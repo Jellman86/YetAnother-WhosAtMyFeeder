@@ -109,9 +109,12 @@ is loading, unavailable, clear, waiting or stale on its own, and "Nothing waitin
 only when both were measured and are zero. A leaderboard answer measures the species checks only
 when its `nearby_check` is `checked` (`readRangeCheck()`): a check that is switched off is no
 pending work and no error, so the card says only that every visit has a species; one that could not
-run is unavailable. Work from an earlier read whose refresh failed stays on screen, marked as
-possibly out of date with Try again, and a kept bird's offer closes as soon as its move succeeds,
-whatever the reload does. The day bar's "nothing to review" follows the same rule.
+run, or that only has an eBird report past its six-hour cache, is unavailable. Work from an earlier
+read whose refresh failed stays on screen, marked as possibly out of date with Try again. On both
+the Dashboard and the Species page a kept bird's offer closes as soon as its move succeeds, through
+the shared `DomesticBirdOffers` (`utils/domestic-bird-offers.svelte.ts`), and returns only if a
+fresh read flags it again, whatever the reload does. The day bar's "nothing to review" follows the
+same rule.
 
 Amber is reserved for "this needs a person". It is not decoration and it is not a second accent.
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to
