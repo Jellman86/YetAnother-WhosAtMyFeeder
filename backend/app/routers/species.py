@@ -23,6 +23,7 @@ from app.models import (
     SpeciesSearchResult,
 )
 from app.config import settings
+from app.services.detection_presenter import present_names, summary_detection_fields
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
@@ -34,11 +35,10 @@ from app.utils.species_aliases import (
     parse_species_alias_label as _parse_species_alias_label,
     split_species_alias_parts as _split_species_alias_parts,
 )
-from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
-from app.utils.audio_localization import localize_audio_species_name
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
@@ -1172,7 +1172,6 @@ async def get_species_stats(
         repo = DetectionRepository(db)
 
         # For "Unknown Bird" queries, we need to aggregate stats from all unknown labels
-        unknown_labels = settings.classification.unknown_bird_labels
         is_unknown_query = species_name == "Unknown Bird"
         alias_info = None
 
@@ -1283,66 +1282,9 @@ async def get_species_stats(
         for d in recent:
             if not auth.is_owner:
                 await refresh_public_audio_fields(d, AudioHistoryRepository(db), public_audio.get(d.frigate_event, {}))
-            common_name = d.common_name
-            if d.taxa_id:
-                if lang != "en":
-                    localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
-                else:
-                    canonical = await taxonomy_service.get_canonical_english_name(d.taxa_id, db=db)
-                    if canonical:
-                        common_name = canonical
-
-            public_species = user_facing_species_fields(
-                display_name=d.display_name,
-                category_name=d.category_name,
-                scientific_name=d.scientific_name,
-                common_name=common_name,
-                taxa_id=d.taxa_id,
-                extra_unknown_labels=unknown_labels,
-            )
-
-            audio_species = d.audio_species
-            if audio_species:
-                confirmed_taxa_id = (
-                    int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
-                )
-                resolved = await localize_audio_species_name(
-                    audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id
-                )
-                if resolved:
-                    audio_species = resolved
-
+            names = await present_names(d, lang, db)
             recent_detections.append(
-                Detection(
-                    id=d.id,
-                    detection_time=d.detection_time,
-                    detection_index=d.detection_index,
-                    score=d.score,
-                    display_name=str(public_species["display_name"]),
-                    category_name=public_species["category_name"],
-                    frigate_event=d.frigate_event,
-                    camera_name="Hidden" if hide_camera_names else d.camera_name,
-                    is_hidden=d.is_hidden,
-                    is_favorite=d.is_favorite,
-                    frigate_score=d.frigate_score,
-                    sub_label=d.sub_label,
-                    audio_confirmed=d.audio_confirmed,
-                    audio_species=audio_species,
-                    audio_score=d.audio_score,
-                    temperature=d.temperature,
-                    weather_condition=d.weather_condition,
-                    weather_cloud_cover=d.weather_cloud_cover,
-                    weather_wind_speed=d.weather_wind_speed,
-                    weather_wind_direction=d.weather_wind_direction,
-                    weather_precipitation=d.weather_precipitation,
-                    weather_rain=d.weather_rain,
-                    weather_snowfall=d.weather_snowfall,
-                    scientific_name=public_species["scientific_name"],
-                    common_name=public_species["common_name"],
-                    taxa_id=public_species["taxa_id"],
-                )
+                Detection(**summary_detection_fields(d, names, hides_camera_names=hide_camera_names))
             )
 
         if not auth.is_owner and not settings.public_access.show_audio:
