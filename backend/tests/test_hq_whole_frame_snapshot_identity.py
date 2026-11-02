@@ -100,6 +100,47 @@ def _service(monkeypatch, label="Pica pica", score=0.7264):
     return service
 
 
+# Everything an automatic run may not change when crops dispute its whole frame. The status,
+# its error and video_classification_timestamp record the attempt itself, so they do change.
+PROTECTED_COLUMNS = (
+    "display_name",
+    "category_name",
+    "scientific_name",
+    "common_name",
+    "score",
+    "species_id",
+    "classification_input_json",
+    "video_classification_label",
+    "video_classification_score",
+    "video_classification_index",
+    "video_classification_provider",
+    "video_classification_backend",
+    "video_classification_model_id",
+    "video_classification_input_source",
+)
+
+
+async def _protected(event_id):
+    async with get_db() as db:
+        cursor = await db.execute(
+            f"SELECT {', '.join(PROTECTED_COLUMNS)} FROM detections WHERE frigate_event=?", (event_id,)
+        )
+        return dict(zip(PROTECTED_COLUMNS, await cursor.fetchone(), strict=True))
+
+
+async def _seed_earlier_video_result(event_id):
+    async with get_db() as db:
+        await db.execute(
+            """UPDATE detections SET video_classification_label='Columba palumbus', video_classification_score=0.94,
+               video_classification_index=12, video_classification_timestamp='2026-11-02T12:59:00',
+               video_classification_provider='intel_npu', video_classification_backend='openvino',
+               video_classification_model_id='earlier-model', video_classification_input_source='hq_candidate_model_crop',
+               video_classification_status='completed' WHERE frigate_event=?""",
+            (event_id,),
+        )
+        await db.commit()
+
+
 async def _identity(event_id):
     async with get_db() as db:
         detection = await DetectionRepository(db).get_by_frigate_event(event_id)
@@ -135,15 +176,30 @@ async def test_hq_whole_frame_disputed_by_every_crop_does_not_rewrite_the_identi
         candidates=PIGEON_CROPS + MAGPIE_WHOLE_FRAMES,
         snapshot_source="hq_candidate_full_frame",
     )
-    before = await _identity(event_id)
+    await _seed_earlier_video_result(event_id)
+    before = await _protected(event_id)
     service = _service(monkeypatch)
+    # The real save and status paths run, so a write that clears or replaces a field is caught.
+    real = auto.AutoVideoClassifierService()
+    service._update_status = AsyncMock(side_effect=real._update_status)
+    service._save_results = AsyncMock(side_effect=real._save_results)
 
     error = await service._classify_from_snapshot(event_id, "greenhousecam")
 
     assert error == "snapshot_no_usable_result"
     service._save_results.assert_not_awaited()
     service._update_status.assert_awaited_with(event_id, "failed", error="snapshot_no_usable_result", broadcast=True)
-    assert await _identity(event_id) == before
+    assert await _protected(event_id) == before
+    async with get_db() as db:
+        status = await (
+            await db.execute(
+                """SELECT video_classification_status, video_classification_error, video_classification_timestamp
+                   FROM detections WHERE frigate_event=?""",
+                (event_id,),
+            )
+        ).fetchone()
+    assert tuple(status[:2]) == ("failed", "snapshot_no_usable_result")
+    assert status[2] != "2026-11-02T12:59:00"
 
 
 @pytest.mark.asyncio
