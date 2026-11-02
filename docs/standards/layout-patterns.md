@@ -481,12 +481,12 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
   either closed by the click (when it has a backdrop) or swallows the click (iOS, when a
   mouseenter handler changes the DOM), so on touch the click alone opens it. `DetectionPreview`
   and `FilteredFramePreview` follow the same rule.
-- Stays open while the pointer travels into the panel. `DetectionPreview` and `FrameStrip` use a 120ms close grace
-  window for exactly this (SC 1.4.13, "hoverable").
+- Stays open while the pointer travels into the panel. `DetectionPreview`, `GardenCapturePreview`
+  and `FrameStrip` use a 120ms close grace window for exactly this (SC 1.4.13, "hoverable").
 - Dismisses on `Escape` without moving focus elsewhere unexpectedly.
 - Reuses the image already fetched. A preview must not cost a second request.
 - Respects `prefers-reduced-motion`: it appears without the scale transition.
-- The trigger is a real `button` with `aria-expanded` and a visible focus ring.
+- The trigger is a real `button` with a visible focus ring.
 - While open, the panel has a unique stable `id` and its trigger points at it with `aria-describedby`, so
   a screen reader reads the name, score, state and camera after the trigger's label. The attribute is
   removed when the panel closes. `HoverPopout` takes the component's `$props.id()` and supplies both.
