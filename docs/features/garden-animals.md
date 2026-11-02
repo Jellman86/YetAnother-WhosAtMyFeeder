@@ -566,6 +566,13 @@ add a bird only if you keep it. A record of a declared bird is named by it, for 
   record again from **Hidden** to restore it, and dismiss the Garden capture. Exports already
   sent for that record are not withdrawn. Past detections are not moved automatically, and
   **Move to birds** for a Garden capture is not available yet.
+- **From the species range check.** The bird model names domestic birds by their wild
+  relatives, so chickens appear as *Red Junglefowl*, and the leaderboard's **Needs a check**
+  card flags them because no birder has reported that species nearby. When a flagged species
+  is a domestic bird, the card says so and an owner with Garden on can choose
+  **I keep Chickens: move to Garden**. That declares the bird and moves its visible bird
+  records to Garden in one step, each one exactly as **Move to Garden** does, up to 500 at a
+  time; the message states how many moved, how many could not and how many are still waiting.
 - **Notifications.** A declared bird found by a Garden check is announced like any automatically
   named animal. One recorded from a Frigate bird event or moved from bird history sends no
   Garden alert.

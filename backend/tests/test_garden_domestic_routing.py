@@ -190,3 +190,64 @@ async def test_domestic_birds_round_trip_through_settings_and_reject_unknown_bir
         assert (await client.post("/api/settings", json={"garden_domestic_birds": ["pheasant"]})).status_code == 422
         assert (await client.post("/api/settings", json={"nest_dedupe_minutes": 31})).status_code == 200
     assert settings.frigate.garden_domestic_birds == ["chicken", "turkey"]
+
+
+async def hidden(event_id):
+    async with get_db() as db:
+        row = await (await db.execute("SELECT is_hidden FROM detections WHERE frigate_event=?", (event_id,))).fetchone()
+    return row[0]
+
+
+@pytest.mark.asyncio
+async def test_keeping_a_bird_declares_it_and_moves_its_visible_records_to_garden_once():
+    settings.frigate.garden_domestic_birds = []
+    chickens = [await bird_record(event_id=f"domestic-route-k{i}") for i in range(3)]
+    already_hidden = await bird_record(event_id="domestic-route-kh")
+    async with get_db() as db:
+        await db.execute("UPDATE detections SET is_hidden=1 WHERE frigate_event=?", (already_hidden,))
+        await db.commit()
+    dunnock = await bird_record("Prunella modularis", "domestic-route-kd")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/garden/domestic-birds/chicken/keep")
+        assert response.status_code == 200, response.text
+        assert response.json() == {"bird": "chicken", "declared": True, "moved": 3, "skipped": 0, "remaining": 0}
+        again = await client.post("/api/garden/domestic-birds/chicken/keep")
+        assert again.json() == {"bird": "chicken", "declared": False, "moved": 0, "skipped": 0, "remaining": 0}
+        garden = (await client.get("/api/garden", params={"status": "confirmed"})).json()["items"]
+    assert settings.frigate.garden_domestic_birds == ["chicken"]
+    assert len(garden) == 3 and {item["domestic_route"]["origin"] for item in garden} == {"moved_from_birds"}
+    # Hidden, not deleted, and only the bird the owner keeps.
+    assert [await hidden(event) for event in chickens] == [1, 1, 1]
+    assert [await detections(event) for event in chickens] == [1, 1, 1]
+    assert await hidden(dunnock) == 0
+    assert await hidden(already_hidden) == 1
+
+
+@pytest.mark.asyncio
+async def test_keeping_a_bird_moves_a_bounded_batch_and_says_how_many_remain(monkeypatch):
+    from app.services import garden_domestic_service
+
+    monkeypatch.setattr(garden_domestic_service, "KEEP_MOVE_LIMIT", 2)
+    for i in range(3):
+        await bird_record(event_id=f"domestic-route-b{i}")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        first = (await client.post("/api/garden/domestic-birds/chicken/keep")).json()
+        second = (await client.post("/api/garden/domestic-birds/chicken/keep")).json()
+    assert (first["moved"], first["remaining"]) == (2, 1)
+    assert (second["moved"], second["remaining"]) == (1, 0)
+
+
+@pytest.mark.asyncio
+async def test_only_the_owner_can_keep_a_bird_and_only_a_known_one(monkeypatch):
+    from app.auth import create_access_token
+
+    settings.frigate.garden_domestic_birds = []
+    event = await bird_record(event_id="domestic-route-ka")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        assert (await client.post("/api/garden/domestic-birds/pheasant/keep")).status_code == 422
+        monkeypatch.setattr(settings.auth, "enabled", True)
+        assert (await client.post("/api/garden/domestic-birds/chicken/keep")).status_code == 401
+        client.headers["Authorization"] = "Bearer " + create_access_token("garden-guest", auth_level="guest")
+        assert (await client.post("/api/garden/domestic-birds/chicken/keep")).status_code == 403
+    assert settings.frigate.garden_domestic_birds == []
+    assert await hidden(event) == 0

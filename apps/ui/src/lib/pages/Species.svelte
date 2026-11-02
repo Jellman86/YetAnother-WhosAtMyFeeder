@@ -3,6 +3,8 @@
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import { fetchGardenDomesticBirds } from '../api/garden';
+    import { keptBirdCandidates, type DomesticBirdOption } from '../utils/domestic-birds';
     import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
@@ -267,6 +269,25 @@
             })
         })
     );
+    // A flagged species can be a domestic bird the owner keeps under its wild name: the bird model
+    // calls chickens Red Junglefowl. Only an owner with Garden on can move those records.
+    const gardenOwner = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
+    let domesticOptions = $state.raw<DomesticBirdOption[]>([]);
+    let domesticOptionsRun = $state(0);
+    $effect(() => {
+        void domesticOptionsRun;
+        if (!gardenOwner) {
+            domesticOptions = [];
+            return;
+        }
+        const controller = new AbortController();
+        fetchGardenDomesticBirds(controller.signal)
+            .then((options) => (domesticOptions = options))
+            .catch((error: unknown) => logger.debug('Domestic bird options unavailable', { message: getErrorMessage(error) }));
+        return () => controller.abort();
+    });
+    const keptBirds = $derived(gardenOwner ? keptBirdCandidates(showcaseRows.filter((row) => row.flagged), domesticOptions) : []);
+
     function showcaseCountLabel(count: number): string {
         if (sourceMode === 'both') {
             return countsAreVisits
@@ -1787,6 +1808,11 @@
                 nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
                 oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
+                {keptBirds}
+                onkept={() => {
+                    domesticOptionsRun += 1;
+                    void loadLeaderboard();
+                }}
             />
         {/if}
 

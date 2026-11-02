@@ -487,6 +487,14 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/domestic-birds` — the domestic birds an owner can declare: each `key`,
   whether it is `declared`, the catalogue `scientific_names` that stand for it and those names
   resolved to catalogue `species_ids`, so a bird record is matched by exact identity.
+- `POST /api/garden/domestic-birds/{bird}/keep` (owner) — declares `bird` under Domestic birds
+  you keep, when it is not already, and moves that bird's visible bird records to Garden through
+  the same path as `POST /api/events/{event_id}/move-to-garden`: each record is hidden, not deleted,
+  in the transaction that creates its capture. One request moves at most 500 records, oldest first.
+  Returns `{"bird", "declared", "moved", "skipped", "remaining"}`: `declared` is true when this
+  request added the bird, `skipped` counts matching records that could not move and stay in bird
+  history, and `remaining` counts matches beyond the limit, so repeat the request to move them.
+  `422` for a bird that is not a supported domestic bird; `409` when Garden is off.
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
   per-variant model download status, busy state, `automatic_message` and any worker cleanup error.
   Automatic checks download/verify the tracked-crop model when needed and run

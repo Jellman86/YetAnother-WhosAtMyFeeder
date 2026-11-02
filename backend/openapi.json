@@ -9302,6 +9302,53 @@
         "title": "GardenIdentifyRequest",
         "type": "object"
       },
+      "GardenKeepBirdResponse": {
+        "properties": {
+          "bird": {
+            "enum": [
+              "chicken",
+              "domestic_duck",
+              "domestic_goose",
+              "turkey",
+              "guinea_fowl",
+              "peafowl",
+              "domestic_pigeon",
+              "quail"
+            ],
+            "title": "Bird",
+            "type": "string"
+          },
+          "declared": {
+            "description": "True when this request added the bird to Domestic birds you keep",
+            "title": "Declared",
+            "type": "boolean"
+          },
+          "moved": {
+            "description": "Bird records moved to Garden; each is hidden in bird history, not deleted",
+            "title": "Moved",
+            "type": "integer"
+          },
+          "remaining": {
+            "description": "Matching bird records beyond this request's limit; repeat to move them",
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "skipped": {
+            "description": "Matching bird records that could not move and stay in bird history",
+            "title": "Skipped",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bird",
+          "declared",
+          "moved",
+          "skipped",
+          "remaining"
+        ],
+        "title": "GardenKeepBirdResponse",
+        "type": "object"
+      },
       "GardenModelStatus": {
         "properties": {
           "installed": {
@@ -29625,6 +29672,70 @@
           }
         ],
         "summary": "Domestic Birds",
+        "tags": [
+          "garden"
+        ]
+      }
+    },
+    "/api/garden/domestic-birds/{bird}/keep": {
+      "post": {
+        "description": "Declare a domestic bird the owner keeps and move its visible bird records to Garden. Owner only.",
+        "operationId": "keep_domestic_bird_api_garden_domestic_birds__bird__keep_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "bird",
+            "required": true,
+            "schema": {
+              "enum": [
+                "chicken",
+                "domestic_duck",
+                "domestic_goose",
+                "turkey",
+                "guinea_fowl",
+                "peafowl",
+                "domestic_pigeon",
+                "quail"
+              ],
+              "title": "Bird",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GardenKeepBirdResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Keep Domestic Bird",
         "tags": [
           "garden"
         ]
