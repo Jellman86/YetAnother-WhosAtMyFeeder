@@ -412,3 +412,22 @@ async def test_other_names_list_the_other_languages_with_the_preferred_name_firs
     assert (len(bounded["names"]), bounded["languages"], bounded["truncated"]) == (1, 2, True)
     assert (await get(f"/api/taxonomy/{dunnock}/names", params={"limit": 101})).status_code == 422
     assert (await get("/api/taxonomy/999999/names")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_garden_animal_names_reach_the_tree_cased_as_the_garden_record_shows_them(catalogue, reader, snapshots):
+    # SpeciesNet stores "red fox"; the Field log and Explorer show "Red Fox" through the shared
+    # `vernacular_case`. The tree, its cards and the photo caption read the same names.
+    fox = _id(catalogue, "Vulpes vulpes")
+    await add_garden("a" * 32, fox, "confirmed", RECENT, crop=True)
+    add_name(catalogue, "Vulpes vulpes", "de", "rotfuchs", False)
+    lineage = (await get(f"/api/taxonomy/{fox}/lineage")).json()["lineage"]
+    named = {taxon["scientific_name"]: taxon["name"] for taxon in lineage}
+    assert (named["Vulpes vulpes"], named["Canidae"]) == ("Red Fox", "Dog Family")
+    children = (await get(f"/api/taxonomy/{_id(catalogue, 'Carnivora')}/children")).json()["children"]
+    assert [(c["scientific_name"], c["name"]) for c in children] == [("Canidae", "Dog Family")]
+    photo = (await facts(_id(catalogue, "Canidae")))[_id(catalogue, "Canidae")]["photo"]
+    # Scientific names are never re-cased.
+    assert (photo["name"], photo["scientific_name"]) == ("Red Fox", "Vulpes vulpes")
+    other = (await get(f"/api/taxonomy/{fox}/names", lang="fr")).json()["names"]
+    assert [(n["language"], n["name"]) for n in other] == [("de", "rotfuchs"), ("en", "Red Fox")]

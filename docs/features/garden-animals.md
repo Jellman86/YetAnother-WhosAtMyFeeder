@@ -180,8 +180,10 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   different review states, it is disabled and says why. One capture from a visit or stack
   is dismissed with **Dismiss capture** beside its photo position, as a bird's photo is
   removed from its strip. The family tree
-  runs from the animal's class to its species using the SpeciesNet taxonomy; it does not
-  count species worldwide or sightings at the feeder, because those figures are birds'. **Details**, closed by default, holds the model run, the
+  runs from the animal's class to its species using the SpeciesNet taxonomy. It counts your
+  confirmed Garden visits: each species with its own saved crop, its visits and when it was first
+  and last seen, and each group with the species seen beneath it. Unconfirmed captures never count.
+  It does not count species worldwide, because SpeciesNet holds only the model's animals. **Details**, closed by default, holds the model run, the
   automatic check for confirmed animals and retained capture evidence;
   until an animal is confirmed, the automatic check's result stays visible because
   it explains the state. Photos in a visit show their time to the second. Hover or focus on

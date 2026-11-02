@@ -6,7 +6,9 @@
     import { byRank, formatScientificName, taxonNames, type NamePart } from '../taxonomy/nomenclature';
     import { elbowPath, fanLinkPath, fanPoint, layoutTree, type PlacedNode } from '../taxonomy/tree-layout';
     import { nodeMarker, visibleTree, type BranchState, type NodeMarker, type TreeItem } from '../taxonomy/tree-model';
+    import { heardCount, ownPhoto } from '../taxonomy/taxon-facts';
     import { outlineGuides, treeKeyAction } from '../taxonomy/tree-navigation';
+    import type { TaxonFactsStore } from '../utils/taxon-facts.svelte';
     import { portal } from '../utils/portal';
     import { isHoverPointer, isKeyboardFocus, TaxonPeek } from '../utils/taxon-peek.svelte';
     import TaxonCard from './TaxonCard.svelte';
@@ -23,16 +25,21 @@
      * branch shows the taxa on that path and those seen at this feeder, and sums the rest in one
      * node that opens them all. Branches load as they open, so the 11,000 birds never load at once.
      * It is a ranked classification as the sources publish it, not an evolutionary timeline.
+     *
+     * It is also this feeder's tree: a species seen here shows its own photograph and its visits,
+     * and says when BirdNET heard it. Each level's facts are one request as the level opens.
      */
     interface Props {
         /** The bird's lineage, root first, as the lineage route returns it. */
         lineage: Taxon[];
-        /** A Garden animal: what is seen here counts bird visits, so the tree does not claim it. */
+        /** What this install recorded of each taxon, shared with the record that opened the tree. */
+        facts: TaxonFactsStore;
+        /** A Garden animal: its catalogue is the model's animals, so a group's size is not a worldwide count. */
         subject?: 'bird' | 'animal';
         onclose: () => void;
     }
 
-    let { lineage, subject = 'bird', onclose }: Props = $props();
+    let { lineage, facts, subject = 'bird', onclose }: Props = $props();
 
     type Mode = 'tree' | 'fan' | 'outline';
     const MODE_KEY = 'yawamf_family_tree_mode';
@@ -68,6 +75,8 @@
         try {
             const response = await fetchTaxonChildren(id);
             setBranch(id, { children: response.children, loading: false });
+            // The facts of what the branch shows when it opens; the rest when "more" opens it all.
+            facts.request(response.children.filter((child) => path.has(child.taxon_id) || (child.seen_species ?? 0) > 0).map((child) => child.taxon_id));
         } catch (error) {
             logger.warn('Family tree branch unavailable', { taxon: id, error });
             setBranch(id, { loading: false });
@@ -162,22 +171,43 @@
         })
     );
 
-    const showSeen = $derived(subject === 'bird');
-
     function markerFor(item: TreeItem): NodeMarker {
-        return nodeMarker(item, showSeen);
+        return nodeMarker(item, true);
+    }
+
+    // A thumbnail that failed to load leaves the node as a marker alone.
+    let brokenPhotos = $state.raw<ReadonlySet<string>>(new Set());
+    function photoFor(taxon: Taxon): string | null {
+        if (taxon.rank !== 'species') return null;
+        const photo = ownPhoto(facts.get(taxon.taxon_id));
+        return photo && !brokenPhotos.has(photo.url) ? photo.url : null;
+    }
+    function broke(url: string): void {
+        brokenPhotos = new Set([...brokenPhotos, url]);
+    }
+
+    function heardHere(taxon: Taxon): boolean {
+        return taxon.rank === 'species' && heardCount(facts.get(taxon.taxon_id)) !== null;
     }
 
     function rankLabel(rank: string): string {
         return $_(`taxonomy.rank.${rank}`, { default: rank });
     }
 
-    /** The same count on every node: a group's size and what was seen of it, a species' captures. */
+    /**
+     * The same count on every node: a group's size and what was seen of it, a species' visits once
+     * its facts arrive. An animal's group is counted only by what was seen: its catalogue is the
+     * model's animals, not the world's.
+     */
     function countText(taxon: Taxon): string | null {
-        if (subject === 'animal') return null;
         if (taxon.rank === 'species') {
-            return (taxon.seen_count ?? 0) > 0
-                ? $_('taxonomy.captures_here', { values: { count: taxon.seen_count }, default: '{count, plural, one {# capture here} other {# captures here}}' })
+            const entry = facts.get(taxon.taxon_id);
+            const visits = entry?.state === 'ready' ? entry.facts.visits : 0;
+            return visits > 0 ? $_('taxonomy.visits_count', { values: { count: visits }, default: '{count, plural, one {# visit} other {# visits}}' }) : null;
+        }
+        if (subject === 'animal') {
+            return (taxon.seen_species ?? 0) > 0
+                ? $_('taxonomy.animal_seen', { values: { seen: taxon.seen_species }, default: '{seen, plural, =0 {None seen here} one {# seen here} other {# seen here}}' })
                 : null;
         }
         if (taxon.species_count == null) return null;
@@ -198,6 +228,7 @@
         if (names.secondary) parts.splice(1, 0, names.secondary.text);
         const counts = countText(item.taxon);
         if (counts) parts.push(counts);
+        if (heardHere(item.taxon)) parts.push($_('taxonomy.heard_node_aria', { default: 'heard by BirdNET' }));
         if (item.current) {
             parts.push(subject === 'animal'
                 ? $_('taxonomy.this_animal', { default: 'this animal' })
@@ -234,6 +265,7 @@
         if (item.kind === 'more') {
             const before = new Set(nodes.map((each) => each.id));
             setBranch(item.parentId, { showAll: true });
+            facts.request((branches.get(item.parentId)?.children ?? []).map((child) => child.taxon_id));
             // The "more" node is gone once the branch is open, so focus moves to the first taxon it held.
             if (fromKeyboard) {
                 void tick().then(() => {
@@ -319,6 +351,7 @@
             // Default view.
         }
         expanded = new Set(pathTaxa.filter((taxon) => taxon.rank !== 'species').map((taxon) => taxon.taxon_id));
+        facts.request(pathTaxa.map((taxon) => taxon.taxon_id));
         void Promise.all([...expanded].map((id) => load(id))).then(() => tick().then(centreOnBird));
         dialog?.focus();
         window.addEventListener('keydown', onKey, true);
@@ -411,12 +444,17 @@
             <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.path)}{subject === 'animal'
                 ? $_('taxonomy.legend_path_animal', { default: 'Path to this animal' })
                 : $_('taxonomy.legend_path', { default: 'Path to this bird' })}</span>
-            {#if showSeen}
-                <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.seen)}{$_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
-            {/if}
+            <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.seen)}{subject === 'animal'
+                ? $_('taxonomy.legend_seen_animal', { default: 'Seen here' })
+                : $_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
             <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.closed)}{$_('taxonomy.legend_closed', { default: 'Closed group, select to open' })}</span>
             <span class="text-slate-500 dark:text-slate-400">{$_('taxonomy.legend_open', { default: 'Select a group to open or close it' })}</span>
             <span class="hidden text-slate-500 dark:text-slate-400 sm:inline">{$_('taxonomy.legend_keys', { default: 'Arrow keys move through the tree.' })}</span>
+            {#if facts.scope}
+                <span class="text-slate-500 dark:text-slate-400" data-family-tree-scope>{facts.scope.scope === 'all'
+                    ? $_('taxonomy.facts.scope_all', { default: 'Counts cover all history' })
+                    : $_('taxonomy.facts.scope_shared', { values: { days: facts.scope.shared_days ?? 0 }, default: '{days, plural, =0 {Counts cover today, as shared with visitors} one {Counts cover the last day shared with visitors} other {Counts cover the last # days shared with visitors}}' })}</span>
+            {/if}
         </div>
 
         <div bind:this={scroller} class="relative min-h-0 flex-1 overflow-auto px-2 py-2 sm:px-4" data-family-tree-canvas>
@@ -470,6 +508,10 @@
                             {#if item.kind === 'more'}
                                 <span class="flex items-center pl-2 text-sm text-slate-500 dark:text-slate-400">{moreLabel(item.hidden)}</span>
                             {:else if names}
+                                {@const photo = photoFor(item.taxon)}
+                                {#if photo}
+                                    <img src={photo} alt="" class="ml-2 h-8 w-8 shrink-0 self-center rounded-full object-cover ring-1 ring-line" loading="lazy" onerror={() => broke(photo)} data-family-tree-photo />
+                                {/if}
                                 <span class="flex min-w-0 flex-1 flex-col justify-center py-1 pl-2">
                                     <span class="flex min-w-0 items-baseline gap-2">
                                         <TaxonNameText
@@ -478,9 +520,9 @@
                                         />
                                         <span class="taxon-rank shrink-0">{rankLabel(item.taxon.rank)}</span>
                                     </span>
-                                    {#if names.secondary || counts}
+                                    {#if names.secondary || counts || heardHere(item.taxon)}
                                         <span class="truncate text-2xs leading-4 text-slate-500 dark:text-slate-400">
-                                            {#if names.secondary}<TaxonNameText name={names.secondary} />{/if}{#if names.secondary && counts}<span aria-hidden="true">{' · '}</span>{/if}{#if counts}<span class="tabular-nums" data-family-tree-counts>{counts}</span>{/if}
+                                            {#if names.secondary}<TaxonNameText name={names.secondary} />{/if}{#if names.secondary && counts}<span aria-hidden="true">{' · '}</span>{/if}{#if counts}<span class="tabular-nums" data-family-tree-counts>{counts}</span>{/if}{#if heardHere(item.taxon)}{#if names.secondary || counts}<span aria-hidden="true">{' · '}</span>{/if}<span data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</span>{/if}
                                         </span>
                                     {/if}
                                 </span>
@@ -499,6 +541,7 @@
                         aria-label={$_('taxonomy.tree_label', { default: 'Classification tree' })}
                         data-family-tree-svg={mode}
                     >
+                        <defs><clipPath id="family-tree-photo-clip" clipPathUnits="objectBoundingBox"><circle cx="0.5" cy="0.5" r="0.5" /></clipPath></defs>
                         {#snippet svgName(parts: NamePart[])}{#each parts as part, index (index)}<tspan font-style={part.italic ? 'italic' : 'normal'}>{part.text}</tspan>{/each}{/snippet}
                         {#if mode === 'tree'}
                             {#each columnHeadings as heading (heading.depth)}
@@ -529,7 +572,8 @@
                             {@const names = item.kind === 'taxon' ? taxonNames(item.taxon, style) : null}
                             {@const counts = item.kind === 'taxon' ? countText(item.taxon) : null}
                             {@const before = mode === 'fan' ? point.x < fanCentre.x - 1 : branching.has(node.id)}
-                            {@const labelX = (before ? -0.75 : 0.75) * unit}
+                            {@const photo = mode === 'tree' && item.kind === 'taxon' && !before ? photoFor(item.taxon) : null}
+                            {@const labelX = (before ? -0.75 : photo ? 3.25 : 0.75) * unit}
                             <g
                                 transform="translate({point.x},{point.y})"
                                 role="treeitem"
@@ -558,6 +602,22 @@
                                 {/if}
                                 <circle r={0.875 * unit} class="focus-ring fill-transparent stroke-brand-500" stroke-width="2" data-tree-anchor />
                                 <TaxonMarker marker={markerFor(item)} {unit} />
+                                {#if photo}
+                                    <!-- This install's own photograph of the species, beside its marker. The card names it. -->
+                                    <image
+                                        href={photo}
+                                        x={0.75 * unit}
+                                        y={-1 * unit}
+                                        width={2 * unit}
+                                        height={2 * unit}
+                                        preserveAspectRatio="xMidYMid slice"
+                                        clip-path="url(#family-tree-photo-clip)"
+                                        aria-hidden="true"
+                                        onerror={() => broke(photo)}
+                                        data-family-tree-photo
+                                    />
+                                    <circle cx={1.75 * unit} r={1 * unit} class="fill-none stroke-line" stroke-width="1" aria-hidden="true" />
+                                {/if}
                                 {#if item.kind === 'more'}
                                     <text x={labelX} y={0.3 * unit} text-anchor={before ? 'end' : 'start'} class="tree-label fill-slate-500 text-xs font-medium dark:fill-slate-400">{moreLabel(item.hidden)}</text>
                                 {:else if names}
@@ -574,7 +634,7 @@
                                         y={1 * unit}
                                         text-anchor={before ? 'end' : 'start'}
                                         class="tree-label fill-slate-500 text-3xs dark:fill-slate-400"
-                                    >{#if mode === 'fan'}<tspan class="font-semibold uppercase tracking-widest">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && showSeen && (item.taxon.seen_species ?? 0) > 0 ? 'fill-emerald-700 dark:fill-emerald-300' : ''}">{counts}</tspan>{/if}</text>
+                                    >{#if mode === 'fan'}<tspan class="font-semibold uppercase tracking-widest">{rankLabel(item.taxon.rank)}</tspan>{:else if names.secondary}{@render svgName(names.secondary.parts)}{/if}{#if counts}{#if mode === 'fan' || names.secondary}<tspan>{' · '}</tspan>{/if}<tspan class="tabular-nums {item.kind === 'taxon' && (item.taxon.seen_species ?? 0) > 0 ? 'fill-emerald-700 dark:fill-emerald-300' : ''}">{counts}</tspan>{/if}{#if heardHere(item.taxon)}{#if mode === 'fan' || names.secondary || counts}<tspan>{' · '}</tspan>{/if}<tspan data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</tspan>{/if}</text>
                                 {/if}
                             </g>
                         {/each}
@@ -594,7 +654,7 @@
     </div>
 </div>
 
-<TaxonCard {peek} {subject} />
+<TaxonCard {peek} {facts} {subject} />
 
 <style>
     /* A halo in the canvas colour, so a branch passing behind a label never strikes it through. */

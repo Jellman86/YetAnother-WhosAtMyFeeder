@@ -295,22 +295,48 @@ italic. The reader's Bird Naming Style decides which name leads: common first wi
 name beneath, scientific first with the common name beneath, or the scientific name alone. A common
 name that only repeats the scientific one is shown once. Ranks always read from the highest down,
 whatever order a source returns them in, and each rank is labelled in words. The tree never
-invents what the classification does not hold: no author or year, no dates or branch lengths, and
-nothing about how individual birds relate.
+invents what the classification does not hold: an authority and year appear only as the catalogue
+stores them (upright, after the italic name, parentheses only where the source wrote them), and
+there are no dates or branch lengths and nothing about how individual birds relate.
+
+**It is this feeder's tree.** What the install recorded comes from `/api/taxonomy/facts`, one request
+per open level (`utils/taxon-facts.svelte.ts`, one store per surface shared by the ladder, its card and
+the tree; decisions in `taxonomy/taxon-facts.ts`). A species node seen here shows this install's own
+photograph beside its marker, its visits, and "heard" when BirdNET recorded it. Visits are the shared
+visit rule plus confirmed Garden visits; unconfirmed captures and hidden records never count. The
+legend names the window the counts cover (all history, or the days shared with visitors).
 
 **Counts are stated one way.** A group says "N species, M seen here" on its node, in its card and in
-the outline; a species says how many captures it has here, and its card says so when it has none. A Garden
-animal makes no such claim: the catalogue holds only the model's animals and the counts are birds'.
+the outline; a species says "N visits", and its card says "No visits recorded" rather than a zero. A
+Garden animal's group says only what was seen ("1 seen here"): its catalogue holds the model's animals,
+so its sizes are not worldwide counts.
 
 Every name in the ladder, the tree and the outline opens a `TaxonCard` under the §4 contract, one
-card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its reference photograph
-captioned only "Reference photo" (one species-information request per species per page, through
-`utils/taxon-pictures.ts`, which passes the scientific name as the lookup hint so a mammal is not
-searched for among birds; the route's `source` names the summary provider, not necessarily the
-photograph's, so the card names no provider), a group shows its size and what was seen here. A group never asks for a
-picture, because the species-information route would cache it as a species. Selecting a species,
-which has nothing to open, pins its card; the species details show the same ladder. The tree is a
-ranked classification, and the footer says so: it shows grouping, not divergence.
+card per surface driven by `utils/taxon-peek.svelte.ts`. The card is set like a specimen label, in
+this order: the photograph; rank, name in the display face, the second name with its authority; the
+heard and IUCN badges, each in words (the category is spelled out with its code, never a colour); what
+was recorded here as a row of figures, label above figure (visits, first and last seen, or for a group
+its size, visits and last visit), with the window beneath; a three-line description with its provider;
+and, for a species, its names in other languages collapsed behind "Names in N languages". The photograph
+is this install's own newest stored crop, captioned "Your photo" with its date, falling back to the
+reference photograph captioned only "Reference photo" when there is none or it fails to load (the
+route's `source` names the summary provider, not necessarily the photograph's, so the card names no
+provider). A group is pictured only by its most-seen member's own photograph ("Your photo of
+Dunnock"), never by a reference image. Reference lookups go through `utils/taxon-pictures.ts`, once per
+taxon per page: a species by its scientific name as the hint, so a mammal is not searched for among
+birds, and a family or order by its name and rank, which the route describes only from the taxon of
+that exact name and rank and caches apart from species. A genus is never described, because genus
+names repeat across kingdoms. Every fact has its own loading, absent and failed state; a failed one
+offers Try again, and one that is not known is left out. The card stays inside the dialog its name sits in (the family
+tree, a record), else the window, and never covers the name it describes: below it, else above, else
+beside it on the roomier side, else on the roomier side with its own scroll (`taxonomy/card-placement.ts`).
+A card that scrolls inside fades into the surface at its foot until its end, so cut-off text never
+reads as the whole card. Garden animals are named as the Garden record names them: the taxonomy
+routes case SpeciesNet's lowercase names with the same `vernacular_case` the Field log and Explorer
+use, and scientific names are never re-cased. A pinned card takes Tab into its controls; Tab past them, or Escape, hands focus back to the
+name without reopening the card. Selecting a species, which has nothing to open, pins its card; the
+species details show the same ladder. The tree is a ranked classification, and the footer says so: it
+shows grouping, not divergence.
 
 ### Standing (Leaderboard)
 

@@ -4,6 +4,7 @@
     import { currentNamingStyle } from '../taxonomy/naming-style';
     import { byRank, taxonNames } from '../taxonomy/nomenclature';
     import { logger } from '../utils/logger';
+    import { TaxonFactsStore } from '../utils/taxon-facts.svelte';
     import { isHoverPointer, isKeyboardFocus, TaxonPeek } from '../utils/taxon-peek.svelte';
     import FamilyTreeDialog from './FamilyTreeDialog.svelte';
     import TaxonCard from './TaxonCard.svelte';
@@ -16,7 +17,7 @@
      */
     interface Props {
         scientificName: string;
-        /** A Garden animal: the catalogue holds only the model's animals and the counts are birds'. */
+        /** A Garden animal: the catalogue holds only the model's animals, so no count is worldwide. */
         subject?: 'bird' | 'animal';
         /** Chrome around the lineage, such as a rule above it, drawn only when there is a lineage. */
         class?: string;
@@ -28,6 +29,9 @@
     let loading = $state(true);
     let open = $state(false);
     const peek = new TaxonPeek();
+    // What this install recorded, shared by the ladder's card and the tree it opens. Asked for when
+    // a card first opens, so a record that is only read costs nothing more.
+    const facts = new TaxonFactsStore();
 
     $effect(() => {
         const name = scientificName.trim();
@@ -57,6 +61,10 @@
     );
     const family = $derived(steps.find((taxon) => taxon.rank === 'family') ?? null);
     const style = $derived(currentNamingStyle());
+
+    function lookCloser(): void {
+        facts.request(steps.map((taxon) => taxon.taxon_id));
+    }
 </script>
 
 {#if loading}
@@ -98,11 +106,22 @@
                             type="button"
                             class="ml-2 flex min-h-11 min-w-0 flex-col justify-center rounded-lg px-2 text-left hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                             aria-expanded={peek.isOpen(taxon.taxon_id)}
-                            onpointerenter={(event) => isHoverPointer(event) && peek.hover(taxon, last, event.currentTarget)}
+                            onpointerenter={(event) => {
+                                if (!isHoverPointer(event)) return;
+                                lookCloser();
+                                peek.hover(taxon, last, event.currentTarget);
+                            }}
                             onpointerleave={() => peek.leave()}
-                            onfocus={(event) => isKeyboardFocus(event.currentTarget) && peek.focus(taxon, last, event.currentTarget)}
+                            onfocus={(event) => {
+                                if (!isKeyboardFocus(event.currentTarget)) return;
+                                lookCloser();
+                                peek.focus(taxon, last, event.currentTarget);
+                            }}
                             onblur={() => peek.leave()}
-                            onclick={(event) => peek.toggle(taxon, last, event.currentTarget)}
+                            onclick={(event) => {
+                                lookCloser();
+                                peek.toggle(taxon, last, event.currentTarget);
+                            }}
                             data-taxon-peek-trigger
                         >
                             <TaxonNameText
@@ -134,8 +153,8 @@
     </section>
 {/if}
 
-<TaxonCard {peek} {subject} />
+<TaxonCard {peek} {facts} {subject} />
 
 {#if open && lineage}
-    <FamilyTreeDialog {lineage} {subject} onclose={() => (open = false)} />
+    <FamilyTreeDialog {lineage} {facts} {subject} onclose={() => (open = false)} />
 {/if}
