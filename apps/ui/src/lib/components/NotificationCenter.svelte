@@ -10,7 +10,7 @@
         buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring',
         current = false,
         onNavigate,
-    } = $props<{
+    }: {
         showLabel?: boolean;
         label?: string;
         collapsed?: boolean;
@@ -18,7 +18,7 @@
         /** The Notifications page is open, so the bell is where you are. */
         current?: boolean;
         onNavigate?: (path: string) => void;
-    }>();
+    } = $props();
 
     let items = $derived(notificationCenter.items);
     let unreadCount = $derived(items.filter((item) => !item.read).length);

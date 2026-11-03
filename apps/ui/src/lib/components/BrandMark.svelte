@@ -10,14 +10,14 @@
         width,
         height,
         loading = 'eager',
-    } = $props<{
+    }: {
         alt?: string;
         class?: string;
         sizes?: string;
         width?: number;
         height?: number;
         loading?: LoadingMode;
-    }>();
+    } = $props();
 
     const srcSet = [
         `${withAssetVersion('/favicon.png')} 32w`,

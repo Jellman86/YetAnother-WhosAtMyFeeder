@@ -16,7 +16,7 @@
         updateStatusStore.load();
     });
 
-    let { currentRoute, onNavigate, isMobile = false, mobileSidebarOpen = false, onMobileClose, status } = $props<{
+    let { currentRoute, onNavigate, isMobile = false, mobileSidebarOpen = false, onMobileClose, status }: {
         currentRoute: string;
         onNavigate: (path: string) => void;
         /** On a phone the sidebar is a drawer over the page. */
@@ -24,7 +24,7 @@
         mobileSidebarOpen?: boolean;
         onMobileClose?: () => void;
         status?: import('svelte').Snippet;
-    }>();
+    } = $props();
 
     let asideEl = $state<HTMLElement | null>(null);
     const drawerOpen = $derived(isMobile && mobileSidebarOpen);

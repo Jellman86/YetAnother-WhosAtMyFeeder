@@ -9,10 +9,10 @@
 
     import { detectionsStore } from '../stores/detections.svelte';
 
-    let { progress, small = false } = $props<{
+    let { progress, small = false }: {
         progress: ReclassificationProgress;
         small?: boolean;
-    }>();
+    } = $props();
 
     type FrameResult = ReclassificationProgress['frameResults'][number];
     function hasFrameResult(frame: FrameResult | undefined): frame is FrameResult {
