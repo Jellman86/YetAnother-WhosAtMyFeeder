@@ -13,11 +13,15 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from app.services.nearby_species_service import NearbyLookup
 from app.auth import AuthContext, AuthLevel, create_access_token
 from app.config import settings
 from app.main import app
 from app.routers import about, ai, audio, events, proxy, species, stats
 from app.utils import public_access
+
+
+NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
 
 CLOCKS = [
     ("2026-09-30T23:30:00+00:00", "Europe/London"),
@@ -282,7 +286,7 @@ async def test_window_routes_reuse_their_own_instant_instead_of_reading_a_later_
     monkeypatch.setattr(species, "public_event_query_bounds", bounds)
     monkeypatch.setattr(species, "public_events_window", event_window)
     monkeypatch.setattr(public_access, "public_media_window", media_window)
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value=None))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get(route)
     assert response.status_code == 200, response.text

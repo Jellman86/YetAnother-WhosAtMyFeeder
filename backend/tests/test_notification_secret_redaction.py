@@ -202,3 +202,59 @@ def test_short_configured_values_cannot_hide_a_stale_credential_url_from_redacti
     assert "DUMMY-STALE-CREDENTIAL" not in result
     assert "***REDACTED***" in result
     assert redact_text(result, ("telegram", "REDACTED")) == result
+
+
+@pytest.mark.parametrize(
+    "webhook",
+    [
+        "https://hooks.example.test/hooks/DUMMY-custom-credential?wait=false",
+        "HTTPS://HOOKS.EXAMPLE.TEST:443/hooks/../hooks/DUMMY-custom-credential?wait=false",
+        "https://hooks.example.test/hooks/DUMMY custom-credential?wait=false",
+    ],
+)
+def test_configured_custom_webhook_redaction_ignores_query_and_url_normalisation(monkeypatch, caplog, webhook):
+    monkeypatch.setattr(settings.notifications.discord, "webhook_url", webhook)
+    request_url = httpx.URL(webhook).copy_merge_params({"wait": "true"})
+    caplog.set_level(logging.DEBUG, logger="httpx")
+    logging.getLogger("httpx").info('HTTP Request: POST %s "HTTP/1.1 200 OK"', request_url)
+    assert "DUMMY" not in unquote(caplog.text)
+    assert "REDACTED" in caplog.text and "200 OK" in caplog.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("photo", [False, True])
+@pytest.mark.parametrize("failure", [False, True])
+async def test_per_send_custom_webhook_redacts_requests_paths_and_tracebacks(monkeypatch, caplog, photo, failure):
+    from app.services.notifications.message import Attachment, NotificationMessage
+    from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
+
+    monkeypatch.setattr(settings.notifications.discord, "webhook_url", "https://other.example.test/unrelated")
+    webhook = "HTTPS://HOOKS.EXAMPLE.TEST:443/hooks/../hooks/DUMMY per-send-credential?wait=false"
+    requests = []
+
+    def answer(request):
+        requests.append(request)
+        logger = logging.getLogger("httpcore.http11")
+        logger.debug("request target=%r", request.url.raw_path)
+        if failure:
+            try:
+                raise httpx.ReadTimeout(f"Timeout accessing {request.url}", request=request)
+            except httpx.ReadTimeout:
+                logger.exception("Transport failure")
+                raise
+        return httpx.Response(200)
+
+    caplog.set_level(logging.DEBUG, logger="httpx")
+    caplog.set_level(logging.DEBUG, logger="httpcore.http11")
+    message = NotificationMessage("Robin", attachment=Attachment("photo.jpg", b"fixture") if photo else None)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+        result = await DiscordTransport(client).send(
+            message, DiscordCredentials(webhook), DiscordOptions("test", "test")
+        )
+    assert result.sent is not failure
+    assert len(requests) == 1 and requests[0].url.params["wait"] == "true"
+    assert "DUMMY per-send-credential" in unquote(str(requests[0].url))
+    assert "DUMMY" not in unquote(caplog.text)
+    assert "REDACTED" in caplog.text and "request target" in caplog.text
+    if failure:
+        assert "ReadTimeout" in caplog.text

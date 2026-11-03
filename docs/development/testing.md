@@ -29,8 +29,27 @@ The backend command collects everything in `backend/tests`, including the former
 orphaned Python tests under the root `tests` directory. Both PR checks and image
 builds use this same command and `backend/.coveragerc`: branch measurement with a
 70% total floor. This is a minimum, not evidence that every important path works.
-The test process must exit successfully within eight minutes. A printed pass
-summary does not excuse a teardown hang or a failed coverage report.
+
+It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
+run first, alone, within two minutes: they migrate no database and never import
+the FastAPI app, and that subtree's conftest fails any test that opens a database
+or imports `app.main`. Every other test then runs against a suite database migrated
+once, within ten minutes. Coverage from both lanes is combined into one report.
+A printed pass summary does not excuse a teardown hang or a failed coverage report.
+
+A test that needs an empty schema at head takes the `migrated_history_db` fixture,
+a private copy of the suite database taken right after migration, instead of
+running Alembic again. Tests about a migration itself still run the real chain.
+For a quick loop on decision logic, `pytest tests/pure` from `backend/` runs in
+seconds because it skips migration and application imports.
+
+Tests own what they open. After every test, once all its fixtures are torn
+down, the suite conftest fails that test if it left an aiosqlite connection
+open, or left `time.time`, `time.monotonic`, `time.perf_counter`, `time.sleep`
+or `asyncio.sleep` patched. A patch of `module.time.time` replaces the clock
+for the whole process. A test that needs the application's connection pool
+takes the `history_pool` fixture, which opens and closes the pool in that
+test's own event loop, instead of calling `init_db()` itself.
 
 The image build also starts and stops the backend with both databases under its
 temporary directory. Set `SPECIES_CATALOG_PATH` explicitly when reproducing that
@@ -318,9 +337,13 @@ corpus still needs pinned, reviewed images and a previous-release baseline.
   broader retained-video replay, CUDA coverage beyond the tested RoPE/crop pair,
   and sustained mixed-load memory/queue bounds. The October [model evaluation](../reviews/2026-10-10-model-integration-validation.md)
   is scoped evidence, not a universal accuracy or hardware certification.
-- Removing the old test-wide aiosqlite daemon-thread workaround by fixing each
-  leaking fixture. Strict process exit catches other hangs but does not prove that
-  all database connections are currently closed.
+- Removing the test-wide aiosqlite daemon-thread workaround. Every test is now
+  checked for leaked connections, so the next step is one CI run without the
+  workaround to prove interpreter exit stays prompt. Two classifier worker tests
+  and one crop-process test still leave non-database worker threads running.
+- Rows that one API test leaves in the shared suite database. Running some files
+  together in an order other than the suite's (for example the events, species and
+  stats API files on their own) shows counts from another file's rows.
 - Populated historical-schema upgrade/rollback matrices beyond the existing
   migration and runtime-flavour tests, plus restore through the owner workflow.
 

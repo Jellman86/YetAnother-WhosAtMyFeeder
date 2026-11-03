@@ -4,7 +4,7 @@ import httpx
 import pytest
 from app.config import settings
 from app.main import app
-from app.routers import events
+from app.services import detection_presenter
 from app.utils import public_access
 from test_public_utc_day_boundaries import clock as clock, history as history
 
@@ -40,8 +40,8 @@ async def test_public_event_audio_keeps_the_admitted_day_across_request_rollover
     monkeypatch.setattr(public_access, "datetime", AdvancingDatetime)
     monkeypatch.setattr(settings.public_access, "show_audio", True)
     monkeypatch.setattr(settings.frigate, "camera_audio_mapping", {"utc-camera": "*"})
-    monkeypatch.setattr(events, "localize_audio_detections", AsyncMock())
-    monkeypatch.setattr(events, "localize_audio_species_name", AsyncMock(return_value="Robin"))
+    monkeypatch.setattr(detection_presenter, "localize_audio_detections", AsyncMock())
+    monkeypatch.setattr(detection_presenter, "localize_audio_species_name", AsyncMock(return_value="Robin"))
     async with history() as db:
         await db.execute("DELETE FROM detections")
         await db.execute(

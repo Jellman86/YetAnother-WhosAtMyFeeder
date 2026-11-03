@@ -117,7 +117,7 @@ async def test_context_is_not_scored_when_another_recovered_bird_is_inside_margi
 def test_count_context_cannot_replace_the_main_species_or_be_applied_as_a_photo():
     from app.services.hq_classification_refinement import choose_hq_classification_refinement
     from app.routers.proxy import _pick_snapshot_candidate, SnapshotApplyRequest
-    from tests.test_hq_classification_refinement import _candidate, _detection
+    from tests.pure.test_hq_classification_refinement import _candidate, _detection
 
     rows = [_candidate(frame, "Cardinalis cardinalis", 0.99, source_mode="model_observation") for frame in (30, 60)]
     assert choose_hq_classification_refinement(detection=_detection(), candidates=rows, minimum_score=0.65) is None

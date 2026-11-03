@@ -53,10 +53,12 @@ We work test-first.
 - **Pure logic gets pure unit tests.** Classification admission, canonical-species
   identity, config/env mapping, taxonomy normalisation, and other decision logic
   must be testable without a live database, network, MQTT broker, or ML model. Pass
-  inputs in (parsed payloads, `now`) so tests are deterministic. See
-  [`backend/tests/test_classification_admission.py`](backend/tests/test_classification_admission.py),
-  [`backend/tests/test_canonical_species.py`](backend/tests/test_canonical_species.py),
-  and [`backend/tests/test_config_env_mapping.py`](backend/tests/test_config_env_mapping.py).
+  inputs in (parsed payloads, `now`) so tests are deterministic. They live in
+  `backend/tests/pure/`, which migrates no database and builds no app; its conftest
+  refuses both, so a test that needs them belongs in `backend/tests/`. See
+  [`backend/tests/pure/test_classification_admission.py`](backend/tests/pure/test_classification_admission.py),
+  [`backend/tests/pure/test_canonical_species.py`](backend/tests/pure/test_canonical_species.py),
+  and [`backend/tests/pure/test_config_env_mapping.py`](backend/tests/pure/test_config_env_mapping.py).
 - **A bug fix starts with a test that reproduces the bug**, then the fix.
 - Tests own their fixtures (temp dirs, seeded rows) and clean up; never depend on a
   developer machine, a running Frigate/MQTT, or downloaded models.

@@ -324,7 +324,7 @@ class FrigateSettings(BaseModel):
         le=0.99,
         allow_inf_nan=False,
         strict=True,
-        description="Minimum SpeciesNet score to name a Garden animal automatically; uncertain checks below it are dismissed and remain restorable",
+        description="Minimum SpeciesNet score to name a Garden animal automatically; checks below it are dismissed and remain restorable",
     )
     garden_domestic_birds: list[DomesticBirdKey] = Field(
         default_factory=list,

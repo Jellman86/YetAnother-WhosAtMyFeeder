@@ -209,7 +209,14 @@
     "partial": "{count, plural, one {# capture n’a pas pu être renommée. Réessayez.} other {# captures n’ont pas pu être renommées. Réessayez.}}",
     "renamed": "{count, plural, one {# visite est désormais} other {# visites sont désormais}} {species}.",
     "confirmed": "{count, plural, one {# visite confirmée comme} other {# visites confirmées comme}} {species}.",
-    "hidden": "{count, plural, one {# visite masquée comme non-oiseau.} other {# visites masquées comme non-oiseaux.}}"
+    "hidden": "{count, plural, one {# visite masquée comme non-oiseau.} other {# visites masquées comme non-oiseaux.}}",
+    "kept_bird_body": "{species} est peut-être un oiseau domestique : {kind}. Si vous en élevez, enregistrez-les comme animaux du jardin : leurs fiches d’oiseaux passent au jardin, masquées dans l’historique des oiseaux, pas supprimées.",
+    "kept_bird_keep": "J’élève des {kind} : déplacer vers le jardin",
+    "kept_bird_move": "Déplacer les fiches {kind} vers le jardin",
+    "kept_bird_working": "Déplacement vers le jardin…",
+    "kept_bird_moved": "{count, plural, =0 {Aucune fiche d’oiseau à déplacer.} one {# fiche d’oiseau déplacée vers le jardin.} other {# fiches d’oiseaux déplacées vers le jardin.}} {kind} figurent maintenant dans Oiseaux domestiques que vous élevez.",
+    "kept_bird_skipped": "{count, plural, one {# fiche n’a pas pu être déplacée et reste dans l’historique des oiseaux.} other {# fiches n’ont pas pu être déplacées et restent dans l’historique des oiseaux.}}",
+    "kept_bird_remaining": "{count, plural, one {# autre fiche attend ; relancez l’action pour la déplacer.} other {# autres fiches attendent ; relancez l’action pour les déplacer.}}"
   },
   "span_group": "Période"
 }

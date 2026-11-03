@@ -6,10 +6,13 @@ import pytest
 import pytest_asyncio
 
 from app.main import app
-from app.database import get_db, init_db, close_db
+from app.database import get_db
 from app.config import settings
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository, Detection
 from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 def assert_audio_species_matches(actual: list[str], expected: list[str | set[str]]) -> None:
@@ -26,15 +29,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -321,7 +315,7 @@ async def test_events_normalize_non_utc_audio_offsets_before_context_filtering(c
                 "feeder-cam",
             ),
         )
-        await DetectionRepository(db).insert_audio_detection(
+        await AudioHistoryRepository(db).insert_audio_detection(
             timestamp=heard_at,
             species="Passer domesticus",
             confidence=0.61,
@@ -493,13 +487,15 @@ async def test_batched_owner_contexts_match_single_reads_across_mapping_windows_
         await db.commit()
         repo = DetectionRepository(db)
         expected = {
-            event.frigate_event: await repo.get_audio_context(event.detection_time, 30, cameras[event.camera_name], 8)
+            event.frigate_event: await AudioHistoryRepository(repo.db).get_audio_context(
+                event.detection_time, 30, cameras[event.camera_name], 8
+            )
             for event in events
         }
-        actual = await repo.get_audio_contexts_for_detections(events, cameras, 30)
+        actual = await AudioHistoryRepository(repo.db).get_audio_contexts_for_detections(events, cameras, 30)
         assert actual == expected
         assert actual["context-unmapped-0"][0] == []
         assert actual["context-unmapped-0"][1] > 0
         assert len(actual["context-wildcard-0"][0]) == 8
         assert actual["context-mapped-1000"] == ([], 0)
-        assert await repo.get_audio_contexts_for_detections([], cameras, 30) == {}
+        assert await AudioHistoryRepository(repo.db).get_audio_contexts_for_detections([], cameras, 30) == {}

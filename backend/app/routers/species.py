@@ -10,6 +10,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.species_repository import SpeciesRepository
 from app.models import (
@@ -22,6 +23,7 @@ from app.models import (
     SpeciesSearchResult,
 )
 from app.config import settings
+from app.services.detection_presenter import present_names, summary_detection_fields
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.i18n_service import i18n_service
 from app.services.classifier_service import get_classifier
@@ -33,11 +35,10 @@ from app.utils.species_aliases import (
     parse_species_alias_label as _parse_species_alias_label,
     split_species_alias_parts as _split_species_alias_parts,
 )
-from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.language import get_user_language
 from app.utils.enrichment import get_effective_enrichment_settings
-from app.utils.audio_localization import localize_audio_species_name
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
@@ -115,6 +116,10 @@ class LeaderboardSpeciesResponse(BaseModel):
     # The eBird check behind reported_nearby, or null when it did not run.
     nearby_radius_km: int | None = None
     nearby_days_back: int | None = None
+    # Whether that check ran: "off" when eBird or the feeder location is not set up, which is not
+    # pending work; "unavailable" when it is set up but no current report exists, because the lookup
+    # failed and at most an expired report is left, so nothing was measured now.
+    nearby_check: Literal["checked", "off", "unavailable"]
     species: list[LeaderboardSpeciesItemResponse]
 
 
@@ -1054,7 +1059,8 @@ async def get_leaderboard_species(
         )
         history_start, _ = await repo.get_detection_time_bounds(**bounds)
 
-    nearby = await nearby_species_service.get_report()
+    nearby_lookup = await nearby_species_service.lookup()
+    nearby = nearby_lookup.report
 
     # Filter to species present in the selected window only.
     filtered = []
@@ -1151,6 +1157,7 @@ async def get_leaderboard_species(
         and previous_window_is_complete(history_start=history_start, prev_start=prev_start),
         "nearby_radius_km": nearby.radius_km if nearby else None,
         "nearby_days_back": nearby.days_back if nearby else None,
+        "nearby_check": nearby_lookup.check,
         "species": filtered,
     }
 
@@ -1171,7 +1178,6 @@ async def get_species_stats(
         repo = DetectionRepository(db)
 
         # For "Unknown Bird" queries, we need to aggregate stats from all unknown labels
-        unknown_labels = settings.classification.unknown_bird_labels
         is_unknown_query = species_name == "Unknown Bird"
         alias_info = None
 
@@ -1275,73 +1281,16 @@ async def get_species_stats(
         # Also transform display_name for unknown bird labels
         recent_detections = []
         public_audio = (
-            await repo.get_public_audio_for_detections(recent)
+            await AudioHistoryRepository(db).get_public_audio_for_detections(recent)
             if not auth.is_owner and settings.public_access.show_audio
             else {}
         )
         for d in recent:
             if not auth.is_owner:
-                await refresh_public_audio_fields(d, repo, public_audio.get(d.frigate_event, {}))
-            common_name = d.common_name
-            if d.taxa_id:
-                if lang != "en":
-                    localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
-                else:
-                    canonical = await taxonomy_service.get_canonical_english_name(d.taxa_id, db=db)
-                    if canonical:
-                        common_name = canonical
-
-            public_species = user_facing_species_fields(
-                display_name=d.display_name,
-                category_name=d.category_name,
-                scientific_name=d.scientific_name,
-                common_name=common_name,
-                taxa_id=d.taxa_id,
-                extra_unknown_labels=unknown_labels,
-            )
-
-            audio_species = d.audio_species
-            if audio_species:
-                confirmed_taxa_id = (
-                    int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
-                )
-                resolved = await localize_audio_species_name(
-                    audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id
-                )
-                if resolved:
-                    audio_species = resolved
-
+                await refresh_public_audio_fields(d, AudioHistoryRepository(db), public_audio.get(d.frigate_event, {}))
+            names = await present_names(d, lang, db)
             recent_detections.append(
-                Detection(
-                    id=d.id,
-                    detection_time=d.detection_time,
-                    detection_index=d.detection_index,
-                    score=d.score,
-                    display_name=str(public_species["display_name"]),
-                    category_name=public_species["category_name"],
-                    frigate_event=d.frigate_event,
-                    camera_name="Hidden" if hide_camera_names else d.camera_name,
-                    is_hidden=d.is_hidden,
-                    is_favorite=d.is_favorite,
-                    frigate_score=d.frigate_score,
-                    sub_label=d.sub_label,
-                    audio_confirmed=d.audio_confirmed,
-                    audio_species=audio_species,
-                    audio_score=d.audio_score,
-                    temperature=d.temperature,
-                    weather_condition=d.weather_condition,
-                    weather_cloud_cover=d.weather_cloud_cover,
-                    weather_wind_speed=d.weather_wind_speed,
-                    weather_wind_direction=d.weather_wind_direction,
-                    weather_precipitation=d.weather_precipitation,
-                    weather_rain=d.weather_rain,
-                    weather_snowfall=d.weather_snowfall,
-                    scientific_name=public_species["scientific_name"],
-                    common_name=public_species["common_name"],
-                    taxa_id=public_species["taxa_id"],
-                )
+                Detection(**summary_detection_fields(d, names, hides_camera_names=hide_camera_names))
             )
 
         if not auth.is_owner and not settings.public_access.show_audio:
@@ -1481,6 +1430,30 @@ async def clear_species_cache(
     return SpeciesCacheClearResponse(status="cleared", species=species_name)
 
 
+#: The groups a reference lookup can describe. A genus is left out: genus names repeat across
+#: kingdoms (Prunella is a bird and a plant), and rank alone cannot tell them apart.
+GroupRank = Literal["family", "order"]
+
+#: The IUCN Red List categories by the number iNaturalist stores beside each.
+_IUCN_CATEGORIES = {5: "DD", 10: "LC", 20: "NT", 30: "VU", 40: "EN", 50: "CR", 60: "EW", 70: "EX"}
+
+
+def _global_iucn_status(taxon: dict) -> str | None:
+    """The IUCN Red List's global category for a taxon; a regional list or another authority is not it."""
+    for status in taxon.get("conservation_statuses") or []:
+        if not isinstance(status, dict) or status.get("place"):
+            continue
+        if str(status.get("authority") or "").strip().casefold() != "iucn red list":
+            continue
+        code = str(status.get("status") or "").strip().upper()
+        if code in _IUCN_CATEGORIES.values():
+            return code
+        number = status.get("iucn")
+        if isinstance(number, int) and number in _IUCN_CATEGORIES:
+            return _IUCN_CATEGORIES[number]
+    return None
+
+
 @router.get("/species/{species_name}/info", response_model=SpeciesInfo)
 @guest_rate_limit()
 async def get_species_info(
@@ -1489,6 +1462,10 @@ async def get_species_info(
     refresh: bool = False,
     auth: AuthContext = Depends(get_auth_context_with_legacy),
     scientific_name: str | None = Query(None, min_length=1, max_length=200),
+    rank: GroupRank | None = Query(
+        None,
+        description="With scientific_name, describe the family or order of that name at that rank instead of a species",
+    ),
 ):
     """Get species information for a species. Use refresh=true to bypass cache."""
     lang = get_user_language(request) or "en"
@@ -1496,7 +1473,7 @@ async def get_species_info(
         identity = scientific_name.strip()
         if not identity:
             raise HTTPException(422, "Scientific name cannot be blank")
-        return await _get_taxon_reference_info(species_name, identity, lang, refresh)
+        return await _get_taxon_reference_info(species_name, identity, lang, refresh, rank=rank)
     log.info("Fetching species info", species=species_name, refresh=refresh, language=lang)
 
     # Skip Wikipedia lookup for non-identifiable species (e.g., "Unknown Bird")
@@ -1727,13 +1704,39 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
     )
 
 
-async def _get_taxon_reference_info(species_name: str, scientific_name: str, lang: str, refresh: bool) -> SpeciesInfo:
+async def _group_reference_info(species_name: str, scientific_name: str, lang: str, rank: GroupRank) -> SpeciesInfo:
+    """A family or order described by the one iNaturalist taxon of that name and rank, never a name search.
+
+    Without iNaturalist's own summary, the Wikipedia page that taxon links to stands in, and only
+    when the page names the group.
+    """
+    info = await _fetch_inaturalist_info(species_name, lang, scientific_name, require_scientific_name=True, rank=rank)
+    info.conservation_status = None
+    if not info.extract and info.wikipedia_url:
+        page = await _fetch_wikipedia_info_from_url(
+            info.wikipedia_url, species_name, lang, expected_scientific_name=scientific_name
+        )
+        if page and page.extract:
+            info.description = page.description
+            info.extract = page.extract
+            info.summary_source = page.source
+            info.summary_source_url = page.source_url
+    return info
+
+
+async def _get_taxon_reference_info(
+    species_name: str, scientific_name: str, lang: str, refresh: bool, *, rank: GroupRank | None = None
+) -> SpeciesInfo:
     # Name-only bird results may already contain an unrelated article. Never
     # reuse or overwrite those persistent entries for a catalogue-bound lookup.
-    cache_key = f"{species_name}:{lang}:taxon:{scientific_name}"
+    cache_key = f"{species_name}:{lang}:taxon:{scientific_name}" + (f":{rank}" if rank else "")
     cached = _wiki_cache.get(cache_key)
     if not refresh and cached and _is_cache_valid(*cached):
         return cached[0]
+    if rank is not None:
+        info = await _group_reference_info(species_name, scientific_name, lang, rank)
+        _wiki_cache[cache_key] = (info, datetime.now())
+        return info
 
     providers = (
         (_fetch_wikipedia_info, _fetch_inaturalist_info)
@@ -1741,8 +1744,12 @@ async def _get_taxon_reference_info(species_name: str, scientific_name: str, lan
         else (_fetch_inaturalist_info, _fetch_wikipedia_info)
     )
     info = await providers[0](species_name, lang, scientific_name, require_scientific_name=True)
-    if not info.extract or not info.thumbnail_url:
+    # Only iNaturalist records the IUCN category, so it is asked even when Wikipedia answered.
+    needs_status = info.conservation_status is None and providers[1] is _fetch_inaturalist_info
+    if not info.extract or not info.thumbnail_url or needs_status:
         fallback = await providers[1](species_name, lang, scientific_name, require_scientific_name=True)
+        if not info.conservation_status:
+            info.conservation_status = fallback.conservation_status
         if not info.extract and fallback.extract:
             info.description = fallback.description
             info.extract = fallback.extract
@@ -1824,7 +1831,9 @@ async def _fetch_wikipedia_info(
     )
 
 
-async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, lang: str) -> SpeciesInfo | None:
+async def _fetch_wikipedia_info_from_url(
+    wikipedia_url: str, species_name: str, lang: str, *, expected_scientific_name: str | None = None
+) -> SpeciesInfo | None:
     """Fetch Wikipedia summary directly from a known article URL."""
     from urllib.parse import urlparse, unquote
 
@@ -1851,7 +1860,9 @@ async def _fetch_wikipedia_info_from_url(wikipedia_url: str, species_name: str, 
 
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
-            return await _get_wikipedia_summary(client, title, species_name, url_lang)
+            return await _get_wikipedia_summary(
+                client, title, species_name, url_lang, expected_scientific_name=expected_scientific_name
+            )
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
     except httpx.RequestError as e:
@@ -1931,8 +1942,13 @@ async def _fetch_inaturalist_info(
     expected_scientific_name: str | None = None,
     *,
     require_scientific_name: bool = False,
+    rank: str | None = None,
 ) -> SpeciesInfo:
-    """Fetch species information from iNaturalist API with scored candidate matching."""
+    """Fetch species information from iNaturalist API with scored candidate matching.
+
+    With a rank, only the one taxon of exactly that name and rank is accepted: two such taxa
+    (a homonym across kingdoms) describe nothing rather than the wrong one.
+    """
     requested_locale = (lang or "en").strip().replace("_", "-")
     if not requested_locale:
         requested_locale = "en"
@@ -1961,6 +1977,10 @@ async def _fetch_inaturalist_info(
                     if _normalize_lookup_text(candidate.get("name")) == _normalize_lookup_text(expected_scientific_name)
                     and candidate.get("is_active", True)
                 ]
+                if rank is not None:
+                    candidates = [candidate for candidate in candidates if candidate.get("rank") == rank]
+                    if len(candidates) > 1:
+                        candidates = []
             taxon, score = _select_inaturalist_candidate(
                 candidates,
                 requested_name=species_name,
@@ -1983,7 +2003,11 @@ async def _fetch_inaturalist_info(
             # Enrich with full taxon details when autocomplete payload is sparse.
             taxa_id = taxon.get("id")
             if isinstance(taxa_id, int):
-                if not taxon.get("wikipedia_summary") or not taxon.get("default_photo"):
+                if (
+                    not taxon.get("wikipedia_summary")
+                    or not taxon.get("default_photo")
+                    or "conservation_statuses" not in taxon
+                ):
                     details = await _inaturalist_fetch_taxon_details(client, taxa_id, requested_locale)
                     if details:
                         merged = details.copy()
@@ -2025,7 +2049,7 @@ async def _fetch_inaturalist_info(
                 summary_source="iNaturalist" if extract else None,
                 summary_source_url=source_url if extract else None,
                 scientific_name=scientific_name,
-                conservation_status=None,
+                conservation_status=_global_iucn_status(taxon),
                 taxa_id=taxa_id if isinstance(taxa_id, int) else None,
                 cached_at=datetime.now(),
             )

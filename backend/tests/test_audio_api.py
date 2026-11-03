@@ -1,14 +1,17 @@
 from datetime import datetime, timedelta, timezone
 import json
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import httpx
 import pytest
 import pytest_asyncio
 
 from app.main import app
-from app.database import get_db, init_db, close_db
+from app.database import get_db
 from app.config import settings
 from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 @pytest_asyncio.fixture
@@ -16,15 +19,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -963,16 +957,18 @@ async def test_owner_can_hide_restore_audio_and_summary_excludes_hidden(client):
     async with get_db() as db:
         await db.execute("DELETE FROM audio_detections")
         repo = DetectionRepository(db)
-        row_id = await repo.insert_audio_detection(now, "Robin", 0.95, "mic", {}, source_event_id="hide-test")
+        row_id = await AudioHistoryRepository(repo.db).insert_audio_detection(
+            now, "Robin", 0.95, "mic", {}, source_event_id="hide-test"
+        )
     response = await client.patch(f"/api/audio/history/{row_id}", json={"hidden": True})
     assert response.status_code == 200
     assert (await client.get("/api/audio/history")).json()["total"] == 0
     assert (await client.get("/api/audio/summary")).json()["total"] == 0
     async with get_db() as db:
         repo = DetectionRepository(db)
-        assert (await repo.get_audio_context(now, 30, None, 10))[0] == []
+        assert (await AudioHistoryRepository(repo.db).get_audio_context(now, 30, None, 10))[0] == []
         assert (
-            await repo.get_audio_species_counts(
+            await AudioHistoryRepository(repo.db).get_audio_species_counts(
                 window_start=now - timedelta(days=1),
                 window_end=now + timedelta(days=1),
                 prev_start=now - timedelta(days=2),

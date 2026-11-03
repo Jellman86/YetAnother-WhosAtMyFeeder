@@ -99,6 +99,23 @@ Work that is waiting is first-class: the review queue is a docked card with a co
 someone has to think to apply. A flagged row states its reason in words ("Below the naming
 threshold"), never by colour alone.
 
+"Needs your call" holds every kind of waiting work in the desk's window, not only the visits. It
+also names the species the leaderboard's range check flags over the same 24 hours
+(`windowSpeciesChecks()` in `leaderboard/species-checks.ts`, the predicate the Species page's
+**Needs a check** uses), links to them at `/species?span=day#checks`, and offers the kept-bird
+action through the same `KeptBirdOffers` component. `needsYourCall()` in
+`utils/needs-your-call.ts` decides what the card may say: each reading (visits, species checks)
+is loading, unavailable, clear, waiting or stale on its own, and "Nothing waiting on you" appears
+only when both were measured and are zero. A leaderboard answer measures the species checks only
+when its `nearby_check` is `checked` (`readRangeCheck()`): a check that is switched off is no
+pending work and no error, so the card says only that every visit has a species; one that could not
+run, or that only has an eBird report past its six-hour cache, is unavailable. Work from an earlier
+read whose refresh failed stays on screen, marked as possibly out of date with Try again. On both
+the Dashboard and the Species page a kept bird's offer closes as soon as its move succeeds, through
+the shared `DomesticBirdOffers` (`utils/domestic-bird-offers.svelte.ts`), and returns only if a
+fresh read flags it again, whatever the reload does. The day bar's "nothing to review" follows the
+same rule.
+
 Amber is reserved for "this needs a person". It is not decoration and it is not a second accent.
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to
 mean "recent" or "interesting".
@@ -127,7 +144,10 @@ does) or the kit button itself.
 Small thumbnails let a day fit on a screen, and a 34px thumbnail cannot settle whether a 56% blur
 is a Dunnock. So every small capture opens: hover or keyboard focus expands `DetectionPreview` to
 the full frame with score, camera, time and conditions. Density plus an escape hatch beats a large
-hero that only ever shows one record.
+hero that only ever shows one record. A Garden animal's thumbnail opens the same way through
+`GardenCapturePreview`: its saved crop, else its snapshot, with the Garden name, score, state, time
+and camera. It previews only the media the server listed for the reader, so a visitor sees no
+pop-out for a photo the owner does not share; that thumbnail stays a plain frame in the same cell.
 
 ### 1.5 Never claim health you have not measured
 
@@ -155,10 +175,17 @@ Four shapes cover the app. Pick one; do not blend them.
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
 beneath them. **When** follows, always open. The species list shows the eight most
-recorded species, plus any chosen one, then **Show all N species**; search lists every
-match. Cameras and **Only** stay in native collapsible sections, initially closed, and
-their summaries name what is chosen inside. A chosen row carries a bar and weight as
-well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
+recorded species, plus any chosen one, then **Show all N species**. One search box
+(`ExplorerSearch`, a combobox) finds species, groups, cameras, days and record IDs. It is a page
+control, not a filter: on a desktop it starts the Explorer's header row, before the count and the
+view switch, and stays when the rail is hidden; on a phone it heads the rail, above the results
+and beside the **Filters** button. The page mounts it once and places it with a `MediaQuery` at
+Tailwind's `lg`. Each result is one line where the panel allows (name, italic other name, a
+`.taxon-rank` label, the count at the end), in a panel as wide as the box; the active result takes
+`.choice-active` and a return arrow saying what **Enter** does. Cameras and **Only** stay in native
+collapsible sections, initially closed, and their summaries name what is chosen inside. A chosen
+row is `.choice-active` with a check, so it reads by weight and shape as well as tint. Only the rail
+scrolls, never a list inside it. Applied filters stay
 visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
 same ordering behind the Filters button. A switch and its token use one name per option (the
 subject is **Garden animals**, as Settings names it), and a custom window's token names its
@@ -249,24 +276,73 @@ scientific naming preferences as the full record.
 On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
 own Close, because there is no hover to lose.
 
-Beneath the identification, `TaxonomyLineage` shows where the bird sits: one line from class to
-species with each rank named, the family's species worldwide against those seen here, and "Open
-the family tree". It shows nothing when the catalogue does not hold the bird; a missing lineage is
-not an error worth the space. A Garden record passes `subject="animal"`: the ladder and tree come
-from the SpeciesNet taxonomy, so they drop the worldwide and seen-here counts (those count bird
-visits) and say "this animal" rather than "this bird". `FamilyTreeDialog` is the full view: a horizontal tree centred on
-the bird, as taxonomy trees are usually drawn, with Animalia and Chordata as a breadcrumb rather
-than branches. Its path is open and amber; groups seen at this feeder are green and say how many;
-everything else in an open group is summed in one "more" node. A group's label sits above its node
-so branches never cross it, and every node is a keyboard button with `aria-expanded`. The fan and
-the outline list read the same visible tree, and a narrow screen opens on the outline until the
-reader picks another. Every name in the ladder, the tree and the outline opens a `TaxonCard` under
-the §4 contract, one card per surface driven by `utils/taxon-peek.svelte.ts`: a species shows its
-reference photograph (one species-information request per species per page, through
-`utils/taxon-pictures.ts`), a group shows its size and what was seen here. A group never asks for a
-picture, because the species-information route would cache it as a species. Selecting a species,
-which has nothing to open, pins its card; the species details show the same ladder. The tree is a ranked classification, and the footer
-says so: it shows grouping, not divergence.
+Beneath the identification, `TaxonomyLineage` shows where the bird sits: a ladder from class to
+species, one rank per row, each rank named in small tracked capitals (`.taxon-rank`) in a column of
+its own and joined to the rank above by one right-angled branch. It shows the family's species
+worldwide against those seen here, and "Open the family tree". It shows nothing when the catalogue
+does not hold the bird; a missing lineage is not an error worth the space. `FamilyTreeDialog` is the
+full view: a horizontal cladogram centred on the bird, with Animalia and Chordata as a ranked
+breadcrumb rather than branches and each rank named once at the head of its column. Its path is a
+heavy line with solid dots; groups seen at this feeder are green and say how many; everything else
+in an open group is summed in one "more" node. A group's label sits above its node so branches never
+cross it, and every node is a keyboard button with `aria-expanded`. The tree's whole row is the
+click target, 44px tall, not just its glyphs. The tree, the fan and the outline are one ARIA tree
+with one tab stop: the arrow keys move through the visible nodes, Right and Left open and close a
+group or step into and out of it, and Home and End reach the ends (`taxonomy/tree-navigation.ts`).
+A narrow screen opens on the outline until the reader picks another layout. A legend names every
+mark, and a mark is never colour alone: this bird is a ringed dot, a closed group carries a plus, a
+"more" node is a dashed ring (`TaxonMarker`, one drawing for the tree, the fan, the outline and the
+legend).
+
+**Names follow the zoological convention, everywhere a taxon is named** (`taxonomy/nomenclature.ts`,
+set through `TaxonNameText`): the genus and every rank beneath it is italic, a genus is capitalised
+and an epithet is not, and a family and every rank above it stays upright. A common name is never
+italic. The reader's Bird Naming Style decides which name leads: common first with the scientific
+name beneath, scientific first with the common name beneath, or the scientific name alone. A common
+name that only repeats the scientific one is shown once. Ranks always read from the highest down,
+whatever order a source returns them in, and each rank is labelled in words. The tree never
+invents what the classification does not hold: an authority and year appear only as the catalogue
+stores them (upright, after the italic name, parentheses only where the source wrote them), and
+there are no dates or branch lengths and nothing about how individual birds relate.
+
+**It is this feeder's tree.** What the install recorded comes from `/api/taxonomy/facts`, one request
+per open level (`utils/taxon-facts.svelte.ts`, one store per surface shared by the ladder, its card and
+the tree; decisions in `taxonomy/taxon-facts.ts`). A species node seen here shows this install's own
+photograph beside its marker, its visits, and "heard" when BirdNET recorded it. Visits are the shared
+visit rule plus confirmed Garden visits; unconfirmed captures and hidden records never count. The
+legend names the window the counts cover (all history, or the days shared with visitors).
+
+**Counts are stated one way.** A group says "N species, M seen here" on its node, in its card and in
+the outline; a species says "N visits", and its card says "No visits recorded" rather than a zero. A
+Garden animal's group says only what was seen ("1 seen here"): its catalogue holds the model's animals,
+so its sizes are not worldwide counts.
+
+Every name in the ladder, the tree and the outline opens a `TaxonCard` under the §4 contract, one
+card per surface driven by `utils/taxon-peek.svelte.ts`. The card is set like a specimen label, in
+this order: the photograph; rank, name in the display face, the second name with its authority; the
+heard and IUCN badges, each in words (the category is spelled out with its code, never a colour); what
+was recorded here as a row of figures, label above figure (visits, first and last seen, or for a group
+its size, visits and last visit), with the window beneath; a three-line description with its provider;
+and, for a species, its names in other languages collapsed behind "Names in N languages". The photograph
+is this install's own newest stored crop, captioned "Your photo" with its date, falling back to the
+reference photograph captioned only "Reference photo" when there is none or it fails to load (the
+route's `source` names the summary provider, not necessarily the photograph's, so the card names no
+provider). A group is pictured only by its most-seen member's own photograph ("Your photo of
+Dunnock"), never by a reference image. Reference lookups go through `utils/taxon-pictures.ts`, once per
+taxon per page: a species by its scientific name as the hint, so a mammal is not searched for among
+birds, and a family or order by its name and rank, which the route describes only from the taxon of
+that exact name and rank and caches apart from species. A genus is never described, because genus
+names repeat across kingdoms. Every fact has its own loading, absent and failed state; a failed one
+offers Try again, and one that is not known is left out. The card stays inside the dialog its name sits in (the family
+tree, a record), else the window, and never covers the name it describes: below it, else above, else
+beside it on the roomier side, else on the roomier side with its own scroll (`taxonomy/card-placement.ts`).
+A card that scrolls inside fades into the surface at its foot until its end, so cut-off text never
+reads as the whole card. Garden animals are named as the Garden record names them: the taxonomy
+routes case SpeciesNet's lowercase names with the same `vernacular_case` the Field log and Explorer
+use, and scientific names are never re-cased. A pinned card takes Tab into its controls; Tab past them, or Escape, hands focus back to the
+name without reopening the card. Selecting a species, which has nothing to open, pins its card; the
+species details show the same ladder. The tree is a ranked classification, and the footer says so: it
+shows grouping, not divergence.
 
 ### Standing (Leaderboard)
 
@@ -378,6 +454,7 @@ off with update checks, and absent rather than zero when unknown.
 | `VisitCaptures` | A visit's chronological captures: `inline` inside a Health row, `footer` closing an Explorer card or row | Render for a single capture, repeat the visit's camera or day on each line, or sum birds across captures |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
+| `GardenCapturePreview` | A Garden capture's thumbnail in the field log, the Explorer list or a Garden visit's captures | Show media the server did not list for the reader, or copy the hover handling instead of using `HoverPopout` |
 | `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
 | `ReviewQueueCard` | Outstanding decisions | Use for notifications or job progress |
 | `DayBar` | The window label plus its headline metrics | Add a seventh metric; cut one instead |
@@ -387,6 +464,8 @@ off with update checks, and absent rather than zero when unknown.
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 | `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**: Off, Birds, Garden animals or Both as native radios, then the bird role or motion photos for whichever subject is on | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
+| `BetaFeatureCard` | One feature on **Settings → Beta features**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
+| `BetaSection` | A collapsible group of one beta feature's settings: the heading is the disclosure button, and a closed section stays mounted but hidden so a download or status read inside keeps running | Nest cards inside it; sections are separated by hairlines |
 
 Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
 `VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
@@ -460,14 +539,21 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
   either closed by the click (when it has a backdrop) or swallows the click (iOS, when a
   mouseenter handler changes the DOM), so on touch the click alone opens it. `DetectionPreview`
   and `FilteredFramePreview` follow the same rule.
-- Stays open while the pointer travels into the panel. `DetectionPreview` and `FrameStrip` use a 120ms close grace
-  window for exactly this (SC 1.4.13, "hoverable").
+- Stays open while the pointer travels into the panel. `DetectionPreview`, `GardenCapturePreview`
+  and `FrameStrip` use a 120ms close grace window for exactly this (SC 1.4.13, "hoverable").
 - Dismisses on `Escape` without moving focus elsewhere unexpectedly.
 - Reuses the image already fetched. A preview must not cost a second request.
 - Respects `prefers-reduced-motion`: it appears without the scale transition.
-- The trigger is a real `button` with `aria-expanded` and a visible focus ring.
+- The trigger is a real `button` with a visible focus ring.
+- While open, the panel has a unique stable `id` and its trigger points at it with `aria-describedby`, so
+  a screen reader reads the name, score, state and camera after the trigger's label. The attribute is
+  removed when the panel closes. `HoverPopout` takes the component's `$props.id()` and supplies both.
 
-Model any new popover on this and on `CameraStatus.svelte`, which established the pattern.
+Model any new popover on this and on `CameraStatus.svelte`, which established the pattern. A small
+capture's preview takes the shared controller rather than its own copy: `HoverPopout`
+(`utils/hover-popout.svelte.ts`) owns opening, the grace window, Escape, focus leaving and following
+the trigger on scroll, and `HoverPopoutPanel` is the portalled panel. `DetectionPreview` and
+`GardenCapturePreview` both use them.
 A pop-out that holds a control (`FrameStrip`) is a `group` named for its subject, not a `tooltip`, and
 its Escape closes the pop-out before the dialog behind it.
 
@@ -535,7 +621,9 @@ build something better."*
   the row only while that subject is chosen. A choice that cannot be made is disabled, struck
   through and explained in words beside the control, never hidden.
 - **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
-  icon. Never a coloured bar on one edge.
+  icon. Never a coloured bar on one edge. A chosen row in a list of choices uses the kit's
+  `.choice-active` (brand tint, medium weight, a lit check or other icon); hover stays a neutral
+  wash and keyboard focus a ring, so the three never read as one.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
   a cap that follows the window width, so a wide screen neither flattens it into a strip nor
   stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot
@@ -547,7 +635,8 @@ build something better."*
   detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
-- **Flagged rows**: an amber (`attention-*`) tint plus a state dot plus a worded reason. All three.
+- **Flagged rows**: a faint amber tint (`bg-attention-500/5`) plus an amber `.attention-dot` set
+  beside the worded reason. All three, and never a bar on the row's edge.
 - **Score**: a percentage in a tone band (under 60 amber, under 85 brand, from 85 green) and a
   3px bar. Never the bar alone. Take the band and its classes from `utils/score-tone.ts`
   (`scoreBand()` with `SCORE_TEXT`, `SCORE_TEXT_ON_MEDIA` and `SCORE_FILL`), never local

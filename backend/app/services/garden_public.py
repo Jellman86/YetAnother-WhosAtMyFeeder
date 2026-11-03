@@ -45,3 +45,8 @@ def guest_clip_visible(observed_at: str, now: datetime | None = None) -> bool:
 
 def guest_camera(camera: str) -> str:
     return camera if settings.public_access.show_camera_names else HIDDEN_CAMERA
+
+
+def garden_visible(*, is_owner: bool) -> bool:
+    """Garden animals reach a reader while the beta is on, and a visitor only while public access is."""
+    return settings.system.beta_garden_animals and (is_owner or settings.public_access.enabled)

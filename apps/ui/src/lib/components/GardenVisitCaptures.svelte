@@ -7,9 +7,8 @@
     import { onDestroy, untrack } from 'svelte';
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
-    import GardenPhotoPreview from './GardenPhotoPreview.svelte';
+    import GardenCapturePreview from './GardenCapturePreview.svelte';
     import type { GardenCapture } from '../api/garden';
-    import { withAuthParams } from '../api/core';
     import { formatTime } from '../utils/datetime';
     import { gardenCaptureFacts, gardenEntryText, gardenEntryView, type GardenVisit } from '../utils/garden-explorer';
     import { authStore } from '../stores/auth.svelte';
@@ -35,7 +34,6 @@
     let trigger = $state<HTMLButtonElement>();
     let panel = $state<HTMLDivElement>();
     let position = $state('');
-    let failedPhotos = $state.raw<ReadonlySet<string>>(new Set());
     const list = new GardenVisitCaptureList(() => ({ visit, scope }));
     const count = $derived(visit.captureCount ?? visit.items.length);
     const inline = $derived(layout === 'inline');
@@ -84,13 +82,6 @@
     // Captures in one visit are seconds apart, so minutes alone would print the same time twice.
     function captureTime(capture: GardenCapture): string {
         return formatTime(capture.observed_at, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-
-    function photo(capture: GardenCapture): { src: string; cropped: boolean } | null {
-        const crop = capture.crop_url ? withAuthParams(capture.crop_url) : null;
-        if (crop && !failedPhotos.has(crop)) return { src: crop, cropped: true };
-        const whole = capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null;
-        return whole && !failedPhotos.has(whole) ? { src: whole, cropped: false } : null;
     }
 
     function scoreTone(score: number, needsReview: boolean): string {
@@ -158,7 +149,6 @@
                         {@const text = gardenEntryText(capture, view, translate, authStore.hasOwnerAccess ? 'owner' : 'visitor')}
                         {@const facts = gardenCaptureFacts(capture, visit)}
                         {@const time = captureTime(capture)}
-                        {@const image = photo(capture)}
                         <li
                             class="relative grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 {inline ? '' : 'border-b border-slate-200/70 px-3 last:border-b-0 dark:border-slate-700/50'}"
                             data-garden-visit-capture={capture.id}
@@ -170,14 +160,9 @@
                                 aria-label={$_('visits.open_capture_at', { values: { species: text.title, time }, default: 'Open {species} capture at {time}' })}
                                 onclick={() => select(capture, index)}
                             ></button>
-                            <span class="pointer-events-none relative z-10 grid min-h-11 min-w-11 place-items-center" aria-hidden="true">
-                                <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
-                                    {#if image}
-                                        <GardenPhotoPreview {capture} src={image.src} cropped={image.cropped} aspect={1}
-                                            onerror={() => (failedPhotos = new Set([...failedPhotos, image.src]))} />
-                                    {/if}
-                                </span>
-                            </span>
+                            <div class="relative z-10">
+                                <GardenCapturePreview {capture} onopen={() => select(capture, index)} />
+                            </div>
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
                                 <p class="break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{text.title}</p>
                                 {#if capture.scientific_name && capture.scientific_name !== text.title}<p class="break-words text-xs italic text-slate-500 dark:text-slate-400">{capture.scientific_name}</p>{/if}

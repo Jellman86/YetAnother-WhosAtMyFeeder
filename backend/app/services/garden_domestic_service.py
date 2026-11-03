@@ -6,6 +6,7 @@ decisions live in ``garden_domestic_birds``.
 """
 
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
@@ -20,13 +21,27 @@ from app.services.broadcaster import broadcaster
 from app.services.garden_capture_policy import observation_time, safe_event_id
 from app.services.garden_domestic_birds import (
     DOMESTIC_BIRDS,
+    DomesticBirdKey,
     bird_event_route,
     domestic_bird_for_bird_label,
+    normalize_domestic_birds,
 )
+from app.services.settings_update import commit_settings_change
 from app.services.species_catalog_resolver import species_catalog_resolver
 from app.utils.api_datetime import utc_naive_now
 
 log = structlog.get_logger()
+
+# One request moves at most this many records, so it answers promptly; the owner repeats it for the rest.
+KEEP_MOVE_LIMIT = 500
+
+
+@dataclass(frozen=True)
+class KeptBirdMove:
+    declared: bool
+    moved: int
+    skipped: int
+    remaining: int
 
 
 def species_ids_by_bird() -> dict[str, frozenset[int]]:
@@ -128,6 +143,47 @@ class GardenDomesticService:
 
     async def move_detection(self, frigate_event: str) -> str:
         """Move one bird record of a declared domestic bird to Garden, hiding (not deleting) it."""
+        capture_id = await self._move_one(frigate_event)
+        await broadcaster.broadcast({"type": "garden_history_changed"})
+        return capture_id
+
+    async def keep_bird(self, bird: DomesticBirdKey) -> KeptBirdMove:
+        """Declare a domestic bird the owner keeps and move its visible bird records to Garden.
+
+        Each record moves through the single-record path: hidden in the same transaction
+        that creates its capture, never deleted. A record that cannot move is counted as
+        skipped and stays in bird history.
+        """
+        if not settings.system.beta_garden_animals:
+            raise HTTPException(409, "Turn on Garden animals before moving a record to Garden")
+        declared = bird not in settings.frigate.garden_domestic_birds
+        if declared:
+            await commit_settings_change(
+                lambda candidate: setattr(
+                    candidate.frigate,
+                    "garden_domestic_birds",
+                    normalize_domestic_birds([*candidate.frigate.garden_domestic_birds, bird]),
+                )
+            )
+        species_ids = (await asyncio.to_thread(species_ids_by_bird)).get(bird, frozenset())
+        async with get_db() as db:
+            events, total = await GardenRepository(db).visible_bird_events(
+                species_ids, DOMESTIC_BIRDS[bird].scientific_names, KEEP_MOVE_LIMIT
+            )
+        moved = skipped = 0
+        for event in events:
+            try:
+                await self._move_one(event)
+                moved += 1
+            except HTTPException as error:
+                skipped += 1
+                log.info("garden_keep_bird_skipped", bird=bird, status=error.status_code)
+        if moved:
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+        log.info("garden_keep_bird", bird=bird, declared=declared, moved=moved, skipped=skipped)
+        return KeptBirdMove(declared=declared, moved=moved, skipped=skipped, remaining=total - len(events))
+
+    async def _move_one(self, frigate_event: str) -> str:
         if not settings.system.beta_garden_animals:
             raise HTTPException(409, "Turn on Garden animals before moving a record to Garden")
         async with get_db() as db:
@@ -168,7 +224,6 @@ class GardenDomesticService:
             )
         if capture_id is None:
             raise HTTPException(409, "Garden already has a record for this Frigate event")
-        await broadcaster.broadcast({"type": "garden_history_changed"})
         return capture_id
 
 

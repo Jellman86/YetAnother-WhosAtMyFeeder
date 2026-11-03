@@ -8,10 +8,13 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import sqlite3
+from collections.abc import Collection
 from typing import Literal
 import uuid
 
 import aiosqlite
+
+from app.repositories.catalogue_identity import species_ids_condition
 
 from app.utils.api_datetime import utc_naive_now
 from app.models.garden import (
@@ -24,7 +27,8 @@ from app.models.garden import (
 from app.models.garden_crop import CROP_BYTES_LIMIT, CROP_COUNT_LIMIT, GardenCropEvidence
 from app.models.garden_motion import MotionSource, MOTION_PADDING_SECONDS
 from app.models.garden_media import KeptMediaEntry, KeptMediaRecord
-from app.services.garden_automatic_policy import automatic_check_dismisses
+from app.services.garden_automatic_policy import automatic_check_dismisses, saved_check_dismisses
+from pydantic import ValidationError
 
 MOTION_PHOTO_LIMIT = 128
 MOTION_PHOTO_BYTES = 512 * 1024
@@ -98,8 +102,33 @@ class GardenRepository:
                 'source_model',source_model,'detection_id',detection_id,'routed_at',routed_at)
           FROM garden_domestic_routes WHERE capture_id=garden_captures.id)"""
 
-    def __init__(self, db: aiosqlite.Connection) -> None:
+    # The species a capture is of: the owner's own naming, else a suggestion nobody dismissed.
+    _SPECIES_IDENTITY = """COALESCE(
+        (SELECT species_id FROM garden_owner_identifications WHERE capture_id=garden_captures.id),
+        (SELECT json_extract(result_json,'$.species_id') FROM garden_identifications
+          WHERE capture_id=garden_captures.id AND json_extract(result_json,'$.outcome')='suggestion'
+            AND COALESCE(json_extract(result_json,'$.review'),'unreviewed') != 'dismissed'))"""
+
+    def __init__(
+        self, db: aiosqlite.Connection, *, held_cameras: tuple[str, ...] = (), held_since: str | None = None
+    ) -> None:
         self.db = db
+        # On these cameras a motion candidate observed since ``held_since`` stays out of the
+        # timeline until its automatic check decides, unless the owner already acted on it.
+        # An older one is shown however its camera's checks are doing.
+        self.held_cameras = held_cameras
+        self.held_since = held_since
+
+    def _awaiting_check(self) -> tuple[str, list[str]]:
+        if not self.held_cameras or self.held_since is None:
+            return "0", []
+        return (
+            f"""(status = 'pending' AND automation_overridden = 0 AND observed_at >= ?
+                AND camera IN ({",".join("?" * len(self.held_cameras))})
+                AND EXISTS (SELECT 1 FROM garden_motion_sources WHERE capture_id=garden_captures.id)
+                AND NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id))""",
+            [self.held_since, *self.held_cameras],
+        )
 
     @staticmethod
     def _key(event_id: str) -> str:
@@ -204,19 +233,9 @@ class GardenRepository:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
-    def _timeline_filter(
-        self, start: datetime | None, end: datetime | None, camera: str | None, status: GardenTimelineStatus
-    ) -> tuple[str, list[str]]:
-        # A pending capture without a photo cannot be reviewed, as on the review list.
-        reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}))"
-        clauses = [
-            {
-                "reviewable": f"(status = 'confirmed' OR {reviewable_pending})",
-                "pending": reviewable_pending,
-                "confirmed": "status = 'confirmed'",
-                "dismissed": "status = 'dismissed'",
-            }[status]
-        ]
+    @staticmethod
+    def _scope_filter(start: datetime | None, end: datetime | None, camera: str | None) -> tuple[list[str], list[str]]:
+        clauses: list[str] = []
         values: list[str] = []
         if start is not None:
             clauses.append("observed_at >= ?")
@@ -227,7 +246,34 @@ class GardenRepository:
         if camera:
             clauses.append("camera = ?")
             values.append(camera)
-        return " AND ".join(clauses), values
+        return clauses, values
+
+    def _timeline_filter(
+        self,
+        start: datetime | None,
+        end: datetime | None,
+        camera: str | None,
+        status: GardenTimelineStatus,
+        species_ids: Collection[int] | None = None,
+    ) -> tuple[str, list[str | int]]:
+        # A pending capture without a photo cannot be reviewed, as on the review list.
+        awaiting, held = self._awaiting_check()
+        reviewable_pending = f"(status = 'pending' AND ({self._PHOTO_AVAILABLE}) AND NOT {awaiting})"
+        status_clause = {
+            "reviewable": f"(status = 'confirmed' OR {reviewable_pending})",
+            "pending": reviewable_pending,
+            "confirmed": "status = 'confirmed'",
+            "dismissed": "status = 'dismissed'",
+        }[status]
+        scope, values = self._scope_filter(start, end, camera)
+        species_clause, species_values = species_ids_condition(species_ids, self._SPECIES_IDENTITY)
+        if species_clause:
+            scope.append(species_clause)
+        return " AND ".join([status_clause, *scope]), [
+            *(held if status in {"reviewable", "pending"} else []),
+            *values,
+            *species_values,
+        ]
 
     async def timeline(
         self,
@@ -239,9 +285,10 @@ class GardenRepository:
         limit: int,
         offset: int,
         status: GardenTimelineStatus = "reviewable",
+        species_ids: Collection[int] | None = None,
     ) -> list[GardenCapture]:
         """Captures the Explorer shows: by default confirmed animals and those awaiting review."""
-        where, values = self._timeline_filter(start, end, camera, status)
+        where, values = self._timeline_filter(start, end, camera, status, species_ids)
         direction = "DESC" if newest_first else "ASC"
         async with self.db.execute(
             f"SELECT {self._COLUMNS} FROM garden_captures WHERE {where} "
@@ -257,9 +304,74 @@ class GardenRepository:
         end: datetime | None,
         camera: str | None,
         status: GardenTimelineStatus = "reviewable",
+        species_ids: Collection[int] | None = None,
     ) -> int:
-        where, values = self._timeline_filter(start, end, camera, status)
+        where, values = self._timeline_filter(start, end, camera, status, species_ids)
         async with self.db.execute(f"SELECT COUNT(*) FROM garden_captures WHERE {where}", values) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row else 0
+
+    async def species_identity_counts(
+        self, *, start: datetime | None, end: datetime | None, status: GardenTimelineStatus
+    ) -> dict[int, int]:
+        """Captures per catalogue identity among those the Explorer would list, for placing them on the taxonomy."""
+        where, values = self._timeline_filter(start, end, None, status)
+        async with self.db.execute(
+            f"SELECT {self._SPECIES_IDENTITY} AS species, COUNT(*) FROM garden_captures"
+            f" WHERE {where} AND species IS NOT NULL GROUP BY species",
+            values,
+        ) as cursor:
+            return {int(species): int(count) for species, count in await cursor.fetchall()}
+
+    async def newest_crops(
+        self, species_ids: Collection[int], *, start: datetime | None, end: datetime | None
+    ) -> dict[int, tuple[str, str]]:
+        """Each species' newest confirmed capture with a saved crop: its id and when it was seen."""
+        ids = sorted({int(species_id) for species_id in species_ids})
+        if not ids:
+            return {}
+        scope, values = self._scope_filter(start, end, None)
+        where = " AND ".join(
+            [
+                "status = 'confirmed'",
+                "EXISTS (SELECT 1 FROM garden_saved_crops WHERE capture_id=garden_captures.id AND image IS NOT NULL)",
+                *scope,
+            ]
+        )
+        async with self.db.execute(
+            f"""SELECT species, id, observed_at FROM (
+                SELECT {self._SPECIES_IDENTITY} AS species, id, observed_at FROM garden_captures WHERE {where}
+            ) WHERE species IN ({",".join("?" * len(ids))}) ORDER BY observed_at DESC, id DESC""",
+            [*values, *ids],
+        ) as cursor:
+            newest: dict[int, tuple[str, str]] = {}
+            for species, capture_id, observed_at in await cursor.fetchall():
+                newest.setdefault(int(species), (str(capture_id), str(observed_at)))
+            return newest
+
+    async def seen_species_ids(self) -> set[int]:
+        """Every catalogue identity a capture was named as, for resolving a group of species."""
+        async with self.db.execute(
+            f"SELECT DISTINCT {self._SPECIES_IDENTITY} AS species FROM garden_captures"
+            " WHERE status != 'blocked' AND species IS NOT NULL"
+        ) as cursor:
+            return {int(row[0]) for row in await cursor.fetchall()}
+
+    async def find_by_frigate_event(self, frigate_event: str) -> GardenCapture | None:
+        async with self.db.execute(
+            f"SELECT {self._COLUMNS} FROM garden_captures WHERE frigate_event = ? AND status != 'blocked'",
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return self._capture(row) if row else None
+
+    async def awaiting_check_count(self, *, start: datetime | None, end: datetime | None, camera: str | None) -> int:
+        """Motion candidates held out of sight while their automatic check is due."""
+        awaiting, held = self._awaiting_check()
+        scope, values = self._scope_filter(start, end, camera)
+        async with self.db.execute(
+            f"SELECT COUNT(*) FROM garden_captures WHERE {' AND '.join([awaiting, *scope])}", [*held, *values]
+        ) as cursor:
             row = await cursor.fetchone()
         return int(row[0]) if row else 0
 
@@ -554,30 +666,68 @@ class GardenRepository:
             row = await cursor.fetchone()
         return GardenAutomaticCheck.model_validate_json(row[0]) if row else None
 
-    async def next_automatic_check(
-        self, cameras: list[str], retry_before: str, *, policy_version: int | None = None, country: str | None = None
-    ) -> GardenCapture | None:
+    async def due_automatic_checks(
+        self,
+        cameras: list[str],
+        retry_before: str,
+        *,
+        policy_version: int | None = None,
+        country: str | None = None,
+        per_camera: int = MOTION_PHOTO_LIMIT,
+    ) -> list[GardenCapture]:
+        """Captures whose automatic check is due, up to ``per_camera`` on each camera.
+
+        Within a camera, never-checked captures come first, then the oldest. One query
+        serves every camera. The default bound matches motion photo storage, so a burst
+        of candidates at one spot cannot push a newer candidate out of the list.
+        """
         if not cameras:
-            return None
+            return []
         placeholders = ",".join("?" for _ in cameras)
         async with self.db.execute(
-            f"""SELECT {self._COLUMNS} FROM garden_captures
-                WHERE status='pending' AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
-                AND camera IN ({placeholders}) AND (
-                  NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.outcome')='unavailable'
-                    AND json_extract(result_json,'$.checked_at') < ?)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.outcome') != 'unavailable'
-                    AND ? IS NOT NULL AND COALESCE(json_extract(result_json,'$.policy_version'),0) < ?)
-                  OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id
-                    AND json_extract(result_json,'$.decision_reason')='location_required' AND ? IS NOT NULL))
-                ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=id), observed_at, id LIMIT 1""",
-            (*cameras, retry_before, policy_version, policy_version, country),
+            f"""WITH due AS (
+                  SELECT {self._COLUMNS}, ROW_NUMBER() OVER (
+                    PARTITION BY camera
+                    ORDER BY EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id),
+                             observed_at, id
+                  ) AS due_rank
+                  FROM garden_captures
+                  WHERE status='pending' AND automation_overridden=0 AND ({self._PHOTO_AVAILABLE})
+                  AND camera IN ({placeholders}) AND (
+                    NOT EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.outcome')='unavailable'
+                      AND json_extract(result_json,'$.checked_at') < ?)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.outcome') != 'unavailable'
+                      AND ? IS NOT NULL AND COALESCE(json_extract(result_json,'$.policy_version'),0) < ?)
+                    OR EXISTS (SELECT 1 FROM garden_automatic_checks WHERE capture_id=garden_captures.id
+                      AND json_extract(result_json,'$.decision_reason')='location_required' AND ? IS NOT NULL))
+                )
+                SELECT * FROM due WHERE due_rank <= ? ORDER BY due_rank""",
+            (*cameras, retry_before, policy_version, policy_version, country, per_camera),
         ) as cursor:
-            row = await cursor.fetchone()
-        return self._capture(row) if row else None
+            return [self._capture(row[:-1]) for row in await cursor.fetchall()]
+
+    async def recent_blank_spots(self, cameras: list[str], since: str, limit: int = 256) -> list[MotionSource]:
+        """Where recent automatic checks found nothing, newest first.
+
+        A capture the owner reviewed is not evidence of a blank spot: they may have found an animal there.
+        """
+        if not cameras:
+            return []
+        placeholders = ",".join("?" for _ in cameras)
+        async with self.db.execute(
+            f"""SELECT m.source_json FROM garden_automatic_checks a
+                JOIN garden_captures c ON c.id=a.capture_id
+                JOIN garden_motion_sources m ON m.capture_id=a.capture_id
+                WHERE json_extract(a.result_json,'$.outcome')='non_animal'
+                AND json_extract(a.result_json,'$.checked_at') >= ?
+                AND c.automation_overridden=0 AND c.camera IN ({placeholders})
+                ORDER BY json_extract(a.result_json,'$.checked_at') DESC LIMIT ?""",
+            (since, *cameras, limit),
+        ) as cursor:
+            return [MotionSource.model_validate_json(row[0]) for row in await cursor.fetchall()]
 
     async def _write_automatic_check(self, original: GardenCapture, result: GardenAutomaticCheck) -> bool:
         # A single write transaction compares both the previous assessment and
@@ -675,6 +825,29 @@ class GardenRepository:
         await self.db.commit()
         return capture_id
 
+    async def visible_bird_events(
+        self, species_ids: frozenset[int], scientific_names: tuple[str, ...], limit: int
+    ) -> tuple[list[str], int]:
+        """Visible bird records that may be this bird, oldest first, and how many there are.
+
+        Candidates only: each is matched again by exact identity before it moves.
+        """
+        names = sorted({" ".join(name.split()).casefold() for name in scientific_names})
+        ids = sorted(species_ids)
+        where = f"""COALESCE(is_hidden,0)=0 AND (
+            species_id IN ({",".join("?" * len(ids)) or "NULL"})
+            OR lower(scientific_name) IN ({",".join("?" * len(names)) or "NULL"})
+            OR lower(display_name) IN ({",".join("?" * len(names)) or "NULL"}))"""
+        values = (*ids, *names, *names)
+        total = (await (await self.db.execute(f"SELECT COUNT(*) FROM detections WHERE {where}", values)).fetchone())[0]
+        rows = await (
+            await self.db.execute(
+                f"SELECT frigate_event FROM detections WHERE {where} ORDER BY detection_time, id LIMIT ?",
+                (*values, limit),
+            )
+        ).fetchall()
+        return [row[0] for row in rows], total
+
     async def move_detection_to_garden(
         self,
         detection_id: int,
@@ -719,6 +892,35 @@ class GardenRepository:
             )
         await self.db.commit()
         return changed
+
+    async def dismiss_pending_by_saved_checks(self) -> int:
+        """Dismiss pending captures whose saved check the current policy dismisses.
+
+        A capture the owner restored or reviewed (``automation_overridden``) is never moved.
+        """
+        rows = await (
+            await self.db.execute(
+                """SELECT c.id, a.result_json FROM garden_captures c
+                   JOIN garden_automatic_checks a ON a.capture_id = c.id
+                   WHERE c.status='pending' AND c.automation_overridden=0"""
+            )
+        ).fetchall()
+        dismissed = 0
+        for capture_id, result_json in rows:
+            try:
+                check = GardenAutomaticCheck.model_validate_json(result_json)
+            except ValidationError:
+                # An unreadable saved check decides nothing; the capture keeps waiting for a person.
+                continue
+            if not saved_check_dismisses(check):
+                continue
+            cursor = await self.db.execute(
+                "UPDATE garden_captures SET status='dismissed' WHERE id=? AND status='pending' AND automation_overridden=0",
+                (capture_id,),
+            )
+            dismissed += cursor.rowcount
+        await self.db.commit()
+        return dismissed
 
     async def save_identification(self, original: GardenCapture, result: GardenIdentification) -> bool:
         cursor = await self.db.execute(
@@ -856,12 +1058,27 @@ class GardenRepository:
         return self._capture(row) if row else None
 
     async def crop_unavailable(self, capture_id: str) -> None:
+        """Record a failed crop and schedule its retry, waiting longer after each failure.
+
+        The previous wait is read back from the last schedule, so no attempt counter is stored.
+        A crop saved meanwhile, or a capture no longer confirmed, is left untouched.
+        """
+        from app.services.garden_crop_service import next_crop_retry
+
+        async with self.db.execute(
+            """SELECT retry_after, updated_at FROM garden_saved_crops
+               WHERE capture_id=? AND state='unavailable' AND retry_after IS NOT NULL""",
+            (capture_id,),
+        ) as cursor:
+            previous = await cursor.fetchone()
+        previous_wait = datetime.fromisoformat(previous[0]) - datetime.fromisoformat(previous[1]) if previous else None
+        now = utc_naive_now()
         await self.db.execute(
             """INSERT INTO garden_saved_crops(capture_id,image,evidence_json,state,retry_after,updated_at)
                SELECT id,NULL,NULL,'unavailable',?,? FROM garden_captures WHERE id=? AND status='confirmed'
                ON CONFLICT(capture_id) DO UPDATE SET retry_after=excluded.retry_after,updated_at=excluded.updated_at
                WHERE garden_saved_crops.state='unavailable'""",
-            ((utc_naive_now() + timedelta(hours=1)).isoformat(), utc_naive_now().isoformat(), capture_id),
+            (next_crop_retry(previous_wait, now).isoformat(), now.isoformat(), capture_id),
         )
         await self.db.commit()
 

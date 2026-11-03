@@ -17,7 +17,6 @@
   "open_settings": "Definições do jardim",
   "photo_alt": "Captura de animal de {camera}",
   "saved_crop_only": "Recorte do animal guardado. A fotografia original está indisponível.",
-  "saved_crop_count": "Recortes de animais guardados: {count} / {limit}. As fotografias completas mantêm o seu prazo de validade separado.",
   "snapshot_unavailable": "Foto indisponível",
   "frigate_suggested": "Sugestão do Frigate: {label}",
   "confirm": "Confirmar presença de animal",
@@ -166,7 +165,9 @@
     "play_clip_short": "Reproduzir clip",
     "state_below_threshold": "Animal detectado; espécie abaixo do limite de nomeação",
     "state_domestic": "Nomeada automaticamente como ave doméstica que você cria",
-    "state_domestic_moved": "Movida das aves como ave doméstica que você cria"
+    "state_domestic_moved": "Movida das aves como ave doméstica que você cria",
+    "awaiting_check": "{count, plural, one {# captura de câmera aguardando a verificação automática} other {# capturas de câmera aguardando a verificação automática}}",
+    "awaiting_check_empty": "{count, plural, one {# captura de câmera aguarda a verificação automática.} other {# capturas de câmera aguardam a verificação automática.}} Animais que ela nomeia vão para Animais confirmados, fotos sem animal para Descartadas, e o que ela não puder decidir aparece aqui."
   },
   "automatic_animal_manual": "Animal detetado. A identificação automática está desativada ou este resultado antigo aguarda nova verificação.",
   "automatic_below_threshold": "Abaixo do limiar automático. Movido para Descartados; restaure a fotografia para a rever.",
@@ -230,7 +231,7 @@
     "suggestion_open": "Abrir Aves domésticas que você cria",
     "suggestion_dismiss": "Agora não"
   },
-  "automatic_animal_below_threshold": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Ele aguarda em Para revisar: confirme e escolha uma espécie, ou descarte.",
+  "automatic_animal_below_threshold_dismissed": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Movido para Descartados; volte-o para revisão se quiser nomeá-lo você mesmo.",
   "automatic_bird_camera": "Ave, tratada pela detecção de aves nesta câmera. Movida para Descartadas; devolva a foto para revisão se não for uma ave.",
   "automatic_wild_bird": "Ave selvagem. Ative aves nesta câmera para registrá-la. Movida para Descartadas; devolva a foto para revisão se a verificação estiver errada.",
   "motion_unreadable": "{count, plural, one {# gravação não pôde ser lida} other {# gravações não puderam ser lidas}} em {camera} na última hora e {count, plural, one {foi ignorada} other {foram ignoradas}}. Nenhuma foto foi mantida."

@@ -222,7 +222,8 @@ async def test_unblocked_matching_profile_can_still_be_automatically_revalidated
 
 @pytest.mark.asyncio
 async def test_runtime_refresh_checks_intel_cpu_before_narrowing_model_choices(environment, monkeypatch):
-    from app.services.classifier_service import _apply_host_validated_provider_policy, _provider_capability_contract
+    from app.services.classifier_service import _apply_host_validated_provider_policy
+    from app.services.inference.provider_policy import provider_capability_contract
 
     probe, _reload = environment
     spec = {
@@ -241,7 +242,7 @@ async def test_runtime_refresh_checks_intel_cpu_before_narrowing_model_choices(e
     resolved = _apply_host_validated_provider_policy(spec, model_id="bird")
     assert "intel_cpu" in resolved["supported_inference_providers"]
     caps = {"ort_available": True, "openvino_available": True, "intel_cpu_available": True, "intel_gpu_available": True}
-    contract = _provider_capability_contract(
+    contract = provider_capability_contract(
         caps=caps,
         packaged_providers=("cpu", "intel_cpu", "intel_gpu"),
         supported_providers=resolved["supported_inference_providers"],

@@ -11,7 +11,7 @@ import math
 import pytest
 
 from app.services.auto_video_classifier_service import AutoVideoClassifierService
-from app.services.classifier_service import ClassifierService, _normalize_classification_input_context
+from app.services.inference.input_selection import normalize_classification_input_context, video_frame_input_context
 
 SNAPSHOT_BOX = [0.22135416666666666, 0.5740740740740741, 0.04635416666666667, 0.09259259259259259]
 SNAPSHOT_TIME = 1790958435.67411
@@ -45,9 +45,8 @@ def _frame(event, frigate_timestamp, image_size=UHD):
         clip_variant="recording",
         clip_start_timestamp=CLIP_START,
     )
-    service = ClassifierService.__new__(ClassifierService)
-    return service._video_frame_input_context(
-        _normalize_classification_input_context(context),
+    return video_frame_input_context(
+        normalize_classification_input_context(context),
         frame_offset_seconds=frigate_timestamp - CLIP_START,
         image_size=image_size,
     ).model_dump()

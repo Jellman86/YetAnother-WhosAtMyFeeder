@@ -9,6 +9,8 @@
         countedCaptures: number | null;
         speciesCount: number | null;
         unresolvedCount: number | null;
+        /** Other work may wait on a person (a species check), so zero unresolved is not "nothing to review". */
+        othersAwaitReview?: boolean;
         audioCalls: number | null;
         audioConfirmations: number | null;
         /** The optional figures, decided from configuration so loading never adds a cell. */
@@ -26,6 +28,7 @@
         countedCaptures,
         speciesCount,
         unresolvedCount,
+        othersAwaitReview = false,
         audioCalls,
         audioConfirmations,
         slots,
@@ -118,7 +121,7 @@
             unresolvedCount,
             loading,
             unresolvedCount !== null && unresolvedCount > 0 ? 'attention' : 'clear',
-            unresolvedCount === 0 ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing to review' }) : '',
+            unresolvedCount === 0 && !othersAwaitReview ? $_('dashboard.day_bar.nothing_to_review', { default: 'nothing to review' }) : '',
             '',
             true
         )}

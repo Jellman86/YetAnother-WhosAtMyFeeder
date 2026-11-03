@@ -123,6 +123,11 @@ class _LiveClassifierProxy:
     def __setattr__(self, name: str, value) -> None:
         setattr(get_classifier(), name, value)
 
+    def __delattr__(self, name: str) -> None:
+        # Reads and writes reach the live classifier, so removals must too: a test patch
+        # undone by deletion would otherwise outlive its test on the shared classifier.
+        delattr(get_classifier(), name)
+
 
 # Keep the old module attribute for diagnostics/tests that import it, but make
 # it a live proxy rather than a captured singleton. After a settings-driven

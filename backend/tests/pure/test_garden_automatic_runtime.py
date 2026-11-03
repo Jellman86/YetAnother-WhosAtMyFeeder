@@ -106,7 +106,7 @@ async def test_failed_accelerator_stays_on_cpu_across_restart_and_package_change
 
 @pytest.mark.asyncio
 async def test_unreaped_worker_never_starts_cpu_fallback(runtime):
-    from app.services.garden_identification import GardenCleanupFailed
+    from app.services.garden_worker_supervisor import GardenCleanupFailed
 
     service, worker, payload, _, reply = runtime
 
@@ -123,7 +123,7 @@ async def test_unreaped_worker_never_starts_cpu_fallback(runtime):
 
 @pytest.mark.asyncio
 async def test_device_preference_change_during_check_cannot_authorize_old_profile(runtime, monkeypatch):
-    from app.services.garden_identification import GardenBusy
+    from app.services.garden_worker_supervisor import GardenBusy
 
     service, worker, payload, module, reply = runtime
 
@@ -157,7 +157,7 @@ async def test_auto_skips_a_failed_npu_profile_before_checking_igpu(runtime, mon
 
 @pytest.mark.asyncio
 async def test_cpu_native_fault_is_quarantined_before_any_accelerator_is_started(runtime):
-    from app.services.garden_identification import GardenNativeWorkerFailed
+    from app.services.garden_worker_supervisor import GardenNativeWorkerFailed
     from app.services.native_crash_quarantine import NativeCrashQuarantinedError
 
     service, worker, payload, module, _ = runtime
@@ -172,7 +172,7 @@ async def test_cpu_native_fault_is_quarantined_before_any_accelerator_is_started
 
 @pytest.mark.asyncio
 async def test_accelerator_native_fault_falls_back_after_cleanup_and_is_not_retried(runtime):
-    from app.services.garden_identification import GardenNativeWorkerFailed
+    from app.services.garden_worker_supervisor import GardenNativeWorkerFailed
 
     service, worker, payload, module, reply = runtime
 

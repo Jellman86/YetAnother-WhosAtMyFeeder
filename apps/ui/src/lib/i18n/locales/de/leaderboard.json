@@ -209,7 +209,14 @@
     "partial": "{count, plural, one {# Aufnahme konnte nicht umbenannt werden. Versuchen Sie es erneut.} other {# Aufnahmen konnten nicht umbenannt werden. Versuchen Sie es erneut.}}",
     "renamed": "{count, plural, one {# Besuch ist jetzt} other {# Besuche sind jetzt}} {species}.",
     "confirmed": "{count, plural, one {# Besuch bestätigt als} other {# Besuche bestätigt als}} {species}.",
-    "hidden": "{count, plural, one {# Besuch als kein Vogel ausgeblendet.} other {# Besuche als kein Vogel ausgeblendet.}}"
+    "hidden": "{count, plural, one {# Besuch als kein Vogel ausgeblendet.} other {# Besuche als kein Vogel ausgeblendet.}}",
+    "kept_bird_body": "{species} ist vielleicht ein Hausvogel: {kind}. Wenn du sie hältst, erfasse sie als Gartentiere: Ihre Vogeleinträge wandern in den Garten und werden im Vogelverlauf ausgeblendet, nicht gelöscht.",
+    "kept_bird_keep": "Ich halte {kind}: in den Garten verschieben",
+    "kept_bird_move": "{kind}-Einträge in den Garten verschieben",
+    "kept_bird_working": "Wird in den Garten verschoben…",
+    "kept_bird_moved": "{count, plural, =0 {Keine Vogeleinträge mussten verschoben werden.} one {# Vogeleintrag in den Garten verschoben.} other {# Vogeleinträge in den Garten verschoben.}} {kind} stehen jetzt unter Hausvögel, die du hältst.",
+    "kept_bird_skipped": "{count, plural, one {# Eintrag konnte nicht verschoben werden und bleibt im Vogelverlauf.} other {# Einträge konnten nicht verschoben werden und bleiben im Vogelverlauf.}}",
+    "kept_bird_remaining": "{count, plural, one {# weiterer Eintrag wartet; wähle die Aktion erneut, um ihn zu verschieben.} other {# weitere Einträge warten; wähle die Aktion erneut, um sie zu verschieben.}}"
   },
   "span_group": "Zeitraum"
 }

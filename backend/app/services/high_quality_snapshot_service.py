@@ -28,11 +28,17 @@ from app.services.species_reference import species_reference
 from app.services.frigate_client import frigate_client
 from app.services.hq_classification_refinement import (
     HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS,
+    WHOLE_FRAME_CORRECTION_REASON,
     choose_hq_classification_refinement,
+    crop_labels_disputing_full_frame,
     crop_labels_with_independent_support,
+    identity_labels,
+    identity_rests_on_whole_frame,
+    strongest_crop_by_species,
 )
 from app.services.media_cache import media_cache, validate_film_alignment
 from app.services.photo_choice_actions import photo_choice_lock
+from app.services.snapshot_evidence_commit import SnapshotEvidenceCommitPlan, build_snapshot_evidence_commit_plan
 from app.services.video_scene_cache import VideoSceneCache
 from app.services.classification_input_provenance import cached_snapshot_input_provenance
 from app.database import get_db
@@ -50,6 +56,12 @@ from app.repositories.processing_job_repository import ProcessingJobRepository
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.classifier_labels import normalize_classifier_label
 from app.utils.frigate_coordinates import normalized_frigate_video_hint, restore_frigate_hint_box
+from app.utils.frigate_track import (
+    box_at_path_point,
+    compact_frigate_path_data,
+    frigate_path_points,
+    nearest_path_point,
+)
 from app.utils.tasks import create_background_task
 from app.utils.image_io import decode_image_bytes
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
@@ -420,13 +432,17 @@ class HighQualitySnapshotService:
                     event_data=event_data,
                     clip_variant=clip_variant,
                     include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                 )
             else:
                 final_candidates = await self._load_final_frigate_snapshot_candidates(
                     event_id, event_data, include_additional_birds=include_additional_birds
                 )
                 candidate_bundle = await self._score_and_select_snapshot_candidates(
-                    event_id, final_candidates, include_additional_birds=include_additional_birds
+                    event_id,
+                    final_candidates,
+                    include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                 )
             if candidate_bundle:
                 candidates = candidate_bundle.get("candidates") or []
@@ -636,6 +652,7 @@ class HighQualitySnapshotService:
                     clip_variant=clip_variant,
                     clip_start_timestamp=clip_start_timestamp,
                     include_additional_birds=include_additional_birds,
+                    correct_whole_frame_identity=True,
                     **({"scene_cache": scene_cache} if scene_cache is not None else {}),
                 )
                 if candidate_bundle:
@@ -804,6 +821,7 @@ class HighQualitySnapshotService:
         clip_variant: str = "event",
         clip_start_timestamp: float | None = None,
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
@@ -815,6 +833,7 @@ class HighQualitySnapshotService:
                 clip_variant=clip_variant,
                 clip_start_timestamp=clip_start_timestamp,
                 include_additional_birds=include_additional_birds,
+                correct_whole_frame_identity=correct_whole_frame_identity,
             )
         finally:
             with contextlib.suppress(Exception):
@@ -830,8 +849,14 @@ class HighQualitySnapshotService:
         clip_start_timestamp: float | None = None,
         scene_cache: VideoSceneCache | None = None,
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
-        """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
+        """Candidate generation against a clip already on disk; the caller owns the file (#341).
+
+        ``correct_whole_frame_identity`` lets an HQ run settle a crop-consensus correction of a
+        whole-frame name before the photo is chosen, so the photo shows the corrected species.
+        Evidence-only scans leave it off and never change the identification.
+        """
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
@@ -868,7 +893,10 @@ class HighQualitySnapshotService:
             raise extraction_error
 
         return await self._score_and_select_snapshot_candidates(
-            event_id, raw_candidates, include_additional_birds=include_additional_birds
+            event_id,
+            raw_candidates,
+            include_additional_birds=include_additional_birds,
+            correct_whole_frame_identity=correct_whole_frame_identity,
         )
 
     async def _score_and_select_snapshot_candidates(
@@ -876,6 +904,7 @@ class HighQualitySnapshotService:
         event_id: str,
         raw_candidates: list[dict[str, Any]],
         include_additional_birds: bool | None = None,
+        correct_whole_frame_identity: bool = False,
     ) -> dict[str, Any]:
         """Score, select, and bound candidates independent of their media source."""
         include_additional_birds = self._additional_birds_enabled(include_additional_birds)
@@ -900,7 +929,13 @@ class HighQualitySnapshotService:
             }
 
         ranked = self._rank_snapshot_candidates(scored)
+        if correct_whole_frame_identity:
+            await self._apply_classification_refinement(event_id, scored, whole_frame_correction_only=True)
         expected_labels = await self._load_expected_species_labels(event_id)
+        if expected_labels and await self._whole_frame_identity_disputed_by_crops(event_id, scored):
+            # The name came from one whole frame and every crop names another species, so it
+            # is not evidence for choosing the photo: choose as if the visit were unnamed.
+            expected_labels = set()
         # Target crop geometry remains photo-presence evidence even when optional
         # whole-scene enumeration and recovered-bird classification are disabled.
         observation_candidates = await self._detect_count_candidates(scored) if include_additional_birds else []
@@ -1421,6 +1456,56 @@ class HighQualitySnapshotService:
         }
         labels.discard("")
         return labels
+
+    async def _whole_frame_identity_disputed_by_crops(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
+        """Whether the photo choice should set aside a doubtful whole-frame name.
+
+        True when the visit's name was read from one whole frame, every named crop disputes it,
+        and the visit could be renamed to each crop species. The photo may then show what the
+        crops saw while the name stays, a visible disagreement the owner can settle. A crop species
+        the automatic write would refuse (blocked, out of range, a non-bird or Unknown) never
+        displaces the existing photo choice.
+        """
+        try:
+            async with get_db() as db:
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+                owner_choice = await repo.get_owner_species_choice_labels(event_id) if detection else None
+        except Exception:
+            return False
+        if detection is None or not identity_rests_on_whole_frame(
+            detection, owner_species_chosen=owner_choice is not None
+        ):
+            return False
+        crop_labels = crop_labels_disputing_full_frame(identity_labels(detection), candidates)
+        if not crop_labels:
+            return False
+
+        from app.services.detection_service import DetectionService
+
+        classifier_module = sys.modules.get("app.services.classifier_service")
+        gates = DetectionService(getattr(classifier_module, "_classifier_instance", None))
+        refusals: dict[str, str] = {}
+        for label, crop in strongest_crop_by_species(candidates, crop_labels).items():
+            refusal = await gates.automatic_species_refusal(
+                label=label,
+                score=self._finite_candidate_score(crop.get("classifier_score")),
+                index=crop.get("classifier_index"),
+                model_sha256=str(crop.get("classifier_model_sha256") or "") or None,
+            )
+            if refusal:
+                refusals[label] = refusal
+        log.info(
+            "HQ photo choice kept a disputed whole-frame name because a crop species cannot be named"
+            if refusals
+            else "HQ photo choice set aside a whole-frame name that every crop disputes",
+            event_id=event_id,
+            species=detection.display_name,
+            input_source=getattr(detection.classification_input, "source", None),
+            crop_labels=crop_labels,
+            refusals=refusals or None,
+        )
+        return not refusals
 
     @staticmethod
     def _candidate_label_key(value: Any) -> str:
@@ -2015,21 +2100,7 @@ class HighQualitySnapshotService:
             return None
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
-        path_points: list[tuple[float, float, float]] = []
-        for item in payload.get("path_data") or []:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
+        path_points = frigate_path_points(payload.get("path_data"))
         if not path_points:
             return None
         try:
@@ -2039,12 +2110,10 @@ class HighQualitySnapshotService:
             return None
         if not math.isfinite(start_time) or not math.isfinite(offset) or offset < 0.0:
             return None
-        target_timestamp = start_time + offset
-        point_timestamp, bottom_center_x, bottom_y = min(
-            path_points,
-            key=lambda item: abs(item[0] - target_timestamp),
+        nearest = nearest_path_point(
+            path_points, start_time + offset, max_distance_seconds=HQ_PATH_HINT_MAX_DISTANCE_SECONDS
         )
-        if abs(point_timestamp - target_timestamp) > HQ_PATH_HINT_MAX_DISTANCE_SECONDS:
+        if nearest is None:
             return None
 
         raw_box = payload.get("box")
@@ -2057,11 +2126,8 @@ class HighQualitySnapshotService:
         if width > 1.0 or height > 1.0:
             return None
 
-        # Frigate path_data stores the tracked box's bottom-centre point.
-        left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
-        top = max(0.0, min(1.0 - height, bottom_y - height))
         adjusted_payload = dict(payload)
-        adjusted_payload["box"] = [left, top, width, height]
+        adjusted_payload["box"] = box_at_path_point(nearest, width=width, height=height)
         adjusted_event = dict(event_data)
         adjusted_event["data"] = adjusted_payload
         return adjusted_event
@@ -2122,8 +2188,15 @@ class HighQualitySnapshotService:
         enriched["ranking_score"] = ranking_score
         return enriched
 
-    async def _apply_classification_refinement(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
-        """Promote a trustworthy crop consensus through the canonical detection write path."""
+    async def _apply_classification_refinement(
+        self, event_id: str, candidates: list[dict[str, Any]], *, whole_frame_correction_only: bool = False
+    ) -> bool:
+        """Promote a trustworthy crop consensus through the canonical detection write path.
+
+        ``whole_frame_correction_only`` is the HQ pass that runs before the photo is chosen. It
+        applies only a correction of a whole-frame name; when it applies nothing it counts nothing,
+        leaving that outcome to the ordinary pass that follows the photo.
+        """
         # Avoid a database lookup when candidate scoring did not produce enough usable evidence.
         crop_votes = [
             item
@@ -2134,14 +2207,18 @@ class HighQualitySnapshotService:
             and item.get("classifier_index") is not None
         ]
         if not crop_labels_with_independent_support(crop_votes):
-            self._classification_refinements["insufficient_evidence"] += 1
+            if not whole_frame_correction_only:
+                self._classification_refinements["insufficient_evidence"] += 1
             return False
 
         try:
             async with get_db() as db:
-                detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+                repo = DetectionRepository(db)
+                detection = await repo.get_by_frigate_event(event_id)
+                owner_choice = await repo.get_owner_species_choice_labels(event_id) if detection else None
             if detection is None:
-                self._classification_refinements["detection_missing"] += 1
+                if not whole_frame_correction_only:
+                    self._classification_refinements["detection_missing"] += 1
                 return False
 
             from app.services.model_manager import model_manager
@@ -2152,7 +2229,10 @@ class HighQualitySnapshotService:
                 detection=detection,
                 candidates=candidates,
                 minimum_score=recommended_threshold,
+                owner_species_chosen=owner_choice is not None,
             )
+            if whole_frame_correction_only and (decision is None or decision.reason != WHOLE_FRAME_CORRECTION_REASON):
+                return False
             if decision is None:
                 self._classification_refinements["policy_rejected"] += 1
                 return False
@@ -2177,6 +2257,9 @@ class HighQualitySnapshotService:
                 video_model_id=str(model_spec.get("model_id") or "") or None,
                 video_model_sha256=decision.model_sha256,
                 persist_video_result=False,
+                whole_frame_correction_of=detection.classification_input
+                if decision.reason == WHOLE_FRAME_CORRECTION_REASON
+                else None,
                 input_evidence=ClassificationEvidence(
                     source="hq_candidate_" + decision.source_mode,
                     is_cropped=decision.source_mode != "full_frame",
@@ -2195,6 +2278,9 @@ class HighQualitySnapshotService:
                 median_score=decision.median_score,
                 supporting_frames=decision.supporting_frame_count,
                 reason=decision.reason,
+                previous_species=detection.display_name,
+                previous_score=detection.score,
+                previous_input_source=getattr(getattr(detection, "classification_input", None), "source", None),
                 promoted=bool(applied),
                 model_id=model_spec.get("model_id"),
                 preprocessing=model_spec.get("preprocessing"),
@@ -2308,39 +2394,37 @@ class HighQualitySnapshotService:
             manual_candidate_id=chosen.get("candidate_id") if manual_choice and chosen else None,
             displayed_photo_sha256=displayed_photo_sha256,
         )
+        await self._commit_snapshot_evidence(
+            build_snapshot_evidence_commit_plan(
+                event_id,
+                candidates,
+                previous_rows=existing,
+                legacy_removed_hashes=legacy_removed_hashes,
+            )
+        )
 
-        for candidate in candidates:
-            image_ref = str(candidate.get("image_ref") or "")
-            thumbnail_ref = str(candidate.get("thumbnail_ref") or "")
-            image_bytes = candidate.get("image_bytes")
-            thumbnail_bytes = candidate.get("thumbnail_bytes")
-            if image_ref and isinstance(image_bytes, (bytes, bytearray)):
+    async def _commit_snapshot_evidence(self, plan: SnapshotEvidenceCommitPlan) -> None:
+        """Write media first, then replace the rows in one session, then prune unreferenced files."""
+        for write in plan.media_writes:
+            if write.kind == "image":
                 await media_cache.cache_snapshot(
-                    image_ref,
-                    bytes(image_bytes),
+                    write.ref,
+                    write.content,
                     source="snapshot_candidate",
-                    **({"film_alignment": candidate["film_alignment"]} if candidate.get("film_alignment") else {}),
+                    **({"film_alignment": write.film_alignment} if write.film_alignment else {}),
                 )
-            if thumbnail_ref and isinstance(thumbnail_bytes, (bytes, bytearray)):
-                await media_cache.cache_thumbnail(thumbnail_ref, bytes(thumbnail_bytes), source="snapshot_candidate")
+            else:
+                await media_cache.cache_thumbnail(write.ref, write.content, source="snapshot_candidate")
 
-        persisted_rows: list[dict[str, Any]] = []
-        for candidate in candidates:
-            row = dict(candidate)
-            row.pop("image_bytes", None)
-            row.pop("thumbnail_bytes", None)
-            row.pop("observation_boxes", None)
-            persisted_rows.append(row)
+        rows = list(plan.rows)
         async with get_db() as db:
             repo = DetectionRepository(db)
-            for row in persisted_rows:
-                old_digest = legacy_removed_hashes.get(row["candidate_id"])
-                if old_digest and old_digest == row.get("content_sha256"):
-                    await repo.bind_legacy_snapshot_candidate_dismissal(event_id, row["candidate_id"], old_digest)
-            await repo.replace_snapshot_candidates(event_id, persisted_rows)
+            for candidate_id, digest in plan.legacy_dismissals:
+                await repo.bind_legacy_snapshot_candidate_dismissal(plan.event_id, candidate_id, digest)
+            await repo.replace_snapshot_candidates(plan.event_id, rows)
         from app.services.video_snapshot_service import prune_unreferenced_photo_files
 
-        await prune_unreferenced_photo_files(existing, persisted_rows)
+        await prune_unreferenced_photo_files(list(plan.previous_rows), rows)
 
     async def _persist_scan_bundle(self, event_id: str, bundle: dict[str, Any]) -> None:
         from app.services.bird_scan_service import bird_scan_service
@@ -2869,12 +2953,7 @@ class HighQualitySnapshotService:
                 payload[key] = list(raw_hint)
         raw_path_data = raw_payload.get("path_data")
         if isinstance(raw_path_data, list):
-            path_data = []
-            for item in raw_path_data[:50]:
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    point, timestamp = item[0], item[1]
-                    if isinstance(point, (list, tuple)) and len(point) >= 2:
-                        path_data.append([list(point[:2]), timestamp])
+            path_data = compact_frigate_path_data(raw_path_data, limit=50)
             if path_data:
                 payload["path_data"] = path_data
 
@@ -3436,21 +3515,7 @@ class HighQualitySnapshotService:
 
         raw_payload = event_data.get("data")
         payload = raw_payload if isinstance(raw_payload, dict) else {}
-        path_points: list[tuple[float, float, float]] = []
-        for item in payload.get("path_data") or []:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if math.isfinite(x) and math.isfinite(y) and math.isfinite(timestamp):
-                path_points.append((timestamp, x, y))
+        path_points = frigate_path_points(payload.get("path_data"), within_frame=False)
         if not path_points:
             return []
 

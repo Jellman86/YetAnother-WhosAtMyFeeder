@@ -118,3 +118,37 @@ test('a response for different crop evidence cannot become a displayed suggestio
     await expect(check(page)).toContainText('does not match the displayed photo');
     await expect(check(page)).not.toContainText('Model suggests a bird');
 });
+
+test('a single pending capture is dismissed by a labelled button, and a busy model says it is busy', async ({ page }) => {
+    const single = captures.slice(0, 1);
+    await page.route(url => url.pathname === '/api/garden/visits' || /^\/api\/garden\/visits\/.+\/captures$/.test(url.pathname), route => {
+        const url = new URL(route.request().url());
+        return route.fulfill({ json: gardenVisitResponse(url.searchParams.get('status') === 'pending' ? single : [], url) });
+    });
+    await page.route('**/api/garden/identification', route => route.fulfill({ json: { ...status, busy: true } }));
+    let dismissed = 0;
+    await page.route(/\/api\/garden\/[^/]+\/dismiss$/, route => { dismissed++; return route.fulfill({ json: { ...single[0], status: 'dismissed' } }); });
+    await openStack(page);
+    // The dismiss control says what it does in words, not with an icon alone.
+    const dismiss = record(page).locator('[data-garden-entry-dismiss="capture"]');
+    await expect(dismiss).toHaveText('Dismiss capture');
+    await expect(record(page).getByRole('button', { name: 'Check photo', exact: true })).toBeDisabled();
+    // The disabled check names its real cause; the model is installed, so it never asks for a download.
+    await expect(record(page)).toContainText('The Garden model is busy with another photo');
+    await expect(record(page)).not.toContainText('Photo checks need the automatic check model');
+    await dismiss.click();
+    await expect.poll(() => dismissed).toBe(1);
+});
+
+test('captures waiting for the automatic check are counted, not listed', async ({ page }) => {
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        const url = new URL(route.request().url());
+        return route.fulfill({ json: { ...gardenVisitResponse([], url), awaiting_check: 4 } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=1&visitors=garden&review=pending');
+    await expect(page.locator('[data-explorer-garden-empty]')).toContainText('No Garden captures need review');
+    await expect(page.locator('[data-garden-awaiting-check-empty]')).toHaveText(
+        '4 camera captures are waiting for the automatic check. Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.'
+    );
+    await expect(page.locator('[data-garden-card]')).toHaveCount(0);
+});

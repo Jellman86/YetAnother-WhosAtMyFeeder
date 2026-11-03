@@ -54,7 +54,13 @@ rankings and **Check** on its photograph. **Needs a check** opens the review she
 photographed visits, keep the ones you want selected, then confirm, rename or hide them. A missing
 nearby report is a reason to check, not proof that the classifier was wrong. Renaming applies to
 every capture of the selected visits and teaches personalised identification, so it has no undo
-in this sheet. See [Explorer and reviewing visits](explorer.md#check-a-doubtful-identification). The check sends eBird
+in this sheet. See [Explorer and reviewing visits](explorer.md#check-a-doubtful-identification).
+The dashboard's **Needs your call** names the species this check flags over its last 24 hours, for
+example "1 species may be misnamed: Red Junglefowl", with **Open the checks on the Species page**,
+which opens the leaderboard's **Day** window at **Needs a check**. While the check is loading or
+cannot be read, the panel says so instead of "Nothing waiting on you", and a list from an earlier
+read whose refresh failed is marked as possibly out of date, with **Try again**. Without eBird or a
+feeder location the check does not run; the panel then says only that every visit has a species. The check sends eBird
 your approximate location (about 11 km) rather than the exact one, runs at most every six hours, and
 is simply absent when eBird is off or does not answer.
 
@@ -99,6 +105,26 @@ Names are resolved in order, and the first source that answers wins:
 The bundled reference is generated from the IOC World Bird List and redistributed under
 [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/); see
 `backend/app/assets/species_reference.NOTICE.md` for the attribution.
+
+## The family tree
+
+A bird or Garden animal record shows where it sits, from its class to its species, and **Open the
+family tree** opens the whole classification around it. The tree is your feeder's: each species seen
+here shows your own newest photograph, its visits and, when BirdNET-Go recorded it, that it was heard.
+Point at or focus any name for its card:
+
+- **A species** shows your photograph (or the reference photograph when you have none), its visits,
+  first and last seen, its BirdNET calls, its IUCN Red List category where iNaturalist records one,
+  a short description and its names in the catalogue's other languages.
+- **A genus, family or order** shows how many of its species were seen here, their visits and the
+  most recent one, pictured by your photograph of its most-seen member. Families and orders add a
+  short description, taken only from the taxon of exactly that name and rank so it never describes
+  something else with the same name.
+
+Visits use the same rule as the leaderboard; hidden records and unconfirmed Garden captures never
+count. Visitors see the window you share with them, and photographs and calls only if you share
+those. An authority and year appear when the species catalogue records one; the catalogue shipped
+today does not, so none show yet.
 
 ## The species catalogue
 

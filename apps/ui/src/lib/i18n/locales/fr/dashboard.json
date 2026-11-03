@@ -111,7 +111,17 @@
     "loading": "Recherche des visites qui vous attendent…",
     "unavailable": "La file n’a pas pu être vérifiée. On ne sait donc pas si quelque chose attend.",
     "reason_unknown_species": "Espèce inconnue",
-    "reason_low_score": "Sous le seuil d’identification"
+    "reason_low_score": "Sous le seuil d’identification",
+    "visits_clear": "Chaque visite de ces dernières 24 heures a une espèce.",
+    "checks_summary": "{count, plural, one {# espèce est peut-être mal nommée : {species}.} other {# espèces sont peut-être mal nommées : {species}.}}",
+    "checks_body": "{count, plural, one {Seule la caméra l’atteste et aucun observateur ne l’a signalée dans un rayon de {radius} km.} other {Seule la caméra les atteste et aucun observateur ne les a signalées dans un rayon de {radius} km.}}",
+    "checks_body_plain": "{count, plural, one {Seule la caméra l’atteste.} other {Seule la caméra les atteste.}}",
+    "checks_open": "Ouvrir les vérifications sur la page Espèces",
+    "checks_loading": "Recherche d’espèces peut-être mal nommées…",
+    "checks_unavailable": "La vérification de répartition n’a pas pu être lue. On ne sait donc pas si une espèce est mal nommée.",
+    "checks_more": "{count} de plus",
+    "visits_stale": "L’historique des visites n’a pas pu être relu. Cette liste n’est peut-être plus à jour.",
+    "checks_stale": "La vérification de répartition n’a pas pu être relue. Cette liste n’est peut-être plus à jour."
   },
   "review_session": {
     "position": "{position} sur {total}",

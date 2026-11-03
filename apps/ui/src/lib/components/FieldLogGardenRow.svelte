@@ -2,16 +2,16 @@
     /**
      * One Garden animal's visit on the field log's thread, in a bird visit's columns: time, node,
      * photo, name, score, action. The worded Garden marker keeps it from reading as a bird, and
-     * work that needs a person is flagged as the Explorer flags it: tint, bar and a reason in words.
+     * work that needs a person is flagged as the Explorer flags it: a faint tint, and an amber dot
+     * beside the reason in words.
      */
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
-    import GardenPhotoPreview from './GardenPhotoPreview.svelte';
+    import GardenCapturePreview from './GardenCapturePreview.svelte';
     import GardenVisitCaptures from './GardenVisitCaptures.svelte';
     import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture, GardenServerVisit } from '../api/garden';
-    import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenVisitLabel } from '../utils/garden-explorer';
     import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
@@ -45,13 +45,6 @@
         return start === end ? end : `${start}–${end}`;
     });
 
-    let failedUrl = $state<string | null>(null);
-    let failedCropUrl = $state<string | null>(null);
-    const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
-    const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
-    const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
-    const usingSavedCrop = $derived(Boolean(cropPhoto && photo === cropPhoto));
-
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
     const scoreTone = $derived(SCORE_TEXT[scoreBand(view.score)]);
     const barTone = $derived(SCORE_FILL[scoreBand(view.score)]);
@@ -61,7 +54,7 @@
 </script>
 
 <li
-    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/10' : ''}"
+    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/5' : ''}"
     data-field-log-row
     data-row-kind="garden"
     data-field-log-garden={visit.id}
@@ -75,13 +68,9 @@
         <span class="relative my-auto h-2 w-2 shrink-0 rounded-full ring-2 ring-white dark:ring-slate-900 {view.review ? 'bg-attention-500' : 'bg-slate-400 dark:bg-slate-500'}"></span>
     </span>
 
-    <!-- The bird preview's size and frame, so the photo column reads as one. -->
-    <span class="grid min-h-11 min-w-11 place-items-center {cell.photo}" aria-hidden="true">
-        <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
-            {#if photo && failedUrl !== photo}
-                <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} fill aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
-            {/if}
-        </span>
+    <!-- The bird visit's photo cell and pop-out, so the photo column reads and behaves as one. -->
+    <span class="flex {cell.photo}">
+        <GardenCapturePreview {capture} fill onopen={() => onopen(visit)} />
     </span>
 
     <div class="min-w-0 {cell.body}">
@@ -96,7 +85,11 @@
             {#if showCamera}
                 <span class="break-words" data-field-log-camera>{capture.camera}</span>
             {/if}
-            <span class="font-medium {view.review ? 'text-attention-800 dark:text-attention-300' : ''}" data-field-log-garden-state>{text.state}</span>
+            {#if view.review}
+                <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-field-log-garden-state data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+            {:else}
+                <span class="font-medium" data-field-log-garden-state>{text.state}</span>
+            {/if}
             {#if grouped && !(scope && oncapture)}<span class="font-medium">{grouped}</span>{/if}
         </p>
     </div>
@@ -130,9 +123,5 @@
             <GardenVisitCaptures visit={{ id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [capture] }}
                 {scope} layout="inline" onselect={oncapture} />
         </div>
-    {/if}
-    <!-- Last, so it never takes a column: the line's cells are placed by their order. -->
-    {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-attention-500" aria-hidden="true"></span>
     {/if}
 </li>

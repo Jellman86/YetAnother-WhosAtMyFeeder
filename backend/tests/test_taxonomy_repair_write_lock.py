@@ -7,11 +7,6 @@ waits at most `busy_timeout` (30 s) before failing with "database is locked".
 
 import asyncio
 from contextlib import suppress
-import os
-from pathlib import Path
-import shutil
-import subprocess
-import sys
 
 import aiosqlite
 import pytest
@@ -20,23 +15,9 @@ from app.services import canonical_identity_repair_service as repair_module
 from app.services.canonical_identity_repair_service import CanonicalIdentityRepairService
 
 
-@pytest.fixture(scope="module")
-def migrated_template(tmp_path_factory):
-    path = tmp_path_factory.mktemp("taxonomy-repair-schema") / "template.db"
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=Path(__file__).resolve().parents[1],
-        env={**os.environ, "DB_PATH": str(path)},
-        check=True,
-        capture_output=True,
-    )
-    return path
-
-
 @pytest.mark.asyncio
-async def test_live_writes_proceed_while_taxonomy_repair_waits_on_lookups(monkeypatch, tmp_path, migrated_template):
-    path = tmp_path / "repair.db"
-    shutil.copyfile(migrated_template, path)
+async def test_live_writes_proceed_while_taxonomy_repair_waits_on_lookups(monkeypatch, tmp_path, migrated_history_db):
+    path = migrated_history_db
 
     async with aiosqlite.connect(path) as db:
         await db.execute("PRAGMA journal_mode=WAL")

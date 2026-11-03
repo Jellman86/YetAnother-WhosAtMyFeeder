@@ -15,6 +15,7 @@ from app.routers.events import (
 )
 from app.utils.api_datetime import utc_naive_datetime
 from app.ratelimit import guest_rate_limit
+from app.services.explorer_search import bird_taxon_members
 from app.services.visit_grouping import VISIT_GAP_SECONDS
 from app.utils.public_access import effective_public_events_days, public_utc_day
 
@@ -55,6 +56,7 @@ async def get_visits(
     audio_confirmed_only: bool = False,
     only_hidden: bool = False,
     sort: str = Query("newest", pattern="^(newest|oldest|confidence)$"),
+    taxon: int | None = Query(None, ge=1, description="Catalogue taxon: only species at or beneath it"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> DetectionVisitsResponse:
     start = (
@@ -81,9 +83,11 @@ async def get_visits(
             audio_confirmed_only = False
     species_name, taxa_id = parse_species_filter(species)
     species_name, aliases = resolve_species_display_filter_aliases(species_name, taxa_id)
+    species_ids = await bird_taxon_members(taxon) if taxon else None
     async with get_db() as db:
         repo = VisitRepository(db)
         headers, total = await repo.list_visits(
+            species_ids=species_ids,
             start=start,
             end=end,
             camera=camera,

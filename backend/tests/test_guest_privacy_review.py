@@ -7,6 +7,8 @@ import json
 import os
 import sqlite3
 from unittest.mock import AsyncMock
+from app.services.nearby_species_service import NearbyLookup
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import aiosqlite
 import httpx
@@ -18,6 +20,9 @@ from app.config import settings
 from app.main import app, sse_endpoint
 from app.routers import ai, audio, events, species, stats
 from app.services.broadcaster import broadcaster
+
+
+NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
 
 
 @pytest.fixture
@@ -305,16 +310,16 @@ async def test_media_identity_payload_precedence_and_hidden_collision(private_hi
         )
         await db.commit()
         repo = DetectionRepository(db)
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute(
             "UPDATE audio_detections SET raw_data = ? WHERE species='Visible'",
             (json.dumps({"detection_id": " 00101 "}),),
         )
         await db.commit()
-        assert await repo.public_birdnet_media_visible(101, today)
+        assert await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute("UPDATE audio_detections SET raw_data = ? WHERE species='Hidden'", (json.dumps({"id": 101}),))
         await db.commit()
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
@@ -347,7 +352,7 @@ async def test_audio_switch_covers_visual_history_representations(private_histor
 )
 async def test_guest_visual_statistics_respect_history_window(private_history, monkeypatch, route):
     monkeypatch.setattr(stats.weather_service, "get_hourly_weather", AsyncMock(return_value={}))
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value={}))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get(route)
         owner = await client.get(route, headers={"Authorization": f"Bearer {create_access_token('owner')}"})
@@ -411,7 +416,7 @@ async def test_guest_visual_audio_requires_current_visible_evidence(private_hist
 )
 async def test_guest_audio_aggregates_require_current_evidence(private_history, monkeypatch, route):
     _, db_factory = private_history
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value=None))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with db_factory() as db:
         await db.execute(
             "UPDATE detections SET audio_confirmed=1, audio_species='Hidden', audio_score=.9 WHERE frigate_event='visible'"

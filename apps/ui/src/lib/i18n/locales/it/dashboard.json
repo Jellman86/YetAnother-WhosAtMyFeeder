@@ -111,7 +111,17 @@
     "loading": "Controllo delle visite che richiedono il tuo intervento…",
     "unavailable": "Impossibile controllare la coda, quindi non si sa se qualcosa è in attesa.",
     "reason_unknown_species": "Specie sconosciuta",
-    "reason_low_score": "Sotto la soglia di identificazione"
+    "reason_low_score": "Sotto la soglia di identificazione",
+    "visits_clear": "Ogni visita delle ultime 24 ore ha una specie.",
+    "checks_summary": "{count, plural, one {# specie potrebbe avere un nome errato: {species}.} other {# specie potrebbero avere un nome errato: {species}.}}",
+    "checks_body": "{count, plural, one {Solo la fotocamera la conferma e nessun birdwatcher l’ha segnalata entro {radius} km.} other {Solo la fotocamera le conferma e nessun birdwatcher le ha segnalate entro {radius} km.}}",
+    "checks_body_plain": "{count, plural, one {Solo la fotocamera la conferma.} other {Solo la fotocamera le conferma.}}",
+    "checks_open": "Apri i controlli nella pagina Specie",
+    "checks_loading": "Ricerca di specie con un nome forse errato…",
+    "checks_unavailable": "Impossibile leggere il controllo di areale, quindi non si sa se una specie ha un nome errato.",
+    "checks_more": "altre {count}",
+    "visits_stale": "Impossibile rileggere la cronologia delle visite, quindi questo elenco potrebbe non essere aggiornato.",
+    "checks_stale": "Impossibile rileggere il controllo di areale, quindi questo elenco potrebbe non essere aggiornato."
   },
   "review_session": {
     "position": "{position} di {total}",

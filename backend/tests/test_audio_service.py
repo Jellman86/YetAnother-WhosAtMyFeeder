@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 from app.services.audio.audio_service import AudioService, AudioDetection
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 
 @pytest.fixture
@@ -574,7 +575,7 @@ async def test_hidden_audio_is_removed_from_buffer_and_cannot_reappear_on_replay
 @pytest.mark.asyncio
 async def test_audio_persistence_failure_cannot_reintroduce_hidden_evidence(audio_service):
     with patch(
-        "app.services.audio.audio_service.DetectionRepository.insert_audio_detection_idempotent",
+        "app.services.audio.audio_service.AudioHistoryRepository.insert_audio_detection_idempotent",
         side_effect=RuntimeError("database unavailable"),
     ):
         assert not await audio_service.add_detection({"species": "Robin", "confidence": 0.9})
@@ -584,12 +585,11 @@ async def test_audio_persistence_failure_cannot_reintroduce_hidden_evidence(audi
 @pytest.mark.asyncio
 async def test_removal_wins_against_ingest_waiting_to_append(audio_service):
     import asyncio
-    from app.repositories.detection_repository import DetectionRepository
 
     inserted = asyncio.Event()
     resume = asyncio.Event()
     row_ids = []
-    original = DetectionRepository.insert_audio_detection_idempotent
+    original = AudioHistoryRepository.insert_audio_detection_idempotent
 
     async def paused_insert(repo, **kwargs):
         result = await original(repo, **kwargs)
@@ -598,7 +598,7 @@ async def test_removal_wins_against_ingest_waiting_to_append(audio_service):
         await resume.wait()
         return result
 
-    with patch.object(DetectionRepository, "insert_audio_detection_idempotent", paused_insert):
+    with patch.object(AudioHistoryRepository, "insert_audio_detection_idempotent", paused_insert):
         task = asyncio.create_task(
             audio_service.add_detection({"detectionId": 478002, "species": "Robin", "confidence": 0.9})
         )
@@ -611,10 +611,9 @@ async def test_removal_wins_against_ingest_waiting_to_append(audio_service):
 
 @pytest.mark.asyncio
 async def test_undo_restores_expired_audio_only_to_history(audio_service):
-    from app.repositories.detection_repository import DetectionRepository
 
     async with get_db() as db:
-        row_id = await DetectionRepository(db).insert_audio_detection(
+        row_id = await AudioHistoryRepository(db).insert_audio_detection(
             datetime.now(timezone.utc) - timedelta(days=2), "Robin", 0.9, "mic", {}
         )
     assert await audio_service.set_hidden(row_id, True)
@@ -624,11 +623,10 @@ async def test_undo_restores_expired_audio_only_to_history(audio_service):
 
 @pytest.mark.asyncio
 async def test_undo_preserves_chronological_buffer_expiry(audio_service):
-    from app.repositories.detection_repository import DetectionRepository
 
     now = datetime.now(timezone.utc)
     async with get_db() as db:
-        row_id = await DetectionRepository(db).insert_audio_detection(
+        row_id = await AudioHistoryRepository(db).insert_audio_detection(
             now - timedelta(minutes=4), "Older Robin", 0.9, "mic", {}
         )
     await audio_service.add_detection({"species": "Recent Robin", "confidence": 0.9})

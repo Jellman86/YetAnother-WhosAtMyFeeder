@@ -22,11 +22,11 @@ describe('the Explorer list row', () => {
     });
 
     it('flags a detection needing a person with all three signals', () => {
-        // Never colour alone: a wash, a rule and a worded reason. The amber is attention-*,
-        // because "amber is reserved for 'this needs a person'" (layout-patterns §1.3) and the
-        // theme accent is emerald in the classic theme.
-        expect(detectionRowSource).toContain('bg-attention-500/10');
-        expect(detectionRowSource).toContain('w-[3px] bg-attention-500');
+        // Never colour alone: a faint wash, a dot beside the reason and the reason in words. The
+        // amber is attention-*, because "amber is reserved for 'this needs a person'"
+        // (layout-patterns §1.3) and the theme accent is emerald in the classic theme.
+        expect(detectionRowSource).toContain('bg-attention-500/5');
+        expect(detectionRowSource).toContain('attention-dot');
         expect(detectionRowSource).toContain('events.row_below_threshold');
     });
 

@@ -78,7 +78,6 @@
     import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
-    import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
     import AdvancedSection from '../components/settings/_primitives/AdvancedSection.svelte';
@@ -101,16 +100,15 @@
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
-    import EnrichmentSettings from '../components/settings/EnrichmentSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
-    import AISettings from '../components/settings/AISettings.svelte';
-    import Errors from './Errors.svelte';
     import LazyRoute from '../components/LazyRoute.svelte';
     import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
     import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
+    import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
+    import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
     import { sectionIsDirty } from '../settings/section-adapter';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -121,12 +119,7 @@
         mergeBlockedSpeciesEntries,
         migrateLegacyBlockedLabels,
     } from '../settings/blocked-species';
-    import {
-        coerceLlmModelForProvider,
-        getLlmModelOptions,
-        getRecommendedLlmModel,
-        resolveStoredLlmModel
-    } from '../settings/llm-models';
+    import { getRecommendedLlmModel } from '../settings/llm-models';
 
     let {
         onNavigate,
@@ -139,6 +132,9 @@
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
     const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
+    const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
+    const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
+    const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -284,957 +280,16 @@
     let inaturalistDefaultPlace = $state('');
     let inaturalistConnectedUser = $state<string | null>(null);
 
-    // LLM Settings
-    let llmEnabled = $state(false);
-    let llmProvider = $state('gemini');
-    let llmApiKey = $state('');
-    let llmApiKeySaved = $state(false);
-    let llmModel = $state(getRecommendedLlmModel('gemini'));
-    let previousLlmProvider = $state('gemini');
-    let llmAnalysisPromptTemplate = $state('');
-    let llmConversationPromptTemplate = $state('');
-    let llmChartPromptTemplate = $state('');
-    let llmPromptStyle = $state<'classic'>('classic');
-    let aiPricingJson = $state('[]');
-
-    const promptTemplates = {
-        classic: {
-            en: {
-                analysis: `You are an expert ornithologist and naturalist.
-{frame_note}
-
-Species identified by system: {species}
-Time of detection: {time}
-{weather_str}
-
-Respond in Markdown with these exact section headings. Under each heading, write 1 short paragraph (or up to 3 bullets if it helps scanning):
-## Appearance
-## Behavior
-## Naturalist Note
-## Seasonal Context
-
-Keep the response concise (under 200 words). No extra sections.
-{language_note}`.trim(),
-                conversation: `You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
-
-Species identified by system: {species}
-Previous analysis:
-{analysis}
-
-Conversation so far:
-{history}
-
-User question: {question}
-
-Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
-If a section is not relevant, include it with a short "Not observed." line.
-{language_note}`.trim(),
-                chart: `You are a data analyst for bird feeder activity.
-You are looking at a chart of detections over time.
-
-Timeframe: {timeframe}
-Total detections in range: {total_count}
-Series shown: {series}
-{weather_notes}
-{sun_notes}
-
-Respond in Markdown with these exact section headings and short bullet points:
-## Overview
-## Patterns
-## Weather Correlations
-## Notable Spikes/Dips
-## Caveats
-
-Keep it concise (under 200 words). No extra sections.
-{language_note}
-{notes}`.trim()
-            },
-            es: {
-                analysis: `Eres un ornitólogo y naturalista experto.
-{frame_note}
-
-Especie identificada por el sistema: {species}
-Hora de detección: {time}
-{weather_str}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Apariencia
-## Comportamiento
-## Nota de naturalista
-## Contexto estacional
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}`.trim(),
-                conversation: `Eres un ornitólogo y naturalista experto. Continúa una breve sesión de preguntas y respuestas sobre esta detección.
-
-Especie identificada por el sistema: {species}
-Análisis previo:
-{analysis}
-
-Conversación hasta ahora:
-{history}
-
-Pregunta del usuario: {question}
-
-Responde de forma concisa en Markdown usando los mismos encabezados que el análisis (## Apariencia, ## Comportamiento, ## Nota de naturalista, ## Contexto estacional).
-Si una sección no es relevante, inclúyela con una viñeta breve de "No observado".
-{language_note}`.trim(),
-                chart: `Eres un analista de actividad de comederos de aves.
-Estás viendo un gráfico de detecciones a lo largo del tiempo.
-
-Periodo: {timeframe}
-Detecciones totales en el rango: {total_count}
-Series mostradas: {series}
-{weather_notes}
-{sun_notes}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Resumen
-## Patrones
-## Correlaciones con el clima
-## Picos/caídas notables
-## Consideraciones
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}
-{notes}`.trim()
-            },
-            fr: {
-                analysis: `Vous êtes un ornithologue et naturaliste expert.
-{frame_note}
-
-Espèce identifiée par le système : {species}
-Heure de détection : {time}
-{weather_str}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Apparence
-## Comportement
-## Note de naturaliste
-## Contexte saisonnier
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}`.trim(),
-                conversation: `Vous êtes un ornithologue et naturaliste expert. Poursuivez un court échange Q/R sur cette détection.
-
-Espèce identifiée par le système : {species}
-Analyse précédente :
-{analysis}
-
-Conversation jusqu'à présent :
-{history}
-
-Question de l'utilisateur : {question}
-
-Répondez brièvement en Markdown avec les mêmes titres que l'analyse (## Apparence, ## Comportement, ## Note de naturaliste, ## Contexte saisonnier).
-Si une section n'est pas pertinente, incluez-la avec une puce courte « Non observé ».
-{language_note}`.trim(),
-                chart: `Vous êtes analyste des activités d'un nourrisseur d'oiseaux.
-Vous regardez un graphique des détections dans le temps.
-
-Période : {timeframe}
-Détections totales : {total_count}
-Séries affichées : {series}
-{weather_notes}
-{sun_notes}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Aperçu
-## Tendances
-## Corrélations météo
-## Pics/creux notables
-## Limites
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}
-{notes}`.trim()
-            },
-            de: {
-                analysis: `Du bist ein*e erfahrene*r Ornithologe*in und Naturkundler*in.
-{frame_note}
-
-Vom System identifizierte Art: {species}
-Erkennungszeit: {time}
-{weather_str}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Erscheinung
-## Verhalten
-## Naturkundliche Notiz
-## Saisonaler Kontext
-
-Halte die Antwort kurz (unter 200 Wörtern). Keine zusätzlichen Abschnitte.
-{language_note}`.trim(),
-                conversation: `Du bist ein*e erfahrene*r Ornithologe*in und Naturkundler*in. Führe eine kurze Q&A zu dieser Erkennung fort.
-
-Vom System identifizierte Art: {species}
-Vorherige Analyse:
-{analysis}
-
-Bisherige Unterhaltung:
-{history}
-
-Nutzerfrage: {question}
-
-Antworte kurz in Markdown mit denselben Überschriften wie die Analyse (## Erscheinung, ## Verhalten, ## Naturkundliche Notiz, ## Saisonaler Kontext).
-Wenn ein Abschnitt nicht relevant ist, füge ihn mit einem kurzen Stichpunkt „Nicht beobachtet“ hinzu.
-{language_note}`.trim(),
-                chart: `Du bist Datenanalyst*in für Aktivitäten am Vogelhäuschen.
-Du siehst ein Diagramm der Erkennungen über die Zeit.
-
-Zeitraum: {timeframe}
-Gesamterkennungen im Zeitraum: {total_count}
-Angezeigte Reihen: {series}
-{weather_notes}
-{sun_notes}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Überblick
-## Muster
-## Wetterkorrelationen
-## Auffällige Spitzen/Täler
-## Einschränkungen
-
-Halte die Antwort kurz (unter 200 Wörter). Keine zusätzlichen Abschnitte.
-{language_note}
-{notes}`.trim()
-            },
-            it: {
-                analysis: `Sei un esperto ornitologo e naturalista.
-{frame_note}
-
-Specie identificata dal sistema: {species}
-Ora della rilevazione: {time}
-{weather_str}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Aspetto
-## Comportamento
-## Nota naturalistica
-## Contesto stagionale
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}`.trim(),
-                conversation: `Sei un esperto ornitologo e naturalista. Continua una breve Q&A su questa rilevazione.
-
-Specie identificata dal sistema: {species}
-Analisi precedente:
-{analysis}
-
-Conversazione finora:
-{history}
-
-Domanda dell'utente: {question}
-
-Rispondi brevemente in Markdown usando gli stessi titoli dell'analisi (## Aspetto, ## Comportamento, ## Nota naturalistica, ## Contesto stagionale).
-Se una sezione non è pertinente, includila con un punto breve "Non osservato".
-{language_note}`.trim(),
-                chart: `Sei un analista dei dati per l'attività al feeder.
-Stai guardando un grafico delle rilevazioni nel tempo.
-
-Periodo: {timeframe}
-Rilevazioni totali: {total_count}
-Serie mostrate: {series}
-{weather_notes}
-{sun_notes}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Panoramica
-## Andamenti
-## Correlazioni meteo
-## Picchi/cali notevoli
-## Avvertenze
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}
-{notes}`.trim()
-            },
-            pt: {
-                analysis: `Você é um ornitólogo e naturalista experiente.
-{frame_note}
-
-Espécie identificada pelo sistema: {species}
-Hora da detecção: {time}
-{weather_str}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Aparência
-## Comportamento
-## Nota naturalista
-## Contexto sazonal
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}`.trim(),
-                conversation: `Você é um ornitólogo e naturalista experiente. Continue uma breve sessão de perguntas e respostas sobre esta detecção.
-
-Espécie identificada pelo sistema: {species}
-Análise anterior:
-{analysis}
-
-Conversa até agora:
-{history}
-
-Pergunta do usuário: {question}
-
-Responda de forma concisa em Markdown usando os mesmos títulos da análise (## Aparência, ## Comportamento, ## Nota naturalista, ## Contexto sazonal).
-Se uma seção não for relevante, inclua-a com um tópico curto \"Não observado\".
-{language_note}`.trim(),
-                chart: `Você é um analista de atividade em comedouros de aves.
-Você está olhando para um gráfico de detecções ao longo do tempo.
-
-Período: {timeframe}
-Detecções totais no período: {total_count}
-Séries exibidas: {series}
-{weather_notes}
-{sun_notes}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Visão geral
-## Padrões
-## Correlações climáticas
-## Picos/queda notáveis
-## Observações
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}
-{notes}`.trim()
-            },
-            ja: {
-                analysis: `あなたは熟練した鳥類学者・ナチュラリストです。
-{frame_note}
-
-システムが特定した種: {species}
-検出時刻: {time}
-{weather_str}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 外見
-## 行動
-## ナチュラリストのメモ
-## 季節的な背景
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}`.trim(),
-                conversation: `あなたは熟練した鳥類学者・ナチュラリストです。この検出について短いQ&Aを続けてください。
-
-システムが特定した種: {species}
-以前の分析:
-{analysis}
-
-これまでの会話:
-{history}
-
-ユーザーの質問: {question}
-
-分析と同じ見出し（## 外見, ## 行動, ## ナチュラリストのメモ, ## 季節的な背景）を使い、簡潔にMarkdownで回答してください。
-該当しない見出しは「観察されず」の短い箇条書きを入れてください。
-{language_note}`.trim(),
-                chart: `あなたは野鳥の餌台の活動を分析するデータアナリストです。
-時間に沿った検出数のグラフを見ています。
-
-期間: {timeframe}
-総検出数: {total_count}
-表示系列: {series}
-{weather_notes}
-{sun_notes}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 概要
-## パターン
-## 天候との相関
-## 目立つ増減
-## 注意点
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}
-{notes}`.trim()
-            },
-            ru: {
-                analysis: `Вы — опытный орнитолог и натуралист.
-{frame_note}
-
-Вид, определённый системой: {species}
-Время обнаружения: {time}
-{weather_str}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Внешний вид
-## Поведение
-## Заметка натуралиста
-## Сезонный контекст
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}`.trim(),
-                conversation: `Вы — опытный орнитолог и натуралист. Продолжите короткое Q&A об этой детекции.
-
-Вид, определённый системой: {species}
-Предыдущий анализ:
-{analysis}
-
-Диалог до сих пор:
-{history}
-
-Вопрос пользователя: {question}
-
-Отвечайте кратко в Markdown, используя те же заголовки, что и в анализе (## Внешний вид, ## Поведение, ## Заметка натуралиста, ## Сезонный контекст).
-Если раздел не актуален, добавьте короткий пункт «Не наблюдалось».
-{language_note}`.trim(),
-                chart: `Вы — аналитик активности у кормушки.
-Вы смотрите на график детекций во времени.
-
-Период: {timeframe}
-Всего детекций: {total_count}
-Показанные серии: {series}
-{weather_notes}
-{sun_notes}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Обзор
-## Паттерны
-## Корреляции с погодой
-## Заметные пики/спады
-## Ограничения
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}
-{notes}`.trim()
-            },
-            zh: {
-                analysis: `你是一名经验丰富的鸟类学家和自然观察者。
-{frame_note}
-
-系统识别物种：{species}
-检测时间：{time}
-{weather_str}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 外观
-## 行为
-## 自然观察笔记
-## 季节背景
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}`.trim(),
-                conversation: `你是一名经验丰富的鸟类学家和自然观察者。继续围绕这次检测进行简短问答。
-
-系统识别物种：{species}
-之前的分析：
-{analysis}
-
-对话记录：
-{history}
-
-用户问题：{question}
-
-请用Markdown简洁回答，并使用与分析相同的标题（## 外观, ## 行为, ## 自然观察笔记, ## 季节背景）。
-若某部分不适用，请添加“未观察到”的简短要点。
-{language_note}`.trim(),
-                chart: `你是一名喂鸟器活动的数据分析师。
-你正在查看随时间变化的检测图表。
-
-时间范围：{timeframe}
-总检测数：{total_count}
-显示序列：{series}
-{weather_notes}
-{sun_notes}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 概览
-## 模式
-## 天气相关性
-## 显著峰谷
-## 注意事项
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}
-{notes}`.trim()
-            }
-        },
-        field: {
-            en: {
-                analysis: `You are an expert ornithologist writing field notes.
-{frame_note}
-
-Species identified by system: {species}
-Time of detection: {time}
-{weather_str}
-
-Respond in Markdown with these exact section headings and 1–3 short bullet points per section:
-## Appearance
-## Behavior
-## Naturalist Note
-## Seasonal Context
-
-Use vivid but factual language. Keep under 200 words. No extra sections.
-{language_note}`.trim(),
-                conversation: `You are an expert ornithologist writing field notes. Continue a short Q&A about this detection.
-
-Species identified by system: {species}
-Previous analysis:
-{analysis}
-
-Conversation so far:
-{history}
-
-User question: {question}
-
-Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
-If a section is not relevant, include it with a short "Not observed" bullet.
-{language_note}`.trim(),
-                chart: `You are a data analyst for bird feeder activity.
-You are looking at a chart of detections over time.
-
-Timeframe: {timeframe}
-Total detections in range: {total_count}
-Series shown: {series}
-{weather_notes}
-{sun_notes}
-
-Respond in Markdown with these exact section headings and short bullet points:
-## Overview
-## Patterns
-## Weather Correlations
-## Notable Spikes/Dips
-## Caveats
-
-Keep it concise (under 200 words). No extra sections.
-{language_note}
-{notes}`.trim()
-            },
-            es: {
-                analysis: `Eres un ornitólogo experto que escribe notas de campo.
-{frame_note}
-
-Especie identificada por el sistema: {species}
-Hora de detección: {time}
-{weather_str}
-
-Responde en Markdown con estos encabezados exactos y 1–3 viñetas breves por sección:
-## Apariencia
-## Comportamiento
-## Nota de naturalista
-## Contexto estacional
-
-Usa un lenguaje vívido pero factual. Menos de 200 palabras. Sin secciones extra.
-{language_note}`.trim(),
-                conversation: `Eres un ornitólogo experto que escribe notas de campo. Continúa una breve Q&A sobre esta detección.
-
-Especie identificada por el sistema: {species}
-Análisis previo:
-{analysis}
-
-Conversación hasta ahora:
-{history}
-
-Pregunta del usuario: {question}
-
-Responde de forma concisa en Markdown con los mismos encabezados del análisis (## Apariencia, ## Comportamiento, ## Nota de naturalista, ## Contexto estacional).
-Si una sección no es relevante, incluye una viñeta breve de \"No observado\".
-{language_note}`.trim(),
-                chart: `Eres un analista de actividad en comederos de aves.
-Estás viendo un gráfico de detecciones a lo largo del tiempo.
-
-Periodo: {timeframe}
-Detecciones totales en el rango: {total_count}
-Series mostradas: {series}
-{weather_notes}
-{sun_notes}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Resumen
-## Patrones
-## Correlaciones con el clima
-## Picos/caídas notables
-## Consideraciones
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}
-{notes}`.trim()
-            },
-            fr: {
-                analysis: `Vous êtes un ornithologue expert qui rédige des notes de terrain.
-{frame_note}
-
-Espèce identifiée par le système : {species}
-Heure de détection : {time}
-{weather_str}
-
-Répondez en Markdown avec ces titres exacts et 1–3 puces courtes par section :
-## Apparence
-## Comportement
-## Note de naturaliste
-## Contexte saisonnier
-
-Langage vivant mais factuel. Moins de 200 mots. Pas de sections supplémentaires.
-{language_note}`.trim(),
-                conversation: `Vous êtes un ornithologue expert qui rédige des notes de terrain. Poursuivez une courte Q/R sur cette détection.
-
-Espèce identifiée par le système : {species}
-Analyse précédente :
-{analysis}
-
-Conversation jusqu'à présent :
-{history}
-
-Question de l'utilisateur : {question}
-
-Répondez brièvement en Markdown avec les mêmes titres que l'analyse (## Apparence, ## Comportement, ## Note de naturaliste, ## Contexte saisonnier).
-Si un titre n'est pas pertinent, ajoutez une puce courte « Non observé ».
-{language_note}`.trim(),
-                chart: `Vous êtes analyste des activités d'un nourrisseur d'oiseaux.
-Vous regardez un graphique des détections dans le temps.
-
-Période : {timeframe}
-Détections totales : {total_count}
-Séries affichées : {series}
-{weather_notes}
-{sun_notes}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Aperçu
-## Tendances
-## Corrélations météo
-## Pics/creux notables
-## Limites
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}
-{notes}`.trim()
-            },
-            de: {
-                analysis: `Du bist ein*e erfahrene*r Ornithologe*in und schreibst Feldnotizen.
-{frame_note}
-
-Vom System identifizierte Art: {species}
-Erkennungszeit: {time}
-{weather_str}
-
-Antworte in Markdown mit genau diesen Überschriften und 1–3 kurzen Stichpunkten pro Abschnitt:
-## Erscheinung
-## Verhalten
-## Naturkundliche Notiz
-## Saisonaler Kontext
-
-Lebendig, aber sachlich. Unter 200 Wörtern. Keine zusätzlichen Abschnitte.
-{language_note}`.trim(),
-                conversation: `Du bist ein*e erfahrene*r Ornithologe*in und schreibst Feldnotizen. Setze eine kurze Q&A zu dieser Erkennung fort.
-
-Vom System identifizierte Art: {species}
-Vorherige Analyse:
-{analysis}
-
-Bisherige Unterhaltung:
-{history}
-
-Nutzerfrage: {question}
-
-Antworte kurz in Markdown mit denselben Überschriften wie die Analyse (## Erscheinung, ## Verhalten, ## Naturkundliche Notiz, ## Saisonaler Kontext).
-Wenn ein Abschnitt nicht relevant ist, füge einen kurzen Stichpunkt „Nicht beobachtet“ hinzu.
-{language_note}`.trim(),
-                chart: `Du bist Datenanalyst*in für Aktivitäten am Vogelhäuschen.
-Du siehst ein Diagramm der Erkennungen über die Zeit.
-
-Zeitraum: {timeframe}
-Gesamterkennungen im Zeitraum: {total_count}
-Angezeigte Reihen: {series}
-{weather_notes}
-{sun_notes}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Überblick
-## Muster
-## Wetterkorrelationen
-## Auffällige Spitzen/Täler
-## Einschränkungen
-
-Halte die Antwort kurz (unter 200 Wörter). Keine zusätzlichen Abschnitte.
-{language_note}
-{notes}`.trim()
-            },
-            it: {
-                analysis: `Sei un ornitologo esperto che scrive note di campo.
-{frame_note}
-
-Specie identificata dal sistema: {species}
-Ora della rilevazione: {time}
-{weather_str}
-
-Rispondi in Markdown con questi titoli esatti e 1–3 punti elenco brevi per sezione:
-## Aspetto
-## Comportamento
-## Nota naturalistica
-## Contesto stagionale
-
-Linguaggio vivido ma fattuale. Meno di 200 parole. Nessuna sezione extra.
-{language_note}`.trim(),
-                conversation: `Sei un ornitologo esperto che scrive note di campo. Continua una breve Q&A su questa rilevazione.
-
-Specie identificata dal sistema: {species}
-Analisi precedente:
-{analysis}
-
-Conversazione finora:
-{history}
-
-Domanda dell'utente: {question}
-
-Rispondi brevemente in Markdown usando gli stessi titoli dell'analisi (## Aspetto, ## Comportamento, ## Nota naturalistica, ## Contesto stagionale).
-Se una sezione non è pertinente, includi un punto breve \"Non osservato\".
-{language_note}`.trim(),
-                chart: `Sei un analista dei dati per l'attività al feeder.
-Stai guardando un grafico delle rilevazioni nel tempo.
-
-Periodo: {timeframe}
-Rilevazioni totali: {total_count}
-Serie mostrate: {series}
-{weather_notes}
-{sun_notes}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Panoramica
-## Andamenti
-## Correlazioni meteo
-## Picchi/cali notevoli
-## Avvertenze
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}
-{notes}`.trim()
-            },
-            pt: {
-                analysis: `Você é um ornitólogo experiente que escreve notas de campo.
-{frame_note}
-
-Espécie identificada pelo sistema: {species}
-Hora da detecção: {time}
-{weather_str}
-
-Responda em Markdown com estes títulos exatos e 1–3 tópicos curtos por seção:
-## Aparência
-## Comportamento
-## Nota naturalista
-## Contexto sazonal
-
-Linguagem vívida, porém factual. Menos de 200 palavras. Sem seções extras.
-{language_note}`.trim(),
-                conversation: `Você é um ornitólogo experiente que escreve notas de campo. Continue uma breve Q&A sobre esta detecção.
-
-Espécie identificada pelo sistema: {species}
-Análise anterior:
-{analysis}
-
-Conversa até agora:
-{history}
-
-Pergunta do usuário: {question}
-
-Responda de forma concisa em Markdown usando os mesmos títulos da análise (## Aparência, ## Comportamento, ## Nota naturalista, ## Contexto sazonal).
-Se uma seção não for relevante, inclua um tópico curto \"Não observado\".
-{language_note}`.trim(),
-                chart: `Você é um analista de atividade em comedouros de aves.
-Você está olhando para um gráfico de detecções ao longo do tempo.
-
-Período: {timeframe}
-Detecções totais no período: {total_count}
-Séries exibidas: {series}
-{weather_notes}
-{sun_notes}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Visão geral
-## Padrões
-## Correlações climáticas
-## Picos/queda notáveis
-## Observações
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}
-{notes}`.trim()
-            },
-            ja: {
-                analysis: `あなたは熟練した鳥類学者で、フィールドノートを書いています。
-{frame_note}
-
-システムが特定した種: {species}
-検出時刻: {time}
-{weather_str}
-
-以下の見出しを必ず使い、各セクション1〜3個の短い箇条書きでMarkdown回答:
-## 外見
-## 行動
-## ナチュラリストのメモ
-## 季節的な背景
-
-生き生きとしつつ事実に基づいた表現で。200語未満。追加セクション不要。
-{language_note}`.trim(),
-                conversation: `あなたは熟練した鳥類学者で、フィールドノートを書いています。この検出について短いQ&Aを続けてください。
-
-システムが特定した種: {species}
-以前の分析:
-{analysis}
-
-これまでの会話:
-{history}
-
-ユーザーの質問: {question}
-
-分析と同じ見出し（## 外見, ## 行動, ## ナチュラリストのメモ, ## 季節的な背景）を使い、簡潔にMarkdownで回答してください。
-該当しない見出しは「観察されず」の短い箇条書きを入れてください。
-{language_note}`.trim(),
-                chart: `あなたは野鳥の餌台の活動を分析するデータアナリストです。
-時間に沿った検出数のグラフを見ています。
-
-期間: {timeframe}
-総検出数: {total_count}
-表示系列: {series}
-{weather_notes}
-{sun_notes}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 概要
-## パターン
-## 天候との相関
-## 目立つ増減
-## 注意点
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}
-{notes}`.trim()
-            },
-            ru: {
-                analysis: `Вы — опытный орнитолог, пишущий полевые заметки.
-{frame_note}
-
-Вид, определённый системой: {species}
-Время обнаружения: {time}
-{weather_str}
-
-Ответьте в Markdown с точными заголовками и 1–3 короткими пунктами на раздел:
-## Внешний вид
-## Поведение
-## Заметка натуралиста
-## Сезонный контекст
-
-Живо, но фактически. До 200 слов. Без дополнительных разделов.
-{language_note}`.trim(),
-                conversation: `Вы — опытный орнитолог, пишущий полевые заметки. Продолжите короткое Q&A об этой детекции.
-
-Вид, определённый системой: {species}
-Предыдущий анализ:
-{analysis}
-
-Диалог до сих пор:
-{history}
-
-Вопрос пользователя: {question}
-
-Отвечайте кратко в Markdown, используя те же заголовки, что и в анализе (## Внешний вид, ## Поведение, ## Заметка натуралиста, ## Сезонный контекст).
-Если раздел не актуален, добавьте короткий пункт «Не наблюдалось».
-{language_note}`.trim(),
-                chart: `Вы — аналитик активности у кормушки.
-Вы смотрите на график детекций во времени.
-
-Период: {timeframe}
-Всего детекций: {total_count}
-Показанные серии: {series}
-{weather_notes}
-{sun_notes}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Обзор
-## Паттерны
-## Корреляции с погодой
-## Заметные пики/спады
-## Ограничения
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}
-{notes}`.trim()
-            },
-            zh: {
-                analysis: `你是一名记录野外笔记的鸟类学专家。
-{frame_note}
-
-系统识别物种：{species}
-检测时间：{time}
-{weather_str}
-
-请用Markdown回答，并严格使用以下标题，每个部分1–3个简短要点：
-## 外观
-## 行为
-## 自然观察笔记
-## 季节背景
-
-语言生动但保持事实。少于200词。不要添加额外章节。
-{language_note}`.trim(),
-                conversation: `你是一名记录野外笔记的鸟类学专家。继续围绕这次检测进行简短问答。
-
-系统识别物种：{species}
-之前的分析：
-{analysis}
-
-对话记录：
-{history}
-
-用户问题：{question}
-
-请用Markdown简洁回答，并使用与分析相同的标题（## 外观, ## 行为, ## 自然观察笔记, ## 季节背景）。
-若某部分不适用，请添加“未观察到”的简短要点。
-{language_note}`.trim(),
-                chart: `你是一名喂鸟器活动的数据分析师。
-你正在查看随时间变化的检测图表。
-
-时间范围：{timeframe}
-总检测数：{total_count}
-显示序列：{series}
-{weather_notes}
-{sun_notes}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 概览
-## 模式
-## 天气相关性
-## 显著峰谷
-## 注意事项
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}
-{notes}`.trim()
-            }
-        }
-    } as const;
-
-    const resolvePromptLocale = (value: string) => {
-        const normalized = value.split('-')[0];
-        if (promptTemplates.classic[normalized as keyof typeof promptTemplates.classic]) {
-            return normalized;
-        }
-        return 'en';
-    };
-
-    const applyPromptTemplates = (style: keyof typeof promptTemplates = 'classic') => {
-        const localeCode = resolvePromptLocale(get(locale) || 'en');
-        const templates = promptTemplates[style]?.[localeCode as keyof typeof promptTemplates.classic] || promptTemplates.classic.en;
-        llmAnalysisPromptTemplate = templates.analysis;
-        llmConversationPromptTemplate = templates.conversation;
-        llmChartPromptTemplate = templates.chart;
-        toastStore.success($_('settings.debug.llm_prompt_apply_notice', { default: 'Prompt templates updated.' }));
-    };
-
-    const resetPromptTemplates = () => {
-        llmPromptStyle = 'classic';
-        applyPromptTemplates('classic');
-    };
-
-    let availableModels = $derived(getLlmModelOptions(llmProvider));
-
-    // Keep the current model when loading saved settings, but coerce to a valid
-    // preset when the user explicitly switches providers in the UI.
-    $effect(() => {
-        if (llmProvider !== previousLlmProvider) {
-            llmModel = coerceLlmModelForProvider(llmProvider, llmModel);
-            previousLlmProvider = llmProvider;
-        }
+    let aiDraft = $state<AiDraft>({
+        llmEnabled: false,
+        llmProvider: 'gemini',
+        llmApiKey: '',
+        llmApiKeySaved: false,
+        llmModel: getRecommendedLlmModel('gemini'),
+        llmAnalysisPromptTemplate: '',
+        llmConversationPromptTemplate: '',
+        llmChartPromptTemplate: '',
+        aiPricingJson: '[]'
     });
 
     // Telemetry
@@ -1369,14 +424,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let ebirdLocale = $state('en');
 
     // Enrichment sources
-    let enrichmentMode = $state<'single' | 'per_enrichment'>('per_enrichment');
-    let enrichmentSingleProvider = $state('wikipedia');
-    let enrichmentSummarySource = $state('wikipedia');
-    let enrichmentTaxonomySource = $state('inaturalist');
-    let enrichmentSightingsSource = $state('disabled');
-    let enrichmentSeasonalitySource = $state('disabled');
-    let enrichmentRaritySource = $state('disabled');
-    let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
+    let enrichmentDraft = $state<EnrichmentDraft>({
+        enrichmentMode: 'per_enrichment',
+        enrichmentSingleProvider: 'wikipedia',
+        enrichmentSummarySource: 'wikipedia',
+        enrichmentTaxonomySource: 'inaturalist',
+        enrichmentSightingsSource: 'disabled',
+        enrichmentSeasonalitySource: 'disabled',
+        enrichmentRaritySource: 'disabled',
+        enrichmentLinksSources: ['wikipedia', 'inaturalist']
+    });
 
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
@@ -1426,12 +483,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     $effect(() => {
         if (inaturalistClientSecretSaved && inaturalistClientSecret) {
             inaturalistClientSecretSaved = false;
-        }
-    });
-
-    $effect(() => {
-        if (llmApiKeySaved && llmApiKey) {
-            llmApiKeySaved = false;
         }
     });
 
@@ -1807,22 +858,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
             { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
             { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
-            { key: 'enrichmentMode', val: enrichmentMode, store: (s.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment' },
-            { key: 'enrichmentSingleProvider', val: enrichmentSingleProvider, store: s.enrichment_single_provider ?? 'wikipedia' },
-            { key: 'enrichmentSummarySource', val: enrichmentSummarySource, store: s.enrichment_summary_source ?? 'wikipedia' },
-            { key: 'enrichmentTaxonomySource', val: enrichmentTaxonomySource, store: s.enrichment_taxonomy_source ?? 'inaturalist' },
-            { key: 'enrichmentSightingsSource', val: enrichmentSightingsSource, store: s.enrichment_sightings_source ?? 'disabled' },
-            { key: 'enrichmentSeasonalitySource', val: enrichmentSeasonalitySource, store: s.enrichment_seasonality_source ?? 'disabled' },
-            { key: 'enrichmentRaritySource', val: enrichmentRaritySource, store: s.enrichment_rarity_source ?? 'disabled' },
-            { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
-            { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
-            { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
-            { key: 'llmApiKey', val: llmApiKey, store: normalizeSecret(s.llm_api_key) },
-            { key: 'llmModel', val: llmModel, store: resolveStoredLlmModel(s.llm_provider ?? 'gemini', s.llm_model) },
-            { key: 'llmAnalysisPromptTemplate', val: llmAnalysisPromptTemplate, store: s.llm_analysis_prompt_template || '' },
-            { key: 'llmConversationPromptTemplate', val: llmConversationPromptTemplate, store: s.llm_conversation_prompt_template || '' },
-            { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
-            { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
             { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
             { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
@@ -1922,6 +957,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             checks.some(c => c.val !== c.store) ||
             sectionIsDirty(appearanceSection, appearanceDraft, s) ||
             sectionIsDirty(accessibilitySection, accessibilityDraft, s) ||
+            sectionIsDirty(enrichmentSection, enrichmentDraft, s) ||
+            sectionIsDirty(aiSection, aiDraft, s) ||
             locationSettingsDirty({
                 current: {
                     latitude: locationLat,
@@ -2964,7 +2001,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         adopt('ebird_enabled', ebirdEnabled, baseline.ebird_enabled ?? false, value => ebirdEnabled = value ?? false);
         adopt('inaturalist_enabled', inaturalistEnabled, baseline.inaturalist_enabled ?? false, value => inaturalistEnabled = value ?? false);
         adopt('birdweather_enabled', birdweatherEnabled, baseline.birdweather_enabled ?? false, value => birdweatherEnabled = value);
-        adopt('llm_enabled', llmEnabled, baseline.llm_enabled ?? false, value => llmEnabled = value);
+        adopt('llm_enabled', aiDraft.llmEnabled, baseline.llm_enabled ?? false, value => aiDraft = { ...aiDraft, llmEnabled: value });
         adopt('telemetry_enabled', telemetryEnabled, baseline.telemetry_enabled ?? true, value => telemetryEnabled = value);
         // Coordinates form one input: never combine half an unsaved pair with setup.
         if (patch.location_latitude !== undefined && patch.location_longitude !== undefined) {
@@ -3189,30 +2226,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
             inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
             // Enrichment settings
-            enrichmentMode = (settings.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment';
-            enrichmentSingleProvider = settings.enrichment_single_provider ?? 'wikipedia';
-            enrichmentSummarySource = settings.enrichment_summary_source ?? 'wikipedia';
-            enrichmentTaxonomySource = settings.enrichment_taxonomy_source ?? 'inaturalist';
-            enrichmentSightingsSource = settings.enrichment_sightings_source ?? 'disabled';
-            enrichmentSeasonalitySource = settings.enrichment_seasonality_source ?? 'disabled';
-            enrichmentRaritySource = settings.enrichment_rarity_source ?? 'disabled';
-            enrichmentLinksSources = settings.enrichment_links_sources || ['wikipedia', 'inaturalist'];
-            // LLM settings
-            llmEnabled = settings.llm_enabled ?? false;
-            llmProvider = settings.llm_provider ?? 'gemini';
-            previousLlmProvider = llmProvider;
-            if (settings.llm_api_key === '***REDACTED***') {
-                llmApiKeySaved = true;
-                llmApiKey = '';
-            } else {
-                llmApiKeySaved = false;
-                llmApiKey = settings.llm_api_key ?? '';
-            }
-            llmModel = resolveStoredLlmModel(llmProvider, settings.llm_model ?? getRecommendedLlmModel(llmProvider));
-            llmAnalysisPromptTemplate = settings.llm_analysis_prompt_template ?? '';
-            llmConversationPromptTemplate = settings.llm_conversation_prompt_template ?? '';
-            llmChartPromptTemplate = settings.llm_chart_prompt_template ?? '';
-            aiPricingJson = settings.ai_pricing_json ?? '[]';
+            enrichmentDraft = enrichmentSection.decode(settings);
+            aiDraft = aiSection.decode(settings);
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
@@ -3528,22 +2543,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 inaturalist_default_latitude: inaturalistDefaultLat,
                 inaturalist_default_longitude: inaturalistDefaultLon,
                 inaturalist_default_place_guess: inaturalistDefaultPlace,
-                enrichment_mode: enrichmentMode,
-                enrichment_single_provider: enrichmentSingleProvider,
-                enrichment_summary_source: enrichmentSummarySource,
-                enrichment_taxonomy_source: enrichmentTaxonomySource,
-                enrichment_sightings_source: enrichmentSightingsSource,
-                enrichment_seasonality_source: enrichmentSeasonalitySource,
-                enrichment_rarity_source: enrichmentRaritySource,
-                enrichment_links_sources: enrichmentLinksSources,
-                llm_enabled: llmEnabled,
-                llm_provider: llmProvider,
-                llm_api_key: llmApiKey,
-                llm_model: llmModel,
-                llm_analysis_prompt_template: llmAnalysisPromptTemplate,
-                llm_conversation_prompt_template: llmConversationPromptTemplate,
-                llm_chart_prompt_template: llmChartPromptTemplate,
-                ai_pricing_json: aiPricingJson,
+                ...enrichmentSection.encodePatch(enrichmentDraft),
+                ...aiSection.encodePatch(aiDraft),
                 telemetry_enabled: telemetryEnabled,
                 telemetry_health_enabled: telemetryHealthEnabled,
                 auth_enabled: authEnabled,
@@ -3834,7 +2835,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Health Tab -->
             {#if activeTab === 'health'}
                 <!-- The health page builds the System card itself, with its verdict inside it. -->
-                <Errors {onNavigate} />
+                <LazyRoute loader={loadHealthTab} label={$_('settings.tabs.health')} props={{ onNavigate }} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3903,34 +2904,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Enrichment Tab -->
             {#if activeTab === 'enrichment'}
-                <EnrichmentSettings
-                    enrichmentMode={enrichmentMode}
-                    enrichmentSingleProvider={enrichmentSingleProvider}
-                    enrichmentSummarySource={enrichmentSummarySource}
-                    enrichmentTaxonomySource={enrichmentTaxonomySource}
-                    enrichmentSightingsSource={enrichmentSightingsSource}
-                    enrichmentSeasonalitySource={enrichmentSeasonalitySource}
-                    enrichmentRaritySource={enrichmentRaritySource}
-                    enrichmentLinksSources={enrichmentLinksSources}
-                />
+                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
             {/if}
 
             <!-- AI Tab -->
             {#if activeTab === 'ai'}
-                <AISettings
-                    bind:llmEnabled
-                    bind:llmProvider
-                    bind:llmApiKey
-                    bind:llmApiKeySaved
-                    bind:llmModel
-                    bind:llmAnalysisPromptTemplate
-                    bind:llmConversationPromptTemplate
-                    bind:llmChartPromptTemplate
-                    bind:llmPromptStyle
-                    bind:aiPricingJson
-                    {availableModels}
-                    onApplyStyle={() => applyPromptTemplates(llmPromptStyle)}
-                    onResetDefaults={resetPromptTemplates}
+                <LazyRoute
+                    loader={loadAiTab}
+                    label={$_('settings.tabs.ai', { default: 'AI' })}
+                    props={{ draft: aiDraft, onchange: (edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit)) }}
                 />
             {/if}
 
@@ -4076,30 +3058,35 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {/if}
 
             {#if activeTab === 'beta'}
-                {#snippet betaIcon()}
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.31L4.53 18.4A2.4 2.4 0 0 0 6.6 22h10.8a2.4 2.4 0 0 0 2.07-3.6L14 9.31V2M8.5 2h7M7 16h10" /></svg>
-                {/snippet}
-                <SettingsCard
-                    iconSnippet={betaIcon}
-                    title={$_('settings.beta.title', { default: 'Beta features' })}
-                    description={$_('settings.beta.subtitle', { default: 'Features that are still being tested. They are off unless you turn them on, and they may change or be removed.' })}
-                >
-                    <GardenBetaSettings
-                        bind:enabled={betaGardenAnimals}
-                        cameras={gardenCameras}
-                        motionCameras={gardenMotionCameras}
-                        bind:labels={gardenLabels}
-                        bind:motionConfidence={gardenMotionConfidence}
-                        notificationsEnabled={gardenNotificationsEnabled}
-                        onOpenNotifications={() => handleTabChange('notifications')}
-                        bind:automaticNaming={gardenAutomaticNaming}
-                        bind:namingThreshold={gardenNamingThreshold}
-                        bind:domesticBirds={gardenDomesticBirds}
-                        savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
-                        onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
-                        onOpenCameras={openCameraSettings}
-                    />
-                </SettingsCard>
+                <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
+                <div class="space-y-4" data-beta-page>
+                    <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
+                        <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
+                        <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
+                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you apply.' })}
+                        </p>
+                    </header>
+                    <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>
+                        <li>
+                            <GardenBetaSettings
+                                bind:enabled={betaGardenAnimals}
+                                cameras={gardenCameras}
+                                motionCameras={gardenMotionCameras}
+                                bind:labels={gardenLabels}
+                                bind:motionConfidence={gardenMotionConfidence}
+                                notificationsEnabled={gardenNotificationsEnabled}
+                                onOpenNotifications={() => handleTabChange('notifications')}
+                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                                bind:automaticNaming={gardenAutomaticNaming}
+                                bind:namingThreshold={gardenNamingThreshold}
+                                bind:domesticBirds={gardenDomesticBirds}
+                                savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
+                                onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                                onOpenCameras={openCameraSettings}
+                            />
+                        </li>
+                    </ul>
+                </div>
             {/if}
 
             {#if activeTab === 'debug'}

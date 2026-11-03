@@ -94,6 +94,18 @@ export function formatCalendarDay(day: string, now: Date = new Date()): string {
     });
 }
 
+/**
+ * A day as a record states it: "14 Mar 2025" under the locale format, with the year always, so a
+ * first and a last sighting years apart read plainly. A pinned format is used as it stands.
+ */
+export function formatDay(value: DateInput): string {
+    const date = toDate(value);
+    if (!date) return '';
+    const format = getDateFormat();
+    if (format !== 'locale') return formatDateParts(date, format);
+    return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 export function formatDateTime(value: DateInput): string {
     const date = toDate(value);
     if (!date) return typeof value === 'string' ? value : '';

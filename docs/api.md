@@ -203,6 +203,22 @@ fresh day. This does not cache sharing preferences.
 
 - `GET /api/events`
 - `GET /api/events/count`
+- `GET /api/explorer/search?q=` searches species, genera, families and orders with
+  visible history. It matches scientific names, common names in the reader's language
+  and English, and owner name overrides. Matching ignores case, accents and name
+  separators. `q` must contain 1 to 100 characters, including at least one non-space
+  character; control characters are rejected. `limit` defaults to 8, with a maximum
+  of 20. Results contain `taxa`, `truncated` and an optional `record` for an exact
+  Frigate event ID or Garden capture ID. Each taxon includes its catalogue `taxon_id`,
+  rank, scientific/common names, and separate species and capture counts for birds
+  and Garden animals. Closer name matches come first, then more frequent visitors.
+  Only confirmed Garden captures in the shared history window are searchable by
+  guests. Garden results are absent while the beta is off. Hidden detections are
+  absent from species counts; an owner can still find one by its exact event ID.
+  Hidden, older private and unavailable records all return `record: null` for
+  guests. Camera names are omitted when sharing them is off. The response is
+  private and cannot be cached; switching public access off rejects guest searches.
+  Search reads the local catalogue and history without external lookups or inference.
 - `GET /api/visits` Groups the accessible history before pagination. Accepts `limit`, `offset`,
   `start_date`/`end_date` or UTC `start_time`/`end_time`, `species`, `camera`, `favorites`,
   `audio_confirmed_only`, `only_hidden`, `multiple_species_only` and `sort` (`newest`, `oldest`,
@@ -234,6 +250,15 @@ captures without verified bounds continue to use their stored capture time.
 `multiple_species_only=true` filter. It matches at least two distinct resolved, named species
 among visible counted birds in a capture. Aliases of one species and unknown/excluded birds do
 not satisfy it. A visit matches if one of its captures qualifies. Guest requests ignore the flag.
+
+`GET /api/events`, `GET /api/events/count`, `GET /api/visits`,
+`GET /api/garden/timeline`, `GET /api/garden/visits` and
+`GET /api/garden/visits/{visit_id}/captures` also accept `taxon`, a positive catalogue
+taxon ID from the search response. It narrows results to that taxon and the species
+beneath it, together with the existing date, camera and access filters. An unknown
+taxon or one without matching history returns no matches. This is the catalogue ID,
+not an iNaturalist taxon ID. The parameter is optional; existing requests keep their
+current behaviour.
 
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
   for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
@@ -390,8 +415,13 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/visits` returns Garden entries, grouped before pagination.
   `start`/`end`, `camera` and `status` (`reviewable`, `pending`, `confirmed`, `dismissed`)
   scope eligible captures. `order` is `newest` or `oldest`; `limit` (1–200) and `offset`
-  count groups. The response has `visits`, group `total`, `capture_total`, `limit` and
-  `offset`. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
+  count groups. The response has `visits`, group `total`, `capture_total`, `limit`,
+  `offset` and `awaiting_check`. A motion candidate with no automatic check yet, on a camera
+  whose checks have progressed within the last 30 minutes, observed within the last 30 minutes,
+  is left out of `reviewable` and `pending` (here, in
+  `/api/garden/timeline` and in a visit's captures) until its check decides, unless the owner
+  has already acted on it. `awaiting_check` counts those held candidates in scope; it is 0 for
+  guests. Each visit includes `id`, `kind` (`visit` or `position`), start/end,
   `capture_count` and its latest `representative`. Canonical identity, camera and
   review state separate timed stays; gaps over 60 seconds start another stay.
   Pending motion proposals retain fixed-anchor position stacks instead of joining by time.
@@ -487,6 +517,14 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/domestic-birds` — the domestic birds an owner can declare: each `key`,
   whether it is `declared`, the catalogue `scientific_names` that stand for it and those names
   resolved to catalogue `species_ids`, so a bird record is matched by exact identity.
+- `POST /api/garden/domestic-birds/{bird}/keep` (owner) — declares `bird` under Domestic birds
+  you keep, when it is not already, and moves that bird's visible bird records to Garden through
+  the same path as `POST /api/events/{event_id}/move-to-garden`: each record is hidden, not deleted,
+  in the transaction that creates its capture. One request moves at most 500 records, oldest first.
+  Returns `{"bird", "declared", "moved", "skipped", "remaining"}`: `declared` is true when this
+  request added the bird, `skipped` counts matching records that could not move and stay in bird
+  history, and `remaining` counts matches beyond the limit, so repeat the request to move them.
+  `422` for a bird that is not a supported domestic bird; `409` when Garden is off.
 - `GET /api/garden/identification` — catalogue availability, normalised ISO-3 country,
   per-variant model download status, busy state, `automatic_message` and any worker cleanup error.
   Automatic checks download/verify the tracked-crop model when needed and run
@@ -817,6 +855,16 @@ Notes:
   scripts and styles are removed, entities are decoded and paragraph breaks are
   retained. This also applies when reading older cached summaries, without a
   cache refresh or database rewrite.
+  `conservation_status` is the IUCN Red List's global category (`DD`, `LC`, `NT`, `VU`, `EN`, `CR`,
+  `EW` or `EX`) as iNaturalist records it, or null when there is no global assessment; a regional
+  list or another authority never stands in. For a `scientific_name` lookup iNaturalist is asked for
+  it even when Wikipedia supplied the text and photograph.
+  With `scientific_name`, an optional `rank` of `family` or `order` describes that group instead of
+  a species. Only the one active iNaturalist taxon with exactly that name and rank is accepted (two,
+  as with a homonym across kingdoms, describe nothing); without its own summary, the Wikipedia page
+  that taxon links to is used only when it names the group. A group is never looked up by a name
+  search, and its lookups are cached apart from species lookups. `conservation_status` is null for a
+  group.
 - `GET /api/species/{species_name}/range`
 - `GET /api/species/common-name-override?scientific_name=...` (owner)
 - `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
@@ -825,7 +873,11 @@ Notes:
 - `GET /api/leaderboard/species` (per species: window and previous-window counts, confirmed and
   call-matched detections in the window; `history_start` and `previous_window_complete` say whether
   the previous window was fully recorded; with eBird configured, `reported_nearby` per species and
-  the `nearby_radius_km` / `nearby_days_back` of that check; `window_visit_count` and
+  the `nearby_radius_km` / `nearby_days_back` of that check; `nearby_check` says whether that check
+  ran: `checked` (a report measured within the six-hour cache), `off` (eBird or the feeder location
+  is not set up) or `unavailable` (set up, but the lookup failed: `reported_nearby` is null, or comes
+  from an expired report kept after a failed refresh and during its 15-minute back-off, which is not a
+  current check); `window_visit_count` and
   `window_prev_visit_count` fold captures of one canonical species on one camera with a 60-second inactivity gap, as the
   dashboard does, while `window_count` stays frames)
 
@@ -847,8 +899,32 @@ for a species it is the same `species_id` detections carry.
   (IOC sequence for birds), each with `species_count`. Query: `limit` (1 to 5000, default 500).
 
 Every taxon in these responses also carries what this feeder has seen beneath it: `seen_species`
-(distinct species) and `seen_count` (visible detections). The owner sees the whole history; a
-guest sees the window public access allows, as everywhere else.
+(distinct species) and `seen_count` (visible detections plus confirmed Garden captures while Garden
+animals are on). The owner sees the whole history; a guest sees the window public access allows, as
+everywhere else. `authorship` is the accepted concept's authority and year exactly as the catalogue
+stores it (parentheses included when the source writes them), or null when unrecorded.
+
+- `GET /api/taxonomy/facts?ids=` — what this install recorded of each taxon, for one open level of
+  the family tree in one request. `ids` repeats, 1 to 100 catalogue ids (422 outside that); repeats
+  are answered once and an id the catalogue does not hold is left out. Per taxon: `visits` (bird
+  visits by the shared 60-second visit rule plus confirmed Garden visits, 0 when none),
+  `species_seen` (species at or beneath it with a visit), `first_seen`, `last_seen` (the most recent
+  visit), `heard` and `last_heard` (visible BirdNET-Go detections; `heard` is null when audio is not
+  shared with the reader), `sources` (`camera`, `garden`) and `photo`. A group rolls these up over
+  the species beneath it. Hidden detections, unknown birds and unconfirmed Garden captures never
+  count. `photo` is the newest stored crop the reader may load (the leaderboard's rule: a camera
+  crop through `/api/about/showcase/{event}.jpg` or a Garden crop through
+  `/api/garden/{capture_id}/crop`, whichever is newer); a group shows its most-seen member's, and
+  `photo.species_id`, `photo.scientific_name` and `photo.name` (in the reader's language) say whose it is. `scope` is `all` for the owner, `shared` for a visitor with
+  `shared_days` the shared window's length; a visitor reads that window only, gets `photo` only while
+  photographs are shared and inside the photograph window, and gets 403 while public access is off.
+  Results are reused for up to a minute (photographs two), keyed by the sharing settings, so a
+  settings change applies at once.
+- `GET /api/taxonomy/{taxon_id}/names` — the taxon's common names in the catalogue's other
+  languages (the reader's own language left out), ordered by language with the preferred name first
+  in each, repeats that differ only in case removed. `languages` counts the languages among all of
+  them and `truncated` says the list was cut. Query: `limit` (1 to 100, default 40). 404 when the
+  catalogue does not hold the taxon.
 
 ### Statistics
 

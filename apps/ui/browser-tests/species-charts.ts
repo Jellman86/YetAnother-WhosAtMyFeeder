@@ -15,7 +15,11 @@ if (new URLSearchParams(location.search).has('guest')) {
     authStore.authRequired = true;
     authStore.publicAccessEnabled = true;
 }
-settingsStore.settings = { llm_ready: true } as NonNullable<typeof settingsStore.settings>;
+// `?garden` is an owner with Garden on, so a flagged domestic bird is offered as a kept one.
+settingsStore.settings = {
+    llm_ready: true,
+    beta_garden_animals: new URLSearchParams(location.search).has('garden')
+} as NonNullable<typeof settingsStore.settings>;
 
 document.getElementById('toggle-theme')?.addEventListener('click', () => themeStore.toggle());
 document.addEventListener('fixture-public-history', () => { detectionsStore.publicHistoryVersion += 1; });

@@ -315,8 +315,7 @@ async def test_reclassification_keeps_retained_owner_photo_without_recording_fet
 @pytest.mark.asyncio
 async def test_recording_crop_scales_the_entire_snapshot_region_including_minimum_context(recording_mode):
     from app.services.recording_snapshot_input import prefer_recording_snapshot
-    from app.services.classifier_service import ClassifierService
-    from app.utils.frigate_coordinates import restore_frigate_hint_box
+    from app.utils.frigate_coordinates import frigate_snapshot_crop_box, restore_frigate_hint_box
 
     event = {"camera": "birdcam", "data": {"snapshot_frame_time": 105.25, "box": [0.25, 0.2, 0.1, 0.15]}}
     detection = image_bytes((1280, 720))
@@ -326,7 +325,7 @@ async def test_recording_crop_scales_the_entire_snapshot_region_including_minimu
         "evt", event, detection, frigate_snapshot_input_provenance(event), client=client
     )
     region = provenance.recording_crop_region
-    original_box = ClassifierService._frigate_snapshot_crop_box((320, 144, 448, 252), (1280, 720))
+    original_box = frigate_snapshot_crop_box((320, 144, 448, 252), (1280, 720))
     scaled = restore_frigate_hint_box(region, (3840, 2160))
     assert scaled == tuple(value * 3 for value in original_box)
     assert scaled[2] - scaled[0] == 900
@@ -340,15 +339,18 @@ async def test_recording_crop_scales_the_entire_snapshot_region_including_minimu
 
 
 def test_recording_crop_provenance_does_not_claim_a_crop_model_generated_it():
-    from app.services.classifier_service import ClassifierService, _normalize_classification_input_context
+    from app.services.inference.input_selection import (
+        ClassifiedInputProvenance,
+        normalize_classification_input_context,
+        resolved_classification_input_provenance,
+    )
 
-    service = object.__new__(ClassifierService)
-    context = _normalize_classification_input_context(
+    context = normalize_classification_input_context(
         {"input_source": "frigate_recording_snapshot", "is_cropped": False}
     )
-    assert service._resolved_classification_input_provenance(
+    assert resolved_classification_input_provenance(
         input_context=context, crop_diagnostics={"crop_applied": True, "crop_reason": "frigate_snapshot_scaled_crop"}
-    ) == ("recording_snapshot_frigate_hint_crop", True)
+    ) == ClassifiedInputProvenance("recording_snapshot_frigate_hint_crop", True)
 
 
 @pytest.mark.asyncio

@@ -36,7 +36,7 @@ export interface TreeView {
     currentId: number | null;
 }
 
-export function isSeen(taxon: Taxon): boolean {
+function isSeen(taxon: Taxon): boolean {
     return (taxon.seen_species ?? 0) > 0;
 }
 
@@ -74,7 +74,23 @@ export function visibleTree(view: TreeView): LayoutInput<TreeItem> {
     return build(view.root);
 }
 
-/** The name a reader sees: the common name in their language, else the scientific name. */
-export function taxonLabel(taxon: Taxon): string {
-    return taxon.name?.trim() || taxon.scientific_name;
+/**
+ * How a node is drawn, the same in the tree, the fan, the outline and the legend. Tone says where
+ * it stands (this bird, on its path, seen here, anything else); `closed` adds a plus for a group
+ * that has more inside, so neither depends on colour alone.
+ */
+type MarkerTone = 'current' | 'path' | 'seen' | 'plain' | 'more';
+
+export interface NodeMarker {
+    tone: MarkerTone;
+    closed: boolean;
+}
+
+export function nodeMarker(item: TreeItem, showSeen: boolean): NodeMarker {
+    if (item.kind === 'more') return { tone: 'more', closed: false };
+    const closed = item.expandable && !item.expanded;
+    if (item.current) return { tone: 'current', closed };
+    if (item.onPath) return { tone: 'path', closed };
+    if (showSeen && isSeen(item.taxon)) return { tone: 'seen', closed };
+    return { tone: 'plain', closed };
 }

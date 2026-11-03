@@ -21,6 +21,8 @@ export interface GardenTimelineQuery {
     camera?: string;
     order: 'newest' | 'oldest';
     status?: 'reviewable' | 'pending' | 'confirmed' | 'dismissed';
+    /** A catalogue taxon: animals at or beneath it, from the Explorer search. */
+    taxon?: number;
     limit: number;
     offset?: number;
 }
@@ -32,6 +34,7 @@ export async function fetchGardenTimeline(query: GardenTimelineQuery, signal?: A
     if (query.end) params.set('end', query.end);
     if (query.camera) params.set('camera', query.camera);
     if (query.status && query.status !== 'reviewable') params.set('status', query.status);
+    if (query.taxon) params.set('taxon', String(query.taxon));
     return handleResponse<GardenPage>(await apiFetch(`${API_BASE}/garden/timeline?${params}`, { signal, timeoutMs: 15000 }));
 }
 
@@ -54,6 +57,13 @@ export async function reviewGarden(id: string, action: 'confirm' | 'dismiss' | '
 
 export async function fetchGardenDomesticBirds(signal?: AbortSignal): Promise<components['schemas']['GardenDomesticBirdOption'][]> {
     return handleResponse<components['schemas']['GardenDomesticBirdOption'][]>(await apiFetch(`${API_BASE}/garden/domestic-birds`, { signal }));
+}
+
+export type GardenKeepBirdResult = components['schemas']['GardenKeepBirdResponse'];
+
+/** Declares a domestic bird the owner keeps and moves its visible bird records to Garden. */
+export async function keepGardenDomesticBird(bird: components['schemas']['GardenDomesticBirdOption']['key']): Promise<GardenKeepBirdResult> {
+    return handleResponse<GardenKeepBirdResult>(await apiFetch(`${API_BASE}/garden/domestic-birds/${encodeURIComponent(bird)}/keep`, { method: 'POST', timeoutMs: 120000 }));
 }
 
 export async function fetchGardenIdentification(signal: AbortSignal): Promise<GardenIdentificationStatus> {
@@ -89,12 +99,13 @@ export interface GardenVisitQuery extends GardenTimelineQuery {
     pageEnd?: string;
 }
 
-function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>): URLSearchParams {
+function gardenScope(query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status' | 'taxon'>): URLSearchParams {
     const params = new URLSearchParams();
     if (query.start) params.set('start', query.start);
     if (query.end) params.set('end', query.end);
     if (query.camera) params.set('camera', query.camera);
     if (query.status && query.status !== 'reviewable') params.set('status', query.status);
+    if (query.taxon) params.set('taxon', String(query.taxon));
     return params;
 }
 
@@ -110,7 +121,7 @@ export async function fetchGardenVisits(query: GardenVisitQuery, signal?: AbortS
 
 export async function fetchGardenVisitCaptures(
     id: string,
-    query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status'>,
+    query: Pick<GardenTimelineQuery, 'start' | 'end' | 'camera' | 'status' | 'taxon'>,
     offset: number,
     options: { limit?: number; signal?: AbortSignal } = {}
 ): Promise<GardenPage> {

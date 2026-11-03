@@ -16,15 +16,32 @@ Owner-reviewed, confirmed and dismissed captures keep their reviews. Older pendi
 results without an owner override are reconsidered once under the updated policy.
 
 The required 224 MB tracked-crop model is the **Automatic check model** under
-**Settings → Beta features → Garden models**. Download it there before your first
+**Settings → Beta features → Garden animals → Models**. Download it there before your first
 captures arrive; if you have not, it downloads and verifies automatically when an
 enabled Garden camera has a new photo to check. Checks use the Detection device
 preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
 missing boxes or unavailable checks stay in **Needs review** for retry. With automatic naming
-enabled, an uncertain photo below the naming threshold moves to restorable **Dismissed**; an
-animal the check is confident is there waits in **Needs review** when only its species score is low.
+enabled, a photo whose species score is below the naming threshold moves to restorable
+**Dismissed**, whether or not the check is confident an animal is there.
+A candidate from the motion scan stays out of sight until its automatic check decides:
+the timeline, Dashboard and **Needs review** count it as *waiting for the automatic check*
+rather than listing it. It appears only if the check names an animal (in **Confirmed
+animals**) or cannot decide (in **Needs review**, with the reason). Candidates are held only
+while their camera's checks are making progress, and for at most 30 minutes each: if no
+check there has finished for 30 minutes, for example because the camera stays under pressure,
+or a candidate is itself more than 30 minutes old and still unchecked, it appears in
+**Needs review** instead. A failed check also releases its capture. Checking candidates
+already found takes priority over scanning recordings for more, but a camera that cannot
+be checked never holds up checks or scans on the others.
+Checks go in order: candidates away from a *known blank spot* first, then never-checked,
+then oldest. A known blank spot is a box where an automatic check found nothing in the last
+12 hours, on the same camera with the same detector; a spot you reviewed yourself does not
+count. Dawn and dusk bursts at one bush or shadow therefore wait behind candidates elsewhere,
+so a real animal is not queued behind them. The deferral lasts at most 30 minutes per
+candidate; after that it is checked next, even while new candidates keep arriving elsewhere.
+They are never skipped or dismissed without their own check.
 Model, download or runtime failures also stay there and retry no sooner than five
-minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
+minutes later. **Collection status** under **Settings → Beta features → Garden animals → Automatic checks and naming** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
 
 The [labelled pipeline comparison](../reviews/2026-10-23-garden-labelled-pipeline-validation.md)
@@ -36,35 +53,45 @@ the photo remains available, under the same retention and photo-reclamation rule
 as other dismissed captures. Recognised person evidence removes the capture and
 its photo instead of placing it in Dismissed, preserving the privacy rules below.
 
-It is off unless you turn it on in **Settings → Beta features** (or set
-`SYSTEM__BETA_GARDEN_ANIMALS=true`). While it is off, Garden collects nothing new, the
-motion scanner does not run, Garden animals and camera options are hidden in the Explorer, and the
-Garden API answers that the feature is switched off. Saved captures are kept, and a
-later person event still removes any stored photo it covers.
+It is off unless you turn it on with its switch in **Settings → Beta features** (or set
+`SYSTEM__BETA_GARDEN_ANIMALS=true`). The switch is staged with the rest of the page and takes
+effect when you choose **Apply Settings**. While it is off, Garden collects nothing new, the
+motion scanner does not run, Garden animals and camera options are hidden in the Explorer, Garden
+alerts stop, birds you keep are recorded as ordinary bird detections, and the Garden API answers
+that the feature is switched off. Saved captures and Garden settings are kept and come back when
+you turn it on again; history retention still applies to the captures, and a later person event
+still removes any stored photo it covers.
 
-Garden settings and model downloads live under **Settings → Beta features**, with the switch
-that turns it on, in the order of the setup steps below. Which cameras watch for Garden animals
-is chosen once per camera in **Settings → Connection → Cameras to watch**, beside the camera's
-bird role. While Garden is off, Beta features lists what Garden needs and offers no downloads,
-and each camera in Connection offers only **Off** or **Birds**. Daily review happens in the
-**Explorer**. An old link to the former Garden animals page opens the Explorer's Garden review
-instead.
+**Settings → Beta features** shows each beta feature as a card with its switch and a status line
+in words, such as "On · 2 cameras · automatic checks on NPU" or "On · no camera chosen · model not
+downloaded yet". An amber dot marks a status that needs you, and **Still to set up** lists those
+steps with a button for each: choose a camera, download a required model, or set your location so
+Garden knows your country. While Garden is on, its settings sit in collapsible sections:
+**Cameras** and **Automatic checks and naming** open, and **Models**, **Domestic birds you keep**,
+**Alerts** and **Where captures go** closed until you open them. While it is off, the card says
+what off means and what Garden needs, and offers no downloads.
+
+Which cameras watch for Garden animals is chosen once per camera in **Settings → Connection →
+Cameras to watch**, beside the camera's bird role; while Garden is off, each camera there offers
+only **Off** or **Birds**. Daily review happens in the **Explorer**. An old link to the former
+Garden animals page opens the Explorer's Garden review instead.
 
 1. Turn on **Garden animals** in **Settings → Beta features**.
-2. In **Settings → Connection → Cameras to watch** (or **Choose cameras in Connection** under
-   Beta features), choose **Garden animals** for a camera that should watch only for animals,
+2. In **Settings → Connection → Cameras to watch** (or **Choose cameras in Connection** on the
+   Garden card), choose **Garden animals** for a camera that should watch only for animals,
    or **Both** for one that watches for birds too. Sync the list from Frigate first if it is
    empty. A camera's **Feeder** or **Nest** role appears while it watches for birds;
    **Collect motion review photos** appears while it watches for Garden animals. At least one
    camera always watches for birds; see
    [Cameras to watch](../setup/configuration.md#cameras-to-watch) for how each choice is saved.
-3. Back in **Beta features**, set **Frigate animal labels** to labels your detector actually
-   tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a detector learn
-   squirrels; Frigate must already track that label and publish completed events over MQTT.
-4. Choose **Apply Settings**. **Garden models** then shows each Garden model's status.
+3. Back in **Beta features**, under **Cameras**, set **Frigate animal labels** to labels your
+   detector actually tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a
+   detector learn squirrels; Frigate must already track that label and publish completed events
+   over MQTT.
+4. Choose **Apply Settings**. **Models** then shows each Garden model's status.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
-5. Open the **Explorer**, or choose **Review Garden animals** in **Settings → Beta features**. In
+5. Open the **Explorer**, or choose **Review Garden animals** under **Where captures go** on the Garden card. In
    the filter rail choose **Garden animals** under **Visitors**, then **Needs review**. Open a capture, inspect the
    photograph, and either open **Manual override** and choose **Confirm animal manually**, or
    dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
@@ -163,8 +190,10 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   different review states, it is disabled and says why. One capture from a visit or stack
   is dismissed with **Dismiss capture** beside its photo position, as a bird's photo is
   removed from its strip. The family tree
-  runs from the animal's class to its species using the SpeciesNet taxonomy; it does not
-  count species worldwide or sightings at the feeder, because those figures are birds'. **Details**, closed by default, holds the model run, the
+  runs from the animal's class to its species using the SpeciesNet taxonomy. It counts your
+  confirmed Garden visits: each species with its own saved crop, its visits and when it was first
+  and last seen, and each group with the species seen beneath it. Unconfirmed captures never count.
+  It does not count species worldwide, because SpeciesNet holds only the model's animals. **Details**, closed by default, holds the model run, the
   automatic check for confirmed animals and retained capture evidence;
   until an animal is confirmed, the automatic check's result stays visible because
   it explains the state. Photos in a visit show their time to the second. Hover or focus on
@@ -172,7 +201,7 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed
   SpeciesNet model using the device selected in **Settings → Detection**. Model
-  installation stays under **Settings → Beta features → Garden models**. The
+  installation stays under **Settings → Beta features → Garden animals → Models**. The
   record has no model or accelerator selectors. Bird actions
   such as scoring again, video scans and audio matching do not apply.
   Reference photographs and summaries are looked up by the catalogue's scientific
@@ -250,9 +279,14 @@ one operation at a time, so downloads wait while a check, scan or other download
 running; the view says so. There is no percentage progress: the server reports only
 when the download has finished, which can take up to three minutes.
 
-Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Each check loads its model in a separate
-process and releases the memory afterwards; memory use has not been measured for this
-beta. Checks you start from a Garden capture in the Explorer use the device you choose there and
+Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Checks run in a separate
+process that can keep its model loaded between checks, so a burst of checks pays for loading it
+only once. On an accelerator (NPU, Intel GPU or CUDA), Garden stops that process and waits for it
+to exit before it lets other work start, unless another automatic check is already due and no
+bird work is waiting. Bird classification does not wait for Garden, so the device is free whenever
+Garden is not using it for a run of checks. On CPU the process stays loaded for up to 60 seconds
+without a check. Either way it stops as soon as bird work is waiting, when the model or device
+changes, and after 500 checks; memory use has not been measured for this beta. Checks you start from a Garden capture in the Explorer use the device you choose there and
 fail rather than silently switch devices. Automatic naming and species suggestions need a
 country in **Settings → Location**; the view says when it is missing.
 
@@ -264,12 +298,12 @@ Garden. This does not change which devices qualify for Garden's own models.
 
 **Where captures go** in the same view summarises the outcomes:
 
-- **Needs review**: checks waiting to run or retry, missing country/catalogue identity,
-  animals whose species score is below the naming threshold, and owner overrides. Automatic
+- **Needs review**: checks waiting to run or retry, missing country/catalogue identity, and
+  owner overrides. Automatic
   work says it is waiting, rather than asking for presence verification.
 - **Confirmed animals**: animals you confirm, confident animals named automatically, and
   domestic birds you keep.
-- **Dismissed**: uncertain photos below the naming threshold, captures you dismiss, and
+- **Dismissed**: photos whose species score is below the naming threshold, captures you dismiss, and
   photos the check is confident show a bird you do not keep, nothing or a vehicle. The record
   says which: **Bird, handled by bird detection on this camera** on a camera that also watches
   for birds, or **Wild bird. Turn on birds for this camera to record it.** on a Garden-only camera.
@@ -308,7 +342,7 @@ turning off Garden animals stops collection but preserves existing reviews.
 If Frigate does not track the animals you want, optionally enable **Collect motion review
 photos** for that camera under **Settings → Connection → Cameras to watch** (it appears once the
 camera watches for Garden animals), then apply settings and download the **Motion detector**
-under **Garden models** in **Settings → Beta features**. This separate
+under **Models** in **Settings → Beta features → Garden animals**. This separate
 MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
@@ -361,7 +395,9 @@ perfectly still for the whole window can be missed the same way.
 Cedar runs on CPU with two inference threads and one video-decoding thread. It
 yields to queued or running bird inference and stops if active Frigate cameras
 fall behind. One garden operation runs at a time, with a 45-second motion-worker
-deadline. Busy systems may collect no photos until pressure clears.
+deadline. The detector stays loaded between scans and is released after 60 seconds without a
+scan, as soon as bird work is waiting, and after any failed or interrupted scan. Busy systems
+may collect no photos until pressure clears.
 
 Candidates appear in **Needs review**, labelled **Candidate from retained motion
 footage**. Each motion photo outlines the saved Cedar candidate before presence
@@ -420,7 +456,7 @@ pending or confirmed captures, collection waits for a dismissal or expiry.
 Turning collection off does not immediately erase photos.
 
 For a pending motion photo, **Check photo** offers an advisory assessment before
-presence review. Download the **Automatic check model** (4.0.3a) under **Garden models**,
+presence review. Download the **Automatic check model** (4.0.3a) under **Models** on the Garden card,
 choose the device in **Settings → Detection**, then check the
 displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
@@ -434,7 +470,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 1. Set a recognised country name or ISO code in **Settings → Location**. Filtering
    runs locally; coordinates are not sent to the model.
 2. Choose a garden model, about **224 MB** per variant, and download it under
-   **Settings → Beta features → Garden models** if the capture's record says it is missing. The default
+   **Settings → Beta features → Garden animals → Models** if the capture's record says it is missing. The default
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
@@ -447,8 +483,11 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 
 Bird inference has priority. If it is busy or begins while SpeciesNet is running,
 the garden request stops and can be retried later. One garden operation runs at a
-time, with a two-minute native deadline. Loading the model for each request costs
-more time than a warm inference, but its process and memory are released afterward.
+time, with a two-minute native deadline. On CPU the model stays loaded between requests
+for the same model and device, so a request soon after another skips the load; it is released
+after 60 seconds without a request. On an accelerator it is released when the request finishes,
+unless an automatic check is already due and birds are idle. Either way it is released as soon
+as bird work is waiting and after any failed, interrupted or timed-out request.
 
 The catalogue holds both models’ ordered outputs, canonical identities, taxonomy
 and country rules; there is no runtime labels file. Country filtering can broaden
@@ -479,10 +518,12 @@ same country filtering and person rules as a suggestion, the capture moves to **
 animals** with the name **Named automatically**. A result filtered by country is named by
 its plausible group, for example *cat family*.
 
-An animal the check is confident is present, but whose species score is below the
-threshold, waits unnamed in **Needs review** with its score and the threshold shown: a low
-species score is not evidence that nothing is there. An uncertain photo below the threshold
-moves to **Dismissed**, retaining its photo and **Return to review** action. The configured
+The naming threshold is also the floor for what Garden shows. A photo whose species score
+is below it moves to **Dismissed** with its score and the threshold shown, even when the
+check is confident an animal is there: a capture nobody can name is noise in Needs review.
+It keeps its photo and its **Return to review** action, and a capture you return is never
+dismissed automatically again. A name the catalogue cannot bind waits in **Needs review**
+only when its score reached the threshold. The configured
 species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
 Without a recognised country in **Settings → Location**, or a catalogue identity, the
@@ -510,7 +551,7 @@ identity permit another check. Never copy validation or quarantine records betwe
 
 The first check can load the model twice, once for CPU and once for the candidate device.
 Compilation can take longer than inference, and accelerators share memory and capacity with bird
-work. Bird or camera activity interrupts the disposable worker before other Garden work starts.
+work. Bird or camera activity interrupts and stops the Garden worker before other Garden work starts.
 If worker cleanup fails, Garden stops rather than starting a CPU fallback beside it. CPU fallback
 preserves the same thresholds, person veto, naming policy and owner-review protections.
 
@@ -564,6 +605,15 @@ add a bird only if you keep it. A record of a declared bird is named by it, for 
   record again from **Hidden** to restore it, and dismiss the Garden capture. Exports already
   sent for that record are not withdrawn. Past detections are not moved automatically, and
   **Move to birds** for a Garden capture is not available yet.
+- **From the species range check.** The bird model names domestic birds by their wild
+  relatives, so chickens appear as *Red Junglefowl*, and the leaderboard's **Needs a check**
+  card flags them because no birder has reported that species nearby. When a flagged species
+  is a domestic bird, the card says so and an owner with Garden on can choose
+  **I keep Chickens: move to Garden**. That declares the bird and moves its visible bird
+  records to Garden in one step, each one exactly as **Move to Garden** does, up to 500 at a
+  time; the message states how many moved, how many could not and how many are still waiting.
+  The dashboard's **Needs your call** offers the same action for a species flagged in its last
+  24 hours, with the same result message.
 - **Notifications.** A declared bird found by a Garden check is announced like any automatically
   named animal. One recorded from a Frigate bird event or moved from bird history sends no
   Garden alert.
@@ -579,10 +629,11 @@ choice independently of identification. If that choice becomes unavailable, the
 accurate finder uses CPU. The scoped **Check devices** action remains
 available after a successful check and does not change the identification model.
 
-**Settings → Beta features → Garden models** separately shows the automatic check's
+**Collection status** under **Settings → Beta features → Garden animals → Automatic checks and naming** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and
 time of its own automatic result. These are completed records, not a promise that a
-model is currently loaded. Garden releases its worker after each operation.
+model is currently loaded. A CPU worker stays loaded for up to 60 seconds after a check; an
+accelerator worker stays loaded only while further automatic checks are due and birds are idle.
 Manual checks also follow the Detection device preference. Capture records show
 the model, device, source, timestamps and retained checksums in the same read-only
 terminal-style **Details** panel used by bird records. Historical CPU results
@@ -699,6 +750,9 @@ aligned snapshot time, and saved-image checksum. Motion crops use the saved dete
 box and photo. Frigate crops require its clean best frame and matching snapshot
 alignment; a JPEG of unknown crop/resize policy is not treated as a full frame.
 Missing or unaligned source evidence leaves the capture confirmed without a crop.
+A crop that cannot be built is retried after 1 hour, then 2, 4, 8 and 16 hours, and then
+once a day for as long as the capture is kept. It is never abandoned, so a crop that failed
+during a Frigate outage is still built once the snapshot is reachable again.
 
 A crop follows its capture: owner-only until confirmed, then shared with guests as the
 capture's photograph is. Person/false-positive revocation, dismissal and history
@@ -714,8 +768,8 @@ membership, start/end times and per-photo review remain unchanged.
 Storage holds at most 2,000 JPEG crops, each no larger than 512 pixels along its
 long edge and 128 KiB (a maximum of 250 MiB of crop pixels). A new crop can reclaim
 the oldest preview while retaining the visit and identification record. Evicted
-previews are not automatically recreated in a loop. **Settings → Beta features →
-Garden models → Collection status** shows the saved-crop count and budget.
+previews are not automatically recreated in a loop. **Collection status** under
+**Settings → Beta features → Garden animals → Automatic checks and naming** shows the saved-crop count and budget.
 The three-day full-photo expiry and separate 128-photo motion budget still apply to
 the review copy; a confirmed capture's full photograph is kept separately, below.
 

@@ -72,6 +72,13 @@ export function gardenSetupBlock(
     return null;
 }
 
+/** Each model's display name, as an i18n key with its English default. */
+export const GARDEN_MODEL_NAME: Record<GardenModelRole, { id: string; default: string }> = {
+    automatic_check: { id: 'settings.beta.garden_model_check', default: 'Automatic check model' },
+    species_suggestions: { id: 'settings.beta.garden_model_suggestions', default: 'Species suggestion model' },
+    motion_detector: { id: 'settings.beta.garden_model_motion', default: 'Motion detector' }
+};
+
 export function formatModelSize(bytes: number): string {
     return `${Math.round(bytes / 1_000_000)} MB`;
 }

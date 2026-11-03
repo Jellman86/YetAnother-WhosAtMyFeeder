@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 import httpx
 
 from app.services.notifications.message import DeliveryResult, NotificationMessage
-from app.services.notifications.transports import http_logging  # noqa: F401  (installs the log filter)
+from app.services.notifications.transports.http_logging import redact_webhook_url
 
 _MARKDOWN = re.compile(r"([\\`*_~|>\[\]()])")
 
@@ -66,14 +66,15 @@ class DiscordTransport:
         try:
             # `wait` makes Discord confirm the message exists instead of accepting it blind.
             webhook = httpx.URL(credentials.webhook_url).copy_merge_params({"wait": "true"})
-            if photo is not None:
-                response = await self._client.post(
-                    webhook,
-                    data={"payload_json": json.dumps(payload)},
-                    files={"files[0]": (photo.filename, photo.content, photo.content_type)},
-                )
-            else:
-                response = await self._client.post(webhook, json=payload)
+            with redact_webhook_url(credentials.webhook_url):
+                if photo is not None:
+                    response = await self._client.post(
+                        webhook,
+                        data={"payload_json": json.dumps(payload)},
+                        files={"files[0]": (photo.filename, photo.content, photo.content_type)},
+                    )
+                else:
+                    response = await self._client.post(webhook, json=payload)
             response.raise_for_status()
             return DeliveryResult(sent=True, status_code=response.status_code)
         except httpx.HTTPStatusError as error:

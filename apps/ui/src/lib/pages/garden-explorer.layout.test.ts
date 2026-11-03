@@ -5,6 +5,9 @@ import cardSource from '../components/GardenExplorerCard.svelte?raw';
 import modalSource from '../components/GardenCaptureModal.svelte?raw';
 import markerSource from '../components/GardenExplorerMarker.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
+import fieldLogRowSource from '../components/FieldLogGardenRow.svelte?raw';
+import capturesSource from '../components/GardenVisitCaptures.svelte?raw';
+import previewSource from '../components/GardenCapturePreview.svelte?raw';
 import enGarden from '../i18n/locales/en/garden.json';
 import enSettings from '../i18n/locales/en/settings.json';
 
@@ -53,7 +56,8 @@ describe('Garden captures in the Explorer', () => {
         }
         // Amber means a person is needed in every theme; accent is a brand colour (layout-patterns 1.3).
         // That amber is the attention-* scale, which no theme repaints.
-        expect(rowSource).toContain('bg-attention-500/10');
+        expect(rowSource).toContain('bg-attention-500/5');
+        expect(rowSource).toContain('attention-dot');
         for (const source of [rowSource, cardSource, modalSource]) expect(source).not.toMatch(/accent-\d/);
         expect(en.garden.explorer.state_presence).toMatch(/Needs review/);
     });
@@ -108,5 +112,35 @@ describe('Garden captures in the Explorer', () => {
 
     it('writes its copy without em dashes', () => {
         for (const value of Object.values(en.garden.explorer)) expect(value).not.toContain('—');
+    });
+});
+
+describe('Garden thumbnails open the bird pop-out', () => {
+    it('gives every small Garden capture the shared preview rather than a static frame', () => {
+        for (const source of [rowSource, fieldLogRowSource, capturesSource]) {
+            expect(source).toContain('<GardenCapturePreview {capture}');
+            expect(source).not.toContain('<GardenPhotoPreview');
+        }
+    });
+
+    it('shares the hover contract and panel with the bird preview instead of copying them', () => {
+        expect(previewSource).toContain("import { HoverPopout } from '../utils/hover-popout.svelte'");
+        expect(previewSource).toContain('<HoverPopoutPanel {popout}');
+        // A tooltip trigger discloses no region it owns, as the bird trigger does not.
+        expect(previewSource).not.toContain('aria-expanded');
+        expect(previewSource).not.toContain('setTimeout');
+        // The open panel is named, and its trigger points at it only while it is open.
+        expect(previewSource).toContain('new HoverPopout(uid)');
+        expect(previewSource).toContain('aria-describedby={popout.describedBy()}');
+    });
+
+    it('fills the panel image box with a saved crop, as the bird preview does', () => {
+        expect(previewSource).toMatch(/<GardenPhotoPreview[^>]*\bfill\b/s);
+    });
+
+    it('shows only the media the server listed for this reader, with the thumbnail auth', () => {
+        expect(previewSource).toContain('gardenCapturePhoto(capture, failed, withAuthParams)');
+        expect(previewSource).toContain('{#if listed}');
+        expect(previewSource).not.toMatch(/['"`]\/api\//);
     });
 });

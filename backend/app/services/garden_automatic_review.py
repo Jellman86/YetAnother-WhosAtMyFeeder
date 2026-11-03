@@ -31,16 +31,14 @@ from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_crop_service import garden_crop_service, build_saved_crop
 from app.services.garden_media_cache import garden_media_cache
 from app.services.garden_identification import (
-    GardenBusy,
-    GardenCleanupFailed,
     bird_work_pending,
     garden_identification_service,
     identification_from_predictions,
     normalize_country,
-    worker_failure_fields,
 )
 from app.services.garden_motion import garden_motion_service
 from app.services.garden_automatic_policy import (
+    at_blank_spot,
     NamingResult,
     automatic_check_dismisses,
     finish_automatic_check,
@@ -49,6 +47,7 @@ from app.services.garden_automatic_policy import (
 from app.services.garden_automatic_runtime import GardenAutomaticRuntime, candidate_providers
 from app.services.garden_domestic_birds import camera_watches_birds, domestic_bird_for_speciesnet, garden_bird_route
 from app.services.garden_visitors import GardenPolicy, presence_outcome
+from app.services.garden_worker_supervisor import GardenBusy, GardenCleanupFailed, worker_failure_fields
 from app.utils.api_datetime import utc_naive_now
 from app.utils.frigate_coordinates import normalized_frigate_video_hint
 
@@ -73,6 +72,36 @@ def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
     return {"low_confidence": "low_confidence", "bird_excluded": "bird"}.get(suggestion.reason, "unresolved")
 
 
+# A camera whose checks have not progressed for this long releases its held candidates to review.
+HOLD_PROGRESS_SECONDS = 30 * 60
+# How long a blank automatic check marks its box as a known blank spot.
+BLANK_SPOT_SECONDS = 12 * 60 * 60
+
+
+def automatic_hold_since() -> str:
+    """Candidates observed before this are never held: a check overdue this long is shown for review."""
+    return (utc_naive_now() - timedelta(seconds=HOLD_PROGRESS_SECONDS)).isoformat()
+
+
+def automatic_hold_cameras(now: float | None = None) -> tuple[str, ...]:
+    """Cameras whose unchecked candidates wait for their automatic check before anyone sees them.
+
+    Only cameras whose checks are progressing: a check finished there, or none was due,
+    within ``HOLD_PROGRESS_SECONDS``. A camera under lasting pressure, a service in error or
+    a fresh start holds nothing, so a capture is never hidden waiting for a check that will
+    not come.
+    """
+    service = garden_identification_service
+    if service.error:
+        return ()
+    moment = time.monotonic() if now is None else now
+    return tuple(
+        camera
+        for camera in garden_collection_cameras()
+        if moment - service.check_progress.get(camera, float("-inf")) < HOLD_PROGRESS_SECONDS
+    )
+
+
 class GardenAutomaticReviewService:
     def __init__(self) -> None:
         self.task: asyncio.Task | None = None
@@ -89,7 +118,23 @@ class GardenAutomaticReviewService:
                 await self.task
             self.task = None
 
+    async def dismiss_settled_low_scores(self) -> int:
+        """Apply the current dismissal policy to captures an earlier policy left waiting.
+
+        Uses the saved check, so nothing is re-run; a capture the owner restored is kept.
+        """
+        async with get_db() as db:
+            dismissed = await GardenRepository(db).dismiss_pending_by_saved_checks()
+        if dismissed:
+            log.info("garden_settled_low_scores_dismissed", count=dismissed)
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+        return dismissed
+
     async def _run(self) -> None:
+        try:
+            await self.dismiss_settled_low_scores()
+        except (OSError, ValueError, sqlite3.Error) as error:
+            log.warning("garden_settled_low_scores_failed", error_type=type(error).__name__)
         while True:
             try:
                 await self.process_once()
@@ -128,28 +173,78 @@ class GardenAutomaticReviewService:
         return None
 
     async def process_once(self) -> None:
+        try:
+            await self._check_next()
+        finally:
+            service = garden_identification_service
+            # A cycle that ran no check, or kept a model for a check that can no longer start,
+            # still leaves no accelerator loaded while nothing is due.
+            if not service.busy:
+                await service.settle_worker(service.check_already_due)
+
+    async def _another_check_due(self, finished: GardenCapture, query: dict) -> bool:
+        try:
+            async with get_db() as db:
+                due = await GardenRepository(db).due_automatic_checks(**query)
+        except (OSError, sqlite3.Error):
+            return False
+        return any(item.id != finished.id for item in due)
+
+    async def _check_next(self) -> None:
         service = garden_identification_service
         cameras = garden_collection_cameras()
-        if not cameras or service.busy or service.error or bird_work_pending(garden_inference_pressure()):
+        if not cameras or service.error:
+            service.check_due = False
             return
         retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
+        policy_version = 1 if settings.frigate.garden_automatic_naming else None
+        country = normalize_country(settings.location.country) if settings.frigate.garden_automatic_naming else None
+        due_query = {
+            "cameras": cameras,
+            "retry_before": retry_before,
+            "policy_version": policy_version,
+            "country": country,
+        }
         async with get_db() as db:
-            original = await GardenRepository(db).next_automatic_check(
-                cameras,
-                retry_before,
-                policy_version=1 if settings.frigate.garden_automatic_naming else None,
-                country=normalize_country(settings.location.country)
-                if settings.frigate.garden_automatic_naming
-                else None,
+            repo = GardenRepository(db)
+            due_checks = await repo.due_automatic_checks(**due_query)
+            blanks = await repo.recent_blank_spots(
+                cameras, (utc_naive_now() - timedelta(seconds=BLANK_SPOT_SECONDS)).isoformat()
             )
-        if original is None:
+        now = time.monotonic()
+        for camera in set(cameras) - {due.camera for due in due_checks}:
+            service.check_progress[camera] = now
+        if not due_checks:
+            service.check_due = False
             service.automatic_message = (
                 "No automatic check is due. Unavailable checks remain in Needs review until their retry."
             )
             return
-        clear = await garden_motion_service._camera_clear(original.camera)
-        if not clear or service.busy or bird_work_pending(garden_inference_pressure()):
+        # A camera under pressure cannot be checked now; it must not hold up the others.
+        clear_cameras = await garden_motion_service.clear_cameras({due.camera for due in due_checks})
+        ready = [due for due in due_checks if due.camera in clear_cameras]
+        # Candidates away from recent blank spots first, so a real animal is not queued behind a
+        # dawn burst at one bush; then never-checked, then oldest. A deferral lasts only while the
+        # candidate is younger than the hold limit, so sustained arrivals elsewhere cannot starve it.
+        defer_since = automatic_hold_since()
+        original = min(
+            ready,
+            key=lambda due: (
+                due.observed_at >= defer_since and at_blank_spot(due.motion_source, blanks),
+                due.automatic_check is not None,
+                due.observed_at,
+                due.id,
+            ),
+            default=None,
+        )
+        # Priority only for a check that can start once the slot is free, so scanning is never stopped
+        # by a check that cannot run.
+        service.check_due = original is not None
+        if original is None:
             return
+        if service.busy or bird_work_pending(garden_inference_pressure()):
+            return
+        clear = True
         service.busy = True
         generation = garden_motion_privacy.generation
         review_generation = service._photo_review_generation
@@ -158,6 +253,8 @@ class GardenAutomaticReviewService:
         changed = False
         named_saved = False
         named: GardenIdentification | None = None
+        # A paused check made no progress; any finished one, saved or unavailable, did.
+        progressed = True
 
         def blocked() -> bool:
             return (
@@ -243,7 +340,14 @@ class GardenAutomaticReviewService:
                     review="accepted",
                     automatic=True,
                 )
-                outcome, decision_reason = finish_automatic_check(plan, naming_result(suggestion), bird_route)
+                outcome, decision_reason = finish_automatic_check(
+                    plan,
+                    naming_result(suggestion),
+                    bird_route,
+                    score_below_threshold=suggestion is not None
+                    and suggestion.score is not None
+                    and suggestion.score < naming_threshold,
+                )
                 if suggestion is not None and suggestion.automatic:
                     named = suggestion
                     kept = domestic_bird_for_speciesnet(suggestion.taxon_id)
@@ -347,6 +451,7 @@ class GardenAutomaticReviewService:
                     " CPU fallback was used; the preferred accelerator has not passed its current Garden check."
                 )
         except GardenBusy:
+            progressed = False
             service.automatic_message = "Automatic check paused. It will resume when birds and cameras are idle."
         except GardenCleanupFailed:
             service.error = "Garden worker did not stop. Restart the application before running more Garden work."
@@ -379,11 +484,16 @@ class GardenAutomaticReviewService:
                                 ),
                             )
         finally:
+            if progressed:
+                service.check_progress[original.camera] = time.monotonic()
             if watcher is not None:
                 watcher.cancel()
                 with suppress(asyncio.CancelledError):
                     await watcher
-            service.busy = False
+            try:
+                await service.settle_worker(lambda: self._another_check_due(original, due_query))
+            finally:
+                service.busy = False
         if changed:
             await broadcaster.broadcast({"type": "garden_history_changed"})
             if named_saved:

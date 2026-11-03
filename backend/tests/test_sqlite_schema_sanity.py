@@ -1,24 +1,9 @@
-import os
+"""The schema at head, read from a private copy of the suite's freshly migrated database."""
+
 import sqlite3
-import subprocess
-import sys
 
 
-def _upgrade_db(db_path):
-    env = os.environ.copy()
-    env["DB_PATH"] = str(db_path)
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=os.path.join(os.path.dirname(__file__), ".."),
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=60,
-    )
-
-
-def test_taxonomy_translations_no_fk_and_writable(tmp_path):
+def test_taxonomy_translations_no_fk_and_writable(migrated_history_db):
     """
     Regression test for upgraded DBs failing with:
       sqlite3.OperationalError: foreign key mismatch - "taxonomy_translations" referencing "taxonomy_cache"
@@ -27,8 +12,7 @@ def test_taxonomy_translations_no_fk_and_writable(tmp_path):
     - taxonomy_translations has no FK constraints
     - inserting into taxonomy_translations works with PRAGMA foreign_keys=ON
     """
-    db_path = tmp_path / "schema_sanity.db"
-    _upgrade_db(db_path)
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -46,9 +30,8 @@ def test_taxonomy_translations_no_fk_and_writable(tmp_path):
         conn.close()
 
 
-def test_classification_feedback_schema_exists(tmp_path):
-    db_path = tmp_path / "schema_feedback.db"
-    _upgrade_db(db_path)
+def test_classification_feedback_schema_exists(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -74,9 +57,8 @@ def test_classification_feedback_schema_exists(tmp_path):
         conn.close()
 
 
-def test_detections_schema_includes_video_classification_model_id(tmp_path):
-    db_path = tmp_path / "schema_video_runtime.db"
-    _upgrade_db(db_path)
+def test_detections_schema_includes_video_classification_model_id(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -87,9 +69,8 @@ def test_detections_schema_includes_video_classification_model_id(tmp_path):
         conn.close()
 
 
-def test_detections_schema_includes_video_classification_input_source(tmp_path):
-    db_path = tmp_path / "schema_video_input_source.db"
-    _upgrade_db(db_path)
+def test_detections_schema_includes_video_classification_input_source(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -100,9 +81,8 @@ def test_detections_schema_includes_video_classification_input_source(tmp_path):
         conn.close()
 
 
-def test_detections_schema_includes_video_result_blocked(tmp_path):
-    db_path = tmp_path / "schema_video_result_blocked.db"
-    _upgrade_db(db_path)
+def test_detections_schema_includes_video_result_blocked(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -122,9 +102,8 @@ def test_detections_schema_includes_video_result_blocked(tmp_path):
         conn.close()
 
 
-def test_detections_schema_includes_frigate_missing_tracking_columns(tmp_path):
-    db_path = tmp_path / "schema_frigate_missing_tracking.db"
-    _upgrade_db(db_path)
+def test_detections_schema_includes_frigate_missing_tracking_columns(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -138,9 +117,8 @@ def test_detections_schema_includes_frigate_missing_tracking_columns(tmp_path):
         conn.close()
 
 
-def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_path):
-    db_path = tmp_path / "schema_species_rollup.db"
-    _upgrade_db(db_path)
+def test_species_daily_rollup_schema_includes_canonical_identity_columns(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -158,9 +136,8 @@ def test_species_daily_rollup_schema_includes_canonical_identity_columns(tmp_pat
         conn.close()
 
 
-def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(tmp_path):
-    db_path = tmp_path / "schema_snapshot_candidates.db"
-    _upgrade_db(db_path)
+def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:
@@ -203,9 +180,8 @@ def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(tmp_path):
         conn.close()
 
 
-def test_video_classification_top_frames_schema_exists(tmp_path):
-    db_path = tmp_path / "schema_video_top_frames.db"
-    _upgrade_db(db_path)
+def test_video_classification_top_frames_schema_exists(migrated_history_db):
+    db_path = migrated_history_db
 
     conn = sqlite3.connect(str(db_path))
     try:

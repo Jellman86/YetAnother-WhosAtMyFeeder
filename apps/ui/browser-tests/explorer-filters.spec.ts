@@ -40,21 +40,23 @@ for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
         await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
         await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+        // Chosen reads without colour: a check, which the rows not chosen do not carry.
+        await expect(page.getByRole('button', { name: /^Dunnock.*12$/ }).locator('[data-explorer-chosen-mark]')).toBeVisible();
+        await expect(page.getByRole('button', { name: /^European Robin.*8$/ }).locator('[data-explorer-chosen-mark]')).toHaveCount(0);
+        // A state, never a coloured bar on one edge.
+        expect(await page.getByRole('button', { name: /^Dunnock.*12$/ }).evaluate(node => getComputedStyle(node).borderLeftWidth)).toBe('0px');
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
         await page.getByRole('button', { name: /^European Robin.*8$/ }).click();
         await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
         await expect.poll(() => requests.some(url => url.pathname === '/api/visits' && url.searchParams.get('species') === 'Erithacus rubecula')).toBe(true);
-        const search = page.getByRole('searchbox', { name: 'Search species' });
-        await search.fill('Prunella');
-        await expect(list.getByRole('button')).toHaveCount(1);
-        await search.fill('Species 24');
+        await page.getByRole('button', { name: /^Show all 26 species$/ }).click();
         await list.getByRole('button', { name: 'Species 24 1', exact: true }).click();
-        await expect(list.getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+        await expect(list.getByRole('button', { name: 'Species 24 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
 }
 
-test('the window is always open, rarer filters fold away and name what is chosen inside them', async ({ page, browserName }) => {
+test('the window is always open, rarer filters fold away and name what is chosen inside them', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 600 });
     await openFilters(page);
     const when = page.locator('[data-explorer-date-facet]');
@@ -79,14 +81,7 @@ test('the window is always open, rarer filters fold away and name what is chosen
     await page.getByRole('button', { name: 'garden 8', exact: true }).click();
     await cameras.locator('summary').click();
     await expect(cameras.locator('summary')).toContainText('garden');
-    const search = page.getByRole('searchbox', { name: 'Search species' });
-    await search.scrollIntoViewIfNeeded();
-    await search.fill('Robin');
-    await search.press('Tab');
-    // Safari's system Tab preference can skip buttons; explicitly establish focus there.
-    if (browserName === 'webkit') await page.getByRole('button', { name: /^European Robin.*8$/ }).focus();
-    await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toBeFocused();
-    await page.keyboard.press('Enter');
+    await page.getByRole('button', { name: /^European Robin.*8$/ }).click();
     await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');
     await page.getByRole('button', { name: 'Clear all', exact: true }).click();
     await expect(page.locator('[data-explorer-token]')).toHaveCount(0);

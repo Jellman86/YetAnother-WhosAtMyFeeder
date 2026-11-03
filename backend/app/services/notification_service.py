@@ -439,6 +439,7 @@ class NotificationService:
         try:
             from app.services.smtp_service import smtp_service
             from jinja2 import Template
+            from markupsafe import Markup
             import os
             import aiofiles
 
@@ -452,7 +453,7 @@ class NotificationService:
             template_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "email")
 
             async with aiofiles.open(os.path.join(template_dir, "bird_detection.html"), "r") as f:
-                html_template = Template(await f.read())
+                html_template = Template(await f.read(), autoescape=True)
 
             async with aiofiles.open(os.path.join(template_dir, "bird_detection.txt"), "r") as f:
                 text_template = Template(await f.read())
@@ -476,7 +477,8 @@ class NotificationService:
                 "has_image": snapshot_data is not None and cfg.include_snapshot,
                 # The link the owner chose, or none: never a dashboard link the other channels lack.
                 "dashboard_url": detection_url,
-                "font_family": font_family,
+                # This fixed internal CSS mapping needs literal quotes inside the style block.
+                "font_family": Markup(font_family),
                 "weather": weather,
             }
 

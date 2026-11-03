@@ -10,9 +10,9 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('data-explorer-token');
         expect(filtersSource).toContain('data-explorer-facets');
         // Every option states how many results it would return before it is applied.
-        expect(filtersSource).toContain('{item.count ?? 0}');
-        expect(filtersSource).toContain('{cameraCounts[camera] ?? 0}');
-        expect(filtersSource).toContain('{totals?.favorites ?? 0}');
+        expect(filtersSource).toContain('chosenEnd(chosen, item.count ?? 0)');
+        expect(filtersSource).toContain('(cameraCounts[camera] ?? 0)');
+        expect(filtersSource).toContain('chosenEnd(favoritesOnly, totals?.favorites ?? 0)');
         // The panel is closed until asked for, so the photographs are not pushed down.
         expect(filtersSource).toContain('let panelOpen = $state(false)');
     });
@@ -26,8 +26,10 @@ describe('Explorer page layout', () => {
     });
 
     it('puts the window first and keeps every species reachable in one scrolling rail', () => {
-        expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
-        // The short list hides nothing for good: Show all and search reach every species.
+        expect(filtersSource).toContain('sortExplorerSpecies(species)');
+        // The short list hides nothing for good: Show all reaches every species, and the one search box finds any by name.
+        expect(filtersSource).toContain('{@render search()}');
+        expect(eventsSource).toContain('<ExplorerSearch');
         expect(filtersSource).toContain('shownExplorerSpecies(');
         expect(filtersSource).toContain('data-explorer-species-more');
         expect(filtersSource).toContain('data-explorer-species-facet');

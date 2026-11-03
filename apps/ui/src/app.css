@@ -173,6 +173,12 @@ html[data-theme='dark'] {
     @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
   }
 
+  /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
+     appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
+  .taxon-rank {
+    @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  }
+
   /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
   .figure {
     font-family: var(--font-display);
@@ -233,6 +239,12 @@ html[data-theme='dark'] {
     @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
   }
 
+  /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
+     inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+  .input-focus-inset {
+    @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
+  }
+
   .select-base {
     @apply input-base pr-9 appearance-none;
     /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
@@ -278,6 +290,23 @@ html[data-theme='dark'] {
 
   .sidebar-nav-inactive {
     @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
+  }
+
+  /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
+     recessed brand key as the selected route, with a lit check so it never reads by tint alone.
+     Never a coloured bar on one edge. */
+  .choice-active {
+    @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
+  }
+
+  .choice-active svg {
+    @apply text-brand-600 dark:text-brand-400;
+  }
+
+  /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
+     the meaning; the dot lets the eye find the row. */
+  .attention-dot {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
   }
 
   /* Badges */

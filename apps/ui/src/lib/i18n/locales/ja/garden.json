@@ -17,7 +17,6 @@
   "open_settings": "庭の設定",
   "photo_alt": "{camera} の動物撮影記録",
   "saved_crop_only": "保存済みの動物の切り抜きです。元の写真は利用できません。",
-  "saved_crop_count": "保存済みの動物の切り抜き: {count} / {limit}。全体写真の有効期限は別に管理されます。",
   "snapshot_unavailable": "写真を利用できません",
   "frigate_suggested": "Frigate の候補：{label}",
   "confirm": "動物がいることを確認",
@@ -166,7 +165,9 @@
     "play_clip_short": "クリップを再生",
     "state_below_threshold": "動物を検出、種は命名しきい値未満",
     "state_domestic": "飼っている家禽として自動で命名",
-    "state_domestic_moved": "飼っている家禽として鳥から移動"
+    "state_domestic_moved": "飼っている家禽として鳥から移動",
+    "awaiting_check": "{count, plural, other {自動チェック待ちのカメラキャプチャ # 件}}",
+    "awaiting_check_empty": "{count, plural, other {# 件のカメラキャプチャが自動チェックを待っています。}}名前が付いた動物は「確認済みの動物」へ、動物のいない写真は「却下」へ移り、判断できないものだけがここに表示されます。"
   },
   "automatic_animal_manual": "動物を検出しました。自動命名が無効か、この古い結果は更新された自動チェックを待っています。",
   "automatic_below_threshold": "自動判定のしきい値未満です。「除外済み」に移動しました。確認したい場合は写真を復元できます。",
@@ -230,7 +231,7 @@
     "suggestion_open": "「飼っている家禽」を開く",
     "suggestion_dismiss": "今はしない"
   },
-  "automatic_animal_below_threshold": "動物は検出されましたが、種のスコアが命名しきい値未満です。「要確認」で待機しています。確認して種を選ぶか、却下してください。",
+  "automatic_animal_below_threshold_dismissed": "動物は検出されましたが、種のスコアが命名しきい値未満です。「却下」に移動しました。自分で名前を付けたい場合は「確認に戻す」で戻せます。",
   "automatic_bird_camera": "鳥です。このカメラでは鳥の検出が扱います。「却下」に移動しました。鳥でない場合は写真を確認に戻してください。",
   "automatic_wild_bird": "野鳥です。記録するには、このカメラで鳥を有効にしてください。「却下」に移動しました。チェックが誤っている場合は写真を確認に戻してください。",
   "motion_unreadable": "過去 1 時間に {camera} で {count, plural, other {# 件の録画}}を読み取れず、スキップしました。写真は保存されていません。"

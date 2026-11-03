@@ -114,15 +114,22 @@ def test_recordings_that_cannot_be_read_report_a_reason_without_inference(scan, 
     reader.release.assert_called_once()
 
 
-def test_worker_reports_an_unreadable_recording_as_a_result_and_names_any_other_failure(monkeypatch, capsys):
-    monkeypatch.setattr(worker.sys, "stdin", Mock(buffer=Mock(readline=lambda limit: b"{}")))
-    monkeypatch.setattr(worker, "scan_clip", Mock(side_effect=worker.UnusableRecording("decode_failed")))
+def test_worker_reports_an_unreadable_recording_as_a_result_and_lets_any_other_failure_end_it(monkeypatch):
+    served = {}
+    monkeypatch.setattr(worker, "serve", lambda prefix, handle: served.update(prefix=prefix, handle=handle))
+    load = Mock(return_value="detector")
+    monkeypatch.setattr(worker, "load_detector", load)
     worker.main()
-    assert capsys.readouterr().out == 'MOTION_RESULT:{"outcome": "unusable_recording", "reason": "decode_failed"}\n'
+    assert served["prefix"] == "MOTION_RESULT:"
+    payload = {"model": "cedar.onnx", "model_sha256": "e" * 64}
+    monkeypatch.setattr(worker, "scan_clip", Mock(side_effect=worker.UnusableRecording("decode_failed")))
+    assert served["handle"](payload) == {"outcome": "unusable_recording", "reason": "decode_failed"}
     monkeypatch.setattr(worker, "scan_clip", Mock(side_effect=KeyError("model")))
+    # Any other failure reaches the serving loop, which names it and ends the worker.
     with pytest.raises(KeyError):
-        worker.main()
-    assert capsys.readouterr().out == "WORKER_ERROR:KeyError\n"
+        served["handle"](payload)
+    assert worker.scan_clip.call_args.kwargs["runtime"] == "detector"
+    load.assert_called_once()
 
 
 @pytest.mark.parametrize("count", [0, 0.5, float("nan"), 10000])

@@ -11,7 +11,7 @@
     {#if overridden}
         <p>{$_('garden.automatic_overridden', { default: 'Your review overrides this automatic result. This capture will not be checked again automatically.' })}</p>
     {:else if assessment.decision_reason === 'below_threshold' && assessment.outcome === 'animal'}
-        <p>{$_('garden.automatic_animal_below_threshold', { default: 'Animal detected, but its species score is below the naming threshold. It waits in Needs review: confirm it and pick a species, or dismiss it.' })}</p>
+        <p>{$_('garden.automatic_animal_below_threshold_dismissed', { default: 'Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to review if you want to name it yourself.' })}</p>
         {#if assessment.naming_score !== null && assessment.naming_score !== undefined && assessment.naming_threshold}
             <p>{$_('garden.automatic_score', { default: 'Species score {score}%; naming threshold {threshold}%.', values: { score: Math.round(assessment.naming_score * 100), threshold: Math.round(assessment.naming_threshold * 100) } })}</p>
         {/if}

@@ -9,6 +9,7 @@ import pytest
 import pytest_asyncio
 
 from app.database import close_db, get_db, init_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 
 
@@ -96,7 +97,7 @@ async def test_source_summary_streams_all_batches_with_legacy_label_priority(aud
         item["last_heard"] = timestamp.isoformat() + "Z"
     await insert_rows(audio_db, rows[::2] + rows[1::2])
     batches, closed = instrument_source_cursor(monkeypatch)
-    result = await DetectionRepository(audio_db).get_audio_history_summary()
+    result = await AudioHistoryRepository(audio_db).get_audio_history_summary()
     assert result["total"] == 1200
     assert result["source_count"] == len(cases)
     assert result["sources"] == sorted(
@@ -135,16 +136,18 @@ async def test_streamed_summary_keeps_filters_public_boundary_and_live_visibilit
     instrument_source_cursor(monkeypatch)
     repo = DetectionRepository(audio_db)
     filters = dict(start_date=start, end_date=end, species="obi", source="needle", min_confidence=0.8)
-    result = await repo.get_audio_history_summary(**filters, maximum_end=maximum_end)
+    result = await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters, maximum_end=maximum_end)
     assert result["total"] == 1050
     assert result["sources"] == [{"source_name": "Garden", "count": 1050, "last_heard": "2026-01-01T00:17:29Z"}]
-    assert (await repo.get_audio_history_summary(**filters))["total"] == 1101
+    assert (await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters))["total"] == 1101
     await audio_db.execute("UPDATE audio_detections SET is_hidden=1 WHERE scientific_name='Erithacus rubecula'")
     await audio_db.commit()
-    assert (await repo.get_audio_history_summary(**filters))["sources"] == []
+    assert (await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters))["sources"] == []
     await audio_db.execute("UPDATE audio_detections SET is_hidden=0 WHERE scientific_name='Erithacus rubecula'")
     await audio_db.commit()
-    assert (await repo.get_audio_history_summary(**filters, maximum_end=maximum_end))["sources"] == result["sources"]
+    assert (await AudioHistoryRepository(repo.db).get_audio_history_summary(**filters, maximum_end=maximum_end))[
+        "sources"
+    ] == result["sources"]
 
 
 @pytest.mark.asyncio
@@ -152,7 +155,7 @@ async def test_streamed_summary_closes_source_cursor_when_cancelled(audio_db, mo
     await insert_rows(audio_db, [("2026-01-01 00:00:00", "Robin", 0.9, "mic", "{}", None, 0)] * 600)
     batches, closed = instrument_source_cursor(monkeypatch, cancel_after_first=True)
     with pytest.raises(asyncio.CancelledError):
-        await DetectionRepository(audio_db).get_audio_history_summary()
+        await AudioHistoryRepository(audio_db).get_audio_history_summary()
     assert batches == [512]
     assert len(closed) == 1
     async with audio_db.execute("SELECT COUNT(*) FROM audio_detections") as cursor:

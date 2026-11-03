@@ -275,20 +275,25 @@ See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream
 
 ## Beta features
 
-Features that are still being tested. Each is off until you turn it on, and may change
-or be removed.
+Features that are still being tested. Each is a card with its own switch and a status line in
+words. A feature is off until you turn it on, and may change or be removed. A switch is staged
+with the rest of the page and takes effect on **Apply Settings**; turning a feature off keeps
+what it has already recorded. While Garden animals is on, its settings are grouped into
+collapsible sections (**Cameras**, **Automatic checks and naming**, **Models**, **Domestic birds
+you keep**, **Alerts**, **Where captures go**), and **Still to set up** lists anything it still
+needs.
 
 | Setting | What it does |
 |---------|-------------|
-| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection and hides Garden; saved captures and the settings below are kept. See [Garden animals](../features/garden-animals.md). |
-| **Garden models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Apply Settings** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
+| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection, hides Garden in the Explorer, stops Garden alerts and records kept birds as ordinary birds; saved captures and the settings below are kept and return when it is turned on again. See [Garden animals](../features/garden-animals.md). |
+| **Models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Apply Settings** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
 | **Cameras to watch** | A summary of the cameras watched for Garden animals, none by default (`frigate.garden_cameras: []`), with **Choose cameras in Connection**. Each camera's **Garden animals** or **Both** choice is made in [Connection → Cameras to watch](#cameras-to-watch), beside its bird role. |
-| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Garden models**. Bounded CPU scans create private review candidates. |
+| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Models**. Bounded CPU scans create private review candidates. |
 | **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded; kept birds are declared below. |
 | **Domestic birds you keep** | None by default (`FRIGATE__GARDEN_DOMESTIC_BIRDS`, a JSON list such as `["chicken"]`). Chickens, domestic ducks and geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail you add here are recorded as Garden animals on every camera, never as bird detections, and are never sent to eBird, BirdWeather or iNaturalist. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so add a bird only if you keep it. See [Domestic birds](../features/garden-animals.md#domestic-birds). |
 | **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
 | **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
-| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. An animal below it waits in Needs review; an uncertain photo below it is dismissed. Existing captures are not renamed. |
+| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
 
 ## Data
 

@@ -2,7 +2,7 @@
 
 import hashlib
 import time
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -11,6 +11,7 @@ from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.models.garden_motion import MotionSource
 from app.repositories.garden_repository import GardenRepository
+from app.utils.api_datetime import utc_naive_now
 
 
 def test_complete_presence_mass_distinguishes_empty_from_unresolved_and_other_animals():
@@ -45,6 +46,15 @@ def test_complete_presence_mass_distinguishes_empty_from_unresolved_and_other_an
     assert animal_presence_prediction([0.2, 0, 0, 0, 0.79, 0, 0.01], outputs, expected_width=7).outcome == "uncertain"
     with pytest.raises(ValueError):
         animal_presence_prediction([float("nan")] * 7, outputs, expected_width=7)
+
+
+def set_clear(monkeypatch, module, rule):
+    """Which cameras Frigate reports clear, for both the cycle's selection and a running check's watch."""
+    service = module.garden_motion_service
+    monkeypatch.setattr(service, "_camera_clear", AsyncMock(side_effect=rule))
+    monkeypatch.setattr(
+        service, "clear_cameras", AsyncMock(side_effect=lambda cameras: {c for c in cameras if rule(c)})
+    )
 
 
 @pytest_asyncio.fixture
@@ -84,7 +94,7 @@ async def context(tmp_path, monkeypatch):
     monkeypatch.setattr(identification.catalog, "load", lambda: bundle)
     monkeypatch.setattr(module, "garden_identification_service", identification)
     monkeypatch.setattr(module, "garden_inference_pressure", lambda: {"live": {}, "background": {}})
-    monkeypatch.setattr(module.garden_motion_service, "_camera_clear", AsyncMock(return_value=True))
+    set_clear(monkeypatch, module, lambda camera: True)
     native = AsyncMock(
         return_value={
             "assessment": {
@@ -260,7 +270,7 @@ async def test_automatic_checks_do_not_start_when_garden_or_hardware_is_unavaila
     if reason == "bird":
         monkeypatch.setattr(c.module, "garden_inference_pressure", lambda: None)
     if reason == "camera_pressure":
-        monkeypatch.setattr(c.module.garden_motion_service, "_camera_clear", AsyncMock(return_value=False))
+        set_clear(monkeypatch, c.module, lambda camera: False)
     if reason == "busy":
         c.identification.busy = True
     if reason == "quarantine":
@@ -305,6 +315,34 @@ async def test_invalid_or_changed_native_evidence_never_rejects_a_photo(context,
         monkeypatch.setattr(c.module.garden_capture_service, "snapshot", AsyncMock(side_effect=[b"photo", b"changed"]))
     await c.service.process_once()
     assert (await capture(c.capture_id)).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_the_slot_is_released_only_after_the_worker_settles_with_what_is_due_next(context, monkeypatch):
+    c = context
+    async with get_db() as db:
+        later = c.source.model_copy(
+            update={"clip_start": c.source.clip_start + 20, "clip_end": c.source.clip_end + 20, "clip_sha256": "d" * 64}
+        )
+        second = await GardenRepository(db).capture_motion(later, b"photo")
+    settled = []
+
+    async def settle(next_check_due):
+        settled.append((c.identification.busy, await next_check_due()))
+
+    monkeypatch.setattr(c.identification, "settle_worker", settle)
+    await c.service.process_once()
+    # The first check settles while it still holds the slot, knowing the second is due.
+    assert settled[0] == (True, True)
+    assert (await capture(c.capture_id)).automatic_check is not None
+    settled.clear()
+    await c.service.process_once()
+    assert settled[0] == (True, False)
+    assert (await capture(second)).automatic_check is not None
+    settled.clear()
+    # With nothing due, a cycle that runs no check still leaves no accelerator loaded.
+    await c.service.process_once()
+    assert settled == [(False, False)]
 
 
 @pytest.mark.asyncio
@@ -571,12 +609,10 @@ async def test_named_visit_keeps_real_crops_after_restart_and_photo_expiry_while
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("reason", ["below_threshold", "naming_off", "no_country", "unbound"])
+@pytest.mark.parametrize("reason", ["naming_off", "no_country", "unbound"])
 async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, monkeypatch, reason):
     c = naming
-    if reason == "below_threshold":
-        c.native.return_value["predictions"][0][1] = 0.79
-    elif reason == "naming_off":
+    if reason == "naming_off":
         monkeypatch.setattr(settings.frigate, "garden_automatic_naming", False)
     elif reason == "no_country":
         monkeypatch.setattr(settings.location, "country", None)
@@ -584,12 +620,75 @@ async def test_animal_stays_in_review_when_it_cannot_be_named_honestly(naming, m
         c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
     await c.service.process_once()
     result = await capture(c.capture_id)
-    # A confident animal with a low species score is still an animal: it waits for a person.
     assert result.status == "pending"
     assert result.identification is None
     assert result.automatic_check.outcome == "animal"
-    if reason == "below_threshold":
-        assert result.automatic_check.decision_reason == "below_threshold"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bound", [True, False])
+async def test_animal_whose_species_score_is_below_the_threshold_is_soft_dismissed(naming, bound):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.12
+    if not bound:
+        c.bundle["bindings"][c.bundle["outputs"][DOMESTIC_CAT]["id"]] = None
+    await c.service.process_once()
+    result = await capture(c.capture_id)
+    assert result.status == "dismissed"
+    assert not result.automation_overridden
+    assert result.identification is None
+    assert result.automatic_check.outcome == "animal"
+    assert result.automatic_check.decision_reason == "below_threshold"
+    assert result.automatic_check.naming_score == pytest.approx(0.12)
+    assert "Dismissed" in c.identification.automatic_message
+    async with get_db() as db:
+        await GardenRepository(db).review(c.capture_id, "pending")
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).status == "pending"
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_animals_left_waiting_by_the_earlier_policy_are_dismissed_unless_the_owner_restored_them(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.18
+    await c.service.process_once()
+    # Reproduce what the earlier policy saved: a present animal with an unbound low score, still pending.
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            """UPDATE garden_automatic_checks
+               SET result_json=json_set(result_json,'$.decision_reason','identity_unavailable') WHERE capture_id=?""",
+            (c.capture_id,),
+        )
+        await db.commit()
+    assert await c.service.dismiss_settled_low_scores() == 1
+    assert (await capture(c.capture_id)).status == "dismissed"
+    assert await c.service.dismiss_settled_low_scores() == 0
+    async with get_db() as db:
+        await GardenRepository(db).review(c.capture_id, "pending")
+    assert await c.service.dismiss_settled_low_scores() == 0
+    restored = await capture(c.capture_id)
+    assert restored.status == "pending" and restored.automation_overridden
+    assert c.native.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_an_unreadable_saved_check_is_skipped_without_stopping_the_startup_pass(naming):
+    c = naming
+    c.native.return_value["predictions"][0][1] = 0.12
+    await c.service.process_once()
+    async with get_db() as db:
+        await db.execute("UPDATE garden_captures SET status='pending' WHERE id=?", (c.capture_id,))
+        await db.execute(
+            "UPDATE garden_automatic_checks SET result_json=json_set(result_json,'$.outcome','gone') WHERE capture_id=?",
+            (c.capture_id,),
+        )
+        await db.commit()
+    assert await c.service.dismiss_settled_low_scores() == 0
+    async with get_db() as db:
+        row = await (await db.execute("SELECT status FROM garden_captures WHERE id=?", (c.capture_id,))).fetchone()
+    assert row[0] == "pending"
 
 
 @pytest.mark.asyncio
@@ -953,3 +1052,137 @@ async def test_declaring_a_bird_during_inference_prevents_a_stale_decision(namin
     finally:
         c.native.side_effect = original
     assert (await capture(c.capture_id)).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_a_due_check_is_announced_even_while_the_motion_scan_holds_the_slot(context):
+    c = context
+    c.identification.busy = True
+    await c.service.process_once()
+    assert c.identification.check_due
+    assert c.native.await_count == 0
+    c.identification.busy = False
+    await c.service.process_once()
+    assert (await capture(c.capture_id)).automatic_check is not None
+    await c.service.process_once()
+    assert not c.identification.check_due
+
+
+@pytest.mark.asyncio
+async def test_the_motion_scan_yields_the_slot_to_a_due_check(context, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr(garden_motion, "garden_identification_service", c := context.identification)
+    monkeypatch.setattr(garden_motion.garden_motion_service, "cameras", lambda: ["patio"])
+    pressure = MagicMock()
+    monkeypatch.setattr(garden_motion, "garden_inference_pressure", pressure)
+    c.check_due = True
+    await garden_motion.garden_motion_service.scan_once()
+    # Checking candidates already found comes before scanning for more.
+    assert not c.busy and pressure.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_a_camera_under_permanent_pressure_never_blocks_checks_or_scans_elsewhere(context, monkeypatch):
+    c = context
+    monkeypatch.setattr(settings.frigate, "garden_cameras", ["patio", "lawn"])
+    async with get_db() as db:
+        lawn = await GardenRepository(db).capture_motion(
+            c.source.model_copy(
+                update={
+                    "camera": "lawn",
+                    "clip_start": c.source.clip_start + 30,
+                    "clip_end": c.source.clip_end + 30,
+                    "image_sha256": hashlib.sha256(b"lawn").hexdigest(),
+                }
+            ),
+            b"lawn",
+        )
+    clear = {"patio": False, "lawn": False}
+    set_clear(monkeypatch, c.module, lambda camera: clear[camera])
+    # Only the busy cameras have work: nothing can start, so scanning is not held up.
+    await c.service.process_once()
+    assert not c.identification.check_due and c.native.await_count == 0
+    # The idle camera's newer capture is checked although the busy camera's is older.
+    clear["lawn"] = True
+    await c.service.process_once()
+    assert c.native.await_count == 1
+    assert (await capture(lawn)).automatic_check is not None
+    assert (await capture(c.capture_id)).automatic_check is None
+    await c.service.process_once()
+    assert not c.identification.check_due
+
+
+@pytest.mark.asyncio
+async def test_candidates_are_held_only_while_their_cameras_checks_make_progress(context, monkeypatch):
+    c = context
+    hold = c.module.automatic_hold_cameras
+    # Nothing is known yet after a start: nothing is held.
+    assert hold() == ()
+    set_clear(monkeypatch, c.module, lambda camera: False)
+    await c.service.process_once()
+    # A capture is due on a camera that never clears: no progress, so nothing is held for it.
+    assert hold() == ()
+    set_clear(monkeypatch, c.module, lambda camera: True)
+    await c.service.process_once()
+    assert hold() == ("patio",)
+    assert hold(now=time.monotonic() + c.module.HOLD_PROGRESS_SECONDS + 1) == ()
+
+
+async def motion_capture(c, offset, box, *, image=None):
+    image = image or f"photo-{offset}".encode()
+    source = c.source.model_copy(
+        update={
+            "clip_start": c.source.clip_start + offset,
+            "clip_end": c.source.clip_end + offset,
+            "image_sha256": hashlib.sha256(image).hexdigest(),
+            "box_xywh": box,
+        }
+    )
+    async with get_db() as db:
+        return await GardenRepository(db).capture_motion(source, image)
+
+
+async def mark_blank(capture_id, *, overridden=False):
+    async with get_db() as db:
+        await db.execute(
+            "INSERT INTO garden_automatic_checks(capture_id,result_json) VALUES (?,json_object('outcome','non_animal','checked_at',?))",
+            (capture_id, utc_naive_now().isoformat()),
+        )
+        await db.execute(
+            "UPDATE garden_captures SET status=?, automation_overridden=? WHERE id=?",
+            ("confirmed" if overridden else "dismissed", int(overridden), capture_id),
+        )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owner_confirmed_the_spot", [False, True])
+async def test_candidates_at_a_recent_blank_spot_are_checked_after_those_elsewhere(context, owner_confirmed_the_spot):
+    c = context
+    # c.capture_id is the oldest candidate, at the box (0.1, 0.1, 0.2, 0.2).
+    blank = await motion_capture(c, -30, c.source.box_xywh)
+    await mark_blank(blank, overridden=owner_confirmed_the_spot)
+    elsewhere = await motion_capture(c, 20, (0.6, 0.6, 0.2, 0.2))
+    await c.service.process_once()
+    first = c.capture_id if owner_confirmed_the_spot else elsewhere
+    later = elsewhere if owner_confirmed_the_spot else c.capture_id
+    assert (await capture(first)).automatic_check is not None
+    assert (await capture(later)).automatic_check is None
+    # Deferred, never skipped: the next cycle checks it.
+    await c.service.process_once()
+    assert (await capture(later)).automatic_check is not None
+
+
+@pytest.mark.asyncio
+async def test_a_blank_spot_candidate_is_deferred_for_at_most_its_limit_under_sustained_arrivals(context):
+    c = context
+    limit = c.module.HOLD_PROGRESS_SECONDS
+    blank = await motion_capture(c, -limit - 600, c.source.box_xywh)
+    await mark_blank(blank)
+    # Older than the limit, at a blank spot: no longer deferred, so it is the next check.
+    overdue = await motion_capture(c, -limit - 300, c.source.box_xywh)
+    for offset in [10, 20, 30]:
+        await motion_capture(c, offset, (0.5 + offset / 100, 0.6, 0.1, 0.1))
+    await c.service.process_once()
+    assert (await capture(overdue)).automatic_check is not None

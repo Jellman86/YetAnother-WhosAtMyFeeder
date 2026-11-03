@@ -44,3 +44,19 @@ export function gardenPreviewStyle(
         : Math.max(100 - extent, Math.min(0, 50 - centre * extent));
     return { width, height, left: offset(width, x + w / 2), top: offset(height, y + h / 2) };
 }
+
+/**
+ * The photo a Garden thumbnail and its pop-out show: the saved crop, else the snapshot, skipping
+ * any address that already failed. Only the addresses the server listed are used, and it lists
+ * none to a visitor for a photo the owner does not share, so nothing here can widen access.
+ */
+export function gardenCapturePhoto(
+    capture: GardenCapture,
+    failed: ReadonlySet<string>,
+    authorise: (url: string) => string,
+): { src: string; cropped: boolean } | null {
+    const crop = capture.crop_url ? authorise(capture.crop_url) : null;
+    if (crop && !failed.has(crop)) return { src: crop, cropped: true };
+    const whole = capture.snapshot_url ? authorise(capture.snapshot_url) : null;
+    return whole && !failed.has(whole) ? { src: whole, cropped: false } : null;
+}

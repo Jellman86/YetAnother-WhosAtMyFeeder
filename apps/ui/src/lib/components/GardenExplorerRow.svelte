@@ -6,12 +6,11 @@
      */
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
-    import GardenPhotoPreview from './GardenPhotoPreview.svelte';
+    import GardenCapturePreview from './GardenCapturePreview.svelte';
     import GardenVisitCaptures from './GardenVisitCaptures.svelte';
     import type { GardenCaptureScope } from '../utils/garden-visit-viewer.svelte';
     import GardenExplorerMarker from './GardenExplorerMarker.svelte';
     import type { GardenCapture } from '../api/garden';
-    import { withAuthParams } from '../api/core';
     import { gardenEntryText, gardenEntryView, gardenRowDetail, gardenVisitLabel, type GardenVisit } from '../utils/garden-explorer';
     import { authStore } from '../stores/auth.svelte';
     import { formatTime } from '../utils/datetime';
@@ -29,16 +28,10 @@
         onopen: (capture: GardenCapture) => void;
     } = $props();
 
-    let failedUrl = $state<string | null>(null);
-    let failedCropUrl = $state<string | null>(null);
     const view = $derived(gardenEntryView(capture));
     const text = $derived(gardenEntryText(capture, view, (key, fallback, values) => get(_)(key, { values, default: fallback }), authStore.hasOwnerAccess ? 'owner' : 'visitor'));
     const detail = $derived(gardenRowDetail(capture, view));
     const canPlay = $derived(Boolean(onplay && capture.clip_event));
-    const cropPhoto = $derived(capture.crop_url ? withAuthParams(capture.crop_url) : null);
-    const fullPhoto = $derived(capture.snapshot_url ? withAuthParams(capture.snapshot_url) : null);
-    const photo = $derived(cropPhoto && cropPhoto !== failedCropUrl ? cropPhoto : fullPhoto);
-    const usingSavedCrop = $derived(Boolean(cropPhoto && photo === cropPhoto));
     const day = $derived(relativeDayLabel(capture.observed_at, $_));
     const grouped = $derived(gardenVisitLabel(visit, (key, fallback, values) => get(_)(key, { values, default: fallback })));
     const score = $derived(view.score === null ? null : Math.round(view.score * 100));
@@ -49,12 +42,9 @@
 </script>
 
 <div
-    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/10' : ''}"
+    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/5' : ''}"
     data-garden-row={capture.status}
 >
-    {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-attention-500" aria-hidden="true"></span>
-    {/if}
     <!-- The whole row opens the record, where the photograph is shown at the size the decision needs. -->
     <button
         type="button"
@@ -68,13 +58,9 @@
         {#if day}<span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{day}</span>{/if}
     </div>
 
-    <div class="pointer-events-none relative z-10 flex justify-center">
-        <!-- The bird preview's size and frame, so the column reads as one. -->
-        <span class="block h-9 w-9 overflow-hidden rounded-lg border-2 border-white bg-slate-100 dark:border-slate-900 dark:bg-slate-800">
-            {#if photo && failedUrl !== photo}
-                <GardenPhotoPreview {capture} src={photo} cropped={usingSavedCrop} fill aspect={1} onerror={() => { if (usingSavedCrop) failedCropUrl = photo; else failedUrl = photo; }} />
-            {/if}
-        </span>
+    <!-- A bird row's pop-out, above the row's open control as a bird row's is. -->
+    <div class="relative z-10 flex justify-center">
+        <GardenCapturePreview {capture} fill onopen={() => onopen(capture)} />
     </div>
 
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
@@ -85,7 +71,11 @@
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if detail.showState}
-                <span class="shrink-0 {view.review ? 'text-attention-800 dark:text-attention-300' : ''}">{text.state}</span>
+                {#if view.review}
+                    <span class="inline-flex shrink-0 items-center gap-1.5 text-attention-800 dark:text-attention-300" data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+                {:else}
+                    <span class="shrink-0">{text.state}</span>
+                {/if}
             {:else if detail.scientific}
                 <span class="min-w-0 truncate italic" data-garden-row-scientific>{detail.scientific}</span>
             {/if}

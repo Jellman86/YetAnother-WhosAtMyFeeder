@@ -16,8 +16,12 @@
     authStore.statusLoaded = true;
     authStore.statusHealthy = true;
     authStore.authRequired = true;
-    authStore.isAuthenticated = true;
     const params = new URLSearchParams(location.search);
+    // guest=1: a public visitor shown the confirmed Garden animals the owner shares.
+    const guest = params.get('guest') === '1';
+    authStore.isAuthenticated = !guest;
+    authStore.publicAccessEnabled = guest;
+    authStore.gardenAnimalsEnabled = guest;
     authStore.scientificNamePrimary = params.get('names') === 'scientific';
     const phase = params.get('state') ?? 'ready';
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
@@ -77,7 +81,11 @@
         { id: 'fox', kind: 'visit', start_time: '2026-10-02T10:28:00Z', end_time: '2026-10-02T10:30:00Z', capture_count: 4,
             representative: gardenCapture('fox', { identification: named('Red Fox', 'accepted', true, 0.93) }) },
         { id: 'hedgehog', kind: 'visit', start_time: '2026-10-02T09:50:00Z', end_time: '2026-10-02T09:50:00Z', capture_count: 1,
-            representative: gardenCapture('hedgehog', { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'pending', false, 0.71) }) }
+            // No saved crop, so its photo is the snapshot. A visitor is shown it named, without its
+            // photo: the server lists no media address for a photo the owner does not share.
+            representative: gardenCapture('hedgehog', guest
+                ? { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'accepted', true, 0.71), snapshot_url: null, crop_url: null }
+                : { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'pending', false, 0.71), crop_url: null }) }
     ] : [];
     const rows = mergeFieldLog(visits, gardenVisits, 12);
     let selected = $state('none');
@@ -120,7 +128,7 @@
         onretry={() => (retried += 1)}
     />
     {#if phase !== 'ready'}
-        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} />
+        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} checks={{ status: phase === 'loading' ? 'loading' : 'unavailable', names: [], nearbyRadiusKm: null, keptBirds: [] }} />
         <DeskContextCards detections={[]} visits={[]} cameraVisits={null} loading={phase === 'loading'} unavailable={phase === 'unavailable'} />
     {/if}
 </main>

@@ -4,6 +4,8 @@ import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import rowSource from '../components/DetectionRow.svelte?raw';
 import storeSource from '../stores/explorer_filters.svelte.ts?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
+import popoutSource from '../utils/hover-popout.svelte.ts?raw';
+import panelSource from '../components/HoverPopoutPanel.svelte?raw';
 
 describe('collapsing the Explorer filter rail', () => {
     it('gives the rail width back to the detections when it is collapsed', () => {
@@ -83,9 +85,10 @@ describe('the Explorer list row preview', () => {
         // could paint over what survived. Neither is fixable from inside the
         // row, so the panel is portalled to the body and placed in viewport
         // coordinates.
-        expect(previewSource).toContain('use:portal');
-        expect(previewSource).toContain('getBoundingClientRect()');
-        expect(previewSource).toMatch(/class="fixed z-\[70\]/);
+        expect(previewSource).toContain('<HoverPopoutPanel {popout} {index} data-detection-preview-panel>');
+        expect(panelSource).toContain('use:portal');
+        expect(popoutSource).toContain('getBoundingClientRect()');
+        expect(panelSource).toMatch(/class="fixed z-\[70\]/);
         expect(eventsPageSource).toContain('overflow-hidden rounded-2xl');
     });
 
@@ -93,10 +96,10 @@ describe('the Explorer list row preview', () => {
         // Closing on the first scroll broke the keyboard path: focusing a
         // trigger below the fold scrolls it into view, and that scroll landed
         // right after the panel opened, dismissing it in the same frame.
-        expect(previewSource).toContain('requestAnimationFrame');
-        expect(previewSource).toContain("window.addEventListener('scroll', follow, true)");
-        expect(previewSource).toContain("window.addEventListener('resize', follow)");
-        expect(previewSource).not.toContain("window.addEventListener('scroll', close");
+        expect(popoutSource).toContain('requestAnimationFrame');
+        expect(popoutSource).toContain("window.addEventListener('scroll', follow, true)");
+        expect(popoutSource).toContain("window.addEventListener('resize', follow)");
+        expect(popoutSource).not.toContain("window.addEventListener('scroll', close");
     });
 
     it('stands aside in selection mode instead of hijacking it', () => {
@@ -108,7 +111,8 @@ describe('the Explorer list row preview', () => {
     });
 
     it('flips above the thumbnail when there is no room below', () => {
-        expect(previewSource).toContain('above: boolean');
-        expect(previewSource).toContain('-translate-y-full');
+        // popoutAnchor's own tests (hover-popout.test.ts) prove the flip; the panel honours it.
+        expect(popoutSource).toContain('above: boolean');
+        expect(panelSource).toContain('-translate-y-full');
     });
 });

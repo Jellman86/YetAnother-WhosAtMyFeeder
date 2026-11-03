@@ -209,7 +209,14 @@
     "partial": "{count, plural, other {# 件の撮影の名前を変更できませんでした。もう一度お試しください。}}",
     "renamed": "{count, plural, other {# 件の訪問を}} {species} に変更しました。",
     "confirmed": "{count, plural, other {# 件の訪問を}} {species} として確認しました。",
-    "hidden": "{count, plural, other {# 件の訪問を鳥ではないとして非表示にしました。}}"
+    "hidden": "{count, plural, other {# 件の訪問を鳥ではないとして非表示にしました。}}",
+    "kept_bird_body": "{species} は家禽の「{kind}」かもしれません。飼っている場合は庭の動物として記録してください。鳥の記録は庭に移動し、鳥の履歴では非表示になります（削除はされません）。",
+    "kept_bird_keep": "{kind}を飼っている：庭に移動",
+    "kept_bird_move": "{kind}の記録を庭に移動",
+    "kept_bird_working": "庭に移動しています…",
+    "kept_bird_moved": "{count, plural, =0 {移動が必要な鳥の記録はありませんでした。} other {# 件の鳥の記録を庭に移動しました。}}「{kind}」は「飼っている家禽」に追加されています。",
+    "kept_bird_skipped": "{count, plural, other {# 件の記録は移動できず、鳥の履歴に残っています。}}",
+    "kept_bird_remaining": "{count, plural, other {あと # 件の記録が残っています。もう一度操作すると移動します。}}"
   },
   "span_group": "期間"
 }

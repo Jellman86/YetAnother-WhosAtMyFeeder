@@ -549,7 +549,7 @@ for (const mode of ['cards', 'list']) {
         const chosen = panel.locator('[data-garden-visit-capture]').nth(23);
         const chosenId = await chosen.getAttribute('data-garden-visit-capture');
         await expect(chosen.locator('time')).toHaveText(/\d{2}:\d{2}:\d{2}/);
-        await chosen.getByRole('button').click();
+        await chosen.getByRole('button', { name: /^Open Red fox capture at/ }).click();
         const modal = page.locator('[data-garden-capture-modal]');
         await expect(modal).toBeVisible();
         await expect(modal.locator(`[data-garden-capture-choice="${chosenId}"]`)).toHaveAttribute('aria-pressed', 'true');
@@ -712,6 +712,8 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
     // greenhousecam watches Garden animals only, so the bird filter read never names it.
     const { timelineQueries, errors } = await openExplorer(page, '&garden=1&gardencams=patio,greenhousecam', false, { birdcam: 12 });
     const cameras = page.locator('[data-explorer-camera-facet]');
+    // On a phone the filter rail opens from the Filters button.
+    if (!(await cameras.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await cameras.locator('summary').click();
     // Both: every camera once, and no count, because the bird counts do not cover animals.
     await expect(cameras.getByRole('button')).toHaveText(['birdcam', 'greenhousecam', 'patio']);
@@ -735,6 +737,8 @@ test('the rail offers the cameras of the chosen subjects, and counts only what i
 test('a visitor is offered the Garden cameras the shared captures came from', async ({ page }) => {
     const { errors } = await openExplorer(page, '&guest=1', false, { birdcam: 4 });
     const option = page.locator('[data-explorer-subjects-option="garden"]');
+    // On a phone the filter rail opens from the Filters button.
+    if (!(await option.isVisible())) await page.locator('[data-explorer-filter-toggle]').click();
     await option.click();
     const cameras = page.locator('[data-explorer-camera-facet]');
     await cameras.locator('summary').click();
@@ -811,3 +815,99 @@ for (const kept of [true, false]) {
         expect(errors).toEqual([]);
     });
 }
+
+// A Garden row's thumbnail answers "which animal is that" as a bird row's does (layout-patterns §1.4, §4).
+const gardenTrigger = (page: Page, status: string) => page.locator(`[data-garden-row="${status}"] [data-garden-capture-preview] button`);
+const gardenPanel = (page: Page) => page.locator('[data-garden-capture-preview-panel]');
+
+async function reopenList(page: Page) {
+    await page.reload();
+    await expect(page.locator('[data-explorer-visit="morning"]')).toBeVisible();
+    await page.locator('[data-explorer-view-toggle="list"]').click();
+    await expect(page.locator('[data-garden-row]').first()).toBeVisible();
+}
+
+test('a Garden list row opens the bird pop-out on hover and keyboard focus without moving the list', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const { errors, garden } = await openExplorer(page, '&garden=1');
+    const fox = garden.findIndex(item => item.status === 'confirmed');
+    garden[fox] = { ...garden[fox], crop_url: `/api/garden/${garden[fox].id}/crop` };
+    await reopenList(page);
+
+    const row = page.locator('[data-garden-row="confirmed"]');
+    const before = await row.boundingBox();
+    // The bird row's photo cell, so the column reads as one.
+    const trigger = await gardenTrigger(page, 'confirmed').boundingBox();
+    const bird = await page.locator('[data-explorer-visit="morning"] [data-detection-preview] button').boundingBox();
+    expect(trigger && bird && Math.abs(trigger.x - bird.x)).toBeLessThanOrEqual(1);
+    expect(trigger?.width).toBeCloseTo(bird?.width ?? 0, 0);
+
+    await gardenTrigger(page, 'confirmed').hover();
+    const panel = gardenPanel(page);
+    await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'crop');
+    await expect(panel.locator('img')).toHaveAttribute('src', new RegExp(`/api/garden/${garden[fox].id}/crop`));
+    await expect(panel).toContainText('Red fox');
+    await expect(panel).toContainText('93%');
+    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Species confirmed by you');
+    expect(await row.boundingBox()).toEqual(before);
+    // The list frame rounds its corners by hiding overflow; the panel escapes it rather than being clipped.
+    expect(await panel.evaluate(element => element.parentElement === document.body)).toBe(true);
+    await page.mouse.move(5, 5);
+    await expect(panel).toHaveCount(0);
+
+    // A pending capture has no name and no score yet, and says only what is true of it.
+    await gardenTrigger(page, 'pending').hover();
+    await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
+    await expect(panel).toContainText('Possible animal');
+    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Waiting for automatic identification');
+    await expect(panel).not.toContainText('%');
+    await page.mouse.move(5, 5);
+    await expect(panel).toHaveCount(0);
+
+    // By keyboard: the row's open control comes first, the thumbnail next.
+    await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).focus();
+    await page.keyboard.press('Tab');
+    await expect(gardenTrigger(page, 'confirmed')).toBeFocused();
+    await expect(gardenTrigger(page, 'confirmed')).toHaveAccessibleName('Preview Red fox');
+    await expect(panel).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(gardenTrigger(page, 'confirmed')).toBeFocused();
+    await page.keyboard.press('Shift+Tab');
+    await expect(panel).toHaveCount(0);
+
+    if (shots) {
+        await gardenTrigger(page, 'confirmed').hover();
+        await page.screenshot({ path: `${shots}/garden-explorer-row-popout.png` });
+    }
+    // Activating the thumbnail opens the record, as the row does.
+    await gardenTrigger(page, 'confirmed').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+test('a visitor sees a Garden row pop-out only for a photo the owner shares', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const { errors, garden, requested } = await openExplorer(page, '&guest=1');
+    // The server shares confirmed animals only; this one's photo is not shared, so no address is listed.
+    garden.splice(garden.findIndex(item => item.status === 'pending'), 1);
+    garden[0] = { ...garden[0], review_token: null as unknown as string, snapshot_url: null, crop_url: null };
+    // Lazy images from the first render may still be loading; only requests after this point are the guest's.
+    await page.waitForLoadState('networkidle');
+    requested.length = 0;
+    await reopenList(page);
+    const row = page.locator('[data-garden-row="confirmed"]');
+    await expect(row.locator('[data-garden-capture-preview]')).toHaveCount(0);
+    await expect(row.locator('[data-garden-capture-preview-unlisted]')).toHaveAttribute('aria-hidden', 'true');
+    await row.locator('[data-garden-capture-preview-unlisted]').hover();
+    await expect(gardenPanel(page)).toHaveCount(0);
+    expect(requested.some(path => /^\/api\/garden\/[^/]+\/(crop|snapshot)$/.test(path))).toBe(false);
+
+    // Once the owner shares it, the visitor's row previews it, crediting the owner.
+    garden[0] = { ...garden[0], snapshot_url: `/api/garden/${garden[0].id}/snapshot` };
+    await reopenList(page);
+    await gardenTrigger(page, 'confirmed').hover();
+    await expect(gardenPanel(page)).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
+    await expect(gardenPanel(page).locator('[data-garden-capture-preview-state]')).toHaveText('Owner confirmed');
+    expect(errors).toEqual([]);
+});

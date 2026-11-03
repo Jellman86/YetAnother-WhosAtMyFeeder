@@ -682,7 +682,7 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
     # ConvNeXt Large remains globally excluded from Intel GPU, but its NPU path
-    # is validated on Arrow Lake (see tests/test_model_openvino_npu.py).
+    # is validated on Arrow Lake (see tests/pure/test_model_openvino_npu.py).
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["label_grouping"] == {}
 

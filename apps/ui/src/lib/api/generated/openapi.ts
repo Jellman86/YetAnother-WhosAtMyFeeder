@@ -1143,6 +1143,31 @@ export interface components {
     count: number;
     filtered: boolean;
 };
+    ExplorerSearchRecord: {
+    camera?: string | null;
+    common_name?: string | null;
+    display_name?: string | null;
+    hidden?: boolean;
+    id: string;
+    kind: "detection" | "garden";
+    observed_at: string;
+    scientific_name?: string | null;
+};
+    ExplorerSearchResponse: {
+    record?: components['schemas']['ExplorerSearchRecord'] | null;
+    taxa: Array<components['schemas']['ExplorerSearchTaxon']>;
+    truncated: boolean;
+};
+    ExplorerSearchTaxon: {
+    bird_detections: number;
+    bird_species: number;
+    garden_captures: number;
+    garden_species: number;
+    name?: string | null;
+    rank: "species" | "genus" | "family" | "order";
+    scientific_name: string;
+    taxon_id: number;
+};
     FavoriteResponse: {
     archive_state?: string | null;
     event_id: string;
@@ -1313,6 +1338,13 @@ export interface components {
     provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
     variant?: "4.0.3a" | "4.0.3b";
 };
+    GardenKeepBirdResponse: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    declared: boolean;
+    moved: number;
+    remaining: number;
+    skipped: number;
+};
     GardenModelStatus: {
     installed: boolean;
     size_bytes: number;
@@ -1400,6 +1432,7 @@ export interface components {
     species_id: number;
 };
     GardenVisitPage: {
+    awaiting_check?: number;
     capture_total: number;
     limit: number;
     offset: number;
@@ -1618,6 +1651,7 @@ export interface components {
 };
     LeaderboardSpeciesResponse: {
     history_start?: string | null;
+    nearby_check: "checked" | "off" | "unavailable";
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
     previous_window_complete?: boolean;
@@ -2769,10 +2803,47 @@ export interface components {
     children: Array<components['schemas']['TaxonResponse']>;
     parent_id: number;
 };
+    TaxonFactsItem: {
+    first_seen?: string | null;
+    heard?: number | null;
+    last_heard?: string | null;
+    last_seen?: string | null;
+    photo?: components['schemas']['TaxonPhotoResponse'] | null;
+    rank: string;
+    sources: Array<"camera" | "garden">;
+    species_seen: number;
+    taxon_id: number;
+    visits: number;
+};
+    TaxonFactsResponse: {
+    facts: Array<components['schemas']['TaxonFactsItem']>;
+    scope: "all" | "shared";
+    shared_days?: number | null;
+};
     TaxonLineageResponse: {
     lineage: Array<components['schemas']['TaxonResponse']>;
 };
+    TaxonNamesResponse: {
+    languages: number;
+    names: Array<components['schemas']['TaxonOtherNameResponse']>;
+    taxon_id: number;
+    truncated: boolean;
+};
+    TaxonOtherNameResponse: {
+    language: string;
+    name: string;
+    preferred: boolean;
+};
+    TaxonPhotoResponse: {
+    kind: "camera" | "garden";
+    name?: string | null;
+    scientific_name: string;
+    species_id: number;
+    taken_at: string;
+    url: string;
+};
     TaxonResponse: {
+    authorship?: string | null;
     name?: string | null;
     parent_id?: number | null;
     principal: boolean;
@@ -3775,6 +3846,7 @@ export interface paths {
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: Array<components['schemas']['DetectionResponse']> | Array<components['schemas']['DetectionListItemResponse']>;
@@ -3812,6 +3884,7 @@ export interface paths {
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['EventsCountResponse'];
@@ -4001,6 +4074,18 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['ReclassifyResponse'];
+    };
+  };
+  "/api/explorer/search": {
+    get: {
+      operationId: "search_explorer_api_explorer_search_get";
+      path: never;
+      query: {
+    limit?: number;
+    q: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['ExplorerSearchResponse'];
     };
   };
   "/api/frigate/camera/{camera}/latest.jpg": {
@@ -4332,6 +4417,17 @@ export interface paths {
       response: Array<components['schemas']['GardenDomesticBirdOption']>;
     };
   };
+  "/api/garden/domestic-birds/{bird}/keep": {
+    post: {
+      operationId: "keep_domestic_bird_api_garden_domestic_birds__bird__keep_post";
+      path: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenKeepBirdResponse'];
+    };
+  };
   "/api/garden/identification": {
     get: {
       operationId: "identification_status_api_garden_identification_get";
@@ -4411,6 +4507,7 @@ export interface paths {
     order?: "newest" | "oldest";
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];
@@ -4430,6 +4527,7 @@ export interface paths {
     page_start?: string | null;
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenVisitPage'];
@@ -4448,6 +4546,7 @@ export interface paths {
     offset?: number;
     start?: string | null;
     status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['GardenCapturePage'];
@@ -5231,6 +5330,7 @@ export interface paths {
     species_name: string;
 };
       query: {
+    rank?: "family" | "order" | null;
     refresh?: boolean;
     scientific_name?: string | null;
 };
@@ -5364,6 +5464,17 @@ export interface paths {
       response: components['schemas']['SystemTelemetryHistoryResponse'];
     };
   };
+  "/api/taxonomy/facts": {
+    get: {
+      operationId: "get_taxon_facts_api_taxonomy_facts_get";
+      path: never;
+      query: {
+    ids: Array<number>;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonFactsResponse'];
+    };
+  };
   "/api/taxonomy/lineage": {
     get: {
       operationId: "get_species_lineage_api_taxonomy_lineage_get";
@@ -5397,6 +5508,19 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['TaxonLineageResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/names": {
+    get: {
+      operationId: "get_taxon_names_api_taxonomy__taxon_id__names_get";
+      path: {
+    taxon_id: number;
+};
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonNamesResponse'];
     };
   };
   "/api/update-status": {
@@ -5490,6 +5614,7 @@ export interface paths {
     species?: string | null;
     start_date?: string | null;
     start_time?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['DetectionVisitsResponse'];

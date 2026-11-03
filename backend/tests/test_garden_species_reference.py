@@ -115,7 +115,12 @@ def test_animal_fallback_queries_all_taxa_and_requires_the_exact_identity(refere
     assert body["thumbnail_url"] == "https://example.com/dog.jpg"
     assert body["scientific_name"] == "Canis familiaris"
     assert body["summary_source"] == "iNaturalist"
-    queries = [request.url.params for request in calls if request.url.host == "api.inaturalist.org"]
+    # Searches carry the identity; a detail read of the chosen taxon (for its IUCN status) has no query.
+    queries = [
+        request.url.params
+        for request in calls
+        if request.url.host == "api.inaturalist.org" and "q" in request.url.params
+    ]
     assert queries
     assert all(query["q"] == "Canis familiaris" and "iconic_taxa" not in query for query in queries)
 

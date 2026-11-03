@@ -5,7 +5,6 @@ from collections import deque
 from collections.abc import Callable, Iterable
 from contextlib import suppress
 import hashlib
-import json
 import math
 import os
 from pathlib import Path
@@ -39,19 +38,20 @@ from app.services.classifier_service import garden_inference_pressure
 from app.services.frigate_client import frigate_client, FrigateEventsFetchError
 from app.services.garden_capture_service import garden_capture_service
 from app.services.garden_identification import (
-    GardenBusy,
-    GardenCleanupFailed,
     bird_work_pending,
     garden_identification_service,
-    supervise_worker,
-    worker_failure_fields,
     MODEL_BASE_URL,
 )
 from app.services.garden_model_runtime import digest
 from app.services.garden_motion_policy import recording_queue, camera_pressure, motion_scan_interval
+from app.services.garden_worker_supervisor import (
+    GardenBusy,
+    GardenCleanupFailed,
+    GardenWarmWorker,
+    worker_failure_fields,
+)
 from app.services.model_manager import MODELS_DIR
 from app.utils.api_datetime import utc_naive_now
-from app.utils.python_subprocess import python_subprocess_launch
 
 log = structlog.get_logger()
 UNREADABLE_WINDOW_SECONDS = 3600
@@ -93,6 +93,18 @@ class GardenMotionService:
         self.queue_checked_at: str | None = None
         # (time.time(), camera, reason) for recordings skipped because they could not be read.
         self.unreadable: deque[tuple[float, str, str]] = deque(maxlen=512)
+        self.worker = GardenWarmWorker(
+            "app.services.garden_motion_worker",
+            b"MOTION_RESULT:",
+            release=lambda: bird_work_pending(garden_inference_pressure()),
+            on_stuck=self._worker_stuck,
+        )
+
+    @staticmethod
+    def _worker_stuck() -> None:
+        garden_identification_service.error = (
+            "Garden worker did not stop. Restart the application before collecting more garden photos."
+        )
 
     def cameras(self) -> list[str]:
         from app.services.garden_capture_policy import garden_collection_cameras
@@ -203,6 +215,7 @@ class GardenMotionService:
             with suppress(asyncio.CancelledError):
                 await self.task
             self.task = None
+        await self.worker.stop()
 
     async def _run(self) -> None:
         while True:
@@ -243,35 +256,23 @@ class GardenMotionService:
         return False
 
     async def _camera_clear(self, camera: str) -> bool:
+        return camera in await self.clear_cameras([camera])
+
+    async def clear_cameras(self, cameras: Iterable[str]) -> set[str]:
+        """The cameras free of Frigate pressure, from a single stats read; none when it fails."""
         try:
             response = await frigate_client.get("api/stats", timeout=1)
             response.raise_for_status()
-            return not camera_pressure(response.json(), camera)
+            stats = response.json()
         except (ValueError, httpx.HTTPError):
-            return False
+            return set()
+        return {camera for camera in cameras if not camera_pressure(stats, camera)}
 
     async def _native(self, payload: dict[str, Any], blocked: Callable[[], bool]) -> dict[str, Any]:
-        environment = {**os.environ, "OMP_NUM_THREADS": "1", "OPENBLAS_NUM_THREADS": "1", "MKL_NUM_THREADS": "1"}
-        executable, environment = python_subprocess_launch(environment)
-        process = await asyncio.create_subprocess_exec(
-            executable,
-            "-m",
-            "app.services.garden_motion_worker",
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
-            env=environment,
-        )
-        output = await supervise_worker(
-            process, blocked, payload=json.dumps(payload).encode() + b"\n", timeout_seconds=45
-        )
-        if len(output) > 64 * 1024:
-            raise ValueError("Motion worker result exceeds its limit")
-        lines = [line[len(b"MOTION_RESULT:") :] for line in output.splitlines() if line.startswith(b"MOTION_RESULT:")]
-        if len(lines) != 1:
-            raise ValueError("Motion worker returned no unique result")
-        result = json.loads(lines[0])
-        if not isinstance(result, dict) or result.get("outcome") not in {
+        # A warm detector serves only the exact model it loaded.
+        binding = (payload["model"], payload["model_sha256"])
+        result = await self.worker.request(binding, payload, blocked, timeout_seconds=45)
+        if result.get("outcome") not in {
             "candidate",
             "person_rejected",
             "no_candidate",
@@ -291,6 +292,11 @@ class GardenMotionService:
             self.interval_seconds = MOTION_INTERVAL_SECONDS
             return
         if time.monotonic() < self.next_scan:
+            return
+        if garden_identification_service.check_due:
+            # Candidates already found are checked before the scan looks for more.
+            self.interval_seconds = MOTION_INTERVAL_SECONDS
+            self.message = "Waiting for automatic checks of saved candidates."
             return
         if bird_work_pending(garden_inference_pressure()):
             self.interval_seconds = MOTION_INTERVAL_SECONDS

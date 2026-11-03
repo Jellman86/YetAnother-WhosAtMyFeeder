@@ -1,4 +1,5 @@
 import json
+from html.parser import HTMLParser
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timezone
@@ -997,3 +998,71 @@ async def test_bird_email_over_oauth_sends_the_template_from_the_token_mailbox(n
     assert kwargs["image_data"] == b"bird-jpeg"
     assert "Robin" in kwargs["subject"] and "Erithacus rubecula" in kwargs["html_body"]
     assert "cid:bird_snapshot" in kwargs["html_body"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("oauth", [False, True])
+async def test_bird_email_escapes_html_fields_and_attributes_but_preserves_plain_text(
+    notification_service, monkeypatch, oauth
+):
+    from app.config import settings
+    from app.services.smtp_service import smtp_service
+
+    cfg = settings.notifications.email
+    for key, value in {
+        "to_email": "owner@example.test",
+        "from_email": "feeder@example.test",
+        "smtp_host": "smtp.example.test",
+        "use_oauth": oauth,
+        "oauth_provider": "gmail",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    sender = AsyncMock(return_value=True)
+    monkeypatch.setattr(smtp_service, "send_email_oauth" if oauth else "send_email_password", sender)
+    monkeypatch.setattr(settings.appearance, "font_theme", "clean")
+    monkeypatch.setattr(settings.accessibility, "dyslexia_font", False)
+    species = '<img src="https://untrusted.example.test/species"> & "Robin"'
+    scientific_name = "<b>Erithacus & rubecula</b>"
+    camera = "<svg onload='camera()'> & feeder"
+    weather = "<iframe src='https://untrusted.example.test/weather'></iframe> & rain"
+    link = 'https://feeder.example.test/events?x=1&y=2" onclick="link()'
+    try:
+        assert await notification_service._send_email(
+            species,
+            scientific_name,
+            0.92,
+            camera,
+            SEEN_AT,
+            "",
+            b"jpeg",
+            False,
+            "en",
+            weather=weather,
+            detection_url=link,
+        )
+    finally:
+        await notification_service.client.aclose()
+    data = sender.await_args.kwargs
+    html_body, plain_body = data["html_body"], data["plain_body"]
+    assert "font-family: 'Manrope'," in html_body
+    for value in (species, scientific_name, camera, weather, link):
+        assert value not in html_body
+        assert value in plain_body
+
+    class EmailParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tags: list[tuple[str, dict[str, str | None]]] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            self.tags.append((tag, dict(attrs)))
+
+    parser = EmailParser()
+    parser.feed(html_body)
+    images = [attrs for tag, attrs in parser.tags if tag == "img"]
+    assert images == [{"src": "cid:bird_snapshot", "alt": species, "class": "detection-image"}]
+    links = [attrs for tag, attrs in parser.tags if tag == "a"]
+    assert {"href": link, "class": "button"} in links
+    assert all(not key.startswith("on") for _, attrs in parser.tags for key in attrs)
+    assert not any(tag in {"svg", "iframe"} for tag, _ in parser.tags)
