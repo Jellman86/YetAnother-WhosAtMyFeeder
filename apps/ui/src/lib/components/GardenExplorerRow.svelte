@@ -42,12 +42,9 @@
 </script>
 
 <div
-    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/10' : ''}"
+    class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 {view.review ? 'bg-attention-500/5' : ''}"
     data-garden-row={capture.status}
 >
-    {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-attention-500" aria-hidden="true"></span>
-    {/if}
     <!-- The whole row opens the record, where the photograph is shown at the size the decision needs. -->
     <button
         type="button"
@@ -74,7 +71,11 @@
         <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if detail.showState}
-                <span class="shrink-0 {view.review ? 'text-attention-800 dark:text-attention-300' : ''}">{text.state}</span>
+                {#if view.review}
+                    <span class="inline-flex shrink-0 items-center gap-1.5 text-attention-800 dark:text-attention-300" data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+                {:else}
+                    <span class="shrink-0">{text.state}</span>
+                {/if}
             {:else if detail.scientific}
                 <span class="min-w-0 truncate italic" data-garden-row-scientific>{detail.scientific}</span>
             {/if}

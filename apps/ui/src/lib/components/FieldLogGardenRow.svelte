@@ -2,7 +2,8 @@
     /**
      * One Garden animal's visit on the field log's thread, in a bird visit's columns: time, node,
      * photo, name, score, action. The worded Garden marker keeps it from reading as a bird, and
-     * work that needs a person is flagged as the Explorer flags it: tint, bar and a reason in words.
+     * work that needs a person is flagged as the Explorer flags it: a faint tint, and an amber dot
+     * beside the reason in words.
      */
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
@@ -53,7 +54,7 @@
 </script>
 
 <li
-    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/10' : ''}"
+    class="{grid} relative items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {view.review ? 'bg-attention-500/5' : ''}"
     data-field-log-row
     data-row-kind="garden"
     data-field-log-garden={visit.id}
@@ -84,7 +85,11 @@
             {#if showCamera}
                 <span class="break-words" data-field-log-camera>{capture.camera}</span>
             {/if}
-            <span class="font-medium {view.review ? 'text-attention-800 dark:text-attention-300' : ''}" data-field-log-garden-state>{text.state}</span>
+            {#if view.review}
+                <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-field-log-garden-state data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>
+            {:else}
+                <span class="font-medium" data-field-log-garden-state>{text.state}</span>
+            {/if}
             {#if grouped && !(scope && oncapture)}<span class="font-medium">{grouped}</span>{/if}
         </p>
     </div>
@@ -118,9 +123,5 @@
             <GardenVisitCaptures visit={{ id: visit.id, kind: visit.kind, captureCount: visit.capture_count, items: [capture] }}
                 {scope} layout="inline" onselect={oncapture} />
         </div>
-    {/if}
-    <!-- Last, so it never takes a column: the line's cells are placed by their order. -->
-    {#if view.review}
-        <span class="absolute inset-y-0 left-0 w-[3px] rounded-l-xl bg-attention-500" aria-hidden="true"></span>
     {/if}
 </li>

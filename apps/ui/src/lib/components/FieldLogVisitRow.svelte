@@ -138,9 +138,7 @@
 {/snippet}
 
 <li
-    class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40"
-    class:bg-attention-50={visit.needsReview}
-    class:dark:bg-attention-950={visit.needsReview}
+    class="{grid} items-center gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 log-wide:py-2.5 dark:border-slate-700/40 {visit.needsReview ? 'bg-attention-500/5' : ''}"
     data-field-log-row
     data-field-log-visit={visit.key}
     data-needs-review={visit.needsReview ? 'true' : 'false'}
@@ -197,8 +195,8 @@
                 <span class="break-words" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
-                <span class="font-medium text-attention-800 dark:text-attention-300">
-                    {$_('dashboard.field_log.needs_name', { default: 'Below the naming threshold' })}
+                <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-attention-reason>
+                    <span class="attention-dot" aria-hidden="true"></span>{$_('dashboard.field_log.needs_name', { default: 'Below the naming threshold' })}
                 </span>
             {:else if naming.secondary}
                 <span class="hidden min-w-0 truncate italic log-wide:inline">{naming.secondary}</span>

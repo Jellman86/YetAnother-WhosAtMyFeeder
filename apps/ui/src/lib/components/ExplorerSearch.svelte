@@ -217,8 +217,9 @@
         return taxon.name ? { primary: taxon.name, secondary: taxon.scientific_name } : { primary: taxon.scientific_name, secondary: null };
     }
 
-    function taxonDetail(taxon: ExplorerSearchTaxon): string {
-        const parts = [$_(`taxonomy.rank.${taxon.rank}`, { default: taxon.rank })];
+    /** What a group holds, beside its rank label; empty for a species seen only as birds. */
+    function taxonNote(taxon: ExplorerSearchTaxon): string {
+        const parts: string[] = [];
         if (taxon.rank !== 'species') {
             parts.push($_('events.search.species_seen', { values: { count: taxon.bird_species + taxon.garden_species }, default: '{count, plural, one {# species seen} other {# species seen}}' }));
         }
@@ -296,13 +297,13 @@
     </div>
 
     <div
-        class="absolute left-0 top-full z-30 mt-1 w-full rounded-xl border border-line-soft bg-surface p-1 shadow-lg lg:w-96 {open && text.trim() ? '' : 'hidden'}"
+        class="absolute left-0 top-full z-30 mt-1 w-full rounded-xl border border-line-soft bg-surface p-1 shadow-lg {open && text.trim() ? '' : 'hidden'}"
         data-explorer-search-panel
     >
         <div id={LISTBOX_ID} role="listbox" aria-label={$_('events.search.label', { default: 'Search the Explorer' })} class="max-h-96 overflow-y-auto overscroll-contain">
             {#each groups as group (group.key)}
                 <div role="group" aria-labelledby="explorer-search-group-{group.key}" data-explorer-search-group={group.key}>
-                    <p id="explorer-search-group-{group.key}" class="eyebrow px-2 pb-1 pt-2" role="presentation">{groupLabels[group.key]}</p>
+                    <p id="explorer-search-group-{group.key}" class="eyebrow px-2 pb-1 pt-2 text-2xs" role="presentation">{groupLabels[group.key]}</p>
                     {#each group.options as option (option.key)}
                         {@const index = options.indexOf(option)}
                         {@const active = activeOption === option}
@@ -313,45 +314,60 @@
                             role="option"
                             aria-selected={active}
                             tabindex="-1"
-                            class="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border-l-2 px-2 py-1.5 text-left {active
-                                ? 'border-brand-500 bg-brand-50 text-brand-900 dark:border-brand-400 dark:bg-brand-950/40 dark:text-brand-50'
-                                : 'border-transparent text-slate-800 dark:text-slate-200'}"
+                            class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left {active
+                                ? 'choice-active'
+                                : 'text-slate-800 dark:text-slate-200'}"
                             onmousedown={(event) => event.preventDefault()}
                             onpointermove={() => (activeIndex = index)}
                             onclick={() => choose(option)}
                             data-explorer-search-option={option.kind}
                         >
+                            <!-- One line where the panel is wide enough; a phone wraps the label beneath the names. -->
+                            <span class="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5 leading-5">
+                                {#if option.kind === 'taxon'}
+                                    {@const names = taxonNames(option.taxon)}
+                                    {@const note = taxonNote(option.taxon)}
+                                    <span class="text-sm [overflow-wrap:anywhere]">{names.primary}</span>
+                                    {#if names.secondary}<span class="text-xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
+                                    <span class="taxon-rank">{$_(`taxonomy.rank.${option.taxon.rank}`, { default: option.taxon.rank })}</span>
+                                    {#if note}<span class="text-2xs text-slate-500 dark:text-slate-400">{note}</span>{/if}
+                                {:else if option.kind === 'species'}
+                                    {@const names = speciesNames(option.species)}
+                                    <span class="text-sm [overflow-wrap:anywhere]">{names.primary}</span>
+                                    {#if names.secondary}<span class="text-xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
+                                    <span class="taxon-rank">{$_('taxonomy.rank.species', { default: 'Species' })}</span>
+                                {:else if option.kind === 'camera'}
+                                    <span class="min-w-0 truncate text-sm">{option.camera}</span>
+                                {:else if option.kind === 'date'}
+                                    <span class="text-sm">
+                                        {$_('events.search.show_day', { values: { day: formatCalendarDay(option.day) }, default: 'Show {day}' })}
+                                    </span>
+                                {:else}
+                                    <span class="text-sm [overflow-wrap:anywhere]">{recordTitle(option.record)}</span>
+                                    <span class="text-xs text-slate-500 dark:text-slate-400">{recordDetail(option.record)}</span>
+                                {/if}
+                            </span>
                             {#if option.kind === 'taxon'}
-                                {@const names = taxonNames(option.taxon)}
-                                <span class="min-w-0 leading-4">
-                                    <span class="block text-sm font-semibold [overflow-wrap:anywhere]">{names.primary}</span>
-                                    {#if names.secondary}<span class="block text-2xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
-                                    <span class="block text-2xs text-slate-500 dark:text-slate-400">{taxonDetail(option.taxon)}</span>
-                                </span>
                                 <span class="shrink-0 text-right text-2xs tabular-nums text-slate-500 dark:text-slate-400">{taxonCount(option.taxon)}</span>
                             {:else if option.kind === 'species'}
-                                {@const names = speciesNames(option.species)}
-                                <span class="min-w-0 leading-4">
-                                    <span class="block text-sm font-semibold [overflow-wrap:anywhere]">{names.primary}</span>
-                                    {#if names.secondary}<span class="block text-2xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
-                                    <span class="block text-2xs text-slate-500 dark:text-slate-400">{$_('taxonomy.rank.species', { default: 'Species' })}</span>
-                                </span>
                                 <span class="shrink-0 text-2xs tabular-nums text-slate-500 dark:text-slate-400">
                                     {$_('events.search.detections', { values: { count: option.species.count ?? 0 }, default: '{count, plural, one {# detection} other {# detections}}' })}
                                 </span>
-                            {:else if option.kind === 'camera'}
-                                <span class="min-w-0 truncate text-sm font-semibold">{option.camera}</span>
-                                {#if option.count !== null}<span class="shrink-0 text-2xs tabular-nums text-slate-500 dark:text-slate-400">{option.count}</span>{/if}
-                            {:else if option.kind === 'date'}
-                                <span class="min-w-0 text-sm font-semibold">
-                                    {$_('events.search.show_day', { values: { day: formatCalendarDay(option.day) }, default: 'Show {day}' })}
-                                </span>
-                            {:else}
-                                <span class="min-w-0 leading-4">
-                                    <span class="block text-sm font-semibold [overflow-wrap:anywhere]">{recordTitle(option.record)}</span>
-                                    <span class="block text-2xs text-slate-500 dark:text-slate-400">{recordDetail(option.record)}</span>
-                                </span>
+                            {:else if option.kind === 'camera' && option.count !== null}
+                                <span class="shrink-0 text-2xs tabular-nums text-slate-500 dark:text-slate-400">{option.count}</span>
                             {/if}
+                            <!-- What Enter does, on the active result only; the slot is kept so nothing shifts as it moves. -->
+                            <svg
+                                class="h-3.5 w-3.5 shrink-0 {active ? '' : 'invisible'}"
+                                viewBox="0 0 20 20"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                aria-hidden="true"
+                                data-explorer-search-active-cue
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15.5 4.5v5a2 2 0 0 1-2 2h-9m0 0 3.5-3.5M4.5 11.5 8 15" />
+                            </svg>
                         </div>
                     {/each}
                 </div>
