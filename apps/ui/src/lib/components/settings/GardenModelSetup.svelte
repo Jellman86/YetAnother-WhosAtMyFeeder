@@ -1,77 +1,43 @@
 <script lang="ts">
-    import ModelExecutionEvidence from '../ModelExecutionEvidence.svelte';
     /**
      * Garden's own models, downloaded only when the owner asks. The Garden API answers only while
      * the saved beta switch is on, so status waits for Apply rather than guessing. A download
      * installs a verified file and nothing else: it saves no settings, activates no bird model and
-     * starts no checks.
+     * starts no checks. The status itself is read once for the whole Garden card.
      */
     import { _ } from 'svelte-i18n';
-    import {
-        fetchGardenIdentification,
-        fetchGardenMotion,
-        installGardenModel,
-        installGardenMotion,
-        type GardenIdentificationStatus,
-        type GardenMotionStatus
-    } from '../../api/garden';
+    import { installGardenModel, installGardenMotion } from '../../api/garden';
     import { settingsStore } from '../../stores/settings.svelte';
     import {
         formatModelSize,
+        GARDEN_MODEL_NAME,
         gardenModelRows,
         gardenSetupBlock,
         type GardenModelRole,
         type GardenModelRow
     } from '../../utils/garden-models';
+    import type { GardenServiceStatus } from './garden-service-status.svelte';
 
     interface Props {
         motionCameras: string[];
+        service: GardenServiceStatus;
     }
 
-    let { motionCameras }: Props = $props();
+    let { motionCameras, service }: Props = $props();
 
     const savedEnabled = $derived(settingsStore.settings?.beta_garden_animals === true);
-    let identification = $state.raw<GardenIdentificationStatus | null>(null);
-    let motion = $state.raw<GardenMotionStatus | null>(null);
-    let loading = $state(false);
-    let loadError = $state<string | null>(null);
     let downloading = $state<GardenModelRole | null>(null);
     let rowErrors = $state<Partial<Record<GardenModelRole, string>>>({});
     let rowDone = $state<Partial<Record<GardenModelRole, boolean>>>({});
-    let generation = 0;
 
-    const rows = $derived(gardenModelRows(identification, motion, motionCameras));
+    const identification = $derived(service.identification);
+    const rows = $derived(gardenModelRows(identification, service.motion, motionCameras));
     const block = $derived(gardenSetupBlock(identification, downloading));
-
-    async function refresh(signal?: AbortSignal): Promise<void> {
-        const request = ++generation;
-        loading = true;
-        loadError = null;
-        const [identificationResult, motionResult] = await Promise.allSettled([
-            fetchGardenIdentification(signal ?? new AbortController().signal),
-            fetchGardenMotion(signal ?? new AbortController().signal)
-        ]);
-        if (request !== generation || signal?.aborted) return;
-        identification = identificationResult.status === 'fulfilled' ? identificationResult.value : null;
-        motion = motionResult.status === 'fulfilled' ? motionResult.value : null;
-        const failure = [identificationResult, motionResult].find(result => result.status === 'rejected');
-        loadError = failure?.status !== 'rejected'
+    const loadError = $derived(
+        service.loadError === null
             ? null
-            : failure.reason instanceof Error && failure.reason.message
-                ? failure.reason.message
-                : $_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' });
-        loading = false;
-    }
-
-    $effect(() => {
-        if (!savedEnabled) return;
-        const controller = new AbortController();
-        void refresh(controller.signal);
-        return () => {
-            controller.abort();
-            generation += 1;
-        };
-    });
+            : service.loadError || $_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })
+    );
 
     async function download(row: GardenModelRow): Promise<void> {
         if (block !== null) return;
@@ -79,8 +45,8 @@
         rowErrors = { ...rowErrors, [row.role]: undefined };
         rowDone = { ...rowDone, [row.role]: false };
         try {
-            if (row.install.kind === 'motion') motion = await installGardenMotion();
-            else identification = await installGardenModel(row.install.variant);
+            if (row.install.kind === 'motion') service.motion = await installGardenMotion();
+            else service.identification = await installGardenModel(row.install.variant);
             rowDone = { ...rowDone, [row.role]: true };
         } catch (failure) {
             rowErrors = {
@@ -92,14 +58,10 @@
         } finally {
             downloading = null;
         }
-        await refresh();
+        await service.refresh();
     }
 
-    function modelName(role: GardenModelRole): string {
-        if (role === 'automatic_check') return $_('settings.beta.garden_model_check', { default: 'Automatic check model' });
-        if (role === 'species_suggestions') return $_('settings.beta.garden_model_suggestions', { default: 'Species suggestion model' });
-        return $_('settings.beta.garden_model_motion', { default: 'Motion detector' });
-    }
+    const modelName = (role: GardenModelRole): string => $_(GARDEN_MODEL_NAME[role].id, { default: GARDEN_MODEL_NAME[role].default });
 
     function modelSource(role: GardenModelRole): string {
         if (role === 'automatic_check') return $_('garden.model_crop', { default: 'SpeciesNet 4.0.3a · Tracked crop' });
@@ -128,18 +90,15 @@
     }
 </script>
 
-<section class="space-y-3" aria-labelledby="garden-beta-models" data-garden-models>
-    <div class="space-y-1">
-        <h4 id="garden-beta-models" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_models', { default: 'Garden models' })}</h4>
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_help', { default: 'Garden uses its own models, separate from your bird model. A download only adds a verified file: it does not save these settings, change bird detection or start any checks.' })}</p>
-    </div>
+<div class="space-y-3" data-garden-models>
+    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_help', { default: 'Garden uses its own models, separate from your bird model. A download only adds a verified file. It saves no settings and starts no checks.' })}</p>
 
     {#if !savedEnabled}
         <p class="rounded-xl border border-dashed border-line-soft p-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
             {$_('settings.beta.garden_models_apply', { default: 'Choose Apply Settings to switch Garden on. Model status and downloads then appear here.' })}
         </p>
     {:else}
-        {#if loading && !identification && !motion}
+        {#if service.loading && !identification && !service.motion}
             <p class="text-sm text-slate-600 dark:text-slate-400" role="status">{$_('settings.beta.garden_models_loading', { default: 'Checking Garden models…' })}</p>
         {:else}
             {#if loadError !== null}
@@ -151,20 +110,23 @@
                 <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
             {/if}
 
-            <ul class="space-y-2">
+            <ul class="divide-y divide-line-soft rounded-xl border border-line-soft">
                 {#each rows as row (row.role)}
                     {@const busyHere = downloading === row.role}
-                    <li class="space-y-2 rounded-xl border border-line-soft bg-surface-raised/40 p-3" data-garden-model={row.role} aria-labelledby={`garden-model-${row.role}`}>
+                    <li class="space-y-2 p-3" data-garden-model={row.role} aria-labelledby={`garden-model-${row.role}`}>
                         <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                             <div class="min-w-0 flex-1">
                                 <p id={`garden-model-${row.role}`} class="break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{modelName(row.role)}</p>
                                 <p class="break-words text-xs text-slate-600 dark:text-slate-400">{modelSource(row.role)}{#if row.sizeBytes !== null}{' · '}{formatModelSize(row.sizeBytes)}{/if}</p>
                             </div>
-                            <p class="max-w-full break-words text-xs font-semibold {row.state === 'missing' && row.requirement === 'required' ? 'text-amber-700 dark:text-amber-300' : 'text-slate-700 dark:text-slate-200'}" data-garden-model-state>
-                                {row.requirement === 'required'
-                                    ? $_('settings.beta.garden_model_required', { default: 'Required' })
-                                    : $_('settings.beta.garden_model_optional', { default: 'Optional' })}
-                                · {stateLabel(row)}
+                            <p class="flex max-w-full items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200" data-garden-model-state>
+                                {#if row.state === 'missing' && row.requirement === 'required'}<span class="attention-dot" aria-hidden="true"></span>{/if}
+                                <span class="min-w-0 break-words">
+                                    {row.requirement === 'required'
+                                        ? $_('settings.beta.garden_model_required', { default: 'Required' })
+                                        : $_('settings.beta.garden_model_optional', { default: 'Optional' })}
+                                    · {stateLabel(row)}
+                                </span>
                             </p>
                         </div>
                         <p class="text-xs text-slate-600 dark:text-slate-400">{modelPurpose(row.role)}</p>
@@ -205,46 +167,9 @@
                 <p class="text-xs text-slate-600 dark:text-slate-400" data-garden-country>
                     {identification.country
                         ? $_('settings.beta.garden_country', { values: { country: identification.country }, default: 'Animal names are filtered for {country}.' })
-                        : $_('settings.beta.garden_country_missing', { default: 'Set a country in Settings → Location. Without one, animals are not named automatically and species suggestions are unavailable.' })}
+                        : $_('settings.beta.garden_country_missing', { default: 'No country is set, so animals are not named automatically and species suggestions are unavailable. Set your location in Integrations.' })}
                 </p>
             {/if}
-
-            <!-- What Garden is doing now, as measured by the service; nothing here is a setting. -->
-            <div class="space-y-1 rounded-xl border border-line-soft p-3" role="group" aria-labelledby="garden-collection-status" data-garden-collection-status>
-                <h5 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h5>
-                {#if identification}
-                    {#if identification.preferred_provider}<p class="text-xs">{$_('model_execution.garden_preference', { default: 'Automatic check device preference: {device}. A new accelerator must agree with CPU first.', values: { device: ({ intel_npu: 'NPU', intel_gpu: 'Intel GPU', intel_cpu: 'Intel CPU', cuda: 'NVIDIA GPU', cpu: 'CPU' })[identification.preferred_provider] } })}</p>{/if}
-                    <ModelExecutionEvidence execution={identification.last_execution} />
-                    {#if identification.saved_crops}
-                        <p class="text-xs" data-garden-crop-storage>{$_('garden.saved_crop_count', { default: 'Saved animal crops: {count} / {limit}. Full photos keep their separate expiry.', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</p>
-                    {/if}
-                {/if}
-                {#if identification?.automatic_message}<p class="text-xs" data-garden-automatic-status>{identification.automatic_message}</p>{/if}
-                {#if !motion}
-                    <p class="text-xs" role="status">{$_('garden.model_status_unavailable', { default: 'Model status unavailable. Refresh to try again.' })}</p>
-                {:else}
-                    <p class="text-xs" role="status" data-garden-motion-status>{motion.message}</p>
-                    {#if motion.interval_seconds !== undefined && motion.photo_limit !== undefined && motion.photo_retention_days !== undefined}
-                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_limits_scoped', { default: 'Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention', values: { seconds: motion.interval_seconds, limit: motion.photo_limit, days: motion.photo_retention_days } })}</p>
-                    {/if}
-                    {#if motion.queue_limit !== undefined && motion.catchup_seconds !== undefined}
-                        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
-                    {/if}
-                    {#if motion.queue_camera && motion.queue_checked_at}
-                        <p class="break-words text-xs">{$_('garden.motion_queue', { default: '{camera}: {count, plural, one {# window waiting} other {# windows waiting}} when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: new Date(motion.queue_checked_at).toLocaleString() } })}</p>
-                    {/if}
-                    {#each motion.unreadable_recordings ?? [] as skipped (skipped.camera)}
-                        <p class="break-words text-xs" data-garden-motion-unreadable={skipped.camera}>{$_('garden.motion_unreadable', { default: '{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept.', values: { count: skipped.count, camera: skipped.camera } })}</p>
-                    {/each}
-                    {#if motion.last_scan_at}<p class="text-xs">{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: new Date(motion.last_scan_at).toLocaleString() } })}</p>{/if}
-                {/if}
-            </div>
         {/if}
-
-        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_limits_explorer', { default: 'Automatic checks follow your Detection device preference after a local CPU comparison, with CPU fallback if the device check fails. Motion scans still use CPU. Garden work runs one at a time while birds and cameras are idle; each worker releases its model memory when it stops. Checks you start from a Garden capture in the Explorer use the device you choose there and fail rather than silently switch devices.' })}</p>
-
-        <button type="button" class="btn btn-ghost min-h-11 max-w-full px-3 py-2 whitespace-normal" disabled={loading || downloading !== null} onclick={() => refresh()}>
-            {$_('settings.beta.garden_models_refresh', { default: 'Refresh model status' })}
-        </button>
     {/if}
-</section>
+</div>

@@ -464,6 +464,8 @@ off with update checks, and absent rather than zero when unknown.
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
 | `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**: Off, Birds, Garden animals or Both as native radios, then the bird role or motion photos for whichever subject is on | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
+| `BetaFeatureCard` | One feature on **Settings → Beta features**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
+| `BetaSection` | A collapsible group of one beta feature's settings: the heading is the disclosure button, and a closed section stays mounted but hidden so a download or status read inside keeps running | Nest cards inside it; sections are separated by hairlines |
 
 Server grouping lives in `backend/app/repositories/visit_repository.py`, shared with statistics.
 `VisitCaptures` expands any visit into bounded chronological pages of original records; no inference
