@@ -30,6 +30,7 @@ const MIGRATED_COMPONENTS = new Set([
     'AISettings.svelte',
     'AppearanceSettings.svelte',
     'AuthenticationSettings.svelte',
+    'BetaFeatureCard.svelte',
     'CameraWatchRow.svelte',
     'ConnectionSettings.svelte',
     'DataSettings.svelte',

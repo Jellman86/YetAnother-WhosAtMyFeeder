@@ -3058,30 +3058,35 @@
             {/if}
 
             {#if activeTab === 'beta'}
-                {#snippet betaIcon()}
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v7.31L4.53 18.4A2.4 2.4 0 0 0 6.6 22h10.8a2.4 2.4 0 0 0 2.07-3.6L14 9.31V2M8.5 2h7M7 16h10" /></svg>
-                {/snippet}
-                <SettingsCard
-                    iconSnippet={betaIcon}
-                    title={$_('settings.beta.title', { default: 'Beta features' })}
-                    description={$_('settings.beta.subtitle', { default: 'Features that are still being tested. They are off unless you turn them on, and they may change or be removed.' })}
-                >
-                    <GardenBetaSettings
-                        bind:enabled={betaGardenAnimals}
-                        cameras={gardenCameras}
-                        motionCameras={gardenMotionCameras}
-                        bind:labels={gardenLabels}
-                        bind:motionConfidence={gardenMotionConfidence}
-                        notificationsEnabled={gardenNotificationsEnabled}
-                        onOpenNotifications={() => handleTabChange('notifications')}
-                        bind:automaticNaming={gardenAutomaticNaming}
-                        bind:namingThreshold={gardenNamingThreshold}
-                        bind:domesticBirds={gardenDomesticBirds}
-                        savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
-                        onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
-                        onOpenCameras={openCameraSettings}
-                    />
-                </SettingsCard>
+                <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
+                <div class="space-y-4" data-beta-page>
+                    <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
+                        <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
+                        <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
+                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you apply.' })}
+                        </p>
+                    </header>
+                    <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>
+                        <li>
+                            <GardenBetaSettings
+                                bind:enabled={betaGardenAnimals}
+                                cameras={gardenCameras}
+                                motionCameras={gardenMotionCameras}
+                                bind:labels={gardenLabels}
+                                bind:motionConfidence={gardenMotionConfidence}
+                                notificationsEnabled={gardenNotificationsEnabled}
+                                onOpenNotifications={() => handleTabChange('notifications')}
+                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                                bind:automaticNaming={gardenAutomaticNaming}
+                                bind:namingThreshold={gardenNamingThreshold}
+                                bind:domesticBirds={gardenDomesticBirds}
+                                savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
+                                onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                                onOpenCameras={openCameraSettings}
+                            />
+                        </li>
+                    </ul>
+                </div>
             {/if}
 
             {#if activeTab === 'debug'}

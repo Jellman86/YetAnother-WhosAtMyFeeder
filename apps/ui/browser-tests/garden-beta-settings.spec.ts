@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
-// Every Garden visitor setting, including its own models, lives with its switch in Settings → Beta
+// Every Garden visitor setting, including its own models, lives on its card in Settings → Beta
 // features, except which cameras watch for Garden animals: that is one choice per camera, beside its
 // bird role, in Settings → Connection. Settings save with the rest of the page; model downloads are
 // separate explicit actions.
@@ -76,6 +76,13 @@ async function openBeta(page: Page): Promise<void> {
     await expect(page.getByRole('heading', { name: 'Beta features' })).toBeVisible();
 }
 
+/** Opens one of the Garden card's collapsible sections by its heading. */
+async function openSection(page: Page, name: string): Promise<void> {
+    const toggle = page.getByRole('heading', { name }).getByRole('button');
+    if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 test('Connection chooses Garden cameras per camera, while Garden-only settings stay under Beta features', async ({ page }) => {
     await openSettings(page);
     const patio = page.getByRole('radiogroup', { name: 'patio: watch for' });
@@ -117,17 +124,23 @@ test('switching Garden off hides its settings and keeps them for later', async (
     await expect(page.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
+    await expect(page.locator('[data-beta-status]')).toHaveText('Off after you apply');
+    await expect(page.locator('[data-garden-beta-off-note]')).toHaveText('Garden stops collecting new captures. Existing captures and settings are kept and come back when you turn it on again.');
+    await expect(page.locator('[data-garden-beta-off]')).toContainText('hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds');
     await page.getByRole('button', { name: /Apply Settings/i }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ beta_garden_animals: false, garden_cameras: ['patio'], garden_motion_confidence: 0.63 });
 });
 
-test('without Garden cameras, Beta features says where to choose them', async ({ page }) => {
+test('without Garden cameras, Beta features says where to choose them, once', async ({ page }) => {
     await openSettings(page, { cameras: [] }, []);
     await openBeta(page);
-    const summary = page.locator('[data-garden-camera-summary]');
-    await expect(summary).toContainText('No camera is watched for Garden animals yet. Choose Garden animals or Both for a camera in Connection.');
-    await expect(summary.getByRole('button', { name: 'Choose cameras in Connection' })).toBeVisible();
+    await expect(page.locator('[data-garden-camera-summary]')).toContainText('No camera watches for Garden animals yet.');
+    const step = page.locator('[data-garden-next-step="choose_camera"]');
+    await expect(step).toContainText('Choose a camera to watch for Garden animals.');
+    await expect(page.getByRole('button', { name: 'Choose cameras in Connection' })).toHaveCount(1);
+    await step.getByRole('button', { name: 'Choose cameras in Connection' }).click();
+    await expect(page.locator('#settings-camera-list')).toBeFocused();
 });
 
 for (const [calibrated, shown, up] of [[0.63, '63', '64'], [0.625, '62.5', '62.6']] as const) {
@@ -199,6 +212,7 @@ test('a switched-off Garden states what it needs without asking the Garden API o
     await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
 
     await page.getByRole('switch', { name: 'Garden animals' }).click();
+    await openSection(page, 'Models');
     await expect(page.locator('[data-garden-models-apply]')).toContainText('Choose Apply Settings to switch Garden on');
     await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
     expect(gardenRequests).toEqual([]);
@@ -219,6 +233,7 @@ test('Garden models lists its three own models with measured state, size and req
             ? route.fulfill({ json: { ...identificationStatus, models: [{ ...identificationStatus.models[0], installed: true }, identificationStatus.models[1]] } })
             : undefined);
     await openBeta(page);
+    await openSection(page, 'Models');
     const check = page.locator('[data-garden-model="automatic_check"]');
     await expect(check).toContainText('SpeciesNet 4.0.3a · Tracked crop · 224 MB');
     await expect(check).toContainText('Required · Downloaded');
@@ -252,6 +267,7 @@ test('downloading a model shows its own progress, saves nothing and changes no b
         return undefined;
     });
     await openBeta(page);
+    await openSection(page, 'Models');
     await page.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, fox');
 
     const check = page.locator('[data-garden-model="automatic_check"]');
@@ -280,6 +296,7 @@ test('a failed download says nothing changed and can be retried', async ({ page 
             : route.fulfill({ json: { ...motionStatus, installed: true } });
     });
     await openBeta(page);
+    await openSection(page, 'Models');
     const detector = page.locator('[data-garden-model="motion_detector"]');
     await detector.getByRole('button', { name: 'Download 101 MB' }).click();
     await expect(detector.getByRole('alert')).toHaveText('Motion detector could not be downloaded and verified. Try again.');
@@ -293,6 +310,7 @@ test('a busy Garden explains why downloads wait', async ({ page }) => {
     await openSettings(page, {}, ['patio', 'front'], (route, path) =>
         path === '/api/garden/identification' ? route.fulfill({ json: { ...identificationStatus, busy: true } }) : undefined);
     await openBeta(page);
+    await openSection(page, 'Models');
     await expect(page.locator('[data-garden-model="automatic_check"]').getByRole('button', { name: 'Download 224 MB' })).toBeDisabled();
     await expect(page.locator('#garden-models-block')).toHaveText('Garden is busy with a check, scan or download. Refresh the status in a minute.');
 });
@@ -304,6 +322,7 @@ test('unavailable Garden data is reported and never offered as a download', asyn
         return undefined;
     });
     await openBeta(page);
+    await openSection(page, 'Models');
     await expect(page.locator('[data-garden-models]').getByRole('alert')).toContainText('Garden species data is unavailable');
     await expect(page.locator('[data-garden-model] [data-garden-model-state]')).toHaveText(Array(3).fill(/Unavailable/));
     await expect(page.locator('[data-garden-models]').getByRole('button', { name: /^Download/ })).toHaveCount(0);
@@ -315,11 +334,12 @@ for (const [status, detail] of [[500, 'Internal Server Error'], [403, 'Owner acc
         await openSettings(page, {}, ['patio', 'front'], (route, path) =>
             failing && path === '/api/garden/identification' ? route.fulfill({ status, json: { detail } }) : undefined);
         await openBeta(page);
+        await openSection(page, 'Models');
         await expect(page.locator('[data-garden-models]').getByRole('alert')).toHaveText(detail);
         await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Status unknown');
         await expect(page.locator('[data-garden-model="automatic_check"]').getByRole('button')).toHaveCount(0);
         failing = false;
-        await page.getByRole('button', { name: 'Refresh model status' }).click();
+        await page.getByRole('button', { name: 'Refresh status' }).click();
         await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Required · Not downloaded');
         await expect(page.locator('[data-garden-models]').getByRole('alert')).toHaveCount(0);
     });
@@ -329,12 +349,16 @@ test('without a country, the view says naming and suggestions wait for one', asy
     await openSettings(page, {}, ['patio', 'front'], (route, path) =>
         path === '/api/garden/identification' ? route.fulfill({ json: { ...identificationStatus, country: null } }) : undefined);
     await openBeta(page);
-    await expect(page.locator('[data-garden-country]')).toContainText('Set a country in Settings → Location.');
+    await expect(page.locator('[data-garden-country]')).toContainText('No country is set, so animals are not named automatically');
+    await expect(page.locator('[data-beta-status]')).toHaveText('On · no camera chosen · model not downloaded yet · no country set');
+    await page.locator('[data-garden-next-step="set_location"]').getByRole('button', { name: 'Set location in Integrations' }).click();
+    await expect(page.locator('#setting-location-mode')).toBeVisible();
 });
 
 test('the view explains each capture outcome and links daily review to the Explorer', async ({ page }) => {
     await openSettings(page);
     await openBeta(page);
+    await openSection(page, 'Where captures go');
     const outcomes = page.locator('[data-garden-outcomes]');
     await expect(outcomes.getByRole('term')).toHaveText(['Needs review', 'Confirmed animals', 'Dismissed']);
     // The naming threshold is the floor for what Garden shows: below it, a photo is dismissed.
@@ -355,6 +379,7 @@ test('a model downloads from the keyboard', async ({ page }) => {
         return undefined;
     });
     await openBeta(page);
+    await openSection(page, 'Models');
     const button = page.locator('[data-garden-model="species_suggestions"]').getByRole('button', { name: 'Download 224 MB' });
     await button.focus();
     await expect(button).toBeFocused();
@@ -366,11 +391,13 @@ for (const width of [320, 393]) {
     test(`Garden setup fits ${width}px with 200% text`, async ({ page }) => {
         await openSettings(page, { garden_cameras: ['patio'] });
         await openBeta(page);
+        await openSection(page, 'Models');
         await page.setViewportSize({ width, height: 900 });
         await page.addStyleTag({ content: 'html{font-size:200%!important}' });
         const garden = page.locator('[data-garden-beta-settings]');
         await expect(garden.locator('[data-garden-model="motion_detector"]')).toBeVisible();
-        expect(await garden.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+        // Polled: a chevron mid-rotation briefly widens its own box.
+        await expect.poll(() => garden.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
         for (const row of await garden.locator('[data-garden-model]').all()) {
             expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
         }
@@ -390,8 +417,10 @@ test('collection status shows the collector state, its limits and bounded catch-
         : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*On for patio/);
     await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
-    await expect(status).toContainText('No automatic check is due.');
+    // The service words its automatic check state itself and reports no count, so it is shown as sent.
+    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText(/Automatic checks\s*No automatic check is due\./);
     await expect(status.getByText('Motion detector only: CPU · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
     await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
     await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
@@ -416,7 +445,7 @@ test('collection status says so when the Garden service cannot report it', async
         ? route.fulfill({ status: 503, json: { detail: 'Garden status unavailable.' } })
         : undefined);
     await openBeta(page);
-    await expect(page.locator('[data-garden-collection-status]')).toContainText('Model status unavailable. Refresh to try again.');
+    await expect(page.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Could not be read\. Refresh to try again\./);
 });
 
 
@@ -428,8 +457,33 @@ test('Garden shows the actual last NPU execution separately from CPU-only motion
         } } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status).toContainText('Automatic check device preference: NPU');
-    await expect(status).toContainText('Last completed run: NPU');
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU \(checked against CPU before first use\)/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*NPU · \S.*\d{2}:\d{2}$/);
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Off/);
+    await expect(status.locator('[data-garden-motion-status]')).toHaveCount(0);
+});
+
+test('collection status never claims a device that has not run', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: null, saved_crops: { count: 12, limit: 2000 } } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.getByRole('term')).toHaveText(['Device', 'Last check', 'Automatic checks', 'Motion photos', 'Saved crops']);
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU preferred, not used yet/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*None yet/);
+    await expect(status.locator('[data-garden-crop-storage]')).toHaveText(/Saved crops\s*12 crops of 2,000/);
+});
+
+test('collection status names CPU, not the preferred device, after a fallback', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: {
+            model_id: 'garden-speciesnet-4.0.3a', provider: 'cpu', requested_provider: 'intel_npu',
+            devices: ['CPUExecutionProvider'], checked_at: '2026-10-25T06:34:22Z', fallback_reason: 'runtime_failed'
+        } } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/NPU preferred, not used yet/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/CPU · .* \(the preferred device failed, so CPU was used\)/);
 });
 
 const notificationStatus = {
@@ -449,6 +503,8 @@ async function openNotifications(page: Page): Promise<void> {
 test('Beta features summarises Garden alerts and opens Notifications to set them up', async ({ page }) => {
     await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], gardenNotifications);
     await openBeta(page);
+    await expect(page.getByRole('heading', { name: 'Alerts' })).toContainText('Off');
+    await openSection(page, 'Alerts');
     const summary = page.locator('[data-garden-alerts-summary]');
     await expect(summary).toContainText('Garden alerts are off.');
     await expect(page.getByRole('switch', { name: 'Send Garden alerts' })).toHaveCount(0);
@@ -528,8 +584,9 @@ test('Notifications shows no Garden section while the Garden beta is off', async
 test('domestic birds you keep start empty, are added as chips and save with the page', async ({ page }) => {
     const { writes } = await openSettings(page);
     await openBeta(page);
+    await expect(page.getByRole('heading', { name: 'Domestic birds you keep' })).toContainText('None');
+    await openSection(page, 'Domestic birds you keep');
     const section = page.locator('[data-garden-domestic-birds]');
-    await expect(section.getByRole('heading', { name: 'Domestic birds you keep' })).toBeVisible();
     await expect(section).toContainText('These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.');
     await expect(section.locator('[data-garden-domestic-none]')).toBeVisible();
     const add = section.getByRole('combobox', { name: 'Add a domestic bird' });
@@ -550,8 +607,159 @@ test('domestic birds you keep start empty, are added as chips and save with the 
 test('saved domestic birds show as chips on a narrow screen', async ({ page }) => {
     await openSettings(page, { garden_domestic_birds: ['chicken', 'domestic_pigeon'] });
     await openBeta(page);
+    await expect(page.getByRole('heading', { name: 'Domestic birds you keep' })).toContainText('2 birds');
+    await openSection(page, 'Domestic birds you keep');
     await page.setViewportSize({ width: 320, height: 740 });
     const chips = page.locator('[data-garden-domestic-chips]');
     await expect(chips.getByRole('listitem')).toHaveText(['Chickens', 'Domestic pigeons or doves']);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+
+// The Beta page: one card per feature, an on/off switch that stages in the draft, a status line in
+// words, next steps while setup is unfinished, and the settings only while the feature is on.
+
+test('the Beta page introduces beta features and lists Garden animals as a card', async ({ page }) => {
+    await openSettings(page, { beta_garden_animals: false });
+    await openBeta(page);
+    await expect(page.locator('[data-beta-intro]')).toContainText('Each one is off until you turn it on');
+    await expect(page.locator('[data-beta-intro]')).toContainText('Turning a feature off keeps what it has already recorded.');
+    const list = page.getByRole('list', { name: 'Beta features' });
+    await expect(list.getByRole('listitem')).toHaveCount(1);
+    await expect(list.getByRole('article', { name: 'Garden animals' })).toBeVisible();
+    await expect(page.locator('[data-beta-status]')).toHaveText('Off');
+    await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'calm');
+});
+
+test('switching Garden on reveals its sections and the setup it still needs', async ({ page }) => {
+    const { gardenRequests } = await openSettings(page, { beta_garden_animals: false, garden_cameras: [] });
+    await openBeta(page);
+    await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+
+    await expect(page.locator('[data-garden-beta-off-note]')).toHaveCount(0);
+    const headings = page.locator('[data-garden-beta-settings] h5');
+    await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks and naming', 'Models', 'Domestic birds you keep None', 'Alerts Off', 'Where captures go']);
+    const expanded = page.locator('[data-beta-section] h5 button');
+    await expect(expanded).toHaveCount(6);
+    expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
+
+    await expect(page.locator('[data-beta-status]')).toHaveText('On after you apply · no camera chosen');
+    await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'attention');
+    await expect(page.locator('[data-garden-next-step]')).toHaveText([
+        'Choose a camera to watch for Garden animals. Choose cameras in Connection',
+        'Apply Settings to turn Garden on. Model and country checks then appear here.'
+    ]);
+    // Nothing asks the Garden API before Apply: it answers only while the saved switch is on.
+    expect(gardenRequests).toEqual([]);
+});
+
+test('a running Garden states its cameras, the device it ran on and what is still missing', async ({ page }) => {
+    await openSettings(page, { garden_cameras: [] }, ['patio', 'front'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, country: null } })
+        : undefined);
+    await openBeta(page);
+    await expect(page.locator('[data-beta-status]')).toHaveText('On · no camera chosen · model not downloaded yet · no country set');
+    await expect(page.locator('[data-garden-next-step]')).toHaveText([
+        /Choose a camera to watch for Garden animals\./,
+        /Download the Automatic check model\./,
+        /Set your location, so Garden knows your country/
+    ]);
+    await page.locator('[data-garden-next-step="download_model"]').getByRole('button', { name: 'Open Models' }).click();
+    const models = page.getByRole('heading', { name: 'Models' }).getByRole('button');
+    await expect(models).toHaveAttribute('aria-expanded', 'true');
+    await expect(models).toBeFocused();
+    await expect(page.locator('[data-garden-model="automatic_check"]').getByRole('button', { name: 'Download 224 MB' })).toBeVisible();
+});
+
+test('a ready Garden reads as on with no steps and no amber', async ({ page }) => {
+    await openSettings(page, { garden_cameras: ['patio'] }, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, models: [{ ...identificationStatus.models[0], installed: true }, identificationStatus.models[1]], last_execution: {
+            model_id: 'garden-speciesnet-4.0.3a', provider: 'intel_npu', requested_provider: 'intel_npu', devices: ['NPU'], checked_at: '2026-11-03T06:34:22Z', fallback_reason: null
+        } } })
+        : undefined);
+    await openBeta(page);
+    await expect(page.locator('[data-beta-status]')).toHaveText('On · 1 camera · automatic checks on NPU');
+    await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'calm');
+    await expect(page.locator('[data-garden-next-steps]')).toHaveCount(0);
+});
+
+test('the Garden switch works from the keyboard and reports its state', async ({ page }) => {
+    const { writes } = await openSettings(page, { beta_garden_animals: false });
+    await openBeta(page);
+    const toggle = page.getByRole('switch', { name: 'Garden animals' });
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await toggle.focus();
+    await expect(toggle).toBeFocused();
+    await page.keyboard.press('Space');
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-garden-beta-settings]')).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    // The switch only stages the change; Apply Settings sends it with the page.
+    expect(writes).toEqual([]);
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0]).toMatchObject({ beta_garden_animals: true });
+});
+
+test('a collapsible section opens and closes from the keyboard', async ({ page }) => {
+    await openSettings(page);
+    await openBeta(page);
+    const alerts = page.getByRole('heading', { name: 'Alerts' }).getByRole('button');
+    await alerts.focus();
+    await page.keyboard.press('Enter');
+    await expect(alerts).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('[data-garden-alerts-summary]')).toBeVisible();
+    await page.keyboard.press('Space');
+    await expect(alerts).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('[data-garden-alerts-summary]')).toBeHidden();
+});
+
+test('the camera selector in Connection follows the staged Garden switch and keeps Garden cameras', async ({ page }) => {
+    const { writes } = await openSettings(page, { beta_garden_animals: false, garden_cameras: ['patio'] });
+    const patio = page.getByRole('radiogroup', { name: 'patio: watch for' });
+    await expect(patio.locator('label')).toHaveText(['Off', 'Birds']);
+    await expect(page.locator('[data-camera-garden-hint]')).toBeVisible();
+
+    await openBeta(page);
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await expect(patio.locator('label')).toHaveText(['Off', 'Birds', 'Garden animals', 'Both']);
+    await expect(patio.getByRole('radio', { name: 'Both' })).toBeChecked();
+    await expect(page.locator('[data-camera-garden-hint]')).toHaveCount(0);
+
+    await openBeta(page);
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await expect(patio.locator('label')).toHaveText(['Off', 'Birds']);
+    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    // Off keeps the Garden cameras for when it is turned on again.
+    expect(writes[0]).toMatchObject({ beta_garden_animals: false, garden_cameras: ['patio'] });
+});
+
+for (const width of [390, 320]) {
+    test(`the Beta page fits a ${width}px phone with Garden off and on`, async ({ page }) => {
+        await openSettings(page, { beta_garden_animals: false, garden_cameras: [] });
+        await openBeta(page);
+        await page.setViewportSize({ width, height: 844 });
+        const fits = () => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth);
+        const toggle = page.getByRole('switch', { name: 'Garden animals' });
+        const inView = async () => {
+            const box = await toggle.boundingBox();
+            return box !== null && box.x >= 0 && box.x + box.width <= width;
+        };
+        await expect.poll(fits).toBe(true);
+        expect(await inView()).toBe(true);
+        await toggle.click();
+        await openSection(page, 'Models');
+        await openSection(page, 'Domestic birds you keep');
+        await expect.poll(fits).toBe(true);
+        expect(await inView()).toBe(true);
+        const step = await page.locator('[data-garden-next-step="choose_camera"]').getByRole('button').boundingBox();
+        expect(step && step.x >= 0 && step.x + step.width <= width && step.height >= 44).toBe(true);
+    });
+}

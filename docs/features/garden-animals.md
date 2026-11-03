@@ -16,7 +16,7 @@ Owner-reviewed, confirmed and dismissed captures keep their reviews. Older pendi
 results without an owner override are reconsidered once under the updated policy.
 
 The required 224 MB tracked-crop model is the **Automatic check model** under
-**Settings → Beta features → Garden models**. Download it there before your first
+**Settings → Beta features → Garden animals → Models**. Download it there before your first
 captures arrive; if you have not, it downloads and verifies automatically when an
 enabled Garden camera has a new photo to check. Checks use the Detection device
 preference, one photo at a time, while birds and Frigate cameras are idle. They use the detector's exact box;
@@ -41,7 +41,7 @@ so a real animal is not queued behind them. The deferral lasts at most 30 minute
 candidate; after that it is checked next, even while new candidates keep arriving elsewhere.
 They are never skipped or dismissed without their own check.
 Model, download or runtime failures also stay there and retry no sooner than five
-minutes later. **Collection status** under **Settings → Beta features → Garden models** describes
+minutes later. **Collection status** under **Settings → Beta features → Garden animals → Automatic checks and naming** describes
 automatic work; refresh it to read updated results. No **Check photo** click is needed.
 
 The [labelled pipeline comparison](../reviews/2026-10-23-garden-labelled-pipeline-validation.md)
@@ -53,35 +53,45 @@ the photo remains available, under the same retention and photo-reclamation rule
 as other dismissed captures. Recognised person evidence removes the capture and
 its photo instead of placing it in Dismissed, preserving the privacy rules below.
 
-It is off unless you turn it on in **Settings → Beta features** (or set
-`SYSTEM__BETA_GARDEN_ANIMALS=true`). While it is off, Garden collects nothing new, the
-motion scanner does not run, Garden animals and camera options are hidden in the Explorer, and the
-Garden API answers that the feature is switched off. Saved captures are kept, and a
-later person event still removes any stored photo it covers.
+It is off unless you turn it on with its switch in **Settings → Beta features** (or set
+`SYSTEM__BETA_GARDEN_ANIMALS=true`). The switch is staged with the rest of the page and takes
+effect when you choose **Apply Settings**. While it is off, Garden collects nothing new, the
+motion scanner does not run, Garden animals and camera options are hidden in the Explorer, Garden
+alerts stop, birds you keep are recorded as ordinary bird detections, and the Garden API answers
+that the feature is switched off. Saved captures and Garden settings are kept and come back when
+you turn it on again; history retention still applies to the captures, and a later person event
+still removes any stored photo it covers.
 
-Garden settings and model downloads live under **Settings → Beta features**, with the switch
-that turns it on, in the order of the setup steps below. Which cameras watch for Garden animals
-is chosen once per camera in **Settings → Connection → Cameras to watch**, beside the camera's
-bird role. While Garden is off, Beta features lists what Garden needs and offers no downloads,
-and each camera in Connection offers only **Off** or **Birds**. Daily review happens in the
-**Explorer**. An old link to the former Garden animals page opens the Explorer's Garden review
-instead.
+**Settings → Beta features** shows each beta feature as a card with its switch and a status line
+in words, such as "On · 2 cameras · automatic checks on NPU" or "On · no camera chosen · model not
+downloaded yet". An amber dot marks a status that needs you, and **Still to set up** lists those
+steps with a button for each: choose a camera, download a required model, or set your location so
+Garden knows your country. While Garden is on, its settings sit in collapsible sections:
+**Cameras** and **Automatic checks and naming** open, and **Models**, **Domestic birds you keep**,
+**Alerts** and **Where captures go** closed until you open them. While it is off, the card says
+what off means and what Garden needs, and offers no downloads.
+
+Which cameras watch for Garden animals is chosen once per camera in **Settings → Connection →
+Cameras to watch**, beside the camera's bird role; while Garden is off, each camera there offers
+only **Off** or **Birds**. Daily review happens in the **Explorer**. An old link to the former
+Garden animals page opens the Explorer's Garden review instead.
 
 1. Turn on **Garden animals** in **Settings → Beta features**.
-2. In **Settings → Connection → Cameras to watch** (or **Choose cameras in Connection** under
-   Beta features), choose **Garden animals** for a camera that should watch only for animals,
+2. In **Settings → Connection → Cameras to watch** (or **Choose cameras in Connection** on the
+   Garden card), choose **Garden animals** for a camera that should watch only for animals,
    or **Both** for one that watches for birds too. Sync the list from Frigate first if it is
    empty. A camera's **Feeder** or **Nest** role appears while it watches for birds;
    **Collect motion review photos** appears while it watches for Garden animals. At least one
    camera always watches for birds; see
    [Cameras to watch](../setup/configuration.md#cameras-to-watch) for how each choice is saved.
-3. Back in **Beta features**, set **Frigate animal labels** to labels your detector actually
-   tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a detector learn
-   squirrels; Frigate must already track that label and publish completed events over MQTT.
-4. Choose **Apply Settings**. **Garden models** then shows each Garden model's status.
+3. Back in **Beta features**, under **Cameras**, set **Frigate animal labels** to labels your
+   detector actually tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a
+   detector learn squirrels; Frigate must already track that label and publish completed events
+   over MQTT.
+4. Choose **Apply Settings**. **Models** then shows each Garden model's status.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
-5. Open the **Explorer**, or choose **Review Garden animals** in **Settings → Beta features**. In
+5. Open the **Explorer**, or choose **Review Garden animals** under **Where captures go** on the Garden card. In
    the filter rail choose **Garden animals** under **Visitors**, then **Needs review**. Open a capture, inspect the
    photograph, and either open **Manual override** and choose **Confirm animal manually**, or
    dismiss it with the crossed-out eye beneath the decisions, as on a bird record.
@@ -191,7 +201,7 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed
   SpeciesNet model using the device selected in **Settings → Detection**. Model
-  installation stays under **Settings → Beta features → Garden models**. The
+  installation stays under **Settings → Beta features → Garden animals → Models**. The
   record has no model or accelerator selectors. Bird actions
   such as scoring again, video scans and audio matching do not apply.
   Reference photographs and summaries are looked up by the catalogue's scientific
@@ -332,7 +342,7 @@ turning off Garden animals stops collection but preserves existing reviews.
 If Frigate does not track the animals you want, optionally enable **Collect motion review
 photos** for that camera under **Settings → Connection → Cameras to watch** (it appears once the
 camera watches for Garden animals), then apply settings and download the **Motion detector**
-under **Garden models** in **Settings → Beta features**. This separate
+under **Models** in **Settings → Beta features → Garden animals**. This separate
 MegaDetector v1000 Cedar model uses the species catalogue for its three outputs;
 it needs no labels file.
 It does not replace Frigate's bird detector or change bird classification settings.
@@ -446,7 +456,7 @@ pending or confirmed captures, collection waits for a dismissal or expiry.
 Turning collection off does not immediately erase photos.
 
 For a pending motion photo, **Check photo** offers an advisory assessment before
-presence review. Download the **Automatic check model** (4.0.3a) under **Garden models**,
+presence review. Download the **Automatic check model** (4.0.3a) under **Models** on the Garden card,
 choose the device in **Settings → Detection**, then check the
 displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
@@ -460,7 +470,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
 1. Set a recognised country name or ISO code in **Settings → Location**. Filtering
    runs locally; coordinates are not sent to the model.
 2. Choose a garden model, about **224 MB** per variant, and download it under
-   **Settings → Beta features → Garden models** if the capture's record says it is missing. The default
+   **Settings → Beta features → Garden animals → Models** if the capture's record says it is missing. The default
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
@@ -619,7 +629,7 @@ choice independently of identification. If that choice becomes unavailable, the
 accurate finder uses CPU. The scoped **Check devices** action remains
 available after a successful check and does not change the identification model.
 
-**Settings → Beta features → Garden models** separately shows the automatic check's
+**Collection status** under **Settings → Beta features → Garden animals → Automatic checks and naming** separately shows the automatic check's
 device preference and last completed execution. Open a capture to see the device and
 time of its own automatic result. These are completed records, not a promise that a
 model is currently loaded. A CPU worker stays loaded for up to 60 seconds after a check; an
@@ -758,8 +768,8 @@ membership, start/end times and per-photo review remain unchanged.
 Storage holds at most 2,000 JPEG crops, each no larger than 512 pixels along its
 long edge and 128 KiB (a maximum of 250 MiB of crop pixels). A new crop can reclaim
 the oldest preview while retaining the visit and identification record. Evicted
-previews are not automatically recreated in a loop. **Settings → Beta features →
-Garden models → Collection status** shows the saved-crop count and budget.
+previews are not automatically recreated in a loop. **Collection status** under
+**Settings → Beta features → Garden animals → Automatic checks and naming** shows the saved-crop count and budget.
 The three-day full-photo expiry and separate 128-photo motion budget still apply to
 the review copy; a confirmed capture's full photograph is kept separately, below.
 

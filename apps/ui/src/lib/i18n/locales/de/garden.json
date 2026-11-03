@@ -17,7 +17,6 @@
   "open_settings": "Garten-Einstellungen",
   "photo_alt": "Tieraufnahme von {camera}",
   "saved_crop_only": "Gespeicherter Tierausschnitt. Das Originalfoto ist nicht verfügbar.",
-  "saved_crop_count": "Gespeicherte Tierausschnitte: {count} / {limit}. Ganze Fotos haben weiterhin ihre eigene Ablauffrist.",
   "snapshot_unavailable": "Foto nicht verfügbar",
   "frigate_suggested": "Frigate-Vorschlag: {label}",
   "confirm": "Tier bestätigen",
