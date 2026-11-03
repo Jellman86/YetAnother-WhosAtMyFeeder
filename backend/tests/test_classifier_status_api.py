@@ -435,3 +435,24 @@ async def test_operational_status_contract_preserves_runtime_fields_and_omission
         assert schema == {"$ref": "#/components/schemas/ClassifierStatusResponse"}
     finally:
         app.dependency_overrides.pop(get_auth_context_with_legacy, None)
+
+
+def test_patching_the_live_classifier_proxy_is_undone_on_the_current_classifier(monkeypatch):
+    """A patch through the router's proxy lands on, and is removed from, the live classifier.
+
+    Test tooling restores some patches by deleting the attribute; the proxy must forward that
+    delete, or the patch outlives its test on the shared classifier.
+    """
+    from app.routers import classifier as classifier_router
+
+    live = classifier_router.get_classifier()
+    original = type(live).get_status
+    with monkeypatch.context() as patch:
+        patch.setattr(classifier_router.classifier_service, "get_status", lambda: {"patched": True})
+        assert classifier_router.classifier_service.get_status() == {"patched": True}
+    # Whichever way the patch is undone, the live classifier answers with its own method again.
+    assert live.get_status.__func__ is original
+    setattr(classifier_router.classifier_service, "probe_marker", 1)
+    assert getattr(live, "probe_marker") == 1
+    delattr(classifier_router.classifier_service, "probe_marker")
+    assert not hasattr(live, "probe_marker")
