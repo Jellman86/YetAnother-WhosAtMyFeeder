@@ -1494,7 +1494,21 @@
     "garden_device_note": "Les vérifications automatiques utilisent votre appareil de détection dès qu’il concorde avec le CPU, et reviennent au CPU en cas d’échec. Les analyses de mouvement utilisent le CPU. Le jardin exécute une tâche à la fois quand les oiseaux et les caméras sont au repos.",
     "garden_status_refresh": "Actualiser l’état",
     "garden_status_loading": "Vérification de l’état du jardin…",
-    "garden_domestic_birds_count": "{count, plural, =0 {Aucun} one {# oiseau} other {# oiseaux}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {Aucun} one {# oiseau} other {# oiseaux}}",
+    "garden_fact_device": "Appareil",
+    "garden_fact_device_checked": "{device} (comparé au CPU avant la première utilisation)",
+    "garden_fact_device_unused": "{device} préféré, pas encore utilisé",
+    "garden_fact_not_used": "Pas encore utilisé",
+    "garden_fact_last_check": "Dernière vérification",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time} (l’appareil préféré a échoué, le CPU a donc été utilisé)",
+    "garden_fact_none_yet": "Aucune pour l’instant",
+    "garden_fact_checks": "Vérifications automatiques",
+    "garden_fact_motion": "Photos de mouvement",
+    "garden_fact_motion_on": "Activées pour {cameras}",
+    "garden_fact_unreadable": "Lecture impossible. Actualisez pour réessayer.",
+    "garden_fact_saved_crops": "Recadrages enregistrés",
+    "garden_fact_saved_crops_value": "{count, plural, one {# recadrage} other {# recadrages}} sur {limit, number}"
   },
   "native_revalidation": {
     "title": "Vérifier le profil en quarantaine",

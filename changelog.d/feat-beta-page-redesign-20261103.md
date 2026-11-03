@@ -10,3 +10,7 @@
 - Turning Garden animals off now says exactly what that does: Garden stops collecting new
   captures, is hidden in the Explorer, stops its alerts and records birds you keep as wild
   birds, while existing captures and settings are kept for when you turn it on again.
+- Garden's **Collection status** is now a short labelled list in plain words: **Device** (the
+  preferred device, or "not used yet" until a check has actually run on it), **Last check**
+  (the device that ran and when, or "None yet", and CPU when the preferred device failed),
+  **Automatic checks**, **Motion photos** ("Off" or "On for patio") and **Saved crops**.

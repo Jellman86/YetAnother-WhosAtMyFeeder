@@ -417,8 +417,10 @@ test('collection status shows the collector state, its limits and bounded catch-
         : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*On for patio/);
     await expect(status.locator('[data-garden-motion-status]')).toHaveText('Waiting for bird inference to become idle.');
-    await expect(status).toContainText('No automatic check is due.');
+    // The service words its automatic check state itself and reports no count, so it is shown as sent.
+    await expect(status.locator('[data-garden-fact="automatic"]')).toHaveText(/Automatic checks\s*No automatic check is due\./);
     await expect(status.getByText('Motion detector only: CPU · At least 10s between scans · Up to 128 photos · 3-day photo retention')).toBeVisible();
     await expect(status.getByText('Up to 24 short windows queued per camera from the last 30 minutes. Birds and camera pressure pause collection; brief visits can be missed.')).toBeVisible();
     await expect(status.getByText(/patio: 24 windows waiting when checked at/)).toBeVisible();
@@ -443,7 +445,7 @@ test('collection status says so when the Garden service cannot report it', async
         ? route.fulfill({ status: 503, json: { detail: 'Garden status unavailable.' } })
         : undefined);
     await openBeta(page);
-    await expect(page.locator('[data-garden-collection-status]')).toContainText('Model status unavailable. Refresh to try again.');
+    await expect(page.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Could not be read\. Refresh to try again\./);
 });
 
 
@@ -455,8 +457,33 @@ test('Garden shows the actual last NPU execution separately from CPU-only motion
         } } }) : undefined);
     await openBeta(page);
     const status = page.locator('[data-garden-collection-status]');
-    await expect(status).toContainText('Automatic check device preference: NPU');
-    await expect(status).toContainText('Last completed run: NPU');
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU \(checked against CPU before first use\)/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*NPU · \S.*\d{2}:\d{2}$/);
+    await expect(status.locator('[data-garden-fact="motion"]')).toHaveText(/Motion photos\s*Off/);
+    await expect(status.locator('[data-garden-motion-status]')).toHaveCount(0);
+});
+
+test('collection status never claims a device that has not run', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: null, saved_crops: { count: 12, limit: 2000 } } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.getByRole('term')).toHaveText(['Device', 'Last check', 'Automatic checks', 'Motion photos', 'Saved crops']);
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/Device\s*NPU preferred, not used yet/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/Last check\s*None yet/);
+    await expect(status.locator('[data-garden-crop-storage]')).toHaveText(/Saved crops\s*12 crops of 2,000/);
+});
+
+test('collection status names CPU, not the preferred device, after a fallback', async ({ page }) => {
+    await openSettings(page, {}, ['patio'], (route, path) => path === '/api/garden/identification'
+        ? route.fulfill({ json: { ...identificationStatus, preferred_provider: 'intel_npu', last_execution: {
+            model_id: 'garden-speciesnet-4.0.3a', provider: 'cpu', requested_provider: 'intel_npu',
+            devices: ['CPUExecutionProvider'], checked_at: '2026-10-25T06:34:22Z', fallback_reason: 'runtime_failed'
+        } } }) : undefined);
+    await openBeta(page);
+    const status = page.locator('[data-garden-collection-status]');
+    await expect(status.locator('[data-garden-fact="device"]')).toHaveText(/NPU preferred, not used yet/);
+    await expect(status.locator('[data-garden-fact="last_check"]')).toHaveText(/CPU · .* \(the preferred device failed, so CPU was used\)/);
 });
 
 const notificationStatus = {

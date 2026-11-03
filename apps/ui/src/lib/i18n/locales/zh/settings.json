@@ -1494,7 +1494,21 @@
     "garden_device_note": "自动检查在你的检测设备与 CPU 结果一致后使用该设备，失败时回退到 CPU。运动扫描使用 CPU。花园在鸟类和摄像头空闲时一次运行一项任务。",
     "garden_status_refresh": "刷新状态",
     "garden_status_loading": "正在检查花园状态…",
-    "garden_domestic_birds_count": "{count, plural, =0 {无} other {# 种}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {无} other {# 种}}",
+    "garden_fact_device": "设备",
+    "garden_fact_device_checked": "{device}（首次使用前已与 CPU 核对）",
+    "garden_fact_device_unused": "首选 {device}，尚未使用",
+    "garden_fact_not_used": "尚未使用",
+    "garden_fact_last_check": "上次检查",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time}（首选设备失败，因此使用了 CPU）",
+    "garden_fact_none_yet": "暂无",
+    "garden_fact_checks": "自动检查",
+    "garden_fact_motion": "运动照片",
+    "garden_fact_motion_on": "已为 {cameras} 开启",
+    "garden_fact_unreadable": "无法读取。请刷新后重试。",
+    "garden_fact_saved_crops": "已保存的裁剪",
+    "garden_fact_saved_crops_value": "{count, plural, other {# 张裁剪}}，上限 {limit, number}"
   },
   "native_revalidation": {
     "title": "检查隔离的配置",

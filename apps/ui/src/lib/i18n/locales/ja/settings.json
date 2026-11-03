@@ -1494,7 +1494,21 @@
     "garden_device_note": "自動チェックは、CPU と結果が一致した検出デバイスを使い、失敗すると CPU に戻ります。動きのスキャンは CPU を使います。庭は鳥とカメラが空いている間に一度に一つの作業を行います。",
     "garden_status_refresh": "状態を更新",
     "garden_status_loading": "庭の状態を確認しています…",
-    "garden_domestic_birds_count": "{count, plural, =0 {なし} other {#種}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {なし} other {#種}}",
+    "garden_fact_device": "デバイス",
+    "garden_fact_device_checked": "{device}（初回使用前に CPU と照合済み）",
+    "garden_fact_device_unused": "{device} を優先、まだ未使用",
+    "garden_fact_not_used": "まだ未使用",
+    "garden_fact_last_check": "最後のチェック",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time}（優先デバイスが失敗したため CPU を使用）",
+    "garden_fact_none_yet": "まだありません",
+    "garden_fact_checks": "自動チェック",
+    "garden_fact_motion": "動き写真",
+    "garden_fact_motion_on": "{cameras} でオン",
+    "garden_fact_unreadable": "読み取れませんでした。更新して再試行してください。",
+    "garden_fact_saved_crops": "保存した切り抜き",
+    "garden_fact_saved_crops_value": "{count, plural, other {#件}} / {limit, number}"
   },
   "native_revalidation": {
     "title": "隔離されたプロファイルを確認",

@@ -1494,7 +1494,21 @@
     "garden_device_note": "Las comprobaciones automáticas usan tu dispositivo de detección cuando coincide con la CPU, y vuelven a la CPU si falla. Los escaneos de movimiento usan la CPU. El jardín ejecuta una tarea a la vez mientras las aves y las cámaras están inactivas.",
     "garden_status_refresh": "Actualizar estado",
     "garden_status_loading": "Comprobando el estado del jardín…",
-    "garden_domestic_birds_count": "{count, plural, =0 {Ninguna} one {# ave} other {# aves}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {Ninguna} one {# ave} other {# aves}}",
+    "garden_fact_device": "Dispositivo",
+    "garden_fact_device_checked": "{device} (comparado con la CPU antes del primer uso)",
+    "garden_fact_device_unused": "{device} preferido, aún sin usar",
+    "garden_fact_not_used": "Aún sin usar",
+    "garden_fact_last_check": "Última comprobación",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time} (el dispositivo preferido falló, así que se usó la CPU)",
+    "garden_fact_none_yet": "Ninguna todavía",
+    "garden_fact_checks": "Comprobaciones automáticas",
+    "garden_fact_motion": "Fotos de movimiento",
+    "garden_fact_motion_on": "Activadas en {cameras}",
+    "garden_fact_unreadable": "No se pudo leer. Actualiza para reintentarlo.",
+    "garden_fact_saved_crops": "Recortes guardados",
+    "garden_fact_saved_crops_value": "{count, plural, one {# recorte} other {# recortes}} de {limit, number}"
   },
   "native_revalidation": {
     "title": "Comprobar perfil en cuarentena",

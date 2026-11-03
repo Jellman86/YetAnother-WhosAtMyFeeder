@@ -79,3 +79,40 @@ export function gardenBetaSummary(input: GardenBetaInput): GardenBetaSummary {
 
     return { parts, steps, attention: steps.length > 0 };
 }
+
+type GardenExecution = components['schemas']['InferenceExecution'];
+
+/**
+ * The device fact in Collection status. A preferred device is only "used" once a check actually
+ * ran on it; a CPU fallback leaves it unused, so the box never claims an accelerator that did not run.
+ */
+export type GardenDeviceFact =
+    | { kind: 'preferred_used'; provider: ExecutionProvider }
+    | { kind: 'preferred_unused'; provider: ExecutionProvider }
+    | { kind: 'ran'; provider: ExecutionProvider }
+    | { kind: 'not_used' };
+
+export interface GardenCollectionFacts {
+    device: GardenDeviceFact;
+    lastCheck: { provider: ExecutionProvider; checkedAt: string; fallback: boolean } | null;
+    /** Cameras collecting motion photos; null when the motion status could not be read. */
+    motionCameras: string[] | null;
+}
+
+export function gardenCollectionFacts(
+    identification: { preferred_provider?: ExecutionProvider; last_execution?: GardenExecution | null } | null,
+    motion: { cameras: string[] } | null
+): GardenCollectionFacts {
+    const execution = identification?.last_execution ?? null;
+    const preferred = identification?.preferred_provider;
+    const device: GardenDeviceFact = preferred
+        ? { kind: execution?.provider === preferred ? 'preferred_used' : 'preferred_unused', provider: preferred }
+        : execution
+            ? { kind: 'ran', provider: execution.provider }
+            : { kind: 'not_used' };
+    return {
+        device,
+        lastCheck: execution ? { provider: execution.provider, checkedAt: execution.checked_at, fallback: Boolean(execution.fallback_reason) } : null,
+        motionCameras: motion ? [...motion.cameras] : null
+    };
+}

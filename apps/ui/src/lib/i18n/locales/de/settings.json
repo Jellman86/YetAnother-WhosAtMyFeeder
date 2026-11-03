@@ -1494,7 +1494,21 @@
     "garden_device_note": "Automatische Prüfungen nutzen Ihr Erkennungsgerät, sobald es mit der CPU übereinstimmt, und fallen bei einem Fehler auf die CPU zurück. Bewegungsscans nutzen die CPU. Der Garten führt jeweils eine Aufgabe aus, während Vögel und Kameras ruhen.",
     "garden_status_refresh": "Status aktualisieren",
     "garden_status_loading": "Gartenstatus wird geprüft…",
-    "garden_domestic_birds_count": "{count, plural, =0 {Keine} one {# Vogel} other {# Vögel}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {Keine} one {# Vogel} other {# Vögel}}",
+    "garden_fact_device": "Gerät",
+    "garden_fact_device_checked": "{device} (vor der ersten Nutzung mit der CPU abgeglichen)",
+    "garden_fact_device_unused": "{device} bevorzugt, noch nicht genutzt",
+    "garden_fact_not_used": "Noch nicht genutzt",
+    "garden_fact_last_check": "Letzte Prüfung",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time} (das bevorzugte Gerät ist ausgefallen, daher wurde die CPU genutzt)",
+    "garden_fact_none_yet": "Noch keine",
+    "garden_fact_checks": "Automatische Prüfungen",
+    "garden_fact_motion": "Bewegungsfotos",
+    "garden_fact_motion_on": "An für {cameras}",
+    "garden_fact_unreadable": "Konnte nicht gelesen werden. Aktualisieren Sie, um es erneut zu versuchen.",
+    "garden_fact_saved_crops": "Gespeicherte Ausschnitte",
+    "garden_fact_saved_crops_value": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number}"
   },
   "native_revalidation": {
     "title": "Quarantänisiertes Profil prüfen",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gardenBetaSummary, type GardenBetaInput } from './beta-features';
+import { gardenBetaSummary, gardenCollectionFacts, type GardenBetaInput } from './beta-features';
 import type { GardenModelRow } from './garden-models';
 
 function row(role: GardenModelRow['role'], requirement: GardenModelRow['requirement'], state: GardenModelRow['state']): GardenModelRow {
@@ -109,5 +109,38 @@ describe('gardenBetaSummary', () => {
         const summary = gardenBetaSummary({ ...on, savedEnabled: false, cameras: [] });
         expect(summary.steps).toEqual([{ kind: 'choose_camera' }, { kind: 'apply' }]);
         expect(summary.attention).toBe(true);
+    });
+});
+
+describe('gardenCollectionFacts', () => {
+    const execution = (provider: 'intel_npu' | 'cpu', fallback: 'runtime_failed' | null = null) => ({
+        model_id: 'garden-speciesnet-4.0.3a', provider, requested_provider: 'intel_npu' as const, devices: ['NPU'], checked_at: '2026-11-03T06:34:22Z', fallback_reason: fallback
+    });
+
+    it('says a preferred device is not used yet until a check has run on it', () => {
+        expect(gardenCollectionFacts({ preferred_provider: 'intel_npu', last_execution: null }, null).device).toEqual({ kind: 'preferred_unused', provider: 'intel_npu' });
+        expect(gardenCollectionFacts({ preferred_provider: 'intel_npu', last_execution: execution('intel_npu') }, null).device).toEqual({ kind: 'preferred_used', provider: 'intel_npu' });
+    });
+
+    it('never claims the preferred device when the last check fell back to CPU', () => {
+        const facts = gardenCollectionFacts({ preferred_provider: 'intel_npu', last_execution: execution('cpu', 'runtime_failed') }, null);
+        expect(facts.device).toEqual({ kind: 'preferred_unused', provider: 'intel_npu' });
+        expect(facts.lastCheck).toEqual({ provider: 'cpu', checkedAt: '2026-11-03T06:34:22Z', fallback: true });
+    });
+
+    it('reports no device and no last check when nothing has run and nothing is preferred', () => {
+        const facts = gardenCollectionFacts({ last_execution: null }, null);
+        expect(facts.device).toEqual({ kind: 'not_used' });
+        expect(facts.lastCheck).toBeNull();
+    });
+
+    it('names the device that ran when no preference is reported', () => {
+        expect(gardenCollectionFacts({ last_execution: execution('cpu') }, null).device).toEqual({ kind: 'ran', provider: 'cpu' });
+    });
+
+    it('states motion photos as off, on for named cameras, or unknown', () => {
+        expect(gardenCollectionFacts(null, null).motionCameras).toBeNull();
+        expect(gardenCollectionFacts(null, { cameras: [] }).motionCameras).toEqual([]);
+        expect(gardenCollectionFacts(null, { cameras: ['patio'] }).motionCameras).toEqual(['patio']);
     });
 });

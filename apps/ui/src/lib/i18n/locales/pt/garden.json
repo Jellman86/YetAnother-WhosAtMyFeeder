@@ -17,7 +17,6 @@
   "open_settings": "Definições do jardim",
   "photo_alt": "Captura de animal de {camera}",
   "saved_crop_only": "Recorte do animal guardado. A fotografia original está indisponível.",
-  "saved_crop_count": "Recortes de animais guardados: {count} / {limit}. As fotografias completas mantêm o seu prazo de validade separado.",
   "snapshot_unavailable": "Foto indisponível",
   "frigate_suggested": "Sugestão do Frigate: {label}",
   "confirm": "Confirmar presença de animal",

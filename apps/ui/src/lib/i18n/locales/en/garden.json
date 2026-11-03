@@ -17,7 +17,6 @@
   "open_settings": "Garden settings",
   "photo_alt": "Animal capture from {camera}",
   "saved_crop_only": "Saved animal crop. The original photo is unavailable.",
-  "saved_crop_count": "Saved animal crops: {count} / {limit}. Full photos keep their separate expiry.",
   "snapshot_unavailable": "Snapshot unavailable",
   "frigate_suggested": "Frigate suggested: {label}",
   "confirm": "Confirm animal present",

@@ -1494,7 +1494,21 @@
     "garden_device_note": "I controlli automatici usano il tuo dispositivo di rilevamento quando concorda con la CPU, e tornano alla CPU se fallisce. Le scansioni del movimento usano la CPU. Il giardino esegue un lavoro alla volta mentre uccelli e telecamere sono inattivi.",
     "garden_status_refresh": "Aggiorna stato",
     "garden_status_loading": "Verifica dello stato del giardino…",
-    "garden_domestic_birds_count": "{count, plural, =0 {Nessuno} one {# uccello} other {# uccelli}}"
+    "garden_domestic_birds_count": "{count, plural, =0 {Nessuno} one {# uccello} other {# uccelli}}",
+    "garden_fact_device": "Dispositivo",
+    "garden_fact_device_checked": "{device} (confrontato con la CPU prima del primo uso)",
+    "garden_fact_device_unused": "{device} preferito, non ancora usato",
+    "garden_fact_not_used": "Non ancora usato",
+    "garden_fact_last_check": "Ultimo controllo",
+    "garden_fact_last_check_value": "{device} · {time}",
+    "garden_fact_last_check_fallback": "{device} · {time} (il dispositivo preferito non ha funzionato, quindi è stata usata la CPU)",
+    "garden_fact_none_yet": "Ancora nessuno",
+    "garden_fact_checks": "Controlli automatici",
+    "garden_fact_motion": "Foto di movimento",
+    "garden_fact_motion_on": "Attive per {cameras}",
+    "garden_fact_unreadable": "Impossibile leggere. Aggiorna per riprovare.",
+    "garden_fact_saved_crops": "Ritagli salvati",
+    "garden_fact_saved_crops_value": "{count, plural, one {# ritaglio} other {# ritagli}} su {limit, number}"
   },
   "native_revalidation": {
     "title": "Verifica profilo in quarantena",
