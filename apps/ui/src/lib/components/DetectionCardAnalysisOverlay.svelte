@@ -3,9 +3,9 @@
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import FrameScanRibbon from './FrameScanRibbon.svelte';
 
-    let { progress } = $props<{
+    let { progress }: {
         progress: ReclassificationProgress;
-    }>();
+    } = $props();
 
     type FrameResult = ReclassificationProgress['frameResults'][number];
     function hasFrameResult(frame: FrameResult | undefined): frame is FrameResult {

@@ -29,7 +29,7 @@
     } from '../utils/manual-observation-upload';
     import { speciesPickerNames } from '../utils/species-picker';
 
-    let { onNavigate } = $props<{ onNavigate: (path: string) => void }>();
+    let { onNavigate }: { onNavigate: (path: string) => void } = $props();
 
     let fileInput = $state<HTMLInputElement | null>(null);
     let selectedFile = $state<File | null>(null);

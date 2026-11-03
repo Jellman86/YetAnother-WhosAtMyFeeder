@@ -124,10 +124,10 @@
     let {
         onNavigate,
         currentRoute
-    } = $props<{
+    }: {
         onNavigate?: (path: string, opts?: { replace?: boolean }) => void;
         currentRoute?: string;
-    }>();
+    } = $props();
 
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));

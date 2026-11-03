@@ -25,7 +25,7 @@
     import { paginateItems } from '../utils/pagination';
     import JobCircuitBanner from '../components/JobCircuitBanner.svelte';
 
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
+    let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     const FILTERS: NotificationFilter[] = ['all', 'birds', 'updates', 'jobs', 'errors'];
 

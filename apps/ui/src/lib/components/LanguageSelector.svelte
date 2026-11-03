@@ -16,7 +16,7 @@
     };
 
     let showDropdown = $state(false);
-    let { dropUp = false, compact = false } = $props<{ dropUp?: boolean; compact?: boolean }>();
+    let { dropUp = false, compact = false }: { dropUp?: boolean; compact?: boolean } = $props();
     const menuId = 'language-selector-menu';
     let currentLocaleValue = $state('en'); // Local state for locale value
     let languageChanging = $state(false);

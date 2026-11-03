@@ -10,7 +10,7 @@
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
     import { serverJobsStore } from '../stores/server_jobs.svelte';
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
+    let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);

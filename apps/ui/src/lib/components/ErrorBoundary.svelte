@@ -1,10 +1,10 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
 
-    let { children, fallback } = $props<{
+    let { children, fallback }: {
         children: import('svelte').Snippet;
         fallback?: import('svelte').Snippet<[Error]>;
-    }>();
+    } = $props();
 
     let error = $state<Error | null>(null);
     let errorInfo = $state<string>('');
