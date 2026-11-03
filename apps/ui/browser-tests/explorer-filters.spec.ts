@@ -40,6 +40,11 @@ for (const viewport of [{ width: 1280, height: 600 }, { width: 390, height: 844 
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
         await page.getByRole('button', { name: /^Dunnock.*12$/ }).click();
         await expect(page.getByRole('button', { name: /^Dunnock.*12$/ })).toHaveAttribute('aria-pressed', 'true');
+        // Chosen reads without colour: a check, which the rows not chosen do not carry.
+        await expect(page.getByRole('button', { name: /^Dunnock.*12$/ }).locator('[data-explorer-chosen-mark]')).toBeVisible();
+        await expect(page.getByRole('button', { name: /^European Robin.*8$/ }).locator('[data-explorer-chosen-mark]')).toHaveCount(0);
+        // A state, never a coloured bar on one edge.
+        expect(await page.getByRole('button', { name: /^Dunnock.*12$/ }).evaluate(node => getComputedStyle(node).borderLeftWidth)).toBe('0px');
         await expect.poll(() => list.evaluate(node => node.clientHeight)).toBeGreaterThanOrEqual(176);
         await page.getByRole('button', { name: /^European Robin.*8$/ }).click();
         await expect(page.getByRole('button', { name: /^European Robin.*8$/ })).toHaveAttribute('aria-pressed', 'true');

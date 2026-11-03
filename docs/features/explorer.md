@@ -32,9 +32,12 @@ stored call information remain available. A call-loading failure does not remove
 
 ## Search the Explorer
 
-The search box at the top of the filters finds things by name, so you do not need to scroll the
-species list. Press `/` anywhere on the page that is not a text field to jump to it, and `Escape`
-to clear it.
+The search box finds things by name, so you do not need to scroll the species list. On a desktop
+it sits at the start of the Explorer's header row, before the count and the view switch, and stays
+there when you hide the filters. On a phone it sits above the results, beside the **Filters**
+button. Press `/` anywhere on the page that is not a text field to jump to it, and `Escape` to
+clear it. Each result is one line: the name, the other name in italics, its rank, and its count.
+The result **Enter** would choose is tinted and marked with a return arrow.
 
 | Type | It finds |
 |---|---|

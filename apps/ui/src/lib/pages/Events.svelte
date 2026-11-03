@@ -14,6 +14,7 @@
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
+    import { MediaQuery } from 'svelte/reactivity';
     import {
         fetchEvents,
         fetchVisits,
@@ -1897,6 +1898,10 @@
         return eventKey(entry.event);
     }
 
+    // The search finds and opens anything, so on a desktop it heads the page rather than the
+    // filters, and stays when they are hidden. A phone keeps it above the results in the rail.
+    // Tailwind's lg, so the header and the rail switch at the same width as the layout.
+    const wideExplorer = new MediaQuery('min-width: 1024px', false);
     const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
     function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
@@ -1907,10 +1912,24 @@
 
 <svelte:window onkeydown={handleTimelineKeydown} />
 
+{#snippet explorerSearch()}
+    <ExplorerSearch
+        species={displaySpecies}
+        cameras={cameraOptions.cameras}
+        cameraCounts={cameraOptions.counts}
+        shortcutEnabled={!selectedEvent && !showVideo && !selectedGarden && !showBulkTagModal}
+        onchoose={handleSearchChoice}
+    />
+{/snippet}
+
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. -->
-        <p class="hidden text-xs text-slate-500 sm:block dark:text-slate-400">{$_('events.classification_legend')}</p>
+        {#if wideExplorer.current}
+            <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
+        {/if}
+        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. Beneath the
+             search and toolbar on a desktop, where the search takes the start of the row. -->
+        <p class="hidden text-xs text-slate-500 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
             <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
             <div
@@ -2166,17 +2185,8 @@
                 loadEvents();
             }}
             onrefresh={() => refreshEventMetadata(true, true)}
-        >
-            {#snippet search()}
-                <ExplorerSearch
-                    species={displaySpecies}
-                    cameras={cameraOptions.cameras}
-                    cameraCounts={cameraOptions.counts}
-                    shortcutEnabled={!selectedEvent && !showVideo && !selectedGarden && !showBulkTagModal}
-                    onchoose={handleSearchChoice}
-                />
-            {/snippet}
-        </ExplorerFilters>
+            search={wideExplorer.current ? undefined : explorerSearch}
+        />
         </div>
 
         <div class="min-w-0">

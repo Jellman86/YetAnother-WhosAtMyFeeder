@@ -292,6 +292,23 @@ html[data-theme='dark'] {
     @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
   }
 
+  /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
+     recessed brand key as the selected route, with a lit check so it never reads by tint alone.
+     Never a coloured bar on one edge. */
+  .choice-active {
+    @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
+  }
+
+  .choice-active svg {
+    @apply text-brand-600 dark:text-brand-400;
+  }
+
+  /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
+     the meaning; the dot lets the eye find the row. */
+  .attention-dot {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
+  }
+
   /* Badges */
   .badge {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;

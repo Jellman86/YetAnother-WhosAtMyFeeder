@@ -10,9 +10,9 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('data-explorer-token');
         expect(filtersSource).toContain('data-explorer-facets');
         // Every option states how many results it would return before it is applied.
-        expect(filtersSource).toContain('{item.count ?? 0}');
-        expect(filtersSource).toContain('{cameraCounts[camera] ?? 0}');
-        expect(filtersSource).toContain('{totals?.favorites ?? 0}');
+        expect(filtersSource).toContain('chosenEnd(chosen, item.count ?? 0)');
+        expect(filtersSource).toContain('(cameraCounts[camera] ?? 0)');
+        expect(filtersSource).toContain('chosenEnd(favoritesOnly, totals?.favorites ?? 0)');
         // The panel is closed until asked for, so the photographs are not pushed down.
         expect(filtersSource).toContain('let panelOpen = $state(false)');
     });

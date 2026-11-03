@@ -126,8 +126,15 @@ test('typing finds species and groups in groups, and Enter on the active result 
     // Focus stays in the box; the arrows move the active result for a screen reader.
     await expect(box).toHaveAttribute('aria-activedescendant', /explorer-search-option-0/);
     await expect(option(page, /^Tits/)).toHaveAttribute('aria-selected', 'true');
+    // The active result also shows what Enter will do, so it never reads by its tint alone.
+    const cue = (name: RegExp) => option(page, name).locator('[data-explorer-search-active-cue]');
+    await expect(cue(/^Tits/)).toBeVisible();
+    await expect(cue(/^Great Tit/)).toBeHidden();
     await box.press('ArrowDown');
     await expect(option(page, /^Great Tit/)).toHaveAttribute('aria-selected', 'true');
+    await expect(option(page, /^Tits/)).toHaveAttribute('aria-selected', 'false');
+    await expect(cue(/^Great Tit/)).toBeVisible();
+    await expect(cue(/^Tits/)).toBeHidden();
     await box.press('ArrowDown');
     await box.press('ArrowUp');
     await box.press('ArrowUp');
@@ -306,6 +313,53 @@ test('a visitor is offered no camera the owner does not share, and search never 
     // Results are text; nothing the search touches requests a snapshot, clip, thumbnail or spectrogram.
     const media = mock.requests.filter(url => /\/(snapshot|thumbnail|clip|crop|spectrogram|latest)\b|\.(jpg|mp4|webp)$/.test(url.pathname));
     expect(media).toEqual([]);
+});
+
+test('on a desktop the search heads the page before the count, and stays when the filters are hidden', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openExplorer(page);
+    const header = page.locator('[data-explorer-header-search]');
+    await expect(header.locator('[data-explorer-search]')).toBeVisible();
+    await expect(page.locator('[data-events-filter-bar] [data-explorer-search]')).toHaveCount(0);
+    // Left of the count and the view switch, and wide enough to read a scientific name in.
+    const search = await header.boundingBox();
+    const count = await page.locator('[data-explorer-count]').boundingBox();
+    expect(search && count && search.x + search.width <= count.x).toBe(true);
+    expect(search?.width ?? 0).toBeGreaterThanOrEqual(320);
+
+    await page.locator('[data-explorer-rail-toggle]').click();
+    await expect(page.locator('[data-explorer-rail-toggle]')).toHaveText(/Show filters/);
+    await expect(searchBox(page)).toBeVisible();
+    // Focus is on the toggle, a button, so "/" still reaches the box.
+    await page.keyboard.press('/');
+    await expect(searchBox(page)).toBeFocused();
+    await searchBox(page).fill('tit');
+    await expect(option(page, /^Tits/)).toBeVisible();
+});
+
+test('on a desktop each result is one line, in a panel as wide as the box', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openExplorer(page);
+    await searchBox(page).fill('tit');
+    await expect(option(page, /^Eurasian Blue Tit/)).toBeVisible();
+    for (const name of [/^Tits/, /^Great Tit/, /^Eurasian Blue Tit/]) {
+        const row = await option(page, name).boundingBox();
+        expect(row?.height ?? 0).toBeLessThanOrEqual(48);
+    }
+    // The rank is a label beside the names, and the count sits at the end of the line.
+    await expect(option(page, /^Tits/).locator('.taxon-rank')).toHaveText(/Family/);
+    const panel = await page.locator('[data-explorer-search-panel]').boundingBox();
+    const holder = await page.locator('[data-explorer-search]').boundingBox();
+    expect(Math.abs((panel?.width ?? 0) - (holder?.width ?? 0))).toBeLessThanOrEqual(1);
+    await expect(page.getByRole('group', { name: 'Species and groups' }).locator('.eyebrow')).toBeVisible();
+});
+
+test('on a phone the search stays above the results beside the Filters button', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openExplorer(page);
+    await expect(page.locator('[data-explorer-header-search]')).toHaveCount(0);
+    await expect(page.locator('[data-events-filter-bar] [data-explorer-search]')).toBeVisible();
+    await expect(page.locator('[data-explorer-filter-toggle]')).toBeVisible();
 });
 
 test('results fit a phone and stay inside the page', async ({ page }) => {
@@ -491,7 +545,7 @@ for (const { name, size } of surfaces) for (const theme of ['light', 'dark']) {
         expect(ring.clipped).toBe(false);
         // Opaque, so it keeps its contrast against the page it sits on.
         expect(ring.colour).toMatch(/^rgb\(/);
-        // The box still fills its place in the rail.
+        // The box still fills its place: the header on a desktop, the rail on a phone.
         expect(ring.width).toBe(ring.holderWidth);
         if (shots) await page.screenshot({ path: `${shots}/explorer-search-focus-${name}-${theme}-${test.info().project.name}.png` });
     });

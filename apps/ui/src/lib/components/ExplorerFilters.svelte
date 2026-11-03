@@ -27,7 +27,7 @@
         favoritesOnly: boolean;
         audioConfirmedOnly: boolean;
         multipleSpeciesOnly?: boolean;
-        /** The Explorer search, at the head of the rail where a phone sees it too. */
+        /** The Explorer search, at the head of the rail on a phone; a desktop holds it in the page header. */
         search?: Snippet;
         /** How results are shown: a species' visits, or every capture on its own. */
         groupVisits?: boolean;
@@ -229,15 +229,30 @@
     // A folded section names what is chosen inside it, so a choice is never out of sight.
     const onlyActiveCount = $derived([favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly, showHidden].filter(Boolean).length);
 
-    // One look for every choice: a chosen row carries a bar and weight as well as colour.
-    const rowClass = 'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border-l-2 px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60';
-    const rowChosenClass = 'border-brand-500 bg-brand-50 font-semibold text-brand-800 dark:border-brand-400 dark:bg-brand-950/40 dark:text-brand-100';
-    const rowIdleClass = 'border-transparent text-slate-700 dark:text-slate-300';
+    // One look for every choice: a chosen row is the kit's recessed brand key with a lit check, so it
+    // reads by weight and shape as well as tint. Hover is a neutral wash; keyboard focus is a ring.
+    const rowClass = 'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500';
+    const rowChosenClass = 'choice-active hover:bg-brand-100 dark:hover:bg-brand-950';
+    const rowIdleClass = 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60';
     const segmentClass = 'mt-2 grid gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70';
     const segmentButtonClass = 'min-h-11 min-w-0 rounded-lg px-1.5 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500';
     const segmentChosenClass = 'bg-white text-brand-800 shadow-sm ring-1 ring-brand-500/50 dark:bg-brand-500/25 dark:text-white dark:ring-brand-400/70';
     const segmentIdleClass = 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/60 dark:hover:text-white';
 </script>
+
+{#snippet chosenEnd(chosen: boolean, count?: number)}
+    <!-- Right-aligned, so a choice never shifts its name; the count stays at the end of the line. -->
+    <span class="flex shrink-0 items-center gap-2">
+        {#if chosen}
+            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-explorer-chosen-mark>
+                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 10.5 3.5 3.5 7.5-8" />
+            </svg>
+        {/if}
+        {#if count !== undefined}
+            <span class="tabular-nums font-normal text-slate-500 dark:text-slate-400">{count}</span>
+        {/if}
+    </span>
+{/snippet}
 
 <section
     class="pb-4 pt-1 {collapsed
@@ -341,6 +356,7 @@
                                     data-explorer-garden-review={option.value}
                                 >
                                     <span class="min-w-0">{option.label}</span>
+                                    {@render chosenEnd(chosen)}
                                 </button>
                             {/each}
                         </div>
@@ -446,7 +462,7 @@
                                     <span class="block text-2xs font-normal italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{item.display_secondary}</span>
                                 {/if}
                             </span>
-                            <span class="shrink-0 tabular-nums font-normal text-slate-500 dark:text-slate-400">{item.count ?? 0}</span>
+                            {@render chosenEnd(chosen, item.count ?? 0)}
                         </button>
                     {:else}
                         <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
@@ -491,11 +507,7 @@
                             onclick={() => onchange({ cameraFilter: chosen ? '' : camera })}
                         >
                             <span class="truncate">{camera}</span>
-                            {#if cameraCounts}
-                                <span class="shrink-0 tabular-nums font-normal text-slate-500 dark:text-slate-400">
-                                    {cameraCounts[camera] ?? 0}
-                                </span>
-                            {/if}
+                            {@render chosenEnd(chosen, cameraCounts ? (cameraCounts[camera] ?? 0) : undefined)}
                         </button>
                     {/each}
                 </div>
@@ -521,6 +533,7 @@
                             data-explorer-multiple-species-facet
                         >
                             <span>{$_('visits.multiple_species', { default: 'Multiple bird species' })}</span>
+                            {@render chosenEnd(multipleSpeciesOnly)}
                         </button>
                         <p id="explorer-multiple-species-hint" class="px-2 text-2xs leading-4 text-slate-500 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
                     {/if}
@@ -532,7 +545,7 @@
                         onclick={() => onchange({ favoritesOnly: !favoritesOnly })}
                     >
                         <span>{$_('events.filters.favorites', { default: 'Favourites' })}</span>
-                        <span class="tabular-nums font-normal text-slate-500 dark:text-slate-400">{totals?.favorites ?? 0}</span>
+                        {@render chosenEnd(favoritesOnly, totals?.favorites ?? 0)}
                     </button>
                     <button
                         type="button"
@@ -541,7 +554,7 @@
                         onclick={() => onchange({ audioConfirmedOnly: !audioConfirmedOnly })}
                     >
                         <span>{$_('events.filters.audio_matches', { default: 'Audio matches' })}</span>
-                        <span class="tabular-nums font-normal text-slate-500 dark:text-slate-400">{totals?.audio_matched ?? 0}</span>
+                        {@render chosenEnd(audioConfirmedOnly, totals?.audio_matched ?? 0)}
                     </button>
 
                     {#if canSeeHidden && (hiddenCount > 0 || showHidden)}
@@ -553,7 +566,7 @@
                             data-explorer-hidden-facet
                         >
                             <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                            <span class="tabular-nums font-normal text-slate-500 dark:text-slate-400">{hiddenCount}</span>
+                            {@render chosenEnd(showHidden, hiddenCount)}
                         </button>
                     {/if}
                 </div>

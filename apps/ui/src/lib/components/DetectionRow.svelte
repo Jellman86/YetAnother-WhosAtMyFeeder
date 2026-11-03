@@ -141,15 +141,11 @@
 
 <div
     class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
-           {needsAttention ? 'bg-attention-500/10' : ''}
+           {needsAttention ? 'bg-attention-500/5' : ''}
            {selected ? 'bg-brand-500/10 ring-2 ring-inset ring-brand-500 dark:ring-brand-400' : ''}"
     data-detection-row
     data-frigate-event={detection.frigate_event}
 >
-    {#if needsAttention}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-attention-500" aria-hidden="true"></span>
-    {/if}
-
     {#if scanProgress && !scanFromSnapshot}
         <!-- Under the subject and score columns only: the time and photo stay clear to scan. -->
         <div class="pointer-events-none absolute bottom-0 left-36 right-3 top-1.5 z-0 opacity-25">
@@ -205,8 +201,8 @@
             {#if scan}
                 <span class="shrink-0 text-brand-800 dark:text-brand-200">{scanStatus}</span>
             {:else if needsAttention}
-                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-attention-800 dark:text-attention-300">
-                    {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
+                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="inline-flex items-center gap-1.5 shrink-0 text-attention-800 dark:text-attention-300" data-attention-reason>
+                    <span class="attention-dot" aria-hidden="true"></span>{$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
                 </BadgeHint>
             {:else if subName && subName !== primaryName}
                 <span class="min-w-0 truncate italic">{subName}</span>

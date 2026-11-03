@@ -175,11 +175,17 @@ Four shapes cover the app. Pick one; do not blend them.
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
 beneath them. **When** follows, always open. The species list shows the eight most
-recorded species, plus any chosen one, then **Show all N species**. One search box heads
-the rail (`ExplorerSearch`, a combobox) and finds species, groups, cameras, days and record IDs;
-it never filters the list beneath it. Cameras and **Only** stay in native collapsible sections, initially closed, and
-their summaries name what is chosen inside. A chosen row carries a bar and weight as
-well as colour. Only the rail scrolls, never a list inside it. Applied filters stay
+recorded species, plus any chosen one, then **Show all N species**. One search box
+(`ExplorerSearch`, a combobox) finds species, groups, cameras, days and record IDs. It is a page
+control, not a filter: on a desktop it starts the Explorer's header row, before the count and the
+view switch, and stays when the rail is hidden; on a phone it heads the rail, above the results
+and beside the **Filters** button. The page mounts it once and places it with a `MediaQuery` at
+Tailwind's `lg`. Each result is one line where the panel allows (name, italic other name, a
+`.taxon-rank` label, the count at the end), in a panel as wide as the box; the active result takes
+`.choice-active` and a return arrow saying what **Enter** does. Cameras and **Only** stay in native
+collapsible sections, initially closed, and their summaries name what is chosen inside. A chosen
+row is `.choice-active` with a check, so it reads by weight and shape as well as tint. Only the rail
+scrolls, never a list inside it. Applied filters stay
 visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
 same ordering behind the Filters button. A switch and its token use one name per option (the
 subject is **Garden animals**, as Settings names it), and a custom window's token names its
@@ -613,7 +619,9 @@ build something better."*
   the row only while that subject is chosen. A choice that cannot be made is disabled, struck
   through and explained in words beside the control, never hidden.
 - **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
-  icon. Never a coloured bar on one edge.
+  icon. Never a coloured bar on one edge. A chosen row in a list of choices uses the kit's
+  `.choice-active` (brand tint, medium weight, a lit check or other icon); hover stays a neutral
+  wash and keyboard focus a ring, so the three never read as one.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
   a cap that follows the window width, so a wide screen neither flattens it into a strip nor
   stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot
@@ -625,7 +633,8 @@ build something better."*
   detection card and the record's photograph use it (#481).
 - **Panels**: `card-base` for standing surfaces. Rows inside a list are separated by hairlines,
   not by nested cards.
-- **Flagged rows**: an amber (`attention-*`) tint plus a state dot plus a worded reason. All three.
+- **Flagged rows**: a faint amber tint (`bg-attention-500/5`) plus an amber `.attention-dot` set
+  beside the worded reason. All three, and never a bar on the row's edge.
 - **Score**: a percentage in a tone band (under 60 amber, under 85 brand, from 85 green) and a
   3px bar. Never the bar alone. Take the band and its classes from `utils/score-tone.ts`
   (`scoreBand()` with `SCORE_TEXT`, `SCORE_TEXT_ON_MEDIA` and `SCORE_FILL`), never local

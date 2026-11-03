@@ -414,6 +414,31 @@ for (const width of [320, 1280]) {
     });
 }
 
+for (const theme of ['light', 'dark']) {
+    test(`rows that need a person say why in words beside an amber dot, with no edge bar (${theme})`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await open(page, `?garden=1&cameras=two${theme === 'dark' ? '&theme=dark' : ''}`);
+        await expect(page.locator('[data-field-log-row]')).toHaveCount(6);
+        const flagged = page.locator('[data-field-log-row][data-needs-review="true"]');
+        await expect(flagged).toHaveCount(2);
+        await expect(page.locator('[data-field-log-garden="hedgehog"] [data-attention-reason]')).toHaveText('Needs review: suggested species');
+        await expect(page.locator('[data-field-log-visit="unknown"] [data-attention-reason]')).toHaveText('Below the naming threshold');
+        for (const row of await flagged.all()) {
+            await expect(row.locator('[data-attention-reason] .attention-dot')).toBeVisible();
+        }
+        await expect(page.locator('[data-field-log-row][data-needs-review="false"] [data-attention-reason]')).toHaveCount(0);
+        // Amber is a dot and words; nothing on the row's edge says it in colour alone.
+        const edges = await page.locator('[data-field-log-row]').evaluateAll(rows => rows.map(row => ({
+            border: getComputedStyle(row).borderLeftWidth,
+            bars: Array.from(row.children).filter(child => {
+                const style = getComputedStyle(child);
+                return style.position === 'absolute' && parseFloat(style.left) === 0 && child.getBoundingClientRect().width <= 4;
+            }).length
+        })));
+        for (const edge of edges) expect(edge).toEqual({ border: '0px', bars: 0 });
+    });
+}
+
 test('a Garden read failure is stated beside the birds instead of implying a quiet garden', async ({ page }) => {
     await open(page, '?garden=failed');
     await expect(page.locator('[data-field-log-row]')).toHaveCount(4);
