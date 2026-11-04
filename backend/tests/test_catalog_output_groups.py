@@ -201,6 +201,62 @@ def test_cold_group_lookup_is_unknown_until_explicit_warm(catalogue):
     assert resolver.cached_output_group("a" * 64, 0, "Sciurus carolinensis") == "nonbird"
 
 
+@pytest.fixture
+def mixed_groups(catalogue):
+    from app.services.species_catalog_resolver import SpeciesCatalogResolver
+
+    with sqlite3.connect(catalogue) as db:
+        db.execute("UPDATE model_artifacts SET output_width=3")
+        db.execute("UPDATE model_output_taxa SET taxonomic_group='nonbird'")
+        db.executemany(
+            "INSERT INTO model_output_taxa(model_artifact_id,output_index,class_kind,source_label,taxonomic_group) VALUES (1,?,'unknown',?,?)",
+            [(1, "Cyanistes caeruleus", "bird"), (2, "unresolved", "unknown")],
+        )
+    resolver = SpeciesCatalogResolver(catalogue)
+    assert resolver.warm_output_groups()
+    return resolver, ["Sciurus carolinensis", "Cyanistes caeruleus", "unresolved"]
+
+
+def test_complete_output_groups_bind_every_label_and_include_unknown(mixed_groups):
+    resolver, labels = mixed_groups
+    groups = resolver.cached_output_groups("a" * 64, labels)
+    assert groups.groups == ("nonbird", "bird", "unknown")
+    assert groups.model_sha256 == "a" * 64
+    assert len(groups.mapping_sha256) == 64
+    assert resolver.cached_output_groups("a" * 64, labels[:2]) is None
+    assert resolver.cached_output_groups("a" * 64, list(reversed(labels))) is None
+    assert resolver.cached_output_groups("b" * 64, labels) is None
+
+
+def test_output_group_vector_lookup_has_no_io_and_invalidation_discards_it(mixed_groups, monkeypatch):
+    from app.services import species_catalog_resolver as module
+
+    resolver, labels = mixed_groups
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("classification evidence must not perform I/O")
+
+    monkeypatch.setattr(module.sqlite3, "connect", forbidden)
+    monkeypatch.setattr(type(resolver._resolved_path()), "stat", forbidden)
+    assert resolver.cached_output_groups("a" * 64, labels) is not None
+    resolver.invalidate_output_groups()
+    assert resolver.cached_output_groups("a" * 64, labels) is None
+
+
+def test_group_vector_fingerprint_changes_with_taxonomy_and_gaps_refuse_evidence(mixed_groups):
+    resolver, labels = mixed_groups
+    before = resolver.cached_output_groups("a" * 64, labels)
+    with sqlite3.connect(resolver._resolved_path()) as db:
+        db.execute("UPDATE model_output_taxa SET taxonomic_group='unknown' WHERE output_index=0")
+    assert resolver.warm_output_groups()
+    after = resolver.cached_output_groups("a" * 64, labels)
+    assert before.mapping_sha256 != after.mapping_sha256
+    with sqlite3.connect(resolver._resolved_path()) as db:
+        db.execute("DELETE FROM model_output_taxa WHERE output_index=2")
+    assert resolver.warm_output_groups()
+    assert resolver.cached_output_groups("a" * 64, labels) is None
+
+
 def test_cached_group_lookup_performs_no_file_database_or_stat_access(catalogue, monkeypatch):
     from app.services import species_catalog_resolver as module
 

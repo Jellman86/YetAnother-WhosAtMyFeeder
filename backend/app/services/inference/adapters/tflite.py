@@ -289,6 +289,7 @@ class ModelInstance:
             self.labels,
             top_k=max_results,
             grouped_labels=grouped_labels,
+            model_sha256=self.loaded_artifact_sha256,
         )
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:

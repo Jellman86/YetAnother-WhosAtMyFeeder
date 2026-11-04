@@ -136,3 +136,42 @@ correction behavior, cancellation and native-runtime failures, and preservation
 of owner-reviewed history. Measure the added inference cost and exercise the
 supported model/provider routes. Hardware agreement, CI and a healthy deployment
 are separate requirements; this report grants none of them.
+
+## Confirmation evidence under development
+
+The classifier adapters retain internal `taxonomic_evidence` when the catalogue
+binds the complete output order to the actual loaded model checksum. ONNX,
+OpenVINO and TFLite use the same aggregation before species grouping or top-k
+selection. The record contains bird, non-bird and unknown score mass, output
+counts, the winning native output's group, the model checksum and a fingerprint
+of the ordered source labels and groups. These are model scores, not calibrated
+probabilities that a physical bird exists.
+
+Classification reads an immutable in-memory catalogue snapshot. Loading a model
+warms that snapshot off-thread; app-owned catalogue changes invalidate it.
+Missing rows, a different label order or width, unavailable mappings, and
+classifiers without both bird and non-bird outputs supply no presence evidence.
+Unknown mass is retained, never redistributed over known groups. Ordinary
+species ranking does not change.
+
+The pure confirmation policy has three outcomes: `counted`, `excluded` and
+`unconfirmed`. Its development thresholds are a strong detector score of 0.60,
+bird mass of 0.50, and non-bird mass of 0.85 with a non-bird winning output.
+Strong detector evidence conflicting with a confident non-bird confirmation is
+unconfirmed. Invalid evidence, an unqualified finder, or an uncertain mid-band
+proposal also remains unconfirmed. Species certainty is a separate decision.
+These are proposal-level verdicts. Bird pixels in an overlapping proposal do
+not establish another individual; duplicate and touching-cluster checks remain
+necessary before publishing a count. Group scores alone cannot resolve that
+ambiguity.
+
+Confirmation must classify a proposal's own pixels afresh. The preparation
+helper pads centre-crop inputs on a bounded neutral canvas so the classifier's
+subsequent centre crop retains the proposal's full extent. It never widens the
+source crop toward neighbouring birds. A caller must bind that result to the
+model, catalogue fingerprint and exact crop checksum before applying the policy.
+
+This policy and preparation helper are not yet enabled in capture counting.
+Existing saved counts and finder defaults are unchanged. Enabling confirmation
+still requires service integration, honest unresolved outcomes, history and
+cancellation tests, frozen scene qualification, and provider and cost checks.

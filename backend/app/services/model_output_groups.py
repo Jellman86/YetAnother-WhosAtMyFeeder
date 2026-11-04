@@ -6,6 +6,7 @@ borrowed. This compiler performs no file, database or network access.
 """
 
 from collections import defaultdict
+from dataclasses import dataclass
 import hashlib
 import re
 from typing import Literal
@@ -13,6 +14,17 @@ from typing import Literal
 from app.services.model_taxon_map import scientific_name_from_label
 
 OutputGroup = Literal["bird", "nonbird", "unknown"]
+
+
+@dataclass(frozen=True)
+class BoundOutputGroups:
+    """One complete output order, bound to weights and catalogue group content."""
+
+    model_sha256: str
+    mapping_sha256: str
+    groups: tuple[OutputGroup, ...]
+
+
 _CHECKSUM = re.compile(r"[a-f0-9]{64}")
 _OTHER_KINGDOMS = {"Plantae", "Fungi", "Chromista", "Protozoa", "Bacteria", "Archaea"}
 _UNKNOWN_CLASSES = {"", "unknown", "unidentified", "incertae sedis", "incertae_sedis"}

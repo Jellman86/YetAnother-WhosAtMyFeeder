@@ -17,6 +17,8 @@ pre-catalogue behaviour.
 from __future__ import annotations
 
 import re
+import hashlib
+import json
 from contextlib import closing
 import sqlite3
 import threading
@@ -28,7 +30,7 @@ from typing import Any, Mapping, Optional
 import structlog
 
 from app.services.species_catalog_migrations import default_catalog_path
-from app.services.model_output_groups import OutputGroup
+from app.services.model_output_groups import BoundOutputGroups, OutputGroup
 from app.services.model_taxon_map import scientific_name_from_label
 from app.utils.classifier_labels import normalize_classifier_label
 
@@ -61,6 +63,12 @@ class _OutputEntry:
     taxonomic_group: OutputGroup = "unknown"
 
 
+@dataclass(frozen=True)
+class _GroupVector:
+    evidence: BoundOutputGroups
+    accepted_labels: tuple[frozenset[str], ...]
+
+
 class SpeciesCatalogResolver:
     def __init__(self, path: Optional[Path] = None) -> None:
         self._path = path
@@ -85,6 +93,7 @@ class SpeciesCatalogResolver:
         self._unverified = 0
         self._last_mismatch: Optional[dict[str, Any]] = None
         self._group_snapshot: Mapping[str, Mapping[int, _OutputEntry]] = MappingProxyType({})
+        self._group_vectors: Mapping[str, _GroupVector] = MappingProxyType({})
         self._artifact_sha_by_id: dict[int, str] = {}
         # species_id -> the one coarse group every mapped output agrees on;
         # a species whose outputs disagree is absent, which reads unknown.
@@ -192,11 +201,33 @@ class SpeciesCatalogResolver:
                 for sha, entries in outputs.items()
             }
         )
+        vectors = {}
+        for sha, entries in outputs.items():
+            width = widths[sha]
+            if not 0 < width <= 100_000 or set(entries) != set(range(width)):
+                continue
+            ordered = [entries[index] for index in range(width)]
+            labels = tuple(self._accepted_output_labels(entry.source_label) for entry in ordered)
+            if not all(labels):
+                continue
+            content = json.dumps(
+                {"model_sha256": sha, "outputs": [[entry.source_label, entry.taxonomic_group] for entry in ordered]},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            vectors[sha] = _GroupVector(
+                BoundOutputGroups(
+                    sha, hashlib.sha256(content).hexdigest(), tuple(entry.taxonomic_group for entry in ordered)
+                ),
+                labels,
+            )
+        self._group_vectors = MappingProxyType(vectors)
 
     def invalidate_output_groups(self) -> None:
         """Discard cached admission evidence after an app-owned catalogue write."""
         with self._lock:
             self._group_snapshot = MappingProxyType({})
+            self._group_vectors = MappingProxyType({})
             self._cache_key = None
 
     def warm_output_groups(self) -> bool:
@@ -232,13 +263,37 @@ class SpeciesCatalogResolver:
         return model_sha256.strip().lower(), label.strip().casefold()
 
     @staticmethod
-    def _bound_group(source_label: str | None, group: str, label: str) -> OutputGroup:
-        if group not in {"bird", "nonbird"} or not isinstance(source_label, str) or not source_label.strip():
-            return "unknown"
+    def _accepted_output_labels(source_label: str | None) -> frozenset[str]:
+        if not isinstance(source_label, str) or not source_label.strip():
+            return frozenset()
         expected = {source_label.strip().casefold(), normalize_classifier_label(source_label).casefold()}
         if scientific := scientific_name_from_label(source_label):
             expected.add(scientific.casefold())
-        return group if label in expected else "unknown"
+        return frozenset(expected)
+
+    @classmethod
+    def _bound_group(cls, source_label: str | None, group: str, label: str) -> OutputGroup:
+        if group not in {"bird", "nonbird"}:
+            return "unknown"
+        return group if label in cls._accepted_output_labels(source_label) else "unknown"
+
+    def cached_output_groups(self, model_sha256: str | None, labels: list[str]) -> BoundOutputGroups | None:
+        """Bind the full native output order without any file or database access.
+
+        Unknown outputs remain in the vector. Missing rows, different labels or
+        widths provide no aggregate evidence, even if some individual outputs
+        are known. App-owned catalogue writes discard this snapshot atomically.
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        vector = self._group_vectors.get(checksum)
+        if vector is None or len(labels) != len(vector.accepted_labels):
+            return None
+        if any(
+            not isinstance(label, str) or label.strip().casefold() not in accepted
+            for label, accepted in zip(labels, vector.accepted_labels, strict=True)
+        ):
+            return None
+        return vector.evidence
 
     def cached_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
         """Pure lookup for synchronous classification selection, with no I/O."""

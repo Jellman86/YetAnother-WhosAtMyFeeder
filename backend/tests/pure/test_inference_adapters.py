@@ -18,6 +18,8 @@ from app.services.inference.adapters.onnx import ONNXModelInstance
 from app.services.inference.adapters.openvino import OpenVINOModelInstance
 from app.services.inference.adapters.tflite import ModelInstance
 from app.services.inference.errors import InvalidInferenceOutputError
+from app.services.model_output_groups import BoundOutputGroups
+from app.services.species_catalog_resolver import species_catalog_resolver
 
 
 @pytest.mark.parametrize("adapter_class", [ModelInstance, ONNXModelInstance, OpenVINOModelInstance])
@@ -98,3 +100,42 @@ def test_the_openvino_adapter_refuses_non_finite_output(tmp_path):
 
     assert raised.value.backend == "openvino"
     assert raised.value.diagnostics["output_summary"]["invalid_output_kind"] == "all_nan"
+
+
+@pytest.mark.parametrize("adapter_class", [ModelInstance, ONNXModelInstance, OpenVINOModelInstance])
+@pytest.mark.parametrize("have_actual_digest", [True, False])
+def test_native_adapters_bind_group_evidence_to_actual_loaded_weights(
+    adapter_class, have_actual_digest, monkeypatch, tmp_path
+):
+    model_file = tmp_path / "model"
+    model_file.write_bytes(b"actual weights")
+    adapter = adapter_class("bird", str(model_file), str(tmp_path / "labels"), model_sha256="f" * 64)
+    digest = adapter.loaded_artifact_sha256
+    if not have_actual_digest:
+        adapter.loaded_artifact_sha256 = None
+    adapter.loaded = True
+    adapter.labels = ["bird", "fixture", "unknown"]
+    groups = BoundOutputGroups(digest, "b" * 64, ("bird", "nonbird", "unknown"))
+    monkeypatch.setattr(
+        species_catalog_resolver, "cached_output_groups", lambda sha, labels: groups if sha == digest else None
+    )
+    probs = np.array([0.55, 0.35, 0.1], dtype=np.float32)
+    if adapter_class is not ModelInstance:
+        monkeypatch.setattr(adapter, "_preprocess", lambda image: np.zeros((1, 3, 8, 8)))
+    if adapter_class is ModelInstance:
+        adapter.interpreter = MagicMock()
+        monkeypatch.setattr(adapter, "_run_inference", lambda image: probs)
+    elif adapter_class is ONNXModelInstance:
+        adapter.session = MagicMock()
+        monkeypatch.setattr(adapter, "_run_inference", lambda *args: [])
+        monkeypatch.setattr(adapter, "_probabilities_from_outputs", lambda outputs: probs)
+    else:
+        adapter.compiled_model = MagicMock()
+        monkeypatch.setattr(adapter, "_infer_logits", lambda *args, **kwargs: np.log(probs))
+    results = adapter.classify(Image.new("RGB", (8, 8)))
+    assert results[0]["label"] == "bird"
+    if have_actual_digest:
+        assert results[0]["taxonomic_evidence"]["model_sha256"] == digest
+        assert results[0]["taxonomic_evidence"]["bird_mass"] == pytest.approx(0.55)
+    else:
+        assert "taxonomic_evidence" not in results[0]
