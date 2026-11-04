@@ -5,10 +5,10 @@ from itertools import combinations
 import math
 from typing import Any
 
+from app.services.bird_physical_confirmation import MIN_DETECTOR_CONFIDENCE
 from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, should_hide_species_label
 
 
-MIN_DETECTOR_CONFIDENCE = 0.08
 MIN_SPECIES_CONFIDENCE = 0.65
 DUPLICATE_BOX_OVERLAP = 0.4
 

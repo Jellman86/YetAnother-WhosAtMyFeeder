@@ -57,6 +57,34 @@ def resolve_interpolation(preprocessing: Optional[dict[str, Any]]) -> Image.Resa
     }.get(interpolation, Image.Resampling.BICUBIC)
 
 
+def prepare_bird_confirmation_image(
+    image: Image.Image, *, input_size: int, preprocessing: dict[str, Any]
+) -> Image.Image:
+    """Keep a proposal's own extent inside a classifier's subsequent centre crop.
+
+    Padding is bounded by model geometry rather than source resolution. This
+    accepts an already isolated proposal, so neighbouring pixels cannot provide
+    the presence evidence. Naming and ordinary classification are unchanged.
+    """
+    if type(input_size) is not int or not 3 <= input_size <= 4096 or min(image.size) <= 0:
+        raise ValueError("Invalid confirmation image geometry")
+    if resolve_resize_mode(preprocessing) != "center_crop":
+        return image.convert("RGB").copy()
+    crop_pct = preprocessing.get("crop_pct", 1.0)
+    if type(crop_pct) not in {int, float} or not math.isfinite(crop_pct) or not 0.25 <= crop_pct <= 1.0:
+        raise ValueError("Invalid or unbounded confirmation crop percentage")
+    canvas_size = max(input_size, int(round(input_size / crop_pct)))
+    if canvas_size > 4096:
+        raise ValueError("Confirmation canvas exceeds allocation limit")
+    neutral = resolve_padding_color(preprocessing)
+    canvas = Image.new("RGB", (canvas_size, canvas_size), neutral)
+    scale = (input_size - 2) / max(image.size)
+    size = tuple(max(1, int(round(edge * scale))) for edge in image.size)
+    subject = image.convert("RGB").resize(size, resolve_interpolation(preprocessing))
+    canvas.paste(subject, ((canvas_size - size[0]) // 2, (canvas_size - size[1]) // 2))
+    return canvas
+
+
 def resize_preserving_aspect_shortest_edge(
     image: Image.Image,
     shortest_edge: int,

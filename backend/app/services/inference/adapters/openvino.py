@@ -400,6 +400,7 @@ class OpenVINOModelInstance:
                 self.labels,
                 top_k=top_k,
                 grouped_labels=grouped_labels,
+                model_sha256=self.loaded_artifact_sha256,
             )
         except InvalidInferenceOutputError:
             raise

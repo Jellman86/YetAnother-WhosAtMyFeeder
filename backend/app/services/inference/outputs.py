@@ -5,6 +5,7 @@ catalogue labels must match the model's output width exactly.
 """
 
 import os
+import math
 from typing import Any, Optional
 
 import numpy as np
@@ -128,10 +129,13 @@ def build_classification_results(
     *,
     top_k: int,
     grouped_labels: Optional[list[str]] = None,
+    model_sha256: Optional[str] = None,
 ) -> list[dict]:
     probabilities = np.asarray(probs, dtype=np.float32).reshape(-1)
     if probabilities.size == 0:
         return []
+
+    evidence = _classification_group_evidence(probabilities, labels, model_sha256=model_sha256)
 
     if grouped_labels and len(grouped_labels) == probabilities.size:
         aggregated: dict[str, dict[str, Any]] = {}
@@ -155,17 +159,51 @@ def build_classification_results(
         ranked = sorted(aggregated.values(), key=lambda item: float(item["score"]), reverse=True)
         for item in ranked:
             item.pop("_best_member_score", None)
-        return ranked[:top_k]
+        results = ranked[:top_k]
+    else:
+        top_indices = np.argsort(probabilities)[::-1][:top_k]
+        results = [
+            {
+                "index": int(i),
+                "score": float(probabilities[i]),
+                "label": normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}",
+            }
+            for i in top_indices
+        ]
+    if evidence is not None:
+        for result in results:
+            result["taxonomic_evidence"] = dict(evidence)
+    return results
 
-    top_indices = np.argsort(probabilities)[::-1][:top_k]
-    return [
-        {
-            "index": int(i),
-            "score": float(probabilities[i]),
-            "label": normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}",
-        }
-        for i in top_indices
-    ]
+
+def _classification_group_evidence(
+    probabilities: np.ndarray, labels: list[str], *, model_sha256: Optional[str]
+) -> dict[str, Any] | None:
+    """Summarise the original posterior, never a top-k or bird-only distribution."""
+    if not model_sha256 or not np.isfinite(probabilities).all() or np.any((probabilities < 0) | (probabilities > 1)):
+        return None
+    if not math.isclose(float(np.sum(probabilities, dtype=np.float64)), 1.0, abs_tol=1e-5):
+        return None
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    bound = species_catalog_resolver.cached_output_groups(model_sha256, labels)
+    if bound is None or len(bound.groups) != probabilities.size:
+        return None
+    groups = np.asarray(bound.groups)
+    birds, nonbirds = groups == "bird", groups == "nonbird"
+    if not birds.any() or not nonbirds.any():
+        return None
+    return {
+        "model_sha256": bound.model_sha256,
+        "mapping_sha256": bound.mapping_sha256,
+        "output_width": int(probabilities.size),
+        "bird_outputs": int(birds.sum()),
+        "nonbird_outputs": int(nonbirds.sum()),
+        "bird_mass": float(np.sum(probabilities[birds], dtype=np.float64)),
+        "nonbird_mass": float(np.sum(probabilities[nonbirds], dtype=np.float64)),
+        "unknown_mass": float(np.sum(probabilities[~(birds | nonbirds)], dtype=np.float64)),
+        "top_group": bound.groups[int(np.argmax(probabilities))],
+    }
 
 
 def check_catalogue_output_width(labels: list[str], output_width: int, source: str) -> None:
@@ -206,6 +244,14 @@ def resolve_model_labels(
         if from_catalogue:
             labels = normalize_classifier_labels(from_catalogue)
             source = "catalogue"
+        try:
+            from app.services.species_catalog_resolver import species_catalog_resolver
+
+            # Model loading already runs off-thread. Classification only reads
+            # the immutable snapshot, including inside isolated native workers.
+            species_catalog_resolver.ensure_loaded()
+        except Exception as error:
+            log.debug("Catalogue group snapshot unavailable", context=context, error_type=type(error).__name__)
 
     if not labels and os.path.exists(labels_path):
         try:
