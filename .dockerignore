@@ -24,3 +24,11 @@ docs/
 node_modules/
 tests/__pycache__/
 tmp/
+# Local environment files may contain credentials and are never image inputs.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!.env.rpi.example
+!**/.env.example
