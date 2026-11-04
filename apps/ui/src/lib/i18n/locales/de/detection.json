@@ -450,7 +450,20 @@
     "progress_waiting": "Wartet auf den Start",
     "elapsed": "{seconds} s",
     "action_waiting": "Wartet…",
-    "action_scanning": "Sucht…"
+    "action_scanning": "Sucht…",
+    "incomplete": "{count, plural, =0 {In diesem Bild wurden keine Vögel bestätigt.} one {Mindestens ein Vogel in diesem Bild bestätigt.} other {Mindestens # Vögel in diesem Bild bestätigt.}} {regions, plural, one {Ein weiterer möglicher Vogel wurde nicht gezählt.} other {# weitere mögliche Vögel wurden nicht gezählt.}}",
+    "confirmed": "{count, plural, =0 {Scan abgeschlossen. In diesem Bild wurden keine Vögel bestätigt.} one {Scan abgeschlossen. Ein Vogel in diesem Bild bestätigt.} other {Scan abgeschlossen. # Vögel in diesem Bild bestätigt.}}",
+    "count_unavailable": "Die Vogelzahl für dieses Bild ist nicht verfügbar. Bisherige Ergebnisse bleiben erhalten.",
+    "regions_summary": "{count, plural, one {Den nicht gezählten Bereich anzeigen} other {Die # nicht gezählten Bereiche anzeigen}}",
+    "regions_unconfirmed": "Mögliche Vögel, nicht gezählt",
+    "regions_excluded": "Kein Vogel, nicht gezählt",
+    "region_label": "Bereich {number}, nicht gezählt",
+    "region_shared": "Überlappt einen bestätigten Vogel und gehört vielleicht zu ihm",
+    "region_individuality": "Könnten getrennte Vögel oder Teile eines Vogels sein",
+    "region_nonbird": "Als kein Vogel eingestuft",
+    "region_budget": "Innerhalb der Grenze dieses Scans nicht geprüft",
+    "region_uncertain": "Nicht deutlich genug, um als Vogel zu zählen",
+    "regions_show_more": "Weitere Bereiche anzeigen"
   },
   "named_from": {
     "owner": "Von dir bestimmt",

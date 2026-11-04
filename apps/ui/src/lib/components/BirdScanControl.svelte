@@ -4,11 +4,14 @@
     import { fetchBirdScan, startBirdScan } from '../api/media';
     import { createBirdScanController, birdScanMediaVersion, type BirdScanView } from '../utils/bird-scan-controller';
     import { birdScanElapsedSeconds, birdScanProgress } from '../utils/bird-scan-progress';
+    import { birdCountDisclosure } from '../utils/bird-count-disclosure';
+    import BirdScanRegions from './BirdScanRegions.svelte';
 
-    let { eventId, candidateId, imageVersion, disabled = false, oncompleted }: {
+    let { eventId, candidateId, imageVersion, sceneImageUrl = null, disabled = false, oncompleted }: {
         eventId: string;
         candidateId: string | null;
         imageVersion: string | null;
+        sceneImageUrl?: string | null;
         disabled?: boolean;
         oncompleted: (eventId: string, candidateId: string) => void;
     } = $props();
@@ -18,6 +21,7 @@
     const active = $derived(view.response?.status === 'queued' || view.response?.status === 'running');
     const scanStatus = $derived(view.response?.status ?? null);
     const progress = $derived(birdScanProgress(view.response));
+    const countDisclosure = $derived(birdCountDisclosure(view.response));
     const queueAhead = $derived(view.response?.queue_ahead ?? null);
     const stepLabels = $derived([
         $_('detection.bird_scan.step_find', { default: 'Find' }),
@@ -115,7 +119,15 @@
         {:else if scanStatus === 'failed'}
             <p>{errorText}</p>
         {:else if scanStatus === 'completed'}
-            <p>{$_('detection.bird_scan.completed', { values: { count: view.response?.result_count ?? 0 }, default: 'Scan complete. Birds found in this frame: {count}.' })}</p>
+            {#if countDisclosure?.kind === 'incomplete'}
+                <p data-count-incomplete>{$_('detection.bird_scan.incomplete', { values: { count: countDisclosure.count ?? 0, regions: countDisclosure.unconfirmed }, default: '{count, plural, =0 {No birds confirmed in this frame.} one {At least one bird confirmed in this frame.} other {At least # birds confirmed in this frame.}} {regions, plural, one {One more possible bird was not counted.} other {# more possible birds were not counted.}}' })}</p>
+            {:else if countDisclosure?.kind === 'complete'}
+                <p>{$_('detection.bird_scan.confirmed', { values: { count: countDisclosure.count ?? 0 }, default: '{count, plural, =0 {Scan complete. No birds confirmed in this frame.} one {Scan complete. One bird confirmed in this frame.} other {Scan complete. # birds confirmed in this frame.}}' })}</p>
+            {:else if countDisclosure?.kind === 'legacy'}
+                <p>{$_('detection.bird_scan.completed', { values: { count: countDisclosure.count ?? 0 }, default: 'Scan complete. Birds found in this frame: {count}.' })}</p>
+            {:else}
+                <p>{$_('detection.bird_scan.count_unavailable', { default: 'The bird count for this frame is unavailable. Existing findings are kept.' })}</p>
+            {/if}
             {#if view.response?.retained_previous}<p>{$_('detection.bird_scan.retained', { default: 'The previous bird count and your corrections are kept.' })}</p>{/if}
         {:else if scanStatus === 'not_scanned'}
             <p>{$_('detection.bird_scan.not_scanned', { default: 'This whole frame has not been scanned for additional birds.' })}</p>
@@ -171,4 +183,8 @@
             {scanStatus === 'completed' ? $_('detection.bird_scan.again', { default: 'Scan again' }) : $_('detection.bird_scan.action', { default: 'Find more birds' })}
         {/if}
     </button>
+    {#if scanStatus === 'completed' && !unavailable && !view.readError && view.response}
+        <!-- Below the action, so a long list never pushes "Scan again" out of the status row. -->
+        <BirdScanRegions response={view.response} imageUrl={sceneImageUrl} />
+    {/if}
 </div>

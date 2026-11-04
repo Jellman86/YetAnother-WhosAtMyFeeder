@@ -154,6 +154,15 @@ bird_scan_jobs = Table(
     Column("result_count", Integer),
     Column("retained_previous", Boolean, nullable=False, server_default="0"),
     Column("error", String),
+    Column("count_status", String(16), nullable=False, server_default="legacy"),
+    Column("count_regions_json", Text, nullable=False, server_default="[]"),
+    CheckConstraint(
+        "count_status IN ('legacy','complete','incomplete','ambiguous','not_measured')",
+        name="ck_bird_scan_count_status",
+    ),
+    CheckConstraint(
+        "json_valid(count_regions_json) AND json_type(count_regions_json) = 'array'", name="ck_bird_scan_count_regions"
+    ),
     CheckConstraint("status IN ('queued','running','completed','failed')", name="ck_bird_scan_jobs_status"),
     CheckConstraint("revision >= 1", name="ck_bird_scan_jobs_revision"),
     CheckConstraint("result_count IS NULL OR result_count >= 0", name="ck_bird_scan_jobs_count"),

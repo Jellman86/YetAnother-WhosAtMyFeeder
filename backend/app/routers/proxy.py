@@ -49,6 +49,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.garden_repository import GardenRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.bird_observation_selection import BirdCountRegion
 from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
@@ -704,6 +705,9 @@ class BirdScanResponse(BaseModel):
     unavailable_reason: str | None = None
     error: str | None = None
     result_count: int | None = None
+    count_status: Literal["legacy", "complete", "incomplete", "ambiguous", "not_measured"] = "legacy"
+    unconfirmed_regions: tuple[BirdCountRegion, ...] = ()
+    excluded_regions: tuple[BirdCountRegion, ...] = ()
     retained_previous: bool = False
     updated_at: str | None = None
     # Progress, only while the scan is live: how many scans run first, then which step is running.

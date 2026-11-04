@@ -4,7 +4,7 @@ import aiosqlite
 import pytest
 
 from app.repositories.bird_observation_repository import BirdObservationRepository
-from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
+from app.services.bird_observation_selection import BirdCountRegion, BirdObservation, BirdObservationSelection
 
 
 @pytest.mark.asyncio
@@ -61,6 +61,22 @@ async def test_bird_observations_replace_atomically_and_count_visible_birds():
         await repo.replace_generated("evt-1", reranked)
         corrected = await repo.list_for_event("evt-1")
         assert [bird["species"] for bird in corrected] == ["House Finch", "Blue Jay"]
+        # A newly uncertain region must not erase an existing owner correction
+        # or insert an unconfirmed region as another counted bird.
+        incomplete = BirdObservationSelection(
+            "frigate_snapshot",
+            0,
+            "whole",
+            (reranked.birds[0],),
+            unconfirmed_regions=(BirdCountRegion("uncertain", (90, 10, 140, 60), 0.4, "confirmation_unavailable"),),
+            count_status="incomplete",
+        )
+        owner_id = corrected[1]["id"]
+        assert await repo.replace_generated("evt-1", incomplete)
+        corrected = await repo.list_for_event("evt-1")
+        assert len(corrected) == 2
+        assert corrected[1]["id"] == owner_id
+        assert corrected[1]["species"] == "Blue Jay" and corrected[1]["manual_species"]
         assert await repo.count_visible_between(datetime(2026, 9, 28), datetime(2026, 9, 29)) == {
             "birds": 2,
             "captures": 1,

@@ -101,6 +101,60 @@ async def test_photo_presence_survives_without_optional_count_work(
 
 
 @pytest.mark.asyncio
+async def test_automatic_count_with_a_qualified_finder_counts_strong_boxes_and_discloses_weak_ones(monkeypatch):
+    service = hq.HighQualitySnapshotService()
+    frame = {"clip_variant": "event", "frame_index": 5, "frame_width": 3840, "frame_height": 2160}
+    target = {
+        **frame,
+        "candidate_id": "target",
+        "source_mode": "model_crop",
+        "image_width": 400,
+        "image_height": 400,
+        "crop_box": (1150, 500, 1450, 750),
+        "detector_box": (1188, 543, 1424, 713),
+        "crop_confidence": 0.84,
+        "classifier_label": "Cyanistes caeruleus",
+        "classifier_score": 0.95,
+        "ranking_score": 0.95,
+    }
+    full = {**target, "candidate_id": "full", "source_mode": "full_frame", "crop_box": None, "detector_box": None}
+
+    def observed(name, box, confidence):
+        return {
+            **frame,
+            "candidate_id": name,
+            "source_mode": "model_observation",
+            "crop_box": box,
+            "crop_confidence": confidence,
+            "classifier_label": None,
+            "classifier_score": 0.0,
+        }
+
+    observations = [
+        observed("left", (1188, 543, 1424, 713), 0.84),
+        observed("right", (1754, 476, 1932, 650), 0.79),
+        observed("shared-foot", (1684, 573, 1802, 664), 0.46),
+        observed("seed-port", (1605, 623, 1661, 659), 0.30),
+    ]
+    monkeypatch.setattr(hq.bird_crop_service, "confirmed_count_finder_loaded", lambda: True)
+    monkeypatch.setattr(service, "_score_snapshot_candidate", AsyncMock(side_effect=lambda candidate: dict(candidate)))
+    monkeypatch.setattr(service, "_load_expected_species_labels", AsyncMock(return_value={"Cyanistes caeruleus"}))
+    monkeypatch.setattr(service, "_available_photo_candidates", AsyncMock(side_effect=lambda _event, rows: rows))
+    monkeypatch.setattr(service, "_load_verified_incumbent_photo", AsyncMock(return_value=None))
+    monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=observations))
+    recheck = AsyncMock(side_effect=AssertionError("borrowed species rechecks cannot confirm a weak box"))
+    monkeypatch.setattr(service, "_recheck_weak_count_candidates", recheck)
+
+    result = await service._score_and_select_snapshot_candidates("event", [target, full], include_additional_birds=True)
+
+    selection = result["bird_selection"]
+    assert [bird.candidate_id for bird in selection.birds] == ["left", "right"]
+    assert selection.count_status == "incomplete"
+    assert {region.candidate_id for region in selection.unconfirmed_regions} == {"shared-foot", "seed-port"}
+    recheck.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "configured,requested,expected", [(False, None, False), (True, False, False), (False, True, True)]
 )
@@ -177,7 +231,7 @@ async def test_retained_incumbent_is_not_added_to_actual_count_traversal(monkeyp
     monkeypatch.setattr(service, "_detect_count_candidates", AsyncMock(return_value=[]))
     monkeypatch.setattr(service, "_recheck_weak_count_candidates", AsyncMock(return_value=[]))
     monkeypatch.setattr(
-        hq, "select_bird_observations", lambda *_args, **_kwargs: BirdObservationSelection(None, None, None, ())
+        hq, "select_scene_birds", lambda *_args, **_kwargs: BirdObservationSelection(None, None, None, ())
     )
     raw = [target, full] if has_model_crop else [full]
     bundle = await service._score_and_select_snapshot_candidates("event", raw, include_additional_birds=True)

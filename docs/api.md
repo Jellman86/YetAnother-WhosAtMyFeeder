@@ -763,6 +763,14 @@ other identifications for `needs_review`, and are excluded from personalization 
   Conflicting whole-bird and bird-part regions return `failed` with
   `error: "ambiguous_localization"` and `result_count: null`, preserving all existing
   observations. A species prediction from shared crop context does not resolve that count.
+  `count_status` says how far the count is confirmed: `complete` (every detector box was counted
+  or ruled out), `incomplete` (`result_count` is a lower bound and `unconfirmed_regions` lists
+  boxes that were not counted), or `legacy` (counted by the earlier rule, which counts every
+  usable detector box; scans from before this field, and scans by a finder not validated for
+  confirmed counts). Each region has `candidate_id`, source-pixel `box`, nullable
+  `detector_confidence` and `reason` (for example `shares_counted_pixels`,
+  `individuality_unresolved` or `confirmation_unavailable`). `excluded_regions` lists boxes
+  checked and judged not a bird. Uncounted regions are never stored as counted birds.
 - `POST /api/frigate/{event_id}/birds/scan` (owner) — body
   `{"candidate_id": "retained-whole-frame-id", "expected_media_version": "image-revision", "force": false}`. Returns 202 with the same
   status shape. `expected_media_version` is the `v` query value in that candidate's `image_url`;

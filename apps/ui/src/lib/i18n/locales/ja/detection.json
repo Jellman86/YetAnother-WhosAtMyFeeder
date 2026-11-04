@@ -450,7 +450,20 @@
     "progress_waiting": "開始を待っています",
     "elapsed": "{seconds} 秒",
     "action_waiting": "待機中…",
-    "action_scanning": "検索中…"
+    "action_scanning": "検索中…",
+    "incomplete": "{count, plural, =0 {このフレームで確認された鳥はいません。} other {このフレームで少なくとも # 羽の鳥を確認しました。}}{regions, plural, other {鳥の可能性がある残り # 件は数えていません。}}",
+    "confirmed": "{count, plural, =0 {スキャン完了。このフレームで確認された鳥はいません。} other {スキャン完了。このフレームで # 羽の鳥を確認しました。}}",
+    "count_unavailable": "このフレームの鳥の数は利用できません。既存の結果は保持されます。",
+    "regions_summary": "{count, plural, other {数えなかった # 件の範囲を表示}}",
+    "regions_unconfirmed": "鳥の可能性あり（数えていません）",
+    "regions_excluded": "鳥ではない（数えていません）",
+    "region_label": "範囲 {number}（数えていません）",
+    "region_shared": "確認済みの鳥と重なっており、その一部の可能性があります",
+    "region_individuality": "別々の鳥か、1羽の一部かを判別できません",
+    "region_nonbird": "鳥ではないと分類されました",
+    "region_budget": "このスキャンの上限内で確認されませんでした",
+    "region_uncertain": "鳥として数えるには不明瞭です",
+    "regions_show_more": "さらに範囲を表示"
   },
   "named_from": {
     "owner": "あなたが識別",

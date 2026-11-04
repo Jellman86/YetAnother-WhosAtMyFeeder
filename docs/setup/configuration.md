@@ -359,7 +359,9 @@ Retention, caching, imports, and the destructive tools.
   photo or primary species. A cropped Frigate image, thumbnail or expired scene is insufficient;
   the control explains when a whole frame is unavailable. Scans run one at a time and survive
   a restart. A completed scan with no birds is distinct from a photo never scanned. An empty
-  retry keeps earlier counted-bird records and says so.
+  retry keeps earlier counted-bird records and says so. With the RF-DETR Nano bird finder the
+  count includes only confident boxes; weaker ones are listed as not counted and the result
+  says **At least N birds confirmed**.
 - **Bird scanning effort** — applies to automatic and requested additional-bird scans. **Standard** uses one detector scan per sampled frame and up to three
   classified crop choices. **Intensive** additionally searches nine overlapping tiles in large
   high-resolution frames and classifies up to eight crop choices. Intensive remains the effort default; automatic scanning is off unless enabled. Both count all usable detector boxes from the selected scene;

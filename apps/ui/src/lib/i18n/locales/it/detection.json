@@ -450,7 +450,20 @@
     "progress_waiting": "In attesa di iniziare",
     "elapsed": "{seconds} s",
     "action_waiting": "In attesa…",
-    "action_scanning": "Ricerca…"
+    "action_scanning": "Ricerca…",
+    "incomplete": "{count, plural, =0 {Nessun uccello confermato in questa immagine.} one {Almeno un uccello confermato in questa immagine.} other {Almeno # uccelli confermati in questa immagine.}} {regions, plural, one {Un altro possibile uccello non è stato contato.} other {Altri # possibili uccelli non sono stati contati.}}",
+    "confirmed": "{count, plural, =0 {Scansione completata. Nessun uccello confermato in questa immagine.} one {Scansione completata. Un uccello confermato in questa immagine.} other {Scansione completata. # uccelli confermati in questa immagine.}}",
+    "count_unavailable": "Il conteggio degli uccelli per questa immagine non è disponibile. I risultati esistenti vengono mantenuti.",
+    "regions_summary": "{count, plural, one {Mostra l’area non contata} other {Mostra le # aree non contate}}",
+    "regions_unconfirmed": "Possibili uccelli, non contati",
+    "regions_excluded": "Non è un uccello, non contato",
+    "region_label": "Area {number}, non contata",
+    "region_shared": "Si sovrappone a un uccello confermato, quindi potrebbe farne parte",
+    "region_individuality": "Potrebbero essere uccelli distinti o parti di uno solo",
+    "region_nonbird": "Classificato come non uccello",
+    "region_budget": "Non controllato entro il limite di questa scansione",
+    "region_uncertain": "Non abbastanza chiaro per contarlo come uccello",
+    "regions_show_more": "Mostra altre aree"
   },
   "named_from": {
     "owner": "Identificato da te",

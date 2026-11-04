@@ -2572,6 +2572,7 @@
                                     eventId={detection.frigate_event}
                                     candidateId={scanFrameCandidate?.candidate_id ?? null}
                                     imageVersion={scanFrameCandidate?.image_url ?? null}
+                                    sceneImageUrl={scanFrameCandidate?.image_url ?? null}
                                     disabled={snapshotApplyPending || snapshotGeneratePending || countedBirdsLoading}
                                     oncompleted={(eventId, candidateId) => { void refreshBirdsAfterScan(eventId, candidateId); }}
                                 />
