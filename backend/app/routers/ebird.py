@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.auth import AuthContext, get_auth_context_with_legacy, require_owner
 from app.database import get_db
 from app.config import settings
@@ -396,7 +397,9 @@ async def export_ebird_csv(
                             ):
                                 return sci, common
                         except Exception as exc:
-                            log.warning("eBird export enrichment failed", scientific_name=sci, error=str(exc))
+                            log.warning(
+                                "eBird export enrichment failed", scientific_name=sci, error=safe_error_message(exc)
+                            )
                     return sci, None
 
                 pairs = await asyncio.gather(*(_enrich_english(sci) for sci in sci_to_enrich))
@@ -575,7 +578,7 @@ async def get_nearby_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, species_code=species_code
         )
     except Exception as e:
-        log.error("eBird nearby search failed", error=str(e))
+        log.error("eBird nearby search failed", error=safe_error_message(e))
         return {"status": "error", "message": str(e), "results": []}
 
     return {
@@ -617,7 +620,7 @@ async def get_notable_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, notable=True
         )
     except Exception as e:
-        log.error("eBird notable search failed", error=str(e))
+        log.error("eBird notable search failed", error=safe_error_message(e))
         return {"status": "error", "message": str(e), "results": []}
 
     results = ebird_service.simplify_observations(items)
@@ -629,7 +632,7 @@ async def get_notable_observations(
         try:
             tax = await taxonomy_service.get_names(name)
         except Exception as exc:
-            log.warning("eBird notable enrichment failed", species=name, error=str(exc))
+            log.warning("eBird notable enrichment failed", species=name, error=safe_error_message(exc))
             return
         if tax and tax.get("thumbnail_url"):
             item["thumbnail_url"] = tax.get("thumbnail_url")

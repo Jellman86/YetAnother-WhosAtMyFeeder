@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
 import structlog
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
 from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
@@ -602,7 +603,7 @@ async def test_notification(
 
         return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
-        log.error("Notification test failed", error=str(e))
+        log.error("Notification test failed", error=safe_error_message(e))
         return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
 
 
@@ -1392,7 +1393,7 @@ async def _broadcast_settings_imported(changed_fields: list[str], username: str)
             }
         )
     except Exception as e:
-        log.warning("Failed to broadcast settings import", error=str(e))
+        log.warning("Failed to broadcast settings import", error=safe_error_message(e))
 
 
 @router.get("/settings/export", response_class=JSONResponse)
@@ -1861,7 +1862,7 @@ async def _update_settings(
             }
         )
     except Exception as e:
-        log.warning("Failed to broadcast settings_updated event", error=str(e))
+        log.warning("Failed to broadcast settings_updated event", error=safe_error_message(e))
     return SettingsUpdateResponse(status="updated")
 
 

@@ -79,6 +79,16 @@ See each endpoint for additional statuses. A `200` response can still carry a do
 `no_result` or test failure state; automation must inspect the body rather than infer
 that an identification was accepted.
 
+Changing owner credentials or toggling authentication revokes previously issued login tokens,
+media cookies and unused stream tickets after the settings save succeeds. Existing live streams
+close before their next delivery or heartbeat. Unrelated settings changes and ordinary upgrades
+preserve sessions. Revocation persists across restarts, including with an environment-provided
+signing key, and does not rotate OAuth encryption keys or legacy API keys.
+
+Integration failure responses retain their status and useful reason while redacting configured
+credentials and recognized credential-bearing URLs. SMTP and router error logs apply the same
+redaction. Successful responses are unaffected.
+
 ### Session cookie for media
 
 `<img>`, `<video>` and `<audio>` cannot set an `Authorization` header. The app uses a session

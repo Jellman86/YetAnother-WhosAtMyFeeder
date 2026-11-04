@@ -1342,6 +1342,13 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
 
+                    if (
+                        stream_auth.session_version is not None
+                        and stream_auth.session_version != settings.auth.session_version
+                    ):
+                        yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session has changed'})}\n\n"
+                        return
+
                     if not auth.is_owner:
                         # Re-evaluate sharing on every delivery, not only at connect.
                         if not settings.public_access.enabled:
@@ -1377,6 +1384,12 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if (
+                        stream_auth.session_version is not None
+                        and stream_auth.session_version != settings.auth.session_version
+                    ):
+                        yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session has changed'})}\n\n"
+                        return
                     if not auth.is_owner and not settings.public_access.enabled:
                         yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
                         return

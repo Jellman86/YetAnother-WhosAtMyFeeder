@@ -18,6 +18,7 @@ import httpx
 
 from google_auth_oauthlib.flow import Flow
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.config import settings
 from app.models import MessageResponse, OAuthAuthorizeResponse
 from app.services.smtp_service import smtp_service
@@ -114,9 +115,10 @@ async def gmail_oauth_authorize(request: Request, auth: AuthContext = Depends(re
     except HTTPException:
         raise
     except Exception as e:
-        log.error("gmail_oauth_authorize_error", error=str(e))
+        log.error("gmail_oauth_authorize_error", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.email.gmail_oauth_failed", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.email.gmail_oauth_failed", lang, error=safe_error_message(e)),
         )
 
 
@@ -265,9 +267,10 @@ async def outlook_oauth_authorize(request: Request, auth: AuthContext = Depends(
     except HTTPException:
         raise
     except Exception as e:
-        log.error("outlook_oauth_authorize_error", error=str(e))
+        log.error("outlook_oauth_authorize_error", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.email.outlook_oauth_failed", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.email.outlook_oauth_failed", lang, error=safe_error_message(e)),
         )
 
 
@@ -386,9 +389,10 @@ async def disconnect_oauth(provider: str, request: Request, auth: AuthContext = 
     except HTTPException:
         raise
     except Exception as e:
-        log.error("oauth_disconnect_error", error=str(e), provider=provider)
+        log.error("oauth_disconnect_error", error=safe_error_message(e), provider=provider)
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.email.disconnect_error", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.email.disconnect_error", lang, error=safe_error_message(e)),
         )
 
 
@@ -503,7 +507,7 @@ async def send_test_email(test_request: TestEmailRequest, request: Request, auth
             detail=i18n_service.translate("errors.email.send_error", lang, error="request timed out"),
         )
     except Exception as e:
-        log.error("test_email_error", error=str(e), error_type=type(e).__name__, mode=send_mode)
+        log.error("test_email_error", error=safe_error_message(e), error_type=type(e).__name__, mode=send_mode)
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=str(e))
+            status_code=500, detail=i18n_service.translate("errors.email.send_error", lang, error=safe_error_message(e))
         )

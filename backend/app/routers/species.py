@@ -9,6 +9,7 @@ import unicodedata
 from typing import Literal
 from pydantic import BaseModel, Field
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.database import get_db
 from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
@@ -188,7 +189,7 @@ async def _get_gbif_taxon_key(name: str) -> int | None:
             resp.raise_for_status()
             data = resp.json()
     except Exception as e:
-        log.warning("GBIF match failed", species=name, error=str(e))
+        log.warning("GBIF match failed", species=name, error=safe_error_message(e))
         return None
 
     key = data.get("usageKey") or data.get("speciesKey") or None
@@ -334,7 +335,7 @@ async def _hydrate_species_search_results(
                     timeout=SPECIES_SEARCH_HYDRATE_LOOKUP_TIMEOUT,
                 )
             except Exception as exc:
-                log.warning("Species search taxonomy hydration failed", label=label, error=str(exc))
+                log.warning("Species search taxonomy hydration failed", label=label, error=safe_error_message(exc))
                 return
 
             if not taxonomy:
@@ -359,7 +360,7 @@ async def _hydrate_species_search_results(
                         label=label,
                         taxa_id=taxa_id,
                         lang=lang,
-                        error=str(exc),
+                        error=safe_error_message(exc),
                     )
 
             if not item.get("common_name") and common_name:
@@ -1687,7 +1688,7 @@ async def _fetch_ebird_info(species_name: str, lang: str) -> SpeciesInfo:
                     cached_at=datetime.now(),
                 )
     except Exception as e:
-        log.error("eBird info fetch failed", species=species_name, error=str(e))
+        log.error("eBird info fetch failed", species=species_name, error=safe_error_message(e))
 
     # Return minimal info if eBird lookup failed
     return SpeciesInfo(
@@ -1810,10 +1811,13 @@ async def _fetch_wikipedia_info(
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout", species=species_name)
     except httpx.RequestError as e:
-        log.error("Wikipedia API request error", species=species_name, error=str(e))
+        log.error("Wikipedia API request error", species=species_name, error=safe_error_message(e))
     except Exception as e:
         log.error(
-            "Unexpected error fetching Wikipedia info", species=species_name, error=str(e), error_type=type(e).__name__
+            "Unexpected error fetching Wikipedia info",
+            species=species_name,
+            error=safe_error_message(e),
+            error_type=type(e).__name__,
         )
 
     # Return minimal info if Wikipedia lookup failed
@@ -1866,12 +1870,12 @@ async def _fetch_wikipedia_info_from_url(
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout (direct)", species=species_name)
     except httpx.RequestError as e:
-        log.error("Wikipedia API request error (direct)", species=species_name, error=str(e))
+        log.error("Wikipedia API request error (direct)", species=species_name, error=safe_error_message(e))
     except Exception as e:
         log.error(
             "Unexpected error fetching Wikipedia info (direct)",
             species=species_name,
-            error=str(e),
+            error=safe_error_message(e),
             error_type=type(e).__name__,
         )
 
@@ -1911,7 +1915,11 @@ async def _inaturalist_query_candidates(
                 merged.extend([r for r in results if isinstance(r, dict)])
         except Exception as e:
             log.warning(
-                "iNaturalist candidate query failed", species=species_name, locale=locale, url=url, error=str(e)
+                "iNaturalist candidate query failed",
+                species=species_name,
+                locale=locale,
+                url=url,
+                error=safe_error_message(e),
             )
 
     return _dedupe_inaturalist_candidates(merged)
@@ -1932,7 +1940,9 @@ async def _inaturalist_fetch_taxon_details(
         if isinstance(results, list) and results and isinstance(results[0], dict):
             return results[0]
     except Exception as e:
-        log.warning("iNaturalist taxon detail fetch failed", taxa_id=taxa_id, locale=locale, error=str(e))
+        log.warning(
+            "iNaturalist taxon detail fetch failed", taxa_id=taxa_id, locale=locale, error=safe_error_message(e)
+        )
     return None
 
 
@@ -2056,12 +2066,12 @@ async def _fetch_inaturalist_info(
     except httpx.TimeoutException:
         log.error("iNaturalist API timeout", species=species_name)
     except httpx.RequestError as e:
-        log.error("iNaturalist API request error", species=species_name, error=str(e))
+        log.error("iNaturalist API request error", species=species_name, error=safe_error_message(e))
     except Exception as e:
         log.error(
             "Unexpected error fetching iNaturalist info",
             species=species_name,
-            error=str(e),
+            error=safe_error_message(e),
             error_type=type(e).__name__,
         )
 
@@ -2165,7 +2175,7 @@ async def _find_wikipedia_article(
             response = await client.get(url)
         except Exception as e:
             errored[0] = True
-            log.warning("Error checking Wikipedia title", title=title, strategy=strategy, error=str(e))
+            log.warning("Error checking Wikipedia title", title=title, strategy=strategy, error=safe_error_message(e))
             return
 
         if response.status_code == 404:
@@ -2279,7 +2289,9 @@ async def _find_wikipedia_article(
             response = await client.get(search_url, params=search_params)
         except Exception as e:
             errored[0] = True
-            log.warning("Wikipedia search failed", error=str(e), species=species_name, query=search_query)
+            log.warning(
+                "Wikipedia search failed", error=safe_error_message(e), species=species_name, query=search_query
+            )
             continue
 
         if response.status_code != 200:
@@ -2374,7 +2386,7 @@ async def _get_wikipedia_summary(
                 cached_at=datetime.now(),
             )
     except Exception as e:
-        log.error("Error fetching Wikipedia summary", error=str(e), article=article_title)
+        log.error("Error fetching Wikipedia summary", error=safe_error_message(e), article=article_title)
 
     return SpeciesInfo(
         title=original_name,

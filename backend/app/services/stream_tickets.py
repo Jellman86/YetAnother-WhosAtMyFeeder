@@ -34,6 +34,7 @@ class StreamTicketGrant:
     username: Optional[str]
     # The session's own expiry, so the stream can end when the session would have.
     session_exp: Optional[datetime]
+    session_version: int = 0
 
     @property
     def is_owner(self) -> bool:
@@ -63,13 +64,17 @@ class StreamTicketStore:
         username: Optional[str],
         session_exp: Optional[datetime],
         now: Optional[float] = None,
+        *,
+        session_version: int = 0,
     ) -> str:
         """Mint a ticket for this session. The returned string is the only copy."""
         moment = monotonic() if now is None else now
         self._sweep(moment)
         ticket = secrets.token_urlsafe(32)
         self._records[self._key(ticket)] = _Record(
-            grant=StreamTicketGrant(auth_level=auth_level, username=username, session_exp=session_exp),
+            grant=StreamTicketGrant(
+                auth_level=auth_level, username=username, session_exp=session_exp, session_version=session_version
+            ),
             expires_at=moment + self._ttl_seconds,
         )
         while len(self._records) > self._max_outstanding:

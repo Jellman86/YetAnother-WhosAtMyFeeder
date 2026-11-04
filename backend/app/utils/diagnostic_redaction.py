@@ -121,6 +121,11 @@ def redact_text(text: str, secrets: Sequence[str] = ()) -> str:
     return _redact_text(text, _known_pattern(secrets))
 
 
+def safe_error_message(error: BaseException) -> str:
+    """Keep useful failure text while redacting configured and recognizable credentials."""
+    return redact_text(str(error), configured_secrets())[:2048]
+
+
 def redact_diagnostic(value: Any, secrets: Sequence[str] = ()) -> Any:
     known = _known_pattern(secrets)
     remaining = 512

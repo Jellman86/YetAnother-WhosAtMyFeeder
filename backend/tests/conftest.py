@@ -212,6 +212,16 @@ def enable_garden_beta_for_garden_tests(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def restore_session_revocation_state():
+    """A password changed by one test must not revoke another test's fixture login."""
+    from app.config import settings
+
+    original = settings.auth.session_version
+    yield
+    settings.auth.session_version = original
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter

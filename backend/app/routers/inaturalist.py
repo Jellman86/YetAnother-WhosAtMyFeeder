@@ -6,6 +6,7 @@ import structlog
 import httpx
 from urllib.parse import urlencode
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.config import settings
 from app.models import OAuthAuthorizeResponse
 from app.auth import require_owner, AuthContext
@@ -118,9 +119,10 @@ async def inaturalist_callback(request: Request, code: str = Query(...), state: 
             resp.raise_for_status()
             token = resp.json()
     except Exception as e:
-        log.error("inat_oauth_token_error", error=str(e))
+        log.error("inat_oauth_token_error", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.inat.oauth_failed", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.inat.oauth_failed", lang, error=safe_error_message(e)),
         )
 
     access_token = token.get("access_token")
@@ -243,9 +245,10 @@ async def inaturalist_submit(
 
         return {"status": "ok", "observation_id": observation_id}
     except Exception as e:
-        log.error("inat_submit_failed", error=str(e))
+        log.error("inat_submit_failed", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.inat.submit_failed", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.inat.submit_failed", lang, error=safe_error_message(e)),
         )
 
 
@@ -289,5 +292,5 @@ async def inaturalist_seasonality(
                 "total_observations": sum(values),
             }
     except Exception as e:
-        log.error("inat_seasonality_failed", taxon_id=taxon_id, error=str(e))
+        log.error("inat_seasonality_failed", taxon_id=taxon_id, error=safe_error_message(e))
         raise HTTPException(status_code=502, detail="Failed to fetch seasonality data")
