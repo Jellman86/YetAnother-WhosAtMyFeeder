@@ -28,7 +28,7 @@ def unpinned_actions(directory: Path) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--workflow-dir", type=Path, default=Path(__file__).resolve().parents[1] / ".github/workflows")
+    parser.add_argument("--workflow-dir", type=Path, default=Path(__file__).resolve().parents[2] / ".github/workflows")
     args = parser.parse_args()
     errors = unpinned_actions(args.workflow_dir)
     if errors:

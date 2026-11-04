@@ -91,9 +91,9 @@ unpublished until their version, scope and tag evidence are known, and use exact
 ## Build inputs
 
 Workflow Actions use immutable commit references with version comments so dependency automation
-can propose reviewed updates. Run `python scripts/check_action_pins.py` and
-`python -m unittest discover -s tests -p test_action_pins.py` before changing workflows; CI runs
-both checks. Local Actions remain local, and container Actions require a digest.
+can propose reviewed updates. Run `python backend/scripts/check_action_pins.py` and
+`python -m pytest backend/tests/pure/test_action_pins.py` before changing workflows. CI runs the
+policy and includes its tests in the required backend gate. Local Actions remain local, and container Actions require a digest.
 
 Image build contexts exclude local `.env` files; example templates remain available. Both the
 monolith and standalone frontend use `npm ci` with the committed lockfile. Supply runtime secrets

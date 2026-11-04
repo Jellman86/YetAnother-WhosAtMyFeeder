@@ -33,9 +33,7 @@ jobs:
           cache-dependency-path: backend/requirements*.txt
 
       - name: Verify immutable Action references
-        run: |
-          python scripts/check_action_pins.py
-          python -m unittest discover -s tests -p test_action_pins.py
+        run: python backend/scripts/check_action_pins.py
 
       - name: Install backend dependencies
         run: |
