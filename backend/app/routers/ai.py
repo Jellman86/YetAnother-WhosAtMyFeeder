@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 import structlog
+from app.utils.diagnostic_redaction import safe_error_message
 from app.services.ai_service import AIAnalysisError, ai_service
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
@@ -106,7 +107,7 @@ async def _load_ai_analysis_frames(
                     return frames, "recording"
                 log.warning("recording_clip_frame_extraction_failed", event_id=event_id)
             except OSError as exc:
-                log.warning("recording_clip_read_failed", event_id=event_id, error=str(exc))
+                log.warning("recording_clip_read_failed", event_id=event_id, error=safe_error_message(exc))
 
     if settings.frigate.clips_enabled:
         clip_bytes, clip_error = await frigate_client.get_clip_with_error(event_id)

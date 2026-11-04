@@ -34,6 +34,22 @@ never fills the owner login in as broker credentials.
 With authentication on, an owner who is signed out sees **Sign in**. When public access is also on,
 **Continue without signing in** returns to the guest view.
 
+## Changing your login
+
+Changing the owner password or username signs existing sessions out. Sign in again with the new
+credentials. Media cookies and unused stream tickets from the old login also stop working;
+an already-open live stream closes before delivering another update or heartbeat. Toggling
+authentication also revokes previous login sessions. Legacy API keys remain independent.
+
+Ordinary upgrades and unrelated settings saves preserve your login. Connected email and
+OAuth integrations keep their encryption keys, so changing your password does not disconnect them.
+Importing a configuration backup through Settings cannot restore previously revoked login sessions.
+
+On POSIX systems, saved configuration and newly generated installation secrets use owner-only
+file permissions. Saves use an exclusive temporary file and atomic replacement; failed writes
+leave the previous configuration intact. Downloaded backups still contain secrets and need
+private storage.
+
 ## Password Reset
 
 Currently, there is no email-based "Forgot Password" flow. If you lose your password, you must reset it manually via the server file system.

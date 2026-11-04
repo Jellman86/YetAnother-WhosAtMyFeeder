@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, JsonValue
 import structlog
 from pathlib import Path
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.models.classifier_status import ClassifierStatusResponse
 from app.services.classifier_service import get_classifier
 from app.services.provider_revalidation import ProviderValidationStatus, provider_revalidation
@@ -37,7 +38,7 @@ async def _decode_upload(image: UploadFile, *, convert_rgb: bool = False):
         return await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=convert_rgb)
     except ValueError as exc:
         if "pixel limit" in str(exc):
-            raise HTTPException(status_code=413, detail=str(exc)) from exc
+            raise HTTPException(status_code=413, detail=safe_error_message(exc)) from exc
         raise
 
 
@@ -151,7 +152,7 @@ async def classifier_status(
     try:
         status.update(await personalization_service.get_status_summary())
     except Exception as exc:
-        log.warning("Failed to load personalization status summary", error=str(exc))
+        log.warning("Failed to load personalization status summary", error=safe_error_message(exc))
 
     return ClassifierStatusResponse.model_validate(status)
 
@@ -366,7 +367,7 @@ async def probe_bird_classifier_runtime(
             synthetic_image=synthetic_image,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_message(exc)) from exc
 
 
 @router.get("/wildlife/debug", response_model=dict[str, JsonValue])
@@ -525,7 +526,7 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
         log.error("Failed to download wildlife model - HTTP error", status=e.response.status_code)
         return {"status": "error", "message": f"HTTP {e.response.status_code}: Download failed"}
     except Exception as e:
-        log.error("Failed to download wildlife model", error=str(e))
+        log.error("Failed to download wildlife model", error=safe_error_message(e))
         return {"status": "error", "message": str(e)}
 
 
@@ -623,5 +624,5 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
         log.error("Failed to download model - HTTP error", status=e.response.status_code, url=str(e.request.url))
         return {"status": "error", "message": f"HTTP {e.response.status_code}: Failed to download from {e.request.url}"}
     except Exception as e:
-        log.error("Failed to download model", error=str(e))
+        log.error("Failed to download model", error=safe_error_message(e))
         return {"status": "error", "message": str(e)}

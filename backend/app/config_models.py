@@ -1140,6 +1140,7 @@ class AuthSettings(BaseModel):
         default=None,
         description="Secret key for encrypting persisted OAuth tokens; falls back to session_secret if unset",
     )
+    session_version: int = Field(default=0, ge=0, description="Persisted login revocation generation")
     session_expiry_hours: int = Field(
         default=168,  # 7 days
         ge=1,

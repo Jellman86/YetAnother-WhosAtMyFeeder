@@ -48,6 +48,11 @@ def enable_garden_beta_for_garden_tests():
 
 
 @pytest.fixture
+def restore_session_revocation_state():
+    pass
+
+
+@pytest.fixture
 def disable_rate_limiting():
     pass
 

@@ -257,14 +257,20 @@ async def create_stream_ticket(request: Request, auth: AuthContext = Depends(get
         )
 
     session_exp = None
+    session_version = settings.auth.session_version
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         try:
-            session_exp = verify_token(auth_header[7:]).exp
+            token_data = verify_token(auth_header[7:])
+            session_exp = token_data.exp
+            session_version = token_data.session_version
         except HTTPException:
-            session_exp = None
+            # Credentials can change after the dependency granted owner access.
+            # An old login must not become a fresh ticket without an expiry.
+            if settings.auth.enabled:
+                raise
 
-    ticket = stream_tickets.issue(auth.auth_level, auth.username, session_exp)
+    ticket = stream_tickets.issue(auth.auth_level, auth.username, session_exp, session_version=session_version)
     return StreamTicketResponse(ticket=ticket, expires_in_seconds=STREAM_TICKET_TTL_SECONDS)
 
 
