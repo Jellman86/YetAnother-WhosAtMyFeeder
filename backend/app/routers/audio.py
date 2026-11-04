@@ -6,6 +6,7 @@ import json
 import structlog
 from pydantic import BaseModel
 from typing import Literal
+from app.utils.diagnostic_redaction import safe_error_message
 from app.services.audio.audio_service import audio_service
 from app.services.audio.heard_groups import (
     HEARD_GROUP_GAP_SECONDS,
@@ -668,7 +669,7 @@ async def get_audio_spectrogram(
         async with httpx.AsyncClient(timeout=8.0) as client:
             response = await client.get(target, params={"width": width})
     except httpx.HTTPError as exc:
-        log.warning("birdnet_spectrogram_proxy_failed", id=birdnet_id, error=str(exc))
+        log.warning("birdnet_spectrogram_proxy_failed", id=birdnet_id, error=safe_error_message(exc))
         raise HTTPException(status_code=502, detail="BirdNET-Go unreachable")
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Spectrogram not found")
@@ -710,7 +711,7 @@ async def get_audio_clip(
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(target, headers=forward_headers)
     except httpx.HTTPError as exc:
-        log.warning("birdnet_clip_proxy_failed", id=birdnet_id, error=str(exc))
+        log.warning("birdnet_clip_proxy_failed", id=birdnet_id, error=safe_error_message(exc))
         raise HTTPException(status_code=502, detail="BirdNET-Go unreachable")
     if response.status_code == 404:
         raise HTTPException(status_code=404, detail="Audio clip not found")

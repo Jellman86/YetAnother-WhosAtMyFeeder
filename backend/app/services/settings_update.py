@@ -760,6 +760,13 @@ def publish_settings(current: BaseModel, candidate: BaseModel) -> None:
 
 
 async def apply_update(current: Settings, candidate: Settings) -> None:
+    # A backup must never restore an older generation or revoke current sessions
+    # merely by importing its generation. Signing/OAuth keys remain independent.
+    credentials_changed = any(
+        getattr(current.auth, field) != getattr(candidate.auth, field)
+        for field in ("enabled", "username", "password_hash")
+    )
+    candidate.auth.session_version = current.auth.session_version + int(credentials_changed)
     await candidate.save()
     publish_settings(current, candidate)
 

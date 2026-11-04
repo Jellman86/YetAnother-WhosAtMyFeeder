@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.database import get_db
 from app.models import DetectionListItemResponse, DetectionResponse
 from app.repositories.detection_repository import DetectionRepository, Detection as StoredDetection
@@ -1255,7 +1256,7 @@ async def _prefetch_manual_tag_taxonomy(
             event_id=event_id,
             requested_species=new_species,
             taxonomy_lookup_name=taxonomy_lookup_name,
-            error=str(exc),
+            error=safe_error_message(exc),
         )
         taxonomy = {}
     if lookup_cache is not None:
@@ -1388,7 +1389,7 @@ async def _apply_manual_tag_update(
             event_id=event_id,
             requested_species=new_species,
             scientific_name=sci_name,
-            error=str(exc),
+            error=safe_error_message(exc),
         )
         audio_confirmed, audio_species, audio_score = False, None, None
 
@@ -1411,7 +1412,9 @@ async def _apply_manual_tag_update(
                 species_catalog_resolver.resolve_scientific_name, sci_name
             )
         except Exception as exc:  # pragma: no cover - identity stays unknown
-            log.warning("Could not resolve corrected species identity", error=str(exc), event_id=event_id)
+            log.warning(
+                "Could not resolve corrected species identity", error=safe_error_message(exc), event_id=event_id
+            )
 
     await repo.apply_manual_species_tag(
         frigate_event=event_id,
@@ -1509,7 +1512,11 @@ async def _photo_follows_species(result: dict, requested_species: str) -> bool:
         )
     except Exception as exc:
         # The correction is already saved; a photo that cannot follow keeps the previous one.
-        log.warning("Uploaded video photo did not follow the corrected species", event_id=event_id, error=str(exc))
+        log.warning(
+            "Uploaded video photo did not follow the corrected species",
+            event_id=event_id,
+            error=safe_error_message(exc),
+        )
         return False
 
 
@@ -1756,7 +1763,7 @@ async def reclassify_event(
             "Unexpected reclassification failure",
             event_id=event_id,
             strategy=strategy,
-            error=str(exc),
+            error=safe_error_message(exc),
             exc_info=True,
         )
         raise HTTPException(
@@ -1813,7 +1820,7 @@ async def bulk_manual_tag_events(
                 "Bulk manual tag update failed for event",
                 event_id=event_id,
                 requested_species=update_request.display_name,
-                error=str(exc),
+                error=safe_error_message(exc),
                 exc_info=True,
             )
             continue

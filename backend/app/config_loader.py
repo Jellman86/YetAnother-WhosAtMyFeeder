@@ -6,6 +6,8 @@ from typing import Any
 
 import structlog
 
+from .utils.private_files import write_private_text
+
 from .config_models import (
     AuthSettings,
     AccessibilitySettings,
@@ -55,10 +57,7 @@ def _persist_generated_auth_secret(config_path: Path, secret_key: str, secret_va
         auth[secret_key] = secret_value
         data["auth"] = auth
 
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp_path.replace(config_path)
+        write_private_text(config_path, json.dumps(data, indent=2))
         return True
     except Exception as e:
         log.warning("Failed to persist generated auth secret", path=str(config_path), key=secret_key, error=str(e))
@@ -817,7 +816,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             if "auth" in file_data:
                 for k, v in file_data["auth"].items():
                     env_key = f"AUTH__{k.upper()}"
-                    if env_key not in os.environ:
+                    if k == "session_version" or env_key not in os.environ:
                         auth_data[k] = v
                 if (
                     "initial_setup_complete" not in file_data["auth"]

@@ -5,6 +5,7 @@ state/country/place from a configured latitude/longitude pair.
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.services.geocoding_service import geocoding_service
 
 router = APIRouter(prefix="/location", tags=["location"])
@@ -24,7 +25,7 @@ async def reverse_geocode(
     try:
         result = await geocoding_service.reverse(lat, lon)
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=str(exc))
+        raise HTTPException(status_code=502, detail=safe_error_message(exc))
     return {
         "state": result.state,
         "country": result.country,

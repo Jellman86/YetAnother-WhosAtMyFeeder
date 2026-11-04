@@ -8,6 +8,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .config_loader import load_settings_instance
+from .utils.private_files import write_private_text
 from .config_models import (
     AuthSettings,
     AccessibilitySettings,
@@ -69,19 +70,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_nested_delimiter="__", env_file=".env", extra="ignore")
 
-    async def save(self):
+    async def save(self) -> None:
         # Avoid aiofiles here: in this environment it can hang indefinitely.
         # asyncio.to_thread keeps the API async without relying on aiofiles.
         payload = self.model_dump_json(indent=2)
-        path = CONFIG_PATH
-
-        def _write_atomic() -> None:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_text(payload, encoding="utf-8")
-            tmp.replace(path)
-
-        await asyncio.to_thread(_write_atomic)
+        await asyncio.to_thread(write_private_text, CONFIG_PATH, payload)
 
     @classmethod
     def load(cls):

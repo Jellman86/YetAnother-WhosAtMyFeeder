@@ -21,6 +21,7 @@ import sqlite3
 import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
+from app.utils.diagnostic_redaction import safe_error_message
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
@@ -1032,7 +1033,7 @@ async def _resolve_recording_clip_detection_timestamp(
         structlog.get_logger().warning(
             "Failed to fetch Frigate event while resolving recording clip timestamp",
             event_id=event_id,
-            error=str(exc),
+            error=safe_error_message(exc),
         )
         event_data = None
 
@@ -1763,7 +1764,9 @@ async def request_bird_scan(
     except BirdScanBusyError as exc:
         raise HTTPException(status_code=409, detail="scan_in_progress") from exc
     except BirdScanUnavailable as exc:
-        raise HTTPException(status_code=429 if str(exc) == "queue_full" else 409, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=429 if str(exc) == "queue_full" else 409, detail=safe_error_message(exc)
+        ) from exc
 
 
 @router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)
