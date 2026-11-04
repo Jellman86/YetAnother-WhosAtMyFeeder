@@ -2162,6 +2162,57 @@
         "title": "BackfillResponse",
         "type": "object"
       },
+      "BirdCountRegion": {
+        "properties": {
+          "box": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Box",
+            "type": "array"
+          },
+          "candidate_id": {
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "detector_confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Confidence"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "box",
+          "detector_confidence",
+          "reason"
+        ],
+        "title": "BirdCountRegion",
+        "type": "object"
+      },
       "BirdObservationResponse": {
         "properties": {
           "bird_index": {
@@ -2366,6 +2417,18 @@
             "title": "Candidate Id",
             "type": "string"
           },
+          "count_status": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "complete",
+              "incomplete",
+              "ambiguous",
+              "not_measured"
+            ],
+            "title": "Count Status",
+            "type": "string"
+          },
           "error": {
             "anyOf": [
               {
@@ -2380,6 +2443,14 @@
           "event_id": {
             "title": "Event Id",
             "type": "string"
+          },
+          "excluded_regions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BirdCountRegion"
+            },
+            "title": "Excluded Regions",
+            "type": "array"
           },
           "queue_ahead": {
             "anyOf": [
@@ -2479,6 +2550,14 @@
               }
             ],
             "title": "Unavailable Reason"
+          },
+          "unconfirmed_regions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BirdCountRegion"
+            },
+            "title": "Unconfirmed Regions",
+            "type": "array"
           },
           "updated_at": {
             "anyOf": [

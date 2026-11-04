@@ -61,6 +61,53 @@ async def test_manual_scan_keeps_unclassified_boxes_beyond_crop_limit(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_qualified_finder_scan_counts_strong_birds_and_skips_weak_species_rechecks(monkeypatch):
+    image = Image.new("RGB", (400, 200), "green")
+    output = io.BytesIO()
+    image.save(output, format="JPEG")
+    boxes = [
+        {"box": (10, 20, 80, 90), "confidence": 0.84},
+        {"box": (200, 20, 270, 90), "confidence": 0.79},
+        {"box": (330, 120, 380, 170), "confidence": 0.30},
+    ]
+    crop = Image.new("RGB", (80, 80), "green")
+    generator = Mock(
+        return_value=[
+            {
+                "crop_image": crop,
+                "box": (0, 0, 90, 100),
+                "detector_box": boxes[0]["box"],
+                "confidence": 0.84,
+                "observation_boxes": boxes,
+            }
+        ]
+    )
+    monkeypatch.setattr(scans.bird_crop_service, "generate_classification_candidate_crops", generator)
+    monkeypatch.setattr(scans.bird_crop_service, "confirmed_count_finder_loaded", lambda: True)
+    monkeypatch.setattr(scans.settings.media_cache, "bird_scan_mode", "standard")
+    monkeypatch.setattr(
+        scans.high_quality_snapshot_service,
+        "_score_snapshot_candidate",
+        AsyncMock(side_effect=lambda item: {**item, "classifier_label": "House Finch", "classifier_score": 0.95}),
+    )
+    recheck = AsyncMock(side_effect=AssertionError("borrowed species rechecks cannot confirm a weak box"))
+    monkeypatch.setattr(scans.high_quality_snapshot_service, "_recheck_weak_count_candidates", recheck)
+    job = SimpleNamespace(
+        event_id="exact-event", revision=1, candidate_id="exact-scene", clip_variant="recording", frame_index=41
+    )
+
+    result = await scans.BirdScanService()._analyze_scene(job, output.getvalue())
+
+    assert len(result.birds) == 2
+    assert result.count_status == "incomplete"
+    assert [region.box for region in result.unconfirmed_regions] == [(330, 120, 380, 170)]
+    assert all(bird.candidate_id.startswith("exact-scene__observed__") for bird in result.birds)
+    recheck.assert_not_awaited()
+    crop.close()
+    image.close()
+
+
+@pytest.mark.asyncio
 async def test_cancellation_waits_for_native_reader_before_releasing_image():
     entered, release = threading.Event(), threading.Event()
     image = Image.new("RGB", (1, 1), "green")

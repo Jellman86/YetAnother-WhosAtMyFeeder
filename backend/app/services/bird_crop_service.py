@@ -31,6 +31,10 @@ class BirdDetectionError(RuntimeError):
     """A scan failed at runtime rather than finding no usable bird."""
 
 
+# Finders whose strong boxes were checked against hand-boxed feeder frames (#734).
+CONFIRMED_COUNT_FINDER_MODEL_IDS = frozenset({"bird_crop_detector_accurate_rfdetr_nano"})
+
+
 def detector_scan_failed(result: dict[str, Any]) -> bool:
     return (
         result.get("runtime_error") is True
@@ -963,6 +967,16 @@ class BirdCropService:
             "min_crop_size": max(1, int(min_crop_size)),
             "expand_ratio": max(0.0, float(self.expand_ratio)),
         }
+
+    def confirmed_count_finder_loaded(self) -> bool:
+        """Whether the loaded whole-scene finder is validated to support confirmed counts.
+
+        YOLOX-Tiny scores most real feeder birds far below the strong floor, so
+        confirming its boxes would undercount; it keeps the earlier count instead.
+        """
+        return bool(self._models_loaded.get("accurate")) and (
+            self._loaded_model_ids.get("accurate") in CONFIRMED_COUNT_FINDER_MODEL_IDS
+        )
 
     def _ensure_model_for_tier(self, tier: str) -> Any | None:
         normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"

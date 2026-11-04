@@ -49,6 +49,7 @@ from app.services.photo_presence import attach_photo_presence, has_localized_bir
 from app.services.bird_observation_selection import (
     BirdObservationSelection,
     select_bird_observations,
+    select_scene_birds,
     MIN_DETECTOR_CONFIDENCE,
     MIN_SPECIES_CONFIDENCE,
 )
@@ -939,9 +940,12 @@ class HighQualitySnapshotService:
         # Target crop geometry remains photo-presence evidence even when optional
         # whole-scene enumeration and recovered-bird classification are disabled.
         observation_candidates = await self._detect_count_candidates(scored) if include_additional_birds else []
+        confirmed_finder = include_additional_birds and self._confirmed_count_finder_loaded()
+        # A recheck names a weak box from its neighbour's species, which is not
+        # evidence of another individual, so confirmed counts do not spend it.
         rechecked_observations = (
             await self._recheck_weak_count_candidates(scored, observations=observation_candidates)
-            if include_additional_birds
+            if include_additional_birds and not confirmed_finder
             else []
         )
         supported = attach_photo_presence(scored, observation_candidates)
@@ -962,8 +966,10 @@ class HighQualitySnapshotService:
             expected_labels=expected_labels,
         )
         bird_selection = (
-            select_bird_observations(
-                scored + observation_candidates + rechecked_observations, selected_candidate=selected_candidate
+            select_scene_birds(
+                scored + observation_candidates + rechecked_observations,
+                selected_candidate=selected_candidate,
+                confirmed_finder=confirmed_finder,
             )
             if include_additional_birds
             else None
@@ -1261,6 +1267,11 @@ class HighQualitySnapshotService:
             "image_width": image.width,
             "image_height": image.height,
         }
+
+    @staticmethod
+    def _confirmed_count_finder_loaded() -> bool:
+        check = getattr(bird_crop_service, "confirmed_count_finder_loaded", None)
+        return callable(check) and check() is True
 
     async def _detect_count_candidates(self, scored: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Scan whole frames for every bird, independently of the photo-choice crop ceiling."""

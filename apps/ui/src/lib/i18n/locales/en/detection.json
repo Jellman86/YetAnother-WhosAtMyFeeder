@@ -450,7 +450,20 @@
     "progress_waiting": "Waiting to start",
     "elapsed": "{seconds}s",
     "action_waiting": "Waiting…",
-    "action_scanning": "Scanning…"
+    "action_scanning": "Scanning…",
+    "incomplete": "{count, plural, =0 {No birds confirmed in this frame.} one {At least one bird confirmed in this frame.} other {At least # birds confirmed in this frame.}} {regions, plural, one {One more possible bird was not counted.} other {# more possible birds were not counted.}}",
+    "confirmed": "{count, plural, =0 {Scan complete. No birds confirmed in this frame.} one {Scan complete. One bird confirmed in this frame.} other {Scan complete. # birds confirmed in this frame.}}",
+    "count_unavailable": "The bird count for this frame is unavailable. Existing findings are kept.",
+    "regions_summary": "{count, plural, one {Show the area that was not counted} other {Show the # areas that were not counted}}",
+    "regions_unconfirmed": "Possible birds, not counted",
+    "regions_excluded": "Not a bird, not counted",
+    "region_label": "Area {number}, not counted",
+    "region_shared": "Overlaps a confirmed bird, so it may be part of it",
+    "region_individuality": "Could be separate birds or parts of one",
+    "region_nonbird": "Classified as not a bird",
+    "region_budget": "Not checked within this scan’s limit",
+    "region_uncertain": "Not clear enough to count as a bird",
+    "regions_show_more": "Show more areas"
   },
   "named_from": {
     "owner": "Named by you",

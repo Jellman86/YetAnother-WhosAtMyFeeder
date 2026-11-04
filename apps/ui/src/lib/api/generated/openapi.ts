@@ -333,6 +333,12 @@ export interface components {
     status: string;
     updated?: number;
 };
+    BirdCountRegion: {
+    box: [number, number, number, number];
+    candidate_id: string;
+    detector_confidence: number | null;
+    reason: string;
+};
     BirdObservationResponse: {
     bird_index: number;
     candidate_id: string;
@@ -365,8 +371,10 @@ export interface components {
     BirdScanResponse: {
     available: boolean;
     candidate_id: string;
+    count_status?: "legacy" | "complete" | "incomplete" | "ambiguous" | "not_measured";
     error?: string | null;
     event_id: string;
+    excluded_regions?: Array<components['schemas']['BirdCountRegion']>;
     queue_ahead?: number | null;
     result_count?: number | null;
     retained_previous?: boolean;
@@ -376,6 +384,7 @@ export interface components {
     started_at?: string | null;
     status: "not_scanned" | "queued" | "running" | "completed" | "failed";
     unavailable_reason?: string | null;
+    unconfirmed_regions?: Array<components['schemas']['BirdCountRegion']>;
     updated_at?: string | null;
 };
     BirdSpeciesCount: {

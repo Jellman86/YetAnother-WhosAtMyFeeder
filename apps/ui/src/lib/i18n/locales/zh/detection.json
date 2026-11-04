@@ -450,7 +450,20 @@
     "progress_waiting": "等待开始",
     "elapsed": "{seconds} 秒",
     "action_waiting": "等待中…",
-    "action_scanning": "扫描中…"
+    "action_scanning": "扫描中…",
+    "incomplete": "{count, plural, =0 {此画面中没有确认的鸟。} other {此画面中至少确认了 # 只鸟。}}{regions, plural, other {另有 # 个可能的鸟未计入。}}",
+    "confirmed": "{count, plural, =0 {扫描完成。此画面中没有确认的鸟。} other {扫描完成。此画面中确认了 # 只鸟。}}",
+    "count_unavailable": "此画面的鸟类数量不可用。已有结果将保留。",
+    "regions_summary": "{count, plural, other {显示 # 个未计入的区域}}",
+    "regions_unconfirmed": "可能的鸟，未计入",
+    "regions_excluded": "不是鸟，未计入",
+    "region_label": "区域 {number}，未计入",
+    "region_shared": "与已确认的鸟重叠，可能是它的一部分",
+    "region_individuality": "可能是不同的鸟，也可能是同一只鸟的部分",
+    "region_nonbird": "被判定为不是鸟",
+    "region_budget": "未在本次扫描的限额内检查",
+    "region_uncertain": "不够清晰，无法计为鸟",
+    "regions_show_more": "显示更多区域"
   },
   "named_from": {
     "owner": "由你识别",

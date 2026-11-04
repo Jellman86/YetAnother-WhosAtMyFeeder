@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Bird counts no longer add feeder parts and half-seen birds (#734).** With the RF-DETR Nano
+  bird finder, a whole-frame scan, manual or automatic, now counts only the boxes the finder is
+  confident about (0.60 or higher). A weaker box that overlaps a counted bird, could be part of
+  another box, or is simply too faint is listed as not counted instead of being added. The scan
+  then says **At least 2 birds confirmed in this frame. 2 more possible birds were not counted.**,
+  and **Show the areas that were not counted** opens a preview of each one with its reason. The
+  frame from #734, which previously counted four birds, now counts its two birds and lists the
+  part-box and seed port. Your corrections and exclusions are kept as before, and uncounted areas
+  never become counted-bird rows. With YOLOX-Tiny, which scores most feeder birds below that
+  floor, scans count every usable box as before. A reversible migration adds the count status and
+  uncounted areas to scan records; earlier scans keep their counts and show their original wording.
+
 - Settings saves and backup imports persist a private candidate before changing live
   settings. Concurrent requests are serialised, and failed saves schedule no reloads
   or notifications.

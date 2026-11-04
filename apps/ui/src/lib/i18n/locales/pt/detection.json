@@ -450,7 +450,20 @@
     "progress_waiting": "Aguardando para começar",
     "elapsed": "{seconds} s",
     "action_waiting": "Aguardando…",
-    "action_scanning": "Buscando…"
+    "action_scanning": "Buscando…",
+    "incomplete": "{count, plural, =0 {Nenhuma ave confirmada nesta imagem.} one {Pelo menos uma ave confirmada nesta imagem.} other {Pelo menos # aves confirmadas nesta imagem.}} {regions, plural, one {Outra possível ave não foi contada.} other {Outras # possíveis aves não foram contadas.}}",
+    "confirmed": "{count, plural, =0 {Análise concluída. Nenhuma ave confirmada nesta imagem.} one {Análise concluída. Uma ave confirmada nesta imagem.} other {Análise concluída. # aves confirmadas nesta imagem.}}",
+    "count_unavailable": "A contagem de aves desta imagem não está disponível. Os resultados existentes são mantidos.",
+    "regions_summary": "{count, plural, one {Mostrar a área que não foi contada} other {Mostrar as # áreas que não foram contadas}}",
+    "regions_unconfirmed": "Possíveis aves, não contadas",
+    "regions_excluded": "Não é uma ave, não contada",
+    "region_label": "Área {number}, não contada",
+    "region_shared": "Sobrepõe-se a uma ave confirmada, por isso pode fazer parte dela",
+    "region_individuality": "Podem ser aves diferentes ou partes de uma só",
+    "region_nonbird": "Classificado como não sendo uma ave",
+    "region_budget": "Não verificado dentro do limite desta análise",
+    "region_uncertain": "Não é nítido o suficiente para contar como ave",
+    "regions_show_more": "Mostrar mais áreas"
   },
   "named_from": {
     "owner": "Identificado por si",

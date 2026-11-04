@@ -8,6 +8,7 @@ import pytest_asyncio
 
 from app.database import close_db, get_db, init_db
 from app.repositories.bird_scan_repository import BirdScanBusyError, BirdScanNotFoundError, BirdScanRepository
+from app.services.bird_observation_selection import BirdCountRegion
 
 INPUT = dict(
     candidate_id="frame-1",
@@ -17,6 +18,92 @@ INPUT = dict(
     clip_variant="event",
     frame_index=1,
 )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("automatic", [False, True])
+async def test_partial_count_and_uncounted_regions_are_published_with_the_same_revision(repo, automatic):
+    region = BirdCountRegion("uncertain", (10, 10, 30, 30), 0.4, "individuality_unresolved")
+    if automatic:
+        changed = await repo.record_automatic_outcome(
+            "scan-test-one",
+            **INPUT,
+            expected_revision=None,
+            expected_generation=None,
+            result_count=2,
+            retained_previous=False,
+            count_status="incomplete",
+            unconfirmed_regions=(region,),
+        )
+    else:
+        await repo.enqueue("scan-test-one", **INPUT)
+        job = await repo.claim_next()
+        changed = await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=2,
+            retained_previous=False,
+            count_status="incomplete",
+            unconfirmed_regions=(region,),
+        )
+    assert changed
+    outcome = await repo.get("scan-test-one")
+    assert outcome.result_count == 2
+    assert outcome.count_status == "incomplete"
+    assert outcome.unconfirmed_regions == (region,)
+    assert outcome.excluded_regions == ()
+    await repo.enqueue("scan-test-one", **INPUT, force=True)
+    queued = await repo.get("scan-test-one")
+    assert queued.unconfirmed_regions == ()
+    assert queued.count_status == "legacy"
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_cannot_replace_new_count_regions(repo):
+    await repo.enqueue("scan-test-one", **INPUT)
+    stale = await repo.claim_next()
+    await repo.recover_running()
+    current = await repo.claim_next()
+    region = BirdCountRegion("unconfirmed", (10, 10, 30, 30), 0.4, "confirmation_unavailable")
+    assert await repo.complete(
+        current.event_id,
+        current.revision,
+        expected_generation=current.generation,
+        result_count=2,
+        retained_previous=False,
+        count_status="incomplete",
+        unconfirmed_regions=(region,),
+    )
+    assert not await repo.complete(
+        stale.event_id,
+        stale.revision,
+        expected_generation=stale.generation,
+        result_count=8,
+        retained_previous=False,
+        count_status="complete",
+    )
+    assert (await repo.get(current.event_id)).unconfirmed_regions == (region,)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,regions",
+    [("incomplete", ()), ("complete", (BirdCountRegion("u", (1, 1, 3, 3), 0.4, "confirmation_unavailable"),))],
+)
+async def test_count_completeness_cannot_contradict_its_regions(repo, status, regions):
+    await repo.enqueue("scan-test-one", **INPUT)
+    job = await repo.claim_next()
+    with pytest.raises(ValueError):
+        await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=1,
+            retained_previous=False,
+            count_status=status,
+            unconfirmed_regions=regions,
+        )
 
 
 @pytest.mark.asyncio

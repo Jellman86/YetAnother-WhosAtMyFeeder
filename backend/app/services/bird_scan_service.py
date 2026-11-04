@@ -14,7 +14,7 @@ from app.repositories.bird_observation_repository import BirdObservationReposito
 from app.repositories.bird_scan_repository import BirdScanJob, BirdScanNotFoundError, BirdScanRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.bird_crop_service import bird_crop_service
-from app.services.bird_observation_selection import BirdObservationSelection, select_bird_observations
+from app.services.bird_observation_selection import BirdObservationSelection, select_scene_birds
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.photo_choice_actions import photo_choice_lock
@@ -57,6 +57,14 @@ def _full_scene(candidate: dict[str, Any]) -> bool:
         and isinstance(candidate.get("clip_variant"), str)
         and type(candidate.get("frame_index")) is int
     )
+
+
+def _count_qualification(selection: BirdObservationSelection) -> dict[str, Any]:
+    return {
+        "count_status": "ambiguous" if selection.ambiguity_reason else selection.count_status,
+        "unconfirmed_regions": selection.unconfirmed_regions,
+        "excluded_regions": selection.excluded_regions,
+    }
 
 
 class BirdScanService:
@@ -162,6 +170,9 @@ class BirdScanService:
             "unavailable_reason": reason,
             "error": job.error if job and matches else None,
             "result_count": job.result_count if job and matches else None,
+            "count_status": job.count_status if job and matches else "legacy",
+            "unconfirmed_regions": list(job.unconfirmed_regions) if job and matches else [],
+            "excluded_regions": list(job.excluded_regions) if job and matches else [],
             "retained_previous": job.retained_previous if job and matches else False,
             "updated_at": str(job.updated_at) if job and matches else None,
         }
@@ -290,6 +301,7 @@ class BirdScanService:
                         error=selection.ambiguity_reason,
                         retained_previous=bool(existing),
                         commit=False,
+                        **_count_qualification(selection),
                     )
                 else:
                     changed = await repository.complete(
@@ -299,6 +311,7 @@ class BirdScanService:
                         result_count=len(selection.birds),
                         retained_previous=bool(existing and not selection.birds),
                         commit=False,
+                        **_count_qualification(selection),
                     )
                 if not changed:
                     await db.rollback()
@@ -373,10 +386,19 @@ class BirdScanService:
                 ]
             else:
                 observations = await high_quality_snapshot_service._detect_count_candidates(scored)
-            rechecked = await high_quality_snapshot_service._recheck_weak_count_candidates(
-                scored, observations=observations
+            confirmed_finder = bird_crop_service.confirmed_count_finder_loaded()
+            # A recheck names a weak box from its neighbour's species, which is not
+            # evidence of another individual, so confirmed counts do not spend it.
+            rechecked = (
+                []
+                if confirmed_finder
+                else await high_quality_snapshot_service._recheck_weak_count_candidates(
+                    scored, observations=observations
+                )
             )
-            selection = select_bird_observations(scored + observations + rechecked, selected_candidate=None)
+            selection = select_scene_birds(
+                scored + observations + rechecked, selected_candidate=None, confirmed_finder=confirmed_finder
+            )
             # Every persisted observation names its exact retained scene. Synthetic scored
             # crops are not added as photo choices and cannot change the owner's photograph.
             return replace(
@@ -471,6 +493,7 @@ class BirdScanService:
                     retained_previous=bool(existing and (not selection.birds or selection.ambiguity_reason)),
                     error=selection.ambiguity_reason,
                     commit=False,
+                    **_count_qualification(selection),
                 )
                 if not changed:
                     await db.rollback()
@@ -494,6 +517,7 @@ class BirdScanService:
         # supersede a durable scan whose status names different evidence.
         if (
             selection.ambiguity_reason
+            or selection.count_status in {"incomplete", "not_measured"}
             or bundle.get("automatic_scan_expected_revision") is not None
             or bundle.get("automatic_scan_expected_generation") is not None
         ):

@@ -450,7 +450,20 @@
     "progress_waiting": "En attente de démarrage",
     "elapsed": "{seconds} s",
     "action_waiting": "En attente…",
-    "action_scanning": "Recherche…"
+    "action_scanning": "Recherche…",
+    "incomplete": "{count, plural, =0 {Aucun oiseau confirmé dans cette image.} one {Au moins un oiseau confirmé dans cette image.} other {Au moins # oiseaux confirmés dans cette image.}} {regions, plural, one {Un autre oiseau possible n’a pas été compté.} other {# autres oiseaux possibles n’ont pas été comptés.}}",
+    "confirmed": "{count, plural, =0 {Analyse terminée. Aucun oiseau confirmé dans cette image.} one {Analyse terminée. Un oiseau confirmé dans cette image.} other {Analyse terminée. # oiseaux confirmés dans cette image.}}",
+    "count_unavailable": "Le nombre d’oiseaux de cette image est indisponible. Les résultats existants sont conservés.",
+    "regions_summary": "{count, plural, one {Afficher la zone non comptée} other {Afficher les # zones non comptées}}",
+    "regions_unconfirmed": "Oiseaux possibles, non comptés",
+    "regions_excluded": "Pas un oiseau, non compté",
+    "region_label": "Zone {number}, non comptée",
+    "region_shared": "Chevauche un oiseau confirmé et en fait peut-être partie",
+    "region_individuality": "Peut-être des oiseaux distincts ou des parties d’un seul",
+    "region_nonbird": "Classé comme n’étant pas un oiseau",
+    "region_budget": "Non vérifié dans la limite de cette analyse",
+    "region_uncertain": "Pas assez net pour être compté comme oiseau",
+    "regions_show_more": "Afficher plus de zones"
   },
   "named_from": {
     "owner": "Identifié par vous",

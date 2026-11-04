@@ -15,9 +15,32 @@ import pytest_asyncio
 
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.bird_scan_repository import BirdScanRepository
-from app.services.bird_observation_selection import BirdObservation, BirdObservationSelection
+from app.services.bird_observation_selection import BirdCountRegion, BirdObservation, BirdObservationSelection
 from app.services import bird_scan_service as scans
 from app.services import high_quality_snapshot_service as hq
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("automatic", [False, True])
+async def test_incomplete_scan_publishes_confirmed_birds_and_separate_uncounted_regions(scene, automatic):
+    service, database, candidate = scene
+    region = BirdCountRegion("shared", (70, 10, 100, 50), 0.4, "shares_counted_pixels")
+    service._analyze_scene.return_value = replace(
+        service._analyze_scene.return_value, unconfirmed_regions=(region,), count_status="incomplete"
+    )
+    if automatic:
+        await service.record_automatic("scan-event", _automatic_bundle(service, candidate))
+    else:
+        await service.enqueue("scan-event", "scan-scene")
+        await service.run_next()
+    status = await service.get_status("scan-event", "scan-scene")
+    assert status["status"] == "completed"
+    assert status["count_status"] == "incomplete"
+    assert status["unconfirmed_regions"] == [region]
+    async with database() as db:
+        birds = await BirdObservationRepository(db).list_for_event("scan-event")
+    assert len(birds) == status["result_count"]
+    assert all(bird["candidate_id"] != "shared" for bird in birds)
 
 
 @pytest.mark.asyncio
