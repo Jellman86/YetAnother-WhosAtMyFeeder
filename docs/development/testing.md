@@ -30,6 +30,10 @@ orphaned Python tests under the root `tests` directory. Both PR checks and image
 builds use this same command and `backend/.coveragerc`: branch measurement with a
 70% total floor. This is a minimum, not evidence that every important path works.
 
+Counting-policy changes also need a frozen, independently labelled object panel.
+Follow [bird-count qualification](bird-count-qualification.md); passing unit tests
+or matching the number of birds in a few photographs is not that evidence.
+
 It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
 run first, alone, within two minutes: they migrate no database and never import
 the FastAPI app, and that subtree's conftest fails any test that opens a database

@@ -18,6 +18,7 @@ from typing import Any, Literal
 from PIL import Image, ImageDraw
 
 from app.services.bird_crop_service import BirdCropService
+from app.utils.box_matching import compute_iou, matched_box_count
 
 
 Box = tuple[int, int, int, int]
@@ -109,26 +110,6 @@ def load_manifest_resolved(path: Path) -> list[CropEvalCase]:
     return cases
 
 
-def compute_iou(box_a: Box, box_b: Box) -> float:
-    ax1, ay1, ax2, ay2 = box_a
-    bx1, by1, bx2, by2 = box_b
-    inter_x1 = max(ax1, bx1)
-    inter_y1 = max(ay1, by1)
-    inter_x2 = min(ax2, bx2)
-    inter_y2 = min(ay2, by2)
-    inter_w = max(0, inter_x2 - inter_x1)
-    inter_h = max(0, inter_y2 - inter_y1)
-    inter_area = inter_w * inter_h
-    if inter_area <= 0:
-        return 0.0
-    area_a = max(0, ax2 - ax1) * max(0, ay2 - ay1)
-    area_b = max(0, bx2 - bx1) * max(0, by2 - by1)
-    union_area = area_a + area_b - inter_area
-    if union_area <= 0:
-        return 0.0
-    return inter_area / union_area
-
-
 def evaluate_case(
     case: CropEvalCase,
     candidates: list[DetectionCandidate],
@@ -177,27 +158,7 @@ def evaluate_case(
 
 
 def _matched_target_count(boxes: list[Box], candidates: list[DetectionCandidate], threshold: float) -> int:
-    edges = [
-        [i for i, candidate in enumerate(candidates) if compute_iou(box, candidate.box) >= threshold] for box in boxes
-    ]
-    target_by_candidate: dict[int, int] = {}
-
-    def augment(target: int, visited: set[int]) -> bool:
-        for candidate in edges[target]:
-            if candidate in visited:
-                continue
-            visited.add(candidate)
-            previous = target_by_candidate.get(candidate)
-            if previous is None or augment(previous, visited):
-                target_by_candidate[candidate] = target
-                return True
-        return False
-
-    # Reassign earlier matches when necessary: greedy highest-IoU matching can
-    # consume the only proposal available to another annotated bird.
-    for target in range(len(boxes)):
-        augment(target, set())
-    return len(target_by_candidate)
+    return matched_box_count(boxes, [candidate.box for candidate in candidates], threshold)
 
 
 def _localization_metrics(
