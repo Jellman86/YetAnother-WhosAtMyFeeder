@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Range-check distances follow your display units (#911).** With **Display Units** set to
+  Imperial or British, **Needs your call**, the Species page's **Not reported within** note and
+  its review sheets said "within 50 km". They now say "within 31 mi", like the rest of the UI.
+  Metric is unchanged. Thanks to @byrnes-patrick for the report.
+
+- The documentation now uses the labels the app shows, for example **Write Labels Back to
+  Frigate**, **Location shown to visitors**, **Explorer layout** and **Delete All Favorites**. It
+  also says that `frigate.audio_min_confidence` is set in `config.json` or the settings API,
+  because there is no Settings control for it yet.
+
 - **Bird counts no longer add feeder parts and half-seen birds (#734).** With the RF-DETR Nano
   bird finder, a whole-frame scan, manual or automatic, now counts only the boxes the finder is
   confident about (0.60 or higher). A weaker box that overlaps a counted bird, could be part of

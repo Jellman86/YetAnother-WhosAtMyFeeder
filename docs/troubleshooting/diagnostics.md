@@ -514,7 +514,7 @@ procedure above; there is no new quarantine-reset action.
 |--------|-------------|
 | **Already in Database** | The event ID already exists and the AI score was not improved by this scan. |
 | **Below Confidence Threshold** | The AI identified a bird but the score was lower than your "Threshold" setting. |
-| **Below Minimum Floor** | The score was so low it was discarded as a potential false positive. |
+| **Below Minimum Confidence Floor** | The score was so low it was discarded as a potential false positive. |
 | **Filtered (Blocked Label)** | The species is on your Blocklist. |
 | **Frigate Snapshot Missing** | Frigate returned a 404 or empty file for the snapshot request. |
 

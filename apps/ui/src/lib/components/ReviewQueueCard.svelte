@@ -9,6 +9,7 @@
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import KeptBirdOffers from './KeptBirdOffers.svelte';
     import { _, locale } from 'svelte-i18n';
+    import { displayDistance } from '../utils/display-distance.svelte';
 
     interface Props {
         queue: ReviewQueue;
@@ -229,8 +230,8 @@
                 <p class="mt-1 text-2xs text-slate-600 dark:text-slate-300">
                     {checks.nearbyRadiusKm
                         ? $_('dashboard.review_queue.checks_body', {
-                              values: { count: checks.names.length, radius: checks.nearbyRadiusKm },
-                              default: '{count, plural, one {Only the camera backs it and no birder has reported it within {radius} km.} other {Only the camera backs them and no birder has reported them within {radius} km.}}'
+                              values: { count: checks.names.length, distance: displayDistance(checks.nearbyRadiusKm, $_) },
+                              default: '{count, plural, one {Only the camera backs it and no birder has reported it within {distance}.} other {Only the camera backs them and no birder has reported them within {distance}.}}'
                           })
                         : $_('dashboard.review_queue.checks_body_plain', {
                               values: { count: checks.names.length },

@@ -114,7 +114,7 @@
     "reason_low_score": "Unter der Benennungsschwelle",
     "visits_clear": "Jeder Besuch der letzten 24 Stunden hat eine Art.",
     "checks_summary": "{count, plural, one {# Art ist möglicherweise falsch benannt: {species}.} other {# Arten sind möglicherweise falsch benannt: {species}.}}",
-    "checks_body": "{count, plural, one {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {radius} km gemeldet.} other {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {radius} km gemeldet.}}",
+    "checks_body": "{count, plural, one {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {distance} gemeldet.} other {Nur die Kamera stützt sie, und niemand hat sie im Umkreis von {distance} gemeldet.}}",
     "checks_body_plain": "{count, plural, one {Nur die Kamera stützt sie.} other {Nur die Kamera stützt sie.}}",
     "checks_open": "Prüfungen auf der Artenseite öffnen",
     "checks_loading": "Suche nach Arten, die möglicherweise falsch benannt sind…",

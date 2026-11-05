@@ -114,7 +114,7 @@
     "reason_low_score": "Sotto la soglia di identificazione",
     "visits_clear": "Ogni visita delle ultime 24 ore ha una specie.",
     "checks_summary": "{count, plural, one {# specie potrebbe avere un nome errato: {species}.} other {# specie potrebbero avere un nome errato: {species}.}}",
-    "checks_body": "{count, plural, one {Solo la fotocamera la conferma e nessun birdwatcher l’ha segnalata entro {radius} km.} other {Solo la fotocamera le conferma e nessun birdwatcher le ha segnalate entro {radius} km.}}",
+    "checks_body": "{count, plural, one {Solo la fotocamera la conferma e nessun birdwatcher l’ha segnalata entro {distance}.} other {Solo la fotocamera le conferma e nessun birdwatcher le ha segnalate entro {distance}.}}",
     "checks_body_plain": "{count, plural, one {Solo la fotocamera la conferma.} other {Solo la fotocamera le conferma.}}",
     "checks_open": "Apri i controlli nella pagina Specie",
     "checks_loading": "Ricerca di specie con un nome forse errato…",

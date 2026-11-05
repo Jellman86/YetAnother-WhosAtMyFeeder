@@ -75,9 +75,9 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
   alike; YOLOX-Tiny's production crop path found 12/52 and 16/64 at the 0.08 counting floor (21/52 and 30/64 at its 0.02 evidence floor). The installed classifier gave a
   confident species for 37 and 57 of the birds RF-DETR found, and agreed with the species from the
   hand-drawn box in every confident case on the second set. Most misses were birds partly hidden
-  behind the fountain. Its extra boxes are feeder fixtures, squirrels and parts of real birds; the
-  existing distinct-bird selection and species gates handle them, and a stricter rule for extra
-  boxes remains open in #734. Exported from the Apache-2.0 COCO weights at roboflow/rf-detr
+  behind the fountain. Its extra boxes are feeder fixtures, squirrels and parts of real birds. With
+  this finder, whole-frame scans count only boxes scored 0.60 or higher and list weaker ones as not
+  counted (#912). Confirming faint, isolated birds from their own crop remains open in #734. Exported from the Apache-2.0 COCO weights at roboflow/rf-detr
   7433d59 as a static 384x384 ONNX graph; final detections match PyTorch (IoU at least 0.955,
   confidence within 0.007), and OpenVINO CPU, GPU and NPU give the same birds on both sets.
   CUDA is a host-gated candidate after a separate CPU-agreeing container check on

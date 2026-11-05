@@ -18,7 +18,9 @@ authStore.statusHealthy = true;
 authStore.authRequired = true;
 authStore.isAuthenticated = !guest;
 authStore.publicAccessEnabled = guest;
-settingsStore.settings = { classification_threshold: 0.6, birdnet_enabled: false, beta_garden_animals: true } as Settings;
+// `?units=imperial` or `?units=british` shows the owner's chosen distance units.
+const units = new URLSearchParams(location.search).get('units') ?? 'metric';
+settingsStore.settings = { classification_threshold: 0.6, birdnet_enabled: false, beta_garden_animals: true, location_weather_unit_system: units } as Settings;
 detectionsStore.detections = [];
 detectionsStore.historyStatus = 'ready';
 // The header's refresh button, so a spec can ask for a fresh read without waiting a minute.

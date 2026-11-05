@@ -149,7 +149,7 @@ Choose a delivery mode in **Settings → Notifications**:
 - **Standard:** Notify when a confirmed detection is created.
 - **Realtime:** Notify as early as possible and allow update notifications as detections evolve.
 - **Silent:** Disable all notifications.
-- **Advanced (Custom):** Manually toggle the exact triggers.
+- **Advanced controls:** Turn on to choose the exact triggers yourself.
 
 Delayed video notifications wait for the associated photo work within the notification
 timeout. They use the visit's accepted identification and current audio confirmation,
