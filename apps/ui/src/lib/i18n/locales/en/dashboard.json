@@ -114,7 +114,7 @@
     "reason_low_score": "Below the naming threshold",
     "visits_clear": "Every visit in the last 24 hours has a species.",
     "checks_summary": "{count, plural, one {# species may be misnamed: {species}.} other {# species may be misnamed: {species}.}}",
-    "checks_body": "{count, plural, one {Only the camera backs it and no birder has reported it within {radius} km.} other {Only the camera backs them and no birder has reported them within {radius} km.}}",
+    "checks_body": "{count, plural, one {Only the camera backs it and no birder has reported it within {distance}.} other {Only the camera backs them and no birder has reported them within {distance}.}}",
     "checks_body_plain": "{count, plural, one {Only the camera backs it.} other {Only the camera backs them.}}",
     "checks_open": "Open the checks on the Species page",
     "checks_loading": "Checking for species that may be misnamed…",

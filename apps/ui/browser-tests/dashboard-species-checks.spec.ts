@@ -71,6 +71,17 @@ test('a flagged species is named in Needs your call with a link to the Species p
     await expect(page.locator('[data-navigated]')).toHaveText('/species?span=day#checks');
 });
 
+for (const [units, expected] of [['imperial', '31 mi'], ['british', '31 mi']] as const) {
+    test(`the range check radius follows the owner's ${units} distance units (#911)`, async ({ page }) => {
+        const served: Served = { requests: [], leaderboard: (route) => route.fulfill({ json: flagged }) };
+        await serve(page, served);
+        await page.goto(`/browser-tests/dashboard-species-checks.html?units=${units}`);
+        const card = page.locator('[data-dashboard-review-queue]');
+        await expect(card).toContainText(`Only the camera backs it and no birder has reported it within ${expected}.`);
+        await expect(card).not.toContainText(' km');
+    });
+}
+
 test('the owner keeps chickens from the Dashboard, and the panel then reads clear', async ({ page }) => {
     let reads = 0;
     const served: Served = { requests: [], leaderboard: (route) => route.fulfill({ json: reads++ === 0 ? flagged : cleared }) };

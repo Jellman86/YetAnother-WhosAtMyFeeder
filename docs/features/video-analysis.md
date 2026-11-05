@@ -24,8 +24,8 @@ outcomes. A completed species analysis does not prove that a suitable new photog
   because a crop can include a nearby bird.
 - With the RF-DETR Nano bird finder, a scan counts only boxes the finder is confident about.
   Weaker boxes that may be a bird, part of a counted bird or a feeder fixture are not counted.
-  The result then reads **At least N birds confirmed** and lists each uncounted area with a
-  preview and the reason. With YOLOX-Tiny, which scores most feeder birds too low for this, the
+  The result then reads **At least N birds confirmed**, and **Show the areas that were not
+  counted** lists each one with a preview, its box outlined, and the reason. With YOLOX-Tiny, which scores most feeder birds too low for this, the
   scan counts every usable box as before and says **Birds found in this frame**.
 - The scan reports queued and running states separately, then **find**, **name**, **count** and
   **save** progress. A waiting scan shows how many scans are ahead; a running button says

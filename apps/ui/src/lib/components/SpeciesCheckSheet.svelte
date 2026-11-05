@@ -18,6 +18,7 @@
      */
     import { untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { displayDistance } from '../utils/display-distance.svelte';
     import {
         bulkUpdateDetectionSpecies,
         fetchFeederSpecies,
@@ -331,7 +332,7 @@
                             {$_('leaderboard.check.why_not_bird', { values: { count: visitTotal }, default: '{count} visits. Birders report birds, so the nearby check cannot speak for this one.' })}
                         {:else}
                             {$_('leaderboard.check.why', { values: { count: visitTotal }, default: '{count} visits, all from the camera alone.' })}
-                            {#if nearbyRadiusKm}<strong class="font-semibold text-amber-800 dark:text-amber-200">{' '}{$_('leaderboard.check.why_nearby', { values: { radius: nearbyRadiusKm }, default: 'No birder has reported it within {radius} km.' })}</strong>{/if}
+                            {#if nearbyRadiusKm}<strong class="font-semibold text-amber-800 dark:text-amber-200">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
                         {/if}
                     </p>
                 </div>

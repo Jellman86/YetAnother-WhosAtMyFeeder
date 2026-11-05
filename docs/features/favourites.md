@@ -57,7 +57,7 @@ Only these:
 
 - **Unfavouriting** the visit. The confirmation names the size. The visit stays in history.
 - **Deleting** the visit.
-- **Remove all favourites** in Settings, and a **database reset**. Both say so.
+- **Delete All Favorites** in **Settings → Data**, and a **database reset**. Both say so.
 
 Age cleanup, orphan cleanup, **Clear cached files**, the media integrity scan and the
 missing-event policy never touch the archive.

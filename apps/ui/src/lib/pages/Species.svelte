@@ -51,6 +51,7 @@
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
+    import { displayDistance } from '../utils/display-distance.svelte';
     import { logger } from '../utils/logger';
     import { toLocalYMD } from '../utils/date-only';
     import { _, locale } from 'svelte-i18n';
@@ -1618,7 +1619,7 @@
 {#snippet unlikelyReason(radiusKm: number)}
     <span class="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
         <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
-        {$_('leaderboard.unlikely_reason', { values: { radius: radiusKm }, default: 'Not reported within {radius} km' })}
+        {$_('leaderboard.unlikely_reason', { values: { distance: displayDistance(radiusKm, $_) }, default: 'Not reported within {distance}' })}
     </span>
 {/snippet}
 
@@ -1878,8 +1879,8 @@
                     <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                     <p>
                         {$_('leaderboard.unlikely_note', {
-                            values: { count: unlikelyRows.length, radius: nearbyCheck.radiusKm, days: nearbyCheck.daysBack },
-                            default: '{count, plural, one {# species has no call, no confirmation and no eBird report within {radius} km in the last {days} days. It is probably a misidentification: open it to confirm or correct it.} other {# species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.}}'
+                            values: { count: unlikelyRows.length, distance: displayDistance(nearbyCheck.radiusKm, $_), days: nearbyCheck.daysBack },
+                            default: '{count, plural, one {# species has no call, no confirmation and no eBird report within {distance} in the last {days} days. It is probably a misidentification: open it to confirm or correct it.} other {# species have no call, no confirmation and no eBird report within {distance} in the last {days} days. They are probably misidentifications: open one to confirm or correct it.}}'
                         })}
                     </p>
                 </div>

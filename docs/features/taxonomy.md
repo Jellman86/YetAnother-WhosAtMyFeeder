@@ -50,7 +50,8 @@ The **Total** window has no confirmation counts, so its evidence column only rep
 When eBird is set up under **Settings → Integrations**, the rankings also check each species against
 what birders have reported within 50 km of the feeder in the last 30 days. A species that only the
 camera backs and that nobody has reported nearby is marked **Not reported within 50 km** in the
-rankings and **Check** on its photograph. **Needs a check** opens the review sheet: inspect its
+rankings and **Check** on its photograph. This distance, like the others in these checks, is shown in
+your **Display Units**: Imperial and British show **31 mi**. **Needs a check** opens the review sheet: inspect its
 photographed visits, keep the ones you want selected, then confirm, rename or hide them. A missing
 nearby report is a reason to check, not proof that the classifier was wrong. Renaming applies to
 every capture of the selected visits and teaches personalised identification, so it has no undo

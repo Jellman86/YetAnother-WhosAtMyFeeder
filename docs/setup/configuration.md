@@ -98,7 +98,7 @@ health), then groups the settings by the decision they make:
 | **Confidence Threshold** | `0.7` | Minimum local score for a named identification, also subject to the confidence floor, unknown-label policy and blocked-species rules. |
 | **Minimum Confidence Floor** | `0.4` | Reject local image results below this score. A usable trusted Frigate sublabel can still provide the configured fallback. |
 | **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
-| **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
+| **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
 | **Finder device** | `Automatic` | Device preference for the accurate finder, separate from identification. Only current validated accelerator choices can be selected. An unavailable saved choice uses CPU; **Apply Settings** saves the preference. |
@@ -437,7 +437,7 @@ How the interface reads.
 | Setting | Options |
 |---|---|
 | **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
-| **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
+| **Explorer layout** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
 | **Text size** | Smallest (75%), Smaller (81%), **Standard** (87.5%, default), Large (100%), Larger (112.5%), Extra large (125%) or Largest (150%). Saved separately on each device. |
 | **Language** | The interface language. Notifications have their own language setting. |
@@ -446,7 +446,7 @@ How the interface reads.
 
 ## Accessibility
 
-- **High contrast**, **Dyslexia-friendly font**, and **Reduced motion** for readability and
+- **High contrast**, **Dyslexia Friendly Font**, and **Reduced motion** for readability and
   motion sensitivity.
 - **Live announcements** — screen reader announcements when new detections arrive.
 

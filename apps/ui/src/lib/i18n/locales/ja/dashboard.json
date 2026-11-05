@@ -114,7 +114,7 @@
     "reason_low_score": "識別のしきい値未満",
     "visits_clear": "過去24時間の訪問にはすべて種名が付いています。",
     "checks_summary": "{count, plural, other {#種の名前が誤っている可能性があります: {species}。}}",
-    "checks_body": "{count, plural, other {カメラのみが根拠で、半径{radius} km以内で観察者の報告はありません。}}",
+    "checks_body": "{count, plural, other {カメラのみが根拠で、半径{distance}以内で観察者の報告はありません。}}",
     "checks_body_plain": "{count, plural, other {カメラのみが根拠です。}}",
     "checks_open": "種ページで確認を開く",
     "checks_loading": "名前が誤っている可能性のある種を確認しています…",

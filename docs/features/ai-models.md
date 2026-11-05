@@ -174,7 +174,9 @@ needs the owner's check. If no bird snapshots are saved yet, the re-check waits 
   small in a wide frame.
 - **Wide frame (RF-DETR Nano)** reads the whole frame and four overlapping tiles. It finds far more
   small and distant birds, at the cost of a 103 MB download and about five detector passes per
-  frame. Until it is downloaded, the standard finder stays in use.
+  frame. Until it is downloaded, the standard finder stays in use. With this finder, whole-frame
+  bird scans count only its confident boxes and list the rest as not counted; see
+  [Video analysis](video-analysis.md).
 
 Classifier crop policy is automatic;
 a detector score is not a species confidence score. The hardware sweep checks detectors separately

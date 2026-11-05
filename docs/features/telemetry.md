@@ -54,7 +54,7 @@ telemetry. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-e
 The About page quotes how many installs reported to the telemetry service in the last week.
 That number comes from the worker's public summary (`/stats/summary`), read by the backend at most
 once an hour with no payload, the same host the update check reads. It follows the
-**Check for updates** opt-out: an install that has turned update checks off never contacts the
+update-check opt-out (`SYSTEM__UPDATE_CHECK_ENABLED=false`): an install that has turned update checks off never contacts the
 worker for this either, and the count is simply absent. It is listed under "What leaves your
 network" on the About page.
 

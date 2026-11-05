@@ -105,7 +105,7 @@ medium is not shared rather than shown a broken image or an error.
 | **Show AI conversation threads** | **Off** | Whether guests can read the AI Naturalist conversation, not just the summary. |
 | **History window** | Follow retention | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |
 | **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
-| **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
+| **Location shown to visitors** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
 While the **Garden animals** beta is on, guests also see confirmed Garden animals, under the same
 switches and windows as bird detections. Captures waiting for review, dismissed captures and every
@@ -137,7 +137,7 @@ historical media are shared.
 1. **Enable authentication** even though public access is read-only. Without it, everyone is an
    owner.
 2. **Limit the history and media windows** to the shortest span you are happy to publish.
-3. **Hide camera names** unless you want them public.
+3. **Turn off Show camera names** unless you want them public.
 4. **Leave clip downloads off** unless someone actually needs the files.
 5. **Set Trusted Proxy Hosts** so `X-Forwarded-*` headers cannot be spoofed.
 6. **Keep the instance behind a single reverse proxy** with HTTPS.

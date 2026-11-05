@@ -114,7 +114,7 @@
     "reason_low_score": "Abaixo do limiar de identificação",
     "visits_clear": "Todas as visitas das últimas 24 horas têm espécie.",
     "checks_summary": "{count, plural, one {# espécie pode estar com o nome errado: {species}.} other {# espécies podem estar com o nome errado: {species}.}}",
-    "checks_body": "{count, plural, one {Só a câmera a sustenta e nenhum observador a registrou num raio de {radius} km.} other {Só a câmera as sustenta e nenhum observador as registrou num raio de {radius} km.}}",
+    "checks_body": "{count, plural, one {Só a câmera a sustenta e nenhum observador a registrou num raio de {distance}.} other {Só a câmera as sustenta e nenhum observador as registrou num raio de {distance}.}}",
     "checks_body_plain": "{count, plural, one {Só a câmera a sustenta.} other {Só a câmera as sustenta.}}",
     "checks_open": "Abrir as verificações na página de espécies",
     "checks_loading": "Procurando espécies que podem estar com o nome errado…",

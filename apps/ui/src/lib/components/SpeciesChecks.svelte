@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { displayDistance } from '../utils/display-distance.svelte';
     import { withAuthParams } from '../api/core';
     import type { ShowcaseRow } from '../leaderboard/showcase';
     import type { DomesticBirdKey, KeptBirdCandidate } from '../utils/domestic-birds';
@@ -52,7 +53,7 @@
                 </h3>
                 <p class="mt-1 text-base text-slate-600 dark:text-slate-300">
                     {nearbyRadiusKm
-                        ? $_('leaderboard.check.entry_body', { values: { radius: nearbyRadiusKm }, default: 'Each rests on the camera alone, and no birder has reported it within {radius} km.' })
+                        ? $_('leaderboard.check.entry_body', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'Each rests on the camera alone, and no birder has reported it within {distance}.' })
                         : $_('leaderboard.check.entry_body_plain', { default: 'Each rests on the camera alone.' })}
                     {#if oncheck}{' '}{$_('leaderboard.check.entry_action', { default: 'See what was photographed and say what it was.' })}{/if}
                 </p>
