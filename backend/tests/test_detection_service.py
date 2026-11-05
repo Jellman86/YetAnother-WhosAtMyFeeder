@@ -1506,3 +1506,15 @@ async def test_the_owners_reclassify_leaves_a_kept_bird_where_the_owner_put_it(m
         )
     assert applied is True
     move.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_move_to_garden_does_not_undo_or_fail_the_committed_rename(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(side_effect=RuntimeError("database is locked"))
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, persist_video_result=False
+        )
+    assert applied is True
+    move.assert_awaited_once_with("event1")
