@@ -560,12 +560,45 @@ The [accelerator validation and hedgehog follow-up](../reviews/2026-10-24-garden
 
 ## Domestic birds
 
-Chickens and other birds you keep are Garden animals, like a dog or a cat, not wild birds.
-Declare them under **Settings → Beta features → Domestic birds you keep**; the list is empty
-by default. Choose from chickens, domestic ducks, domestic geese, turkeys, guineafowl,
-peafowl, domestic pigeons or doves and quail. Declared birds are recorded as Garden animals,
-are never bird detections and are never sent to eBird, BirdWeather or iNaturalist. While
-Garden animals is off, the list has no effect.
+### Why this exists
+
+The bird model is trained on wild birds. It has no class for a chicken, so it names a hen
+after her wild ancestor, **Red Junglefowl**. It does the same with a farmyard duck (**Mallard**),
+a domestic goose (**Greylag Goose**) or a homing pigeon (**Rock Dove**). These are not
+misidentifications that a better model or a higher threshold would fix: the birds really are
+those species, and only you know that they live in your garden rather than in the wild.
+
+Left alone, your own birds become wild sightings. They fill bird history and the leaderboard,
+the species range check flags them because no birder has reported Red Junglefowl nearby, and
+they could be sent to eBird, BirdWeather or iNaturalist as wild records. Declaring a bird you
+keep tells YA-WAMF to treat it as a Garden animal, like a dog or a cat, instead.
+
+### When to use it
+
+Use it only if you keep one of the birds listed below where a camera can see them. Most
+installs never need it. The list is deliberately short: it covers birds that people commonly
+keep and that the bird model can only name as a wild species.
+
+Do not declare a bird you do not keep. A declaration cannot tell your birds from wild ones of
+the same species, so declaring domestic ducks also moves every wild Mallard to Garden, on every
+camera. The same applies to Rock Doves (including feral pigeons), Greylag Geese and Wild Turkeys.
+If wild birds of that species visit as well, declaring it is a trade-off: your birds go to
+Garden, but so do the wild visitors. Leaving it undeclared keeps wild records correct, and your
+own birds stay in bird history, where you can hide individual records. **Move to Garden** is
+only offered for declared birds.
+
+### Turn it on
+
+Declare your birds under **Settings → Beta features → Domestic birds you keep**. The list is
+empty by default and has no effect while Garden animals is off. Choose from chickens, domestic
+ducks, domestic geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail. If the
+range check has already flagged one of them, **I keep Chickens: move to Garden** (described
+below) declares it and moves the existing records in one step.
+
+Declared birds are recorded as Garden animals, are never bird detections and are never sent to
+eBird, BirdWeather or iNaturalist.
+
+### What counts as a declared bird
 
 Nothing is treated as domestic until you declare it, because most kept birds share their
 identity with a wild bird. Each declared bird stands for exact catalogue identities, never a
@@ -582,9 +615,10 @@ loose name match:
 | Domestic pigeons or doves | *Columba livia* (Rock Dove), *Streptopelia roseogrisea* | rock dove |
 | Quail | *Coturnix japonica*, *Coturnix coturnix* | quail species (*Coturnix*) |
 
-So declaring domestic ducks also records a wild Mallard on any camera as one of your ducks;
-add a bird only if you keep it. A record of a declared bird is named by it, for example
-**Chicken**, with its family tree, and keeps what the model originally said as evidence.
+A record of a declared bird is named by it, for example **Chicken**, with its family tree, and
+keeps what the model originally said as evidence.
+
+### When a declared bird reaches Garden
 
 - **Frigate bird events.** On a camera watched for birds, the bird model classifies the event
   as usual. If its top result, or the result admitted after any fallback, is a declared bird at
@@ -595,6 +629,12 @@ add a bird only if you keep it. A record of a declared bird is named by it, for 
   messages for the event are idempotent, and a later person or false-positive update removes
   it as for any Garden capture. A Garden-only camera does not classify Frigate bird events; it
   finds kept birds through motion review photos.
+- **Visits renamed after they arrive.** The first identification uses one whole frame, where a
+  hen can be small and read as something else, for example a **Magpie**. A few minutes later,
+  close crops of the photograph or the video may agree on **Red Junglefowl** and rename the
+  visit. When that automatic rename lands on a declared bird, the visit moves to Garden exactly
+  as **Move to Garden** does: the bird record is hidden, not deleted. A name you chose yourself
+  is never moved automatically.
 - **Garden checks.** When SpeciesNet names a declared bird at the naming threshold, the
   capture is confirmed and named on any Garden camera, and the bird's wild range does not
   rename it. A bird you have not declared is dismissed with the reason above. If SpeciesNet
@@ -603,8 +643,8 @@ add a bird only if you keep it. A record of a declared bird is named by it, for 
 - **Earlier bird records.** On a bird record of a declared bird, **Move to Garden** records it
   as a Garden capture of that bird and hides the bird record. Nothing is deleted: show the bird
   record again from **Hidden** to restore it, and dismiss the Garden capture. Exports already
-  sent for that record are not withdrawn. Past detections are not moved automatically, and
-  **Move to birds** for a Garden capture is not available yet.
+  sent for that record are not withdrawn. Records from before you declared the bird are not
+  moved automatically, and **Move to birds** for a Garden capture is not available yet.
 - **From the species range check.** The bird model names domestic birds by their wild
   relatives, so chickens appear as *Red Junglefowl*, and the leaderboard's **Needs a check**
   card flags them because no birder has reported that species nearby. When a flagged species

@@ -1293,7 +1293,6 @@ class DetectionService:
                             },
                         }
                     )
-                return True
             else:
                 log.debug(
                     "Video analysis completed but did not override primary ID",
@@ -1310,3 +1309,19 @@ class DetectionService:
                     video_score=video_score,
                 )
                 return False
+        # Only a promoted identification reaches this point. It runs after the database block,
+        # so moving a renamed kept bird to Garden starts from the committed rename.
+        if not manual_tagged:
+            from app.services.garden_domestic_service import garden_domestic_service
+
+            # The rename is already saved; a failed move leaves the visit in bird history,
+            # where Move to Garden still offers it, rather than failing the identification job.
+            try:
+                await garden_domestic_service.move_renamed_detection(frigate_event)
+            except Exception as exc:
+                log.warning(
+                    "Kept bird stayed in bird history after its rename",
+                    event_id=frigate_event,
+                    error=type(exc).__name__,
+                )
+        return True

@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+- **Kept chickens no longer slip back into bird history.** With chickens declared under
+  **Domestic birds you keep**, a visit that first arrived under another bird's name (a hen
+  small in a whole frame can read as a Magpie) and was renamed to Red Junglefowl a few minutes
+  later from photo crops or video stayed a bird detection, because kept birds were only checked
+  on arrival. Such a rename now moves the visit to Garden, exactly as **Move to Garden** does:
+  the bird record is hidden, not deleted. A name you set yourself is never moved
+  automatically. The Garden animals guide now explains why the setting exists (the bird model
+  knows only wild species, so it names a hen as Red Junglefowl), when to use it and when not
+  to, and the setting's help text says the same.
+
 - **Range-check distances follow your display units (#911).** With **Display Units** set to
   Imperial or British, **Needs your call**, the Species page's **Not reported within** note and
   its review sheets said "within 50 km". They now say "within 31 mi", like the rest of the UI.

@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "庭の通知はオフです。「通知」で通知先と一緒にオンにします。",
     "garden_alerts_open": "通知を設定",
     "garden_domestic_birds": "飼っている家禽",
-    "garden_domestic_birds_help": "これらは野鳥ではなく庭の動物として記録され、eBird、BirdWeather、iNaturalist には送信されません。",
+    "garden_domestic_birds_help": "飼っている鳥だけに使います。鳥モデルは野生種しか知らないため、ニワトリをセキショクヤケイと判定します。ここに追加した鳥は野鳥ではなく庭の動物として記録され、eBird、BirdWeather、iNaturalist には送信されません。",
     "garden_domestic_birds_wild": "追加するまでは何も家禽として扱われません。マガモ、ハイイロガン、野生のシチメンチョウ、カワラバトは野生にもいるため、追加後はすべてのカメラであなたの鳥として記録されます。",
     "garden_domestic_birds_remove": "{bird}を削除",
     "garden_domestic_birds_none": "まだありません。ニワトリなど飼っている鳥は野鳥として扱われます。",

@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Garden alerts are off. Turn them on in Notifications, with their channels.",
     "garden_alerts_open": "Set up alerts",
     "garden_domestic_birds": "Domestic birds you keep",
-    "garden_domestic_birds_help": "These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.",
+    "garden_domestic_birds_help": "Only for birds you keep. The bird model knows only wild species, so it names a hen as a Red Junglefowl. Birds added here are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.",
     "garden_domestic_birds_wild": "Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.",
     "garden_domestic_birds_remove": "Remove {bird}",
     "garden_domestic_birds_none": "None yet. Chickens and other birds you keep are treated as wild birds.",
