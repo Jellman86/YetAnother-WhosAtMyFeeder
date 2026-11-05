@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Os alertas do jardim estão desativados. Ative-os em Notificações, com seus canais.",
     "garden_alerts_open": "Configurar alertas",
     "garden_domestic_birds": "Aves domésticas que você cria",
-    "garden_domestic_birds_help": "Elas são registradas como animais do jardim, não como aves selvagens, e nunca são enviadas ao eBird, BirdWeather ou iNaturalist.",
+    "garden_domestic_birds_help": "Apenas para aves que você cria. O modelo de aves só conhece espécies selvagens, então identifica uma galinha como galo-banquiva. As aves adicionadas aqui são registradas como animais do jardim, não como aves selvagens, e nunca são enviadas ao eBird, BirdWeather ou iNaturalist.",
     "garden_domestic_birds_wild": "Nada conta como doméstico até você adicionar. Patos-reais, gansos-bravos, perus selvagens e pombos-das-rochas também vivem na natureza, então passam a ser registrados como suas aves em todas as câmeras.",
     "garden_domestic_birds_remove": "Remover {bird}",
     "garden_domestic_birds_none": "Nenhuma ainda. Galinhas e outras aves que você cria são tratadas como aves selvagens.",

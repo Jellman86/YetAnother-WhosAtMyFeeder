@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Gartenmeldungen sind aus. Schalte sie unter Benachrichtigungen mit ihren Kanälen ein.",
     "garden_alerts_open": "Meldungen einrichten",
     "garden_domestic_birds": "Gehaltene Hausvögel",
-    "garden_domestic_birds_help": "Sie werden als Gartentiere und nicht als Wildvögel erfasst und nie an eBird, BirdWeather oder iNaturalist gesendet.",
+    "garden_domestic_birds_help": "Nur für Vögel, die du hältst. Das Vogelmodell kennt nur Wildarten und bestimmt ein Huhn deshalb als Bankivahuhn. Hier hinzugefügte Vögel werden als Gartentiere und nicht als Wildvögel erfasst und nie an eBird, BirdWeather oder iNaturalist gesendet.",
     "garden_domestic_birds_wild": "Nichts gilt als Hausvogel, bevor du es hinzufügst. Stockenten, Graugänse, Wildtruthühner und Felsentauben leben auch wild und werden danach auf jeder Kamera als deine Vögel erfasst.",
     "garden_domestic_birds_remove": "{bird} entfernen",
     "garden_domestic_birds_none": "Noch keine. Hühner und andere gehaltene Vögel werden als Wildvögel behandelt.",

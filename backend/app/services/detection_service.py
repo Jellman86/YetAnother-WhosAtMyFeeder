@@ -1293,7 +1293,6 @@ class DetectionService:
                             },
                         }
                     )
-                return True
             else:
                 log.debug(
                     "Video analysis completed but did not override primary ID",
@@ -1310,3 +1309,10 @@ class DetectionService:
                     video_score=video_score,
                 )
                 return False
+        # Only a promoted identification reaches this point. It runs after the database block,
+        # so moving a renamed kept bird to Garden starts from the committed rename.
+        if not manual_tagged:
+            from app.services.garden_domestic_service import garden_domestic_service
+
+            await garden_domestic_service.move_renamed_detection(frigate_event)
+        return True

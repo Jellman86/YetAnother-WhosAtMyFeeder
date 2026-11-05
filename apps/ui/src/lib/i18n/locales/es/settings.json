@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Los avisos del jardín están desactivados. Actívalos en Notificaciones, con sus canales.",
     "garden_alerts_open": "Configurar avisos",
     "garden_domestic_birds": "Aves domésticas que tienes",
-    "garden_domestic_birds_help": "Se registran como animales del jardín, no como aves silvestres, y nunca se envían a eBird, BirdWeather ni iNaturalist.",
+    "garden_domestic_birds_help": "Solo para aves que crías. El modelo de aves solo conoce especies silvestres, así que identifica una gallina como gallo bankiva. Las aves añadidas aquí se registran como animales del jardín, no como aves silvestres, y nunca se envían a eBird, BirdWeather ni iNaturalist.",
     "garden_domestic_birds_wild": "Nada cuenta como doméstico hasta que lo añades. Ánades reales, ánsares comunes, pavos salvajes y palomas bravías también viven en libertad, así que después se registran como tus aves en todas las cámaras.",
     "garden_domestic_birds_remove": "Quitar {bird}",
     "garden_domestic_birds_none": "Ninguna todavía. Las gallinas y otras aves que tienes se tratan como aves silvestres.",

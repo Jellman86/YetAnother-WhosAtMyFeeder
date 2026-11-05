@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "花园提醒已关闭，请在“通知”中与其渠道一起开启。",
     "garden_alerts_open": "设置提醒",
     "garden_domestic_birds": "您饲养的家禽",
-    "garden_domestic_birds_help": "这些会被记录为花园动物，而不是野鸟，并且绝不会发送到 eBird、BirdWeather 或 iNaturalist。",
+    "garden_domestic_birds_help": "仅用于你饲养的鸟。鸟类模型只认识野生物种，因此会把母鸡识别为原鸡。在此添加的鸟会被记录为花园动物，而不是野鸟，并且绝不会发送到 eBird、BirdWeather 或 iNaturalist。",
     "garden_domestic_birds_wild": "在您添加之前，任何鸟都不算家禽。绿头鸭、灰雁、野火鸡和原鸽也有野生种群，添加后它们在所有摄像头上都会被记录为您的鸟。",
     "garden_domestic_birds_remove": "移除{bird}",
     "garden_domestic_birds_none": "暂无。鸡和您饲养的其他鸟会被当作野鸟处理。",

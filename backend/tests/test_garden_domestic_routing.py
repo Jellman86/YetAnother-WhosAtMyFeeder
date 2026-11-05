@@ -251,3 +251,57 @@ async def test_only_the_owner_can_keep_a_bird_and_only_a_known_one(monkeypatch):
         assert (await client.post("/api/garden/domestic-birds/chicken/keep")).status_code == 403
     assert settings.frigate.garden_domestic_birds == []
     assert await hidden(event) == 0
+
+
+async def renamed_record(event_id, label="Gallus gallus", *, manual_tagged=False):
+    """A bird record a later crop or video result renamed after it arrived as another bird."""
+    await bird_record(label, event_id)
+    async with get_db() as db:
+        await db.execute("UPDATE detections SET manual_tagged=? WHERE frigate_event=?", (int(manual_tagged), event_id))
+        await db.commit()
+    return event_id
+
+
+@pytest.mark.asyncio
+async def test_a_visit_renamed_to_a_kept_bird_after_it_arrived_moves_to_garden():
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    event_id = await renamed_record("domestic-route-renamed")
+    capture_id = await garden_domestic_service.move_renamed_detection(event_id)
+
+    assert capture_id is not None
+    assert await hidden(event_id) == 1
+    capture = await garden_capture()
+    assert capture is not None and capture.domestic_route.origin == "moved_from_birds"
+    # A second automatic result for the same visit cannot make a second capture.
+    assert await garden_domestic_service.move_renamed_detection(event_id) is None
+
+
+@pytest.mark.asyncio
+async def test_a_name_the_owner_confirmed_is_never_moved_automatically():
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    event_id = await renamed_record("domestic-route-owner", manual_tagged=True)
+    assert await garden_domestic_service.move_renamed_detection(event_id) is None
+    assert await hidden(event_id) == 0
+    assert await garden_capture() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "label,declared,garden_on",
+    [
+        ("Prunella modularis", ["chicken"], True),
+        ("Gallus gallus", ["turkey"], True),
+        ("Gallus gallus", ["chicken"], False),
+    ],
+)
+async def test_a_rename_that_is_not_a_declared_kept_bird_stays_in_bird_history(label, declared, garden_on):
+    from app.services.garden_domestic_service import garden_domestic_service
+
+    settings.frigate.garden_domestic_birds = declared
+    settings.system.beta_garden_animals = garden_on
+    event_id = await renamed_record("domestic-route-other", label)
+    assert await garden_domestic_service.move_renamed_detection(event_id) is None
+    assert await hidden(event_id) == 0
+    assert await garden_capture() is None

@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Les alertes du jardin sont désactivées. Activez-les dans Notifications, avec leurs canaux.",
     "garden_alerts_open": "Régler les alertes",
     "garden_domestic_birds": "Oiseaux domestiques que vous élevez",
-    "garden_domestic_birds_help": "Ils sont enregistrés comme animaux du jardin, et non comme oiseaux sauvages, et ne sont jamais envoyés à eBird, BirdWeather ou iNaturalist.",
+    "garden_domestic_birds_help": "Uniquement pour les oiseaux que vous élevez. Le modèle d’oiseaux ne connaît que les espèces sauvages, il identifie donc une poule comme un coq doré. Les oiseaux ajoutés ici sont enregistrés comme animaux du jardin, et non comme oiseaux sauvages, et ne sont jamais envoyés à eBird, BirdWeather ou iNaturalist.",
     "garden_domestic_birds_wild": "Rien n’est considéré comme domestique tant que vous ne l’ajoutez pas. Les canards colverts, oies cendrées, dindons sauvages et pigeons bisets vivent aussi à l’état sauvage et sont ensuite enregistrés comme vos oiseaux sur chaque caméra.",
     "garden_domestic_birds_remove": "Retirer {bird}",
     "garden_domestic_birds_none": "Aucun pour l’instant. Les poules et les autres oiseaux que vous élevez sont traités comme des oiseaux sauvages.",

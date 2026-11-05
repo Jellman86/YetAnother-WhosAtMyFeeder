@@ -327,7 +327,7 @@
             >
                 <div class="space-y-3" data-garden-domestic-birds>
                     <p id="garden-domestic-birds-help" class="text-sm text-slate-600 dark:text-slate-400">
-                        {$_('settings.beta.garden_domestic_birds_help', { default: 'These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.' })}
+                        {$_('settings.beta.garden_domestic_birds_help', { default: 'Only for birds you keep. The bird model knows only wild species, so it names a hen as a Red Junglefowl. Birds added here are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.' })}
                     </p>
                     <p class="text-xs text-slate-600 dark:text-slate-400">
                         {$_('settings.beta.garden_domestic_birds_wild', { default: 'Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.' })}

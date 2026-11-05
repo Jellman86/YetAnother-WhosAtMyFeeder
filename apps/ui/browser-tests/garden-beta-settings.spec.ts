@@ -587,7 +587,8 @@ test('domestic birds you keep start empty, are added as chips and save with the 
     await expect(page.getByRole('heading', { name: 'Domestic birds you keep' })).toContainText('None');
     await openSection(page, 'Domestic birds you keep');
     const section = page.locator('[data-garden-domestic-birds]');
-    await expect(section).toContainText('These are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.');
+    await expect(section).toContainText('Only for birds you keep. The bird model knows only wild species, so it names a hen as a Red Junglefowl.');
+    await expect(section).toContainText('Birds added here are recorded as Garden animals, not wild birds, and are never sent to eBird, BirdWeather or iNaturalist.');
     await expect(section.locator('[data-garden-domestic-none]')).toBeVisible();
     const add = section.getByRole('combobox', { name: 'Add a domestic bird' });
     await add.selectOption('chicken');

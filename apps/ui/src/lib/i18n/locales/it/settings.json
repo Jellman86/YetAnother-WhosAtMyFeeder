@@ -1461,7 +1461,7 @@
     "garden_alerts_off": "Gli avvisi del giardino sono disattivati. Attivali in Notifiche, con i loro canali.",
     "garden_alerts_open": "Imposta gli avvisi",
     "garden_domestic_birds": "Uccelli domestici che allevi",
-    "garden_domestic_birds_help": "Vengono registrati come animali del giardino, non come uccelli selvatici, e non vengono mai inviati a eBird, BirdWeather o iNaturalist.",
+    "garden_domestic_birds_help": "Solo per gli uccelli che allevi. Il modello degli uccelli conosce solo specie selvatiche, quindi identifica una gallina come gallo bankiva. Gli uccelli aggiunti qui vengono registrati come animali del giardino, non come uccelli selvatici, e non vengono mai inviati a eBird, BirdWeather o iNaturalist.",
     "garden_domestic_birds_wild": "Nulla conta come domestico finché non lo aggiungi. Germani reali, oche selvatiche, tacchini selvatici e piccioni selvatici vivono anche in natura, quindi da quel momento vengono registrati come tuoi uccelli su ogni telecamera.",
     "garden_domestic_birds_remove": "Rimuovi {bird}",
     "garden_domestic_birds_none": "Ancora nessuno. Galline e altri uccelli che allevi sono trattati come uccelli selvatici.",

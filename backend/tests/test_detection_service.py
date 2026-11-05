@@ -1459,3 +1459,50 @@ def test_selection_does_not_trust_incoming_skipped_candidate_metadata(monkeypatc
         "evt-injected",
     )
     assert "admission_candidates" not in selected
+
+
+def _renamed_visit(manual_tagged=False):
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.72
+    existing.display_name = "Magpie"
+    existing.category_name = "Pica pica"
+    existing.scientific_name = "Pica pica"
+    existing.common_name = "Magpie"
+    existing.sub_label = None
+    existing.frigate_score = 0.78
+    existing.detection_time = datetime.now()
+    existing.camera_name = "greenhousecam"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = manual_tagged
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    return existing
+
+
+@pytest.mark.asyncio
+async def test_an_automatic_rename_asks_whether_the_visit_is_now_a_kept_bird(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(return_value="capture-1")
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, persist_video_result=False
+        )
+    assert applied is True
+    move.assert_awaited_once_with("event1")
+
+
+@pytest.mark.asyncio
+async def test_the_owners_reclassify_leaves_a_kept_bird_where_the_owner_put_it(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(return_value="capture-1")
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, manual_tagged=True
+        )
+    assert applied is True
+    move.assert_not_awaited()

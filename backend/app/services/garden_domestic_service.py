@@ -1,8 +1,9 @@
 """Domestic birds the owner keeps leave bird history for Garden, with their evidence.
 
-Two paths reach here: a classified Frigate bird event, before it can become a bird
-detection, and the owner's Move to Garden on an existing bird record. Pure
-decisions live in ``garden_domestic_birds``.
+Three paths reach here: a classified Frigate bird event, before it can become a bird
+detection; a bird record that a later crop or video result renamed to a declared
+bird; and the owner's Move to Garden on an existing bird record. Pure decisions live
+in ``garden_domestic_birds``.
 """
 
 import asyncio
@@ -147,6 +148,24 @@ class GardenDomesticService:
         await broadcaster.broadcast({"type": "garden_history_changed"})
         return capture_id
 
+    async def move_renamed_detection(self, frigate_event: str) -> str | None:
+        """Move a visit that an automatic identification renamed to a declared domestic bird.
+
+        Declared birds are diverted when a Frigate event arrives, but only by that first
+        identification. A visit first named as another bird and renamed later from photo
+        crops or video would otherwise stay in bird history. A name the owner confirmed is
+        theirs, so it never moves here; Move to Garden remains their choice.
+        """
+        if not settings.system.beta_garden_animals or not settings.frigate.garden_domestic_birds:
+            return None
+        try:
+            capture_id = await self._move_one(frigate_event, automatic=True)
+        except HTTPException:
+            return None
+        log.info("garden_domestic_bird_moved_after_rename", event_id=frigate_event)
+        await broadcaster.broadcast({"type": "garden_history_changed"})
+        return capture_id
+
     async def keep_bird(self, bird: DomesticBirdKey) -> KeptBirdMove:
         """Declare a domestic bird the owner keeps and move its visible bird records to Garden.
 
@@ -183,7 +202,7 @@ class GardenDomesticService:
         log.info("garden_keep_bird", bird=bird, declared=declared, moved=moved, skipped=skipped)
         return KeptBirdMove(declared=declared, moved=moved, skipped=skipped, remaining=total - len(events))
 
-    async def _move_one(self, frigate_event: str) -> str:
+    async def _move_one(self, frigate_event: str, *, automatic: bool = False) -> str:
         if not settings.system.beta_garden_animals:
             raise HTTPException(409, "Turn on Garden animals before moving a record to Garden")
         async with get_db() as db:
@@ -192,6 +211,8 @@ class GardenDomesticService:
             raise HTTPException(404, "Bird record not found")
         if detection.is_hidden:
             raise HTTPException(409, "This bird record is hidden. Show it again before moving it.")
+        if automatic and detection.manual_tagged:
+            raise HTTPException(409, "You confirmed this identification, so it only moves when you choose")
         species_ids = await asyncio.to_thread(species_ids_by_bird)
         kept = domestic_bird_for_bird_label(
             species_id=detection.species_id,
