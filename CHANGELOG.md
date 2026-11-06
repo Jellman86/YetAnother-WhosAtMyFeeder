@@ -6,6 +6,410 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-11-06
+
+- Classifiers retain model-bound bird, non-bird and unknown group scores for
+  counting qualification across ONNX, OpenVINO and TFLite. Added tested
+  confirmation and crop-preparation rules; these are not yet enabled in capture
+  counting, and saved counts and bird-finder defaults are unchanged.
+
+- Added an offline check for multi-bird counting changes that requires frozen,
+  individually labelled test images. Matching totals can no longer conceal a
+  missed bird and a false extra in a qualification report. Bird-finder defaults
+  and saved counts are unchanged.
+
+- Image builds and checks use the exact Action revisions from verified successful runs, with
+  a CI policy that rejects moving references. Dependency automation can still propose updates.
+- Local environment files stay out of image build contexts, and the standalone frontend uses
+  the committed dependency lockfile for strict installation.
+
+- Updates the backend's Python dependencies to their latest patch and minor releases: pydantic
+  2.14.2, pydantic-settings 2.16.2, alembic 1.20.1, and the development tools pytest 9.2.0,
+  pytest-asyncio 1.4.1, coverage 7.17.0 and ruff 0.17.3. FastAPI stays at 0.143.2 for now.
+- The classifier router's live proxy now forwards attribute deletion to the current classifier,
+  as it already did for reads and writes, so a patch undone by deletion no longer outlives it.
+
+- Updates the UI dependencies and moves component prop types to Svelte’s supported type annotations, keeping optional inputs and defaults intact with the updated checker.
+
+- **The backend test gate allows ten minutes instead of eight for application tests.** Nothing
+  changes for someone at their feeder. On GitHub-hosted runners the application lane took
+  297 to 450 seconds across eleven recent runs, and one slower runner timed out at 480
+  seconds with 93% of the tests finished and nothing hung. Ten minutes still stops a real
+  teardown hang well inside the CI job's limit, and a test now keeps the deadline there.
+
+- The API can search the species and taxonomic groups seen here by their common or
+  scientific names, and find a bird or Garden capture by its exact record ID.
+  Taxon filters narrow bird and Garden history while keeping guest sharing limits.
+  These API additions prepare Explorer search; its interface is not included yet.
+
+- Explorer has one search box that finds species and groups of species (genus, family or order) by their common names in your language, English or scientific names, plus cameras, days such as "yesterday" and a pasted Frigate event or Garden capture ID. Choosing a result applies the Explorer's existing filters, or opens the record. A group shows as a removable token and is kept in the Explorer's address; switching to visitors the group does not have removes it with a note. Visitors are never offered hidden or unshared records or camera names, and search loads no media. Opening a record from search is cancelled by any later choice, so a slow earlier record cannot open over a newer one or report a failure; the box's focus ring sits inside it so a phone's edge cannot cut it off. See [Search the Explorer](docs/features/explorer.md#search-the-explorer).
+
+- **Settings → Beta features** is now a short introduction followed by one card per beta
+  feature. Garden animals has a clear on/off switch, applied with the rest of the page, and a
+  status line in words such as "On · 2 cameras · automatic checks on NPU". An amber dot appears
+  only when something needs you.
+- While Garden animals is on, a **Still to set up** list names anything it still needs (a
+  camera, a required model download, a location for your country), each with a button that
+  takes you there. Its settings are grouped into sections you can open and close: **Cameras**
+  and **Automatic checks and naming** start open; **Models**, **Domestic birds you keep**,
+  **Alerts** and **Where captures go** start closed.
+- Turning Garden animals off now says exactly what that does: Garden stops collecting new
+  captures, is hidden in the Explorer, stops its alerts and records birds you keep as wild
+  birds, while existing captures and settings are kept for when you turn it on again.
+- Garden's **Collection status** is now a short labelled list in plain words: **Device** (the
+  preferred device, or "not used yet" until a check has actually run on it), **Last check**
+  (the device that ran and when, or "None yet", and CPU when the preferred device failed),
+  **Automatic checks**, **Motion photos** ("Off" or "On for patio") and **Saved crops**.
+
+- Chickens no longer sit in the leaderboard's Needs a check card as "Red Junglefowl". When a
+  flagged species is a domestic bird under its wild name, the card says so, and an owner with
+  Garden on can choose "I keep Chickens: move to Garden". That declares the bird and moves its
+  visible bird records to Garden, each hidden from bird history rather than deleted, and the
+  message states how many moved, could not move or are still waiting. The same action is
+  available to scripts as `POST /api/garden/domestic-birds/{bird}/keep`.
+
+- **The family tree can now say what your feeder recorded of each species and group.** A new
+  facts route gives each taxon its visits, first and last seen, BirdNET calls and your own newest
+  photograph, rolled up for genera, families and orders, in one request per open level of the
+  tree. Confirmed Garden visits count; unconfirmed captures and hidden records never do. Visitors
+  see only the shared window, and photographs and call counts only where you share them.
+- **Taxa carry their authority and year when the catalogue records one,** and a new names route
+  lists a species' common names in the catalogue's other languages. The shipped catalogue does not
+  record authorities yet, so none show until a catalogue release adds them.
+- **Species information now includes the IUCN Red List's global category** where iNaturalist has
+  one, and can describe a family or order. A group's description comes only from the taxon with
+  that exact name and rank, never from a name search that could land on the wrong page.
+- **Garden animals count as seen in the family tree** while Garden is on.
+
+- **The family tree is now your feeder's tree.** Each species seen here shows your own newest
+  photograph beside its name, its visits, and "heard" when BirdNET recorded it. Its card adds first
+  and last seen, its calls, its IUCN Red List category in words, a short description and its names
+  in other languages, collapsed until you open them. Genera, families and orders show the species
+  seen beneath them, their visits and the most recent one, pictured by your photo of their most-seen
+  member, and families and orders add a short description.
+- **Garden animals count in their tree.** Confirmed Garden visits show on the animal's species and
+  groups, with your saved crop as its photograph.
+- **Every fact says when it is loading, missing or failed,** with **Try again** for a failed one,
+  and a species never seen says "No visits recorded". The card stays inside the family tree and
+  never covers the name it describes, fades at its foot when there is more to scroll, and a pinned
+  card can be reached with Tab and closed with Escape.
+
+- The family tree now reads like a field guide's classification. Genus and species names are set
+  in italics, while families, orders and common names stay upright, and each rank is labelled in
+  words and always reads from the class down, whatever order the catalogue returns them in. The
+  small lineage on a bird's record, the Garden record and species details, the full tree and the
+  name cards all follow the same rule and your Bird Naming Style.
+- The full tree is drawn with tidy right-angled branches, rank headings above each column, and one
+  set of markers explained by a legend: a ringed dot for this bird, a plus on a closed group, a green
+  dot for groups seen at this feeder. Every group says "N species, M seen here" in the same words in
+  the tree, the outline and its card, and a Garden animal makes no claim about bird visits.
+- The tree, fan and outline can be walked with the arrow keys, Home and End, and each node is a full
+  44 px row to click or tap. The tree shows grouping only: no authors, dates or relationships between individual birds are implied.
+
+- Configuration saves and generated installation secrets use exclusive temporary files and
+  owner-only POSIX permissions, preserving the previous file if a save fails.
+- Changing owner credentials revokes existing login tokens, media cookies, stream tickets and
+  live streams after the change is saved. Normal upgrades keep existing logins, and connected
+  OAuth integrations and legacy API keys keep working.
+- Integration API failures and SMTP/router logs redact configured credentials and credential
+  URLs while preserving useful error reasons and existing HTTP statuses.
+
+- A bird misnamed from one distant whole frame is now corrected by its crops. When the first name
+  came from an uncropped whole frame, such as a recording frame used because Frigate kept no
+  snapshot, and crops from at least two separate moments of the visit agree confidently on another
+  species, the photo search renames the visit. It records the crop source and the number of
+  supporting moments. Names from crops, video analysis, Frigate sublabels or your own choice are
+  never replaced, and neither is a visit you have hidden. Hiding, tagging or choosing a species
+  while the search runs still wins, because the final write checks again. Blocked, out-of-range
+  and Unknown species never win, and the rename sends no new alert. See [Deep Video Analysis](docs/features/video-analysis.md#correcting-a-name-read-from-a-whole-frame).
+- A renamed visit's photo is chosen for its new species. When every crop disputes a whole-frame
+  name that is not corrected, the photo may show what the crops saw while the old name stays, a
+  cue to check the visit. This never happens for a blocked, out-of-range, Unknown or non-bird crop
+  species, or for a hidden, tagged or owner-chosen visit; their earlier photo choice stays.
+
+- The dashboard no longer says "Nothing waiting on you" while the leaderboard's range check is
+  waiting on you. **Needs your call** now also names the species the range check flags in the
+  last 24 hours, for example "1 species may be misnamed: Red Junglefowl. Only the camera backs it
+  and no birder has reported it within 50 km.", and **Open the checks on the Species page** opens
+  the leaderboard's Day window at **Needs a check**. For an owner with Garden on, a flagged
+  domestic bird offers the same **I keep Chickens: move to Garden** action as the leaderboard.
+  While the check is loading or cannot be read, the panel says so rather than claiming nothing is
+  waiting, and the day bar's "nothing to review" follows the same rule. Without eBird or a feeder
+  location the check does not run, and the panel says only that every visit has a species. A list
+  whose refresh failed stays visible, marked as possibly out of date with **Try again**, and a bird
+  just moved to Garden, from the dashboard or the leaderboard, is not offered again while the reload
+  is failing.
+- `GET /api/leaderboard/species` now reports `nearby_check` (`checked`, `off` or `unavailable`), so
+  a client can tell a range check that ran from one that is switched off or failed. When eBird
+  cannot be reached after its six-hour cache has expired, the answer is `unavailable` rather than
+  the expired report passed off as current.
+
+- The Explorer search now starts the header row on a desktop, before the count and the view
+  switch, and stays there when you hide the filters. A phone keeps it above the results beside
+  **Filters**. Each result fits on one line (name, other name, rank, count) in a panel as wide as
+  the box, and the result **Enter** would choose is tinted and marked with a return arrow.
+- Chosen rows in the Explorer's filters, and flagged rows in the Explorer list and the Dashboard's
+  field log, drop the thick coloured bar on their left edge. A chosen filter is tinted with a
+  check; a row that needs you shows an amber dot beside its reason in words, on a fainter tint.
+
+- Garden no longer retries crops it cannot build every hour. A failed crop is retried after 1, 2,
+  4, 8 and 16 hours, then once a day, which cuts the repeated "crop unavailable" log lines for old
+  captures whose Frigate snapshots are past retention to one a day each. A crop is never
+  abandoned, so one that failed during a Frigate outage is still built later.
+
+- Fog and night infrared on a Garden camera no longer show up as "Possible animal" on the
+  Dashboard and timeline for half an hour. A motion candidate now stays out of sight until its
+  automatic check decides: named animals go to Confirmed animals, empty scenes to Dismissed, and
+  only those the check cannot decide reach Needs review. While candidates wait, Garden says how
+  many are waiting. Nothing is held when checks cannot run or have made no progress on that
+  camera for 30 minutes, and a failed check releases the capture.
+- Automatic checks of candidates already found now take priority over scanning recordings for
+  more. Before, a busy motion scan left checks waiting about 30 minutes on a quiet system. A
+  camera under pressure no longer holds up checks on other cameras.
+
+- Garden animal thumbnails in the Dashboard field log, the Explorer list and a Garden visit's
+  captures now open the same larger preview as bird thumbnails, on hover or keyboard focus, with
+  the saved crop (or the snapshot), name, score, state, time and camera. Escape or moving focus
+  away closes it. Visitors get the preview only for photos the owner shares.
+- A Garden pop-out's saved crop now fills the preview image like a bird's photo, with no bars. The
+  open bird and Garden previews are also named for screen readers: the thumbnail is described by
+  its preview (name, score, state and camera) for as long as it is open.
+
+- Garden no longer shows animals it cannot name. A photo whose species score is below the naming
+  threshold moves to Dismissed again, as Settings says, even when the check is confident an animal
+  is there; a name the catalogue cannot bind with a low score is treated the same. Captures the
+  previous behaviour left in Needs review are moved once at startup from their saved check; any
+  you returned to review stay put. Every dismissed capture keeps its Return to review action.
+- A single Garden capture's Dismiss button now says "Dismiss capture" instead of showing only an
+  eye icon.
+- A disabled Check photo states its real cause, such as the Garden model being busy, instead of
+  always asking you to download a model that is already installed.
+
+- A visit's species is no longer re-read from a whole-scene photo when every bird crop from the same
+  visit names a different species. Automatic analysis used to reclassify the whole frame that the
+  photo search left on display. It could then rename the bird, or re-confirm a wrong name and record
+  the whole frame as its evidence, even when every crop disagreed. That analysis now keeps the
+  existing identification and reports **No confident result**. It still runs when a crop agrees or
+  when no crop exists. An owner-requested **Score again** or species choice is unaffected. See
+  [Deep Video Analysis](docs/features/video-analysis.md#how-it-works).
+
+- Custom Discord webhook credentials stay hidden in verbose HTTP logs when the
+  URL is normalised or its query changes, including credentials supplied per send.
+- Bird email alerts display species names, cameras and weather as text and escape
+  HTML link and image attributes. Plain-text emails keep their original content;
+  Garden emails retain their existing HTML escaping.
+
+- A species card in the family tree now shows a reference photo for Garden animals such as the
+  domestic dog. The card asked for the species by its scientific name without saying so, so the
+  lookup tried the bird sources first and found nothing for a mammal.
+
+- A species' card in the family tree no longer stays grey without its reference
+  photo. Hovering a name and then clicking or focusing it before the photo
+  arrived discarded the lookup, so the card waited for a photo that never came.
+
+- A dawn or dusk burst of false alarms at one bush no longer delays the check of a real animal
+  elsewhere on the camera. Candidates at a spot where an automatic check found nothing in the
+  last 12 hours are checked after the others, for at most 30 minutes each. They are deferred,
+  never skipped, and a spot you reviewed yourself does not count. A candidate still unchecked
+  after 30 minutes now appears in Needs review on its own.
+- Each automatic-check cycle now reads Frigate's camera stats once and finds due checks for all
+  cameras in one query, instead of once per camera.
+
+- Garden checks and motion scans in a burst are now much faster. SpeciesNet and the Cedar motion
+  detector can stay loaded between requests instead of starting a new process and loading the model
+  each time. On an Intel NPU a check took about 13 seconds, of which inference was 1 to 2. Bird
+  inference still comes first: an accelerator model leaves its device, and its process has exited,
+  before Garden lets other work start, unless another automatic check is already due and no bird
+  work is waiting. A model on CPU is released after 60 seconds without Garden work. Any model is
+  released as soon as bird work is waiting, after any failed, interrupted or timed-out request, and
+  after 500 requests. A different model or device always starts a fresh process, so the CPU
+  comparison never shares a process with the accelerator it is checking.
+
+- BirdNET catalogue identity resolution runs off the event loop before a history
+  write starts, keeping other requests responsive while a catalogue is checked or
+  reloaded. Unavailable, unknown or ambiguous identities still permit audio ingest.
+
+- **Audio callers now use the audio history repository directly.** Nothing changes for
+  someone at their feeder. The audio routes, the audio service, the catalogue identity
+  backfill and the public-audio checks on events, the daily summary and species detail
+  now read and write BirdNET-Go history through `AudioHistoryRepository`, and the
+  detection repository's temporary audio delegates are gone. Each call keeps the same
+  connection and commit point it had before.
+
+- **BirdNET-Go history now has its own repository.** Nothing changes for someone at their
+  feeder. Audio ingest, hiding, history, context, public sharing and identity backfill
+  moved out of the 6,200-line detection repository into `AudioHistoryRepository`. Every
+  statement and commit is unchanged, and the detection repository still answers the same
+  calls while callers move. The payload parsers that audio ingest and audio history both
+  need now live in one pure module, so the repository no longer imports the audio service
+  to avoid a cycle. A captured-output test pins every audio method's result over the same
+  seeded history, before and after the move.
+
+- Event-stream delivery consistently uses bounded, non-blocking queues. Regression
+  coverage now exercises failed delivery and slow subscribers through that boundary.
+
+- **Changelog entries no longer conflict between pull requests.** Each change now adds
+  one small file under `changelog.d/` instead of editing the top of **Unreleased** in
+  `CHANGELOG.md`, where parallel branches kept colliding. CI checks every fragment is a
+  well-formed bullet with no heading, broken link or duplicate.
+  `backend/scripts/assemble_changelog.py --release <version>` folds them under the new
+  version heading at release, in file-name order, and deletes them; entries already
+  under **Unreleased** stay where they are and follow the fragments.
+
+- The TFLite, ONNX Runtime and OpenVINO model adapters, and the image preprocessing
+  and output checks they share, now live in their own inference package behind one
+  adapter contract. Classification results, native crash handling, label checksums
+  and status reporting are unchanged.
+
+- How a video frame's Frigate hints are aligned to the clip, and how results describe
+  the image that was actually classified, are now pure input-selection rules with a
+  typed provenance. Crops, hints and the reported input source are unchanged.
+
+- Choosing which inference provider runs, and what it falls back to, is now a pure
+  policy that returns a fixed plan. Provider choice, fallback order and the reasons
+  shown when a requested provider cannot run are unchanged.
+
+- Classifier status has a generated operational contract for runtime source,
+  effective model, inference health, worker pools and crop detection. Existing
+  response fields and runtime-specific omissions are preserved.
+
+- **The event list and visit captures now share one bird presenter.** Nothing changes for
+  someone at their feeder. How a stored detection becomes what the owner or a guest sees
+  (names in their language, nearby heard species, approximate locations, hidden cameras,
+  and the owner-only diagnostics a guest never receives) moved from the events router
+  into `services/detection_presenter.py`. A test compares the event list, visits, visit
+  captures, the daily summary and species detail, for the owner and for a guest with
+  and without shared audio, in English and German, with responses captured before the
+  move.
+
+- **Species detail's recent sightings now come from the shared bird presenter.** Nothing
+  changes for someone at their feeder. The species router's copy of the name
+  localisation and heard-species block is gone, so the daily summary and species detail
+  can no longer drift apart. Responses still match those captured before the presenter
+  existed, for the owner and guests, in English and German.
+
+- **The daily summary's latest detection now comes from the shared bird presenter.**
+  Nothing changes for someone at their feeder. Its name localisation, unknown-bird
+  folding and heard-species naming are now the presenter's single implementation
+  instead of a copy in the stats router, checked against the responses captured before
+  the presenter existed.
+
+- **Bird and Garden Discord and Pushover alerts now go through shared senders.** They read as
+  before. Bird Discord embeds keep their bold detection line, teal colour and snapshot; Garden
+  embeds keep their own footer. Both now treat names and cameras as plain text, so an underscore
+  or bracket in a camera name can no longer turn into Discord formatting, never ping anyone, and
+  wait for Discord to confirm the message. A Pushover alert counts as sent only when Pushover
+  accepts it, and Garden alerts now carry the sighting time as the Pushover message time. A
+  failure records only its type and status; verbose connection logs now hide a configured
+  Discord webhook on any host, not only discord.com.
+
+- **Bird and Garden email alerts now go through one shared email sender.** Emails read as before:
+  bird alerts keep their detection template and Garden alerts their own short layout, with the
+  photo inline when there is one. The sender chooses the OAuth mailbox or SMTP the same way for
+  both, and a failure records only its type, never the SMTP exchange. All four alert channels,
+  Discord, Telegram, Pushover and email, now share one sender each between birds and Garden,
+  while each keeps its own rules for when to send.
+
+- Frigate's tracked path is now parsed in one place for classifier hints,
+  high-quality snapshot frame selection and stored event hints. Malformed path
+  entries are still skipped, and the chosen frames and crops are unchanged.
+
+- High-quality snapshot candidates are now saved from a commit plan decided before
+  the first write. Owner photo choices, the displayed photo, legacy dismissals and
+  the cleanup of unreferenced photo files are unchanged.
+
+- **Translations are now authored one file per area, so features stop colliding in one huge file.**
+  Nothing changes on screen. Each language's strings moved from a single file of about 4,200 lines
+  into one file per top-level domain under `apps/ui/src/lib/i18n/locales/<language>/`, for example
+  `en/settings.json`, `en/events.json` and `en/garden.json`. Every key name and every string is
+  unchanged in all nine languages, and each language still loads as one lazily fetched file.
+  English is always loaded alongside the chosen language, and a new test proves that a key missing
+  from any translation shows the English text rather than the raw key. A new check rejects a domain
+  file that repeats a key, which a clean-looking merge could otherwise hide.
+
+- **Backend tests now fail when they leave a connection open or a clock patched.** Nothing
+  changes for someone at their feeder. After every test, the suite fails it if it left an
+  aiosqlite connection running or a process-wide clock or sleep patched, and names what
+  leaked. That found a test whose fake clock outlived it and made unrelated Garden checks
+  fail or hang when run after it, and three tests that left a five-connection pool open. All
+  are fixed. Seventeen copies of the same pool fixture became one shared `history_pool`
+  fixture. See [the testing guide](docs/development/testing.md#normal-gate).
+
+- Camera event pages share overlapping audio-context reads while preserving
+  microphone mapping, hidden-audio filtering and nearest-call ordering.
+
+- **Bird and Garden visit captures now page through one shared loader.** Nothing changes on
+  screen. Both visit capture lists read 20 captures at a time and discard a page that
+  answers after the visit, window, review or owner access changed. They now share one
+  engine instead of two copies, and that engine adds owner access to every list's identity
+  itself. One set of tests now covers both: first page, a repeated request, paging on,
+  reset, failure versus no captures, closing, late answers and the switch from owner to
+  visitor. A browser check confirms that favouriting a capture opened from its visit marks
+  that capture's row.
+
+- **Pure backend tests now run on their own, without a database or the app.** Nothing
+  changes for someone at their feeder. 126 decision-logic test files moved to
+  `backend/tests/pure`, which neither migrates the suite database nor imports the FastAPI
+  app; its conftest fails a test that opens a database or imports `app.main`. The backend
+  gate runs that lane first in its own process, then every other test, and combines their
+  coverage. The suite database is now migrated once, after collection, and only when an
+  application test is collected, and the suite's temporary directory is removed at exit.
+  Schema checks and four integration modules copy that freshly migrated database instead
+  of running Alembic again. See [the testing guide](docs/development/testing.md#normal-gate).
+
+- **Explorer reads and Settings addresses are now tested by what they do.** Nothing changes
+  on screen. The Explorer's rule that only the newest read may update the page, and the
+  Settings rules that turn older addresses such as `/settings#notifications` and
+  `/settings/errors` into the tab's own address, moved into small modules with direct
+  tests. Browser checks now prove that a slower earlier read cannot replace newer results,
+  that a linked capture outside the first page still opens, and that the Settings tab and
+  address stay in step through tab choices, Back and old bookmarks. Tests that only
+  checked for exact lines of source code were retired once these replaced them.
+
+- **Settings → Accessibility now loads when you first open it.** Its switches still wait for
+  **Apply Settings** with the rest of the form, keep their preview while you try them, and
+  stay as you left them if you move to another tab first.
+
+- **Settings → AI now loads when you first open it, with its built-in prompt templates.**
+  The provider, model, key, pricing and prompt fields still wait for **Apply Settings** with
+  the rest of the form and stay as you left them if you move to another tab. Switching
+  provider still moves the model to one that provider offers, and a stored key is still never
+  shown. A saved pricing list left empty no longer shows **Unsaved Changes** when Settings
+  opens. The Settings page script is about 53 kB (13 kB compressed) smaller.
+
+- **Settings → Appearance now loads when you first open it.** Its choices still wait for
+  **Apply Settings** with the rest of the form and stay in place if you move to another tab
+  first. If the tab's file does not arrive it says so and offers **Try opening again**,
+  instead of the whole Settings page failing. The Settings page script is 15 kB smaller.
+
+- **Settings → Enrichment now loads when you first open it.** It still shows which provider
+  fills each part of a species page, and every save still sends those choices back unchanged.
+
+- **Settings opens faster, because Health now loads only when you open it.** The diagnostics
+  page behind **Settings → Health** was part of every Settings visit; it is now fetched the
+  first time you open that tab, with the usual loading line and **Try opening again** if it
+  does not arrive. The Settings page script is about 90 kB (24 kB compressed) smaller.
+
+- **A settings save can no longer undo or leak another change made at the same moment.**
+  Activating a model, the startup replacement of a retired model, first-run setup and the
+  telemetry identity now save through the same ordered, persist-then-publish path as
+  **Apply Settings**, so a save already in progress cannot revert them, and a failed save
+  leaves the running settings unchanged. Testing a Discord, Pushover or Telegram channel
+  with credentials typed but not applied no longer places them on the running settings,
+  where a concurrent save could have written them to `config.json`.
+
+- **Bird and Garden Telegram alerts now go through one shared Telegram sender.** Messages read
+  exactly as before: bird alerts are the bold detection sentence after a bird, with a View
+  detection button or the snapshot link, and Garden alerts are a bold title over the sighting.
+  Both now escape, clip captions and attach photos the same way, turn off link previews with
+  Telegram's current option, and count an alert as sent only when Telegram answers that it
+  accepted it. A failure still records only its type and status, never the bot token. Garden
+  alerts also stop borrowing the bird alerts' connection.
+
+- Fetching the clip for video classification is now its own stage with a typed
+  result. Clip choice, the snapshot fallback when no clip is available, and temporary
+  file cleanup after a failure or cancellation are unchanged.
+
 - **Kept chickens no longer slip back into bird history.** With chickens declared under
   **Domestic birds you keep**, a visit that first arrived under another bird's name (a hen
   small in a whole frame can read as a Magpie) and was renamed to Red Junglefowl a few minutes
