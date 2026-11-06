@@ -10,8 +10,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - Classifiers retain model-bound bird, non-bird and unknown group scores for
   counting qualification across ONNX, OpenVINO and TFLite. Added tested
-  confirmation and crop-preparation rules; these are not yet enabled in capture
-  counting, and saved counts and bird-finder defaults are unchanged.
+  confirmation and crop-preparation rules. Own-crop confirmation is not yet used in
+  capture counting, and the bird-finder default is unchanged.
 
 - Added an offline check for multi-bird counting changes that requires frozen,
   individually labelled test images. Matching totals can no longer conceal a
@@ -467,13 +467,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
     on a Garden-only camera. When SpeciesNet saw an undeclared domestic bird, the record asks
     whether you keep it.
   - A bird record of a declared bird offers **Move to Garden**, which hides (not deletes) the
-    bird record. Moving a Garden capture back to birds, and moving past detections in bulk,
-    are not available yet.
+    bird record. Moving a Garden capture back to birds is not available yet.
   A new migration stores each domestic record's evidence. `GET /api/garden/domestic-birds` and
   `POST /api/events/{event_id}/move-to-garden` are new.
-- An animal the automatic Garden check is confident is present, but whose species score is
-  below the naming threshold, now waits in **Needs review** instead of being dismissed. Only
-  uncertain photos below the threshold are dismissed.
 - Garden motion scans no longer report ordinary unreadable recordings as a crashed native
   worker. Frigate starts a clip at the keyframe before the requested start, and a camera with
   a 6-second keyframe interval returned 16 seconds for a 10-second window, past the 5 seconds
@@ -1082,8 +1078,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   are. When the automatic check finds an animal and SpeciesNet's species score from the
   same detector-crop pass reaches the owner's **Naming threshold** (default 0.80, under
   **Settings → Beta features**), the capture is confirmed and named, marked **Named
-  automatically**. Below the threshold, or without a country, it waits in **Needs
-  review**. Country filtering and person rules match owner suggestions. Discarding the
+  automatically**. Below the threshold it moves to **Dismissed**, and without a
+  country it stays pending with the reason shown. Country filtering and person rules match owner suggestions. Discarding the
   name or dismissing the capture is final for that capture. Existing captures are not
   renamed (#641).
 
@@ -1270,8 +1266,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   42 of 52 and 58 of 64 birds, against 12 of 52 and 16 of 64 for YOLOX-Tiny at its counting
   floor. It is a 103 MB download and costs about five detector passes per frame. YOLOX-Tiny
   stays the default, and a chosen finder that is not downloaded yet falls back to it rather
-  than to the fast detector. Validated on CPU and Intel CPU, GPU and NPU; CUDA is not yet
-  validated, so it runs on CPU there (#734).
+  than to the fast detector. Validated on CPU and Intel CPU, GPU and NPU; on CUDA it stays on
+  the CPU unless it passes that host's device check (#734).
 
 - Crop-detector diagnostics now report individual annotated birds matched or
   missed. Extra detections and exact scene localization are scored only against
