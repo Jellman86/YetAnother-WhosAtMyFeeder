@@ -1,1 +1,0 @@
-- Updates the UI dependencies and moves component prop types to Svelte’s supported type annotations, keeping optional inputs and defaults intact with the updated checker.

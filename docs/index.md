@@ -58,5 +58,5 @@ for behavior shipped in a tagged image.
 - [Offline Garden replay](development/garden-replay.md) — compare detector sampling without changing live collection or history.
 - [Engineering contract](../CLAUDE.md) · [Code quality](standards/code-quality.md) · [UI/UX](standards/ui-ux.md).
 - [Documentation standard](documentation-standard.md) · [Screenshot capture](images/README.md).
-- [Writing a release](development/releasing.md) · [v2.22.0 notes](releases/v2.22.0.md) · [Contributors](../CONTRIBUTORS.md).
+- [Writing a release](development/releasing.md) · [v2.23.0 notes](releases/v2.23.0.md) · [Contributors](../CONTRIBUTORS.md).
 - [Release archive](releases/) · [Dated reviews](reviews/) · [Roadmap](../ROADMAP.md).
