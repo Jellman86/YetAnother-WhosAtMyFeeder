@@ -62,7 +62,7 @@
                 return $_('setup.review.detail.connection_missing', { values: { items: items.join(', ') }, default: `Set ${items.join(', ')}` });
             }
             case 'cameras_count':
-                return $_('setup.review.detail.cameras_count', { values: { count: Number(values.count ?? 0) }, default: `${values.count ?? 0} cameras` });
+                return $_('setup.review.detail.cameras_count', { values: { count: Number(values.count ?? 0) }, default: '{count, plural, one {# camera} other {# cameras}}' });
             case 'cameras_all':
                 return $_('setup.review.detail.cameras_all', { default: 'All cameras' });
             case 'model_wrong_kind':

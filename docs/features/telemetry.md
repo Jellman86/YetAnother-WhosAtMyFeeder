@@ -26,7 +26,7 @@ When enabled, the system sends a lightweight "heartbeat" JSON payload once every
 | **Configuration** | `{ "model_type": "eva02", "birdnet": true }` | Shows which features are most popular. |
 | **Runtime** | `{ "inference_provider_active": "intel_cpu", "model_runtime": "onnx" }` | Shows which inference paths are actually in use. |
 | **Hardware Capability** | `{ "cuda_available": false, "intel_gpu_available": true }` | Helps prioritize GPU/runtime support without storing device serials or host details. |
-| **Deployment** | `{ "image_flavor": "intel", "image_arch": "x86_64" }` | Tracks which packaged runtime family and architecture are active. Branch and Git identity are separate deployment fields. |
+| **Deployment** | `{ "mode": "monolith", "image_flavor": "intel", "image_arch": "x86_64" }` | Tracks whether the install runs the single image (`monolith`) or the separate backend and frontend images (`split`), and which packaged runtime family and architecture are active. Branch and Git identity are separate deployment fields. |
 
 ## Anonymous Health Diagnostics
 
@@ -54,7 +54,7 @@ telemetry. See [Diagnostics](../troubleshooting/diagnostics.md#capture-current-e
 The About page quotes how many installs reported to the telemetry service in the last week.
 That number comes from the worker's public summary (`/stats/summary`), read by the backend at most
 once an hour with no payload, the same host the update check reads. It follows the
-**Check for updates** opt-out: an install that has turned update checks off never contacts the
+update-check opt-out (`SYSTEM__UPDATE_CHECK_ENABLED=false`): an install that has turned update checks off never contacts the
 worker for this either, and the count is simply absent. It is listed under "What leaves your
 network" on the About page.
 

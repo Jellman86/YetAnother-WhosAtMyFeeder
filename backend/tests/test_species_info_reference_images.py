@@ -67,14 +67,15 @@ def test_normalisation_is_idempotent_and_preserves_species_content():
 
 
 @pytest.mark.asyncio
-async def test_cached_reference_photo_is_bounded_without_writing_or_refreshing(monkeypatch):
+@pytest.mark.parametrize("extract", ["Species facts", "<p>Species <b>facts</b></p>"])
+async def test_cached_reference_photo_is_bounded_without_writing_or_refreshing(monkeypatch, extract):
     from app.routers import species as router
 
     now = datetime.now()
     row = (
         "Blue Tit",
         "Small bird",
-        "Species facts",
+        extract,
         "https://upload.wikimedia.org/wikipedia/commons/a/ab/Bird.jpg",
         "https://en.wikipedia.org/wiki/Blue_tit",
         "Wikipedia",
@@ -99,7 +100,7 @@ async def test_cached_reference_photo_is_bounded_without_writing_or_refreshing(m
     info = await router._get_cached_species_info("Blue Tit", 42, "en", False)
     assert info is not None
     assert info.thumbnail_url.endswith("/960px-Bird.jpg")
-    assert info.extract == row[2]
+    assert info.extract == "Species facts"
     assert info.cached_at == now
     repository.save_cached_info.assert_not_called()
     assert await router._get_cached_species_info("Blue Tit", 42, "en", False) is info

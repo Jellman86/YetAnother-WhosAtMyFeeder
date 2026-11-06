@@ -81,12 +81,15 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
             raise CatalogImportError(f"A bundle must hold exactly one release, found {len(releases)}")
         release = releases[0]
 
-        recomputed = release_content_digest(
-            connection,
-            schema_version=int(release["schema_version"]),
-            source_manifest=str(release["source_manifest"]),
-            generated_at=str(release["generated_at"]),
-        )
+        try:
+            recomputed = release_content_digest(
+                connection,
+                schema_version=int(release["schema_version"]),
+                source_manifest=str(release["source_manifest"]),
+                generated_at=str(release["generated_at"]),
+            )
+        except (ValueError, sqlite3.Error) as error:
+            raise CatalogImportError("Unsupported or incomplete catalogue release digest") from error
         if recomputed != release["content_sha256"]:
             raise CatalogImportError(
                 "Bundle content does not match its recorded digest: "
@@ -95,6 +98,13 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
 
         if connection.execute("PRAGMA foreign_key_check").fetchall():
             raise CatalogImportError("Bundle fails foreign-key integrity")
+        if (
+            int(release["schema_version"]) == 1
+            and connection.execute(
+                "SELECT 1 FROM model_output_taxa WHERE taxonomic_group != 'unknown' LIMIT 1"
+            ).fetchone()
+        ):
+            raise CatalogImportError("Legacy release digest does not attest output group evidence")
 
         return _Bundle(
             release=release,
@@ -195,9 +205,20 @@ def _mapped_outputs(outputs, id_map: dict[int, int]) -> list[dict]:
             "class_kind": output["class_kind"],
             "species_id": id_map[output["species_id"]] if output["species_id"] is not None else None,
             "source_label": output["source_label"],
+            "taxonomic_group": output["taxonomic_group"] if "taxonomic_group" in output.keys() else "unknown",
         }
         for output in outputs
     ]
+
+
+def _richer_identity(current: tuple, incoming: tuple) -> bool:
+    return (
+        current[2] == incoming[2]
+        and current[0] == "species"
+        and current[1] is not None
+        and incoming[0] == "unknown"
+        and incoming[1] is None
+    )
 
 
 def _identity_gains(
@@ -208,7 +229,8 @@ def _identity_gains(
     An output the catalogue holds as `unknown` with no species carries no
     claim: it records the model's label and says nothing about what it is.
     A release that can name it is therefore adding knowledge, not correcting
-    a claim, and that is the one difference a mapping set may carry.
+    a claim. Group-only enrichment may also preserve richer live identities;
+    its caller must reject mixtures with identity gains or added/removed rows.
 
     Every other difference returns None so the caller refuses the release:
     an identity being replaced or withdrawn, a label being rewritten, or a
@@ -230,7 +252,9 @@ def _identity_gains(
             # Absent rather than different; added by `complete_artifact_mapping`.
             continue
         candidate = (str(row["class_kind"]), row["species_id"], str(row["source_label"]))
-        if current == candidate:
+        if current == candidate or (
+            _richer_identity(current, candidate) and row.get("taxonomic_group", "unknown") != "unknown"
+        ):
             continue
         if current[2] != candidate[2]:
             return None
@@ -244,26 +268,18 @@ def _identity_gains(
 
 
 def complete_artifact_mapping(live: sqlite3.Connection, *, artifact_row_id: int, bundle_rows) -> int:
-    """Add output rows the live catalogue lacks, and change none that it has.
+    """Complete source rows and add coarse group evidence without rewriting identity.
 
-    Only called when the bundle's `mapping_set_sha256` matches the registered
-    artifact's, which means the source mapping is identical. A row the live
-    catalogue does not hold is therefore absent rather than different, and
-    adding it claims no identity that the mapping did not already carry.
-
-    The digest is computed over the whole source mapping, including outputs
-    nothing could resolve, while the stored rows were once a filtered subset of
-    it. That is why a live catalogue can hold fewer rows than its own digest
-    describes, and why this exists.
-
-    A row that would *change* is refused. That is a mapping correction, and it
-    needs an explicit supersession policy rather than arriving quietly here.
+    An equal mapping digest may describe absent rows that older imports omitted.
+    A checked group-only enrichment may retain richer live species identities.
+    Known groups cannot be withdrawn or contradicted; identity corrections require
+    an explicit supersession policy before this helper is called.
     """
     # Read by position so this does not depend on the caller's row factory.
     existing = {
-        int(index): (str(kind), species_id, str(label))
-        for index, kind, species_id, label in live.execute(
-            "SELECT output_index, class_kind, species_id, source_label FROM model_output_taxa"
+        int(index): (str(kind), species_id, str(label), str(group))
+        for index, kind, species_id, label, group in live.execute(
+            "SELECT output_index, class_kind, species_id, source_label, taxonomic_group FROM model_output_taxa"
             " WHERE model_artifact_id = ?",
             (artifact_row_id,),
         )
@@ -273,18 +289,30 @@ def complete_artifact_mapping(live: sqlite3.Connection, *, artifact_row_id: int,
     for row in bundle_rows:
         index = int(row["output_index"])
         incoming = (str(row["class_kind"]), row["species_id"], str(row["source_label"]))
+        group = row["taxonomic_group"] if "taxonomic_group" in row.keys() else "unknown"
+        if group not in {"bird", "nonbird", "unknown"} or (
+            group != "unknown" and (not isinstance(row["source_label"], str) or not row["source_label"].strip())
+        ):
+            raise CatalogImportError("Output group requires a valid, bound source label")
         held = existing.get(index)
         if held is not None:
-            if held != incoming:
+            if held[:3] != incoming and not _richer_identity(held, incoming):
                 raise CatalogImportError(
                     f"Bundle mapping for output {index} differs from the one already recorded"
                     f" for this artifact; refusing to rewrite it"
                 )
+            if held[3] != "unknown" and group != "unknown" and held[3] != group:
+                raise CatalogImportError("Conflicting known output groups require explicit supersession")
+            if held[3] == "unknown" and group != "unknown":
+                live.execute(
+                    "UPDATE model_output_taxa SET taxonomic_group=? WHERE model_artifact_id=? AND output_index=?",
+                    (group, artifact_row_id, index),
+                )
             continue
         live.execute(
-            "INSERT INTO model_output_taxa (model_artifact_id, output_index, class_kind, species_id, source_label)"
-            " VALUES (?, ?, ?, ?, ?)",
-            (artifact_row_id, index, row["class_kind"], row["species_id"], row["source_label"]),
+            "INSERT INTO model_output_taxa (model_artifact_id, output_index, class_kind, species_id, source_label, taxonomic_group)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            (artifact_row_id, index, row["class_kind"], row["species_id"], row["source_label"], group),
         )
         added += 1
     return added
@@ -323,6 +351,12 @@ def _complete_registered_mappings(live: sqlite3.Connection, bundle: "_Bundle") -
     return added
 
 
+def _refresh_output_groups(path: Path) -> None:
+    from app.services.species_catalog_resolver import species_catalog_resolver
+
+    species_catalog_resolver.refresh_output_groups_for(path)
+
+
 def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> ImportResult:
     bundle = _read_bundle(Path(bundle_path))
     path = Path(catalog_path or default_catalog_path())
@@ -349,9 +383,11 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                 # subset of the mapping its own digest describes. Completing
                 # that is a repair rather than an import, so it happens here
                 # too, adding only rows that are absent.
+                changes_before = live.total_changes
                 repaired = _complete_registered_mappings(live, bundle)
-                if repaired:
+                if live.total_changes != changes_before:
                     live.execute("COMMIT")
+                    _refresh_output_groups(path)
                     log.info(
                         "Completed mappings on an already-imported release",
                         release_id=existing["id"],
@@ -504,16 +540,27 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                                 "Bundle carries a different mapping set for already-registered artifact "
                                 f"{artifact['model_sha256']}; refusing the release"
                             )
+                        preserves_richer = any(
+                            int(row["output_index"]) in held
+                            and _richer_identity(
+                                held[int(row["output_index"])],
+                                (str(row["class_kind"]), row["species_id"], str(row["source_label"])),
+                            )
+                            for row in incoming
+                        )
+                        if preserves_richer and (gains or set(held) != {int(row["output_index"]) for row in incoming}):
+                            raise CatalogImportError("Group enrichment cannot merge different identity mappings")
                         for output_index, species_id in gains:
                             live.execute(
                                 "UPDATE model_output_taxa SET class_kind = 'species', species_id = ?"
                                 " WHERE model_artifact_id = ? AND output_index = ?",
                                 (species_id, artifact_row_id, output_index),
                             )
-                        live.execute(
-                            "UPDATE model_artifacts SET mapping_set_sha256 = ? WHERE id = ?",
-                            (artifact["mapping_set_sha256"], artifact_row_id),
-                        )
+                        if not preserves_richer:
+                            live.execute(
+                                "UPDATE model_artifacts SET mapping_set_sha256 = ? WHERE id = ?",
+                                (artifact["mapping_set_sha256"], artifact_row_id),
+                            )
                         if gains:
                             log.info(
                                 "Outputs the catalogue could not name have been named by this release",
@@ -550,14 +597,15 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                     species_id = id_map[output["species_id"]] if output["species_id"] is not None else None
                     live.execute(
                         "INSERT INTO model_output_taxa"
-                        " (model_artifact_id, output_index, class_kind, species_id, source_label)"
-                        " VALUES (?, ?, ?, ?, ?)",
+                        " (model_artifact_id, output_index, class_kind, species_id, source_label, taxonomic_group)"
+                        " VALUES (?, ?, ?, ?, ?, ?)",
                         (
                             new_artifact_id,
                             output["output_index"],
                             output["class_kind"],
                             species_id,
                             output["source_label"],
+                            output["taxonomic_group"],
                         ),
                     )
 
@@ -577,6 +625,7 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
     finally:
         live.close()
 
+    _refresh_output_groups(path)
     log.info(
         "Catalogue release imported",
         release_id=release_id,

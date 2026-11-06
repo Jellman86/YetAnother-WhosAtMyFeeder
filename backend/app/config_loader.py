@@ -6,6 +6,8 @@ from typing import Any
 
 import structlog
 
+from .utils.private_files import write_private_text
+
 from .config_models import (
     AuthSettings,
     AccessibilitySettings,
@@ -55,10 +57,7 @@ def _persist_generated_auth_secret(config_path: Path, secret_key: str, secret_va
         auth[secret_key] = secret_value
         data["auth"] = auth
 
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        tmp_path = config_path.with_suffix(config_path.suffix + ".tmp")
-        tmp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp_path.replace(config_path)
+        write_private_text(config_path, json.dumps(data, indent=2))
         return True
     except Exception as e:
         log.warning("Failed to persist generated auth secret", path=str(config_path), key=secret_key, error=str(e))
@@ -234,6 +233,11 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "frigate_auth_token": os.environ.get("FRIGATE__FRIGATE_AUTH_TOKEN", None),
         "main_topic": os.environ.get("FRIGATE__MAIN_TOPIC", "frigate"),
         "classification_image_source": os.environ.get("FRIGATE__CLASSIFICATION_IMAGE_SOURCE", "frigate_snapshot"),
+        "recording_frame_delay_seconds": float(
+            os.environ.get(
+                "FRIGATE__RECORDING_FRAME_DELAY_SECONDS", os.environ.get("RECORDING_FRAME_READY_SECONDS", "12")
+            )
+        ),
         "clips_enabled": os.environ.get("FRIGATE__CLIPS_ENABLED", "true").lower() == "true",
         "recording_clip_enabled": os.environ.get("FRIGATE__RECORDING_CLIP_ENABLED", "false").lower() == "true",
         "recording_clip_before_seconds": int(os.environ.get("FRIGATE__RECORDING_CLIP_BEFORE_SECONDS", "30")),
@@ -248,7 +252,23 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "birdnet_url": os.environ.get("FRIGATE__BIRDNET_URL", ""),
         "birdnet_external_url": os.environ.get("FRIGATE__BIRDNET_EXTERNAL_URL", ""),
         "camera_audio_mapping": {},
+        "garden_motion_confidence": float(os.environ.get("FRIGATE__GARDEN_MOTION_CONFIDENCE", "0.5")),
+        "garden_notifications_enabled": os.environ.get("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", "false").lower()
+        == "true",
+        "garden_notification_channels": json.loads(os.environ.get("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", "[]")),
+        "garden_automatic_naming": os.environ.get("FRIGATE__GARDEN_AUTOMATIC_NAMING", "true").lower() == "true",
+        "garden_naming_threshold": float(os.environ.get("FRIGATE__GARDEN_NAMING_THRESHOLD", "0.8")),
+        "garden_notifications_include_photo": os.environ.get(
+            "FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", "true"
+        ).lower()
+        == "true",
+        "garden_domestic_birds": json.loads(os.environ.get("FRIGATE__GARDEN_DOMESTIC_BIRDS", "[]")),
     }
+    # Absent unless set, so FrigateSettings can derive it from the channels a saved config chose.
+    if "FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS" in os.environ:
+        frigate_data["garden_notifications_use_bird_channels"] = (
+            os.environ["FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS"].lower() == "true"
+        )
 
     # Maintenance settings
     maintenance_data = {
@@ -581,6 +601,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "broadcaster_max_consecutive_full": int(os.environ.get("SYSTEM__BROADCASTER_MAX_CONSECUTIVE_FULL", "10")),
         "trusted_proxy_hosts": trusted_hosts,
         "debug_ui_enabled": os.environ.get("SYSTEM__DEBUG_UI_ENABLED", "false").lower() == "true",
+        "beta_garden_animals": os.environ.get("SYSTEM__BETA_GARDEN_ANIMALS", "false").lower() == "true",
         "update_check_enabled": os.environ.get("SYSTEM__UPDATE_CHECK_ENABLED", "true").lower() != "false",
     }
 
@@ -795,7 +816,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             if "auth" in file_data:
                 for k, v in file_data["auth"].items():
                     env_key = f"AUTH__{k.upper()}"
-                    if env_key not in os.environ:
+                    if k == "session_version" or env_key not in os.environ:
                         auth_data[k] = v
                 if (
                     "initial_setup_complete" not in file_data["auth"]

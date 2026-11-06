@@ -1,14 +1,20 @@
 """Choose one frame's localized birds for a capture-level count."""
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from itertools import combinations
 import math
-from typing import Any
+from typing import Any, Literal
 
+from app.services.bird_physical_confirmation import (
+    MIN_DETECTOR_CONFIDENCE,
+    STRONG_DETECTOR_CONFIDENCE,
+    PhysicalBirdDecision,
+    decide_physical_bird,
+)
 from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, should_hide_species_label
 
 
-MIN_DETECTOR_CONFIDENCE = 0.08
 MIN_SPECIES_CONFIDENCE = 0.65
 DUPLICATE_BOX_OVERLAP = 0.4
 
@@ -24,11 +30,23 @@ class BirdObservation:
 
 
 @dataclass(frozen=True)
+class BirdCountRegion:
+    candidate_id: str
+    box: tuple[float, float, float, float]
+    detector_confidence: float | None
+    reason: str
+
+
+@dataclass(frozen=True)
 class BirdObservationSelection:
     clip_variant: str | None
     frame_index: int | None
     full_frame_candidate_id: str | None
     birds: tuple[BirdObservation, ...]
+    ambiguity_reason: str | None = None
+    unconfirmed_regions: tuple[BirdCountRegion, ...] = ()
+    excluded_regions: tuple[BirdCountRegion, ...] = ()
+    count_status: Literal["legacy", "complete", "incomplete", "ambiguous", "not_measured"] = "legacy"
 
 
 def _finite_score(value: Any) -> float | None:
@@ -83,6 +101,154 @@ def _encloses_distinct_birds(box: tuple[float, ...], boxes: list[tuple[float, ..
     )
 
 
+def _shares_pixels(left: tuple[float, ...], right: tuple[float, ...]) -> bool:
+    return min(left[2], right[2]) > max(left[0], right[0]) and min(left[3], right[3]) > max(left[1], right[1])
+
+
+def select_confirmed_bird_observations(
+    candidates: list[dict[str, Any]],
+    *,
+    selected_candidate: dict[str, Any] | None,
+    finder_qualified: bool,
+    physical_decisions: Mapping[str, PhysicalBirdDecision],
+) -> BirdObservationSelection:
+    """Partition one scene into confirmed individuals and explicitly uncounted regions.
+
+    Decisions come from fresh, bound own-pixel evidence, never contextual photo
+    names. Even positive presence cannot establish another individual when a
+    mid-band proposal shares pixels with another unresolved proposal or bird.
+    """
+    if finder_qualified is not True:
+        return BirdObservationSelection(None, None, None, (), count_status="not_measured")
+    by_frame: dict[tuple[str, int], dict[tuple[float, ...], dict[str, Any]]] = {}
+    for candidate in candidates:
+        if candidate.get("source_mode") not in {"model_crop", "model_observation"}:
+            continue
+        frame = _frame_key(candidate)
+        box = _box(candidate.get("detector_box") or candidate.get("crop_box"))
+        confidence = _finite_score(candidate.get("crop_confidence"))
+        if frame is None or type(frame[1]) is not int or box is None:
+            continue
+        if confidence is not None and 0 <= confidence < MIN_DETECTOR_CONFIDENCE:
+            continue
+        entries = by_frame.setdefault(frame, {})
+        previous = entries.get(box)
+
+        # The same detector output appears as a photo crop and an observation.
+        # Exact repeated geometry is one proposal, not an overlapping cluster.
+        def preference(item: dict[str, Any]) -> tuple[bool, bool, float, str]:
+            return (
+                str(item.get("candidate_id") or "") in physical_decisions,
+                item.get("source_mode") == "model_observation",
+                _finite_score(item.get("crop_confidence")) or 0.0,
+                str(item.get("candidate_id") or ""),
+            )
+
+        if previous is None or preference(candidate) > preference(previous):
+            entries[box] = candidate
+
+    outcomes = []
+    for frame, entries in by_frame.items():
+        decisions = {}
+        for box, candidate in entries.items():
+            name = str(candidate.get("candidate_id") or "")
+            decision = physical_decisions.get(name)
+            if decision is None:
+                decision = decide_physical_bird(
+                    candidate.get("crop_confidence"),
+                    finder_qualified=True,
+                    evidence=None,
+                    expected_model_sha256=None,
+                    expected_mapping_sha256=None,
+                    expected_crop_sha256=None,
+                )
+            decisions[box] = decision
+        active = [box for box, decision in decisions.items() if decision.verdict != "excluded"]
+        ambiguous = any(_encloses_distinct_birds(box, active) for box in active)
+        confirmed = []
+        unconfirmed, excluded = [], []
+        for box, candidate in sorted(entries.items()):
+            decision = decisions[box]
+            confidence = _finite_score(candidate.get("crop_confidence"))
+            strong = confidence is not None and confidence >= STRONG_DETECTOR_CONFIDENCE
+            if (
+                decision.verdict != "excluded"
+                and not strong
+                and any(other != box and _shares_pixels(box, other) for other in active)
+            ):
+                shares_counted = any(
+                    other != box
+                    and _shares_pixels(box, other)
+                    and decisions[other].verdict == "counted"
+                    and (_finite_score(entries[other].get("crop_confidence")) or 0) >= STRONG_DETECTOR_CONFIDENCE
+                    for other in active
+                )
+                decision = PhysicalBirdDecision(
+                    "unconfirmed", "shares_counted_pixels" if shares_counted else "individuality_unresolved"
+                )
+            if decision.verdict == "counted":
+                confirmed.append(candidate)
+            else:
+                region = BirdCountRegion(str(candidate.get("candidate_id") or ""), box, confidence, decision.reason)
+                (excluded if decision.verdict == "excluded" else unconfirmed).append(region)
+        full = [item for item in candidates if item.get("source_mode") == "full_frame" and _frame_key(item) == frame]
+        selected = select_bird_observations(confirmed + full, selected_candidate=selected_candidate)
+        if selected.clip_variant is None:
+            selected = replace(
+                selected,
+                clip_variant=frame[0],
+                frame_index=frame[1],
+                full_frame_candidate_id=str(full[0].get("candidate_id") or "") if full else None,
+            )
+        if ambiguous or selected.ambiguity_reason:
+            selected = replace(selected, birds=(), ambiguity_reason="ambiguous_localization", count_status="ambiguous")
+        else:
+            selected = replace(selected, count_status="incomplete" if unconfirmed else "complete")
+        outcomes.append(replace(selected, unconfirmed_regions=tuple(unconfirmed), excluded_regions=tuple(excluded)))
+    if not outcomes:
+        full = next((item for item in candidates if item.get("source_mode") == "full_frame" and _frame_key(item)), None)
+        return BirdObservationSelection(
+            full.get("clip_variant") if full else None,
+            full.get("frame_index") if full else None,
+            str(full.get("candidate_id") or "") if full else None,
+            (),
+            count_status="complete",
+        )
+    clear = [item for item in outcomes if not item.ambiguity_reason and item.birds]
+    unresolved = [item for item in outcomes if item.ambiguity_reason or item.unconfirmed_regions]
+    selected_frame = _frame_key(selected_candidate) if selected_candidate else None
+    return max(
+        clear or unresolved or outcomes,
+        key=lambda item: (
+            len(item.birds),
+            item.count_status == "complete",
+            (item.clip_variant, item.frame_index) == selected_frame,
+            str(item.clip_variant),
+            item.frame_index or 0,
+        ),
+    )
+
+
+def select_scene_birds(
+    candidates: list[dict[str, Any]],
+    *,
+    selected_candidate: dict[str, Any] | None,
+    confirmed_finder: bool,
+) -> BirdObservationSelection:
+    """Count confirmed birds when the finder is validated for it; otherwise keep the earlier count.
+
+    Confirmation reads only the finder's whole-scene boxes. Photo-choice crops can
+    come from a fallback detector, and own-pixel classifier evidence is not wired
+    yet, so a box below the strong detector floor is disclosed instead of counted.
+    """
+    if not confirmed_finder:
+        return select_bird_observations(candidates, selected_candidate=selected_candidate)
+    scene_evidence = [item for item in candidates if item.get("source_mode") in {"model_observation", "full_frame"}]
+    return select_confirmed_bird_observations(
+        scene_evidence, selected_candidate=selected_candidate, finder_qualified=True, physical_decisions={}
+    )
+
+
 def select_bird_observations(
     candidates: list[dict[str, Any]],
     *,
@@ -116,9 +282,13 @@ def select_bird_observations(
         return BirdObservationSelection(None, None, None, ())
 
     distinct_by_frame: dict[tuple[str, int], list[tuple[dict[str, Any], tuple[float, float, float, float]]]] = {}
+    ambiguous_frames: set[tuple[str, int]] = set()
     for frame, items in by_frame.items():
         boxes = [box for _, box in items]
-        items = [(candidate, box) for candidate, box in items if not _encloses_distinct_birds(box, boxes)]
+        # The same geometry can be two birds inside a group box or two parts of
+        # one bird. Neither detector nor contextual species scores resolve it.
+        if any(_encloses_distinct_birds(box, boxes) for box in boxes):
+            ambiguous_frames.add(frame)
         distinct: list[tuple[dict[str, Any], tuple[float, float, float, float]]] = []
         for candidate, box in sorted(
             items, key=lambda pair: _finite_score(pair[0].get("crop_confidence")) or 0.0, reverse=True
@@ -130,8 +300,9 @@ def select_bird_observations(
         distinct_by_frame[frame] = distinct
 
     selected_frame = _frame_key(selected_candidate) if selected_candidate else None
+    clear_frames = [frame for frame, items in distinct_by_frame.items() if items and frame not in ambiguous_frames]
     anchor = max(
-        distinct_by_frame,
+        clear_frames or distinct_by_frame,
         key=lambda frame: (
             len(distinct_by_frame[frame]),
             frame == selected_frame,
@@ -143,6 +314,14 @@ def select_bird_observations(
         (item for item in candidates if item.get("source_mode") == "full_frame" and _frame_key(item) == anchor),
         None,
     )
+    if anchor in ambiguous_frames:
+        return BirdObservationSelection(
+            anchor[0],
+            anchor[1],
+            str(full_frame.get("candidate_id") or "") if full_frame else None,
+            (),
+            "ambiguous_localization",
+        )
     birds = []
     for candidate, box in sorted(distinct_by_frame[anchor], key=lambda pair: (pair[1][0], pair[1][1])):
         score = _finite_score(candidate.get("classifier_score")) or 0.0

@@ -4,6 +4,7 @@ import {
     VISIT_GAP_MS,
     groupDetectionsIntoVisits as groupVisits,
     needsReview,
+    fromServerVisit,
     withinDeskWindow
 } from './visit-grouping';
 
@@ -192,5 +193,42 @@ describe('groupDetectionsIntoVisits', () => {
         groupDetectionsIntoVisits(input);
 
         expect(input.map((item) => item.frigate_event)).toEqual(snapshot);
+    });
+});
+
+
+it.each([
+    { score: 0.8688878715, threshold: 0.6, manual: false, expected: false },
+    { score: 0.6, threshold: 0.6, manual: false, expected: false },
+    { score: 0.59, threshold: 0.6, manual: false, expected: true },
+    { score: 0.2, threshold: 0.6, manual: true, expected: false },
+    { score: 0.9, threshold: null, manual: false, expected: false }
+])('reviews a whole-view identification by confidence and owner decision: $score/$threshold', ({ score, threshold, manual, expected }) => {
+    const frame = detection({ frigate_event: 'whole-view', score, manual_tagged: manual,
+        classification_input: { source: 'full_frame', is_cropped: false } });
+    expect(needsReview(frame, threshold)).toBe(expected);
+    expect(groupVisits([frame], { reviewThreshold: threshold })[0].needsReview).toBe(expected);
+});
+
+
+describe('owner confirmation on a visit', () => {
+    it('carries explicit confirmation from any same-species capture, independently of score or audio', () => {
+        const frames = [
+            detection({ frigate_event: 'latest', score: 1, audio_confirmed: true }),
+            detection({ frigate_event: 'older', detection_time: '2026-08-11T11:34:30Z', manual_tagged: true })
+        ];
+        expect(groupDetectionsIntoVisits(frames)[0].ownerConfirmed).toBe(true);
+        expect(groupDetectionsIntoVisits([frames[0]])[0].ownerConfirmed).toBe(false);
+        expect(groupDetectionsIntoVisits([detection({ frigate_event: 'unknown', display_name: 'Unknown Bird', manual_tagged: true })])[0].ownerConfirmed).toBe(false);
+    });
+
+    it('uses the server aggregate even when the shown captures were not owner confirmed', () => {
+        const representative = detection({ frigate_event: 'favorite', score: 1 });
+        const summary = { visit_id: 'visit', start_time: representative.detection_time,
+            end_time: representative.detection_time, capture_count: 20, best_score: 1,
+            needs_review: false, audio_confirmed: false, owner_confirmed: true,
+            representative, latest: representative, peak_capture: null };
+        expect(fromServerVisit(summary).ownerConfirmed).toBe(true);
+        expect(fromServerVisit({ ...summary, owner_confirmed: false }).ownerConfirmed).toBe(false);
     });
 });

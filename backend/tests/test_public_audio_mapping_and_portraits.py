@@ -4,6 +4,8 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 import json
 from unittest.mock import AsyncMock
+from app.services.nearby_species_service import NearbyLookup
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import httpx
 import pytest
@@ -11,9 +13,12 @@ import pytest
 from app.auth import create_access_token
 from app.config import settings
 from app.main import app
+from app.services import detection_presenter
 from app.routers import events, species
 from test_guest_privacy_review import private_history as private_history
 
+
+NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
 
 ROUTES = (
     "/api/events?audio_confirmed_only=true",
@@ -38,7 +43,7 @@ def confirmation_count(route, body):
 async def test_public_aggregate_does_not_substitute_another_microphone(private_history, monkeypatch, route):
     _, factory = private_history
     monkeypatch.setattr(settings.frigate, "camera_audio_mapping", {"secret-camera": "micA"})
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value=None))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with factory() as db:
         await db.execute("UPDATE detections SET audio_confirmed=1,audio_species='Robin' WHERE frigate_event='visible'")
         await db.execute(
@@ -139,8 +144,10 @@ async def test_public_page_batches_audio_and_excludes_future_secondary(private_h
             yield db
 
     monkeypatch.setattr(events, "get_db", traced_db)
-    monkeypatch.setattr(events, "localize_audio_species_name", AsyncMock(side_effect=lambda name, lang, db: name))
-    monkeypatch.setattr(events, "localize_audio_detections", AsyncMock())
+    monkeypatch.setattr(
+        detection_presenter, "localize_audio_species_name", AsyncMock(side_effect=lambda name, lang, db: name)
+    )
+    monkeypatch.setattr(detection_presenter, "localize_audio_detections", AsyncMock())
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get("/api/events?limit=20")
     assert response.status_code == 200, response.text
@@ -256,7 +263,7 @@ async def test_public_audio_batch_bounds_rows_and_chunks_before_mapping(private_
         targets = await repo.get_all(limit=51)
         queries = []
         await db.set_trace_callback(queries.append)
-        evidence = await repo.get_public_audio_for_detections(targets)
+        evidence = await AudioHistoryRepository(repo.db).get_public_audio_for_detections(targets)
         plans = []
         for query in list(queries):
             if query.lstrip().startswith("WITH d("):
@@ -345,7 +352,7 @@ async def test_public_audio_lookup_work_depends_on_capture_window_not_shared_his
 
         monkeypatch.setattr(db, "create_function", counted_registration)
         repo = DetectionRepository(db)
-        evidence = await repo.get_public_audio_for_detections(await repo.get_all())
+        evidence = await AudioHistoryRepository(repo.db).get_public_audio_for_detections(await repo.get_all())
     assert evidence["capture"]["primary"]["confidence"] == 0.75
     assert evidence["capture"]["context"] == []
     assert calls < 20, "The indexed capture lookup scanned unrelated shared audio history"
@@ -358,7 +365,7 @@ async def test_public_audio_lookup_work_depends_on_capture_window_not_shared_his
 async def test_public_audio_indexed_bounds_preserve_midnight_and_capture_edges(
     private_history, monkeypatch, public_days, seconds, capture_offset
 ):
-    from app.repositories.detection_repository import _public_audio_conditions_sql
+    from app.repositories.audio_history_repository import public_audio_conditions_sql
     from app.utils.api_datetime import serialize_storage_datetime
     from app.utils.public_access import public_events_window
 
@@ -387,7 +394,7 @@ async def test_public_audio_indexed_bounds_preserve_midnight_and_capture_edges(
             "INSERT INTO audio_detections(timestamp,species,confidence,sensor_id,raw_data,is_hidden) VALUES(?,'Robin',.9,'micA','{}',0)",
             [(serialize_storage_datetime(stamp),) for stamp in samples],
         )
-        sql, params = await _public_audio_conditions_sql(db)
+        sql, params = await public_audio_conditions_sql(db)
         query = f"""WITH d(camera_name,detection_time,audio_species) AS (VALUES (?,?,?))
             SELECT a.timestamp FROM d JOIN audio_detections a ON {sql} ORDER BY a.timestamp"""
         async with db.execute(query, ["secret-camera", serialize_storage_datetime(target), "Robin", *params]) as cursor:

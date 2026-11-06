@@ -29,8 +29,37 @@ The backend command collects everything in `backend/tests`, including the former
 orphaned Python tests under the root `tests` directory. Both PR checks and image
 builds use this same command and `backend/.coveragerc`: branch measurement with a
 70% total floor. This is a minimum, not evidence that every important path works.
-The test process must exit successfully within eight minutes. A printed pass
-summary does not excuse a teardown hang or a failed coverage report.
+
+Counting-policy changes also need a frozen, independently labelled object panel.
+Follow [bird-count qualification](bird-count-qualification.md); passing unit tests
+or matching the number of birds in a few photographs is not that evidence.
+
+It runs two serial processes. Pure decision-logic tests in `backend/tests/pure`
+run first, alone, within two minutes: they migrate no database and never import
+the FastAPI app, and that subtree's conftest fails any test that opens a database
+or imports `app.main`. Every other test then runs against a suite database migrated
+once, within ten minutes. Coverage from both lanes is combined into one report.
+A printed pass summary does not excuse a teardown hang or a failed coverage report.
+
+A test that needs an empty schema at head takes the `migrated_history_db` fixture,
+a private copy of the suite database taken right after migration, instead of
+running Alembic again. Tests about a migration itself still run the real chain.
+For a quick loop on decision logic, `pytest tests/pure` from `backend/` runs in
+seconds because it skips migration and application imports.
+
+Tests own what they open. After every test, once all its fixtures are torn
+down, the suite conftest fails that test if it left an aiosqlite connection
+open, or left `time.time`, `time.monotonic`, `time.perf_counter`, `time.sleep`
+or `asyncio.sleep` patched. A patch of `module.time.time` replaces the clock
+for the whole process. A test that needs the application's connection pool
+takes the `history_pool` fixture, which opens and closes the pool in that
+test's own event loop, instead of calling `init_db()` itself.
+
+The image build also starts and stops the backend with both databases under its
+temporary directory. Set `SPECIES_CATALOG_PATH` explicitly when reproducing that
+check outside a container; its runtime default is `/data/species_catalog.db`.
+Container smoke checks do the same for normal and non-root users and explicitly
+require garden catalogue availability, independently of bird readiness.
 
 Telemetry tests build the Worker without deploying it, then use local Miniflare
 databases. They do not require credentials or write to production Cloudflare D1.
@@ -98,6 +127,10 @@ figures illustrate controls and do not add hardware-validation evidence.
 
 ## Joined backend paths and recovery
 
+For the isolated Garden animals experiment, use the
+[retained-footage replay](garden-replay.md). It produces review candidates without
+changing the bird pipeline; hardware execution is separate from wildlife accuracy.
+
 `test_issue490_worker_processes.py` injects hangs and exits into real disposable
 child processes. It checks that live requests can finish while a background worker
 fails, that failed workers are reaped, and that failed CPU recovery is not retried
@@ -152,6 +185,10 @@ python backend/scripts/run_model_hardware_gate.py \
   --models-dir /data/models --output /tmp/yawamf-hardware-validation \
   --provider intel_npu --provider intel_gpu --repeat 2
 ```
+
+The gate prepares a private species catalogue from the bundled checksum-verified seed before
+loading models. Catalogue-only models need no `labels.txt`, and the application’s catalogue is
+never opened or changed.
 
 The output directory must not already exist. On the NVIDIA host, request
 `--provider cuda` instead. Use `--model medium_birds/eu` to select an exact
@@ -208,6 +245,27 @@ Stable weights retain the hash cache, and atomic replacement invalidates it thro
 file identity even when size and timestamps match. This guards rapid same-size
 updates on coarse-timestamp filesystems without hashing every settled model on
 every request.
+
+### Crop process containment
+
+`backend/tests/test_crop_process_session.py` uses disposable children to inject
+SIGABRT, device errors, hangs and repeated cancellation. It verifies child reaping
+before CPU fallback, retained quarantine, transient reload, concurrent queue
+admission, nonblocking model reset, delayed launch shutdown, cleanup status and
+recovery, and bounded numeric tensor exchange. Owner-pipe EOF and a Linux kernel
+parent-death test cover loss of the owning API or classifier worker, including native code holding
+the Python lock. The test's private subreaper collects every descendant. A tiny embedded ONNX
+Identity graph also checks the production CPU child without a model download.
+When OpenVINO is installed, the same graph checks its Intel CPU child and the
+output ports whose adapter exposes names without dimensions.
+The native-exception test aborts if a failed exception is destroyed; the worker
+must instead exit immediately with its recognised device-error evidence intact.
+These checks do not retry a quarantined production accelerator or establish GPU
+hardware qualification. Run them with the normal backend test dependencies:
+
+```bash
+PYTHONPATH=backend pytest backend/tests/test_crop_process_session.py -q
+```
 
 ### Native OpenVINO crash reproducer
 
@@ -283,9 +341,13 @@ corpus still needs pinned, reviewed images and a previous-release baseline.
   broader retained-video replay, CUDA coverage beyond the tested RoPE/crop pair,
   and sustained mixed-load memory/queue bounds. The October [model evaluation](../reviews/2026-10-10-model-integration-validation.md)
   is scoped evidence, not a universal accuracy or hardware certification.
-- Removing the old test-wide aiosqlite daemon-thread workaround by fixing each
-  leaking fixture. Strict process exit catches other hangs but does not prove that
-  all database connections are currently closed.
+- Removing the test-wide aiosqlite daemon-thread workaround. Every test is now
+  checked for leaked connections, so the next step is one CI run without the
+  workaround to prove interpreter exit stays prompt. Two classifier worker tests
+  and one crop-process test still leave non-database worker threads running.
+- Rows that one API test leaves in the shared suite database. Running some files
+  together in an order other than the suite's (for example the events, species and
+  stats API files on their own) shows counts from another file's rows.
 - Populated historical-schema upgrade/rollback matrices beyond the existing
   migration and runtime-flavour tests, plus restore through the owner workflow.
 
@@ -329,3 +391,45 @@ before a newly downloaded file is accepted. Do not run concurrent refresh writer
 This locks the local selection, not a release accuracy benchmark. Labels and image
 quality still need review, a portable curated manifest must be committed, and the
 same corpus must be compared against a previous release before setting thresholds.
+
+Crop localization evaluation also binds each annotation to `image_sha256` and
+requires `annotation_verified: true` after visual review of that exact image.
+`eval_crop_detector_accuracy.py` rejects missing checksums, changed bytes and
+out-of-frame boxes before loading a detector. It decodes the verified bytes so a
+cache replacement cannot change the photograph between checking and inference.
+The committed eight-image panel contains corrected visible-bird boxes; these are
+previously explored diagnostic controls, not an independent accuracy holdout.
+
+Each case declares `annotation_scope`: `target_only` for reviewed targets without
+an exhaustive scene inventory, `exhaustive` after reviewing every visible bird
+(including an explicitly bird-free scene), or `unknown` when the scope is not
+established. Missing scope defaults to `unknown`; `annotation_verified` alone
+does not establish exhaustiveness. The committed panel is `target_only`, including
+the Mallard image's foreground-only annotation.
+
+Schema-3 results declare `evaluation_role: diagnostic`. The existing
+`recall_at_0_3` and `recall_at_0_5` keys retain their historical best-pair image-hit
+meaning: one matched target makes an image a hit. Use `localization_at_0_3` and
+`localization_at_0_5` for one-to-one matched/missed targets and target-weighted
+recall. A proposal can match at most one bird. Only verified exhaustive cases
+score unmatched candidates and `exact_localization`, which requires every target
+matched with no extras, not merely equal counts. The selected summary evaluates
+the single best crop, so cannot demonstrate multi-bird counting performance.
+
+Unknown scope and empty target-only annotations have no target/count score.
+Negative-scene rates require verified exhaustive empty annotations; missing
+denominators produce JSON `null` and console `unscored`, not a measured zero.
+Targets, boxes and unmatched candidates do not establish species identity. The
+harness does not run the bird-observation selector or interpret its abstentions.
+Case/visit counts describe the submitted panel, not statistical independence;
+correlated frames and regions must stay grouped by their actual source visit.
+An explored diagnostic panel cannot qualify a replacement model or threshold.
+
+`build_crop_field_manifest.py` records checksums but leaves annotations unverified.
+Inspect each positive box and negative region, correct them where needed, then
+mark the reviewed cases verified. A Frigate event box or a region outside that box
+alone does not establish bird presence or absence in the photograph.
+Also set the appropriate scope explicitly; use `exhaustive` only after reviewing
+all birds or confirming the entire submitted scene is bird-free.
+Generated full frames and regions from the same event share its `visit_id`;
+negative-region case IDs remain distinct without inventing an independent visit.

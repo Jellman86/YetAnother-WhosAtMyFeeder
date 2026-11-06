@@ -5,6 +5,9 @@ with connection pooling, authentication, and consistent error handling.
 """
 
 import math
+import asyncio
+from pathlib import Path
+import re
 
 import aiofiles
 import httpx
@@ -271,6 +274,31 @@ class FrigateClient:
         except Exception as e:
             log.error("Unexpected error fetching recording clip", camera=camera, error=str(e))
             return None, "clip_unknown_error"
+
+    async def download_motion_recording(
+        self, camera: str, start: float, end: float, destination: Path, *, byte_limit: int = 16 * 1024 * 1024
+    ) -> None:
+        if (
+            not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", camera)
+            or not all(math.isfinite(v) for v in (start, end))
+            or not 0 < start < end <= start + 10
+        ):
+            raise ValueError("Invalid bounded motion recording window")
+        url = f"{self.base_url}/api/{camera}/start/{start:.6f}/end/{end:.6f}/clip.mp4"
+        headers = {**self._get_headers(), "Accept-Encoding": "identity"}
+        async with asyncio.timeout(20), self._get_client().stream("GET", url, headers=headers, timeout=10) as response:
+            response.raise_for_status()
+            if response.headers.get("content-encoding", "identity") != "identity":
+                raise ValueError("Motion recordings must not use compressed HTTP encoding")
+            size = 0
+            async with aiofiles.open(destination, "wb") as output:
+                async for chunk in response.aiter_bytes(256 * 1024):
+                    size += len(chunk)
+                    if size > byte_limit:
+                        raise ValueError("Motion recording exceeds its byte limit")
+                    await output.write(chunk)
+            if size == 0:
+                raise ValueError("Motion recording is empty")
 
     async def get_alignment_snapshot_with_error(
         self, event_id: str, timeout: float = 5.0

@@ -7,21 +7,25 @@ on:
     paths:
       - "README.md"
       - "CHANGELOG.md"
+      - "changelog.d/**"
       - "MIGRATION.md"
       - "docs/**"
       - "backend/app/main.py"
       - "backend/app/routers/**"
       - "backend/scripts/docs_consistency_check.py"
+      - "backend/scripts/assemble_changelog.py"
       - ".github/workflows/docs-quality.yml"
   pull_request:
     paths:
       - "README.md"
       - "CHANGELOG.md"
+      - "changelog.d/**"
       - "MIGRATION.md"
       - "docs/**"
       - "backend/app/main.py"
       - "backend/app/routers/**"
       - "backend/scripts/docs_consistency_check.py"
+      - "backend/scripts/assemble_changelog.py"
       - ".github/workflows/docs-quality.yml"
 
 jobs:
@@ -31,7 +35,7 @@ jobs:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Run documentation consistency checks
         run: |

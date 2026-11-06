@@ -1,0 +1,5 @@
+{
+  "completed": "Letzter abgeschlossener Lauf: {device} · {time}",
+  "fallback": "CPU-Ausweichbetrieb: Der angeforderte Beschleuniger konnte die aktuelle Prüfung oder Inferenz nicht erfolgreich abschließen.",
+  "unreported": "Noch kein abgeschlossener Lauf mit Geräteangabe. Eine Empfehlung ist kein Ausführungsnachweis."
+}

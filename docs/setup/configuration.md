@@ -13,7 +13,7 @@ Use the navigation grid to switch sections:
 |---|---|---|
 | **Feeder pipeline** | Connection, Detection | Where events come from, and how they are identified. |
 | **Intelligence & sharing** | Integrations, Enrichment, AI, Notifications | Other services YA-WAMF talks to, and what it sends out. |
-| **Operations** | Health, Security, Data, Setup wizard | Running it: diagnostics, access, retention, and re-running setup. |
+| **Operations** | Health, Security, Beta features, Data, Setup wizard | Running it: diagnostics, access, features still being tested, retention, and re-running setup. |
 | **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
 
 A **Debug** section appears alongside them when debug UI is enabled (see
@@ -30,20 +30,44 @@ you want the UI to control that field.
 
 Where bird events come from.
 
-![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside an Active Cameras card](../images/settings-connection.png)
+![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside a Cameras to watch card where the feeder camera watches for birds as a Feeder](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
 | **Server URL** | The address YA-WAMF uses to reach Frigate for snapshots and clips, for example `http://frigate:5000`. |
 | **Frigate labels to act on** | Comma-separated Frigate labels that should enter the bird pipeline. Defaults to `bird`. |
+| **Identify new detections from** | **Detection snapshot** (default) or a higher-resolution retained **Recording frame** with tracked-box alignment. See [initial classification images](../integrations/frigate.md#initial-classification-image). |
+| **Initial identification delay (seconds)** | Shown for **Recording frame**. Wait 1 to 120 seconds (default 12) before the first read, using the latest tracked snapshot metadata received during the wait. Notifications arrive later too; saved detections are unchanged. |
 | **Public Frigate URL** | The address *your browser* uses to open Frigate, when it differs from the server address above. Used for the "open in Frigate" link on a detection. |
-| **Active Cameras** | Which Frigate cameras YA-WAMF monitors. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. |
-| **Camera role** | Mark each camera as a **feeder** or a **nest** camera. Nest cameras use their own de-duplication window. |
+| **Cameras to watch** | One row per Frigate camera choosing what it is watched for: **Off** or **Birds**, plus **Garden animals** and **Both** while the Garden animals beta is on. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. See [Cameras to watch](#cameras-to-watch). |
+| **Role** | Shown while a camera watches for birds: **Feeder** or **Nest**. Nest cameras use their own de-duplication window. |
+| **Collect motion review photos** | Shown while a camera watches for Garden animals. See [Beta features](#beta-features). |
 | **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |
 | **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
 | **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
 | **Telemetry** | Optional anonymous usage metrics and health diagnostics, both off by default. See [Telemetry](../features/telemetry.md). |
 | **Test Connection** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
+
+### Cameras to watch
+
+Each choice saves to the same lists the server has always used, so existing configurations need no
+migration:
+
+- **Birds** and **Both** put the camera in `frigate.camera`. An empty list means every Frigate
+  camera, including cameras added later, and the card says so. Turning one camera to **Off** or
+  **Garden animals** while the list is empty first lists every other camera Frigate reports, so
+  they keep watching for birds. **Watch every camera for birds** returns to the empty list.
+- At least one camera always watches for birds, because an empty list would mean every camera
+  again. The last bird camera's **Off** and **Garden animals** choices are unavailable, with the
+  reason beside them.
+- **Garden animals** and **Both** put the camera in `frigate.garden_cameras`. Leaving Garden also
+  removes the camera from `frigate.garden_motion_cameras`; the server drops any motion camera that
+  is not a Garden camera when settings are saved.
+- Leaving birds drops the camera's **Nest** role, so the nest window is not kept for a camera that
+  cannot use it.
+- A saved camera that Frigate no longer lists stays in the list marked **Not found in Frigate**
+  until you choose **Off**. If the list cannot be read from Frigate, saved cameras are shown
+  without that mark.
 
 > **Full-visit clips need continuous recording.** Every selected camera needs an enabled
 > FFmpeg `record` role and positive `record.continuous.days` retention. Alert or detection
@@ -52,23 +76,40 @@ Where bird events come from.
 
 ## Detection
 
-How a snapshot becomes a species. This is the section that balances accuracy against noise.
+How a snapshot becomes a species. The page opens with a status line (model, runtime, workers,
+health), then groups the settings by the decision they make:
 
-![Settings → Detection: a Classification Engine card showing the active model, runtime, worker plan and health, with a Confidence Threshold slider and an Inference Provider selector](../images/settings-detection.png)
+- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
+  which locates birds in the frame so YA-WAMF can crop and count them. Each model card shows
+  its download size, an estimated RAM figure and whether it covers birds only or wider wildlife.
+- **Accepting an identification**: the two confidence sliders, **Bird model region** and
+  **Personalized re-ranking**.
+- **Hardware**: **Inference Provider**, **Check devices on this host**, and the folded
+  **Memory and isolation** and **Runtime report** sections. **Memory and isolation** opens on
+  its own when you have changed its defaults.
+- **Frigate and video**: sublabel trust, sublabel write-back and **Auto Video Analysis**.
+- **Blocked Labels**.
+- **Range filter**: optional, needs a location and an eBird key.
+
+![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | **Confidence Threshold** | `0.7` | Minimum local score for a named identification, also subject to the confidence floor, unknown-label policy and blocked-species rules. |
 | **Minimum Confidence Floor** | `0.4` | Reject local image results below this score. A usable trusted Frigate sublabel can still provide the configured fallback. |
 | **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
-| **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
+| **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
 | **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
+| **Finder device** | `Automatic` | Device preference for the accurate finder, separate from identification. Only current validated accelerator choices can be selected. An unavailable saved choice uses CPU; **Apply Settings** saves the preference. |
+| **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Apply Settings**. |
 | **Execution Mode** | `Subprocess` | `Subprocess` runs inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
-| **Model Manager** | — | Download, validate, and activate classifier models, and the separate cropped-thumbnail detectors. |
-| **Runtime diagnostics** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
+| **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Apply Settings**. |
+| **Runtime report** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
 | **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
 | **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
+| **Range filter** | Disabled | Set aside new automatic identifications of species eBird has never recorded in your region, falling back to the model's best in-range answer. Needs a location and an eBird API key; fails open when the list is missing or stale. See [Range filter](../features/range-filter.md). |
+| **Finest region** | `County` | The finest eBird region the range filter uses. An approximate location uses a state list and a country alone uses the country list. |
 
 ### 🛠 How the two thresholds work together
 
@@ -232,6 +273,28 @@ Who can reach YA-WAMF, and what a visitor can see.
 
 See [Reverse Proxy](reverse-proxy.md) for routing, HTTPS headers and live-stream requirements.
 
+## Beta features
+
+Features that are still being tested. Each is a card with its own switch and a status line in
+words. A feature is off until you turn it on, and may change or be removed. A switch is staged
+with the rest of the page and takes effect on **Apply Settings**; turning a feature off keeps
+what it has already recorded. While Garden animals is on, its settings are grouped into
+collapsible sections (**Cameras**, **Automatic checks and naming**, **Models**, **Domestic birds
+you keep**, **Alerts**, **Where captures go**), and **Still to set up** lists anything it still
+needs.
+
+| Setting | What it does |
+|---------|-------------|
+| **Garden animals** | Off by default (`SYSTEM__BETA_GARDEN_ANIMALS`). Collects non-bird visitors for owner review, separately from bird history. Turning it off stops collection, hides Garden in the Explorer, stops Garden alerts and records kept birds as ordinary birds; saved captures and the settings below are kept and return when it is turned on again. See [Garden animals](../features/garden-animals.md). |
+| **Models** | Status and explicit downloads for Garden's own models: the required 224 MB automatic check model (SpeciesNet 4.0.3a), an optional 224 MB species suggestion model (4.0.3b) and the 101 MB motion detector (MegaDetector v1000 Cedar), required only for motion review photos. Shown after **Apply Settings** has switched Garden on. A download saves no settings and does not change the bird model. Not a saved setting. |
+| **Cameras to watch** | A summary of the cameras watched for Garden animals, none by default (`frigate.garden_cameras: []`), with **Choose cameras in Connection**. Each camera's **Garden animals** or **Both** choice is made in [Connection → Cameras to watch](#cameras-to-watch), beside its bird role. |
+| **Collect motion review photos** | Set per camera in Connection while it watches for Garden animals, off by default (`frigate.garden_motion_cameras: []`). Requires retained motion recordings and the **Motion detector** under **Models**. Bounded CPU scans create private review candidates. |
+| **Frigate animal labels** | Defaults to `cat, dog`. Animal labels for Garden review; the Frigate detector must already track them. Birds, people and vehicles are excluded; kept birds are declared below. |
+| **Domestic birds you keep** | None by default (`FRIGATE__GARDEN_DOMESTIC_BIRDS`, a JSON list such as `["chicken"]`). Chickens, domestic ducks and geese, turkeys, guineafowl, peafowl, domestic pigeons or doves and quail you add here are recorded as Garden animals on every camera, never as bird detections, and are never sent to eBird, BirdWeather or iNaturalist. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so add a bird only if you keep it. See [Domestic birds](../features/garden-animals.md#domestic-birds). |
+| **Animal proposal threshold** | Cedar's minimum animal score for new motion photos, shown as 50% to 95% (default 50%, saved as 0.5 to 0.95, `FRIGATE__GARDEN_MOTION_CONFIDENCE`). Higher values reduce proposals but can miss animals. Existing photos are not reclassified. |
+| **Name animals automatically** | On by default (`FRIGATE__GARDEN_AUTOMATIC_NAMING`). Confirms and names an animal when the automatic check's species score reaches the naming threshold, marked as automatic. Off: every animal waits for your review. |
+| **Naming threshold** | Shown as 70% to 99% (default 80%, saved as 0.7 to 0.99, `FRIGATE__GARDEN_NAMING_THRESHOLD`). Higher values name fewer animals and leave more for you. A photo below it is dismissed and can be restored from Dismissed. Existing captures are not renamed. |
+
 ## Data
 
 Retention, caching, imports, and the destructive tools.
@@ -241,12 +304,20 @@ Retention, caching, imports, and the destructive tools.
 - **Retention Policy** — **History Duration** sets how long sightings are kept
   (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
   startup and then every 24 hours from that point, so the time of day it lands on follows when the
-  container last started. **Purge Old Records** runs the same cleanup now, after asking with the
-  number of detections it will remove. Cleanup **permanently deletes** both visual detections and
-  BirdNET-Go audio older than the window. Purged history cannot be recovered. Favourited
+  container last started. Choosing a shorter window (or any window after **Keep Everything**)
+  shows, under the picker, how many detections the next cleanup would delete, and **Apply
+  Settings** asks once more (**Save and delete _N_ detections**) before saving it. Cancelling
+  saves nothing. The stat tiles above show the saved policy: **Retention** and **Due for deletion**
+  change only after you apply. **Purge Old Records** runs the same cleanup now, after asking with the
+  number of detections it will remove; while it has nothing to do, the line beneath it says why.
+  Cleanup **permanently deletes** visual detections, hidden ones included, and BirdNET-Go audio
+  older than the window. Purged history cannot be recovered. Favourited
   detections stay. The optional per-species minimum also protects the newest configured
   number of detections per species and their photographs from age cleanup; its default
   is `0`, so there is no species floor until you set one. It does not protect clips.
+  **Danger Zone** lists one action per row, narrowest first, each with its consequence beside
+  its button: **Clear Personalization Data**, **Delete All Favorites**, then **Reset Database &
+  Cache**.
   The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
   Frigate and what to do when upstream media has gone.
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
@@ -266,7 +337,10 @@ Retention, caching, imports, and the destructive tools.
   newest visits covered by a configured minimum are protected from age cleanup; the
   minimum protects photographs, not clips. Photo variants and metadata age together.
   `media_cache.retention_days=0` follows detection retention; it does not independently mean
-  unlimited when history retention is finite.
+  unlimited when history retention is finite. Confirmed Garden animals keep their full photograph,
+  and their Frigate clip while event-clip copies are on, under the same retention; **Space used**
+  includes them and says how much is Garden's. See
+  [Kept photographs and clips](../features/garden-animals.md#kept-photographs-and-clips).
 - **Best available event snapshots** — start from Frigate's completed clean best frame and
   tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
   only when a compatible species result improves confidence by at least two points. JPEG quality
@@ -285,7 +359,9 @@ Retention, caching, imports, and the destructive tools.
   photo or primary species. A cropped Frigate image, thumbnail or expired scene is insufficient;
   the control explains when a whole frame is unavailable. Scans run one at a time and survive
   a restart. A completed scan with no birds is distinct from a photo never scanned. An empty
-  retry keeps earlier counted-bird records and says so.
+  retry keeps earlier counted-bird records and says so. With the RF-DETR Nano bird finder the
+  count includes only confident boxes; weaker ones are listed as not counted and the result
+  says **At least N birds confirmed**.
 - **Bird scanning effort** — applies to automatic and requested additional-bird scans. **Standard** uses one detector scan per sampled frame and up to three
   classified crop choices. **Intensive** additionally searches nine overlapping tiles in large
   high-resolution frames and classifies up to eight crop choices. Intensive remains the effort default; automatic scanning is off unless enabled. Both count all usable detector boxes from the selected scene;
@@ -300,7 +376,8 @@ Retention, caching, imports, and the destructive tools.
   of each canonical species. Favourites are exempt. `0` means unlimited. This removes cached media,
   including alternate photos and clips, while keeping visits and counted-bird records.
 - **Storage limit (MiB)** — periodically remove the oldest non-favourite cached visits until
-  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata fit the budget.
+  ordinary cached snapshots, choices, thumbnails, clips, previews and metadata, and confirmed
+  Garden animals' kept photos and clips, fit the budget.
   `0` means unlimited. Favourites and their archive are protected; active work is deferred, so the
   cache can temporarily exceed the budget, or stay above it if protected media alone exceed it.
   Limits run at startup and every five minutes, and when **Clear Cached Files** is used. The budget
@@ -360,7 +437,7 @@ How the interface reads.
 | Setting | Options |
 |---|---|
 | **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
-| **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
+| **Explorer layout** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
 | **Theme** | Light or dark, plus the colour and font themes. |
 | **Text size** | Smallest (75%), Smaller (81%), **Standard** (87.5%, default), Large (100%), Larger (112.5%), Extra large (125%) or Largest (150%). Saved separately on each device. |
 | **Language** | The interface language. Notifications have their own language setting. |
@@ -369,7 +446,7 @@ How the interface reads.
 
 ## Accessibility
 
-- **High contrast**, **Dyslexia-friendly font**, and **Reduced motion** for readability and
+- **High contrast**, **Dyslexia Friendly Font**, and **Reduced motion** for readability and
   motion sensitivity.
 - **Live announcements** — screen reader announcements when new detections arrive.
 
@@ -391,3 +468,39 @@ Optional developer tools, hidden unless you enable them:
 
 This reveals a **Debug** section in the Settings navigation, holding things like the
 iNaturalist preview toggle and the LLM prompt editors.
+
+
+## Garden notifications
+
+Garden alerts are off by default and are set up under **Settings → Notifications**,
+in the **Garden animals** section shown while the Garden beta is on. They follow
+the bird channels that are switched on and configured, or channels you choose;
+save with **Apply settings**. See
+[Garden notifications](../features/garden-animals.md#send-garden-notifications)
+for eligibility, photos, privacy and delivery status.
+
+| Environment override | Default | Meaning |
+|---|---|---|
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Allow separate Garden alerts while the Garden beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` follows the enabled, configured bird channels; `false` uses the channel array below. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | JSON array of `discord`, `telegram`, `pushover`, `email`, for example `["telegram"]`, used when not following the bird channels. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop or capture photo. |
+
+Environment overrides take precedence on restart. Without overrides, the Garden
+notification choices persist in `/config/config.json`.
+
+## Saving settings safely
+
+**Apply Settings** and configuration backup imports save a private candidate before
+publishing it to the running application. A rejected request or failed file write
+leaves the active settings unchanged and schedules no worker reload or settings
+notification. Concurrent settings saves and imports run in order; a partial update
+starts from the last successfully saved configuration.
+
+The other changes YA-WAMF makes to its own configuration go through the same
+ordered save: activating a classifier model, replacing a retired model on
+startup, first-run setup and the anonymous telemetry identity. None of them can be
+undone by a settings save that was already in progress. **Test** in the
+notification settings sends with the credentials typed into the form without
+storing them, so an unapplied webhook, token or key is never written to
+`/config/config.json` by a save that happens at the same moment.

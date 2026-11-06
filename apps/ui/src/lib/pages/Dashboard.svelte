@@ -1,38 +1,51 @@
 <script lang="ts">
     import { fetchVisits } from '../api/visits';
     import { onMount, untrack } from 'svelte';
-    import DetectionModal from '../components/DetectionModal.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import VideoPlayer from '../components/VideoPlayer.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import {
+        loadDetectionModal,
+        loadGardenCaptureModal,
+        loadReviewQueueModal,
+        loadSpeciesDetailModal,
+        loadVideoPlayer
+    } from '../components/lazy-dialogs';
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
     import FieldLog from '../components/FieldLog.svelte';
+    import { fetchGardenVisits, type GardenServerVisit } from '../api/garden';
+    import { gardenHistory } from '../stores/garden_history.svelte';
+    import { GardenVisitViewer } from '../utils/garden-visit-viewer.svelte';
+    import { mergeFieldLog } from '../utils/field-log';
     import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
-    import ReviewQueueModal from '../components/ReviewQueueModal.svelte';
     import ProviderWarning from '../components/ProviderWarning.svelte';
     import DayBar from '../components/DayBar.svelte';
     import DeskContextCards from '../components/DeskContextCards.svelte';
-    import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import RecentAudio from '../components/RecentAudio.svelte';
     import { createObservationProjectionLoader } from '../app/observation-projection-loader';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
-    import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import type { AudioSummaryResponse, Detection, DailySummary, SpeciesInfo } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo, fetchNewSpeciesQueue, updateSettings } from '../api';
+    import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
+    import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchNewSpeciesQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
+    import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
+    import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
+    import type { DomesticBirdKey } from '../utils/domestic-birds';
+    import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
+    import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
-    import { getBirdNames } from '../naming';
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
+    import { dayBarSlots } from '../utils/day-bar';
     import { applyManualTagResult } from '../utils/manual-tag';
 
     interface Props {
@@ -46,35 +59,32 @@
     let serverVisits = $state<ReturnType<typeof fromServerVisit>[]>([]);
     let totalVisits = $state(0);
 
+    // Garden captures are beta, and visitors see confirmed animals; animals stay a separate record no bird total counts.
+    const gardenAvailable = $derived(
+        (authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true) || authStore.guestCanViewGarden
+    );
+    let gardenVisits = $state.raw<GardenServerVisit[]>([]);
+    let gardenTotal = $state(0);
+    let gardenUnavailable = $state(false);
+    let gardenWindow = $state.raw<{ start: string; end: string } | null>(null);
+    const gardenScope = $derived({ start: gardenWindow?.start ?? null, end: gardenWindow?.end, status: 'reviewable' as const });
+    const gardenViewer = new GardenVisitViewer(
+        () => gardenScope,
+        () => $_('garden.save_error', { default: 'Could not save your review. Try again.' })
+    );
+
     let summary = $state<DailySummary | null>(null);
     // The clock hour the summary's rolling window ended in, so the activity chart ends where its data does.
     let summaryHour = $state(new Date().getHours());
     let summaryLoading = $state(true);
-    let topSpeciesInfo = $state<SpeciesInfo | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let notableRefreshKey = $state(0);
-    let deleting = $state(false);
-    let hiding = $state(false);
     let lastModalEventId = $state<string | null>(null);
-
-    // Settings state
-    let llmReady = $state(false);
-    let showCommon = $state(true);
-    let preferSci = $state(false);
-    $effect(() => {
-        llmReady = settingsStore.llmReady;
-        showCommon = settingsStore.displayCommonNames;
-        preferSci = settingsStore.scientificNamePrimary;
-    });
 
     const birdnetEnabled = $derived(
         (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
-
-    // AI Analysis state
-    let analyzingAI = $state(false);
-    let aiAnalysis = $state<string | null>(null);
 
     // Video playback state
     let showVideo = $state(false);
@@ -92,26 +102,22 @@
         return () => handleFetchFullVisit(current);
     });
 
-    // Manual Tag state
-    let classifierLabels = $state<string[]>([]);
-    let tagSearchQuery = $state('');
-    let showTagDropdown = $state(false);
-    let updatingTag = $state(false);
-
-    let filteredLabels = $derived(
-        classifierLabels.filter(l => 
-            String(l).toLowerCase().includes(tagSearchQuery.toLowerCase())
-        ).slice(0, 50)
-    );
+    /** Opening a record closes any video still playing, so one overlay is shown at a time. */
+    function openRecord(detection: Detection): void {
+        showVideo = false;
+        selectedEvent = detection;
+    }
 
     // One window for the whole desk, so the day bar, the log and the context cards agree.
     let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
     let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
-    // The day reads as visits, not frames: repeat frames of one bird fold into one row.
+    // The day reads as visits, not frames: repeat frames of one bird fold into one row, and a
+    // Garden animal's visit sits on the same thread between them.
     let allVisits = $derived(serverVisits);
-    let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
-    let hiddenVisitCount = $derived(Math.max(totalVisits - visits.length, 0));
+    let fieldLogRows = $derived(mergeFieldLog(allVisits, gardenVisits, VISIT_ROW_LIMIT));
+    let visits = $derived(fieldLogRows.flatMap((row) => (row.kind === 'visit' ? [row.visit] : [])));
+    let hiddenVisitCount = $derived(Math.max(totalVisits + gardenTotal - fieldLogRows.length, 0));
 
     // Reviewing is an owner capability: the identify and hide calls require it, so a guest
     // must not be shown the queue, the walk-through, or an Identify button that would 403.
@@ -127,7 +133,7 @@
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, species);
-            detectionsStore.updateDetection(applyManualTagResult(detection, result));
+            detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             void refreshNewSpecies();
         } catch (e) {
@@ -152,7 +158,7 @@
             await deleteDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
             void refreshNewSpecies();
-            await loadSummary(true);
+            await loadSummary();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -211,23 +217,67 @@
     });
 
     // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries }));
+    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap }));
 
-    // Derive reclassification progress for the modal
-    let modalReclassifyProgress = $derived(
-        selectedEvent ? detectionsStore.getReclassificationProgress(selectedEvent.frigate_event) : undefined
-    );
-
-    // Derive naming logic for the modal
-    let modalNaming = $derived.by(() => {
-        if (!selectedEvent) return { primary: '', secondary: null };
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
-        return getBirdNames(selectedEvent, showCommon, preferSci);
+    // The range check over the desk's 24 hours: the Species page's day window, flagged the same way,
+    // so the desk never says nothing is waiting while a species check is.
+    const UNREAD_RANGE_CHECK: RangeCheckReading = { status: 'loading', checks: [], nearbyRadiusKm: null };
+    let rangeCheck = $state.raw<RangeCheckReading>(UNREAD_RANGE_CHECK);
+    const speciesChecksLoader = createObservationProjectionLoader({
+        fetch: async (signal) => {
+            // BirdNET silence only means "not heard" when its rollup for the same window loaded.
+            const heard = birdnetEnabled
+                ? fetchAudioSpeciesLeaderboard('day', signal).then((response) => response.species, (error: unknown) => {
+                    if (signal.aborted) throw error;
+                    return null;
+                })
+                : Promise.resolve(null);
+            const [leaderboard, audio] = await Promise.all([fetchLeaderboardSpecies('day', signal), heard]);
+            return { leaderboard, audio };
+        },
+        apply: ({ leaderboard, audio }) => {
+            const next = readRangeCheck(rangeCheck, leaderboard, audio);
+            if (next.status !== 'unavailable') domesticOffers.measured();
+            rangeCheck = next;
+        },
+        clear: () => { rangeCheck = UNREAD_RANGE_CHECK; domesticOffers.measured(); },
+        fail: (e) => {
+            rangeCheck = { ...rangeCheck, status: 'unavailable' };
+            logger.warn('Species checks unavailable for the dashboard', { message: getErrorMessage(e) });
+        }
+    });
+    /** A person's retry shows it is checking again; a background poll leaves the stated failure in place. */
+    function loadSpeciesChecks({ retry = false }: { retry?: boolean } = {}): void {
+        if (!canReview) return;
+        if (retry && rangeCheck.status === 'unavailable') rangeCheck = { ...rangeCheck, status: 'loading' };
+        void speciesChecksLoader.load();
+    }
+    $effect(() => {
+        void birdnetEnabled;
+        if (!canReview) { speciesChecksLoader.invalidate(); return; }
+        untrack(loadSpeciesChecks);
+        return () => speciesChecksLoader.dispose();
     });
 
-    let modalPrimaryName = $derived(modalNaming.primary);
-    let modalSubName = $derived(modalNaming.secondary);
+    // A flagged species can be a domestic bird the owner keeps under its wild name, as on the Species page.
+    const gardenOwner = $derived(canReview && settingsStore.settings?.beta_garden_animals === true);
+    const domesticOffers = new DomesticBirdOffers(() => gardenOwner);
+    let namedChecks = $derived(rangeCheck.checks.map((check) => ({
+        displayName: getBirdNames(check, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary,
+        scientificName: check.scientific_name ?? null
+    })));
+    let checksView = $derived<SpeciesChecksView>({
+        status: rangeCheck.status,
+        names: namedChecks.map((check) => check.displayName),
+        nearbyRadiusKm: rangeCheck.nearbyRadiusKm,
+        keptBirds: gardenOwner ? domesticOffers.offersFor(namedChecks) : []
+    });
+
+    function speciesKept(bird: DomesticBirdKey): void {
+        domesticOffers.kept(bird);
+        loadSpeciesChecks();
+        handleBirdsChanged();
+    }
 
     $effect(() => {
         if (!recordingClipFetchEnabled) return;
@@ -285,31 +335,44 @@
     let last24hCount = $derived(summary?.visit_count ?? allVisits.length);
     let last24hSpecies = $derived(summary?.top_species.length ?? 0);
     let audioConfirmations = $derived(summary?.audio_confirmations ?? 0);
-
-    // Derive most seen species name based on preference
-    let mostSeenName = $derived.by(() => {
-        const top = summary?.top_species[0];
-        if (!top) return null;
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
-        return getBirdNames(top, showCommon, preferSci).primary;
-    });
+    // Configuration decides which figures the day bar holds, so loading fills cells rather than adding them.
+    let daySlots = $derived(dayBarSlots({
+        audioConfigured: birdnetEnabled,
+        countingConfigured: publicSettingsStore.settings?.bird_counting_enabled ?? null,
+        countedCaptures: summary?.counted_captures ?? null
+    }));
 
     const summaryLoader = createObservationProjectionLoader({
         fetch: async (signal) => {
             const now = new Date();
             const window = { startTime: new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString(), endTime: now.toISOString() };
-            const [summaryRes, labelsRes, visitsRes] = await Promise.all([
+            // A Garden failure is stated beside the birds rather than taking the whole log down.
+            const gardenRead = gardenAvailable
+                ? fetchGardenVisits({ start: window.startTime, end: window.endTime, order: 'newest', limit: VISIT_ROW_LIMIT }, signal)
+                    .then((page) => ({ page }), (error: unknown) => {
+                        if (signal.aborted) throw error;
+                        logger.warn('Garden visits unavailable for the field log', { message: getErrorMessage(error) });
+                        return { page: null };
+                    })
+                : Promise.resolve(null);
+            const [summaryRes, visitsRes, gardenRes] = await Promise.all([
                 fetchDailySummary(),
-                fetchClassifierLabels().catch(() => ({ labels: [] })),
-                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })
+                fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' }),
+                gardenRead
             ]);
-            return { summaryRes, labelsRes, visitsRes, window };
+            return { summaryRes, visitsRes, gardenRes, window };
         },
-        apply: ({ summaryRes, labelsRes, visitsRes, window }) => { summary = summaryRes; summaryHour = new Date().getHours(); classifierLabels = labelsRes.labels; serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total; },
-        clear: () => { summary = null; topSpeciesInfo = null; serverVisits = []; totalVisits = 0; },
+        apply: ({ summaryRes, visitsRes, gardenRes, window }) => {
+            summary = summaryRes; summaryHour = new Date().getHours();
+            serverVisits = visitsRes.visits.map((visit) => fromServerVisit(visit, window)); totalVisits = visitsRes.total;
+            gardenWindow = { start: window.startTime, end: window.endTime };
+            gardenUnavailable = gardenRes !== null && gardenRes.page === null;
+            if (gardenRes === null) { gardenVisits = []; gardenTotal = 0; }
+            else if (gardenRes.page) { gardenVisits = gardenRes.page.visits; gardenTotal = gardenRes.page.total; }
+        },
+        clear: () => { summary = null; serverVisits = []; totalVisits = 0; gardenVisits = []; gardenTotal = 0; gardenUnavailable = false; },
         fail: (e) => {
-            if (authStore.isGuest) { summary = null; topSpeciesInfo = null; }
+            if (authStore.isGuest) summary = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Dashboard summary fetch failed (transient)', { message: getErrorMessage(e) });
             } else {
@@ -319,7 +382,7 @@
         settled: () => { summaryLoading = false; }
     });
 
-    async function loadSummary(force = false) {
+    async function loadSummary() {
         // A retry after a failed first read is loading again, not still failed.
         if (summary === null) summaryLoading = true;
         await summaryLoader.load();
@@ -328,7 +391,7 @@
     // Until the day has been read, its figures are unknown rather than zero.
     let summaryPending = $derived(summary === null && summaryLoading);
     let summaryUnavailable = $derived(summary === null && !summaryLoading);
-    let queueStatus = $derived<'loading' | 'ready' | 'unavailable'>(
+    let queueStatus = $derived<ReadingStatus>(
         detectionsStore.historyStatus === 'ready'
             ? 'ready'
             : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
@@ -336,44 +399,78 @@
               : 'loading'
     );
 
-    $effect(() => {
-        const topSpecies = summary?.top_species?.[0]?.species;
-        if (!topSpecies || topSpecies === 'Unknown Bird') {
-            topSpeciesInfo = null;
-            return;
-        }
-        const speciesName = topSpecies;
-        void (async () => {
-            try {
-                const info = await fetchSpeciesInfo(speciesName);
-                if (summary?.top_species?.[0]?.species === speciesName) {
-                    topSpeciesInfo = info;
-                }
-            } catch {
-                if (summary?.top_species?.[0]?.species === speciesName) {
-                    topSpeciesInfo = null;
-                }
-            }
-        })();
-    });
+    let needsCall = $derived(needsYourCall({
+        canReview,
+        queueStatus,
+        queueTotal: reviewQueue.total,
+        checksStatus: checksView.status,
+        checkCount: checksView.names.length
+    }));
+
+    const SUMMARY_POLL_MS = 60_000;
 
     onMount(() => {
-        void loadSummary(true);
-        const interval = setInterval(() => { if (document.visibilityState === 'visible') void loadSummary(); }, 60_000);
-        return () => { clearInterval(interval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
+        void loadSummary();
+        const interval = setInterval(() => {
+            if (document.visibilityState !== 'visible') return;
+            void loadSummary();
+            loadSpeciesChecks();
+        }, SUMMARY_POLL_MS);
+        // The day bar and the Heard card share this one reading, kept within a visitor's request budget.
+        const audioPollMs = authStore.isGuest
+            ? Math.max(SUMMARY_POLL_MS, guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute))
+            : SUMMARY_POLL_MS;
+        const audioInterval = setInterval(() => {
+            if (document.visibilityState === 'visible' && birdnetEnabled) void audioSummaryLoader.load();
+        }, audioPollMs);
+        return () => { clearInterval(interval); clearInterval(audioInterval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
     });
+
+    // Turning Garden on or off, or signing in as the owner, changes what the log may hold.
+    let readGardenAvailable = untrack(() => gardenAvailable);
+    $effect(() => {
+        const available = gardenAvailable;
+        if (available === readGardenAvailable) return;
+        readGardenAvailable = available;
+        if (!available) gardenViewer.close();
+        untrack(() => { void loadSummary(); });
+    });
+
+    // A Garden review here or elsewhere changes the log's rows; quick successive changes read once.
+    let handledGardenHistory = gardenHistory.version;
+    $effect(() => {
+        const version = gardenHistory.version;
+        if (version === handledGardenHistory || !gardenAvailable) return;
+        handledGardenHistory = version;
+        const timer = setTimeout(() => { void loadSummary(); }, 350);
+        return () => clearTimeout(timer);
+    });
+
+    function gardenGroupDismissed(ids: string[], skipped: number): void {
+        gardenHistory.invalidate();
+        gardenViewer.close();
+        void loadSummary();
+        const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
+        if (skipped > 0) {
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: skipped } })}`);
+        } else {
+            toastStore.success(message);
+        }
+    }
 
     let handledVisitMutation = detectionsStore.mutationVersion;
     $effect(() => {
         const version = detectionsStore.mutationVersion;
         if (version <= handledVisitMutation) return;
         handledVisitMutation = version;
-        const timeout = setTimeout(() => { void loadSummary(); }, 2000);
+        // An owner's correction can confirm a flagged species, so the range check is read again too.
+        const timeout = setTimeout(() => { void loadSummary(); loadSpeciesChecks(); }, 2000);
         return () => clearTimeout(timeout);
     });
 
-    // The day bar's call count. The rail's Heard card polls its own summary to stay current.
-    let audioSummary = $state<AudioSummaryResponse | null>(null);
+    // What the microphone heard: the day bar's call count and the Heard card read this one summary.
+    let audioSummary = $state.raw<AudioSummaryResponse | null>(null);
+    let audioSummaryLoading = $state(true);
 
     const audioSummaryLoader = createObservationProjectionLoader({
         fetch: (signal) => fetchAudioSummary({ days: 1 }, signal),
@@ -386,7 +483,8 @@
             } else {
                 logger.error('Failed to fetch audio summary', e);
             }
-        }
+        },
+        settled: () => { audioSummaryLoading = false; }
     });
 
     $effect(() => {
@@ -402,9 +500,10 @@
         handledPublicHistoryVersion = version;
         untrack(() => {
             summaryLoading = true;
+            audioSummaryLoading = true;
             summaryLoader.invalidate();
             audioSummaryLoader.invalidate();
-            void loadSummary(true);
+            void loadSummary();
             if (birdnetEnabled) void audioSummaryLoader.load();
         });
     });
@@ -413,21 +512,12 @@
         return pageRefreshAction.register(async () => {
             summaryLoading = true;
             notableRefreshKey += 1;
+            loadSpeciesChecks({ retry: true });
             await Promise.all([
                 detectionsStore.loadInitial(),
-                loadSummary(true)
+                loadSummary()
             ]);
         });
-    });
-
-    // Reset state when switching detections
-    $effect(() => {
-        if (selectedEvent) {
-            showVideo = false;
-            aiAnalysis = null;
-            showTagDropdown = false;
-            tagSearchQuery = '';
-        }
     });
 
     $effect(() => {
@@ -489,93 +579,15 @@
         }
     }
 
-    async function handleManualTag(newSpecies: string) {
-        if (!selectedEvent) return;
-        updatingTag = true;
-        try {
-            const eventId = selectedEvent.frigate_event;
-            const result = await updateDetectionSpecies(eventId, newSpecies);
-            selectedEvent = applyManualTagResult(selectedEvent, result);
-            detectionsStore.updateDetection(selectedEvent);
-            if (recordingClipFetchEnabled) {
-                await fullVisitStore.ensureAvailability(eventId, { refresh: true });
-            }
-            showTagDropdown = false;
-            await loadSummary(true);
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('Failed to update species', e);
-        } finally {
-            updatingTag = false;
-        }
-    }
-
-    async function handleDelete() {
-        if (!selectedEvent) return;
-        const target = selectedEvent;
-        if (!(await confirmAction({
-            title: $_('actions.delete_detection', { default: 'Delete this visit permanently' }),
-            message: $_('actions.confirm_delete', { values: { species: target.display_name } }),
-            confirmLabel: $_('dashboard.review_session.delete', { default: 'Delete permanently' })
-        }))) return;
-        deleting = true;
-        try {
-            await deleteDetection(target.frigate_event);
-            detectionsStore.removeDetection(target.frigate_event, target.detection_time);
-            selectedEvent = null;
-            await loadSummary(true);
-        } catch (e) {
-            // The confirm promised this leaves history for good. Saying nothing when it
-            // fails leaves no way to tell that apart from it having worked.
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('Failed to delete detection', e);
-        } finally {
-            deleting = false;
-        }
-    }
-
-    async function handleHide() {
-        if (!selectedEvent) return;
-        hiding = true;
-        try {
-            const result = await hideDetection(selectedEvent.frigate_event);
-            if (result.is_hidden) {
-                detectionsStore.removeDetection(selectedEvent.frigate_event, selectedEvent.detection_time);
-                selectedEvent = null;
-                await loadSummary(true);
-            }
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('Failed to hide detection', e);
-        } finally {
-            hiding = false;
-        }
-    }
-
     function handleSpeciesSummaryClick(speciesFilter: string) {
         // Top Visitors is last-24h data; avoid forcing "today" which can hide valid events
         // around midnight boundaries. Filter by species/taxa only.
         onnavigate?.(`/events?species=${encodeURIComponent(speciesFilter)}`);
     }
 
-    async function handleAIAnalysis() {
-        if (!selectedEvent) return;
-        analyzingAI = true;
-        aiAnalysis = null;
-        try {
-            const result = await analyzeDetection(selectedEvent.frigate_event);
-            aiAnalysis = result.analysis;
-        } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
-            console.error('AI Analysis failed', e);
-        } finally {
-            analyzingAI = false;
-        }
-    }
-
     /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
     function handleBirdsChanged(): void {
-        void loadSummary(true);
+        void loadSummary();
         void detectionsStore.refreshAfterOwnerEdit();
     }
 </script>
@@ -583,13 +595,16 @@
 <div class="space-y-6">
     <DayBar
         visitCount={summary ? last24hCount : null}
-        countedBirds={summary?.counted_birds ?? 0}
-        countedCaptures={summary?.counted_captures ?? 0}
+        countedBirds={summary ? (summary.counted_birds ?? 0) : null}
+        countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? last24hSpecies : null}
         unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
+        othersAwaitReview={canReview && needsCall.checks !== 'clear' && needsCall.checks !== 'off'}
         audioCalls={audioSummary?.total ?? null}
-        {audioConfirmations}
+        audioConfirmations={summary ? audioConfirmations : null}
+        slots={daySlots}
         loading={summaryPending || queueStatus === 'loading'}
+        audioLoading={audioSummaryLoading}
         connected={detectionsStore.connected}
     />
 
@@ -604,29 +619,38 @@
     >
         <div class="min-w-0" data-dashboard-field-log-column>
             <FieldLog
-                visits={visits}
+                rows={fieldLogRows}
                 hiddenCount={hiddenVisitCount}
+                placeholderRows={VISIT_ROW_LIMIT}
                 loading={summaryPending}
                 unavailable={summaryUnavailable}
-                onretry={() => void loadSummary(true)}
+                {gardenUnavailable}
+                ongardenopen={(visit) => gardenViewer.open(visit)}
+                {gardenScope}
+                ongardencapture={(visit, capture, index) => gardenViewer.open(visit, { capture, index })}
+                onretry={() => void loadSummary()}
                 canIdentify={canReview}
-                onselect={(detection) => selectedEvent = detection}
-                onidentify={(detection) => selectedEvent = detection}
+                onselect={openRecord}
+                onidentify={openRecord}
                 onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
-                onseeall={() => onnavigate?.('/events')}
+                onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
             />
         </div>
 
         <aside class="grid min-w-0 grid-cols-1 items-start gap-6 3xl:grid-cols-2">
             <!-- What needs you, then what is happening now. -->
             <div class="flex min-w-0 flex-col gap-6" data-dashboard-rail-now>
-                {#if canReview}
+                {#if needsCall.visible}
                     <ReviewQueueCard
                         queue={reviewQueue}
                         status={queueStatus}
+                        checks={checksView}
                         onretry={() => void detectionsStore.loadInitial()}
-                        onreview={(detection) => selectedEvent = detection}
+                        onreview={openRecord}
                         onreviewall={() => (reviewSessionOpen = true)}
+                        onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
+                        onretrychecks={() => loadSpeciesChecks({ retry: true })}
+                        onkept={speciesKept}
                     />
                 {/if}
 
@@ -639,7 +663,12 @@
                 />
 
                 {#if birdnetEnabled}
-                    <RecentAudio onNavigate={onnavigate} matchedCalls={summary ? audioConfirmations : null} />
+                    <RecentAudio
+                        onNavigate={onnavigate}
+                        summary={audioSummary}
+                        summaryLoading={audioSummaryLoading}
+                        matchedCalls={summary ? audioConfirmations : null}
+                    />
                 {/if}
             </div>
 
@@ -677,56 +706,100 @@
     {@const fullQueue = buildReviewQueue(deskDetections, {
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
-        newSpecies: newSpeciesEntries
+        newSpecies: newSpeciesEntries,
+        knownDetections: detectionsStore.detections,
+        localChoices: detectionsStore.patchMap
     })}
-    <ReviewQueueModal
-        onbirdschanged={handleBirdsChanged}
-        queue={fullQueue.items}
-        reasons={fullQueue.reasons}
-        labels={classifierLabels}
-        onidentify={identifyFromQueue}
-        onhide={hideFromQueue}
-        onblock={blockFromQueue}
-        ondelete={deleteFromQueue}
-        onopen={(detection) => { reviewSessionOpen = false; selectedEvent = detection; }}
-        onclose={() => (reviewSessionOpen = false)}
-    />
+    <LazyModal loader={loadReviewQueueModal} onclose={() => (reviewSessionOpen = false)}>
+        {#snippet children(ReviewQueueModal)}
+            <ReviewQueueModal
+                onbirdschanged={handleBirdsChanged}
+                queue={fullQueue.items}
+                reasons={fullQueue.reasons}
+                onidentify={identifyFromQueue}
+                onhide={hideFromQueue}
+                onblock={blockFromQueue}
+                ondelete={deleteFromQueue}
+                onopen={(detection) => { reviewSessionOpen = false; openRecord(detection); }}
+                onclose={() => (reviewSessionOpen = false)}
+            />
+        {/snippet}
+    </LazyModal>
 {/if}
 
 <!-- Event Detail Modal -->
 {#if selectedEvent}
-    <DetectionModal
-        onbirdschanged={handleBirdsChanged}
-        detection={selectedEvent}
-        {classifierLabels}
-        llmReady={llmReady}
-        showVideoButton={true}
-        fullVisitAvailable={selectedEvent ? fullVisitAvailability[selectedEvent.frigate_event] === 'available' : false}
-        fullVisitFetched={selectedEvent ? fullVisitFetchState[selectedEvent.frigate_event] === 'ready' : false}
-        fullVisitFetchState={selectedEvent ? (fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle') : 'idle'}
-        onClose={() => selectedEvent = null}
-        onReclassify={handleReclassify}
-        onFetchFullVisit={selectedEventFullVisitHandler}
-        onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
-            videoEventId = frigateEvent;
-            videoPlayIntent = playIntent;
-            showVideo = true;
-            selectedEvent = null;
-        }}
-        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-    />
+    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
+        {#snippet children(DetectionModal)}
+            {#if selectedEvent}
+                <DetectionModal
+                    onbirdschanged={handleBirdsChanged}
+                    detection={selectedEvent}
+                    llmReady={settingsStore.llmReady}
+                    showVideoButton={true}
+                    fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}
+                    fullVisitFetched={fullVisitFetchState[selectedEvent.frigate_event] === 'ready'}
+                    fullVisitFetchState={fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle'}
+                    onClose={() => selectedEvent = null}
+                    onReclassify={handleReclassify}
+                    onFetchFullVisit={selectedEventFullVisitHandler}
+                    onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
+                        videoEventId = frigateEvent;
+                        videoPlayIntent = playIntent;
+                        showVideo = true;
+                        selectedEvent = null;
+                    }}
+                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 
+{#if gardenViewer.capture && gardenAvailable}
+    <LazyModal loader={loadGardenCaptureModal} onclose={() => gardenViewer.close()}>
+        {#snippet children(GardenCaptureModal)}
+            {#if gardenViewer.capture}
+                <GardenCaptureModal
+                    capture={gardenViewer.capture}
+                    group={gardenViewer.group?.items ?? [gardenViewer.capture]}
+                    groupKind={gardenViewer.group?.kind ?? 'visit'}
+                    groupTotal={gardenViewer.group?.captureCount ?? 1}
+                    groupOffset={gardenViewer.offset}
+                    groupLoading={gardenViewer.loading}
+                    groupError={gardenViewer.error}
+                    onpage={(index) => void gardenViewer.page(index)}
+                    onclose={() => gardenViewer.close()}
+                    onchanged={(next) => { gardenViewer.changed(next); void loadSummary(); }}
+                    onselect={(capture) => (gardenViewer.capture = capture)}
+                    ongroupdismissed={gardenGroupDismissed}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
+{/if}
 
-{#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+{#if selectedSpecies}
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+        {/snippet}
+    </LazyModal>
+{/if}
 {#if showVideo && videoEventId}
-    <VideoPlayer
-        frigateEvent={videoEventId}
-        playIntent={videoPlayIntent}
-        initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
-        onClose={() => {
-            showVideo = false;
-            videoEventId = null;
-        }}
-    />
+    <LazyModal loader={loadVideoPlayer} onclose={() => { showVideo = false; videoEventId = null; }}>
+        {#snippet children(VideoPlayer)}
+            {#if videoEventId}
+                <VideoPlayer
+                    frigateEvent={videoEventId}
+                    playIntent={videoPlayIntent}
+                    initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
+                    onClose={() => {
+                        showVideo = false;
+                        videoEventId = null;
+                    }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}

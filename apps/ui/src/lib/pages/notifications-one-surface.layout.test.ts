@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import source from './Notifications.svelte?raw';
 import banner from '../components/JobCircuitBanner.svelte?raw';
+import toastSource from '../components/Toast.svelte?raw';
 import {
     canonicalizeNotificationRouteForAccess,
     getCanonicalNotificationRoute
@@ -45,5 +46,14 @@ describe('one notifications surface', () => {
 
     it('is owner-only at the data boundary, not just visually', () => {
         expect(banner).toContain('authStore.showSettings');
+    });
+
+    it('clears the history with an undo rather than in one irreversible click', () => {
+        expect(source).toContain('onclick={clearWithUndo}');
+        expect(source).not.toContain('onclick={() => notificationCenter.clear()}');
+        expect(source).toContain('toastStore.undoable(');
+        expect(source).toContain('notificationCenter.restore(cleared)');
+        // The undo is a real, labelled button inside the toast, at the touch-target floor.
+        expect(toastSource).toMatch(/<button[^>]*onclick=\{\(\) => toastStore\.runAction\(toast\.id\)\}[^>]*min-h-11/);
     });
 });

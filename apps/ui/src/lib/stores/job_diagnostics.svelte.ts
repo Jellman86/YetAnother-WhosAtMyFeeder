@@ -881,6 +881,7 @@ class JobDiagnosticsStore {
             ? cloneJson(workspacePayload.focused_diagnostics)
             : undefined;
         const workspaceSnapshot = workspacePayload ? cloneJson(workspacePayload) : null;
+        const systemTelemetry = workspacePayload?.system_telemetry ? cloneJson(workspacePayload.system_telemetry) : null;
         const classifier = workspacePayload?.classifier ? cloneJson(workspacePayload.classifier) : null;
         const startupWarnings = Array.isArray(workspacePayload?.startup_warnings)
             ? cloneJson(workspacePayload.startup_warnings)
@@ -911,6 +912,7 @@ class JobDiagnosticsStore {
                 last_seen: lastSeen > 0 ? new Date(lastSeen).toISOString() : null
             },
             workspace_snapshot: workspaceSnapshot,
+            system_telemetry: systemTelemetry,
             health: workspacePayload?.health ?? normalizedHealthSnapshots[0] ?? null,
             classifier,
             startup_warnings: startupWarnings,
@@ -926,6 +928,7 @@ class JobDiagnosticsStore {
                 health_snapshots: normalizedHealthSnapshots,
                 backend_diagnostics: normalizedBackendDiagnostics,
                 workspace_snapshot: workspaceSnapshot,
+                system_telemetry: systemTelemetry,
                 classifier,
                 startup_warnings: startupWarnings,
                 incidents: {

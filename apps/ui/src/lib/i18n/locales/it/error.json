@@ -1,0 +1,10 @@
+{
+  "boundary_title": "Qualcosa è andato storto",
+  "boundary_subtitle": "Si è verificato un errore imprevisto. Riprova oppure contatta il supporto se il problema persiste.",
+  "show_details": "Mostra dettagli errore",
+  "try_again": "Riprova",
+  "copy_details": "Copia dettagli errore",
+  "copied": "Copiato",
+  "reload_page": "Ricarica pagina",
+  "deploy_refresh_required": "YA-WAMF è stato aggiornato mentre questa scheda era aperta. Aggiorna la pagina per caricare la versione più recente."
+}

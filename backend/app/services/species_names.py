@@ -37,6 +37,35 @@ class CatalogueNames:
     scientific: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class SpeciesIdentityNames:
+    """The name to show for one species, and its scientific name when the catalogue holds one."""
+
+    display: Optional[str]
+    scientific: Optional[str]
+
+
+# Joining words stay lowercase inside a name, as the catalogue's cased names write them.
+_JOINING_WORDS = frozenset({"and", "de", "in", "of", "on", "or", "the"})
+
+
+def vernacular_case(name: str) -> str:
+    """A model's all-lowercase common name, cased the way the catalogue's names are.
+
+    SpeciesNet names animals in lowercase ("domestic dog"), while catalogue names are cased
+    ("Eurasian Blackbird"). Each word is capitalised except joining words, and a hyphenated word
+    only at its start ("White-tailed Deer"). A name with any capital letter is someone's choice
+    and is left exactly as written.
+    """
+    if name != name.lower():
+        return name
+    words = name.split(" ")
+    return " ".join(
+        word if index > 0 and word in _JOINING_WORDS else word[:1].upper() + word[1:]
+        for index, word in enumerate(words)
+    )
+
+
 def normalize_language(language: Optional[str]) -> str:
     """`  pt-BR ` and `PT` both mean the `pt` names the catalogue holds."""
     tag = str(language or "").strip().lower()
@@ -99,6 +128,14 @@ class SpeciesNameLookup:
         return default_catalog_path()
 
     def display_names(self, species_ids: Iterable[int], *, language: Optional[str]) -> dict[int, str]:
+        return {
+            species_id: names.display
+            for species_id, names in self.resolve(species_ids, language=language).items()
+            if names.display
+        }
+
+    def resolve(self, species_ids: Iterable[int], *, language: Optional[str]) -> dict[int, SpeciesIdentityNames]:
+        """The display and scientific name of each species the catalogue knows; others are left out."""
         wanted = {int(value) for value in species_ids if value is not None}
         if not wanted:
             return {}
@@ -143,7 +180,7 @@ class SpeciesNameLookup:
         finally:
             connection.close()
 
-        resolved: dict[int, str] = {}
+        resolved: dict[int, SpeciesIdentityNames] = {}
         for species_id in wanted:
             chosen = choose_display_name(
                 CatalogueNames(
@@ -153,8 +190,8 @@ class SpeciesNameLookup:
                 ),
                 language=tag,
             )
-            if chosen:
-                resolved[species_id] = chosen
+            if chosen or species_id in scientific:
+                resolved[species_id] = SpeciesIdentityNames(display=chosen, scientific=scientific.get(species_id))
         return resolved
 
 

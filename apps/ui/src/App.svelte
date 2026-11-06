@@ -15,9 +15,8 @@
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import LazyRoute from './lib/components/LazyRoute.svelte';
+  import LazyModal from './lib/components/LazyModal.svelte';
   import Login from './lib/components/Login.svelte';
-  import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
-  import WizardShell from './lib/components/setup/WizardShell.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { createStreamTicket } from './lib/api/auth';
@@ -42,10 +41,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { initKeyboardShortcuts } from './lib/utils/keyboard-shortcuts';
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
+  import { gardenHistory } from './lib/stores/garden_history.svelte';
   import { guestHistoryRefreshDelayMs } from './lib/app/public-refresh-budget';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
-  import { createRetryablePageLoader } from './lib/app/page-loader';
+  import { lazyComponent } from './lib/app/lazy-component';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -56,16 +56,20 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
+  import { documentTitle, routeIdFor, routeOffersRefresh, type RouteId } from './lib/app/route-title';
 
-  const loadDashboardPage = createRetryablePageLoader(() => import('./lib/pages/Dashboard.svelte'));
-  const loadEventsPage = createRetryablePageLoader(() => import('./lib/pages/Events.svelte'));
-  const loadSpeciesPage = createRetryablePageLoader(() => import('./lib/pages/Species.svelte'));
-  const loadAudioHistoryPage = createRetryablePageLoader(() => import('./lib/pages/AudioHistory.svelte'));
-  const loadSettingsPage = createRetryablePageLoader(() => import('./lib/pages/Settings.svelte'));
-  const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
-  const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
-  const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
-  const loadManualObservationPage = createRetryablePageLoader(() => import('./lib/pages/ManualObservation.svelte'));
+  const loadDashboardPage = lazyComponent(() => import('./lib/pages/Dashboard.svelte'));
+  const loadEventsPage = lazyComponent(() => import('./lib/pages/Events.svelte'));
+  const loadSpeciesPage = lazyComponent(() => import('./lib/pages/Species.svelte'));
+  const loadAudioHistoryPage = lazyComponent(() => import('./lib/pages/AudioHistory.svelte'));
+  const loadSettingsPage = lazyComponent(() => import('./lib/pages/Settings.svelte'));
+  const loadAboutPage = lazyComponent(() => import('./lib/pages/About.svelte'));
+  const loadNotificationsPage = lazyComponent(() => import('./lib/pages/Notifications.svelte'));
+  const loadModelEvaluationPage = lazyComponent(() => import('./lib/pages/ModelEvaluation.svelte'));
+  const loadManualObservationPage = lazyComponent(() => import('./lib/pages/ManualObservation.svelte'));
+  // The setup wizard runs once per install, so every later visit skips downloading it.
+  const loadFirstRunWizard = lazyComponent(() => import('./lib/pages/FirstRunWizard.svelte'));
+  const loadWizardShell = lazyComponent(() => import('./lib/components/setup/WizardShell.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -75,36 +79,62 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let dashboardRefreshKey = $state(0);
   let globalProgressHasScrolled = $state(false);
 
+  const routeId = $derived(routeIdFor(currentRoute));
+  // Each title is the label its navigation item carries, so the heading names the page you chose.
   let pageTitle = $derived.by(() => {
-      if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
-      if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
-      if (currentRoute.startsWith('/observations/new')) return $_('nav.add_observation', { default: 'Add observation' });
-      if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
-      if (currentRoute.startsWith('/audio')) return $_('nav.audio_history', { default: 'Audio History' });
-      if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
-      if (currentRoute.startsWith('/settings')) return $_('settings.title', { default: 'Settings' });
-      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Model Evaluation';
-      if (currentRoute.startsWith('/about')) return $_('nav.about', { default: 'About' });
-      return '';
+      switch (routeId) {
+          case 'dashboard': return $_('nav.dashboard', { default: 'Dashboard' });
+          case 'explorer': return $_('nav.explorer', { default: 'Explorer' });
+          case 'add_observation': return $_('nav.add_observation', { default: 'Add observation' });
+          case 'leaderboard': return $_('nav.leaderboard', { default: 'Leaderboard' });
+          case 'audio_history': return $_('nav.audio_history', { default: 'Audio History' });
+          case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
+          case 'settings': return $_('settings.title', { default: 'Settings' });
+          case 'model_evaluation': return 'Model Evaluation';
+          case 'about': return $_('nav.about', { default: 'About' });
+          default: return '';
+      }
   });
   let pageSubtitle = $derived.by(() => {
-      if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
-      if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
-      if (currentRoute.startsWith('/observations/new')) return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
-      if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
-      if (currentRoute.startsWith('/audio')) return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
-      if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
-      if (currentRoute.startsWith('/settings')) return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
-      if (currentRoute.startsWith('/diagnostics/model-eval')) return 'Benchmark every installed classifier against verified bird images.';
-      if (currentRoute.startsWith('/about')) return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
-      return '';
+      switch (routeId) {
+          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
+          case 'explorer': return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
+          case 'add_observation': return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
+          case 'leaderboard': return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
+          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
+          case 'notifications': return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
+          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
+          case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
+          case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
+          default: return '';
+      }
   });
-  let showPageHeader = $derived(!authStore.isGuest && pageTitle.length > 0);
+  // One h1 per page. The Dashboard's day bar carries its own, so there the header keeps only
+  // the owner's controls; a guest has none of those controls but still needs the page named.
+  let pageHeaderTitle = $derived(routeId === 'dashboard' ? undefined : pageTitle);
+  const GUEST_TITLED_ROUTES: ReadonlySet<RouteId> = new Set(['explorer', 'leaderboard', 'audio_history', 'about']);
+  let showPageHeader = $derived(
+      routeId !== null && (!authStore.isGuest || GUEST_TITLED_ROUTES.has(routeId))
+  );
+  let notFoundTitle = $derived($_('not_found.title', { default: 'This page does not exist' }));
+
+  // The tab names the page too, so a reader with several tabs open can tell them apart.
+  $effect(() => {
+      document.title = documentTitle(
+          requiresLogin
+              ? $_('auth.login', { default: 'Sign in' })
+              : routeId === null
+                ? notFoundTitle
+                : pageTitle
+      );
+  });
 
   function syncGlobalProgressSticky() {
       if (typeof window === 'undefined') return;
       globalProgressHasScrolled = window.scrollY > 0;
   }
+
+  const GARDEN_REVIEW_ROUTE = '/events?visitors=garden&review=pending';
 
   function normalizeRouteForCurrentAccess(path: string): string {
       const settingsRoute = normalizeSettingsRoute(path);
@@ -118,6 +148,10 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   function normalizeSettingsRoute(path: string): string {
       if (path === '/settings/errors' || path.startsWith('/settings/errors/')) {
           return '/settings/health';
+      }
+      // Garden review moved into the Explorer; old links open the same work there.
+      if (path === '/garden' || path.startsWith('/garden/')) {
+          return GARDEN_REVIEW_ROUTE;
       }
       return path;
   }
@@ -222,9 +256,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       )
   );
 
-  let notificationsActive = $derived.by(() => {
+  // Null until the owner's settings are read; a guest never reads them, so a guest is never
+  // told notifications are off when nobody has measured that.
+  let notificationsActive = $derived.by((): boolean | null => {
       const s = settingsStore.settings;
-      if (!s) return false;
+      if (!s) return null;
       const active = s.notifications_discord_enabled ||
       s.notifications_pushover_enabled ||
       s.notifications_telegram_enabled ||
@@ -233,7 +269,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       s.notifications?.pushover?.enabled ||
       s.notifications?.telegram?.enabled ||
       s.notifications?.email?.enabled;
-      return active;
+      return Boolean(active);
   });
 
   type TranslationValue = string | number | boolean | Date | null | undefined;
@@ -301,7 +337,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
       onConnected: () => {
           reconnectAttempts = 0;
+          if (authStore.hasOwnerAccess) gardenHistory.invalidate();
       },
+      onGardenHistoryChanged: () => gardenHistory.invalidate(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
       // Only the generic signal arrives; no owner settings are sent to visitors.
@@ -719,14 +757,19 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   {#snippet children()}
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
   <!-- Skip to content for accessibility -->
-  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-500 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
+  <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
     {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
 
   {#if !authStore.statusLoaded}
       <BackendStatusScreen mode="loading" />
   {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
-      <FirstRunWizard />
+      <LazyRoute
+          loader={loadFirstRunWizard}
+          props={{}}
+          label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
+          onLoadError={handleRouteLoadError}
+      />
   {:else if !authStore.statusHealthy}
       <BackendStatusScreen
           mode="unavailable"
@@ -739,6 +782,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       {#if isMobile}
           <MobileTopBar
               onToggleMenu={() => mobileSidebarOpen = !mobileSidebarOpen}
+              menuOpen={mobileSidebarOpen}
+              menuControls="app-sidebar"
               onToggleTheme={() => themeStore.toggle()}
               theme={themeStore.theme}
               appTitle={$_('app.title')}
@@ -750,13 +795,12 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
       {/if}
 
-      <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
+      <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status()}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
                   connected={detectionsStore.connected}
-                  variant="sidebar"
               />
               <div class="mt-1 flex justify-end">
                   <UpdateIndicator />
@@ -790,10 +834,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           {/if}
           <main id="main-content" class="flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
               {#if showPageHeader}
-                  <PageHeader title={pageTitle} subtitle={pageSubtitle} onNavigate={navigate} />
+                  <PageHeader
+                      title={pageHeaderTitle}
+                      subtitle={pageSubtitle}
+                      onNavigate={navigate}
+                      showOwnerActions={!authStore.isGuest}
+                      refreshExpected={routeOffersRefresh(routeId)}
+                      notificationsCurrent={routeId === 'notifications'}
+                  />
               {/if}
               {#key `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`}
-              {#if currentRoute === '/'}
+              {#if routeId === 'dashboard'}
                   {#key dashboardRefreshKey}
                       <LazyRoute
                           loader={loadDashboardPage}
@@ -802,14 +853,14 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                           onLoadError={handleRouteLoadError}
                       />
                   {/key}
-              {:else if currentRoute.startsWith('/events')}
+              {:else if routeId === 'explorer'}
                   <LazyRoute
                       loader={loadEventsPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/observations/new')}
+              {:else if routeId === 'add_observation'}
                   {#if authStore.showSettings}
                       <LazyRoute
                           loader={loadManualObservationPage}
@@ -820,21 +871,21 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                   {:else}
                       <div class="h-24"></div>
                   {/if}
-              {:else if currentRoute.startsWith('/species')}
+              {:else if routeId === 'leaderboard'}
                   <LazyRoute
                       loader={loadSpeciesPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/audio')}
+              {:else if routeId === 'audio_history'}
                   <LazyRoute
                       loader={loadAudioHistoryPage}
                       props={{}}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/settings')}
+              {:else if routeId === 'settings'}
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadSettingsPage}
@@ -846,14 +897,14 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>
                    {/if}
-              {:else if currentRoute.startsWith('/notifications')}
+              {:else if routeId === 'notifications'}
                   <LazyRoute
                       loader={loadNotificationsPage}
                       props={{ onNavigate: navigate }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
-              {:else if currentRoute.startsWith('/diagnostics/model-eval')}
+              {:else if routeId === 'model_evaluation'}
                    {#if authStore.showSettings}
                        <LazyRoute
                            loader={loadModelEvaluationPage}
@@ -864,13 +915,26 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                    {:else}
                        <div class="h-24"></div>
                    {/if}
-              {:else if currentRoute.startsWith('/about')}
+              {:else if routeId === 'about'}
                    <LazyRoute
                        loader={loadAboutPage}
                        props={{}}
                        label={pageTitle}
                        onLoadError={handleRouteLoadError}
                    />
+              {:else}
+                  <!-- An address no page answers, often an old bookmark: say so rather than show an empty page. -->
+                  <section class="card-base mx-auto mt-8 max-w-xl space-y-4 p-8 text-center" aria-labelledby="not-found-heading" data-not-found>
+                      <h1 id="not-found-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                          {notFoundTitle}
+                      </h1>
+                      <p class="text-base text-slate-600 dark:text-slate-400">
+                          {$_('not_found.body', { default: 'The address may be from an older version.' })}
+                      </p>
+                      <button type="button" class="btn btn-primary min-h-11 px-4 py-2" onclick={() => navigate('/')}>
+                          {$_('not_found.action', { default: 'Open the dashboard' })}
+                      </button>
+                  </section>
               {/if}
               {/key}
           </main>
@@ -879,7 +943,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       </div>
 
       {#if setupWizardStore.active && setupWizardStore.mode === 'rerun'}
-          <WizardShell />
+          <LazyModal loader={loadWizardShell} onclose={() => setupWizardStore.close()}>
+              {#snippet children(WizardShell)}
+                  <WizardShell />
+              {/snippet}
+          </LazyModal>
       {/if}
   {/if}
 

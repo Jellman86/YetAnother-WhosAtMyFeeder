@@ -52,18 +52,22 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.bird_scan_service import bird_scan_service
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
+from app.repositories.garden_repository import GardenRepository
+from app.routers import garden
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
     about,
     events,
+    explorer,
     visits,
     proxy,
     settings as settings_router,
     species,
     backfill,
     classifier,
+    native_profile,
     models,
     ai,
     stats,
@@ -80,6 +84,7 @@ from app.routers import (
     auth as auth_router,
     jobs as jobs_router,
     manual_observations,
+    range_filter,
     taxonomy,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -259,6 +264,7 @@ async def run_cleanup():
                     cutoff, preserve_favorites=True, species_floor=species_floor
                 )
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
+                await GardenRepository(db).delete_older_than(cutoff)
             if deleted_count > 0:
                 log.info(
                     "Automatic cleanup completed",
@@ -292,6 +298,10 @@ async def run_cleanup():
             )
             if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                 log.info("Media cache cleanup completed", **cache_stats)
+        # Garden's kept media follows the same retention, and anything deleted with its history goes too.
+        from app.services.garden_media_cache import garden_media_cache
+
+        await garden_media_cache.apply_retention()
 
         # The archive is never aged out; only a directory with no favourite behind it goes.
         archive_sweep = await archive_service.orphan_sweep()
@@ -431,6 +441,15 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
     )
 
 
+async def _revalidate_stale_accelerators() -> None:
+    """Identification model first, so the bird finder's check never delays it."""
+    from app.services.bird_finder_revalidation import bird_finder_revalidation
+    from app.services.provider_revalidation import provider_revalidation
+
+    await provider_revalidation.run()
+    await bird_finder_revalidation.run()
+
+
 async def _start_mqtt_service_task() -> None:
     global event_processor
     if event_processor is None:
@@ -499,6 +518,9 @@ async def _start_cleanup_scheduler_task() -> None:
 async def lifespan(app: FastAPI):
     global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running, accel_caps_task
     test_mode = _is_testing()
+    from app.services.crop_process_session import open_crop_processes
+
+    open_crop_processes()
 
     revalidation_task = None
     # Startup
@@ -525,12 +547,42 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=68,
         )
+        from app.services.garden_capture_service import garden_capture_service
+
+        await _run_lifecycle_phase(
+            app,
+            "garden_review_init",
+            garden_capture_service.initialize,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=69,
+        )
         from app.services.species_catalog_store import start_species_catalog
 
         await _run_lifecycle_phase(
             app,
             "species_catalog_init",
             start_species_catalog,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
+        from app.services.garden_identification import garden_identification_service
+
+        await _run_lifecycle_phase(
+            app,
+            "garden_catalogue_init",
+            garden_identification_service.initialize,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        await _run_lifecycle_phase(
+            app,
+            "bird_output_groups_init",
+            lambda: asyncio.to_thread(species_catalog_resolver.warm_output_groups),
             fatal=False,
             startup_phase="database",
             startup_progress=70,
@@ -608,6 +660,9 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=88,
         )
+        from app.services.range_filter_service import range_filter_service
+
+        await _run_lifecycle_phase(app, "range_filter_start", range_filter_service.start, fatal=False)
         await _run_lifecycle_phase(
             app,
             "media_storage_start",
@@ -638,9 +693,7 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=93,
         )
-        from app.services.provider_revalidation import provider_revalidation
-
-        revalidation_task = create_background_task(provider_revalidation.run(), name="provider_revalidation")
+        revalidation_task = create_background_task(_revalidate_stale_accelerators(), name="provider_revalidation")
         # Intake opens only after every downstream worker can accept work.
         await _run_lifecycle_phase(
             app,
@@ -655,6 +708,14 @@ async def lifespan(app: FastAPI):
             "heartbeat_scheduler_task_start",
             lambda: _start_heartbeat_scheduler_task(app.state.startup_instance_id),
             fatal=False,
+        )
+        from app.services.garden_motion import garden_motion_service
+
+        await _run_lifecycle_phase(app, "garden_motion_start", garden_motion_service.start, fatal=False)
+        from app.services.garden_automatic_review import garden_automatic_review_service
+
+        await _run_lifecycle_phase(
+            app, "garden_automatic_review_start", garden_automatic_review_service.start, fatal=False
         )
         await _run_lifecycle_phase(
             app,
@@ -712,6 +773,15 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     if not test_mode:
+        from app.services.garden_motion import garden_motion_service
+        from app.services.garden_automatic_review import garden_automatic_review_service
+        from app.services.garden_identification import garden_identification_service
+
+        await _run_lifecycle_phase(
+            app, "garden_automatic_review_stop", garden_automatic_review_service.stop, fatal=False
+        )
+        await _run_lifecycle_phase(app, "garden_motion_stop", garden_motion_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "garden_identification_stop", garden_identification_service.stop, fatal=False)
         # Quiesce external intake first. MQTT drains in-flight handlers before
         # downstream queues are stopped, preventing late work from being
         # accepted into a service that has already shut down.
@@ -726,9 +796,20 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(
             app, "system_telemetry_history_stop", system_telemetry_history_service.stop, fatal=False
         )
+        from app.services.range_filter_service import range_filter_service
+
+        await _run_lifecycle_phase(app, "range_filter_stop", range_filter_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
+        from app.services.native_profile_revalidation import native_profile_revalidation
+
+        await _run_lifecycle_phase(app, "native_revalidation_stop", native_profile_revalidation.shutdown, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
+        from app.services.crop_process_session import close_crop_processes
+
+        await _run_lifecycle_phase(
+            app, "crop_process_shutdown", lambda: asyncio.to_thread(close_crop_processes), fatal=False
+        )
     await close_db()  # Close database connection pool
 
 
@@ -834,12 +915,14 @@ app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 # Public/mixed access routers - use new auth system with legacy fallback
 app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(visits.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(explorer.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(about.router, prefix="/api", tags=["about"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(proxy.get_proxy_auth_context)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(
     taxonomy.router, prefix="/api", tags=["taxonomy"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
+app.include_router(native_profile.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(ai.router, prefix="/api", tags=["ai"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(stats.router, prefix="/api", tags=["stats"], dependencies=[Depends(get_auth_context_with_legacy)])
@@ -861,12 +944,15 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(garden.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(garden.public_router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_oauth_router_auth_context)])
 app.include_router(
     inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_oauth_router_auth_context)]
 )
 app.include_router(ebird.router, prefix="/api", tags=["ebird"], dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(range_filter.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(geocoding.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 
 
@@ -1256,6 +1342,13 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
                     # Wait for a message or a timeout for heartbeat
                     message = await asyncio.wait_for(queue.get(), timeout=20.0)
 
+                    if (
+                        stream_auth.session_version is not None
+                        and stream_auth.session_version != settings.auth.session_version
+                    ):
+                        yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session has changed'})}\n\n"
+                        return
+
                     if not auth.is_owner:
                         # Re-evaluate sharing on every delivery, not only at connect.
                         if not settings.public_access.enabled:
@@ -1291,6 +1384,12 @@ async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_s
 
                     yield f"data: {json.dumps(message)}\n\n"
                 except asyncio.TimeoutError:
+                    if (
+                        stream_auth.session_version is not None
+                        and stream_auth.session_version != settings.auth.session_version
+                    ):
+                        yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session has changed'})}\n\n"
+                        return
                     if not auth.is_owner and not settings.public_access.enabled:
                         yield f"data: {json.dumps({'type': 'public_access_changed'})}\n\n"
                         return

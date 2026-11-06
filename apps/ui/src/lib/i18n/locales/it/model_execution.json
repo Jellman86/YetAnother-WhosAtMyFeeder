@@ -1,0 +1,5 @@
+{
+  "completed": "Ultima esecuzione completata: {device} · {time}",
+  "fallback": "Ripiego CPU: l’acceleratore richiesto non ha completato correttamente la verifica o l’inferenza corrente.",
+  "unreported": "Nessuna esecuzione completata ha indicato il dispositivo. Una raccomandazione non è prova di esecuzione."
+}

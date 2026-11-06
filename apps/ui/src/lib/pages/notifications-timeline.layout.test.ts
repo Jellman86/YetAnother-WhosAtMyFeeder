@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import source from './Notifications.svelte?raw';
 import appSource from '../../App.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enNotifications from '../i18n/locales/en/notifications.json';
+
+const en = { notifications: enNotifications };
 
 describe('Notifications timeline layout', () => {
     it('replaces the tab split with one filtered river', () => {
@@ -48,7 +50,12 @@ describe('Notifications timeline layout', () => {
         // The progress bar used to run a three colour gradient through the attention colour.
         expect(source).not.toContain('from-accent-500');
         expect(source).toContain("running: 'bg-brand-500 border-brand-500'");
-        expect(source).toContain("attention: 'bg-accent-500 border-accent-500'");
+        // layout-patterns §1.3: "Amber is reserved for 'this needs a person'", and accent-* is a
+        // brand colour the classic theme paints emerald. attention-* is amber in every theme.
+        expect(source).toContain("attention: 'bg-attention-500 border-attention-500'");
+        // "Anything meaning confirmed ... must use success-* so it stays green in every theme."
+        expect(source).toContain("done: 'bg-success-500 border-success-500'");
+        expect(source).not.toMatch(/\baccent-\d|emerald-/);
     });
 
     it('makes opening a notification a real control', () => {

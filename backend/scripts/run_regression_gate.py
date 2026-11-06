@@ -12,7 +12,14 @@ if str(BACKEND) not in sys.path:
     sys.path.insert(0, str(BACKEND))
 from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
 
-TEST_TIMEOUT_SECONDS = 480
+# The application lane took 297 to 450 s on GitHub-hosted runners across the
+# eleven CI runs after the pure lane split off, and one slower runner reached
+# 93% of it at 480 s with nothing hung. Ten minutes still stops a real teardown
+# hang well inside the job's 20-minute limit.
+TEST_TIMEOUT_SECONDS = 600
+# Pure tests need no database or app, so they run first in their own process:
+# that proves they still do not, and fails fast on a broken decision rule.
+PURE_TEST_TIMEOUT_SECONDS = 120
 
 
 def run(command: list[str], timeout: int) -> int:
@@ -35,13 +42,16 @@ def run(command: list[str], timeout: int) -> int:
 
 
 def main() -> int:
+    coverage = [sys.executable, "-m", "coverage"]
     commands = [
-        ([sys.executable, "-m", "coverage", "erase"], 30),
+        ([*coverage, "erase"], 30),
+        ([*coverage, "run", "-m", "pytest", "tests/pure", "-q", "--tb=short"], PURE_TEST_TIMEOUT_SECONDS),
         (
-            [sys.executable, "-m", "coverage", "run", "-m", "pytest", "tests/", "-q", "--tb=short", "--durations=20"],
+            [*coverage, "run", "--append", "-m", "pytest", "tests/", "--ignore=tests/pure"]
+            + ["-q", "--tb=short", "--durations=20"],
             TEST_TIMEOUT_SECONDS,
         ),
-        ([sys.executable, "-m", "coverage", "report"], 30),
+        ([*coverage, "report"], 30),
     ]
     for command, timeout in commands:
         result = run(command, timeout)

@@ -28,7 +28,7 @@ from app.services.classifier_service import (  # type: ignore[attr-defined]
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
 from app.services.frigate_client import frigate_client
-from app.services.detection_service import DetectionService
+from app.services.detection_service import DetectionService, NonBirdSaveRejection
 from app.services.audio.audio_service import audio_service
 from app.services.weather_service import weather_service
 from app.services.notification_orchestrator import NotificationOrchestrator
@@ -102,9 +102,10 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
 # Frigate's continuous recording when no snapshot/thumbnail is available.
 # Frigate serves a recording frame only once its stretch of recording is written: 11 to 13 seconds
 # after the moment on a live install. A live event identified from the recording frame waits this
-# long after Frigate's best snapshot before its first read.
+# long by default; owners can choose a different initial delay in settings.
 RECORDING_FRAME_READY_SECONDS = max(1.0, float(os.getenv("RECORDING_FRAME_READY_SECONDS", "12")))
-# From the snapshot moment, how long reads keep retrying before the detection snapshot is used.
+# The legacy total deadline minus readiness determines the bounded retry grace
+# after the first read, independently of the owner's initial delay.
 RECORDING_FRAME_DEADLINE_SECONDS = max(
     RECORDING_FRAME_READY_SECONDS, float(os.getenv("RECORDING_FRAME_DEADLINE_SECONDS", "30"))
 )
@@ -573,6 +574,16 @@ class EventProcessor:
 
     async def _process_event_payload(self, data: Dict[str, Any]) -> None:
         """Process a decoded MQTT payload end-to-end with guardrails."""
+        from app.services.garden_capture_service import garden_capture_service
+
+        try:
+            await garden_capture_service.process(data)
+        except Exception:
+            # Garden collection must not interrupt bird identification.
+            log.exception("Garden capture collection failed")
+        after = data.get("after") if isinstance(data, dict) else None
+        if isinstance(after, dict) and not is_ingest_label(after.get("label"), settings.frigate.ingest_labels):
+            return
         event = self._parse_and_validate_event(data)
         if not event:
             return
@@ -597,10 +608,16 @@ class EventProcessor:
         event_type = (event.type or "new").lower()
         waiting = self._recording_waits.get(event.frigate_event)
         if waiting is not None and not event.recording_wait_done:
-            # The event is identified once its recording frame exists. An end is kept and replayed
-            # after that, so its final media work still runs; updates add nothing until then.
+            # Refresh the paired best-frame hints without restarting the timer.
+            # An end is also replayed after identification for its final media work.
             if event_type == "end":
                 waiting["end_data"] = dict(data)
+            if event_type == "end" or waiting["end_data"] is None:
+                incoming = dict(data.get("after") or {})
+                latest_after = {**waiting["latest_after"], **incoming}
+                if not incoming.get("snapshot") and recording_frame_time(incoming) is not None:
+                    latest_after.pop("snapshot", None)
+                waiting["latest_after"] = latest_after
             self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
             self._record_recent_outcome(event.frigate_event, f"{event_type}_held_for_recording_frame")
             return
@@ -768,6 +785,8 @@ class EventProcessor:
             event.frigate_score,
             event.sub_label_score,
         )
+        if await self._route_declared_domestic_bird(event, results[0] if results else None, top, started):
+            return
         if not top:
             top_candidate = results[0] if results else {}
             log.info(
@@ -783,6 +802,8 @@ class EventProcessor:
                 label=top_candidate.get("label"),
                 score=top_candidate.get("score"),
             )
+            if reason == "out_of_range":
+                await self._record_range_skip(event, results)
             self._mark_classification_decided_tombstone(event.frigate_event)
             return
 
@@ -865,6 +886,33 @@ class EventProcessor:
             duration_ms=round(duration_ms, 1),
         )
 
+    async def _route_declared_domestic_bird(
+        self, event: EventData, top: dict | None, accepted: dict | None, started: float
+    ) -> bool:
+        """Domestic birds the owner keeps become Garden animals here, before bird admission.
+
+        ``top`` is the model's raw top result. Any admission filter that can reject it,
+        such as a range filter, belongs in selection, which this point already follows
+        for the accepted result and precedes for the raw one, so a declared chicken that
+        a filter would reject still reaches Garden rather than being lost.
+        """
+        from app.services.garden_domestic_service import garden_domestic_service
+
+        routed = await garden_domestic_service.route_bird_event(
+            event_id=event.frigate_event,
+            camera=event.camera,
+            start_time=event.start_time_ts,
+            # The bird model just read Frigate's snapshot, so it exists unless Frigate kept nothing.
+            has_snapshot=not event.not_retained_by_frigate(),
+            top=top,
+            accepted=accepted,
+        )
+        if routed:
+            self._mark_classification_decided_tombstone(event.frigate_event)
+            self._record_completed(event.frigate_event, (time.monotonic() - started) * 1000.0)
+            self._record_recent_outcome(event.frigate_event, "domestic_bird_routed_to_garden")
+        return routed
+
     def _recording_wait_seconds(self, event: EventData, event_type: str) -> float | None:
         """How long a live event must wait for its recording frame to be written, or None."""
         if settings.frigate.classification_image_source != "recording_snapshot":
@@ -877,7 +925,8 @@ class EventProcessor:
         frame_time = recording_frame_time(event.snapshot_context())
         if frame_time is None:
             return None
-        wait = frame_time + RECORDING_FRAME_READY_SECONDS - time.time()
+        delay = settings.frigate.recording_frame_delay_seconds
+        wait = min(delay, frame_time + delay - time.time())
         return wait if wait > 0 else None
 
     def _note_recording_frame_outcome(self, camera: str | None, reason: str) -> None:
@@ -891,7 +940,7 @@ class EventProcessor:
     def _schedule_recording_wait(self, event: EventData, data: Dict[str, Any], wait_seconds: float) -> None:
         rerun = dict(data)
         rerun["__recording_wait_done"] = True
-        entry: dict[str, Any] = {"end_data": None}
+        entry: dict[str, Any] = {"end_data": None, "latest_after": dict(data.get("after") or {})}
         entry["task"] = create_background_task(
             self._identify_after_recording_wait(event.frigate_event, rerun, wait_seconds),
             name=f"recording_frame_wait:{event.frigate_event}",
@@ -901,6 +950,9 @@ class EventProcessor:
     async def _identify_after_recording_wait(self, event_id: str, data: Dict[str, Any], wait_seconds: float) -> None:
         try:
             await self._sleep(wait_seconds)
+            pending = self._recording_waits.get(event_id)
+            if pending is not None:
+                data["after"] = dict(pending["latest_after"])
             # Fresh for the live checks: the wait was deliberate, not a backlog.
             data["__received_at_ts"] = time.time()
             await self._process_payload_durably(data)
@@ -1076,6 +1128,23 @@ class EventProcessor:
             frigate_score,
             sub_label_score,
         )
+
+    async def _record_range_skip(self, event, results: list) -> None:
+        recorder = getattr(self.detection_service, "record_range_skip", None)
+        if not callable(recorder):
+            return
+        try:
+            await recorder(
+                results,
+                event.frigate_event,
+                event.sub_label,
+                event.frigate_score,
+                event.sub_label_score,
+                camera=event.camera,
+                detected_at=event.detection_dt,
+            )
+        except Exception as error:  # noqa: BLE001 - a missing record never changes the skip itself
+            log.warning("Range skip not recorded", event_id=event.frigate_event, error=type(error).__name__)
 
     async def _handle_false_positive(self, frigate_event_id: str):
         """Take a detection out of view when Frigate withdraws its event.
@@ -1399,7 +1468,7 @@ class EventProcessor:
                 snapshot_provenance,
                 # Only an event that waited keeps retrying; any other read is one bounded attempt.
                 ready_by=(
-                    frame_time + RECORDING_FRAME_DEADLINE_SECONDS
+                    time.time() + max(0.0, RECORDING_FRAME_DEADLINE_SECONDS - RECORDING_FRAME_READY_SECONDS)
                     if waited_for_recording and frame_time is not None
                     else None
                 ),
@@ -1418,6 +1487,7 @@ class EventProcessor:
                     event_id=event.frigate_event,
                     event_data=event_snapshot_state,
                     provenance=snapshot_provenance,
+                    snapshot_data=snapshot_data,
                 ),
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
@@ -1775,7 +1845,7 @@ class EventProcessor:
         weather_fields = self._extract_weather_fields(context)
 
         # Save detection (upsert)
-        changed, was_inserted = await self.detection_service.save_detection(
+        outcome = await self.detection_service.save_detection(
             frigate_event=event.frigate_event,
             camera=event.camera,
             start_time=event.start_time_ts,
@@ -1796,7 +1866,10 @@ class EventProcessor:
             weather_snowfall=weather_fields["weather_snowfall"],
         )
 
-        return changed, was_inserted
+        if isinstance(outcome, NonBirdSaveRejection):
+            self._record_drop(event.frigate_event, "filter_non_bird", camera=event.camera)
+            return None
+        return outcome
 
     async def _handle_detection_post_commit(
         self,

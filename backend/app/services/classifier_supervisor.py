@@ -9,10 +9,24 @@ from typing import Any, Awaitable, Callable, Literal
 import structlog
 
 from .classifier_worker_client import ClassifierWorkerClient
-from .classifier_worker_protocol import build_classify_request, build_classify_video_request
+from .classifier_worker_protocol import (
+    GPU_RUNTIME_FAILURE_CODES,
+    build_classify_request,
+    build_classify_video_request,
+)
 from .native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 log = structlog.get_logger()
+
+
+def _sanitize_retirement_detail(raw: object) -> str:
+    """Bound worker-reported detail before it reaches metrics or health.
+
+    The worker is our own child, but its error text originates in native
+    runtimes; keep it printable, single-line, and short so it can never
+    become trusted markup or unbounded log content."""
+    text = "".join(ch for ch in str(raw or "") if ch.isprintable())
+    return " ".join(text.split())[:280]
 
 
 WorkPriority = Literal["live", "background", "video"]
@@ -151,6 +165,12 @@ class ClassifierSupervisor:
         # queued request and dead to the watchdog, and both act on it again.
         self._replacing: set[str] = set()
         self._cleanup_pending: dict[str, Any] = {}
+        # Set exactly while no failed worker is awaiting reap. CPU recovery
+        # waits on this barrier so it cannot load a native model alongside
+        # a failed GPU child that has not been reaped yet.
+        self._cleanup_idle = asyncio.Event()
+        self._cleanup_idle.set()
+        self._cleanup_barrier_timeout_seconds = 30.0
         self._metrics = {
             "live": {
                 "workers": 0,
@@ -187,6 +207,8 @@ class ClassifierSupervisor:
             },
             "late_results_ignored": 0,
         }
+        for _priority in ("live", "background", "video"):
+            self._metrics[_priority]["last_retirement"] = None
         self._restart_history: dict[WorkPriority, deque[float]] = {
             "live": deque(),
             "background": deque(),
@@ -305,6 +327,10 @@ class ClassifierSupervisor:
             "video": dict(self._metrics["video"]),
             "late_results_ignored": self._metrics["late_results_ignored"],
         }
+
+    def has_native_work(self) -> bool:
+        """Include native cleanup after an admission lease has been reclaimed."""
+        return bool(self._assignments or self._cleanup_pending or self._replacing)
 
     async def classify(
         self,
@@ -625,6 +651,10 @@ class ClassifierSupervisor:
             worker._native_launch_profile = profile
             async with self._global_init_lock:
                 await self._guard_native_crash_quarantine(priority, profile)
+                approval = getattr(self._crash_quarantine, "worker_approval", None)
+                worker._native_worker_approval = (
+                    await asyncio.to_thread(approval, profile) if callable(approval) else None
+                )
                 await worker.start()
                 await worker.wait_until_ready(timeout_seconds=ready_timeout_seconds)
             self._record_worker_runtime(priority, worker)
@@ -657,18 +687,32 @@ class ClassifierSupervisor:
             consumer_task=consumer_task,
         )
 
+    async def wait_for_cleanup(self, timeout_seconds: float | None = None) -> None:
+        """Wait until every failed worker has been reaped.
+
+        Raises ``TimeoutError`` rather than releasing the caller early: a
+        caller that times out must fail closed, not load another native
+        model beside an unreaped child."""
+        if not self._cleanup_pending:
+            return
+        timeout = self._cleanup_barrier_timeout_seconds if timeout_seconds is None else float(timeout_seconds)
+        await asyncio.wait_for(self._cleanup_idle.wait(), timeout)
+
     async def _close_failed_worker(self, worker: Any, *, kill: bool = False) -> None:
         if worker is None:
             return
         # Retain ownership until reaping is confirmed. Even a cleanup timeout
         # must not let a retry load another native model alongside this worker.
         self._cleanup_pending[worker.worker_name] = worker
+        self._cleanup_idle.clear()
         if kill:
             await worker.kill()
         else:
             await worker.terminate()
         await worker.wait_closed()
         self._cleanup_pending.pop(worker.worker_name, None)
+        if not self._cleanup_pending:
+            self._cleanup_idle.set()
         if self._crash_quarantine is not None and self._crash_quarantine.remember(
             getattr(worker, "_native_launch_profile", None), worker.get_status().get("exit_code")
         ):
@@ -747,6 +791,9 @@ class ClassifierSupervisor:
             if message["type"] == "runtime_recovery":
                 self._metrics[current_slot.priority]["last_runtime_recovery"] = dict(message.get("recovery") or {})
                 continue
+            if message["type"] == "retirement":
+                await self._handle_worker_retirement(current_slot, generation, worker, assignment, message)
+                continue
             if message["type"] == "progress":
                 if assignment is None:
                     self._metrics["late_results_ignored"] += 1
@@ -792,6 +839,16 @@ class ClassifierSupervisor:
 
             self._assignments.pop(worker_name, None)
             if message["type"] == "result":
+                if isinstance(message.get("runtime"), dict) and message["runtime"]:
+                    self._metrics[current_slot.priority]["runtime"] = dict(message["runtime"])
+                    evidence = message["runtime"].get("crop_execution")
+                    if isinstance(evidence, dict):
+                        from app.services.inference_execution import latest_model_execution
+
+                        previous = self._metrics[current_slot.priority].get("crop_execution")
+                        latest = latest_model_execution(evidence.get("model_id"), [previous, evidence])
+                        if latest is not None:
+                            self._metrics[current_slot.priority]["crop_execution"] = latest.model_dump(mode="json")
                 self._completed_once.add((worker_name, generation))
                 if not assignment.future.done():
                     assignment.future.set_result(list(message["results"]))
@@ -800,6 +857,96 @@ class ClassifierSupervisor:
                     assignment.future.set_exception(RuntimeError(str(message.get("error") or "worker_error")))
             async with self._condition:
                 self._condition.notify_all()
+
+    async def _handle_worker_retirement(
+        self,
+        slot: _WorkerSlot,
+        generation: int,
+        worker: Any,
+        assignment: _Assignment | None,
+        message: dict[str, Any],
+    ) -> None:
+        # A retirement only counts for the exact in-flight request that
+        # provoked it. Anything stale is ignored like a late result, so a
+        # dying worker cannot quarantine a profile on someone else's lease.
+        if (
+            assignment is None
+            or assignment.worker_generation != generation
+            or message.get("request_id") != assignment.request_id
+            or message.get("work_id") != assignment.work_id
+            or int(message.get("lease_token") or -1) != assignment.lease_token
+        ):
+            self._metrics["late_results_ignored"] += 1
+            return
+
+        # Claim the slot before the first await, so the watchdog cannot
+        # replace this worker (dropping the assignment and the retirement
+        # with it) while the record is being persisted.
+        if slot.worker_name in self._replacing:
+            return
+        self._replacing.add(slot.worker_name)
+        # Register cleanup ownership before the quarantine below becomes
+        # visible: from this moment wait_for_cleanup() blocks, so no other
+        # request can observe the quarantine and slip into CPU recovery
+        # while evidence is persisted and the child is still unreaped.
+        # _close_failed_worker re-registers the same entry when it reaps.
+        if slot.worker_name not in self._cleanup_pending:
+            self._cleanup_pending[slot.worker_name] = worker
+            self._cleanup_idle.clear()
+        raw_code = str(message.get("error_code") or "")
+        error_code = raw_code if raw_code in GPU_RUNTIME_FAILURE_CODES else "unknown_gpu_runtime_failure"
+        detail = _sanitize_retirement_detail(message.get("error"))
+        priority = slot.priority
+        self._metrics[priority]["last_retirement"] = {
+            "error_code": error_code,
+            "detail": detail,
+            "worker_name": slot.worker_name,
+            "worker_generation": generation,
+            "at": time.time(),
+        }
+        # Block the profile in memory first (synchronous, cannot be
+        # cancelled), so the replacement path below can never respawn the
+        # same GPU profile; persistence follows off the event loop.
+        profile = getattr(worker, "_native_launch_profile", None)
+        try:
+            if self._crash_quarantine is not None and self._crash_quarantine.remember_retirement(profile):
+                await asyncio.to_thread(self._crash_quarantine.record_retirement, profile, error_code, detail)
+        except BaseException:
+            # Release only the replacement claim. Cleanup ownership stays
+            # registered until reap actually succeeds: dropping it here
+            # (for example when shutdown cancels this consumer) would let
+            # wait_for_cleanup() report an unreaped child as cleaned up.
+            # The watchdog or shutdown close path reaps it from the same
+            # registry entry.
+            self._replacing.discard(slot.worker_name)
+            raise
+
+        retirement_error = NativeCrashQuarantinedError(
+            f"Classifier GPU worker retired after {error_code}: {detail}"
+            if detail
+            else f"Classifier GPU worker retired after {error_code}"
+        )
+        log.error(
+            "Classifier worker retired after GPU runtime failure",
+            worker=slot.worker_name,
+            pool=priority,
+            generation=generation,
+            error_code=error_code,
+            detail=detail,
+        )
+        # Reap before the caller is released: _replace_worker closes (waits
+        # for) the old child and only then fails the assignment, so CPU
+        # recovery cannot start a second native model alongside the failed
+        # worker. The quarantine guard inside stops a new GPU worker with
+        # the same launch profile instead of looping through PIDs.
+        await self._replace_worker(
+            priority,
+            slot.index,
+            reason="gpu_worker_retired",
+            assignment_error=retirement_error,
+            kill=False,
+            already_claimed=True,
+        )
 
     async def _watchdog_loop(self) -> None:
         while True:
@@ -815,6 +962,13 @@ class ClassifierSupervisor:
                     if slot.worker is None or slot.worker_name in self._replacing:
                         continue
                     status = slot.worker.get_status()
+                    if status.get("pending_retirement"):
+                        # A retirement record is queued for the consumer,
+                        # which validates it against the live assignment and
+                        # drives replacement itself. Replacing from here
+                        # first would drop that assignment and discard the
+                        # record before it can quarantine anything.
+                        continue
                     exit_code = status.get("exit_code")
                     if exit_code is not None:
                         await self._replace_worker(
@@ -890,9 +1044,10 @@ class ClassifierSupervisor:
         reason: str,
         assignment_error: Exception,
         kill: bool,
+        already_claimed: bool = False,
     ) -> None:
         slot = self._slots[priority][index]
-        if slot.worker_name in self._replacing:
+        if slot.worker_name in self._replacing and not already_claimed:
             return
         self._replacing.add(slot.worker_name)
         try:
@@ -911,7 +1066,11 @@ class ClassifierSupervisor:
                 try:
                     await self._guard_native_crash_quarantine(priority)
                 except NativeCrashQuarantinedError as exc:
-                    assignment_error = exc
+                    # Keep a more specific quarantine error (for example a
+                    # retirement carrying the original OpenCL code) over
+                    # the guard's generic message.
+                    if not isinstance(assignment_error, NativeCrashQuarantinedError):
+                        assignment_error = exc
                 assignment.future.set_exception(assignment_error)
             self._completed_once.discard((slot.worker_name, slot.worker_generation))
             self._metrics[priority]["restarts"] += 1

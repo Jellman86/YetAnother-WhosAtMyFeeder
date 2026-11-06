@@ -166,6 +166,15 @@ def isolated_environment(root: Path) -> None:
     sys.path.insert(0, str(BACKEND))
 
 
+def prepare_catalogue() -> None:
+    """Use a checksum-verified private seed, as a fresh application install would."""
+    from app.services.species_catalog_store import CatalogState, ensure_catalog_ready
+
+    status = ensure_catalog_ready(Path(os.environ["SPECIES_CATALOG_PATH"]))
+    if status.state not in {CatalogState.READY, CatalogState.SEEDED}:
+        raise RuntimeError(f"Hardware probe catalogue is unavailable: {status.state.value}")
+
+
 def probe_exact_artifact(root: Path, models: Path, artifact: str, provider: str, images: list[str]) -> dict[str, Any]:
     source = models / artifact
     target = Path(os.environ["MODEL_DIR"]) / artifact
@@ -189,6 +198,7 @@ def probe_exact_artifact(root: Path, models: Path, artifact: str, provider: str,
             }
         )
     )
+    prepare_catalogue()
     from app.services.model_manager import model_manager
 
     model_manager.active_model_id = model_id

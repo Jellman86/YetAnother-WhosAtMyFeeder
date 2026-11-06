@@ -34,3 +34,20 @@ def serialize_api_datetime(value: datetime | None) -> str | None:
     else:
         value = value.astimezone(timezone.utc)
     return value.isoformat().replace("+00:00", "Z")
+
+
+def parse_storage_datetime(value: object) -> datetime:
+    """Parse datetime from SQLite storage format."""
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str):
+        # Try ISO format first, then common SQLite formats
+        for fmt in (None, "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
+            try:
+                if fmt is None:
+                    return datetime.fromisoformat(value)
+                return datetime.strptime(value, fmt)
+            except ValueError:
+                continue
+    # Return current time as fallback (shouldn't happen with valid data)
+    return utc_naive_now()

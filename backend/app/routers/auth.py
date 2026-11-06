@@ -24,8 +24,9 @@ from app.auth import (
     set_session_cookie,
     clear_session_cookie,
 )
-from app.config import settings
+from app.config import Settings, settings
 from app.services import avatar_service
+from app.services.settings_update import commit_settings_change
 from app.services.stream_tickets import STREAM_TICKET_TTL_SECONDS, stream_tickets
 from app.database import get_db
 from app.models import MessageResponse
@@ -81,6 +82,8 @@ class AuthStatusResponse(BaseModel):
     public_access_show_audio: bool = True
     public_access_show_snapshots: bool = True
     public_access_show_clips: bool = True
+    # Whether visitors may browse confirmed Garden animals beside bird detections.
+    garden_animals_enabled: bool = False
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
@@ -254,14 +257,20 @@ async def create_stream_ticket(request: Request, auth: AuthContext = Depends(get
         )
 
     session_exp = None
+    session_version = settings.auth.session_version
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
         try:
-            session_exp = verify_token(auth_header[7:]).exp
+            token_data = verify_token(auth_header[7:])
+            session_exp = token_data.exp
+            session_version = token_data.session_version
         except HTTPException:
-            session_exp = None
+            # Credentials can change after the dependency granted owner access.
+            # An old login must not become a fresh ticket without an expiry.
+            if settings.auth.enabled:
+                raise
 
-    ticket = stream_tickets.issue(auth.auth_level, auth.username, session_exp)
+    ticket = stream_tickets.issue(auth.auth_level, auth.username, session_exp, session_version=session_version)
     return StreamTicketResponse(ticket=ticket, expires_in_seconds=STREAM_TICKET_TTL_SECONDS)
 
 
@@ -347,6 +356,7 @@ async def get_auth_status(request: Request):
         public_access_show_audio=settings.public_access.show_audio,
         public_access_show_snapshots=settings.public_access.show_snapshots,
         public_access_show_clips=settings.public_access.show_clips,
+        garden_animals_enabled=settings.system.beta_garden_animals,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,
@@ -417,6 +427,19 @@ async def remove_avatar(_auth: AuthContext = Depends(require_owner)) -> AvatarRe
     return AvatarResponse(avatar_version=None)
 
 
+def _require_untouched_first_run(current: Settings) -> None:
+    if current.auth.initial_setup_complete:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Initial setup already completed. Use Settings to change authentication.",
+        )
+    if current.auth.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password already configured. Use Settings to change password.",
+        )
+
+
 @router.post("/auth/initial-setup", response_model=InitialSetupResponse)
 async def set_initial_password(
     request_obj: Request, request: InitialPasswordRequest, response: Response
@@ -439,40 +462,22 @@ async def set_initial_password(
         # This unauthenticated endpoint exists only for the untouched first-run
         # state. Re-check inside the lock so two concurrent requests cannot both
         # claim the installation.
-        if settings.auth.initial_setup_complete:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Initial setup already completed. Use Settings to change authentication.",
-            )
-        if settings.auth.password_hash:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Password already configured. Use Settings to change password.",
-            )
+        _require_untouched_first_run(settings)
+        password_hash = hash_password(request.password) if request.enable_auth and request.password else None
 
-        previous = (
-            settings.auth.username,
-            settings.auth.password_hash,
-            settings.auth.enabled,
-            settings.auth.initial_setup_complete,
-        )
-        try:
-            if request.enable_auth and request.password:
-                settings.auth.username = request.username
-                settings.auth.password_hash = hash_password(request.password)
-                settings.auth.enabled = True
+        def claim_installation(candidate: Settings) -> None:
+            # A settings save may have published since the check above; refuse on the
+            # candidate the writer will actually persist.
+            _require_untouched_first_run(candidate)
+            if password_hash:
+                candidate.auth.username = request.username
+                candidate.auth.password_hash = password_hash
+                candidate.auth.enabled = True
             else:
-                settings.auth.enabled = False
-            settings.auth.initial_setup_complete = True
-            await settings.save()
-        except Exception:
-            (
-                settings.auth.username,
-                settings.auth.password_hash,
-                settings.auth.enabled,
-                settings.auth.initial_setup_complete,
-            ) = previous
-            raise
+                candidate.auth.enabled = False
+            candidate.auth.initial_setup_complete = True
+
+        await commit_settings_change(claim_installation)
 
     log.info(
         "AUTH_AUDIT: Initial setup completed",

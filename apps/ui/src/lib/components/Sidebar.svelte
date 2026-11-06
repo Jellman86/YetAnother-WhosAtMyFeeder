@@ -4,23 +4,48 @@
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
     import { updateStatusStore } from '../stores/update_status.svelte';
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
     import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
+    import { trapFocus } from '../utils/focus-trap';
 
     onMount(() => {
         updateStatusStore.load();
     });
 
-    let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
+    let { currentRoute, onNavigate, isMobile = false, mobileSidebarOpen = false, onMobileClose, status }: {
         currentRoute: string;
         onNavigate: (path: string) => void;
+        /** On a phone the sidebar is a drawer over the page. */
+        isMobile?: boolean;
         mobileSidebarOpen?: boolean;
         onMobileClose?: () => void;
         status?: import('svelte').Snippet;
-    }>();
+    } = $props();
+
+    let asideEl = $state<HTMLElement | null>(null);
+    const drawerOpen = $derived(isMobile && mobileSidebarOpen);
+    // A closed drawer is only moved off screen, so without inert its controls would still
+    // take keyboard focus and be read out, ahead of the page, while nobody can see them.
+    const drawerClosed = $derived(isMobile && !mobileSidebarOpen);
+
+    // An open drawer is modal: focus starts on the page you are on, stays inside until it
+    // closes, and the trap returns it to the menu button that opened it.
+    $effect(() => {
+        if (!drawerOpen || !asideEl) return;
+        const release = trapFocus(asideEl);
+        asideEl.querySelector<HTMLElement>('nav [aria-current="page"]')?.focus({ preventScroll: true });
+        return release;
+    });
+
+    function handleWindowKeydown(event: KeyboardEvent): void {
+        if (!drawerOpen || event.key !== 'Escape' || event.defaultPrevented) return;
+        event.preventDefault();
+        onMobileClose?.();
+    }
 
     let collapsed = $derived(layoutStore.sidebarCollapsed);
     let accountInitial = $derived((authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase());
@@ -55,7 +80,9 @@
     ]));
 
     const navSections = $derived.by((): NavGroup[] => {
-        const visibleItems = allNavItems.filter(item => !item.requiresAuth || authStore.showSettings);
+        const visibleItems = allNavItems.filter(item =>
+            (!item.requiresAuth || authStore.showSettings)
+        );
         return [
             { id: 'observe', label: $_('nav.observe'), items: visibleItems.filter(item => item.section === 'observe') },
             { id: 'manage', label: $_('nav.manage'), items: visibleItems.filter(item => item.section === 'manage') },
@@ -79,19 +106,25 @@
     }
 </script>
 
+<svelte:window onkeydown={handleWindowKeydown} />
+
 {#if mobileSidebarOpen}
     <div
         role="button"
         tabindex="0"
         class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
         onclick={onMobileClose}
-        onkeydown={(event) => event.key === 'Enter' || event.key === 'Escape' ? onMobileClose?.() : null}
+        onkeydown={(event) => event.key === 'Enter' ? onMobileClose?.() : null}
         aria-label={$_('nav.close_menu', { default: 'Close menu' })}
     ></div>
 {/if}
 
 <aside
-    class="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-line-soft bg-surface transition-all duration-300 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
+    bind:this={asideEl}
+    id="app-sidebar"
+    inert={drawerClosed}
+    data-sidebar-drawer={isMobile ? (mobileSidebarOpen ? 'open' : 'closed') : undefined}
+    class="fixed left-0 top-0 z-50 flex h-full max-w-full flex-col border-r border-line-soft bg-surface transition-all duration-300 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
 >
     <div
         data-sidebar-brand
@@ -108,9 +141,10 @@
             />
             {#if !collapsed}
                 <div class="flex flex-col items-center gap-0.5 overflow-hidden">
-                    <h1 class="truncate font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
+                    <!-- The wordmark, not a heading: each page carries its own h1. -->
+                    <span class="truncate font-display text-lg font-bold leading-tight text-slate-900 dark:text-white">
                         {$_('app.logo_title')}
-                    </h1>
+                    </span>
                     <span class="truncate text-sm text-slate-600 dark:text-slate-400">
                         {$_('app.logo_subtitle')}
                     </span>

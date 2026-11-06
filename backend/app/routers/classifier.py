@@ -8,6 +8,8 @@ from pydantic import BaseModel, Field, JsonValue
 import structlog
 from pathlib import Path
 
+from app.utils.diagnostic_redaction import safe_error_message
+from app.models.classifier_status import ClassifierStatusResponse
 from app.services.classifier_service import get_classifier
 from app.services.provider_revalidation import ProviderValidationStatus, provider_revalidation
 from app.services.personalization_service import personalization_service
@@ -15,9 +17,29 @@ from app.config import settings
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
-from app.utils.image_io import decode_image_bytes
+from app.utils.image_io import MAX_IMAGE_BYTES, decode_image_bytes
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
+
+
+async def _decode_upload(image: UploadFile, *, convert_rgb: bool = False):
+    """Read one uploaded image within the shared byte and pixel bounds.
+
+    Oversized uploads are refused with 413 before any classification work;
+    other decode failures propagate to the caller's existing error handling.
+    """
+    contents = await image.read(MAX_IMAGE_BYTES + 1)
+    if len(contents) > MAX_IMAGE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Image exceeds the {MAX_IMAGE_BYTES // 1024 // 1024} MB limit.",
+        )
+    try:
+        return await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=convert_rgb)
+    except ValueError as exc:
+        if "pixel limit" in str(exc):
+            raise HTTPException(status_code=413, detail=safe_error_message(exc)) from exc
+        raise
 
 
 def _prepare_download_paths(models_dir: Path, *paths: Path, replace: bool = False) -> bool:
@@ -102,6 +124,11 @@ class _LiveClassifierProxy:
     def __setattr__(self, name: str, value) -> None:
         setattr(get_classifier(), name, value)
 
+    def __delattr__(self, name: str) -> None:
+        # Reads and writes reach the live classifier, so removals must too: a test patch
+        # undone by deletion would otherwise outlive its test on the shared classifier.
+        delattr(get_classifier(), name)
+
 
 # Keep the old module attribute for diagnostics/tests that import it, but make
 # it a live proxy rather than a captured singleton. After a settings-driven
@@ -110,11 +137,11 @@ class _LiveClassifierProxy:
 classifier_service = _LiveClassifierProxy()
 
 
-@router.get("/status", response_model=dict[str, JsonValue])
+@router.get("/status", response_model=ClassifierStatusResponse, response_model_exclude_unset=True)
 @guest_rate_limit()
 async def classifier_status(
     request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
-) -> dict[str, JsonValue]:
+) -> ClassifierStatusResponse:
     """Return the status of the bird classifier model."""
     status = classifier_service.get_status()
     status["personalized_rerank_enabled"] = bool(getattr(settings.classification, "personalized_rerank_enabled", False))
@@ -125,9 +152,9 @@ async def classifier_status(
     try:
         status.update(await personalization_service.get_status_summary())
     except Exception as exc:
-        log.warning("Failed to load personalization status summary", error=str(exc))
+        log.warning("Failed to load personalization status summary", error=safe_error_message(exc))
 
-    return status
+    return ClassifierStatusResponse.model_validate(status)
 
 
 @router.get("/provider-validation", response_model=ProviderValidationStatus)
@@ -258,11 +285,12 @@ async def test_bird_classifier(
 ) -> dict[str, object]:
     """Test bird classifier with an uploaded image. Owner only."""
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
+        pil_image = await _decode_upload(image)
         results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
+    except HTTPException:
+        raise
     except Exception:
         log.exception("Bird classifier test failed")
         return {"error": "Bird classifier test failed. See server logs for details."}
@@ -283,8 +311,9 @@ async def classify_image(
     import time as _time
 
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=True)
+        pil_image = await _decode_upload(image, convert_rgb=True)
+    except HTTPException:
+        raise
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
@@ -328,8 +357,7 @@ async def probe_bird_classifier_runtime(
 
     pil_image = None
     if image is not None:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
+        pil_image = await _decode_upload(image)
 
     try:
         return await asyncio.to_thread(
@@ -339,7 +367,7 @@ async def probe_bird_classifier_runtime(
             synthetic_image=synthetic_image,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail=safe_error_message(exc)) from exc
 
 
 @router.get("/wildlife/debug", response_model=dict[str, JsonValue])
@@ -408,12 +436,12 @@ async def test_wildlife_classifier(
 ) -> dict[str, object]:
     """Test wildlife classifier with an uploaded image. Owner only."""
     try:
-        contents = await image.read()
-        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
-
+        pil_image = await _decode_upload(image)
         results = await classifier_service.classify_wildlife_async(pil_image, input_context={"is_cropped": False})
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
+    except HTTPException:
+        raise
     except Exception as e:
         log.exception("Validation inference failed")
         return {"error": str(e)}
@@ -498,7 +526,7 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
         log.error("Failed to download wildlife model - HTTP error", status=e.response.status_code)
         return {"status": "error", "message": f"HTTP {e.response.status_code}: Download failed"}
     except Exception as e:
-        log.error("Failed to download wildlife model", error=str(e))
+        log.error("Failed to download wildlife model", error=safe_error_message(e))
         return {"status": "error", "message": str(e)}
 
 
@@ -596,5 +624,5 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
         log.error("Failed to download model - HTTP error", status=e.response.status_code, url=str(e.request.url))
         return {"status": "error", "message": f"HTTP {e.response.status_code}: Failed to download from {e.request.url}"}
     except Exception as e:
-        log.error("Failed to download model", error=str(e))
+        log.error("Failed to download model", error=safe_error_message(e))
         return {"status": "error", "message": str(e)}

@@ -28,8 +28,20 @@ export interface Settings {
     audio_topic: string;
     camera_audio_mapping: Record<string, string>;
     camera_roles: Record<string, 'feeder' | 'nest'>;
+    garden_cameras: NonNullable<components['schemas']['SettingsResponse']['garden_cameras']>;
+    garden_motion_cameras?: NonNullable<components['schemas']['SettingsResponse']['garden_motion_cameras']>;
+    garden_motion_confidence?: NonNullable<components['schemas']['SettingsResponse']['garden_motion_confidence']>;
+    garden_notifications_enabled?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_enabled']>;
+    garden_notifications_use_bird_channels?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_use_bird_channels']>;
+    garden_notification_channels?: NonNullable<components['schemas']['SettingsResponse']['garden_notification_channels']>;
+    garden_notifications_include_photo?: NonNullable<components['schemas']['SettingsResponse']['garden_notifications_include_photo']>;
+    garden_automatic_naming?: NonNullable<components['schemas']['SettingsResponse']['garden_automatic_naming']>;
+    garden_naming_threshold?: NonNullable<components['schemas']['SettingsResponse']['garden_naming_threshold']>;
+    garden_domestic_birds?: NonNullable<components['schemas']['SettingsResponse']['garden_domestic_birds']>;
+    garden_labels: NonNullable<components['schemas']['SettingsResponse']['garden_labels']>;
     nest_dedupe_minutes: number;
     classification_image_source?: ClassificationImageSource;
+    recording_frame_delay_seconds?: NonNullable<components['schemas']['SettingsResponse']['recording_frame_delay_seconds']>;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
     recording_clip_before_seconds: number;
@@ -52,11 +64,15 @@ export interface Settings {
     display_common_names: boolean;
     scientific_name_primary: boolean;
     personalized_rerank_enabled: boolean;
+    range_filter_enabled?: boolean;
+    range_filter_region_level?: NonNullable<components['schemas']['SettingsResponse']['range_filter_region_level']>;
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
     video_classification_frames: number;
     bird_crop_detector_tier?: 'fast' | 'accurate' | string;
+    bird_crop_accurate_detector?: 'yolox_tiny' | 'rfdetr_nano' | string;
+    bird_crop_inference_provider?: NonNullable<components['schemas']['SettingsResponse']['bird_crop_inference_provider']>;
     bird_crop_source_priority?: 'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string;
     bird_model_region_override?: BirdModelRegionOverride;
     crop_model_overrides?: Record<string, CropModelOverride>;
@@ -199,6 +215,7 @@ export interface Settings {
     auth_password?: string;
     trusted_proxy_hosts?: string[];
     debug_ui_enabled?: boolean;
+    beta_garden_animals?: boolean;
     public_access_enabled: boolean;
     public_access_show_camera_names: boolean;
     public_access_show_ai_conversation?: boolean;
@@ -282,6 +299,7 @@ export interface PublicSettings {
     ebird_default_days_back: number;
     clips_enabled: boolean;
     recording_clip_enabled: boolean;
+    bird_counting_enabled: boolean;
 }
 
 export async function fetchPublicSettings(): Promise<PublicSettings> {

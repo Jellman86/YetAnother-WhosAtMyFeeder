@@ -362,3 +362,182 @@ async def test_owner_can_clear_diagnostics_history(client: httpx.AsyncClient):
     snapshot = error_diagnostics_history.snapshot(limit=20)
     assert snapshot["total_events"] == 0
     assert snapshot["returned_events"] == 0
+
+
+def test_successful_video_photo_and_cache_events_are_not_reported_as_failures():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    events = [
+        {"component": "auto_video_classifier", "severity": "info", "reason_code": reason}
+        for reason in ("video_photo_update", "precheck_cache_bypass", "video_result_not_promotable")
+    ]
+    focus = _build_video_classifier_focus({"events": events}, {})
+
+    assert focus["likely_last_error"] is None
+    assert focus["candidate_failure_events"] == []
+    assert focus["recent_events"] == events
+
+
+def test_video_failure_evidence_is_not_hidden_by_eight_newer_progress_events():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    progress = {"component": "auto_video_classifier", "severity": "info", "reason_code": "video_photo_update"}
+    failure = {"component": "auto_video_classifier", "severity": "error", "reason_code": "video_timeout"}
+    focus = _build_video_classifier_focus({"events": [dict(progress) for _ in range(9)] + [failure]}, {})
+
+    assert focus["likely_last_error"] == "video_timeout"
+    assert focus["candidate_failure_events"] == [failure]
+    assert len(focus["recent_events"]) == 8
+
+
+@pytest.mark.parametrize("severity", ["warning", "error", "critical"])
+def test_video_failure_focus_keeps_actionable_severities(severity):
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    failure = {"worker_pool": "video", "severity": severity, "reason_code": "video_timeout"}
+    focus = _build_video_classifier_focus({"events": [failure]}, {})
+
+    assert focus["likely_last_error"] == "video_timeout"
+    assert focus["candidate_failure_events"] == [failure]
+
+
+def test_successful_cpu_video_recovery_is_degraded_status_not_a_failed_inference():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    recovery = {"worker_pool": "video", "severity": "warning", "reason_code": "native_cpu_recovery_degraded"}
+    focus = _build_video_classifier_focus({"events": [recovery]}, {})
+
+    assert focus["likely_last_error"] is None
+    assert focus["candidate_failure_events"] == []
+    assert focus["recent_events"] == [recovery]
+
+
+def test_video_circuit_cause_remains_available_beyond_the_recent_activity_cap():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    progress = {"worker_pool": "video", "severity": "info", "reason_code": "video_photo_update"}
+    circuit = {
+        "worker_pool": "video",
+        "severity": "error",
+        "reason_code": "video_circuit_opened",
+        "context": {"last_error": "video_worker_timed_out"},
+    }
+    focus = _build_video_classifier_focus({"events": [dict(progress) for _ in range(9)] + [circuit]}, {})
+
+    assert focus["likely_last_error"] == "video_worker_timed_out"
+    assert focus["latest_circuit_opened"] == circuit
+    assert focus["candidate_failure_events"] == []
+    assert len(focus["recent_events"]) == 8
+
+
+def test_newer_video_failure_takes_precedence_over_an_older_circuit_cause():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    failure = {"worker_pool": "video", "severity": "error", "reason_code": "video_timeout"}
+    progress = {"worker_pool": "video", "severity": "info", "reason_code": "video_photo_update"}
+    circuit = {
+        "worker_pool": "video",
+        "severity": "error",
+        "reason_code": "video_circuit_opened",
+        "context": {"last_error": "old_worker_failure"},
+    }
+    focus = _build_video_classifier_focus({"events": [failure] + [dict(progress) for _ in range(20)] + [circuit]}, {})
+    assert focus["likely_last_error"] == "video_timeout"
+    assert focus["latest_circuit_opened"] == circuit
+
+
+@pytest.mark.parametrize("status", ["degraded", "failed"])
+def test_real_cpu_video_recovery_producer_reaches_focused_diagnostics(tmp_path, status):
+    from app.routers.diagnostics import _build_video_classifier_focus
+    from app.services.native_cpu_recovery import NativeCpuRecovery
+    from app.services.native_crash_quarantine import NativeCrashQuarantine
+
+    policy = NativeCrashQuarantine(lambda: {}, root=tmp_path)
+    runner = NativeCpuRecovery(lambda: {}, policy)
+    runner._state("video", status, {"active_provider": "cpu"})
+    snapshot = error_diagnostics_history.snapshot(limit=20)
+    focus = _build_video_classifier_focus(snapshot, {})
+    assert len(focus["recent_events"]) == 1
+    assert focus["recent_events"][0]["worker_pool"] == "video"
+    assert focus["likely_last_error"] == ("native_cpu_recovery_failed" if status == "failed" else None)
+    assert len(focus["candidate_failure_events"]) == (1 if status == "failed" else 0)
+
+
+def test_successful_snapshot_fallback_is_activity_rather_than_failure():
+    from app.routers.diagnostics import _build_video_classifier_focus
+
+    event = {
+        "component": "auto_video_classifier",
+        "severity": "warning",
+        "reason_code": "video_worker_timed_out",
+        "context": {"snapshot_fallback_attempted": True, "snapshot_fallback_recovered": True},
+    }
+    focus = _build_video_classifier_focus({"events": [event]}, {})
+    assert focus["likely_last_error"] is None
+    assert focus["candidate_failure_events"] == []
+    assert focus["recent_events"] == [event]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["errors", "workspace", "bundle"])
+async def test_diagnostic_exports_do_not_disclose_configured_credentials(client, monkeypatch, endpoint):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    token = "DUMMY-EXPORT-DIAGNOSTIC-CREDENTIAL"
+    monkeypatch.setattr(settings.notifications.telegram, "bot_token", token)
+    error_diagnostics_history.record(
+        source="fixture",
+        component="fixture",
+        reason_code="fixture_failure",
+        message=f"Unstructured provider text {token}",
+        context={"nested": {"api_key": token}},
+    )
+    response = await client.get(f"/api/diagnostics/{endpoint}")
+    assert response.status_code == 200
+    assert token not in response.text
+    assert "fixture_failure" in response.text
+    assert "REDACTED" in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["workspace", "bundle"])
+async def test_diagnostics_preserves_gpu_measurement_gaps_and_worker_attribution(client, monkeypatch, endpoint):
+    from app.routers import stats
+    from app.services.accelerator_telemetry import AcceleratorReading, DrmProbeDiagnostics
+    from app.services.system_telemetry import ProcessLoad, SystemTelemetryHistory, SystemTelemetrySample
+
+    settings.auth.enabled = False
+    history = SystemTelemetryHistory()
+    for at, percent in ((10.0, 42.0), (15.0, None)):
+        history.record(
+            SystemTelemetrySample(
+                cpu_percent=25.0,
+                drm_diagnostics=DrmProbeDiagnostics(permission_denied=1),
+                accelerators=(
+                    AcceleratorReading(
+                        id="gpu-test", kind="gpu", label="Intel GPU", scope="app", utilization_percent=percent
+                    ),
+                ),
+            ),
+            [ProcessLoad(pid=123, role="video_worker", label="video-0", detail=None, cpu_percent=8.0, rss_bytes=1024)],
+            at=at,
+        )
+    monkeypatch.setattr(stats, "system_telemetry_history", history)
+    monkeypatch.setattr(
+        stats,
+        "_active_worker_accelerators",
+        lambda: {"video_worker": stats.SystemAcceleratorIdentity(kind="gpu", label="Intel GPU")},
+    )
+    # Export reads the bounded in-memory history; it must not start a fresh sample.
+    monkeypatch.setattr(stats.system_telemetry_sampler, "sample", lambda *a, **k: pytest.fail("unexpected live sample"))
+    response = await client.get(f"/api/diagnostics/{endpoint}")
+    assert response.status_code == 200
+    telemetry = response.json()["system_telemetry"]
+    assert [point["accelerators"]["gpu-test"] for point in telemetry["points"]] == [42.0, None]
+    assert telemetry["processes"][0]["accelerator"] == {"kind": "gpu", "label": "Intel GPU"}
+    assert [sample["at"] for sample in telemetry["drm_diagnostics"]] == [10.0, 15.0]
+    assert telemetry["drm_diagnostics"][1]["diagnostic"]["permission_denied"] == 1
+    assert telemetry["processes"][0]["cpu_percent"] == 8.0
+    assert "cmdline" not in telemetry["processes"][0]
+    if endpoint == "bundle":
+        assert response.json()["workspace"]["system_telemetry"] == telemetry

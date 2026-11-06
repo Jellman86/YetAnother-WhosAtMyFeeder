@@ -2,11 +2,13 @@
 
 import asyncio
 from contextlib import asynccontextmanager, closing
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import sqlite3
 from unittest.mock import AsyncMock
+from app.services.nearby_species_service import NearbyLookup
+from app.repositories.audio_history_repository import AudioHistoryRepository
 
 import aiosqlite
 import httpx
@@ -20,10 +22,13 @@ from app.routers import ai, audio, events, species, stats
 from app.services.broadcaster import broadcaster
 
 
+NO_NEARBY_CHECK = NearbyLookup(report=None, current=False, configured=False)
+
+
 @pytest.fixture
 def private_history(monkeypatch, tmp_path):
     path = tmp_path / "history.db"
-    today = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     with closing(sqlite3.connect(os.environ["DB_PATH"])) as source, closing(sqlite3.connect(path)) as db:
         source.backup(db)
         db.execute("PRAGMA foreign_keys=ON")
@@ -222,6 +227,7 @@ async def test_guest_sse_never_carries_raw_object_or_owner_payload(private_histo
     try:
         await response.body_iterator.__anext__()
         await broadcaster.broadcast({"type": "unknown_future_owner_message", "data": {"secret": "private"}})
+        await broadcaster.broadcast({"type": "garden_history_changed"})
         await broadcaster.broadcast(
             {"type": "detection_updated", "data": {"frigate_event": "hidden", "secret": "private"}}
         )
@@ -304,16 +310,16 @@ async def test_media_identity_payload_precedence_and_hidden_collision(private_hi
         )
         await db.commit()
         repo = DetectionRepository(db)
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute(
             "UPDATE audio_detections SET raw_data = ? WHERE species='Visible'",
             (json.dumps({"detection_id": " 00101 "}),),
         )
         await db.commit()
-        assert await repo.public_birdnet_media_visible(101, today)
+        assert await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
         await db.execute("UPDATE audio_detections SET raw_data = ? WHERE species='Hidden'", (json.dumps({"id": 101}),))
         await db.commit()
-        assert not await repo.public_birdnet_media_visible(101, today)
+        assert not await AudioHistoryRepository(repo.db).public_birdnet_media_visible(101, today)
 
 
 @pytest.mark.asyncio
@@ -346,7 +352,7 @@ async def test_audio_switch_covers_visual_history_representations(private_histor
 )
 async def test_guest_visual_statistics_respect_history_window(private_history, monkeypatch, route):
     monkeypatch.setattr(stats.weather_service, "get_hourly_weather", AsyncMock(return_value={}))
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value={}))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
         response = await client.get(route)
         owner = await client.get(route, headers={"Authorization": f"Bearer {create_access_token('owner')}"})
@@ -410,7 +416,7 @@ async def test_guest_visual_audio_requires_current_visible_evidence(private_hist
 )
 async def test_guest_audio_aggregates_require_current_evidence(private_history, monkeypatch, route):
     _, db_factory = private_history
-    monkeypatch.setattr(species.nearby_species_service, "get_report", AsyncMock(return_value=None))
+    monkeypatch.setattr(species.nearby_species_service, "lookup", AsyncMock(return_value=NO_NEARBY_CHECK))
     async with db_factory() as db:
         await db.execute(
             "UPDATE detections SET audio_confirmed=1, audio_species='Hidden', audio_score=.9 WHERE frigate_event='visible'"
@@ -453,3 +459,26 @@ async def test_public_auth_status_advertises_refresh_budget(private_history, mon
     assert response.status_code == 200, response.text
     assert response.json()["public_access_rate_limit_per_minute"] == limit
     assert "password_hash" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fields", ["list", "detail", "classification_input,initial_classification_input"])
+async def test_classifier_input_coordinates_are_owner_only(private_history, fields):
+    _, history_db = private_history
+    async with history_db() as db:
+        await db.execute(
+            "UPDATE detections SET classification_input_json=? WHERE frigate_event='visible'",
+            ('{"source":"snapshot_model_crop","is_cropped":true,"box":[10,20,30,40],"frame_size":[100,100]}',),
+        )
+        await db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        guest = await client.get("/api/events", params={"fields": fields})
+        owner = await client.get(
+            "/api/events",
+            params={"fields": fields},
+            headers={"Authorization": f"Bearer {create_access_token('owner')}"},
+        )
+    assert guest.status_code == owner.status_code == 200
+    assert not any(row.get("classification_input") or row.get("initial_classification_input") for row in guest.json())
+    visible = next(row for row in owner.json() if row["frigate_event"] == "visible")
+    assert visible["classification_input"]["box"] == [10, 20, 30, 40]

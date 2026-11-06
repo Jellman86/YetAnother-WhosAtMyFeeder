@@ -6,35 +6,52 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
 
     type Props = {
-        title: string;
+        /** Omitted where the page brings its own h1, as the Dashboard's day bar does. */
+        title?: string;
         subtitle?: string;
         onNavigate?: (path: string) => void;
         actions?: Snippet;
+        /** The owner's page controls. A guest can use none of them. */
+        showOwnerActions?: boolean;
+        notificationsCurrent?: boolean;
+        /** The page registers a refresh once it loads: hold the control's place until then. */
+        refreshExpected?: boolean;
     };
 
-    let { title, subtitle, onNavigate, actions }: Props = $props();
+    let {
+        title,
+        subtitle,
+        onNavigate,
+        actions,
+        showOwnerActions = true,
+        notificationsCurrent = false,
+        refreshExpected = false
+    }: Props = $props();
 
     function goSettings() {
         onNavigate?.('/settings');
     }
 </script>
 
-<header class="mb-6 flex items-start justify-between gap-4">
-    <div class="min-w-0 flex-1 space-y-1">
-        <h1 class="font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl dark:text-white">{title}</h1>
-        {#if subtitle}
-            <p class="text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
-        {/if}
-    </div>
-    <div class="flex items-center gap-1 shrink-0">
+<header class="flex flex-wrap items-start justify-between gap-4 {title ? 'mb-6' : 'mb-2'}">
+    {#if title}
+        <div class="page-title-block min-w-0 basis-64 grow space-y-1 break-words">
+            <h1 class="page-title font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl dark:text-white">{title}</h1>
+            {#if subtitle}
+                <p class="text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
+            {/if}
+        </div>
+    {/if}
+    <div class="flex max-w-full flex-wrap items-center gap-1 shrink-0 {title ? '' : 'ml-auto'}">
         {#if actions}
             {@render actions()}
-        {:else}
-            {#if pageRefreshAction.available}
+        {:else if showOwnerActions}
+            {#if pageRefreshAction.available || refreshExpected}
+                <!-- Disabled until the page has loaded and can be refreshed. -->
                 <button
                     type="button"
                     onclick={() => void pageRefreshAction.run()}
-                    disabled={pageRefreshAction.refreshing}
+                    disabled={!pageRefreshAction.available || pageRefreshAction.refreshing}
                     class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
                     title={$_('common.refresh')}
                     aria-label={$_('common.refresh')}
@@ -47,6 +64,7 @@
             {/if}
             <CameraStatus />
             <NotificationCenter
+                current={notificationsCurrent}
                 onNavigate={(path) => onNavigate?.(path)}
                 buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
             />
@@ -65,3 +83,19 @@
         {/if}
     </div>
 </header>
+
+<style>
+    /* Measured in rem, so enlarged text on a phone steps the title down instead of breaking the
+       page's name inside a word. */
+    .page-title-block {
+        container-type: inline-size;
+    }
+
+    @container (width < 16rem) {
+        .page-title {
+            font-size: 1.5rem;
+            line-height: 2rem;
+            hyphens: auto;
+        }
+    }
+</style>

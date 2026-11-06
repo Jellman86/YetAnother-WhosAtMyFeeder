@@ -122,3 +122,26 @@ describe('stopped jobs in the history', () => {
         expect(notificationCenter.items.map((item) => item.id)).toEqual([]);
     });
 });
+
+describe('clearing the history', () => {
+    beforeEach(() => {
+        notificationCenter.clear();
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-31T09:00:00.000Z'));
+    });
+
+    it('hands back what it cleared so an undo can put it back, keeping anything that arrived since', () => {
+        notificationCenter.add({ id: 'first', type: 'detection', title: 'Robin', timestamp: 1000 });
+        notificationCenter.add({ id: 'second', type: 'update', title: 'Settings saved', timestamp: 2000, read: true });
+
+        const cleared = notificationCenter.clear();
+        expect(cleared.map((item) => item.id)).toEqual(['second', 'first']);
+        expect(notificationCenter.items).toEqual([]);
+
+        notificationCenter.add({ id: 'arrived', type: 'detection', title: 'Wren', timestamp: 3000 });
+        notificationCenter.restore(cleared);
+
+        expect(notificationCenter.items.map((item) => item.id)).toEqual(['arrived', 'second', 'first']);
+        expect(notificationCenter.items.find((item) => item.id === 'second')?.read).toBe(true);
+    });
+});

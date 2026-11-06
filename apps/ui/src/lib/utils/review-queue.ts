@@ -1,9 +1,30 @@
 import type { Detection } from '../api';
-import { needsReview } from './visit-grouping';
+import { hasNoSpecies, needsReview } from './visit-grouping';
 
-/** Why a detection is asking for a person: a shaky score, or a species this
- * feeder has never confirmed (#310). */
-export type ReviewReason = 'low_score' | 'new_species';
+/** Why a detection is asking for a person: no species at all, a shaky score, or a
+ * species this feeder has never confirmed (#310). */
+export type ReviewReason = 'unknown_species' | 'low_score' | 'new_species';
+
+export interface ReviewReasonMessage {
+    key: string;
+    default: string;
+    values?: { count: number };
+}
+
+/** The words a queue row uses to say why it needs a person. */
+export function reviewReasonMessage(reason: ReviewReason, sightings: number): ReviewReasonMessage {
+    if (reason === 'new_species') {
+        return {
+            key: 'dashboard.review_queue.new_species_tag',
+            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            values: { count: sightings }
+        };
+    }
+    if (reason === 'unknown_species') {
+        return { key: 'dashboard.review_queue.reason_unknown_species', default: 'Unknown species' };
+    }
+    return { key: 'dashboard.review_queue.reason_low_score', default: 'Below the naming threshold' };
+}
 
 export interface ReviewQueue {
     /** Longest-waiting first, capped by the caller's limit. */
@@ -31,6 +52,10 @@ export interface ReviewQueueOptions {
     limit?: number;
     /** Latest sightings of species with no confirmed history here. */
     newSpecies?: readonly NewSpeciesEntry[];
+    /** Known history can hold owner decisions outside the desk's time window. */
+    knownDetections?: readonly Detection[];
+    /** Explicit saved owner choices can outlive the recent history page. */
+    localChoices?: ReadonlyMap<string, Partial<Detection>>;
 }
 
 function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
@@ -57,17 +82,24 @@ function oldestFirst(left: Detection, right: Detection): number {
  */
 export function buildReviewQueue(
     detections: readonly Detection[],
-    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [] }: ReviewQueueOptions
+    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [], knownDetections = detections, localChoices }: ReviewQueueOptions
 ): ReviewQueue {
     const open = detections.filter((detection) => isOpen(detection, reviewThreshold)).sort(oldestFirst);
 
     const reasons = new Map<string, ReviewReason>();
     const newSpeciesSightings = new Map<string, number>();
-    for (const detection of open) reasons.set(detection.frigate_event, 'low_score');
+    for (const detection of open) reasons.set(detection.frigate_event, hasNoSpecies(detection) ? 'unknown_species' : 'low_score');
 
     const seen = new Set(open.map((detection) => detection.frigate_event));
+    const currentDetections = new Map(knownDetections.map(detection => [detection.frigate_event, detection]));
     const newcomers: Detection[] = [];
-    for (const { detection, sightings } of newSpecies) {
+    for (const entry of newSpecies) {
+        const current = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;
+        const choice = localChoices?.get(current.frigate_event);
+        const detection = choice?.manual_tagged === true && choice.classification_input?.source === 'owner_species_choice'
+            ? { ...current, ...choice }
+            : current;
+        const sightings = entry.sightings;
         if (detection.is_hidden || detection.manual_tagged) continue;
         // "First of its kind here" is the sharper question than "shaky score".
         reasons.set(detection.frigate_event, 'new_species');

@@ -7,6 +7,7 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "heartbeat": ("worker_generation", "busy"),
     "result": ("worker_generation", "request_id", "work_id", "lease_token", "results"),
     "error": ("worker_generation", "request_id", "work_id", "lease_token", "error"),
+    "retirement": ("worker_generation", "request_id", "work_id", "lease_token", "error_code", "error"),
     "runtime_recovery": ("worker_generation", "request_id", "work_id", "lease_token", "recovery"),
     "progress": (
         "worker_generation",
@@ -253,3 +254,56 @@ def build_progress_event(
 
 def build_shutdown_request() -> dict[str, Any]:
     return {"type": "shutdown"}
+
+
+# OpenCL codes that mean the GPU device/runtime itself failed, as opposed to
+# a model returning unusable numbers. After one of these, the failed native
+# objects in the worker cannot be trusted: reloading or even destroying them
+# in the same process can abort natively. The worker reports the failure and
+# exits instead (#721).
+GPU_RUNTIME_FAILURE_CODES = (
+    "CL_OUT_OF_RESOURCES",
+    "CL_INVALID_EVENT",
+    "CL_OUT_OF_HOST_MEMORY",
+    "CL_MEM_OBJECT_ALLOCATION_FAILURE",
+)
+
+# Deliberate retirement is told apart from an ordinary crash by the
+# retirement protocol message, never by this code alone; it only keeps the
+# exit reason readable in supervisor metrics.
+WORKER_RETIREMENT_EXIT_CODE = 3
+
+
+class ClassifierWorkerRetirementError(RuntimeError):
+    """The worker's GPU runtime failed at device level; retire this process.
+
+    Raised inside an isolated worker instead of hot-swapping or cleaning up
+    the failed model in-process. The worker sends a ``retirement`` protocol
+    message carrying ``error_code`` before exiting, so the supervisor keeps
+    the original cause even if the process then dies natively.
+    """
+
+    def __init__(self, *, error_code: str, detail: str) -> None:
+        self.error_code = str(error_code)
+        self.detail = str(detail)
+        super().__init__(self.detail)
+
+
+def build_retirement_event(
+    *,
+    worker_generation: int,
+    request_id: str,
+    work_id: str,
+    lease_token: int,
+    error_code: str,
+    error: str,
+) -> dict[str, Any]:
+    return {
+        "type": "retirement",
+        "worker_generation": int(worker_generation),
+        "request_id": str(request_id),
+        "work_id": str(work_id),
+        "lease_token": int(lease_token),
+        "error_code": str(error_code),
+        "error": str(error),
+    }

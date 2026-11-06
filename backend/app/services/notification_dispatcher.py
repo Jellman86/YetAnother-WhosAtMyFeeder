@@ -226,18 +226,17 @@ class NotificationDispatcher:
                     "Notification job failed",
                     job=job_name,
                     worker=worker_idx,
-                    error=str(e),
-                    exc_info=True,
+                    error_type=type(e).__name__,
                 )
                 error_diagnostics_history.record(
                     source="notification_dispatcher",
                     component="notification_dispatcher",
                     stage="worker",
                     reason_code="job_failed",
-                    message=f"Notification job failed: {e}",
+                    message="Notification job failed",
                     severity="critical",
                     event_id=job_name,
-                    context={"worker": worker_idx, "error": str(e)},
+                    context={"worker": worker_idx, "error_type": type(e).__name__},
                 )
             finally:
                 self._queue.task_done()

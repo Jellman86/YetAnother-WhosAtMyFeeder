@@ -1,0 +1,3873 @@
+{
+  "frozen_before_inference": true,
+  "created_at": "2026-10-23T18:19:08.202280+00:00",
+  "annotation_sha256": "e8c7f7908f1d7278341fae127d0da654f102f11bd7b21d8aeefa635b8c810b6f",
+  "rows": [
+    {
+      "id": "coco-000000404568",
+      "path": "images/coco-000000404568.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000404568.jpg",
+      "original_url": "http://farm1.staticflickr.com/72/175077188_af019268b7_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.13478125000000002,
+            0.3581875,
+            0.498734375,
+            0.5877291666666667
+          ],
+          "annotation_id": 38882
+        }
+      ],
+      "sha256": "a026f6f676fd54e26053994efe029469a36694ee8190187f7f3574e96528a9c1"
+    },
+    {
+      "id": "coco-000000418959",
+      "path": "images/coco-000000418959.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000418959.jpg",
+      "original_url": "http://farm3.staticflickr.com/2487/3742351178_c0861b75b8_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-sa/2.0/",
+        "id": 5,
+        "name": "Attribution-ShareAlike License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.39853125,
+            0.3516393442622951,
+            0.12740625,
+            0.12543325526932084
+          ],
+          "annotation_id": 36893
+        }
+      ],
+      "sha256": "bfad3d45970d4c214235c197b047af6d7678ddd62d96908e66d38323d38311ab"
+    },
+    {
+      "id": "coco-000000015751",
+      "path": "images/coco-000000015751.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000015751.jpg",
+      "original_url": "http://farm8.staticflickr.com/7351/9419515091_a211b75ce5_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.2381875,
+            0.5418735362997658,
+            0.22868750000000002,
+            0.3929274004683841
+          ],
+          "annotation_id": 36909
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.167203125,
+            0.756135831381733,
+            0.072125,
+            0.11384074941451991
+          ],
+          "annotation_id": 38274
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.067984375,
+            0.8127634660421545,
+            0.198984375,
+            0.11744730679156909
+          ],
+          "annotation_id": 40780
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.34825,
+            0.8924121779859485,
+            0.0735625,
+            0.10758782201405152
+          ],
+          "annotation_id": 1814016
+        }
+      ],
+      "sha256": "e0929307bb91557c288fe98307c198a838abe835820322596232842784f6ce72"
+    },
+    {
+      "id": "coco-000000270705",
+      "path": "images/coco-000000270705.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000270705.jpg",
+      "original_url": "http://farm7.staticflickr.com/6024/6009338149_c4084ec013_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        475,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.2810736842105263,
+            0.038703125,
+            0.4896842105263158,
+            0.840859375
+          ],
+          "annotation_id": 41453
+        }
+      ],
+      "sha256": "25d07d472c7ad54b5806f912ed770a8a86cf8164d450164af4a1b5975df38038"
+    },
+    {
+      "id": "coco-000000509719",
+      "path": "images/coco-000000509719.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000509719.jpg",
+      "original_url": "http://farm3.staticflickr.com/2836/9430776152_fc5795d424_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nd/2.0/",
+        "id": 6,
+        "name": "Attribution-NoDerivs License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.390765625,
+            0.3331850117096019,
+            0.28976562499999997,
+            0.5128571428571429
+          ],
+          "annotation_id": 38916
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.6656875,
+            0.002810304449648712,
+            0.33284375,
+            0.6157377049180328
+          ],
+          "annotation_id": 1399262
+        }
+      ],
+      "sha256": "6bc763e87f46cea16ba332a33191c4651214ad64cb4da4696c12fc6755ee0e22"
+    },
+    {
+      "id": "coco-000000337987",
+      "path": "images/coco-000000337987.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000337987.jpg",
+      "original_url": "http://farm3.staticflickr.com/2610/3790158055_9b7ccf1d46_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "bird",
+      "split": "development",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.245890625,
+            0.11770833333333333,
+            0.407109375,
+            0.8822916666666667
+          ],
+          "annotation_id": 36588
+        }
+      ],
+      "sha256": "48f14767cf8b665e1eb5edafb7caf8ac94a8582572b7e2c5d913a1ae9b92df27"
+    },
+    {
+      "id": "coco-000000407825",
+      "path": "images/coco-000000407825.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000407825.jpg",
+      "original_url": "http://farm1.staticflickr.com/142/345296581_9b55109008_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        499,
+        500
+      ],
+      "annotations": [
+        {
+          "category": "clock",
+          "category_id": 85,
+          "box_xywh": [
+            0.3183166332665331,
+            0.43506,
+            0.38983967935871744,
+            0.3623
+          ],
+          "annotation_id": 341578
+        },
+        {
+          "category": "bowl",
+          "category_id": 51,
+          "box_xywh": [
+            0.8265731462925852,
+            0.21781999999999999,
+            0.17342685370741484,
+            0.14562
+          ],
+          "annotation_id": 1532739
+        },
+        {
+          "category": "potted plant",
+          "category_id": 64,
+          "box_xywh": [
+            0.5754709418837676,
+            0.0033799999999999998,
+            0.4245290581162325,
+            0.27026
+          ],
+          "annotation_id": 1605524
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.1852304609218437,
+            0.03896,
+            0.21138276553106214,
+            0.30272000000000004
+          ],
+          "annotation_id": 1815242
+        },
+        {
+          "category": "apple",
+          "category_id": 53,
+          "box_xywh": [
+            0.21286573146292584,
+            0.18134,
+            0.5970541082164329,
+            0.6684
+          ],
+          "annotation_id": 2111404
+        }
+      ],
+      "sha256": "0871a7c6e308afd0675688a556254bec9652d9ffe5be9f991b4030817e714f50",
+      "source_annotation_group": "bird",
+      "visual_review_note": "Depicted bird on a card or sculpture; no live animal. Reviewed before inference.",
+      "hard_negative": "bird_depiction"
+    },
+    {
+      "id": "coco-000000122927",
+      "path": "images/coco-000000122927.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000122927.jpg",
+      "original_url": "http://farm3.staticflickr.com/2843/9446765897_ea4b6b749d_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "bird",
+      "split": "holdout",
+      "image_size": [
+        640,
+        361
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.48987499999999995,
+            0.44119113573407204,
+            0.373640625,
+            0.4759556786703601
+          ],
+          "annotation_id": 36789
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.018234375,
+            0.4709141274238227,
+            0.19693750000000002,
+            0.32759002770083107
+          ],
+          "annotation_id": 39451
+        }
+      ],
+      "sha256": "735ec03fb2b00c25e7ab87855c1bbe05a521b6e2ba26d17736a51949e8d1e21d"
+    },
+    {
+      "id": "coco-000000438269",
+      "path": "images/coco-000000438269.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000438269.jpg",
+      "original_url": "http://farm9.staticflickr.com/8465/8093472347_d17aea6b1c_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "bird",
+      "split": "holdout",
+      "image_size": [
+        429,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.1155011655011655,
+            0.44946875000000003,
+            0.5036829836829837,
+            0.4795625
+          ],
+          "annotation_id": 36380
+        }
+      ],
+      "sha256": "4a5c78dbeabe0d3961c370e12406d893537346729e3ce588a5bf8d9d231951c5"
+    },
+    {
+      "id": "coco-000000508602",
+      "path": "images/coco-000000508602.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000508602.jpg",
+      "original_url": "http://farm1.staticflickr.com/31/89958837_3946184e5f_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "bird",
+      "split": "holdout",
+      "image_size": [
+        500,
+        429
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.29969999999999997,
+            0.18853146853146852,
+            0.29406,
+            0.4117016317016317
+          ],
+          "annotation_id": 38591
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.0037,
+            0.5872494172494173,
+            0.9963,
+            0.4021445221445222
+          ],
+          "annotation_id": 131723
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.9479,
+            0.5573426573426573,
+            0.0521,
+            0.05216783216783216
+          ],
+          "annotation_id": 1340875
+        }
+      ],
+      "sha256": "7152ca666f3c765eb2e99dfaef8e9e62ecdd7159630fc1603f7f649266ee1f9b"
+    },
+    {
+      "id": "coco-000000459500",
+      "path": "images/coco-000000459500.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000459500.jpg",
+      "original_url": "http://farm4.staticflickr.com/3633/3402185694_661d84a62d_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        375,
+        500
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.3807733333333333,
+            0.30198,
+            0.20464,
+            0.38964
+          ],
+          "annotation_id": 41613
+        },
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.58424,
+            0.30801999999999996,
+            0.15906666666666666,
+            0.38612
+          ],
+          "annotation_id": 43173
+        },
+        {
+          "category": "clock",
+          "category_id": 85,
+          "box_xywh": [
+            0.5257333333333334,
+            0.09101999999999999,
+            0.16554666666666668,
+            0.13234
+          ],
+          "annotation_id": 340707
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.0,
+            0.7095,
+            0.15981333333333334,
+            0.05206
+          ],
+          "annotation_id": 1777612
+        }
+      ],
+      "sha256": "d5923488b0f7ace422e225f5a07ee73209738c45a30db88b1607a59b7ecda2a7",
+      "source_annotation_group": "bird",
+      "visual_review_note": "Depicted bird on a card or sculpture; no live animal. Reviewed before inference.",
+      "hard_negative": "bird_depiction"
+    },
+    {
+      "id": "coco-000000402519",
+      "path": "images/coco-000000402519.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000402519.jpg",
+      "original_url": "http://farm4.staticflickr.com/3715/9727163248_621d1ded0b_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "bird",
+      "split": "holdout",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "bird",
+          "category_id": 16,
+          "box_xywh": [
+            0.44192187499999996,
+            0.4365573770491803,
+            0.11621875,
+            0.4946370023419204
+          ],
+          "annotation_id": 38364
+        }
+      ],
+      "sha256": "67a26f7ec2001238cb1819aff95422ba7b57c6973cef05f60faab97d7c308e2e"
+    },
+    {
+      "id": "coco-000000475779",
+      "path": "images/coco-000000475779.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000475779.jpg",
+      "original_url": "http://farm4.staticflickr.com/3004/5840536253_27004298cc_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "elephant",
+          "category_id": 22,
+          "box_xywh": [
+            0.0,
+            0.2480625,
+            0.729484375,
+            0.7519375
+          ],
+          "annotation_id": 580059
+        }
+      ],
+      "sha256": "b8aba7fdf9b84905e8e09146c6ed262eb91f55b38abf6b6df8c4c59a75885a8a"
+    },
+    {
+      "id": "coco-000000416837",
+      "path": "images/coco-000000416837.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000416837.jpg",
+      "original_url": "http://farm7.staticflickr.com/6210/6076000352_33c4523167_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-sa/2.0/",
+        "id": 5,
+        "name": "Attribution-ShareAlike License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "cow",
+          "category_id": 21,
+          "box_xywh": [
+            0.17124999999999999,
+            0.5712412177985948,
+            0.169796875,
+            0.20519906323185014
+          ],
+          "annotation_id": 72910
+        }
+      ],
+      "sha256": "3f86b8f0da89b3cbd163eaae02cdd1523c95f6c427901d58c9308ef9f97dbd7b"
+    },
+    {
+      "id": "coco-000000060770",
+      "path": "images/coco-000000060770.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000060770.jpg",
+      "original_url": "http://farm1.staticflickr.com/160/361923248_e59066ac06_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        500,
+        375
+      ],
+      "annotations": [
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.24775999999999998,
+            0.28314666666666666,
+            0.45842,
+            0.65392
+          ],
+          "annotation_id": 590332
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.0,
+            0.41688000000000003,
+            0.30626,
+            0.36808
+          ],
+          "annotation_id": 591342
+        }
+      ],
+      "sha256": "24135ad43fba8a8b2399134fd4ab91b414d1ec1c17b79583114ba6003da53422"
+    },
+    {
+      "id": "coco-000000194506",
+      "path": "images/coco-000000194506.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000194506.jpg",
+      "original_url": "http://farm9.staticflickr.com/8005/7334248512_9c3514ac26_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        640,
+        498
+      ],
+      "annotations": [
+        {
+          "category": "bear",
+          "category_id": 23,
+          "box_xywh": [
+            0.443796875,
+            0.2882530120481928,
+            0.202390625,
+            0.19672690763052209
+          ],
+          "annotation_id": 586917
+        },
+        {
+          "category": "bear",
+          "category_id": 23,
+          "box_xywh": [
+            0.12584375,
+            0.2370281124497992,
+            0.343359375,
+            0.3152008032128514
+          ],
+          "annotation_id": 587454
+        }
+      ],
+      "sha256": "c5976e547eb2cc16a445afc9ba6f3284524b8ef00571ce67cc5a4eee1d6d2e91"
+    },
+    {
+      "id": "coco-000000504439",
+      "path": "images/coco-000000504439.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000504439.jpg",
+      "original_url": "http://farm1.staticflickr.com/14/16049051_0d5322a3d4_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        500,
+        243
+      ],
+      "annotations": [
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.5821000000000001,
+            0.3409053497942387,
+            0.39318000000000003,
+            0.6449382716049382
+          ],
+          "annotation_id": 590136
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.0011,
+            0.007901234567901235,
+            0.37326,
+            0.9920987654320989
+          ],
+          "annotation_id": 591504
+        }
+      ],
+      "sha256": "79d3d8d52b53096411352e1f7b9a6e3433bb0cffa3ce595125f123de4950b2b9"
+    },
+    {
+      "id": "coco-000000125405",
+      "path": "images/coco-000000125405.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000125405.jpg",
+      "original_url": "http://farm4.staticflickr.com/3033/2558926055_a70c30402a_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "animal",
+      "split": "development",
+      "image_size": [
+        640,
+        428
+      ],
+      "annotations": [
+        {
+          "category": "dog",
+          "category_id": 18,
+          "box_xywh": [
+            0.34515625,
+            0.2552336448598131,
+            0.253484375,
+            0.6935514018691589
+          ],
+          "annotation_id": 13692
+        },
+        {
+          "category": "dog",
+          "category_id": 18,
+          "box_xywh": [
+            0.703265625,
+            0.010747663551401868,
+            0.20421874999999998,
+            0.38925233644859814
+          ],
+          "annotation_id": 17207
+        },
+        {
+          "category": "frisbee",
+          "category_id": 34,
+          "box_xywh": [
+            0.366,
+            0.5482476635514019,
+            0.12859375,
+            0.11684579439252336
+          ],
+          "annotation_id": 1448478
+        }
+      ],
+      "sha256": "aeb172b088be9b334a97fcd4df1fe89b5730bc5836765a23c82f2b8b4ff3d03b"
+    },
+    {
+      "id": "coco-000000359781",
+      "path": "images/coco-000000359781.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000359781.jpg",
+      "original_url": "http://farm9.staticflickr.com/8090/8569863046_9a1ddc6534_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        494
+      ],
+      "annotations": [
+        {
+          "category": "giraffe",
+          "category_id": 25,
+          "box_xywh": [
+            0.184171875,
+            0.022672064777327933,
+            0.657,
+            0.9365384615384615
+          ],
+          "annotation_id": 594471
+        }
+      ],
+      "sha256": "3267c3dc7ee7dbd2c15fb5a67b4c008be46214c151ac1be176a923851b9777d1"
+    },
+    {
+      "id": "coco-000000300913",
+      "path": "images/coco-000000300913.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000300913.jpg",
+      "original_url": "http://farm3.staticflickr.com/2706/4357871380_f87866aa58_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        500,
+        375
+      ],
+      "annotations": [
+        {
+          "category": "cat",
+          "category_id": 17,
+          "box_xywh": [
+            0.016120000000000002,
+            0.012906666666666667,
+            0.98388,
+            0.9763466666666667
+          ],
+          "annotation_id": 46457
+        },
+        {
+          "category": "couch",
+          "category_id": 63,
+          "box_xywh": [
+            0.0,
+            0.004293333333333334,
+            1.0,
+            0.9828
+          ],
+          "annotation_id": 98368
+        },
+        {
+          "category": "couch",
+          "category_id": 63,
+          "box_xywh": [
+            0.24438,
+            0.0015733333333333333,
+            0.23932,
+            0.15954666666666667
+          ],
+          "annotation_id": 1604137
+        }
+      ],
+      "sha256": "455e08c4155f529b1a20bfeba5e7d8a20a547d1abb0ba7ff5bb8e1e2919add18"
+    },
+    {
+      "id": "coco-000000364166",
+      "path": "images/coco-000000364166.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000364166.jpg",
+      "original_url": "http://farm3.staticflickr.com/2803/4362655960_22eb34d354_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nd/2.0/",
+        "id": 6,
+        "name": "Attribution-NoDerivs License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        500,
+        375
+      ],
+      "annotations": [
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.38845999999999997,
+            0.3370666666666667,
+            0.61154,
+            0.6524800000000001
+          ],
+          "annotation_id": 588479
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.23818,
+            0.0033866666666666667,
+            0.76182,
+            0.6846666666666666
+          ],
+          "annotation_id": 591675
+        }
+      ],
+      "sha256": "d78efc2c1c781debb031b65fc186a6a5c36dcbe43bfc230ae6dd3ef6476a1ede"
+    },
+    {
+      "id": "coco-000000163155",
+      "path": "images/coco-000000163155.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000163155.jpg",
+      "original_url": "http://farm7.staticflickr.com/6239/6277328008_142760d74c_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "cat",
+          "category_id": 17,
+          "box_xywh": [
+            0.008609374999999999,
+            0.361288056206089,
+            0.8393593750000001,
+            0.5720374707259953
+          ],
+          "annotation_id": 46853
+        }
+      ],
+      "sha256": "0fd43885c0ecc7f058a4e8232e60abf0baf224496ed8df353c341ce7ce7b5564"
+    },
+    {
+      "id": "coco-000000167128",
+      "path": "images/coco-000000167128.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000167128.jpg",
+      "original_url": "http://farm5.staticflickr.com/4017/4538485332_b7c4cb664c_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "elephant",
+          "category_id": 22,
+          "box_xywh": [
+            0.44829687500000004,
+            0.013489461358313817,
+            0.551703125,
+            0.9707728337236533
+          ],
+          "annotation_id": 581408
+        },
+        {
+          "category": "elephant",
+          "category_id": 22,
+          "box_xywh": [
+            0.46328125,
+            0.5574473067915691,
+            0.253390625,
+            0.44255269320843094
+          ],
+          "annotation_id": 581921
+        },
+        {
+          "category": "elephant",
+          "category_id": 22,
+          "box_xywh": [
+            0.17203125,
+            0.020936768149882903,
+            0.45028125,
+            0.9394613583138173
+          ],
+          "annotation_id": 583796
+        }
+      ],
+      "sha256": "35f0372aa2dca6a117e1733fbe5192584cf559bd5af8b8f9e599ef6bdef8f76b"
+    },
+    {
+      "id": "coco-000000215245",
+      "path": "images/coco-000000215245.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000215245.jpg",
+      "original_url": "http://farm6.staticflickr.com/5187/5699107573_2059b4c0e1_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.24784375,
+            0.6048958333333334,
+            0.2703125,
+            0.2590208333333333
+          ],
+          "annotation_id": 591432
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.483,
+            0.5569375,
+            0.21795312500000003,
+            0.15029166666666666
+          ],
+          "annotation_id": 593817
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.364640625,
+            0.41460416666666666,
+            0.088296875,
+            0.07125000000000001
+          ],
+          "annotation_id": 594075
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.25025,
+            0.4164583333333333,
+            0.074546875,
+            0.06322916666666667
+          ],
+          "annotation_id": 1412185
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.301953125,
+            0.4259791666666667,
+            0.066234375,
+            0.04675
+          ],
+          "annotation_id": 1822752
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.0215,
+            0.5599791666666667,
+            0.3206875,
+            0.3182291666666667
+          ],
+          "annotation_id": 1822860
+        },
+        {
+          "category": "zebra",
+          "category_id": 24,
+          "box_xywh": [
+            0.507140625,
+            0.6441458333333333,
+            0.125578125,
+            0.21389583333333334
+          ],
+          "annotation_id": 1822914
+        }
+      ],
+      "sha256": "8f26d81db7cb960105b0dbfdd5e2846a4aace8d2fb352b0698f00afb3fe6ebb4"
+    },
+    {
+      "id": "coco-000000388215",
+      "path": "images/coco-000000388215.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000388215.jpg",
+      "original_url": "http://farm4.staticflickr.com/3675/9359625784_431cc81223_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        640,
+        425
+      ],
+      "annotations": [
+        {
+          "category": "sports ball",
+          "category_id": 37,
+          "box_xywh": [
+            0.3791875,
+            0.16945882352941175,
+            0.017343749999999998,
+            0.02809411764705882
+          ],
+          "annotation_id": 307774
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.38390625,
+            0.20465882352941178,
+            0.27159374999999997,
+            0.7663058823529412
+          ],
+          "annotation_id": 441345
+        },
+        {
+          "category": "tennis racket",
+          "category_id": 43,
+          "box_xywh": [
+            0.5194062500000001,
+            0.26616470588235297,
+            0.038109375,
+            0.07049411764705883
+          ],
+          "annotation_id": 658316
+        }
+      ],
+      "sha256": "1362deac1042cbbcb765909ad09b16ce788e1e946f296d5bfec8dafcf475ee90"
+    },
+    {
+      "id": "coco-000000193926",
+      "path": "images/coco-000000193926.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000193926.jpg",
+      "original_url": "http://farm5.staticflickr.com/4089/4979494682_5541df49d6_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        640,
+        477
+      ],
+      "annotations": [
+        {
+          "category": "bicycle",
+          "category_id": 2,
+          "box_xywh": [
+            0.57540625,
+            0.03870020964360587,
+            0.383078125,
+            0.13765199161425576
+          ],
+          "annotation_id": 127326
+        },
+        {
+          "category": "banana",
+          "category_id": 52,
+          "box_xywh": [
+            0.051984375000000006,
+            0.03911949685534591,
+            0.387765625,
+            0.4349475890985325
+          ],
+          "annotation_id": 1042489
+        },
+        {
+          "category": "banana",
+          "category_id": 52,
+          "box_xywh": [
+            0.594578125,
+            0.24270440251572326,
+            0.32156250000000003,
+            0.16853249475890986
+          ],
+          "annotation_id": 1042503
+        },
+        {
+          "category": "banana",
+          "category_id": 52,
+          "box_xywh": [
+            0.595125,
+            0.560293501048218,
+            0.127109375,
+            0.3387211740041929
+          ],
+          "annotation_id": 1042694
+        },
+        {
+          "category": "banana",
+          "category_id": 52,
+          "box_xywh": [
+            0.24778125,
+            0.04995807127882599,
+            0.293359375,
+            0.4228721174004193
+          ],
+          "annotation_id": 1043487
+        },
+        {
+          "category": "apple",
+          "category_id": 53,
+          "box_xywh": [
+            0.034984375,
+            0.18075471698113207,
+            0.101484375,
+            0.17136268343815514
+          ],
+          "annotation_id": 1048446
+        },
+        {
+          "category": "apple",
+          "category_id": 53,
+          "box_xywh": [
+            0.23323437500000002,
+            0.2,
+            0.10521875,
+            0.10589098532494759
+          ],
+          "annotation_id": 1048725
+        },
+        {
+          "category": "orange",
+          "category_id": 55,
+          "box_xywh": [
+            0.135671875,
+            0.16341719077568134,
+            0.104265625,
+            0.11628930817610063
+          ],
+          "annotation_id": 1051432
+        },
+        {
+          "category": "backpack",
+          "category_id": 27,
+          "box_xywh": [
+            0.578203125,
+            0.19865828092243187,
+            0.384359375,
+            0.2735429769392033
+          ],
+          "annotation_id": 1171131
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.038609375,
+            0.5326624737945493,
+            0.13093749999999998,
+            0.2837735849056604
+          ],
+          "annotation_id": 1226090
+        },
+        {
+          "category": "bowl",
+          "category_id": 51,
+          "box_xywh": [
+            0.02890625,
+            0.027211740041928723,
+            0.5171875,
+            0.449475890985325
+          ],
+          "annotation_id": 1535126
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.644140625,
+            0.6713836477987422,
+            0.326609375,
+            0.2976939203354298
+          ],
+          "annotation_id": 2154464
+        }
+      ],
+      "sha256": "fca3d27a492bbb4bd795d497f4883123c23050a8dbb0b26fb4d4d6c4ac9af975"
+    },
+    {
+      "id": "coco-000000090284",
+      "path": "images/coco-000000090284.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000090284.jpg",
+      "original_url": "http://farm4.staticflickr.com/3595/3591078425_be6b5caa3d_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        640,
+        639
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.10498437499999999,
+            0.22392801251956182,
+            0.8108124999999999,
+            0.6599530516431924
+          ],
+          "annotation_id": 459611
+        },
+        {
+          "category": "tennis racket",
+          "category_id": 43,
+          "box_xywh": [
+            0.7209218749999999,
+            0.5293896713615023,
+            0.182859375,
+            0.15715179968701096
+          ],
+          "annotation_id": 1864102
+        }
+      ],
+      "sha256": "6337308cc3e54d38c875788f1906158697fc25fe48b05bf4b8f8ef1850469f18"
+    },
+    {
+      "id": "coco-000000479126",
+      "path": "images/coco-000000479126.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000479126.jpg",
+      "original_url": "http://farm6.staticflickr.com/5189/5734725144_37742ab51b_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        640,
+        427
+      ],
+      "annotations": [
+        {
+          "category": "chair",
+          "category_id": 62,
+          "box_xywh": [
+            0.08429687500000001,
+            0.47269320843091334,
+            0.230765625,
+            0.5014285714285714
+          ],
+          "annotation_id": 376092
+        },
+        {
+          "category": "chair",
+          "category_id": 62,
+          "box_xywh": [
+            0.521046875,
+            0.5226697892271663,
+            0.15371875,
+            0.3463934426229508
+          ],
+          "annotation_id": 383479
+        },
+        {
+          "category": "chair",
+          "category_id": 62,
+          "box_xywh": [
+            0.8114375,
+            0.6250117096018736,
+            0.18856250000000002,
+            0.36259953161592506
+          ],
+          "annotation_id": 384192
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.526046875,
+            0.3673770491803279,
+            0.369421875,
+            0.6021077283372366
+          ],
+          "annotation_id": 452193
+        },
+        {
+          "category": "laptop",
+          "category_id": 73,
+          "box_xywh": [
+            0.40896875,
+            0.7093911007025762,
+            0.25225,
+            0.27740046838407495
+          ],
+          "annotation_id": 1098390
+        },
+        {
+          "category": "wine glass",
+          "category_id": 46,
+          "box_xywh": [
+            0.234078125,
+            0.6064637002341919,
+            0.0239375,
+            0.07573770491803279
+          ],
+          "annotation_id": 1498100
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.169828125,
+            0.34728337236533957,
+            0.169828125,
+            0.6285714285714286
+          ],
+          "annotation_id": 2152991
+        },
+        {
+          "category": "chair",
+          "category_id": 62,
+          "box_xywh": [
+            0.772515625,
+            0.5169086651053865,
+            0.14115625,
+            0.20676814988290398
+          ],
+          "annotation_id": 2190137
+        }
+      ],
+      "sha256": "a64293cb5d4bfa0b1e6e1c0603f7a4f9892afd90f353c9ed0b250449818d5d36"
+    },
+    {
+      "id": "coco-000000351096",
+      "path": "images/coco-000000351096.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000351096.jpg",
+      "original_url": "http://farm4.staticflickr.com/3161/2929024941_dc55bc22ca_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        500,
+        375
+      ],
+      "annotations": [
+        {
+          "category": "scissors",
+          "category_id": 87,
+          "box_xywh": [
+            0.10786,
+            0.10074666666666666,
+            0.8921399999999999,
+            0.72584
+          ],
+          "annotation_id": 1157814
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.0,
+            0.5844266666666666,
+            0.20063999999999999,
+            0.40258666666666665
+          ],
+          "annotation_id": 2158465
+        }
+      ],
+      "sha256": "e671c3e71386f51caae7f0dc55051ed79896567e1ccf34810fe784e60f8c679d"
+    },
+    {
+      "id": "coco-000000531707",
+      "path": "images/coco-000000531707.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000531707.jpg",
+      "original_url": "http://farm4.staticflickr.com/3488/3800868461_c6a406ff81_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "human",
+      "split": "development",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.2649375,
+            0.44506249999999997,
+            0.135578125,
+            0.3828958333333333
+          ],
+          "annotation_id": 466055
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.392828125,
+            0.44208333333333333,
+            0.125,
+            0.378375
+          ],
+          "annotation_id": 475118
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.6003437500000001,
+            0.4672916666666667,
+            0.143796875,
+            0.358
+          ],
+          "annotation_id": 508137
+        },
+        {
+          "category": "bench",
+          "category_id": 15,
+          "box_xywh": [
+            0.284828125,
+            0.5752708333333333,
+            0.461796875,
+            0.2674166666666667
+          ],
+          "annotation_id": 576118
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.518578125,
+            0.46058333333333334,
+            0.09459375,
+            0.32433333333333336
+          ],
+          "annotation_id": 1232290
+        }
+      ],
+      "sha256": "e4cb5740e6d651f48e2044284c7b4056437c47425378172fdfb8256d82893784"
+    },
+    {
+      "id": "coco-000000281754",
+      "path": "images/coco-000000281754.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000281754.jpg",
+      "original_url": "http://farm9.staticflickr.com/8153/7609977512_e4617c024a_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        419,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "umbrella",
+          "category_id": 28,
+          "box_xywh": [
+            0.07551312649164678,
+            0.0,
+            0.9095942720763723,
+            0.34381249999999997
+          ],
+          "annotation_id": 284193
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.12014319809069213,
+            0.031453125,
+            0.43935560859188544,
+            0.8876406250000001
+          ],
+          "annotation_id": 474226
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.34513126491646784,
+            0.293484375,
+            0.36904534606205247,
+            0.675609375
+          ],
+          "annotation_id": 510727
+        },
+        {
+          "category": "handbag",
+          "category_id": 31,
+          "box_xywh": [
+            0.0009785202863961814,
+            0.377921875,
+            0.13446300715990453,
+            0.112484375
+          ],
+          "annotation_id": 1177693
+        }
+      ],
+      "sha256": "a0df5b1de499342a3dcdf53f1a3964286a9d1eb2b41ca721c0996039c53f4065"
+    },
+    {
+      "id": "coco-000000209753",
+      "path": "images/coco-000000209753.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000209753.jpg",
+      "original_url": "http://farm4.staticflickr.com/3434/3942820363_354c9a5516_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        467,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.08890792291220558,
+            0.10089062499999998,
+            0.8216488222698073,
+            0.8836718749999999
+          ],
+          "annotation_id": 453126
+        },
+        {
+          "category": "tv",
+          "category_id": 72,
+          "box_xywh": [
+            0.7758029978586723,
+            0.5401875,
+            0.21978586723768737,
+            0.17753125
+          ],
+          "annotation_id": 1969896
+        },
+        {
+          "category": "cell phone",
+          "category_id": 77,
+          "box_xywh": [
+            0.6608779443254817,
+            0.547578125,
+            0.120406852248394,
+            0.055453125000000006
+          ],
+          "annotation_id": 1976096
+        }
+      ],
+      "sha256": "a5f1d3251846d66aee823f2c57f6538e0b64fd1b97e431114884db519209ca9f"
+    },
+    {
+      "id": "coco-000000357737",
+      "path": "images/coco-000000357737.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000357737.jpg",
+      "original_url": "http://farm4.staticflickr.com/3267/2877115654_ec12cbc121_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "bicycle",
+          "category_id": 2,
+          "box_xywh": [
+            0.07096875,
+            0.283875,
+            0.566125,
+            0.6860208333333334
+          ],
+          "annotation_id": 125105
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.09865625,
+            0.23485416666666667,
+            0.5247499999999999,
+            0.3016875
+          ],
+          "annotation_id": 137016
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.21084375,
+            0.20514583333333333,
+            0.197953125,
+            0.060083333333333336
+          ],
+          "annotation_id": 139020
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.6334531250000001,
+            0.043916666666666666,
+            0.28378125,
+            0.9054166666666668
+          ],
+          "annotation_id": 191766
+        },
+        {
+          "category": "motorcycle",
+          "category_id": 4,
+          "box_xywh": [
+            0.356453125,
+            0.22722916666666665,
+            0.33453125,
+            0.7375208333333333
+          ],
+          "annotation_id": 267759
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.19284375,
+            0.20327083333333332,
+            0.028421875000000003,
+            0.06302083333333333
+          ],
+          "annotation_id": 1242675
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.23996875,
+            0.18658333333333335,
+            0.032296875,
+            0.040937499999999995
+          ],
+          "annotation_id": 1254873
+        },
+        {
+          "category": "bicycle",
+          "category_id": 2,
+          "box_xywh": [
+            0.030203124999999997,
+            0.29552083333333334,
+            0.08053125,
+            0.06710416666666667
+          ],
+          "annotation_id": 1336154
+        },
+        {
+          "category": "car",
+          "category_id": 3,
+          "box_xywh": [
+            0.9005625,
+            0.18341666666666667,
+            0.011046875000000001,
+            0.0069791666666666665
+          ],
+          "annotation_id": 1346180
+        },
+        {
+          "category": "truck",
+          "category_id": 8,
+          "box_xywh": [
+            0.043421875,
+            0.18445833333333334,
+            0.258203125,
+            0.16041666666666668
+          ],
+          "annotation_id": 1369691
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.26209375,
+            0.19816666666666669,
+            0.00853125,
+            0.016916666666666667
+          ],
+          "annotation_id": 2004944
+        }
+      ],
+      "sha256": "2807fcb8cc5b8787e149247b2dc01f9dff1c56cc66cf9759ae1f58f39fd9879c"
+    },
+    {
+      "id": "coco-000000203864",
+      "path": "images/coco-000000203864.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000203864.jpg",
+      "original_url": "http://farm5.staticflickr.com/4104/5038658829_5baea9b70a_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by/2.0/",
+        "id": 4,
+        "name": "Attribution License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        640,
+        491
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.393078125,
+            0.2045010183299389,
+            0.282734375,
+            0.689877800407332
+          ],
+          "annotation_id": 494225
+        },
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.16971875,
+            0.16873727087576373,
+            0.16971875,
+            0.5191853360488798
+          ],
+          "annotation_id": 504454
+        },
+        {
+          "category": "tennis racket",
+          "category_id": 43,
+          "box_xywh": [
+            0.528625,
+            0.5550305498981669,
+            0.13215625,
+            0.11185336048879838
+          ],
+          "annotation_id": 657072
+        },
+        {
+          "category": "tennis racket",
+          "category_id": 43,
+          "box_xywh": [
+            0.12310937500000001,
+            0.33183299389002036,
+            0.057906250000000006,
+            0.07419551934826883
+          ],
+          "annotation_id": 659888
+        },
+        {
+          "category": "sports ball",
+          "category_id": 37,
+          "box_xywh": [
+            0.17553125,
+            0.31680244399185337,
+            0.020109375,
+            0.02014256619144603
+          ],
+          "annotation_id": 1460943
+        }
+      ],
+      "sha256": "a78628c598807687921f4a4b5642ccb45d92aa43d17ce8fe7e61cca735a01e54"
+    },
+    {
+      "id": "coco-000000237118",
+      "path": "images/coco-000000237118.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000237118.jpg",
+      "original_url": "http://farm3.staticflickr.com/2494/5856814116_3b8b1652cb_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        580,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.41317241379310343,
+            0.23531249999999998,
+            0.39091379310344826,
+            0.7309375
+          ],
+          "annotation_id": 479439
+        },
+        {
+          "category": "handbag",
+          "category_id": 31,
+          "box_xywh": [
+            0.7282413793103448,
+            0.6031093750000001,
+            0.07775862068965518,
+            0.330375
+          ],
+          "annotation_id": 1432390
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.36294827586206896,
+            0.327453125,
+            0.17332758620689656,
+            0.633171875
+          ],
+          "annotation_id": 1647432
+        }
+      ],
+      "sha256": "82469ac1ca0c41f0a44a2c069234346343a4c8230bda2d83a440c561f45c8ecc"
+    },
+    {
+      "id": "coco-000000448365",
+      "path": "images/coco-000000448365.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000448365.jpg",
+      "original_url": "http://farm7.staticflickr.com/6079/6052677323_be8098b1a0_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "human",
+      "split": "holdout",
+      "image_size": [
+        640,
+        428
+      ],
+      "annotations": [
+        {
+          "category": "person",
+          "category_id": 1,
+          "box_xywh": [
+            0.23293750000000002,
+            0.08021028037383177,
+            0.34609375,
+            0.7123598130841121
+          ],
+          "annotation_id": 439433
+        },
+        {
+          "category": "skateboard",
+          "category_id": 41,
+          "box_xywh": [
+            0.305890625,
+            0.6235747663551402,
+            0.23390624999999998,
+            0.334088785046729
+          ],
+          "annotation_id": 638720
+        },
+        {
+          "category": "bicycle",
+          "category_id": 2,
+          "box_xywh": [
+            0.69646875,
+            0.5343691588785047,
+            0.031328125,
+            0.06850467289719626
+          ],
+          "annotation_id": 1766548
+        }
+      ],
+      "sha256": "71c913c9531c6b3bb12dfefd9f9084817c0c062f3277af63f8090b0a3e670079"
+    },
+    {
+      "id": "coco-000000328030",
+      "path": "images/coco-000000328030.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000328030.jpg",
+      "original_url": "http://farm3.staticflickr.com/2749/4338167892_7653ca713f_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        425,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.2419529411764706,
+            0.274984375,
+            0.6598823529411765,
+            0.49625
+          ],
+          "annotation_id": 1162145
+        },
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.0001647058823529412,
+            0.256921875,
+            0.3420705882352941,
+            0.43239062500000003
+          ],
+          "annotation_id": 1162595
+        },
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.32221176470588236,
+            0.08445312499999999,
+            0.5799529411764706,
+            0.45496875000000003
+          ],
+          "annotation_id": 1163066
+        },
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.013529411764705882,
+            0.010562499999999999,
+            0.32825882352941177,
+            0.391015625
+          ],
+          "annotation_id": 1163199
+        },
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.19392941176470588,
+            0.0,
+            0.3564705882352941,
+            0.151234375
+          ],
+          "annotation_id": 1674430
+        }
+      ],
+      "sha256": "6f251458e5b8df3dec1458417bae24f3ee539902224e16b7623ee1eefec02f13"
+    },
+    {
+      "id": "coco-000000049091",
+      "path": "images/coco-000000049091.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000049091.jpg",
+      "original_url": "http://farm4.staticflickr.com/3103/2467311600_13e181c0d1_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        640,
+        428
+      ],
+      "annotations": [],
+      "sha256": "dfbab4608aea75760036a4e366130ef5bfb49d5f8699c77ec14f36154924bb74"
+    },
+    {
+      "id": "coco-000000307598",
+      "path": "images/coco-000000307598.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000307598.jpg",
+      "original_url": "http://farm3.staticflickr.com/2831/9661524828_7222797a90_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        640,
+        426
+      ],
+      "annotations": [
+        {
+          "category": "train",
+          "category_id": 7,
+          "box_xywh": [
+            0.130140625,
+            0.5280985915492957,
+            0.713484375,
+            0.3775117370892019
+          ],
+          "annotation_id": 169608
+        },
+        {
+          "category": "traffic light",
+          "category_id": 10,
+          "box_xywh": [
+            0.23128125000000002,
+            0.22737089201877933,
+            0.044656249999999995,
+            0.1482394366197183
+          ],
+          "annotation_id": 1384991
+        },
+        {
+          "category": "traffic light",
+          "category_id": 10,
+          "box_xywh": [
+            0.415203125,
+            0.24107981220657276,
+            0.043859375,
+            0.14774647887323944
+          ],
+          "annotation_id": 1387038
+        },
+        {
+          "category": "traffic light",
+          "category_id": 10,
+          "box_xywh": [
+            0.581859375,
+            0.24427230046948356,
+            0.050859375,
+            0.15955399061032863
+          ],
+          "annotation_id": 1387209
+        }
+      ],
+      "sha256": "ce566f887959fec68326da2469ae8faaf80d8d227876f2449b2bb521403dac86"
+    },
+    {
+      "id": "coco-000000299355",
+      "path": "images/coco-000000299355.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000299355.jpg",
+      "original_url": "http://farm1.staticflickr.com/170/374002311_69c32e5d0a_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        500,
+        375
+      ],
+      "annotations": [
+        {
+          "category": "broccoli",
+          "category_id": 56,
+          "box_xywh": [
+            0.08824,
+            0.4141066666666666,
+            0.51176,
+            0.4823733333333333
+          ],
+          "annotation_id": 1056085
+        },
+        {
+          "category": "broccoli",
+          "category_id": 56,
+          "box_xywh": [
+            0.27396,
+            0.7075466666666667,
+            0.2526,
+            0.26685333333333333
+          ],
+          "annotation_id": 1915578
+        }
+      ],
+      "sha256": "14c7a30312f6a1df491f475f58f137b29a4fcb942e3d978a707a6c05c05c2b57"
+    },
+    {
+      "id": "coco-000000085911",
+      "path": "images/coco-000000085911.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000085911.jpg",
+      "original_url": "http://farm2.staticflickr.com/1131/559771756_21f4d6fd3f_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        640,
+        403
+      ],
+      "annotations": [
+        {
+          "category": "kite",
+          "category_id": 38,
+          "box_xywh": [
+            0.302359375,
+            0.4186600496277916,
+            0.38625,
+            0.2749379652605459
+          ],
+          "annotation_id": 624170
+        }
+      ],
+      "sha256": "8bdb900f1a9c44315222ed2ae1ba9d330a36cefb504e99ab29735471c0e3f814"
+    },
+    {
+      "id": "coco-000000498463",
+      "path": "images/coco-000000498463.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000498463.jpg",
+      "original_url": "http://farm1.staticflickr.com/149/358969946_67390c6259_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "non_animal",
+      "split": "development",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.33182812500000003,
+            0.010729166666666668,
+            0.426640625,
+            0.9774166666666667
+          ],
+          "annotation_id": 332745
+        },
+        {
+          "category": "microwave",
+          "category_id": 78,
+          "box_xywh": [
+            0.760046875,
+            0.3839375,
+            0.158546875,
+            0.1371875
+          ],
+          "annotation_id": 1640398
+        }
+      ],
+      "sha256": "245b8c02d9d43e7eb806c850ba42f4b6e60141238089d00e827eb56395b8ffb1"
+    },
+    {
+      "id": "coco-000000091779",
+      "path": "images/coco-000000091779.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000091779.jpg",
+      "original_url": "http://farm5.staticflickr.com/4063/4720316284_2b565f20a1_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-sa/2.0/",
+        "id": 5,
+        "name": "Attribution-ShareAlike License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "hot dog",
+          "category_id": 58,
+          "box_xywh": [
+            0.0,
+            0.10185416666666666,
+            0.512734375,
+            0.27133333333333337
+          ],
+          "annotation_id": 1067965
+        },
+        {
+          "category": "bowl",
+          "category_id": 51,
+          "box_xywh": [
+            0.89784375,
+            0.1569375,
+            0.10215624999999999,
+            0.15791666666666665
+          ],
+          "annotation_id": 1531990
+        },
+        {
+          "category": "hot dog",
+          "category_id": 58,
+          "box_xywh": [
+            0.33034375,
+            0.301125,
+            0.66965625,
+            0.6876458333333333
+          ],
+          "annotation_id": 1567934
+        },
+        {
+          "category": "hot dog",
+          "category_id": 58,
+          "box_xywh": [
+            0.159453125,
+            0.2092291666666667,
+            0.5861562499999999,
+            0.47070833333333334
+          ],
+          "annotation_id": 1569355
+        },
+        {
+          "category": "cup",
+          "category_id": 47,
+          "box_xywh": [
+            0.6350625,
+            0.0026041666666666665,
+            0.146109375,
+            0.2025833333333333
+          ],
+          "annotation_id": 1878931
+        },
+        {
+          "category": "chair",
+          "category_id": 62,
+          "box_xywh": [
+            0.0323125,
+            0.0015416666666666667,
+            0.148390625,
+            0.202375
+          ],
+          "annotation_id": 1933724
+        },
+        {
+          "category": "dining table",
+          "category_id": 67,
+          "box_xywh": [
+            0.001953125,
+            0.5729166666666666,
+            0.275390625,
+            0.4140625
+          ],
+          "annotation_id": 1961174
+        },
+        {
+          "category": "sandwich",
+          "category_id": 54,
+          "box_xywh": [
+            0.16995312499999998,
+            0.2071875,
+            0.550484375,
+            0.47289583333333335
+          ],
+          "annotation_id": 2217799
+        }
+      ],
+      "sha256": "f7d5ff2738bf552baa40f2598d9a60e8a4c6235b5f4611c0f40d82a1857cbb2d"
+    },
+    {
+      "id": "coco-000000429530",
+      "path": "images/coco-000000429530.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000429530.jpg",
+      "original_url": "http://farm8.staticflickr.com/7059/6882226501_57388dfa11_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc/2.0/",
+        "id": 2,
+        "name": "Attribution-NonCommercial License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        640,
+        478
+      ],
+      "annotations": [
+        {
+          "category": "vase",
+          "category_id": 86,
+          "box_xywh": [
+            0.65271875,
+            0.31077405857740587,
+            0.3075625,
+            0.5611506276150628
+          ],
+          "annotation_id": 1993776
+        },
+        {
+          "category": "vase",
+          "category_id": 86,
+          "box_xywh": [
+            0.17459375,
+            0.3294351464435146,
+            0.3491875,
+            0.6155857740585774
+          ],
+          "annotation_id": 1994143
+        },
+        {
+          "category": "vase",
+          "category_id": 86,
+          "box_xywh": [
+            0.044625,
+            0.10389121338912133,
+            0.240546875,
+            0.7532426778242678
+          ],
+          "annotation_id": 1994241
+        },
+        {
+          "category": "vase",
+          "category_id": 86,
+          "box_xywh": [
+            0.38992187500000003,
+            0.10129707112970712,
+            0.259953125,
+            0.7454602510460251
+          ],
+          "annotation_id": 1994424
+        }
+      ],
+      "sha256": "ad1097304a0bb0750acd9a19f88d1b2ef919138f92c5734a75437f9b51af699e"
+    },
+    {
+      "id": "coco-000000349837",
+      "path": "images/coco-000000349837.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000349837.jpg",
+      "original_url": "http://farm1.staticflickr.com/55/143568559_0207abc5d3_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        500,
+        333
+      ],
+      "annotations": [
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.02994,
+            0.31237237237237236,
+            0.12422,
+            0.4988588588588589
+          ],
+          "annotation_id": 330925
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.132,
+            0.2848948948948949,
+            0.1425,
+            0.5833633633633634
+          ],
+          "annotation_id": 331107
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.276,
+            0.18807807807807808,
+            0.1965,
+            0.7567567567567568
+          ],
+          "annotation_id": 332788
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.46888,
+            0.08969969969969971,
+            0.22698,
+            0.8968468468468468
+          ],
+          "annotation_id": 333394
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.67008,
+            0.031471471471471474,
+            0.25034,
+            0.9572972972972972
+          ],
+          "annotation_id": 333685
+        },
+        {
+          "category": "refrigerator",
+          "category_id": 82,
+          "box_xywh": [
+            0.9207799999999999,
+            0.0,
+            0.07922,
+            0.9869069069069069
+          ],
+          "annotation_id": 333731
+        }
+      ],
+      "sha256": "a01e45e7016950ea61a47368b837e3222e22d2f580bb9a47c635946f0f3e4973"
+    },
+    {
+      "id": "coco-000000153343",
+      "path": "images/coco-000000153343.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000153343.jpg",
+      "original_url": "http://farm4.staticflickr.com/3357/3518624364_53ca46fd91_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-sa/2.0/",
+        "id": 1,
+        "name": "Attribution-NonCommercial-ShareAlike License"
+      },
+      "expected_group": "ambiguous",
+      "split": "holdout",
+      "image_size": [
+        640,
+        480
+      ],
+      "annotations": [
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.566296875,
+            0.33708333333333335,
+            0.31515624999999997,
+            0.46066666666666667
+          ],
+          "annotation_id": 1162321
+        },
+        {
+          "category": "teddy bear",
+          "category_id": 88,
+          "box_xywh": [
+            0.10078125,
+            0.3398333333333333,
+            0.34757812499999996,
+            0.4655833333333333
+          ],
+          "annotation_id": 1673881
+        }
+      ],
+      "sha256": "eecfc0bacf4f128ebeb29ef915a4df5a690b8fdaaac0742e340e9175357d0efb",
+      "visual_review_note": "Costumed characters versus models cannot be resolved confidently from still image; excluded from scored metrics before inference."
+    },
+    {
+      "id": "coco-000000175535",
+      "path": "images/coco-000000175535.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000175535.jpg",
+      "original_url": "http://farm6.staticflickr.com/5291/5492575977_9b2af6f29e_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        478,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "sandwich",
+          "category_id": 54,
+          "box_xywh": [
+            0.0,
+            0.294375,
+            0.46937238493723854,
+            0.316859375
+          ],
+          "annotation_id": 309916
+        },
+        {
+          "category": "sandwich",
+          "category_id": 54,
+          "box_xywh": [
+            0.5054811715481171,
+            0.337078125,
+            0.4152092050209205,
+            0.2561875
+          ],
+          "annotation_id": 310235
+        },
+        {
+          "category": "knife",
+          "category_id": 49,
+          "box_xywh": [
+            0.534205020920502,
+            0.000703125,
+            0.15792887029288702,
+            0.0558125
+          ],
+          "annotation_id": 1522520
+        },
+        {
+          "category": "dining table",
+          "category_id": 67,
+          "box_xywh": [
+            0.00301255230125523,
+            0.0050625,
+            0.9958995815899582,
+            0.9820156250000001
+          ],
+          "annotation_id": 1613837
+        },
+        {
+          "category": "fork",
+          "category_id": 48,
+          "box_xywh": [
+            0.9512970711297072,
+            0.707859375,
+            0.04870292887029289,
+            0.07234375
+          ],
+          "annotation_id": 1889630
+        },
+        {
+          "category": "bowl",
+          "category_id": 51,
+          "box_xywh": [
+            0.351255230125523,
+            0.6935,
+            0.4764435146443515,
+            0.290921875
+          ],
+          "annotation_id": 1898064
+        },
+        {
+          "category": "bowl",
+          "category_id": 51,
+          "box_xywh": [
+            0.0,
+            0.80921875,
+            0.34895397489539753,
+            0.19078124999999999
+          ],
+          "annotation_id": 1903016
+        }
+      ],
+      "sha256": "c3f2a6a56ae9ce4794f8f67aa5f80fcde93aec556bfc779a7503c53a0646a7f2"
+    },
+    {
+      "id": "coco-000000376478",
+      "path": "images/coco-000000376478.jpg",
+      "source": "COCO2017val",
+      "source_url": "https://s3.amazonaws.com/images.cocodataset.org/val2017/000000376478.jpg",
+      "original_url": "http://farm3.staticflickr.com/2341/2510110081_c5eee6c269_z.jpg",
+      "license": {
+        "url": "http://creativecommons.org/licenses/by-nc-nd/2.0/",
+        "id": 3,
+        "name": "Attribution-NonCommercial-NoDerivs License"
+      },
+      "expected_group": "non_animal",
+      "split": "holdout",
+      "image_size": [
+        480,
+        640
+      ],
+      "annotations": [
+        {
+          "category": "vase",
+          "category_id": 86,
+          "box_xywh": [
+            0.101875,
+            0.307859375,
+            0.45841666666666664,
+            0.548328125
+          ],
+          "annotation_id": 1152160
+        }
+      ],
+      "sha256": "a860eaf59ac0a06e7db1e7009039dd72766f2dd5d2e1bb019f0fdb26b7d0e803"
+    },
+    {
+      "id": "upstream-blank",
+      "path": "images/upstream-blank.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/blank.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "non_animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "77a1bd147f6dee4ba596d3711b726a2b2cb244043587cb876bf85f3e6e8849d1"
+    },
+    {
+      "id": "upstream-blank2",
+      "path": "images/upstream-blank2.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/blank2.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "non_animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "a40f7aa3218040d6e9445617de066d05c2d6e8109fa6ad269f5c96e715bba710"
+    },
+    {
+      "id": "upstream-blank3",
+      "path": "images/upstream-blank3.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/blank3.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "non_animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "ca69d5aa34a3b363dcdb086b763ef9451b22068fb1b02179b4fa076cf3d4f663"
+    },
+    {
+      "id": "upstream-african_elephants",
+      "path": "images/upstream-african_elephants.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/african_elephants.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "19cd899b473d99fc855bc34369a55860d3b15780c65d42b7b57585fd24d81402"
+    },
+    {
+      "id": "upstream-american_black_bear",
+      "path": "images/upstream-american_black_bear.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/american_black_bear.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "49cae6c6be95198c6d1c0ae50f4589372dc01a606951a22841a6939ff9d0cd17"
+    },
+    {
+      "id": "upstream-domestic_cattle",
+      "path": "images/upstream-domestic_cattle.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/domestic_cattle.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "a6cc32ae6f4902c468b8fe18df6ed7855b5e3558a86a6e140c73097e35148405"
+    },
+    {
+      "id": "upstream-domestic_dog",
+      "path": "images/upstream-domestic_dog.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/domestic_dog.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "888e03f2ba87a759d07e770b1485ce8a45f849d2981e3a877ecd01d88674b258"
+    },
+    {
+      "id": "upstream-gazelles_and_zebra",
+      "path": "images/upstream-gazelles_and_zebra.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/gazelles_and_zebra.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "ea7bce8c2c708accdd6e979ab26b47f0fada2c8dcce7565c35f9f7b48fa8e9f0"
+    },
+    {
+      "id": "upstream-ocelot",
+      "path": "images/upstream-ocelot.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/ocelot.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "6facb7a54a739767ba639a37097737ce2f903e8504a516255ffe1f9a82e32e6e"
+    },
+    {
+      "id": "upstream-human",
+      "path": "images/upstream-human.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/human.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "human",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "704413ff21ba6af9ae1c509ad7c7460e3f8f6cbfb6411ba61a1330432de71687"
+    },
+    {
+      "id": "upstream-human_and_dog",
+      "path": "images/upstream-human_and_dog.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/human_and_dog.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "human",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "08d5bfb99ee532c41b5351bf3b21cad16c97661f099f4ada1b29eeca66aa5a22"
+    },
+    {
+      "id": "upstream-vehicle",
+      "path": "images/upstream-vehicle.jpg",
+      "source": "google/cameratrapai/test_data",
+      "source_url": "https://raw.githubusercontent.com/google/cameratrapai/main/test_data/vehicle.jpg",
+      "license": "CDLA-Permissive-1.0; per-image original dataset and attribution in source/upstream-test-images-README.md",
+      "expected_group": "non_animal",
+      "split": "upstream_sanity",
+      "annotations": null,
+      "sha256": "5d7dcdf80df5a62c85a1521e7f800cda53944b2ba27aa70528dcd95a823f29c3"
+    },
+    {
+      "id": "wellington-061016102236008al222",
+      "path": "images/wellington-061016102236008al222.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016102236008al222.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "development",
+      "source_location": "008a",
+      "source_sequence": "56691",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "639d0b4cffd504ed5a6d55a1ed0e6212b089af59e1182967dddfe2d9f1d7ef85",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-061016102236008al221.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016102236008al221.JPG",
+          "frame_num": 0,
+          "sha256": "70cc8c0a97ec17dea025ece8141448fc0e6dcb09886988d57e33028d5686c173"
+        },
+        {
+          "path": "images/wellington-061016102236008al222.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016102236008al222.JPG",
+          "frame_num": 1,
+          "sha256": "639d0b4cffd504ed5a6d55a1ed0e6212b089af59e1182967dddfe2d9f1d7ef85"
+        },
+        {
+          "path": "images/wellington-061016102236008al223.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016102236008al223.JPG",
+          "frame_num": 2,
+          "sha256": "4e0033faab4e4fb4fc10c45a838cf40402a4f7ed436ae31587d88a197f16ce98"
+        }
+      ]
+    },
+    {
+      "id": "wellington-241016074410027bs242",
+      "path": "images/wellington-241016074410027bs242.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/241016074410027bs242.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "development",
+      "source_location": "027b",
+      "source_sequence": "59775",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "f0909d929aaf1e8216541508b6769eb8de19476ef6cc195026ed57c5f7b07013",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-241016074408027bs241.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/241016074408027bs241.JPG",
+          "frame_num": 0,
+          "sha256": "c242e42cb1b752bebd64f980901887e1d50fbe1d19b8bebfc0eb11fbde991087"
+        },
+        {
+          "path": "images/wellington-241016074410027bs242.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/241016074410027bs242.JPG",
+          "frame_num": 1,
+          "sha256": "f0909d929aaf1e8216541508b6769eb8de19476ef6cc195026ed57c5f7b07013"
+        },
+        {
+          "path": "images/wellington-241016074410027bs243.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/241016074410027bs243.JPG",
+          "frame_num": 2,
+          "sha256": "a019e926ec549a2fab64a98f474d70cab5378722bb44d5f7c9899cd99b79b454"
+        }
+      ]
+    },
+    {
+      "id": "wellington-050216184812031a2543",
+      "path": "images/wellington-050216184812031a2543.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/050216184812031a2543.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "development",
+      "source_location": "031a",
+      "source_sequence": "38463",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "e61bbb6f4aef5c323afe129bfa39ed1afac3e4288860313a6d1316d43ec3a8ea",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-050216184812031a2542.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/050216184812031a2542.JPG",
+          "frame_num": 0,
+          "sha256": "efae741e1d260bbff32ce408deca1e3e93b72275f20e1f76040f25d772d13568"
+        },
+        {
+          "path": "images/wellington-050216184812031a2543.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/050216184812031a2543.JPG",
+          "frame_num": 1,
+          "sha256": "e61bbb6f4aef5c323afe129bfa39ed1afac3e4288860313a6d1316d43ec3a8ea"
+        },
+        {
+          "path": "images/wellington-050216184814031a2541.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/050216184814031a2541.JPG",
+          "frame_num": 2,
+          "sha256": "c32dda6b1883a52eb502b1b76d241b8d12119490f69131ae22adf88f260ccb84"
+        }
+      ]
+    },
+    {
+      "id": "wellington-140816162226027as332",
+      "path": "images/wellington-140816162226027as332.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/140816162226027as332.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "development",
+      "source_location": "027a",
+      "source_sequence": "15173",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "6f128b7886404cf94797fb2f26f1658c2c850cf2843d09c45a335ed700a14dd5",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-140816162226027as331.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/140816162226027as331.JPG",
+          "frame_num": 0,
+          "sha256": "9bc760ce071f183808c69eef2cf02cd92562880600423114b17113f3be720ee2"
+        },
+        {
+          "path": "images/wellington-140816162226027as332.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/140816162226027as332.JPG",
+          "frame_num": 1,
+          "sha256": "6f128b7886404cf94797fb2f26f1658c2c850cf2843d09c45a335ed700a14dd5"
+        },
+        {
+          "path": "images/wellington-140816162226027as333.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/140816162226027as333.JPG",
+          "frame_num": 2,
+          "sha256": "1cbf82f851b2b6893cbc2f2acd5defb6512ce76deaf4fd0df561b42e368cf6cb"
+        }
+      ]
+    },
+    {
+      "id": "wellington-0807151018160359L102",
+      "path": "images/wellington-0807151018160359L102.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0807151018160359L102.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "holdout",
+      "source_location": "359",
+      "source_sequence": "70296",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "34445cd07d38c268a10e7e3b3a8376b9ed19752b8153a5610f665fb6f9f2deaf",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-0807151018160359L101.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0807151018160359L101.JPG",
+          "frame_num": 0,
+          "sha256": "71efb1679ba449a6280b837ca041a4f535d9d6264df642cb1de2f8a11f986abe"
+        },
+        {
+          "path": "images/wellington-0807151018160359L102.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0807151018160359L102.JPG",
+          "frame_num": 1,
+          "sha256": "34445cd07d38c268a10e7e3b3a8376b9ed19752b8153a5610f665fb6f9f2deaf"
+        },
+        {
+          "path": "images/wellington-0807151018180359L103.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0807151018180359L103.JPG",
+          "frame_num": 2,
+          "sha256": "b98c7fddea77253c707df10453f649bea2ab7707e46573398235ac44e7133e81"
+        }
+      ]
+    },
+    {
+      "id": "wellington-270616093358008bs112",
+      "path": "images/wellington-270616093358008bs112.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/270616093358008bs112.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "holdout",
+      "source_location": "008b",
+      "source_sequence": "47044",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "78ef86187d734c2cff4254ee150accf02ba4c1b51d7925e4cfbcf6051a9dd1f4",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-270616093358008bs111.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/270616093358008bs111.JPG",
+          "frame_num": 0,
+          "sha256": "5975321864ca4edc818e6a6c941c8978e8723e7eeaf522c88d3fe2eb4ed5936e"
+        },
+        {
+          "path": "images/wellington-270616093358008bs112.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/270616093358008bs112.JPG",
+          "frame_num": 1,
+          "sha256": "78ef86187d734c2cff4254ee150accf02ba4c1b51d7925e4cfbcf6051a9dd1f4"
+        },
+        {
+          "path": "images/wellington-270616093400008bs111.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/270616093400008bs111.JPG",
+          "frame_num": 2,
+          "sha256": "e5851a65fa133fa26a5ecfbd96a20dfcb4c8f48e57add5e441c9e867e9bd62c7"
+        }
+      ]
+    },
+    {
+      "id": "wellington-060416084404017b7512",
+      "path": "images/wellington-060416084404017b7512.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/060416084404017b7512.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "holdout",
+      "source_location": "017b",
+      "source_sequence": "35715",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "ea6137ac3efd6b8aebd398d4bfee3304905f41075b2c16e49df386fd4e566a02",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-060416084404017b7511.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/060416084404017b7511.JPG",
+          "frame_num": 0,
+          "sha256": "16e905d9e3c1927fa99d1619e7dc3c362a275233562bebf35a6f7d2319f5ef56"
+        },
+        {
+          "path": "images/wellington-060416084404017b7512.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/060416084404017b7512.JPG",
+          "frame_num": 1,
+          "sha256": "ea6137ac3efd6b8aebd398d4bfee3304905f41075b2c16e49df386fd4e566a02"
+        },
+        {
+          "path": "images/wellington-060416084406017b7513.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/060416084406017b7513.JPG",
+          "frame_num": 2,
+          "sha256": "f79ea4ee23d225887749c525ee95690793a5ae11b7ac8486eb396132b9594abe"
+        }
+      ]
+    },
+    {
+      "id": "wellington-05101512245208911111",
+      "path": "images/wellington-05101512245208911111.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/05101512245208911111.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "bird",
+      "source_sequence_label": "bird",
+      "split": "holdout",
+      "source_location": "891",
+      "source_sequence": "88808",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "2d3465a2c23d8bd0acca9e9e4a8b9d2c141fb0829084ea3ef9a0c158b4c1bc79",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-05101512245008911113.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/05101512245008911113.JPG",
+          "frame_num": 0,
+          "sha256": "9832f50957e77c3961819b355aa4ecbc3da28d9af2b816f8d7d887776d3dc523"
+        },
+        {
+          "path": "images/wellington-05101512245208911111.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/05101512245208911111.JPG",
+          "frame_num": 1,
+          "sha256": "2d3465a2c23d8bd0acca9e9e4a8b9d2c141fb0829084ea3ef9a0c158b4c1bc79"
+        },
+        {
+          "path": "images/wellington-05101512245208911112.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/05101512245208911112.JPG",
+          "frame_num": 2,
+          "sha256": "39d7c49c9d9c674dd5d7613f829aa9ae201c7b0a26275ffcdd5396e036136e73"
+        }
+      ]
+    },
+    {
+      "id": "wellington-171016201232027bs242",
+      "path": "images/wellington-171016201232027bs242.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/171016201232027bs242.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "cat",
+      "split": "development",
+      "source_location": "027b",
+      "source_sequence": "5745",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "554af760acb507a2ac5718dc52cab04566d69d3c93fb51a6a7506270fe8464a3",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-171016201230027bs241.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/171016201230027bs241.JPG",
+          "frame_num": 0,
+          "sha256": "036bd8107a2a2d7e220def4af1253e65fef8e67ee2a04a6e4dd0a4faa86bb689"
+        },
+        {
+          "path": "images/wellington-171016201232027bs242.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/171016201232027bs242.JPG",
+          "frame_num": 1,
+          "sha256": "554af760acb507a2ac5718dc52cab04566d69d3c93fb51a6a7506270fe8464a3"
+        },
+        {
+          "path": "images/wellington-171016201232027bs243.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/171016201232027bs243.JPG",
+          "frame_num": 2,
+          "sha256": "a0d4b77a417b72812b7984b3ea4bbc8e8b4ad8178262eb0a5a744eb8f7048b1a"
+        }
+      ]
+    },
+    {
+      "id": "wellington-120216165758038c5921",
+      "path": "images/wellington-120216165758038c5921.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/120216165758038c5921.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "rabbit",
+      "split": "development",
+      "source_location": "038c",
+      "source_sequence": "61023",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "be50de95e40dffe164f5b41564f629c655b33a3ef03f37f5c3561c5eae9dbbc3",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-120216165756038c5923.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/120216165756038c5923.JPG",
+          "frame_num": 0,
+          "sha256": "2b64eb6dcadc528a32f4eab324c7ea92faa3d9520f804731b1f08eaf7a0abb76"
+        },
+        {
+          "path": "images/wellington-120216165758038c5921.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/120216165758038c5921.JPG",
+          "frame_num": 1,
+          "sha256": "be50de95e40dffe164f5b41564f629c655b33a3ef03f37f5c3561c5eae9dbbc3"
+        },
+        {
+          "path": "images/wellington-120216165758038c5922.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/120216165758038c5922.JPG",
+          "frame_num": 2,
+          "sha256": "1718ce6d6980d718ee5f2e009f01ffcc5d9bc02dd574b14f86f3b1a26ab62969"
+        }
+      ]
+    },
+    {
+      "id": "wellington-27101516315802359701",
+      "path": "images/wellington-27101516315802359701.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/27101516315802359701.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "cat",
+      "split": "development",
+      "source_location": "235",
+      "source_sequence": "66177",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "f1ef574e21d4466c01c7bf7d6f470cfe2303ef8332ae56784b51b6de6a8a9aca",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-27101516315602359703.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/27101516315602359703.JPG",
+          "frame_num": 0,
+          "sha256": "3954b8ac62576f44ac40a62003e6bd94228a58276492836e3e48779a54800d2f"
+        },
+        {
+          "path": "images/wellington-27101516315802359701.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/27101516315802359701.JPG",
+          "frame_num": 1,
+          "sha256": "f1ef574e21d4466c01c7bf7d6f470cfe2303ef8332ae56784b51b6de6a8a9aca"
+        },
+        {
+          "path": "images/wellington-27101516315802359702.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/27101516315802359702.JPG",
+          "frame_num": 2,
+          "sha256": "6b0125bb03bf180432def2f219dd4dc4e748f2eccfb39897ac88338c1b85f74b"
+        }
+      ]
+    },
+    {
+      "id": "wellington-1206150105140285S072",
+      "path": "images/wellington-1206150105140285S072.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1206150105140285S072.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "cat",
+      "split": "development",
+      "source_location": "285",
+      "source_sequence": "68845",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "05c7fe40a1a78b3130236c926a023b1a5ef57e9b61b534b55bad45d9d04d63bc",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-1206150105140285S071.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1206150105140285S071.JPG",
+          "frame_num": 0,
+          "sha256": "4086c4c23a70798351a64e7acfb32c99676627d202f33e60cb48e2aa2fc8c436"
+        },
+        {
+          "path": "images/wellington-1206150105140285S072.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1206150105140285S072.JPG",
+          "frame_num": 1,
+          "sha256": "05c7fe40a1a78b3130236c926a023b1a5ef57e9b61b534b55bad45d9d04d63bc"
+        },
+        {
+          "path": "images/wellington-1206150105160285S073.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1206150105160285S073.JPG",
+          "frame_num": 2,
+          "sha256": "292fa8c569af75da3a8f210cc656380fc586a5c94fd90b0bc6db2e4ae6951b0d"
+        }
+      ]
+    },
+    {
+      "id": "wellington-0905152011420359L102",
+      "path": "images/wellington-0905152011420359L102.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0905152011420359L102.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "cat",
+      "split": "holdout",
+      "source_location": "359",
+      "source_sequence": "70013",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "16ec2209d995275f0ad7460e9eabc0446034bd46f642e5af7093a946380f7f71",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-0905152011400359L101.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0905152011400359L101.JPG",
+          "frame_num": 0,
+          "sha256": "db971f20a1fc550a0876b5e7831c1a650b375a07fb3e2023e29dbf28e17c9cd0"
+        },
+        {
+          "path": "images/wellington-0905152011420359L102.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0905152011420359L102.JPG",
+          "frame_num": 1,
+          "sha256": "16ec2209d995275f0ad7460e9eabc0446034bd46f642e5af7093a946380f7f71"
+        },
+        {
+          "path": "images/wellington-0905152011420359L103.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0905152011420359L103.JPG",
+          "frame_num": 2,
+          "sha256": "365b19eec9704d7c5ba56e7d347add2f89e0442bf3c3ad61b2e9f16c8681b0ef"
+        }
+      ]
+    },
+    {
+      "id": "wellington-2206151058040379L132",
+      "path": "images/wellington-2206151058040379L132.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2206151058040379L132.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "cat",
+      "split": "holdout",
+      "source_location": "379",
+      "source_sequence": "70655",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "08c5b100b8311dfe93ad38fafafd6fa04161940d13ea75c4b91429c337c0890a",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-2206151058020379L131.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2206151058020379L131.JPG",
+          "frame_num": 0,
+          "sha256": "251b25219654675706fb8b9035e482c19bb334353199f80ae140843b51566264"
+        },
+        {
+          "path": "images/wellington-2206151058040379L132.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2206151058040379L132.JPG",
+          "frame_num": 1,
+          "sha256": "08c5b100b8311dfe93ad38fafafd6fa04161940d13ea75c4b91429c337c0890a"
+        },
+        {
+          "path": "images/wellington-2206151058040379L133.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2206151058040379L133.JPG",
+          "frame_num": 2,
+          "sha256": "6f05a17d3703f0b5869504cbc4fe9a3365838ddbd48bfd3962a3b30bbb65822e"
+        }
+      ]
+    },
+    {
+      "id": "wellington-070816195054011a5903",
+      "path": "images/wellington-070816195054011a5903.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/070816195054011a5903.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "mouse",
+      "split": "holdout",
+      "source_location": "011a",
+      "source_sequence": "22025",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "ffb482de97fb05fe0f9e65f9ae0cc43234f39ee90f0920625f594641bd7d6a17",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-070816195054011a5902.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/070816195054011a5902.JPG",
+          "frame_num": 0,
+          "sha256": "e627a499d11a7c760544392bea0a29548493faffbfce13b4ee297580f63f1f04"
+        },
+        {
+          "path": "images/wellington-070816195054011a5903.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/070816195054011a5903.JPG",
+          "frame_num": 1,
+          "sha256": "ffb482de97fb05fe0f9e65f9ae0cc43234f39ee90f0920625f594641bd7d6a17"
+        },
+        {
+          "path": "images/wellington-070816195056011a5901.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/070816195056011a5901.JPG",
+          "frame_num": 2,
+          "sha256": "e47c2e553474c494945d9dbd3aef30e75eda2de0492d1bed8a248118e769f2f8"
+        }
+      ]
+    },
+    {
+      "id": "wellington-061016033920033b3102",
+      "path": "images/wellington-061016033920033b3102.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016033920033b3102.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "animal",
+      "source_sequence_label": "mouse",
+      "split": "holdout",
+      "source_location": "033b",
+      "source_sequence": "39015",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "2244b867cd30247dcfe630a2ca5739fd646dc14dd2c68315e3198768b5de89b0",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-061016033918033b3101.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016033918033b3101.JPG",
+          "frame_num": 0,
+          "sha256": "f25ba1824dcb4dd7ead46b1b1df3fd79c9783d35a4870889b936756356270ec5"
+        },
+        {
+          "path": "images/wellington-061016033920033b3102.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016033920033b3102.JPG",
+          "frame_num": 1,
+          "sha256": "2244b867cd30247dcfe630a2ca5739fd646dc14dd2c68315e3198768b5de89b0"
+        },
+        {
+          "path": "images/wellington-061016033920033b3103.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/061016033920033b3103.JPG",
+          "frame_num": 2,
+          "sha256": "a77346fc57e5049513df1909976c7c0db27027ade44e79815f8ce6addd54c7f6"
+        }
+      ]
+    },
+    {
+      "id": "wellington-2405151524440244S415",
+      "path": "images/wellington-2405151524440244S415.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2405151524440244S415.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "development",
+      "source_location": "244",
+      "source_sequence": "67905",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "f5fb9b00b739ace2752ce24086fae50c610c099149073e9a9c8b1c9eab5d54bd",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-2405151524440244S414.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2405151524440244S414.JPG",
+          "frame_num": 0,
+          "sha256": "de5f4632c29e98e8f2e1ff23aa9a4fdfbb3306fb598a6c1b10393068f0dbd2cd"
+        },
+        {
+          "path": "images/wellington-2405151524440244S415.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2405151524440244S415.JPG",
+          "frame_num": 1,
+          "sha256": "f5fb9b00b739ace2752ce24086fae50c610c099149073e9a9c8b1c9eab5d54bd"
+        },
+        {
+          "path": "images/wellington-2405151524460244S416.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/2405151524460244S416.JPG",
+          "frame_num": 2,
+          "sha256": "7355d1d70dddd457f8406f3c6743879f32e772ffa2c4c1c4236cb3f079d37a6a"
+        }
+      ]
+    },
+    {
+      "id": "wellington-311016185446020bl255",
+      "path": "images/wellington-311016185446020bl255.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/311016185446020bl255.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "development",
+      "source_location": "020b",
+      "source_sequence": "4510",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "ba21898051739c78de8b2fd419f408e6b2665d7c89c448bede09698b28c46eec",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-311016185446020bl254.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/311016185446020bl254.JPG",
+          "frame_num": 0,
+          "sha256": "c0bd80fa2d6d867d00ad9744a553f85f6a0f982098adc724d1a3a9c103dfd717"
+        },
+        {
+          "path": "images/wellington-311016185446020bl255.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/311016185446020bl255.JPG",
+          "frame_num": 1,
+          "sha256": "ba21898051739c78de8b2fd419f408e6b2665d7c89c448bede09698b28c46eec"
+        },
+        {
+          "path": "images/wellington-311016185446020bl256.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/311016185446020bl256.JPG",
+          "frame_num": 2,
+          "sha256": "5c085011f76016f47e7ebb726eb54b6d9cd5f6a6096839ec3c6dff272e9695bd"
+        }
+      ]
+    },
+    {
+      "id": "wellington-280916075944012bs192",
+      "path": "images/wellington-280916075944012bs192.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280916075944012bs192.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "development",
+      "source_location": "012b",
+      "source_sequence": "48115",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "3d817aadee29b8db4a65d5c0db6c51879d2b18b462aa5e42e1ce4ea55cacb6f2",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-280916075944012bs191.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280916075944012bs191.JPG",
+          "frame_num": 0,
+          "sha256": "cb8add31ff2772629cd8f1ca4d0a5d5c35446a260d93949609498a3ed80baa04"
+        },
+        {
+          "path": "images/wellington-280916075944012bs192.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280916075944012bs192.JPG",
+          "frame_num": 1,
+          "sha256": "3d817aadee29b8db4a65d5c0db6c51879d2b18b462aa5e42e1ce4ea55cacb6f2"
+        },
+        {
+          "path": "images/wellington-280916075944012bs193.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280916075944012bs193.JPG",
+          "frame_num": 2,
+          "sha256": "03693c776e300c67ded167d47875a26a05972345c3931e1320ba623b12ec3e45"
+        }
+      ]
+    },
+    {
+      "id": "wellington-141016122030050a7512",
+      "path": "images/wellington-141016122030050a7512.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/141016122030050a7512.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "development",
+      "source_location": "050a",
+      "source_sequence": "44913",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "88ab6d99a3e5c75dd7cd48c80eddace8d44b1b025359c7e997ba14722c0ed2e6",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-141016122030050a7511.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/141016122030050a7511.JPG",
+          "frame_num": 0,
+          "sha256": "66ac94a8a7eddcb92244e3abf9e8784ce3e6a285216761bfcd3468b0430c8891"
+        },
+        {
+          "path": "images/wellington-141016122030050a7512.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/141016122030050a7512.JPG",
+          "frame_num": 1,
+          "sha256": "88ab6d99a3e5c75dd7cd48c80eddace8d44b1b025359c7e997ba14722c0ed2e6"
+        },
+        {
+          "path": "images/wellington-141016122030050a7513.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/141016122030050a7513.JPG",
+          "frame_num": 2,
+          "sha256": "212f51f75c89ede55b750dfa45b4f778951769c49b379c5e3432787a44d1bcc5"
+        }
+      ]
+    },
+    {
+      "id": "wellington-1507150845080745L092",
+      "path": "images/wellington-1507150845080745L092.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1507150845080745L092.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "holdout",
+      "source_location": "745",
+      "source_sequence": "75247",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "f26645d96bf3d9a3f113b8355cf5c5740b46d71f542ba02bce95fd0f689513fc",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-1507150845060745L091.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1507150845060745L091.JPG",
+          "frame_num": 0,
+          "sha256": "a9b9bdd5ff13dd0631f12ddd8f629039e0bde2e750cab34ec4bb2e30d348b33d"
+        },
+        {
+          "path": "images/wellington-1507150845080745L092.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1507150845080745L092.JPG",
+          "frame_num": 1,
+          "sha256": "f26645d96bf3d9a3f113b8355cf5c5740b46d71f542ba02bce95fd0f689513fc"
+        },
+        {
+          "path": "images/wellington-1507150845080745L093.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/1507150845080745L093.JPG",
+          "frame_num": 2,
+          "sha256": "02ef95dbd87e5ec9b885e861a12fd30f86440ac853c9ea47a23092c47ac024ca"
+        }
+      ]
+    },
+    {
+      "id": "wellington-100816082842040bs391",
+      "path": "images/wellington-100816082842040bs391.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/100816082842040bs391.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "holdout",
+      "source_location": "040b",
+      "source_sequence": "41195",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "e13f2db6f2398ba6006020c156c4a4078ade3285c2c80e321c52da696db5edf3",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-100816082840040bs393.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/100816082840040bs393.JPG",
+          "frame_num": 0,
+          "sha256": "bd3d60ab1b83f3555932c3a46e59b3dc3b813defc6018cb03190a92ea3da7ee3"
+        },
+        {
+          "path": "images/wellington-100816082842040bs391.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/100816082842040bs391.JPG",
+          "frame_num": 1,
+          "sha256": "e13f2db6f2398ba6006020c156c4a4078ade3285c2c80e321c52da696db5edf3"
+        },
+        {
+          "path": "images/wellington-100816082842040bs392.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/100816082842040bs392.JPG",
+          "frame_num": 2,
+          "sha256": "4d5eff34a71c2d412095cee5b89ab44dbbdabce16b23b942d017be4da3c6f5d2"
+        }
+      ]
+    },
+    {
+      "id": "wellington-0605152254160242L242",
+      "path": "images/wellington-0605152254160242L242.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0605152254160242L242.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "holdout",
+      "source_location": "242",
+      "source_sequence": "67753",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "a31232bf787b62568618937f00b03773d6376fb879bf0f34520e2f230a600504",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-0605152254160242L241.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0605152254160242L241.JPG",
+          "frame_num": 0,
+          "sha256": "7384a9d4cc7b8dd1b1ec1a508eadbaef6845b3539cb520bc32b08f10827757b7"
+        },
+        {
+          "path": "images/wellington-0605152254160242L242.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0605152254160242L242.JPG",
+          "frame_num": 1,
+          "sha256": "a31232bf787b62568618937f00b03773d6376fb879bf0f34520e2f230a600504"
+        },
+        {
+          "path": "images/wellington-0605152254180242L243.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/0605152254180242L243.JPG",
+          "frame_num": 2,
+          "sha256": "3df7f98ed80d9ecf942132196fc44cf43fb4634f2836738aa6c8569fe631ee1e"
+        }
+      ]
+    },
+    {
+      "id": "wellington-280616084822049c9701",
+      "path": "images/wellington-280616084822049c9701.JPG",
+      "source": "Wellington Camera Traps",
+      "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280616084822049c9701.JPG",
+      "license": "CDLA-Permissive-1.0",
+      "citation": "Anton, Hartley, Geldenhuis, Wittmer2018 Monitoring the mammalian fauna of urban areas using remote cameras and citizen science",
+      "expected_group": "non_animal",
+      "source_sequence_label": "empty",
+      "split": "holdout",
+      "source_location": "049c",
+      "source_sequence": "63546",
+      "image_size": [
+        3264,
+        2448
+      ],
+      "annotations": null,
+      "country": "NZL",
+      "sha256": "33e4841b3cb72b695c0b579db37c007deb6dfd448e33f9d90015ea7315a20be8",
+      "evaluation_unit": "complete_three_frame_sequence",
+      "frames": [
+        {
+          "path": "images/wellington-280616084820049c9703.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280616084820049c9703.JPG",
+          "frame_num": 0,
+          "sha256": "f730817534ba9cbc78545c47760e379da73ac2a43f2264fa0b50280a29897c51"
+        },
+        {
+          "path": "images/wellington-280616084822049c9701.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280616084822049c9701.JPG",
+          "frame_num": 1,
+          "sha256": "33e4841b3cb72b695c0b579db37c007deb6dfd448e33f9d90015ea7315a20be8"
+        },
+        {
+          "path": "images/wellington-280616084822049c9702.JPG",
+          "source_url": "https://storage.googleapis.com/public-datasets-lila/wellington-unzipped/images/280616084822049c9702.JPG",
+          "frame_num": 2,
+          "sha256": "58c7dff5f11f6940fafa48fb81f00ed5292b9a98b1c884ff451412d673b61bc6"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "External annotations independent of this inference, not guaranteed absent from model training",
+    "COCO negatives mean no annotated person/animal among its80classes; inspect for unannotated wildlife",
+    "Upstream sanity examples are separate from frozen holdout, not independent model development data",
+    "Still-image panel does not qualify motion between sampled frames or UK seasonal/night camera diversity",
+    "Wellington labels are sequence-level; individual selected frames require visual review before freezing. Location-disjoint development/holdout split."
+  ],
+  "frozen_at": "2026-10-23T18:24:17.041828+00:00",
+  "curation": "External annotations plus explicit pre-inference visual corrections; no outputs used to curate labels. Wellington is evaluated as complete externally labelled bursts."
+}

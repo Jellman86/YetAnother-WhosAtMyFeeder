@@ -44,8 +44,12 @@ export function captureFacts(capture: Detection, visit: DetectionVisit): Capture
 }
 
 export interface SpeciesInCapture {
+    /** The stored label, usually the classifier's scientific name. */
     species: string;
     count: number;
+    /** Catalogue names, when the label resolved, so the row names it as it names a visit. */
+    common_name: string | null;
+    scientific_name: string | null;
 }
 
 /**
@@ -61,7 +65,12 @@ export function visitSpeciesMix(visit: DetectionVisit | undefined): SpeciesInCap
         if (!key || entry.count <= 0) continue;
         const known = merged.get(key);
         if (known) known.count += entry.count;
-        else merged.set(key, { species: entry.species, count: entry.count });
+        else merged.set(key, {
+            species: entry.species,
+            count: entry.count,
+            common_name: entry.common_name ?? null,
+            scientific_name: entry.scientific_name ?? null
+        });
     }
     if (merged.size < 2) return null;
     return [...merged.values()].sort((a, b) => b.count - a.count || a.species.localeCompare(b.species));

@@ -290,3 +290,93 @@ async def test_cancelled_probe_reaps_a_child_that_exits_during_cancellation(monk
     with pytest.raises(asyncio.CancelledError):
         await probe("intel_gpu", model_id="test")
     assert process.communicate.await_count == 2
+
+
+def test_runtime_identity_changes_with_bound_driver_without_module_versions(tmp_path, monkeypatch):
+    device = tmp_path / "class/drm/card0/device"
+    device.mkdir(parents=True)
+    drivers = tmp_path / "bus/pci/drivers"
+    for name in ("i915", "xe"):
+        (drivers / name).mkdir(parents=True)
+    binding = device / "driver"
+    binding.symlink_to(drivers / "i915")
+    original = mv._bound_device_drivers
+    monkeypatch.setattr(mv, "_bound_device_drivers", lambda: original(tmp_path))
+    before = mv._runtime_identity("intel", "")
+    binding.unlink()
+    binding.symlink_to(drivers / "xe")
+    after = mv._runtime_identity("intel", "")
+
+    assert before["device_drivers"] == {"class/drm/card0/device": "i915"}
+    assert after["device_drivers"] == {"class/drm/card0/device": "xe"}
+    assert mv._identity_digest(before) != mv._identity_digest(after)
+    assert mv._runtime_identity("intel", "") == after
+
+
+def test_bound_device_drivers_keep_missing_or_broken_binding_unknown(tmp_path):
+    for category, name in (("drm", "card0"), ("accel", "accel0")):
+        device = tmp_path / "class" / category / name / "device"
+        device.mkdir(parents=True)
+        (device / "driver").symlink_to(tmp_path / "missing-driver")
+
+    assert mv._bound_device_drivers(tmp_path) == {
+        "class/drm/card0/device": None,
+        "class/accel/accel0/device": None,
+    }
+
+
+def test_bound_device_drivers_handles_inaccessible_binding(tmp_path, monkeypatch):
+    from pathlib import Path
+
+    device = tmp_path / "class/drm/card0/device"
+    device.mkdir(parents=True)
+    monkeypatch.setattr(Path, "resolve", lambda *args, **kwargs: (_ for _ in ()).throw(PermissionError()))
+
+    assert mv._bound_device_drivers(tmp_path) == {"class/drm/card0/device": None}
+
+
+def test_legacy_signature_matches_identity_before_driver_binding_was_recorded(monkeypatch):
+    identity = mv._runtime_identity("intel", "test-abi")
+    old_identity = {key: value for key, value in identity.items() if key != "device_drivers"}
+    monkeypatch.setattr(mv, "_runtime_identity", lambda *args: dict(identity))
+    mv._legacy_runtime_signature_for.cache_clear()
+    try:
+        assert mv._legacy_runtime_signature_for("intel", "test-abi") == mv._identity_digest(old_identity)
+    finally:
+        mv._legacy_runtime_signature_for.cache_clear()
+
+
+def test_provider_evidence_expires_when_bound_driver_changes(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    bindings = {"class/drm/card0/device": "i915"}
+    monkeypatch.setattr(mv, "_bound_device_drivers", lambda: dict(bindings))
+    mv._provider_runtime_signature_for.cache_clear()
+    try:
+        mv.write_eligibility_entry("bird", ["intel_gpu"], artifact_sha256="abc")
+        assert mv.host_eligible_providers("bird", artifact_sha256="abc") == ["intel_gpu"]
+        bindings["class/drm/card0/device"] = "xe"
+        mv._provider_runtime_signature_for.cache_clear()
+        assert mv.host_eligible_providers("bird", artifact_sha256="abc") == []
+    finally:
+        mv._provider_runtime_signature_for.cache_clear()
+
+
+@pytest.mark.parametrize("provider", ["cpu", "intel_cpu", "cuda", "intel_npu"])
+def test_gpu_driver_binding_does_not_expire_unrelated_provider_evidence(monkeypatch, provider):
+    bindings = {"class/drm/card0/device": "i915", "class/accel/accel0/device": "intel_vpu"}
+    monkeypatch.setattr(mv, "_bound_device_drivers", lambda: dict(bindings))
+    mv._provider_runtime_signature_for.cache_clear()
+    try:
+        before = mv.current_provider_runtime_signature(provider)
+        bindings["class/drm/card0/device"] = "xe"
+        mv._provider_runtime_signature_for.cache_clear()
+        assert mv.current_provider_runtime_signature(provider) == before
+    finally:
+        mv._provider_runtime_signature_for.cache_clear()
+
+
+def test_bound_device_drivers_ignore_display_connectors(tmp_path):
+    for name in ("card1", "card1-DP-1", "card1-HDMI-A-1"):
+        (tmp_path / "class/drm" / name / "device").mkdir(parents=True)
+
+    assert mv._bound_device_drivers(tmp_path) == {"class/drm/card1/device": None}

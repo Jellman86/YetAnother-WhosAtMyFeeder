@@ -4,17 +4,15 @@
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import { accessibilityPreview } from '../../stores/accessibility_preview.svelte';
+    import type { AccessibilityDraft } from '../../settings/accessibility-section';
 
     let {
-        highContrast = $bindable(false),
-        dyslexiaFont = $bindable(false),
-        liveAnnouncements = $bindable(true),
-        reducedMotion = $bindable(false)
+        draft,
+        onchange
     }: {
-        highContrast: boolean;
-        dyslexiaFont: boolean;
-        liveAnnouncements: boolean;
-        reducedMotion: boolean;
+        /** The saved-for-everyone Accessibility choices as currently edited; Apply saves them. */
+        draft: AccessibilityDraft;
+        onchange: (patch: Partial<AccessibilityDraft>) => void;
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
@@ -43,11 +41,11 @@
         description={$_('settings.accessibility.high_contrast_desc')}
     >
         <SettingsToggle
-            checked={highContrast}
+            checked={draft.highContrast}
             labelledBy="setting-high-contrast"
             srLabel={$_('settings.accessibility.high_contrast')}
             onchange={(v) => {
-                highContrast = v;
+                onchange({ highContrast: v });
                 accessibilityPreview.highContrast = v;
             }}
         />
@@ -60,11 +58,11 @@
             description={$_('settings.accessibility.dyslexia_font_desc')}
         >
             <SettingsToggle
-                checked={dyslexiaFont}
+                checked={draft.dyslexiaFont}
                 labelledBy="setting-dyslexia-font"
                 srLabel={$_('settings.accessibility.dyslexia_font')}
                 onchange={(v) => {
-                dyslexiaFont = v;
+                onchange({ dyslexiaFont: v });
                 accessibilityPreview.dyslexiaFont = v;
             }}
             />
@@ -77,11 +75,11 @@
         description={$_('settings.accessibility.reduced_motion_desc')}
     >
         <SettingsToggle
-            checked={reducedMotion}
+            checked={draft.reducedMotion}
             labelledBy="setting-reduced-motion"
             srLabel={$_('settings.accessibility.reduced_motion')}
             onchange={(v) => {
-                reducedMotion = v;
+                onchange({ reducedMotion: v });
                 accessibilityPreview.reducedMotion = v;
             }}
         />
@@ -93,10 +91,10 @@
         description={$_('settings.accessibility.live_announcements_desc')}
     >
         <SettingsToggle
-            checked={liveAnnouncements}
+            checked={draft.liveAnnouncements}
             labelledBy="setting-live-announcements"
             srLabel={$_('settings.accessibility.live_announcements')}
-            onchange={(v) => (liveAnnouncements = v)}
+            onchange={(v) => onchange({ liveAnnouncements: v })}
         />
     </SettingsRow>
 </SettingsCard>

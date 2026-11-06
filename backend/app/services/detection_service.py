@@ -1,12 +1,19 @@
 import structlog
+from app.services.classification_input_provenance import classification_evidence
 import os
 import asyncio
 import math
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal, NamedTuple
 from app.config import settings
+from app.models.classification_evidence import ClassificationEvidence
 from app.repositories.detection_repository import INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL, Detection, DetectionRepository
 from app.services.classifier_service import ClassifierService
 from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
+from app.services.range_filter import RangeCandidate, RangeDecision, decide_range_admission
+from app.services.range_filter_service import range_filter_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
 from app.utils.classifier_labels import normalize_classifier_label
@@ -93,6 +100,29 @@ def _reportable_species(scientific_name: str | None) -> bool:
     return bool(scientific_name) and scientific_name != "Unknown Bird"
 
 
+_THRESHOLD_REASONS = frozenset({"threshold_passed", "threshold_passed_with_sublabel_disagreement_guard"})
+
+
+@dataclass(frozen=True)
+class RangeSelection:
+    """A selection with the range rule's decision, kept so a skip can be recorded."""
+
+    top: dict | None
+    reason: str | None
+    decision: RangeDecision | None = None
+    chosen: RangeCandidate | None = None
+
+
+class NonBirdSaveRejection(NamedTuple):
+    """Carry the admission decision while preserving two-value save callers."""
+
+    changed: Literal[False] = False
+    was_inserted: Literal[False] = False
+
+    def __bool__(self) -> Literal[False]:
+        return False
+
+
 class DetectionService:
     """
     Centralized service for processing and saving detections.
@@ -105,6 +135,39 @@ class DetectionService:
     def __init__(self, classifier: ClassifierService):
         self.classifier = classifier
         self.broadcaster = broadcaster
+
+    async def is_known_nonbird(self, classification: dict) -> bool:
+        # Skipped confident outputs remain admission evidence, never the
+        # producer identity of a borrowed label or a lower-ranked bird.
+        candidates = classification.get("admission_candidates", [])
+        candidates = candidates if isinstance(candidates, list) else []
+        for candidate in [classification, *candidates]:
+            if not isinstance(candidate, dict):
+                continue
+            if (
+                await asyncio.to_thread(
+                    species_catalog_resolver.fresh_output_group,
+                    candidate.get("model_sha256"),
+                    candidate.get("index"),
+                    candidate.get("label"),
+                )
+                == "nonbird"
+            ):
+                return True
+        return False
+
+    @staticmethod
+    def _required_threshold(label: str, frigate_sub_label: str | None) -> tuple[float, str]:
+        threshold = float(settings.classification.threshold or 0.0)
+        sublabel = normalize_sub_label(frigate_sub_label)
+        if (
+            not settings.classification.trust_frigate_sublabel
+            and sublabel
+            and label
+            and sublabel.casefold() != label.strip().casefold()
+        ):
+            return max(threshold, min(0.95, threshold + 0.20)), "threshold_passed_with_sublabel_disagreement_guard"
+        return threshold, "threshold_passed"
 
     @staticmethod
     def _build_unknown_catchall(classification: dict, *, source: str) -> dict:
@@ -158,8 +221,6 @@ class DetectionService:
         label = normalize_classifier_label(top["label"])
         top = {**top, "label": label}
         original_label = label
-        normalized_label = str(label or "").strip().casefold()
-        normalized_frigate_sub_label = frigate_sub_label.casefold() if frigate_sub_label else None
 
         # Relabel unknown bird classifications
         if label in settings.classification.unknown_bird_labels:
@@ -170,6 +231,27 @@ class DetectionService:
         if should_hide_species_label(label, extra_unknown_labels=unknown_species_labels()):
             log.info("Discarding classifier abstention label", label=label, event_id=frigate_event)
             return None, "abstention_label"
+
+        # Determine effective minimum confidence (floor)
+        # If user sets threshold lower than min_confidence, use threshold as floor
+        effective_min = min(settings.classification.min_confidence, settings.classification.threshold)
+
+        # Check minimum confidence floor
+        below_min_confidence = score < effective_min
+
+        # Check primary threshold, with stricter guard when Frigate sublabel disagrees
+        # and Frigate trust is disabled.
+        required_threshold, threshold_reason = self._required_threshold(original_label, frigate_sub_label)
+        sublabel_disagrees = threshold_reason == "threshold_passed_with_sublabel_disagreement_guard"
+
+        below_threshold = score < required_threshold
+
+        if (
+            not below_threshold
+            and species_catalog_resolver.cached_output_group(top.get("model_sha256"), top.get("index"), top["label"])
+            == "nonbird"
+        ):
+            return None, "non_bird"
 
         # Filter out blocked labels (case-insensitive).
         # Also check the parenthetical-stripped label (e.g. "Cassin's Finch (Adult Male)" →
@@ -186,32 +268,6 @@ class DetectionService:
             log.debug("Filtered blocked label", label=label, event_id=frigate_event)
             return None, "blocked_label"
 
-        # Determine effective minimum confidence (floor)
-        # If user sets threshold lower than min_confidence, use threshold as floor
-        effective_min = min(settings.classification.min_confidence, settings.classification.threshold)
-
-        # Check minimum confidence floor
-        below_min_confidence = score < effective_min
-
-        # Check primary threshold, with stricter guard when Frigate sublabel disagrees
-        # and Frigate trust is disabled.
-        required_threshold = float(settings.classification.threshold or 0.0)
-        threshold_reason = "threshold_passed"
-        sublabel_disagrees = bool(
-            not settings.classification.trust_frigate_sublabel
-            and normalized_frigate_sub_label
-            and normalized_label
-            and normalized_frigate_sub_label != normalized_label
-        )
-        if sublabel_disagrees:
-            disagreement_min_score = min(0.95, required_threshold + 0.20)
-            required_threshold = max(required_threshold, disagreement_min_score)
-            threshold_reason = "threshold_passed_with_sublabel_disagreement_guard"
-
-        below_threshold = score < required_threshold
-
-        # If classification passes primary threshold, return it
-        # (Implicitly passes min_confidence because threshold >= effective_min)
         if not below_threshold:
             return top, threshold_reason
 
@@ -274,14 +330,151 @@ class DetectionService:
         frigate_score: float = None,
         frigate_sub_label_score: float = None,
     ) -> tuple[dict | None, str | None]:
-        """Return the first classifier result that survives filtering.
+        """Return the first classifier result that survives filtering, range rule included.
 
         Some model artifacts expose abstention classes such as "Unknown" or
         "No detection". Those classes are diagnostics, not useful species
         labels, so lower-ranked concrete species should still get a chance.
         """
+        selection = self.select_with_range(
+            classifications,
+            frigate_event,
+            frigate_sub_label,
+            frigate_score,
+            frigate_sub_label_score,
+        )
+        return selection.top, selection.reason
+
+    def select_with_range(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
+    ) -> RangeSelection:
+        """Select as every other rule does, then apply the range rule to that choice (#696).
+
+        A selection the range rule cannot judge (no active list, an unknown-bird
+        catch-all, a label without an exact identity) passes unchanged. An
+        out-of-range selection is replaced by the best in-range lower-ranked
+        output that clears every other rule, or else set aside with the reason
+        ``out_of_range``.
+        """
+        top, reason, index = self._select_unfiltered(
+            classifications,
+            frigate_event,
+            frigate_sub_label,
+            frigate_score,
+            frigate_sub_label_score,
+        )
+        if top is None or reason == "unknown_catchall":
+            return RangeSelection(top, reason)
+        active = range_filter_service.active_list()
+        if active is None:
+            return RangeSelection(top, reason)
+
+        selected = range_filter_service.candidate(top, admissible=True)
+        alternatives: list[RangeCandidate] = []
+        alternative_results: list[tuple[dict | None, str | None]] = []
+        if index is not None and top.get("source") != "frigate_fallback":
+            for classification in list(classifications or [])[index + 1 :]:
+                clean = {key: value for key, value in classification.items() if key != "admission_candidates"}
+                result, result_reason = self.filter_and_label(
+                    clean, frigate_event, frigate_sub_label, frigate_score, frigate_sub_label_score
+                )
+                admissible = (
+                    result is not None
+                    and result_reason in _THRESHOLD_REASONS
+                    and not should_hide_species_label(
+                        result.get("label"), extra_unknown_labels=unknown_species_labels()
+                    )
+                )
+                alternatives.append(range_filter_service.candidate(clean, admissible=admissible))
+                alternative_results.append((result, result_reason))
+
+        decision = decide_range_admission(
+            [selected, *alternatives],
+            active_list=active,
+            threshold=float(settings.classification.threshold or 0.0),
+        )
+        if decision.outcome == "fallback" and decision.chosen_index is not None:
+            chosen = alternatives[decision.chosen_index - 1]
+            chosen_result, chosen_reason = alternative_results[decision.chosen_index - 1]
+            fallback = {
+                **(chosen_result or {}),
+                "range_fallback": {
+                    "original_label": selected.label,
+                    "original_score": selected.score,
+                    "original_species_id": selected.species_id,
+                    "region_code": active.region_code,
+                },
+            }
+            if top.get("admission_candidates"):
+                fallback["admission_candidates"] = top["admission_candidates"]
+            log.info(
+                "Range filter replaced an out-of-range prediction",
+                event_id=frigate_event,
+                original=selected.label,
+                chosen=chosen.label,
+                region=active.region_code,
+            )
+            return RangeSelection(fallback, chosen_reason, decision, chosen)
+        if decision.outcome == "skipped":
+            log.info(
+                "Range filter set aside an out-of-range prediction",
+                event_id=frigate_event,
+                label=selected.label,
+                region=active.region_code,
+            )
+            return RangeSelection(None, "out_of_range", decision)
+        return RangeSelection(top, reason, decision)
+
+    async def record_range_skip(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str | None = None,
+        frigate_score: float | None = None,
+        frigate_sub_label_score: float | None = None,
+        *,
+        camera: str | None,
+        detected_at: datetime | None,
+    ) -> None:
+        """Remember a detection the range rule set aside, so a genuine vagrant can be recovered."""
+        selection = self.select_with_range(
+            classifications, frigate_event, frigate_sub_label, frigate_score, frigate_sub_label_score
+        )
+        decision = selection.decision
+        if decision is None or decision.outcome != "skipped" or decision.original is None:
+            return
+        active = range_filter_service.current_list
+        await range_filter_service.record_decision(
+            frigate_event=frigate_event,
+            outcome="skipped",
+            original_label=decision.original.label,
+            original_score=decision.original.score,
+            original_species_id=decision.original.species_id,
+            chosen_label=None,
+            chosen_score=None,
+            region_code=active.region_code if active else "",
+            camera=camera,
+            detected_at=detected_at,
+        )
+
+    def _select_unfiltered(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
+    ) -> tuple[dict | None, str | None, int | None]:
+        """Every admission rule except range; also returns which output was chosen (None for Frigate's)."""
         last_reason: str | None = None
-        for classification in classifications or []:
+        admission_candidates: list[dict] = []
+        for position, classification in enumerate(classifications or []):
+            classification = {key: value for key, value in classification.items() if key != "admission_candidates"}
             top, reason = self.filter_and_label(
                 classification,
                 frigate_event,
@@ -290,7 +483,22 @@ class DetectionService:
                 frigate_sub_label_score,
             )
             if top:
-                return top, reason
+                if admission_candidates:
+                    top = {**top, "admission_candidates": admission_candidates}
+                return top, reason, position
+            if reason == "blocked_label":
+                label = normalize_classifier_label(classification["label"])
+                threshold, _ = self._required_threshold(label, frigate_sub_label)
+                if float(classification["score"]) >= threshold:
+                    admission_candidates.append(
+                        {
+                            "model_sha256": classification.get("model_sha256"),
+                            "index": classification.get("index"),
+                            "label": label,
+                        }
+                    )
+            if reason == "non_bird":
+                return None, reason, None
             last_reason = reason
         fallback_label = normalize_sub_label(frigate_sub_label)
         if settings.classification.trust_frigate_sublabel and fallback_label:
@@ -299,14 +507,19 @@ class DetectionService:
                 if frigate_sub_label_score is not None
                 else max(settings.classification.min_confidence, settings.classification.threshold)
             )
-            return {
-                "label": fallback_label,
-                "score": final_score,
-                "index": -1,
-                "source": "frigate_fallback",
-                "input_source": "frigate_sublabel",
-            }, "frigate_fallback"
-        return None, last_reason
+            return (
+                {
+                    "label": fallback_label,
+                    "score": final_score,
+                    "index": -1,
+                    "source": "frigate_fallback",
+                    "input_source": "frigate_sublabel",
+                    **({"admission_candidates": admission_candidates} if admission_candidates else {}),
+                },
+                "frigate_fallback",
+                None,
+            )
+        return None, last_reason, None
 
     def select_manual_reclassification(
         self,
@@ -425,6 +638,9 @@ class DetectionService:
         if not math.isfinite(score) or not 0 <= score <= 1:
             log.warning("Refusing to save invalid probability", event_id=frigate_event, score=score)
             return False, False
+        if await self.is_known_nonbird(classification):
+            log.info("Rejected known non-bird model result", event_id=frigate_event)
+            return NonBirdSaveRejection()
         sub_label = normalize_sub_label(sub_label)
 
         # 1. Normalize names (Bidirectional Scientific <-> Common)
@@ -514,6 +730,7 @@ class DetectionService:
 
             detection = Detection(
                 detection_time=timestamp,
+                classification_input=classification_evidence(classification),
                 detection_index=classification["index"],
                 species_id=shadow.species_id,
                 model_artifact_id=shadow.model_artifact_id,
@@ -557,6 +774,22 @@ class DetectionService:
                 await VisitRepository(db).save_event_bounds(frigate_event, start_time, end_time)
             changed = was_inserted or was_updated
 
+            range_fallback = classification.get("range_fallback")
+            if changed and isinstance(range_fallback, dict):
+                await range_filter_service.record_decision(
+                    frigate_event=frigate_event,
+                    outcome="fallback",
+                    original_label=str(range_fallback.get("original_label") or ""),
+                    original_score=float(range_fallback.get("original_score") or 0.0),
+                    original_species_id=range_fallback.get("original_species_id"),
+                    chosen_label=str(classification.get("label") or ""),
+                    chosen_score=score,
+                    region_code=str(range_fallback.get("region_code") or ""),
+                    camera=camera,
+                    detected_at=timestamp,
+                    db=db,
+                )
+
             if changed:
                 persisted = await repo.get_by_frigate_event(frigate_event)
                 log.info(
@@ -598,6 +831,14 @@ class DetectionService:
                             "frigate_score": frigate_score,
                             "sub_label": sub_label,
                             "manual_tagged": persisted.manual_tagged if persisted else detection.manual_tagged,
+                            **{
+                                field: value.model_dump(mode="json")
+                                if isinstance(
+                                    value := getattr(persisted or detection, field, None), ClassificationEvidence
+                                )
+                                else None
+                                for field in ("classification_input", "initial_classification_input")
+                            },
                             "audio_confirmed": audio_confirmed,
                             "audio_species": audio_species,
                             "audio_score": audio_score,
@@ -640,6 +881,45 @@ class DetectionService:
             repo = DetectionRepository(db)
             return await repo.get_by_frigate_event(frigate_event)
 
+    @staticmethod
+    def _range_skips_result(
+        *, label: str, score: float, index: int | None, model_sha256: str | None, owner_confirmed: bool
+    ) -> bool:
+        """Whether the range rule sets aside an asynchronous result for this visit (#696)."""
+        decision = decide_range_admission(
+            [
+                range_filter_service.candidate(
+                    {"label": label, "score": score, "index": index, "model_sha256": model_sha256},
+                    admissible=True,
+                )
+            ],
+            active_list=range_filter_service.active_list(),
+            threshold=float(settings.classification.threshold or 0.0),
+            owner_confirmed=owner_confirmed,
+        )
+        return decision.outcome == "skipped"
+
+    async def automatic_species_refusal(
+        self, *, label: str, score: float, index: int | None, model_sha256: str | None = None
+    ) -> str | None:
+        """Why ``apply_video_result`` would refuse to name a visit ``label`` automatically, or None.
+
+        The same species gates the automatic write applies: Unknown or abstention labels,
+        catalogued non-birds, blocked species and the range rule. Score and identity-specific
+        gates are not judged here.
+        """
+        if should_hide_species_label(normalize_classifier_label(label)):
+            return "unknown"
+        if await self.is_known_nonbird({"model_sha256": model_sha256, "index": index, "label": label}):
+            return "non_bird"
+        if await self._is_blocked_with_taxonomy(label=label):
+            return "blocked"
+        if self._range_skips_result(
+            label=label, score=score, index=index, model_sha256=model_sha256, owner_confirmed=False
+        ):
+            return "out_of_range"
+        return None
+
     async def apply_video_result(
         self,
         frigate_event: str,
@@ -654,18 +934,34 @@ class DetectionService:
         video_diagnostics: dict | None = None,
         persist_video_result: bool = True,
         video_model_sha256: str | None = None,
-    ):
+        input_evidence: ClassificationEvidence | None = None,
+        admission_candidates: list[dict] | None = None,
+        range_fallback: dict | None = None,
+        whole_frame_correction_of: ClassificationEvidence | None = None,
+    ) -> bool | None | NonBirdSaveRejection:
         """
         Process a trustworthy asynchronous classification result.
 
         ``persist_video_result`` is false for HQ crop consensus so refinement cannot mark a
         concurrently running deep-video job complete or replace its provenance columns.
 
+        ``whole_frame_correction_of`` is the whole-frame input an HQ crop consensus is
+        correcting. That correction never touches a hidden visit, and the write applies only
+        while the visit is still visible and still carries that input.
+
         Override the primary ID when:
         - the action is an explicit/manual reclassification, or
         - the existing primary ID is an unknown-bird label, or
         - the video score clears a reliability gate for automated promotion.
         """
+        known_nonbird = await self.is_known_nonbird(
+            {
+                "model_sha256": video_model_sha256,
+                "index": video_index,
+                "label": video_label,
+                "admission_candidates": admission_candidates or [],
+            }
+        )
         async with get_db() as db:
             repo = DetectionRepository(db)
             existing = await repo.get_by_frigate_event(frigate_event)
@@ -678,7 +974,7 @@ class DetectionService:
             # caught when video analysis promotes it under a different name variant — the
             # raw label alone can't be bridged to the blocked entry. Parenthetical-stripped
             # forms (e.g. "Cassin's Finch (Adult Male)") are handled by the matcher.
-            is_blocked = await self._is_blocked_with_taxonomy(
+            is_blocked = known_nonbird or await self._is_blocked_with_taxonomy(
                 label=video_label,
                 extra_labels=[UNKNOWN_BIRD_DISPLAY_LABEL] if should_hide_species_label(video_label) else [],
                 repo=repo,
@@ -707,11 +1003,11 @@ class DetectionService:
 
             if is_blocked:
                 log.debug(
-                    "Video result is a blocked species; recorded but not promoted",
+                    "Video result is ineligible for bird history; recorded but not promoted",
                     label=video_label,
                     event_id=frigate_event,
                 )
-                return False
+                return NonBirdSaveRejection() if known_nonbird else False
 
             if getattr(existing, "manual_tagged", False) is True and not manual_tagged:
                 log.info(
@@ -722,11 +1018,35 @@ class DetectionService:
                 )
                 return False
 
+            if whole_frame_correction_of is not None and getattr(existing, "is_hidden", False):
+                log.info(
+                    "Whole-frame correction skipped because the owner hid the visit",
+                    event_id=frigate_event,
+                    video_label=normalized_video_label,
+                )
+                return False
+
             if hidden_video_label and not manual_tagged:
                 log.debug(
                     "Video analysis produced Unknown; recording completion without promotion",
                     event_id=frigate_event,
                     video_score=video_score,
+                )
+                return False
+
+            # An explicit reclassification already chose an in-range result when it
+            # selected this one; automatic refinements meet the rule here (#696).
+            if self._range_skips_result(
+                label=video_label,
+                score=video_score,
+                index=video_index,
+                model_sha256=video_model_sha256,
+                owner_confirmed=manual_tagged,
+            ):
+                log.info(
+                    "Out-of-range refinement recorded without replacing the identification",
+                    event_id=frigate_event,
+                    video_label=normalized_video_label,
                 )
                 return False
 
@@ -889,17 +1209,40 @@ class DetectionService:
                     audio_species=audio_species,
                     audio_score=audio_score,
                     manual_override=manual_tagged,
+                    classification_input=input_evidence
+                    or classification_evidence(
+                        {
+                            "input_source": video_input_source,
+                        }
+                    ),
                     species_id=shadow.species_id,
                     model_artifact_id=shadow.model_artifact_id,
                     model_output_index=shadow.model_output_index,
+                    whole_frame_correction_of=whole_frame_correction_of,
                 )
                 if not primary_updated:
                     log.info(
-                        "Primary refinement skipped because identification became manual",
+                        "Whole-frame correction skipped because the visit changed before the write"
+                        if whole_frame_correction_of is not None
+                        else "Primary refinement skipped because identification became manual",
                         event_id=frigate_event,
                         video_label=new_species,
                     )
                     return False
+                if isinstance(range_fallback, dict):
+                    await range_filter_service.record_decision(
+                        frigate_event=frigate_event,
+                        outcome="fallback",
+                        original_label=str(range_fallback.get("original_label") or ""),
+                        original_score=float(range_fallback.get("original_score") or 0.0),
+                        original_species_id=range_fallback.get("original_species_id"),
+                        chosen_label=new_species,
+                        chosen_score=video_score,
+                        region_code=str(range_fallback.get("region_code") or ""),
+                        camera=existing.camera_name,
+                        detected_at=existing.detection_time,
+                        db=db,
+                    )
 
                 # Broadcast the update
                 updated = await repo.get_by_frigate_event(frigate_event)
@@ -925,6 +1268,12 @@ class DetectionService:
                                 "is_hidden": updated.is_hidden,
                                 "is_favorite": updated.is_favorite,
                                 "manual_tagged": updated.manual_tagged,
+                                **{
+                                    field: value.model_dump(mode="json")
+                                    if isinstance(value := getattr(updated, field, None), ClassificationEvidence)
+                                    else None
+                                    for field in ("classification_input", "initial_classification_input")
+                                },
                                 "audio_confirmed": updated.audio_confirmed,
                                 "audio_species": updated.audio_species,
                                 "audio_score": updated.audio_score,
@@ -944,7 +1293,6 @@ class DetectionService:
                             },
                         }
                     )
-                return True
             else:
                 log.debug(
                     "Video analysis completed but did not override primary ID",
@@ -961,3 +1309,19 @@ class DetectionService:
                     video_score=video_score,
                 )
                 return False
+        # Only a promoted identification reaches this point. It runs after the database block,
+        # so moving a renamed kept bird to Garden starts from the committed rename.
+        if not manual_tagged:
+            from app.services.garden_domestic_service import garden_domestic_service
+
+            # The rename is already saved; a failed move leaves the visit in bird history,
+            # where Move to Garden still offers it, rather than failing the identification job.
+            try:
+                await garden_domestic_service.move_renamed_detection(frigate_event)
+            except Exception as exc:
+                log.warning(
+                    "Kept bird stayed in bird history after its rename",
+                    event_id=frigate_event,
+                    error=type(exc).__name__,
+                )
+        return True

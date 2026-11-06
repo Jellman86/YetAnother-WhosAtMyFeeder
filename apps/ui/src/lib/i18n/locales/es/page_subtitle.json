@@ -1,0 +1,10 @@
+{
+  "audio_history": "Explora las detecciones persistentes de BirdNET-Go y la actividad solo de audio.",
+  "about": "Versión, registro de cambios, colaboradores y enlaces de soporte.",
+  "dashboard": "Detecciones en vivo, actividad reciente y estado del comedero de un vistazo.",
+  "events": "Explora, filtra y gestiona cada visita clasificada.",
+  "add_observation": "Clasifica una foto o un vídeo, revisa las pruebas y añádelo a tu historial.",
+  "notifications": "Alertas, recordatorios y trabajos en segundo plano activos.",
+  "settings": "Conexiones, clasificación, integraciones y personalización.",
+  "species": "Clasificación, totales y detalles de taxonomía de las aves que has visto."
+}

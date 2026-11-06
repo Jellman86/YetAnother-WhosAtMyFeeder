@@ -38,11 +38,7 @@ class Broadcaster:
 
         for queue in queues_snapshot:
             try:
-                # If the queue's put method has been monkey-patched (tests), call it to surface errors.
-                if getattr(queue.put, "__func__", None) is not asyncio.Queue.put:
-                    await queue.put(message)
-                else:
-                    queue.put_nowait(message)
+                queue.put_nowait(message)
 
                 # Reset full count on successful delivery
                 if queue in self._full_counts:

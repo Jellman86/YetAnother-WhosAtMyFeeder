@@ -19,13 +19,32 @@ promise.
 Before writing, collect:
 
 - the previous and new tags;
-- the matching `CHANGELOG.md` section;
+- the matching `CHANGELOG.md` section, after the fragments are folded (below);
 - the green tag build, test, migration checks, all four x86 image builds, per-image
   startup checks, shared-volume flavor-switch gate, and final tag promotion;
 - any migration, configuration, downtime, hardware, model, or compatibility action;
 - any privacy, retention, or public-access boundary affected by the release;
 - issue authors and people who supplied recordings, diagnostics, reproduction or retests,
   including contributors to relevant issues that remain open.
+
+## Fold the changelog
+
+Between releases each pull request adds one fragment under
+[`changelog.d/`](../../changelog.d/README.md) instead of editing `## [Unreleased]`.
+On the release branch, after bumping `VERSION`, fold them from the repository root:
+
+```bash
+python backend/scripts/assemble_changelog.py --preview                  # read the entries first
+python backend/scripts/assemble_changelog.py --release "$(cat VERSION)" --date YYYY-MM-DD
+```
+
+The release writes `## [<version>] - <date>` under an empty `## [Unreleased]`. It lists
+the fragments in file-name order, then any entries already written directly under
+Unreleased, and deletes the folded fragments. It changes nothing if a fragment is
+malformed or duplicated, if `VERSION` differs, or if the version heading already
+exists. Tidy wording or grouping in `CHANGELOG.md` afterwards if needed; the result
+is the record the release notes are written from. Commit the changelog and the
+deleted fragments together.
 
 ## Write for the update decision
 
@@ -69,6 +88,17 @@ fault still needs investigation, and state that limitation alongside any fix cla
 Use the [v2.22.0 notes](../releases/v2.22.0.md) as an example. Keep future drafts explicitly
 unpublished until their version, scope and tag evidence are known, and use exact tag links.
 
+## Build inputs
+
+Workflow Actions use immutable commit references with version comments so dependency automation
+can propose reviewed updates. Run `python backend/scripts/check_action_pins.py` and
+`python -m pytest backend/tests/pure/test_action_pins.py` before changing workflows. CI runs the
+policy and includes its tests in the required backend gate. Local Actions remain local, and container Actions require a digest.
+
+Image build contexts exclude local `.env` files; example templates remain available. Both the
+monolith and standalone frontend use `npm ci` with the committed lockfile. Supply runtime secrets
+through the deployment's variable store rather than including them in an image build context.
+
 ## Publish checklist
 
 - [ ] The release title and tag match the application version.
@@ -76,6 +106,7 @@ unpublished until their version, scope and tag evidence are known, and use exact
   the application version, so a bump after the freshness check leaves it stale and CI rejects the
   release branch. Run `python scripts/export_openapi.py` and `python scripts/export_openapi_types.py`
   from `backend/` after the bump, then re-run both with `--check`.
+- [ ] `changelog.d/` holds only its README: every fragment was folded under the release heading.
 - [ ] The exact tag's CI and migration checks are green.
 - [ ] Full, CPU, Intel, and CUDA images all started successfully from the same commit.
 - [ ] The full → CPU → full persistence gate passed before release and `latest*` tags were promoted.

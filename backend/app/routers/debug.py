@@ -13,30 +13,10 @@ from app.auth import AuthContext, require_owner
 from app.config import settings
 from app.database import get_db
 from app.repositories.debug_repository import DebugRepository
+from app.utils.diagnostic_redaction import REDACTED_VALUE, sensitive_key, safe_error_message
 
 router = APIRouter()
 
-REDACTED_VALUE = "***REDACTED***"
-SENSITIVE_CONFIG_KEYS = frozenset(
-    {
-        "api_key",
-        "frigate_auth_token",
-        "mqtt_password",
-        "station_token",
-        "webhook_url",
-        "user_key",
-        "api_token",
-        "bot_token",
-        "chat_id",
-        "smtp_password",
-        "gmail_client_secret",
-        "outlook_client_secret",
-        "client_secret",
-        "oauth_client_secret",
-        "token",
-        "password",
-    }
-)
 MODEL_DIRECTORY = Path("/data/models")
 
 
@@ -74,11 +54,15 @@ class SystemDebugResponse(BaseModel):
     disk_usage: tuple[int, int, int]
 
 
+def _is_sensitive_key(key: str) -> bool:
+    return sensitive_key(key)
+
+
 def redact_config(value: JsonValue) -> JsonValue:
     """Return a structurally equivalent copy with non-empty secrets redacted."""
     if isinstance(value, dict):
         return {
-            key: REDACTED_VALUE if key in SENSITIVE_CONFIG_KEYS and item else redact_config(item)
+            key: REDACTED_VALUE if _is_sensitive_key(key) and item else redact_config(item)
             for key, item in value.items()
         }
     if isinstance(value, list):
@@ -118,7 +102,7 @@ async def debug_connectivity(_auth: AuthContext = Depends(require_owner)) -> Con
             resp = await client.get(f"{settings.frigate.frigate_url}/api/version")
             results["frigate"] = ConnectivityResult(status="ok", version=resp.text.strip())
     except httpx.HTTPError as exc:
-        results["frigate"] = ConnectivityResult(status="error", error=str(exc))
+        results["frigate"] = ConnectivityResult(status="error", error=safe_error_message(exc))
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -128,7 +112,7 @@ async def debug_connectivity(_auth: AuthContext = Depends(require_owner)) -> Con
             else:
                 results["inaturalist"] = ConnectivityResult(status="error", code=resp.status_code)
     except httpx.HTTPError as exc:
-        results["inaturalist"] = ConnectivityResult(status="error", error=str(exc))
+        results["inaturalist"] = ConnectivityResult(status="error", error=safe_error_message(exc))
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -138,7 +122,7 @@ async def debug_connectivity(_auth: AuthContext = Depends(require_owner)) -> Con
             else:
                 results["telemetry"] = ConnectivityResult(status="error", code=resp.status_code)
     except httpx.HTTPError as exc:
-        results["telemetry"] = ConnectivityResult(status="error", error=str(exc))
+        results["telemetry"] = ConnectivityResult(status="error", error=safe_error_message(exc))
 
     return ConnectivityResponse.model_validate(results)
 

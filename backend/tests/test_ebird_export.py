@@ -2,7 +2,7 @@ import csv
 import io
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
 import pytest
@@ -563,6 +563,119 @@ async def test_ebird_export_excludes_unknown_bird_rows(client: httpx.AsyncClient
     assert _read_csv_rows(response.text) == []
 
 
+class _ExportEvidenceResolver:
+    """Catalogue evidence: index 0 of artifact 7 is a bird, index 1 a squirrel.
+
+    Like the real resolver, an output's group only counts when it binds to
+    the row's current scientific name; a corrected identity no longer
+    matches the output that produced the original name."""
+
+    _OUTPUT_NAMES = {0: "Cyanistes caeruleus", 1: "Sciurus carolinensis"}
+
+    def ensure_loaded(self) -> bool:
+        return True
+
+    def model_sha256_for_artifact_id(self, artifact_id):
+        return "a" * 64 if artifact_id == 7 else None
+
+    def cached_output_group(self, model_sha256, output_index, label):
+        if self._OUTPUT_NAMES.get(output_index) != label:
+            return "unknown"
+        return {0: "bird", 1: "nonbird"}.get(output_index, "unknown")
+
+    def cached_species_group(self, scientific_name):
+        return {"Cyanistes caeruleus": "bird", "Sciurus carolinensis": "nonbird"}.get(
+            str(scientific_name or ""), "unknown"
+        )
+
+
+async def _set_export_provenance(frigate_event: str, *, manual_tagged: bool, artifact_id, output_index) -> None:
+    async with get_db() as db:
+        await db.execute(
+            "UPDATE detections SET manual_tagged = ?, model_artifact_id = ?, model_output_index = ? WHERE frigate_event = ?",
+            (1 if manual_tagged else 0, artifact_id, output_index, frigate_event),
+        )
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_ebird_export_excludes_positively_evidenced_nonbirds_but_keeps_owner_corrections(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    from app.routers import ebird as ebird_router
+
+    monkeypatch.setattr(ebird_router, "species_catalog_resolver", _ExportEvidenceResolver(), raising=False)
+    when = datetime(2026, 3, 12, 12, 30, 0)
+
+    bird = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=bird,
+        detection_time=when,
+        score=0.9,
+        display_name="Blue Tit",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
+    await _set_export_provenance(bird, manual_tagged=False, artifact_id=7, output_index=0)
+
+    squirrel = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=squirrel,
+        detection_time=when,
+        score=0.9,
+        display_name="Eastern Gray Squirrel",
+        scientific_name="Sciurus carolinensis",
+        common_name="Eastern Gray Squirrel",
+    )
+    await _set_export_provenance(squirrel, manual_tagged=False, artifact_id=7, output_index=1)
+
+    confirmed_squirrel = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=confirmed_squirrel,
+        detection_time=when,
+        score=0.9,
+        display_name="Eastern Gray Squirrel",
+        scientific_name="Sciurus carolinensis",
+        common_name="Eastern Gray Squirrel",
+        camera_name="garden",
+    )
+    # Confirming an unchanged identity is also manual_tagged; the evidence
+    # still binds to the current name, so it stays out.
+    await _set_export_provenance(confirmed_squirrel, manual_tagged=True, artifact_id=7, output_index=1)
+
+    corrected = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=corrected,
+        detection_time=when,
+        score=0.9,
+        display_name="Blue Tit",
+        scientific_name="Cyanistes caeruleus",
+        common_name="Blue Tit",
+    )
+    # The owner corrected what the squirrel output produced; the stale
+    # model index must not veto their current identity.
+    await _set_export_provenance(corrected, manual_tagged=True, artifact_id=7, output_index=1)
+
+    uncatalogued = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(
+        frigate_event=uncatalogued,
+        detection_time=when,
+        score=0.9,
+        display_name="House Sparrow",
+        scientific_name="Passer domesticus",
+        common_name="House Sparrow",
+    )
+
+    response = await client.get("/api/ebird/export")
+
+    assert response.status_code == 200, response.text
+    assert "Squirrel" not in response.text
+    assert "Sciurus" not in response.text
+    names = [row[0] for row in _read_csv_rows(response.text)]
+    assert sorted(names) == ["Blue Tit", "House Sparrow"], names
+    assert "House Sparrow" in names, "absent evidence must not prove a non-bird"
+
+
 @pytest.mark.asyncio
 async def test_ebird_export_falls_back_to_scientific_name_when_common_name_missing(client: httpx.AsyncClient):
     """When all stored names are non-ASCII and iNaturalist is unavailable,
@@ -803,3 +916,73 @@ async def test_ebird_export_uses_taxonomy_translations_english_via_scientific_na
     rows = _read_csv_rows(response.text)
     assert len(rows) == 1
     assert rows[0][0] == "Eurasian Blue Tit"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("guest_token", [False, True])
+async def test_precise_export_rejects_guests_before_reading_private_history(client, monkeypatch, guest_token):
+    from app.auth import AuthLevel, create_access_token
+    from app.routers import ebird
+
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "show_camera_names", False)
+    monkeypatch.setattr(settings.public_access, "show_historical_days", 1)
+    monkeypatch.setattr(settings.public_access, "location_precision", "approximate")
+    await _insert_detection(
+        frigate_event="private-export-fixture",
+        detection_time=datetime(2020, 1, 1),
+        score=0.9,
+        display_name="European Robin",
+        scientific_name="Erithacus rubecula",
+        common_name="European Robin",
+        camera_name="private-fixture-camera",
+    )
+    load = Mock()
+    monkeypatch.setattr(ebird.species_catalog_resolver, "ensure_loaded", load)
+    headers = (
+        {"Authorization": f"Bearer {create_access_token('guest', auth_level=AuthLevel.GUEST)}"} if guest_token else {}
+    )
+    response = await client.get("/api/ebird/export", headers=headers)
+    assert response.status_code == 403
+    assert "private-fixture-camera" not in response.text
+    assert "51.501" not in response.text
+    load.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["owner", "legacy_header", "legacy_query", "auth_disabled"])
+async def test_precise_export_preserves_authorized_offline_access(client, monkeypatch, mode):
+    from app.auth import create_access_token
+
+    monkeypatch.setattr(settings.auth, "enabled", mode != "auth_disabled")
+    monkeypatch.setattr(settings.public_access, "enabled", mode in {"owner", "auth_disabled"})
+    monkeypatch.setattr(settings, "api_key", "DUMMY-EXPORT-LEGACY-KEY")
+    monkeypatch.setattr(settings.ebird, "enabled", False)
+    monkeypatch.setattr(settings.ebird, "api_key", None)
+    await _insert_detection(
+        frigate_event="owner-export-fixture",
+        detection_time=datetime(2020, 1, 1),
+        score=0.9,
+        display_name="European Robin",
+        scientific_name="Erithacus rubecula",
+        common_name="European Robin",
+        camera_name="private-fixture-camera",
+    )
+    headers = {"Authorization": f"Bearer {create_access_token('owner')}"} if mode == "owner" else {}
+    if mode == "legacy_header":
+        headers["X-API-Key"] = "DUMMY-EXPORT-LEGACY-KEY"
+    params = {"api_key": "DUMMY-EXPORT-LEGACY-KEY"} if mode == "legacy_query" else {}
+    response = await client.get("/api/ebird/export", headers=headers, params=params)
+    assert response.status_code == 200
+    assert "private-fixture-camera" in response.text
+    assert "51.501" in response.text
+    assert "01/01/2020" in response.text
+
+
+@pytest.mark.asyncio
+async def test_precise_export_requires_authentication_when_private(client, monkeypatch):
+    monkeypatch.setattr(settings.auth, "enabled", True)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    response = await client.get("/api/ebird/export")
+    assert response.status_code == 401

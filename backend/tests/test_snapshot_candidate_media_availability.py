@@ -7,7 +7,7 @@ import pytest
 
 from app.routers import proxy
 from app.services import media_cache as cache
-from test_media_cache import _make_service
+from tests.pure.test_media_cache import _make_service
 from test_proxy import client as client
 
 

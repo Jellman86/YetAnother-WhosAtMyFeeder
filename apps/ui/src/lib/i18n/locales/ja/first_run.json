@@ -1,0 +1,17 @@
+{
+  "title": "YA-WAMFへようこそ",
+  "subtitle": "管理者パスワードを設定してインストールを保護します。",
+  "language_label": "言語",
+  "language_desc": "後で設定から変更できます。",
+  "admin_username": "管理者ユーザー名",
+  "password": "パスワード",
+  "password_hint": "8文字以上",
+  "confirm_password": "パスワードの確認",
+  "skip_auth": "認証をスキップ（非推奨）",
+  "setting_up": "設定中…",
+  "continue_without_password": "パスワードなしで続行",
+  "set_password": "パスワードを設定して続行",
+  "password_mismatch": "パスワードが一致しません",
+  "password_min": "パスワードは8文字以上必要です",
+  "setup_failed": "セットアップに失敗しました"
+}

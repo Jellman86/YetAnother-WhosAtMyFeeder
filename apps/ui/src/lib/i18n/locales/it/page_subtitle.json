@@ -1,0 +1,10 @@
+{
+  "audio_history": "Sfoglia i rilevamenti BirdNET-Go salvati e l'attività solo audio.",
+  "about": "Versione, changelog, collaboratori e link al supporto.",
+  "dashboard": "Rilevamenti in tempo reale, attività recente e salute della mangiatoia a colpo d'occhio.",
+  "events": "Sfoglia, filtra e gestisci ogni visita classificata.",
+  "add_observation": "Classifica una foto o un video, verifica gli indizi e aggiungilo alla cronologia.",
+  "notifications": "Avvisi, promemoria e job attivi in background.",
+  "settings": "Connessioni, classificazione, integrazioni e personalizzazione.",
+  "species": "Classifica, totali e dettagli tassonomici degli uccelli avvistati."
+}

@@ -209,6 +209,7 @@ interface LiveUpdateDeps {
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
     onPublicHistoryChanged?: () => void;
+    onGardenHistoryChanged?: () => void;
     onPublicAccessChanged?: () => void;
 }
 
@@ -232,6 +233,8 @@ export function toDetection(data: SseData): Detection {
         frigate_score: data.frigate_score,
         sub_label: data.sub_label,
         manual_tagged: data.manual_tagged,
+        classification_input: data.classification_input,
+        initial_classification_input: data.initial_classification_input,
         audio_confirmed: data.audio_confirmed,
         audio_species: data.audio_species,
         audio_score: data.audio_score,
@@ -448,6 +451,11 @@ export class LiveUpdateCoordinator {
             }
 
             if (payload.type === 'heartbeat') {
+                return;
+            }
+
+            if (payload.type === 'garden_history_changed') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onGardenHistoryChanged?.();
                 return;
             }
 

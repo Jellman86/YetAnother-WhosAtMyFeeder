@@ -1,0 +1,22 @@
+{
+  "dashboard": "仪表盘",
+  "explorer": "探索",
+  "add_observation": "添加观察",
+  "leaderboard": "排行榜",
+  "observe": "观察",
+  "manage": "管理",
+  "audio_history": "音频历史",
+  "settings": "设置",
+  "setup_wizard": "设置向导",
+  "about": "关于",
+  "toggle_menu": "切换菜单",
+  "collapse_sidebar": "收起侧边栏",
+  "expand_sidebar": "展开侧边栏",
+  "jobs": "任务",
+  "close_menu": "关闭菜单",
+  "close_language_selector": "关闭语言选择器",
+  "events": "事件",
+  "notifications": "通知",
+  "species": "物种",
+  "navigation": "主导航"
+}

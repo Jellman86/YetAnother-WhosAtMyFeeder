@@ -1,4 +1,4 @@
-from typing import Callable, Any, Optional
+from typing import Callable, Collection, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -8,13 +8,22 @@ import re
 import time
 import unicodedata
 import structlog
+from pydantic import ValidationError
+from app.models.classification_evidence import ClassificationEvidence
 from app.utils.frigate import normalize_sub_label
 from app.utils.canonical_species import (
     hidden_species_exact_labels,
     hidden_species_substrings,
     should_hide_species_label,
 )
-from app.utils.api_datetime import serialize_api_datetime, serialize_storage_datetime, utc_naive_now
+from app.repositories.audio_history_repository import public_audio_evidence_sql
+from app.repositories.catalogue_identity import species_ids_condition
+from app.utils.api_datetime import (
+    parse_storage_datetime as _parse_datetime,
+    serialize_storage_datetime,
+    utc_naive_now,
+)
+from app.utils.birdnet_payload import normalize_mapping_key, parse_mapping_filter_values
 
 log = structlog.get_logger()
 
@@ -57,62 +66,6 @@ def _history_bounds_sql(start_date: datetime | None, end_date: datetime | None, 
         sql += f" AND {column} < ?"
         params.append(serialize_storage_datetime(end_date))
     return sql, params
-
-
-def _audio_species_matches(species: object, scientific_name: object, primary: object) -> bool:
-    key = str(primary or "").strip().casefold()
-    return bool(key) and key in {str(species or "").strip().casefold(), str(scientific_name or "").strip().casefold()}
-
-
-async def _public_audio_conditions_sql(db: aiosqlite.Connection, *, match_species: bool = True) -> tuple[str, list]:
-    from app.config import settings
-    from app.utils.public_access import public_events_window
-
-    mappings = {
-        camera: _parse_mapping_filter_values(value)
-        for camera, value in (settings.frigate.camera_audio_mapping or {}).items()
-    }
-
-    def mapping_matches(camera: str, sensor: str | None, raw: str | None) -> bool:
-        wildcard, keys = mappings.get(camera, (False, set()))
-        return wildcard or bool(keys.intersection(_extract_audio_mapping_keys(sensor, raw)))
-
-    def window_bound(stamp: str, seconds: int) -> str | None:
-        try:
-            return serialize_storage_datetime(datetime.fromisoformat(stamp) + timedelta(seconds=seconds))
-        except (ValueError, TypeError):
-            return None
-
-    await db.create_function("public_audio_mapping_matches", 3, mapping_matches, deterministic=True)
-    await db.create_function("public_audio_species_matches", 3, _audio_species_matches, deterministic=True)
-    await db.create_function("public_audio_window_bound", 2, window_bound, deterministic=True)
-    public_start, public_end = public_events_window()
-    seconds = int(settings.frigate.audio_correlation_window_seconds)
-    # Competing inequalities let SQLite seek the whole shared-history range and
-    # evaluate the capture bound once per audio row. One intersected range makes
-    # the timestamp index seek only this capture's authorized correlation window.
-    sql = """a.is_hidden = 0
-        AND a.timestamp >= MAX(?, public_audio_window_bound(d.detection_time, ?))"""
-    params = [serialize_storage_datetime(public_start), -seconds]
-    if public_end is None:
-        sql += " AND a.timestamp <= public_audio_window_bound(d.detection_time, ?)"
-        params.append(seconds)
-    else:
-        end = serialize_storage_datetime(public_end)
-        sql += """ AND a.timestamp <= MIN(?, public_audio_window_bound(d.detection_time, ?))
-            AND a.timestamp <> ?"""
-        # MIN caps the inclusive seek at midnight; excluding that exact endpoint
-        # retains the public window's exclusive end without a competing range.
-        params.extend([end, seconds, end])
-    sql += " AND public_audio_mapping_matches(d.camera_name, a.sensor_id, a.raw_data)"
-    if match_species:
-        sql += " AND public_audio_species_matches(a.species, a.scientific_name, d.audio_species)"
-    return sql, params
-
-
-async def _public_audio_evidence_sql(db: aiosqlite.Connection) -> tuple[str, list]:
-    conditions, params = await _public_audio_conditions_sql(db)
-    return f"EXISTS (SELECT 1 FROM audio_detections a WHERE {conditions})", params
 
 
 def _fold_same_bird(rows: list[dict], combine: Callable[[dict, dict], None]) -> list[dict]:
@@ -237,7 +190,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
                       d.video_classification_input_source, d.video_classification_diagnostics,
                       d.species_id, d.model_artifact_id, d.model_output_index,
-                      f.archive_snapshot_state, f.archive_clip_state"""
+                      f.archive_snapshot_state, f.archive_clip_state, d.classification_input_json,
+                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id)"""
 
 
 @dataclass
@@ -253,6 +207,8 @@ class Detection:
     is_hidden: bool = False
     is_favorite: bool = False
     archive_state: Optional[str] = None
+    classification_input: ClassificationEvidence | None = None
+    initial_classification_input: ClassificationEvidence | None = None
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
     manual_tagged: bool = False
@@ -310,23 +266,6 @@ class TimezoneRepairRow:
     display_name: str
 
 
-def _parse_datetime(value: object) -> datetime:
-    """Parse datetime from SQLite storage format."""
-    if isinstance(value, datetime):
-        return value
-    if isinstance(value, str):
-        # Try ISO format first, then common SQLite formats
-        for fmt in (None, "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M:%S.%f"):
-            try:
-                if fmt is None:
-                    return datetime.fromisoformat(value)
-                return datetime.strptime(value, fmt)
-            except ValueError:
-                continue
-    # Return current time as fallback (shouldn't happen with valid data)
-    return utc_naive_now()
-
-
 def _normalize_species_lookup_name(value: str | None) -> str:
     """Normalize species names for accent-insensitive fallback matching."""
     if not value:
@@ -336,84 +275,6 @@ def _normalize_species_lookup_name(value: str | None) -> str:
     normalized = re.sub(r"[_\-]+", " ", normalized)
     normalized = re.sub(r"[^\w\s]", " ", normalized, flags=re.UNICODE)
     return re.sub(r"\s+", " ", normalized).strip()
-
-
-def _normalize_mapping_key(value: str | None) -> str:
-    if not value:
-        return ""
-    return str(value).strip().casefold()
-
-
-def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
-    if not isinstance(mapping_value, str):
-        return False, set()
-    tokens = {_normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", mapping_value)}
-    tokens.discard("")
-    if "*" in tokens:
-        return True, set()
-    return False, tokens
-
-
-def _extract_audio_mapping_keys(sensor_id: str | None, raw_data: str | None) -> set[str]:
-    keys: set[str] = set()
-    normalized_sensor = _normalize_mapping_key(sensor_id)
-    if normalized_sensor:
-        keys.add(normalized_sensor)
-
-    if not raw_data:
-        return keys
-
-    try:
-        payload = json.loads(raw_data)
-    except Exception:
-        return keys
-
-    if not isinstance(payload, dict):
-        return keys
-
-    source = payload.get("Source")
-    source = source if isinstance(source, dict) else {}
-    for candidate in (
-        payload.get("nm"),
-        payload.get("sourceName"),
-        source.get("displayName"),
-        payload.get("src"),
-        payload.get("sourceId"),
-        source.get("id"),
-        payload.get("id"),
-        payload.get("sensor_id"),
-    ):
-        normalized = _normalize_mapping_key(candidate)
-        if normalized:
-            keys.add(normalized)
-    return keys
-
-
-def _extract_birdnet_source_name(sensor_id: str | None, raw_data: str | None) -> str | None:
-    """Return the best human-readable BirdNET source label for history views."""
-    if raw_data:
-        try:
-            payload = json.loads(raw_data)
-        except Exception:
-            payload = None
-        if isinstance(payload, dict):
-            source = payload.get("Source")
-            source = source if isinstance(source, dict) else {}
-            for candidate in (
-                payload.get("nm"),
-                payload.get("sourceName"),
-                source.get("displayName"),
-                sensor_id,
-                payload.get("sourceId"),
-                payload.get("src"),
-                source.get("id"),
-            ):
-                if isinstance(candidate, str) and candidate.strip():
-                    return candidate.strip()
-
-    if isinstance(sensor_id, str) and sensor_id.strip():
-        return sensor_id.strip()
-    return None
 
 
 def match_audio_history_visual_events(
@@ -441,7 +302,7 @@ def match_audio_history_visual_events(
         audio_keys = {
             normalized
             for value in audio_item.get("_mapping_keys", set())
-            if (normalized := _normalize_mapping_key(value))
+            if (normalized := normalize_mapping_key(value))
         }
 
         ranked: list[tuple[float, float, float, str]] = []
@@ -459,7 +320,7 @@ def match_audio_history_visual_events(
                 continue
 
             mapping_value = camera_audio_mapping.get(str(candidate.get("camera_name") or ""))
-            wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
+            wildcard_mapping, mapping_keys = parse_mapping_filter_values(mapping_value)
             if not wildcard_mapping and not audio_keys.intersection(mapping_keys):
                 continue
 
@@ -566,7 +427,24 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
     if len(row) > 50 and d.is_favorite:
         d.archive_state = derive_archive_state(row[49], row[50])
 
+    if len(row) > 52:
+        d.classification_input = _parse_classification_input(row[51])
+        d.initial_classification_input = _parse_classification_input(row[52])
+
     return d
+
+
+def _parse_classification_input(value: object) -> ClassificationEvidence | None:
+    if not isinstance(value, (str, bytes)):
+        return None
+    try:
+        return ClassificationEvidence.model_validate_json(value)
+    except ValidationError:
+        return None
+
+
+def _classification_input_json(evidence: ClassificationEvidence | None) -> str | None:
+    return evidence.model_dump_json() if evidence else None
 
 
 ARCHIVE_STATES = ("pending", "durable", "unavailable", "failed")
@@ -1008,11 +886,14 @@ class DetectionRepository:
         return (
             f"LEFT JOIN taxonomy_cache {taxonomy_alias} "
             f"ON ("
-            f"({detection_alias}.scientific_name IS NOT NULL AND LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.scientific_name)) "
-            f"OR ({detection_alias}.scientific_name IS NULL AND ("
-            f"LOWER({taxonomy_alias}.scientific_name) = LOWER({detection_alias}.display_name) "
-            f"OR LOWER({taxonomy_alias}.common_name) = LOWER({detection_alias}.display_name)"
-            f")))"
+            # Keep each OR arm indexable. Nesting the scientific/common-name
+            # alternatives under a null check makes SQLite scan taxonomy_cache
+            # per capture, despite the existing lowercased-name indexes (#762).
+            f"LOWER({taxonomy_alias}.scientific_name) = "
+            f"LOWER(COALESCE({detection_alias}.scientific_name, {detection_alias}.display_name)) "
+            f"OR ({detection_alias}.scientific_name IS NULL AND "
+            f"LOWER({taxonomy_alias}.common_name) = LOWER({detection_alias}.display_name))"
+            f")"
         )
 
     async def _build_canonical_species_condition(
@@ -1418,6 +1299,8 @@ class DetectionRepository:
         species_id: int | None = None,
         model_artifact_id: int | None = None,
         model_output_index: int | None = None,
+        classification_input: ClassificationEvidence | None = None,
+        whole_frame_correction_of: ClassificationEvidence | None = None,
     ) -> bool:
         """Update the canonical identity without racing a manual correction.
 
@@ -1425,7 +1308,15 @@ class DetectionRepository:
         columns, but they must never replace an identity a user has confirmed.
         The permission check belongs in the same SQL statement as the write so a
         concurrent manual tag cannot be lost between a service read and update.
+
+        ``whole_frame_correction_of`` marks a crop-consensus correction of a name read
+        from one whole frame. It is applied only while the visit is still visible and
+        still carries exactly that whole-frame input, so hiding the visit, or a newer
+        identification landing, after the service's read wins over the correction.
         """
+        expected_input = (
+            _classification_input_json(whole_frame_correction_of) if whole_frame_correction_of is not None else None
+        )
         await self.db.execute(
             """
             UPDATE detections
@@ -1439,12 +1330,14 @@ class DetectionRepository:
                 species_id = ?,
                 model_artifact_id = ?,
                 model_output_index = ?,
+                classification_input_json = ?,
                 audio_confirmed = ?,
                 audio_species = ?,
                 audio_score = ?,
                 manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
             WHERE frigate_event = ?
               AND (? = 1 OR COALESCE(manual_tagged, 0) = 0)
+              AND (? IS NULL OR (COALESCE(is_hidden, 0) = 0 AND classification_input_json IS ?))
             """,
             (
                 display_name,
@@ -1457,12 +1350,15 @@ class DetectionRepository:
                 species_id,
                 model_artifact_id,
                 model_output_index,
+                _classification_input_json(classification_input),
                 1 if audio_confirmed else 0,
                 audio_species,
                 audio_score,
                 1 if manual_override else 0,
                 frigate_event,
                 1 if manual_override else 0,
+                expected_input,
+                expected_input,
             ),
         )
         changed = await self._last_statement_changes() > 0
@@ -1565,6 +1461,17 @@ class DetectionRepository:
         """
         if not await self._table_exists("classification_feedback"):
             return False
+
+        if frigate_event and await self._table_exists("detection_initial_classifications"):
+            async with self.db.execute(
+                """SELECT i.classification_input_json FROM detection_initial_classifications i
+                   JOIN detections d ON d.id = i.detection_id WHERE d.frigate_event = ?""",
+                (frigate_event,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            evidence = _parse_classification_input(row[0]) if row else None
+            if evidence is not None and evidence.is_whole_view:
+                return False
 
         if not camera_name or not model_id or not predicted_label or not corrected_label:
             log.warning(
@@ -1950,8 +1857,8 @@ class DetectionRepository:
         try:
             await self.db.execute(
                 """
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     detection.detection_time,
@@ -1986,6 +1893,7 @@ class DetectionRepository:
                     None,
                     checked_at,
                     None,
+                    _classification_input_json(detection.classification_input),
                 ),
             )
             await self.db.commit()
@@ -2004,7 +1912,7 @@ class DetectionRepository:
         await self.db.execute(
             """
             UPDATE detections
-            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL
+            SET detection_time = ?, detection_index = ?, score = ?, display_name = ?, category_name = ?, frigate_score = ?, sub_label = ?, audio_confirmed = ?, audio_species = ?, audio_score = ?, temperature = ?, weather_condition = ?, weather_cloud_cover = ?, weather_wind_speed = ?, weather_wind_direction = ?, weather_precipitation = ?, weather_rain = ?, weather_snowfall = ?, scientific_name = ?, common_name = ?, taxa_id = ?, manual_tagged = ?, frigate_status = 'present', frigate_missing_since = NULL, frigate_last_checked_at = ?, frigate_last_error = NULL, classification_input_json = ?
             WHERE frigate_event = ?
         """,
             (
@@ -2031,6 +1939,7 @@ class DetectionRepository:
                 detection.taxa_id,
                 1 if detection.manual_tagged else 0,
                 checked_at,
+                _classification_input_json(detection.classification_input),
                 detection.frigate_event,
             ),
         )
@@ -2162,14 +2071,15 @@ class DetectionRepository:
             None,
             checked_at,
             None,
+            _classification_input_json(detection.classification_input),
         )
 
         # Attempt insert first.
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             insert_params,
         )
@@ -2242,6 +2152,7 @@ class DetectionRepository:
                 END,
                 model_artifact_id = :model_artifact_id,
                 model_output_index = :model_output_index,
+                classification_input_json = :classification_input_json,
                 manual_tagged = manual_tagged,
                 frigate_status = 'present',
                 frigate_missing_since = NULL,
@@ -2285,6 +2196,7 @@ class DetectionRepository:
                 "species_id": detection.species_id,
                 "model_artifact_id": detection.model_artifact_id,
                 "model_output_index": detection.model_output_index,
+                "classification_input_json": _classification_input_json(detection.classification_input),
                 "checked_at": checked_at,
                 "frigate_event": detection.frigate_event,
             },
@@ -2362,8 +2274,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 detection.detection_time,
@@ -2398,6 +2310,7 @@ class DetectionRepository:
                 None,
                 checked_at,
                 None,
+                _classification_input_json(detection.classification_input),
             ),
         )
         changes = await self._last_statement_changes()
@@ -2571,18 +2484,23 @@ class DetectionRepository:
         public_audio_evidence: bool = False,
         multiple_species_only: bool = False,
         frigate_event: str | None = None,
+        species_ids: Collection[int] | None = None,
     ) -> list[Detection]:
-        if not multiple_species_only and self._species_fast_path_eligible(
-            species=species,
-            species_any=species_any,
-            taxa_id=taxa_id,
-            sort=sort,
-            start_date=start_date,
-            end_date=end_date,
-            camera=camera,
-            favorite_only=favorite_only,
-            audio_confirmed_only=audio_confirmed_only,
-            frigate_event=frigate_event,
+        if (
+            species_ids is None
+            and not multiple_species_only
+            and self._species_fast_path_eligible(
+                species=species,
+                species_any=species_any,
+                taxa_id=taxa_id,
+                sort=sort,
+                start_date=start_date,
+                end_date=end_date,
+                camera=camera,
+                favorite_only=favorite_only,
+                audio_confirmed_only=audio_confirmed_only,
+                frigate_event=frigate_event,
+            )
         ):
             taxa_ids, names, cache_terms = await self._collect_species_filter_terms(species, species_any, taxa_id)
             if taxa_ids or names:
@@ -2676,12 +2594,16 @@ class DetectionRepository:
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
             if public_audio_evidence:
-                evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db)
+                evidence_sql, evidence_params = await public_audio_evidence_sql(self.db)
                 conditions.append(evidence_sql)
                 params.extend(evidence_params)
         if frigate_event:
             conditions.append("d.frigate_event = ?")
             params.append(frigate_event)
+        species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
+        if species_ids_clause:
+            conditions.append(species_ids_clause)
+            params.extend(species_ids_params)
 
         if multiple_species_only:
             from app.repositories.bird_observation_repository import BirdObservationRepository
@@ -2725,6 +2647,7 @@ class DetectionRepository:
         public_audio_evidence: bool = False,
         exclude_species_floor: int = 0,
         multiple_species_only: bool = False,
+        species_ids: Collection[int] | None = None,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
@@ -2803,11 +2726,15 @@ class DetectionRepository:
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
             if public_audio_evidence:
-                evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db)
+                evidence_sql, evidence_params = await public_audio_evidence_sql(self.db)
                 conditions.append(evidence_sql)
                 params.extend(evidence_params)
         if exclude_species_floor > 0:
             conditions.append(f"d.id NOT IN ({self._species_floor_sql(exclude_species_floor)})")
+        species_ids_clause, species_ids_params = species_ids_condition(species_ids, "d.species_id")
+        if species_ids_clause:
+            conditions.append(species_ids_clause)
+            params.extend(species_ids_params)
 
         if multiple_species_only:
             from app.repositories.bird_observation_repository import BirdObservationRepository
@@ -2977,7 +2904,7 @@ class DetectionRepository:
         """Counts for the facets that are a flag rather than a value."""
         start_filter, params = _history_bounds_sql(start_date, end_date, "d.detection_time")
         evidence_sql, evidence_params = (
-            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
+            await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
         async with self.db.execute(
             f"""
@@ -3063,7 +2990,7 @@ class DetectionRepository:
                     ELSE ?
                 END,
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
-                manual_tagged = 1
+                manual_tagged = 1, classification_input_json = '{"source":"owner_species_choice"}'
             WHERE frigate_event = ?
             """,
             (
@@ -3085,7 +3012,8 @@ class DetectionRepository:
     async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
         """Record a human confirmation without rewriting the stored species identity."""
         await self.db.execute(
-            "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
+            """UPDATE detections SET manual_tagged = 1,
+               classification_input_json = '{"source":"owner_species_choice"}' WHERE frigate_event = ?""",
             (frigate_event,),
         )
         await self._record_owner_species_choice(frigate_event)
@@ -3514,6 +3442,37 @@ class DetectionRepository:
             "match_names": match_names,
         }
 
+    def _retention_eligible_sql(self, preserve_favorites: bool, species_floor: int) -> str:
+        """The rows an age cleanup removes: older than the cutoff (the one bound parameter),
+        hidden or not, less favourites when kept and the per-species floor.
+
+        The delete and its read-only preview share this, so the count a user is shown before
+        saving a shorter retention is the count the cleanup deletes.
+        """
+        query = """
+            SELECT d.id
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE d.detection_time < ?
+        """
+        if preserve_favorites:
+            query += " AND f.detection_id IS NULL"
+        if species_floor > 0:
+            query += f" AND d.id NOT IN ({self._species_floor_sql(species_floor)})"
+        return query
+
+    async def count_older_than(
+        self,
+        cutoff_date: datetime,
+        preserve_favorites: bool = False,
+        species_floor: int = 0,
+    ) -> int:
+        """How many detections ``delete_older_than`` would remove with the same arguments. Read-only."""
+        query = f"SELECT COUNT(*) FROM ({self._retention_eligible_sql(preserve_favorites, species_floor)})"
+        async with self.db.execute(query, (cutoff_date.isoformat(sep=" "),)) as cursor:
+            row = await cursor.fetchone()
+            return int(row[0]) if row else 0
+
     async def delete_older_than(
         self,
         cutoff_date: datetime,
@@ -3527,28 +3486,16 @@ class DetectionRepository:
         """
         total_deleted = 0
         cutoff_str = cutoff_date.isoformat(sep=" ")
-        floor_condition = f" AND d.id NOT IN ({self._species_floor_sql(species_floor)})" if species_floor > 0 else ""
+        # SQLite's DELETE ... LIMIT needs a compile-time option, so each chunk is chosen by subquery.
+        query = f"""
+            DELETE FROM detections
+            WHERE id IN (
+                {self._retention_eligible_sql(preserve_favorites, species_floor)}
+                LIMIT ?
+            )
+        """
 
         while True:
-            # Delete a chunk of rows
-            # We use the rowid (implicit or explicit) or limit if supported by the build
-            # Standard SQLite DELETE LIMIT requires compilation option, so we use subquery
-            query = """
-                DELETE FROM detections
-                WHERE id IN (
-                    SELECT d.id
-                    FROM detections d
-                    LEFT JOIN detection_favorites f ON f.detection_id = d.id
-                    WHERE d.detection_time < ?
-            """
-            if preserve_favorites:
-                query += " AND f.detection_id IS NULL"
-            query += floor_condition
-            query += """
-                    LIMIT ?
-                )
-            """
-
             async with self.db.execute(query, (cutoff_str, chunk_size)) as cursor:
                 if cursor.rowcount == 0:
                     break
@@ -4251,6 +4198,61 @@ class DetectionRepository:
         async with self.db.execute(query, bounds_params) as cursor:
             return {int(species_id): int(count) for species_id, count in await cursor.fetchall()}
 
+    async def newest_events_by_species(
+        self,
+        species_ids: Collection[int],
+        *,
+        per_species: int,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+    ) -> dict[int, list[tuple[str, str]]]:
+        """Each species' newest visible Frigate events and their times, newest first, ``per_species`` at most."""
+        ids = sorted({int(species_id) for species_id in species_ids})
+        if not ids:
+            return {}
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        query = f"""
+            SELECT species_id, frigate_event, detection_time FROM (
+                SELECT d.species_id, d.frigate_event, d.detection_time, ROW_NUMBER() OVER (
+                    PARTITION BY d.species_id ORDER BY d.detection_time DESC, d.id DESC
+                ) AS position
+                FROM detections d
+                WHERE d.species_id IN ({",".join("?" * len(ids))})
+                  AND (d.is_hidden = 0 OR d.is_hidden IS NULL){bounds_sql}
+            ) WHERE position <= ? ORDER BY species_id, position
+        """
+        found: dict[int, list[tuple[str, str]]] = {}
+        async with self.db.execute(query, [*ids, *bounds_params, max(1, int(per_species))]) as cursor:
+            for species_id, event, detected_at in await cursor.fetchall():
+                found.setdefault(int(species_id), []).append((str(event), str(detected_at)))
+        return found
+
+    async def seen_species_ids(self) -> set[int]:
+        """Every catalogue identity with a detection, hidden ones included, for resolving a group of species."""
+        async with self.db.execute("SELECT DISTINCT species_id FROM detections WHERE species_id IS NOT NULL") as cursor:
+            return {int(row[0]) for row in await cursor.fetchall()}
+
+    async def find_record(
+        self,
+        frigate_event: str,
+        *,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        include_hidden: bool = False,
+    ) -> Detection | None:
+        """One detection by its Frigate event, only when it lies in the window and, unless asked, is not hidden."""
+        bounds_sql, bounds_params = _history_bounds_sql(start_date, end_date, "d.detection_time")
+        hidden_sql = "" if include_hidden else " AND (d.is_hidden = 0 OR d.is_hidden IS NULL)"
+        async with self.db.execute(
+            f"""SELECT {DETECTION_SELECT_COLUMNS}
+               FROM detections d
+               LEFT JOIN detection_favorites f ON f.detection_id = d.id
+               WHERE d.frigate_event = ?{hidden_sql}{bounds_sql}""",
+            (frigate_event, *bounds_params),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return _row_to_detection(row) if row else None
+
     async def get_species_leaderboard_base(
         self, *, start_date: datetime | None = None, end_date: datetime | None = None
     ) -> list[dict]:
@@ -4354,7 +4356,7 @@ class DetectionRepository:
         canonical_key = self._canonical_key_sql()
         taxonomy_join = self._taxonomy_join_sql()
         audio_evidence_sql, audio_evidence_params = (
-            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
+            await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
         query = f"""
             SELECT
@@ -5021,7 +5023,7 @@ class DetectionRepository:
             species_name=species_name,
         )
         audio_evidence_sql, audio_evidence_params = (
-            await _public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
+            await public_audio_evidence_sql(self.db) if public_audio_evidence else ("1 = 1", [])
         )
         async with self.db.execute(
             f"""
@@ -5346,397 +5348,6 @@ class DetectionRepository:
                 ]
             )
 
-    async def insert_audio_detection(
-        self,
-        timestamp: datetime,
-        species: str,
-        confidence: float,
-        sensor_id: Optional[str],
-        raw_data: Optional[dict],
-        scientific_name: Optional[str] = None,
-        source_event_id: Optional[str] = None,
-    ) -> int:
-        row_id, _inserted = await self.insert_audio_detection_idempotent(
-            timestamp=timestamp,
-            species=species,
-            confidence=confidence,
-            sensor_id=sensor_id,
-            raw_data=raw_data,
-            scientific_name=scientific_name,
-            source_event_id=source_event_id,
-        )
-        return row_id
-
-    async def insert_audio_detection_idempotent(
-        self,
-        timestamp: datetime,
-        species: str,
-        confidence: float,
-        sensor_id: Optional[str],
-        raw_data: Optional[dict],
-        scientific_name: Optional[str] = None,
-        source_event_id: Optional[str] = None,
-    ) -> tuple[int, bool]:
-        """Insert one BirdNET detection and report whether this call created it."""
-        payload = json.dumps(raw_data or {}, ensure_ascii=True)
-        from app.services.audio_identity import resolve_audio_identity
-
-        cursor = await self.db.execute(
-            """INSERT INTO audio_detections (
-                   timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id,
-                   species_id
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-               ON CONFLICT(source_event_id) DO NOTHING""",
-            (
-                serialize_storage_datetime(timestamp),
-                species,
-                confidence,
-                sensor_id,
-                payload,
-                scientific_name,
-                source_event_id,
-                # Resolved at ingest so audio and visual detections of one bird
-                # share an identity. Unresolvable names record nothing and keep
-                # behaving exactly as they do today.
-                resolve_audio_identity(scientific_name),
-            ),
-        )
-        inserted = cursor.rowcount > 0
-        row_id = cursor.lastrowid
-        await cursor.close()
-        if not inserted and source_event_id:
-            async with self.db.execute(
-                "SELECT id FROM audio_detections WHERE source_event_id = ?",
-                (source_event_id,),
-            ) as existing_cursor:
-                existing = await existing_cursor.fetchone()
-            row_id = existing[0] if existing else None
-        await self.db.commit()
-        if row_id is None:
-            raise RuntimeError("Audio detection insert did not return a row id")
-        return int(row_id), inserted
-
-    async def delete_audio_detection(self, detection_id: int) -> bool:
-        """Delete one diagnostic audio row immediately after its write was proven."""
-        cursor = await self.db.execute("DELETE FROM audio_detections WHERE id = ?", (detection_id,))
-        deleted = cursor.rowcount > 0
-        await cursor.close()
-        await self.db.commit()
-        return deleted
-
-    async def set_audio_hidden(self, detection_id: int, hidden: bool) -> bool:
-        cursor = await self.db.execute(
-            "UPDATE audio_detections SET is_hidden = ? WHERE id = ?", (int(hidden), detection_id)
-        )
-        found = cursor.rowcount > 0
-        await cursor.close()
-        await self.db.commit()
-        return found
-
-    async def get_audio_detection_for_correlation(self, detection_id: int) -> dict | None:
-        async with self.db.execute(
-            """SELECT timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
-               FROM audio_detections WHERE id = ? AND is_hidden = 0""",
-            (detection_id,),
-        ) as cursor:
-            row = await cursor.fetchone()
-        if row is None:
-            return None
-        try:
-            payload = json.loads(row[4] or "{}")
-        except (ValueError, TypeError):
-            payload = {}
-        return {
-            "timestamp": _parse_datetime(row[0]),
-            "species": row[1],
-            "confidence": row[2],
-            "sensor_id": row[3],
-            "raw_data": payload if isinstance(payload, dict) else {},
-            "scientific_name": row[5],
-            "source_event_id": row[6],
-            "database_id": detection_id,
-        }
-
-    async def audio_detection_is_visible(self, detection_id: int) -> bool:
-        async with self.db.execute("SELECT is_hidden FROM audio_detections WHERE id = ?", (detection_id,)) as cursor:
-            row = await cursor.fetchone()
-        return row is not None and not bool(row[0])
-
-    async def get_recent_audio_source_observations(
-        self, limit: int = 200, start_date: datetime | None = None, end_date: datetime | None = None
-    ) -> list[dict]:
-        """Return recent raw audio rows for source discovery/deduping."""
-        predicate = "is_hidden = 0"
-        params: list = []
-        if start_date is not None:
-            predicate += " AND timestamp >= ?"
-            params.append(serialize_storage_datetime(start_date))
-        if end_date is not None:
-            predicate += " AND timestamp < ?"
-            params.append(serialize_storage_datetime(end_date))
-        params.append(limit)
-        async with self.db.execute(
-            f"""SELECT timestamp, sensor_id, raw_data
-               FROM audio_detections
-               WHERE {predicate}
-               ORDER BY timestamp DESC
-               LIMIT ?""",
-            params,
-        ) as cursor:
-            rows = await cursor.fetchall()
-
-        return [
-            {
-                "timestamp": row[0],
-                "sensor_id": row[1],
-                "raw_data": row[2],
-            }
-            for row in rows
-        ]
-
-    async def get_public_audio_for_detections(self, detections: list) -> dict[str, dict]:
-        """Bound each page chunk to one primary and eight nearby rows per visual event.
-
-        Mapping/species/window authorization stays in SQL, before pagination and
-        ranking, rather than retaining all audio in a broad page-wide time range.
-        """
-        targets = [d for d in detections if d.audio_species]
-        if not targets:
-            return {}
-        conditions, conditions_params = await _public_audio_conditions_sql(self.db, match_species=False)
-        result: dict[str, dict] = {}
-        for offset in range(0, len(targets), 50):
-            chunk = targets[offset : offset + 50]
-            params: list = []
-            for detection in chunk:
-                params.extend(
-                    (
-                        detection.frigate_event,
-                        detection.camera_name,
-                        serialize_storage_datetime(detection.detection_time),
-                        detection.audio_species,
-                        int(detection.audio_confirmed),
-                    )
-                )
-                result[detection.frigate_event] = {"primary": None, "context": []}
-            values = ",".join("(?,?,?,?,?)" for _ in chunk)
-            query = f"""WITH d(frigate_event,camera_name,detection_time,audio_species,audio_confirmed) AS
-                (VALUES {values}), ranked AS (
-                SELECT d.frigate_event, d.audio_confirmed, a.timestamp, a.species,
-                    a.confidence, a.sensor_id, a.scientific_name,
-                    public_audio_species_matches(a.species,a.scientific_name,d.audio_species) AS primary_match,
-                    ROW_NUMBER() OVER (PARTITION BY d.frigate_event ORDER BY
-                        public_audio_species_matches(a.species,a.scientific_name,d.audio_species) DESC,
-                        a.confidence DESC, a.id DESC) AS primary_rank,
-                    ROW_NUMBER() OVER (PARTITION BY d.frigate_event ORDER BY
-                        ABS(julianday(a.timestamp)-julianday(d.detection_time)),
-                        a.confidence DESC, a.id DESC) AS context_rank
-                FROM d JOIN audio_detections a ON {conditions})
-                SELECT frigate_event,timestamp,species,confidence,sensor_id,scientific_name,
-                    primary_match,primary_rank,context_rank,audio_confirmed
-                FROM ranked WHERE (primary_match=1 AND primary_rank=1)
-                    OR (audio_confirmed=0 AND context_rank<=8)
-                ORDER BY frigate_event,context_rank"""
-            async with self.db.execute(query, [*params, *conditions_params]) as cursor:
-                rows = await cursor.fetchall()
-            for row in rows:
-                item = {
-                    "timestamp": row[1],
-                    "species": row[2],
-                    "confidence": row[3],
-                    "sensor_id": row[4],
-                    "scientific_name": row[5],
-                }
-                evidence = result[row[0]]
-                if row[6] and row[7] == 1:
-                    evidence["primary"] = item
-                if not row[9] and row[8] <= 8:
-                    evidence["context"].append(item)
-        return result
-
-    async def get_audio_context(
-        self,
-        target_time: datetime,
-        window_seconds: int,
-        mapping_value: Optional[str],
-        limit: int,
-        minimum_start: datetime | None = None,
-        maximum_end: datetime | None = None,
-    ) -> tuple[list[dict], int]:
-        """Return audio near ``target_time`` plus how many rows the mapping excluded.
-
-        The count lets a caller distinguish a silent window from one where audio was
-        heard on a microphone this camera is not mapped to; both otherwise present as
-        an empty list.
-        """
-        if target_time.tzinfo is None:
-            target_time = target_time.replace(tzinfo=timezone.utc)
-
-        start_dt = target_time - timedelta(seconds=window_seconds)
-        if minimum_start is not None:
-            start_dt = max(start_dt, minimum_start)
-        end_dt = target_time + timedelta(seconds=window_seconds)
-        query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
-                   FROM audio_detections
-                   WHERE is_hidden = 0 AND timestamp >= ? AND timestamp <= ?"""
-        params: list = [serialize_storage_datetime(start_dt), serialize_storage_datetime(end_dt)]
-        if maximum_end is not None:
-            query += " AND timestamp < ?"
-            params.append(serialize_storage_datetime(maximum_end))
-        query += " ORDER BY timestamp DESC"
-
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-
-        # Deferred import to avoid the circular `audio_service ->
-        # detection_repository` cycle. Reuse the same extractor that
-        # /api/audio/recent uses so payload key handling stays in lockstep
-        # (`detectionId` / `id` / `detection_id`).
-        from app.services.audio.audio_service import _extract_birdnet_id
-
-        wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
-        results: list[dict] = []
-        suppressed_by_mapping = 0
-        for row in rows:
-            if not wildcard_mapping:
-                row_keys = _extract_audio_mapping_keys(row[3], row[5])
-                if not row_keys.intersection(mapping_keys):
-                    suppressed_by_mapping += 1
-                    continue
-            det_time = _parse_datetime(row[0])
-            if det_time.tzinfo is None:
-                det_time = det_time.replace(tzinfo=timezone.utc)
-            offset_seconds = int((det_time - target_time).total_seconds())
-
-            # raw_data is stored as a JSON string; parse and pull the stable
-            # BirdNET-Go id out so the detection modal can render the
-            # spectrogram for the matched audio entry.
-            birdnet_id: int | None = None
-            if row[5]:
-                try:
-                    payload = json.loads(row[5])
-                except Exception:
-                    payload = None
-                if isinstance(payload, dict):
-                    birdnet_id = _extract_birdnet_id(payload)
-
-            results.append(
-                {
-                    "timestamp": det_time.isoformat(),
-                    "species": row[1],
-                    "confidence": row[2],
-                    "sensor_id": row[3],
-                    "scientific_name": row[4],
-                    "birdnet_id": birdnet_id,
-                    "offset_seconds": offset_seconds,
-                }
-            )
-
-        results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
-        return results[:limit], suppressed_by_mapping
-
-    def _build_audio_history_filter(
-        self,
-        start_date: Optional[datetime],
-        end_date: Optional[datetime],
-        species: Optional[str],
-        source: Optional[str],
-        min_confidence: Optional[float],
-        maximum_end: datetime | None = None,
-    ) -> tuple[str, list]:
-        clauses: list[str] = ["is_hidden = 0"]
-        params: list = []
-
-        if start_date is not None:
-            clauses.append("timestamp >= ?")
-            params.append(serialize_storage_datetime(start_date))
-        if end_date is not None:
-            clauses.append("timestamp <= ?")
-            params.append(serialize_storage_datetime(end_date))
-        if maximum_end is not None:
-            clauses.append("timestamp < ?")
-            params.append(serialize_storage_datetime(maximum_end))
-        if species:
-            clauses.append("LOWER(species) LIKE ?")
-            params.append(f"%{species.strip().casefold()}%")
-        if source:
-            source_like = f"%{source.strip().casefold()}%"
-            clauses.append("(LOWER(COALESCE(sensor_id, '')) LIKE ? OR LOWER(COALESCE(raw_data, '')) LIKE ?)")
-            params.extend([source_like, source_like])
-        if min_confidence is not None:
-            clauses.append("confidence >= ?")
-            params.append(float(min_confidence))
-
-        return (" WHERE " + " AND ".join(clauses)) if clauses else "", params
-
-    async def get_audio_history(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        species: Optional[str] = None,
-        source: Optional[str] = None,
-        min_confidence: Optional[float] = None,
-        limit: int = 100,
-        offset: int = 0,
-        maximum_end: datetime | None = None,
-    ) -> dict:
-        """Return persisted BirdNET detections for history browsing."""
-        where_sql, params = self._build_audio_history_filter(
-            start_date=start_date,
-            end_date=end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=maximum_end,
-        )
-
-        async with self.db.execute(f"SELECT COUNT(*) FROM audio_detections{where_sql}", params) as cursor:
-            total_row = await cursor.fetchone()
-        total = int(total_row[0] or 0) if total_row else 0
-
-        query = f"""SELECT id, timestamp, species, confidence, sensor_id, scientific_name, raw_data
-                    FROM audio_detections
-                    {where_sql}
-                    ORDER BY timestamp DESC, id DESC
-                    LIMIT ? OFFSET ?"""
-        async with self.db.execute(query, [*params, limit, offset]) as cursor:
-            rows = await cursor.fetchall()
-
-        from app.services.audio.audio_service import _extract_birdnet_id
-
-        items: list[dict] = []
-        for row in rows:
-            raw_data = row[6]
-            birdnet_id: int | None = None
-            if raw_data:
-                try:
-                    payload = json.loads(raw_data)
-                except Exception:
-                    payload = None
-                if isinstance(payload, dict):
-                    birdnet_id = _extract_birdnet_id(payload)
-
-            items.append(
-                {
-                    "id": row[0],
-                    "timestamp": serialize_api_datetime(_parse_datetime(row[1])),
-                    "species": row[2],
-                    "confidence": row[3],
-                    "sensor_id": row[4],
-                    "source_name": _extract_birdnet_source_name(row[4], raw_data),
-                    "scientific_name": row[5],
-                    "birdnet_id": birdnet_id,
-                    "_mapping_keys": _extract_audio_mapping_keys(row[4], raw_data),
-                }
-            )
-
-        return {
-            "items": items,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-        }
-
     async def get_audio_visual_match_candidates(
         self,
         *,
@@ -5784,319 +5395,11 @@ class DetectionRepository:
             for row in rows
         ]
 
-    async def get_audio_history_summary(
-        self,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        species: Optional[str] = None,
-        source: Optional[str] = None,
-        min_confidence: Optional[float] = None,
-        maximum_end: datetime | None = None,
-    ) -> dict:
-        """Return rollups over persisted BirdNET detections."""
-        where_sql, params = self._build_audio_history_filter(
-            start_date=start_date,
-            end_date=end_date,
-            species=species,
-            source=source,
-            min_confidence=min_confidence,
-            maximum_end=maximum_end,
-        )
-
-        async with self.db.execute(
-            f"""SELECT COUNT(*), COUNT(DISTINCT COALESCE(NULLIF(scientific_name, ''), species))
-                FROM audio_detections{where_sql}""",
-            params,
-        ) as cursor:
-            totals = await cursor.fetchone()
-
-        async with self.db.execute(
-            f"""SELECT species, scientific_name, COUNT(*) AS count, AVG(confidence), MAX(confidence),
-                       MIN(timestamp), MAX(timestamp)
-                FROM audio_detections
-                {where_sql}
-                GROUP BY COALESCE(NULLIF(scientific_name, ''), species), species, scientific_name
-                ORDER BY count DESC, MAX(timestamp) DESC
-                LIMIT 20""",
-            params,
-        ) as cursor:
-            top_species_rows = await cursor.fetchall()
-
-        async with self.db.execute(
-            f"""SELECT DATE(timestamp), COUNT(*)
-                FROM audio_detections
-                {where_sql}
-                GROUP BY DATE(timestamp)
-                ORDER BY DATE(timestamp) ASC""",
-            params,
-        ) as cursor:
-            daily_rows = await cursor.fetchall()
-
-        async with self.db.execute(
-            f"""SELECT CAST(strftime('%H', timestamp) AS INTEGER), COUNT(*)
-                FROM audio_detections
-                {where_sql}
-                GROUP BY CAST(strftime('%H', timestamp) AS INTEGER)
-                ORDER BY CAST(strftime('%H', timestamp) AS INTEGER) ASC""",
-            params,
-        ) as cursor:
-            hourly_rows = await cursor.fetchall()
-
-        source_totals: dict[str, dict] = {}
-        async with self.db.execute(
-            f"""SELECT timestamp, sensor_id, raw_data
-                FROM audio_detections
-                {where_sql}
-                ORDER BY timestamp DESC""",
-            params,
-        ) as cursor:
-            while source_rows := await cursor.fetchmany(512):
-                for row in source_rows:
-                    source_name = _extract_birdnet_source_name(row[1], row[2])
-                    if not source_name:
-                        source_name = "Unknown source"
-                    if source_name not in source_totals:
-                        source_totals[source_name] = {
-                            "source_name": source_name,
-                            "count": 0,
-                            "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
-                        }
-                    source_totals[source_name]["count"] += 1
-
-        top_species = [
-            {
-                "species": row[0],
-                "scientific_name": row[1],
-                "count": int(row[2] or 0),
-                "avg_confidence": float(row[3] or 0),
-                "max_confidence": float(row[4] or 0),
-                "first_heard": serialize_api_datetime(_parse_datetime(row[5])) if row[5] else None,
-                "last_heard": serialize_api_datetime(_parse_datetime(row[6])) if row[6] else None,
-            }
-            for row in top_species_rows
-        ]
-
-        sources = sorted(
-            source_totals.values(),
-            key=lambda item: (-int(item["count"]), str(item["source_name"]).casefold()),
-        )
-
-        return {
-            "total": int(totals[0] or 0) if totals else 0,
-            "species_count": int(totals[1] or 0) if totals else 0,
-            "source_count": len(sources),
-            "top_species": top_species,
-            "daily_counts": [{"date": row[0], "count": int(row[1] or 0)} for row in daily_rows],
-            "hourly_counts": [{"hour": int(row[0] or 0), "count": int(row[1] or 0)} for row in hourly_rows],
-            "sources": sources,
-        }
-
-    async def pending_audio_scientific_names(self) -> list[tuple[str, int]]:
-        """Distinct names on audio rows that carry no identity yet, with row counts."""
-        async with self.db.execute(
-            """
-            SELECT scientific_name, COUNT(*) FROM audio_detections
-            WHERE species_id IS NULL AND scientific_name IS NOT NULL AND TRIM(scientific_name) != ''
-            GROUP BY scientific_name
-            """
-        ) as cursor:
-            rows = await cursor.fetchall()
-        return [(str(name), int(count or 0)) for name, count in rows]
-
-    async def assign_audio_species_ids(
-        self, pending: list[tuple[str, int]], identities: dict[str, Optional[int]]
-    ) -> dict[str, int]:
-        """Write resolved identities onto audio rows; names with no identity are counted and left."""
-        identified = 0
-        unresolved = 0
-        for scientific_name, row_count in pending:
-            species_id = identities.get(scientific_name)
-            if species_id is None:
-                unresolved += int(row_count or 0)
-                continue
-            await self.db.execute(
-                """
-                UPDATE audio_detections SET species_id = ?
-                WHERE species_id IS NULL AND scientific_name = ?
-                """,
-                (species_id, scientific_name),
-            )
-            identified += await self._last_statement_changes()
-
-        if identified:
-            await self.db.commit()
-        return {"identified": identified, "unresolved": unresolved, "names_seen": len(pending)}
-
-    async def backfill_audio_species_ids(self, *, resolver: Any = None, batch_size: int = 500) -> dict[str, int]:
-        """Give existing audio detections the identity new ones will carry.
-
-        Required rather than optional: grouping audio by identity while older
-        rows have none would split a species at the upgrade boundary, which is
-        the exact failure this phase removes.
-
-        Conservative and idempotent. Only rows with no identity are considered,
-        a name is resolved once rather than per row, and anything the catalogue
-        cannot pin to exactly one species is counted and left alone. Resolves
-        on the caller's connection; the startup backfill resolves first and
-        calls :meth:`assign_audio_species_ids` so the pool is not held meanwhile.
-        """
-        from app.services.audio_identity import resolve_audio_identity
-
-        pending = await self.pending_audio_scientific_names()
-        identities = {name: resolve_audio_identity(name, resolver=resolver) for name, _count in pending}
-        return await self.assign_audio_species_ids(pending, identities)
-
-    async def get_audio_history_start(
-        self, minimum_start: datetime | None = None, maximum_end: datetime | None = None
-    ) -> datetime | None:
-        """When BirdNET-Go's stored history begins; it can start long after the camera's."""
-        query = "SELECT MIN(timestamp) FROM audio_detections"
-        params: list = []
-        if minimum_start is not None:
-            query += " WHERE is_hidden = 0 AND timestamp >= ?"
-            params.append(serialize_storage_datetime(minimum_start))
-        if maximum_end is not None:
-            query += " AND timestamp < ?" if minimum_start is not None else " WHERE is_hidden = 0 AND timestamp < ?"
-            params.append(serialize_storage_datetime(maximum_end))
-        async with self.db.execute(query, params) as cursor:
-            row = await cursor.fetchone()
-        return _parse_datetime(row[0]) if row and row[0] else None
-
-    async def public_birdnet_media_visible(
-        self, birdnet_id: int, minimum_start: datetime, maximum_end: datetime | None = None
-    ) -> bool:
-        """Resolve the upstream identity, never the unrelated local row id.
-
-        Resolve identity across retained rows before applying sharing bounds.
-        A hidden tombstone or conflicting source/time cannot authorize a different
-        numeric ID at the single upstream URL, even outside the public window.
-        """
-        from app.services.audio.audio_service import _extract_birdnet_id
-
-        if not 0 < birdnet_id <= 2**63 - 1:
-            return False
-        payload = "CASE WHEN json_valid(raw_data) THEN raw_data ELSE '{}' END"
-        predicate = " OR ".join(
-            f"CAST(json_extract({payload}, '$.{key}') AS INTEGER) = ?" for key in ("detectionId", "detection_id", "id")
-        )
-        async with self.db.execute(
-            f"SELECT raw_data, is_hidden, sensor_id, timestamp FROM audio_detections WHERE {predicate}",
-            (birdnet_id, birdnet_id, birdnet_id),
-        ) as cursor:
-            identity: tuple[str, str] | None = None
-            lower = serialize_storage_datetime(minimum_start)
-            upper = serialize_storage_datetime(maximum_end) if maximum_end is not None else None
-            async for row in cursor:
-                try:
-                    data = json.loads(row[0])
-                    resolved_id = _extract_birdnet_id(data)
-                except (ValueError, TypeError):
-                    return False
-                if resolved_id != birdnet_id:
-                    continue
-                source = _extract_birdnet_source_name(row[2], row[0])
-                source_fields = data.get("Source")
-                source_fields = source_fields if isinstance(source_fields, dict) else {}
-                # Stable device IDs distinguish equal display names and allow a
-                # device to be renamed without making its media ambiguous.
-                source_ids = [
-                    value
-                    for value in (data.get("sourceId"), data.get("src"), source_fields.get("id"))
-                    if value is not None
-                ]
-                if any(not isinstance(value, str) or not value.strip() for value in source_ids):
-                    return False
-                if source_ids:
-                    normalized_ids = {value.strip().casefold() for value in source_ids}
-                    if len(normalized_ids) != 1:
-                        return False
-                    source_key = "id:" + normalized_ids.pop()
-                elif source:
-                    source_key = "name:" + source.strip().casefold()
-                else:
-                    return False
-                if row[1]:
-                    return False
-                try:
-                    stamp = serialize_storage_datetime(datetime.fromisoformat(row[3]))
-                except (ValueError, TypeError):
-                    return False
-                if stamp < lower or (upper is not None and stamp >= upper):
-                    return False
-                candidate = (source_key, stamp)
-                if identity is not None and identity != candidate:
-                    return False
-                identity = candidate
-        return identity is not None
-
-    async def get_audio_species_counts(
-        self,
-        window_start: datetime,
-        window_end: datetime,
-        prev_start: datetime,
-        prev_end: datetime,
-    ) -> list[dict]:
-        """Heard-count rollups per species over a rolling window and the prior window.
-
-        Mirrors ``get_species_leaderboard_window`` but over ``audio_detections`` so the
-        Species leaderboard can show BirdNET-Go "heard" counts alongside camera "seen"
-        counts. Rows are grouped by scientific name when available, else the species
-        label, matching how the audio summary de-duplicates species. Timestamps are
-        formatted the same way they are stored (``isoformat(sep=' ')``) so the string
-        comparison lines up with the ``idx_audio_detections_time`` index.
-        """
-
-        ws, we = serialize_storage_datetime(window_start), serialize_storage_datetime(window_end)
-        ps, pe = serialize_storage_datetime(prev_start), serialize_storage_datetime(prev_end)
-
-        query = """
-            SELECT
-                -- Identity first, so one bird reported under two names counts
-                -- once; the text keys stay underneath for rows the catalogue
-                -- cannot identify. Namespaced for the same reason detections
-                -- are: ids from different databases share number ranges.
-                COALESCE(
-                    'species:' || CAST(species_id AS TEXT),
-                    'name:' || NULLIF(LOWER(scientific_name), ''),
-                    'label:' || LOWER(species)
-                ) AS unified_id,
-                MAX(species) AS species,
-                MAX(scientific_name) AS scientific_name,
-                SUM(CASE WHEN timestamp >= ? AND timestamp < ? THEN 1 ELSE 0 END) AS window_count,
-                SUM(CASE WHEN timestamp >= ? AND timestamp < ? THEN 1 ELSE 0 END) AS prev_count,
-                AVG(CASE WHEN timestamp >= ? AND timestamp < ? THEN confidence ELSE NULL END) AS window_avg_confidence,
-                MAX(CASE WHEN timestamp >= ? AND timestamp < ? THEN timestamp ELSE NULL END) AS window_last_heard
-            FROM audio_detections
-            WHERE is_hidden = 0 AND timestamp >= ? AND timestamp < ?
-            GROUP BY unified_id
-        """
-        params = (ws, we, ps, pe, ws, we, ws, we, ps, we)
-        async with self.db.execute(query, params) as cursor:
-            rows = await cursor.fetchall()
-
-        results: list[dict] = []
-        for row in rows:
-            window_count = int(row[3] or 0)
-            prev_count = int(row[4] or 0)
-            if window_count == 0 and prev_count == 0:
-                continue
-            results.append(
-                {
-                    "species": row[1],
-                    "scientific_name": row[2],
-                    "window_count": window_count,
-                    "prev_count": prev_count,
-                    "window_avg_confidence": float(row[5] or 0.0),
-                    "window_last_heard": _parse_datetime(row[6]) if row[6] else None,
-                }
-            )
-        return results
-
     async def get_audio_confirmations_count(
         self, start_date: datetime, end_date: datetime, *, public_evidence: bool = False
     ) -> int:
         """Count confirmations, with current public evidence for anonymous summaries."""
-        evidence_sql, evidence_params = await _public_audio_evidence_sql(self.db) if public_evidence else ("1 = 1", [])
+        evidence_sql, evidence_params = await public_audio_evidence_sql(self.db) if public_evidence else ("1 = 1", [])
         async with self.db.execute(
             f"""SELECT COUNT(*) FROM detections d
                WHERE d.detection_time >= ? AND d.detection_time <= ?

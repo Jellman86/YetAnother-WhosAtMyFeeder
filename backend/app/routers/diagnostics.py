@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
+from app.routers.stats import SystemTelemetryHistoryResponse, build_system_telemetry_history
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.media_probe import collect_video_sample_diagnostic
 
@@ -76,6 +77,7 @@ class FocusedDiagnosticsResponse(BaseModel):
 
 
 class DiagnosticsWorkspaceResponse(BaseModel):
+    system_telemetry: SystemTelemetryHistoryResponse | None = None
     workspace_schema_version: str
     backend_diagnostics: BackendDiagnosticsSnapshotResponse
     focused_diagnostics: FocusedDiagnosticsResponse
@@ -121,6 +123,7 @@ class MediaSampleResponse(BaseModel):
 
 
 class DiagnosticsBundleResponse(BaseModel):
+    system_telemetry: SystemTelemetryHistoryResponse | None = None
     schema_version: str
     generated_at: str
     summary: DiagnosticsBundleSummaryResponse
@@ -147,6 +150,24 @@ def _is_video_diagnostic_event(event: dict[str, Any]) -> bool:
     return component in _VIDEO_DIAGNOSTIC_COMPONENTS or worker_pool == "video"
 
 
+def _video_failure_reason(event: dict[str, Any]) -> str | None:
+    if event.get("severity") not in {"warning", "error", "critical"}:
+        return None
+    context = event.get("context")
+    context = context if isinstance(context, dict) else {}
+    if context.get("snapshot_fallback_recovered") is True:
+        return None
+    reason = str(event.get("reason_code") or "").strip()
+    if reason.lower() == "video_circuit_opened":
+        cause = context.get("last_error")
+        if isinstance(cause, str):
+            return cause.strip() or None
+        return None
+    if reason.lower() in _VIDEO_BREAKER_REASON_CODES | {"native_cpu_recovery_degraded"}:
+        return None
+    return reason or None
+
+
 def _copy_event(event: dict[str, Any] | None) -> dict[str, Any] | None:
     return dict(event) if isinstance(event, dict) else None
 
@@ -159,34 +180,29 @@ def _build_video_classifier_focus(
     health_video = health.get("video_classifier") if isinstance(health, dict) else {}
     health_video = health_video if isinstance(health_video, dict) else {}
 
-    recent_events = [
+    video_events = [
         _copy_event(event) for event in events if isinstance(event, dict) and _is_video_diagnostic_event(event)
-    ][:8]
-    recent_events = [event for event in recent_events if event is not None]
+    ]
+    video_events = [event for event in video_events if event is not None]
+    recent_events = video_events[:8]
 
     latest_circuit_opened = next(
         (
             _copy_event(event)
-            for event in recent_events
+            for event in video_events
             if str(event.get("reason_code") or "").strip().lower() == "video_circuit_opened"
         ),
         None,
     )
     candidate_failure_events = [
         event
-        for event in recent_events
+        for event in video_events
         if str(event.get("reason_code") or "").strip().lower() not in _VIDEO_BREAKER_REASON_CODES
+        and _video_failure_reason(event) is not None
     ][:5]
-
-    likely_last_error = None
-    if latest_circuit_opened and isinstance(latest_circuit_opened.get("context"), dict):
-        last_error = latest_circuit_opened["context"].get("last_error")
-        if isinstance(last_error, str) and last_error.strip():
-            likely_last_error = last_error.strip()
-    if likely_last_error is None and candidate_failure_events:
-        candidate_reason = candidate_failure_events[0].get("reason_code")
-        if isinstance(candidate_reason, str) and candidate_reason.strip():
-            likely_last_error = candidate_reason.strip()
+    likely_last_error = next(
+        (reason for event in video_events if (reason := _video_failure_reason(event)) is not None), None
+    )
 
     return {
         "circuit_open": bool(health_video.get("circuit_open")),
@@ -260,6 +276,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
     maintenance_status = await maintenance_coordinator.get_status()
     return {
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
+        "system_telemetry": build_system_telemetry_history().model_dump(),
         "backend_diagnostics": backend_diagnostics,
         "focused_diagnostics": {
             "video_classifier": _build_video_classifier_focus(backend_diagnostics, health),
@@ -312,6 +329,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "startup_instance_id": health.get("startup_instance_id") or "unknown",
         },
         "workspace": workspace,
+        "system_telemetry": workspace.get("system_telemetry"),
         "health": health,
         "classifier": classifier,
         "taxonomy_repair": taxonomy_repair,

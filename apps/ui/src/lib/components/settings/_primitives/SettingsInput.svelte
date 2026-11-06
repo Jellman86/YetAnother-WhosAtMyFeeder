@@ -7,6 +7,8 @@
         value: string | number;
         placeholder?: string;
         ariaLabel?: string;
+        /** Id of the help or unit text read after the field's name. */
+        describedBy?: string;
         autocomplete?: HTMLInputAttributes['autocomplete'];
         min?: number;
         max?: number;
@@ -22,6 +24,7 @@
         value,
         placeholder,
         ariaLabel,
+        describedBy,
         autocomplete,
         min,
         max,
@@ -42,6 +45,7 @@
     {max}
     {step}
     aria-label={ariaLabel}
+    aria-describedby={describedBy}
     {value}
     oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
     onkeydown={(e) => onkeydown?.(e)}

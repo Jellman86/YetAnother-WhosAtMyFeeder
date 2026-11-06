@@ -6,6 +6,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { SCORE_FILL, scoreBand } from '../utils/score-tone';
     import BadgeHint from './BadgeHint.svelte';
     import { explanation } from '../utils/explanation';
     import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte';
@@ -71,14 +72,19 @@
     let analysisActive = $derived(!!reclassifyProgress);
 
     // Dynamic Naming Logic
-    let naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
-        return getBirdNames(detection, showCommon, preferSci);
-    });
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
+    let naming = $derived(getBirdNames(detection, showCommon, preferSci));
 
     let primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     let subName = $derived(mixed ? null : naming.secondary);
+    // While selecting, the card is a toggle named by what it picks, as a list row is.
+    const selectSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
+    const recordLabel = $derived(
+        selectionMode
+            ? $_('events.row_select', { values: { species: selectSubject }, default: `Select ${selectSubject}` })
+            : $_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })
+    );
 
     let isManualObservation = $derived(detection.observation_source === 'manual_upload');
     let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
@@ -154,18 +160,6 @@
         }
     }
 
-    function getConfidenceColor(score: number): string {
-        if (score >= 0.9) return 'text-accent-500';
-        if (score >= 0.7) return 'text-amber-500';
-        return 'text-red-500';
-    }
-
-    function getConfidenceBg(score: number): string {
-        if (score >= 0.9) return 'border-accent-500/30';
-        if (score >= 0.7) return 'border-amber-500/30';
-        return 'border-red-500/30';
-    }
-
     const weatherConditionSummary = $derived.by(() => summarizeWeatherCondition(detection.weather_condition));
     const hasWeatherCondition = $derived(weatherConditionSummary.length > 0);
     const weatherUnitSystem = $derived(
@@ -223,14 +217,15 @@
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
                {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
-               {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
+               {selectionMode && selected && !analysisActive ? 'border-2 border-brand-600 ring-2 ring-brand-500/60 dark:border-brand-400 dark:ring-brand-400/50' : ''}"
         style="animation-delay: {index * 40}ms"
     >
     <!-- The record: everything above the footer opens it, and nothing in the footer does. -->
     <div class="relative flex flex-1 flex-col">
     <button
         type="button"
-        aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
+        aria-label={recordLabel}
+        aria-pressed={selectionMode ? selected : undefined}
         onclick={onclick}
         class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
@@ -292,7 +287,7 @@
                 {/if}
                 {#if isVerified}
                     <BadgeHint
-                        class="w-7 h-7 rounded-full bg-accent-500/90 text-white flex items-center justify-center shadow-lg shadow-accent-500/40"
+                        class="w-7 h-7 rounded-full bg-success-700/95 text-white flex items-center justify-center shadow-lg shadow-success-700/40"
                         text={$_('detection.audio_evidence_hint')}
                         label={$_('detection.verified')}
                     >
@@ -303,7 +298,7 @@
                 {/if}
                 {#if hasAudioConfirmed && !isVerified}
                     <BadgeHint
-                        class="w-7 h-7 rounded-full bg-brand-500/90 text-white flex items-center justify-center shadow-lg shadow-brand-500/30"
+                        class="w-7 h-7 rounded-full bg-brand-700/95 text-white flex items-center justify-center shadow-lg shadow-brand-700/30"
                         text={$_('detection.audio_evidence_hint')}
                         label={$_('detection.audio_match')}
                     >
@@ -314,7 +309,7 @@
                 {/if}
                 {#if detection.observation_source === 'manual_upload'}
                     <BadgeHint
-                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-lg shadow-brand-500/30"
+                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-700/95 text-white shadow-lg shadow-brand-700/30"
                         text={$_('detection.manual_upload', { default: 'Added from an upload' })}
                         label={$_('detection.manual_upload', { default: 'Added from an upload' })}
                     >
@@ -346,7 +341,8 @@
                  where the card is full width, but the densest desktop grid, so
                  the guard fired on an ordinary laptop and covered the bird. The
                  grid now keeps a card wide enough for one line instead. -->
-            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2">
+            <!-- While selecting, the card owns every click, as a list row does; the readings stay readable. -->
+            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2 {selectionMode ? 'pointer-events-none' : ''}">
                 <BadgeHint text={$_('detection.captured_at_hint', { values: { date: formatDateValue(detection.detection_time), time: formatTime(detection.detection_time) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -355,7 +351,7 @@
                 </BadgeHint>
                 {#if !mixed}
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score: (detection.score * 100).toFixed(0) } })} class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
-                    <span class="h-2 w-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
+                    <span class="h-2 w-2 rounded-full {SCORE_FILL[scoreBand(detection.score)]}" data-detection-score></span>
                     {(detection.score * 100).toFixed(0)}%
                 </BadgeHint>
                 {/if}
@@ -372,7 +368,7 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
@@ -380,7 +376,7 @@
                     </button>
                     {#if fullVisitFetched}
                         <BadgeHint
-                            class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-500 text-white shadow-md"
+                            class="absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-700 text-white shadow-md"
                             text={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                             label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                         >
@@ -410,7 +406,7 @@
                         }}
                         aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
-                               hover:bg-brand-500 hover:text-white transition-all duration-200
+                               hover:bg-brand-700 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -458,7 +454,7 @@
                 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                     {#each speciesMix as entry (entry.species)}
                         <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                            {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                            {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                         </li>
                     {/each}
                 </ul>
@@ -520,16 +516,20 @@
     {#if footer}
         <div class="relative z-20" data-detection-card-footer>{@render footer()}</div>
     {/if}
-    {#if selectionMode && selected && !analysisActive}
-        <div class="absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none">
-            <div class="absolute inset-0 bg-cyan-500/24 backdrop-blur-sm"></div>
-            <div class="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/22"></div>
-            <div class="absolute inset-0 z-50 flex items-center justify-center">
-                <svg class="h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
-                    <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
-                </svg>
-            </div>
-        </div>
+    {#if selectionMode && !analysisActive}
+        <!-- Selection is a ring and a filled check, never a veil over the bird: the photo and name
+             stay readable, and an empty circle shows the card can be chosen. The button carries
+             the state for assistive technology. -->
+        <span
+            class="pointer-events-none absolute right-3 top-3 z-40 inline-flex h-8 w-8 items-center justify-center rounded-full border-2 shadow-md
+                   {selected ? 'border-white bg-brand-700 text-white dark:border-slate-900' : 'border-white bg-black/35 text-transparent'}"
+            aria-hidden="true"
+            data-detection-card-check={selected ? 'selected' : 'unselected'}
+        >
+            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6">
+                <path d="M5 10.5l3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </span>
     {/if}
     </div>
 </div>

@@ -6,7 +6,7 @@ from datetime import datetime
 
 import aiosqlite
 
-from app.utils.api_datetime import utc_naive_now
+from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 
 
 @dataclass(slots=True)
@@ -30,6 +30,8 @@ class ManualObservationDraft:
     latitude: float | None = None
     longitude: float | None = None
     location_source: str | None = None
+    captured_at: datetime | None = None
+    captured_at_source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -41,7 +43,7 @@ class ManualObservationRepository:
     _COLUMNS = """id, status, media_type, original_filename, content_type, content_sha256,
         size_bytes, source_filename, progress_current, progress_total, progress_message,
         results_json, error_code, error_message, saved_event_id, notes, latitude, longitude,
-        location_source, created_at, updated_at"""
+        location_source, created_at, updated_at, captured_at, captured_at_source"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -70,6 +72,8 @@ class ManualObservationRepository:
             location_source=row[18],
             created_at=datetime.fromisoformat(row[19]) if isinstance(row[19], str) else row[19],
             updated_at=datetime.fromisoformat(row[20]) if isinstance(row[20], str) else row[20],
+            captured_at=datetime.fromisoformat(row[21]) if isinstance(row[21], str) else row[21],
+            captured_at_source=row[22],
         )
 
     async def create(self, draft: ManualObservationDraft) -> None:
@@ -78,8 +82,8 @@ class ManualObservationRepository:
             """INSERT INTO manual_observation_drafts (
                 id, status, media_type, original_filename, content_type, content_sha256,
                 size_bytes, source_filename, progress_current, progress_total, latitude, longitude,
-                location_source, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                location_source, captured_at, captured_at_source, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 draft.id,
                 draft.status,
@@ -94,6 +98,8 @@ class ManualObservationRepository:
                 draft.latitude,
                 draft.longitude,
                 draft.location_source,
+                serialize_storage_datetime(draft.captured_at) if draft.captured_at else None,
+                draft.captured_at_source,
                 now,
                 now,
             ),

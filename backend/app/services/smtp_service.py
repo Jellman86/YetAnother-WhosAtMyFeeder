@@ -24,6 +24,7 @@ from google.oauth2.credentials import Credentials as GoogleCredentials
 from google.auth.transport.requests import Request as GoogleRequest
 import httpx
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.database import get_db
 from app.services.oauth_token_crypto import (
     decrypt_oauth_token,
@@ -130,7 +131,7 @@ class SMTPService:
             return success
 
         except Exception as e:
-            self.logger.error("send_email_oauth_error", error=str(e), provider=provider)
+            self.logger.error("send_email_oauth_error", error=safe_error_message(e), provider=provider)
             return False
 
     async def send_email_password(
@@ -245,7 +246,7 @@ class SMTPService:
         except Exception as e:
             self.logger.error(
                 "send_email_password_error",
-                error=str(e),
+                error=safe_error_message(e),
                 error_type=type(e).__name__,
                 smtp_host=smtp_host,
                 smtp_port=smtp_port,
@@ -344,7 +345,7 @@ class SMTPService:
             return True
 
         except Exception as e:
-            self.logger.error("gmail_oauth_send_error", error=str(e), error_type=type(e).__name__)
+            self.logger.error("gmail_oauth_send_error", error=safe_error_message(e), error_type=type(e).__name__)
             return False
 
     async def _send_via_outlook_oauth(self, token_data: Dict[str, Any], message: MIMEMultipart, to_email: str) -> bool:
@@ -390,7 +391,7 @@ class SMTPService:
             return True
 
         except Exception as e:
-            self.logger.error("outlook_oauth_send_error", error=str(e), error_type=type(e).__name__)
+            self.logger.error("outlook_oauth_send_error", error=safe_error_message(e), error_type=type(e).__name__)
             return False
 
     async def _get_oauth_token(self, provider: str) -> Optional[Dict[str, Any]]:
@@ -439,7 +440,7 @@ class SMTPService:
                 }
 
         except Exception as e:
-            self.logger.error("get_oauth_token_error", error=str(e), provider=provider)
+            self.logger.error("get_oauth_token_error", error=safe_error_message(e), provider=provider)
             return None
 
     async def get_oauth_status(self, provider: Optional[str] = None) -> Optional[Dict[str, str]]:
@@ -476,7 +477,7 @@ class SMTPService:
                 return None
 
         except Exception as e:
-            self.logger.error("refresh_token_error", error=str(e), provider=provider)
+            self.logger.error("refresh_token_error", error=safe_error_message(e), provider=provider)
             return None
 
     async def _refresh_gmail_token(self, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -527,7 +528,7 @@ class SMTPService:
             return token_data
 
         except Exception as e:
-            self.logger.error("gmail_token_refresh_error", error=str(e))
+            self.logger.error("gmail_token_refresh_error", error=safe_error_message(e))
             return None
 
     async def _refresh_outlook_token(self, token_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -596,7 +597,7 @@ class SMTPService:
             return token_data
 
         except Exception as e:
-            self.logger.error("outlook_token_refresh_error", error=str(e))
+            self.logger.error("outlook_token_refresh_error", error=safe_error_message(e))
             return None
 
     async def store_oauth_token(
@@ -654,7 +655,7 @@ class SMTPService:
             return True
 
         except Exception as e:
-            self.logger.error("store_oauth_token_error", error=str(e), provider=provider)
+            self.logger.error("store_oauth_token_error", error=safe_error_message(e), provider=provider)
             return False
 
     async def delete_oauth_token(self, provider: str) -> bool:
@@ -667,7 +668,7 @@ class SMTPService:
             return True
 
         except Exception as e:
-            self.logger.error("delete_oauth_token_error", error=str(e), provider=provider)
+            self.logger.error("delete_oauth_token_error", error=safe_error_message(e), provider=provider)
             return False
 
 

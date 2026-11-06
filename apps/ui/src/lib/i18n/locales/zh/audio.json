@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "听测",
+    "daily_title": "活动趋势",
+    "daily_sub": "每日 BirdNET-Go 听测次数",
+    "hourly_title": "时段",
+    "species_title": "物种构成",
+    "empty": "此时间范围内没有活动。"
+  },
+  "stat": {
+    "heard": "听测",
+    "heard_sub": "当前显示的 BirdNET 检测",
+    "species": "物种",
+    "species_sub": "通过音频识别的物种",
+    "peak_hour": "高峰时段",
+    "peak_hour_sub": "{count, plural, other {# 次检测}}",
+    "no_activity": "尚无活动",
+    "sources": "来源",
+    "sources_sub": "麦克风或音频流"
+  },
+  "filter": {
+    "window": "时间范围",
+    "24h": "24 小时",
+    "7d": "7 天",
+    "30d": "30 天",
+    "90d": "90 天",
+    "1y": "1 年",
+    "species": "物种",
+    "source": "来源",
+    "min_confidence": "最低置信度",
+    "changed": "筛选条件已更改。请应用以更新列表。"
+  },
+  "top_species": "听测次数最多的物种",
+  "card": {
+    "last_heard": "最近听测",
+    "avg": "平均",
+    "max": "最高"
+  },
+  "history": {
+    "title": "检测历史",
+    "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+    "empty": "没有符合这些筛选条件的 BirdNET 检测。",
+    "showing": "显示第 {from}-{to} 项，共 {total} 项",
+    "hide": "在本地隐藏",
+    "undo": "撤销",
+    "hidden_message": "音频检测已隐藏。",
+    "local_only": "隐藏后，该条目将从YA-WAMF历史记录和未来的音频匹配中排除。BirdNET-Go不会更改；上游删除不会自动同步。"
+  },
+  "table": {
+    "sound": "声音",
+    "time": "时间",
+    "species": "物种",
+    "source": "来源",
+    "confidence": "置信度",
+    "open_birdnet": "在 BirdNET-Go 中打开",
+    "open_visual_match": "打开匹配的视觉检测",
+    "unknown_source": "未知来源",
+    "spectrogram_alt": "{species} 叫声的声谱图"
+  },
+  "sources": {
+    "title": "来源",
+    "empty": "尚无来源。"
+  },
+  "not_shared_title": "音频未公开共享",
+  "not_shared_body": "此实例的所有者已为访客关闭音频。"
+}

@@ -7,6 +7,7 @@
     import { authStore } from '../stores/auth.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
     import { _ } from 'svelte-i18n';
 
     /**
@@ -22,6 +23,8 @@
         detail: string;
         state: string | null;
         tone: Tone;
+        /** The detail is a literal identifier, such as a model id, not words. */
+        identifier?: boolean;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -124,12 +127,17 @@
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
         const model = classifier.effective_model_id ?? classifier.active_model_id ?? '—';
         const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
+        const reading = pipelineClassifierState(classifier);
+        const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
+            loaded: { state: $_('about.pipeline.loaded', { default: 'loaded' }), tone: 'ok' },
+            standby: { state: $_('about.pipeline.standby', { default: 'loads on first detection' }), tone: 'off' },
+            check: { state: $_('about.pipeline.degraded', { default: 'check' }), tone: 'off' },
+            unknown: { state: unknown, tone: 'unknown' }
+        };
         return {
             detail: provider ? `${model} · ${provider}` : String(model),
-            state: classifier.loaded
-                ? $_('about.pipeline.loaded', { default: 'loaded' })
-                : $_('about.pipeline.not_loaded', { default: 'not loaded' }),
-            tone: (classifier.loaded ? 'ok' : 'off') as Tone
+            identifier: true,
+            ...states[reading]
         };
     });
 
@@ -154,6 +162,7 @@
             key: 'classifier',
             kind: 'local',
             detail: classifierSummary.detail,
+            identifier: 'identifier' in classifierSummary,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
@@ -242,7 +251,8 @@
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400">
+                <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
                     {step.detail}
                 </span>
             </li>

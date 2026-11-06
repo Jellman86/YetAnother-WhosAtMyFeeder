@@ -1,0 +1,8 @@
+{
+  "navigation": "Пагинация",
+  "previous_page": "Предыдущая страница",
+  "next_page": "Следующая страница",
+  "page_number": "Страница {number}",
+  "showing": "Показано {from}–{to} из {total}",
+  "page_size_label": "Показать:"
+}

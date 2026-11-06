@@ -1,7 +1,7 @@
 """Owner-only per-capture bird summaries on the event list, through real routes and migrated history."""
 
 from contextlib import asynccontextmanager, closing
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 import sqlite3
@@ -15,6 +15,7 @@ from app.auth import create_access_token
 from app.config import settings
 from app.main import app
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services import detection_presenter
 from app.routers import events
 from app.routers.proxy import BirdObservationResponse
 
@@ -44,7 +45,7 @@ def _bird(db, event, index, species, *, hidden=False, manual=False, detector=0.8
 @pytest.fixture
 def history(monkeypatch, tmp_path):
     path = tmp_path / "history.db"
-    today = datetime.combine(date.today(), datetime.min.time(), tzinfo=timezone.utc)
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     with closing(sqlite3.connect(os.environ["DB_PATH"])) as source, closing(sqlite3.connect(path)) as db:
         source.backup(db)
         db.execute("PRAGMA foreign_keys=ON")
@@ -90,6 +91,8 @@ def history(monkeypatch, tmp_path):
 
     monkeypatch.setattr(events, "get_db", history_db)
     monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    # Catalogue naming is covered with its own catalogue; these tests read the stored decisions.
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", lambda labels, language: {})
     monkeypatch.setattr(settings.auth, "enabled", True)
     monkeypatch.setattr(settings.auth, "initial_setup_complete", True)
     monkeypatch.setattr(settings.auth, "username", "owner")
@@ -120,7 +123,7 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "counted": 4,
         "unknown": 2,
         "excluded": 1,
-        "species": [{"species": "House Finch", "count": 2}],
+        "species": [{"species": "House Finch", "count": 2, "common_name": None, "scientific_name": None}],
         "hint_only": False,
     }
     # No stored observations is not a measured zero.
@@ -132,10 +135,37 @@ async def test_owner_summary_counts_stored_decisions_and_keeps_absent_evidence_n
         "species": [],
         "hint_only": False,
     }
-    assert rows["corrected"]["bird_summary"]["species"] == [{"species": "Blue Jay", "count": 1}]
+    assert rows["corrected"]["bird_summary"]["species"] == [
+        {"species": "Blue Jay", "count": 1, "common_name": None, "scientific_name": None}
+    ]
     assert rows["corrected"]["bird_summary"]["unknown"] == 0
     assert rows["hint-only"]["bird_summary"]["hint_only"] is True
     assert rows["hidden-parent"]["bird_summary"]["counted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_owner_summary_names_each_species_in_the_reader_language(history, monkeypatch):
+    from app.services.species_names import SpeciesIdentityNames
+
+    asked: list[tuple[list[str], str]] = []
+
+    def resolve(labels, language):
+        asked.append((list(labels), language))
+        return {"house finch": SpeciesIdentityNames(display="Roselin du Mexique", scientific="Haemorhous mexicanus")}
+
+    monkeypatch.setattr(detection_presenter, "resolve_label_names", resolve)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        response = await client.get("/api/events", headers={**OWNER, "Accept-Language": "fr-FR"})
+    rows = _by_event(response.json())
+    assert rows["flock"]["bird_summary"]["species"] == [
+        {
+            "species": "House Finch",
+            "count": 2,
+            "common_name": "Roselin du Mexique",
+            "scientific_name": "Haemorhous mexicanus",
+        }
+    ]
+    assert asked and asked[0][1] == "fr"
 
 
 @pytest.mark.asyncio
@@ -171,7 +201,7 @@ async def test_guest_projection_never_reads_or_returns_bird_summary(history, mon
 @pytest.mark.asyncio
 async def test_page_reads_bird_evidence_in_bounded_batches_not_once_per_capture(history):
     path, _, statements = history
-    today = datetime.combine(date.today(), datetime.min.time())
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
     with closing(sqlite3.connect(path)) as db:
         db.executemany(
             """INSERT INTO detections (frigate_event, camera_name, detection_time,

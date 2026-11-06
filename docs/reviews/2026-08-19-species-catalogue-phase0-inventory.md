@@ -32,6 +32,7 @@ species mapping: their classes are detector targets, not taxa.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `bird_crop_detector` | crop_detector | onnx | stable | system | `detector_classes` | `2b79e6a7fb1ec6a33f332b9b10d82d9de4b7b49dcd26b5946921bb356895c954` | — | `a9d03262d23184d1a74b5b309fe85fcfc9ea7ad48a21fe1dd21372496f836fbc` |
 | `bird_crop_detector_accurate_yolox_tiny` | crop_detector | onnx | experimental | system | `detector_classes` | `427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7` | — | `bd17f1ee35d5f3c862a4894605855abbb9dda4b0621fdb0ac4c2c8c7bb7e730a` |
+| `bird_crop_detector_accurate_rfdetr_nano` | crop_detector | onnx | experimental | system | `detector_classes` | `889453865bc1a776b93c6ec3292d2e06833f3907db99187e37cd01476fb47620` | — | `4896d9e76fff04240339eedf66b220f4fdf8196b2597726116adbedbbcd60fd8` |
 | `mobilenet_v2_birds` | classifier | tflite | stable | birds_only | `scientific_paired_common` | `350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9` | — | `a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277` |
 | `small_birds/eu` | classifier | onnx | planned | birds_only | `common_name` | `dccbb727fce3ed0eba460a857de5c2203e8858364de5093d45b9a8c364eb7786` | — | `0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0` |
 | `small_birds/na` | classifier | onnx | planned | birds_only | `common_name` | `2ffd557011229b1705750a4f38274379af0f28f61730bf41fe9b87b31e6d1821` | — | `ca3a5500fd0aa02f3f969ee304733c76384a38b92da82b802b614246fcd2a57d` |

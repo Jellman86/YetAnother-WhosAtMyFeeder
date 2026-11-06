@@ -1,0 +1,17 @@
+{
+  "title": "Welcome to YA-WAMF",
+  "subtitle": "Secure your installation by setting an admin password.",
+  "language_label": "Language",
+  "language_desc": "You can change this later in Settings.",
+  "admin_username": "Admin Username",
+  "password": "Password",
+  "password_hint": "Minimum 8 characters",
+  "confirm_password": "Confirm Password",
+  "skip_auth": "Skip authentication (not recommended)",
+  "setting_up": "Setting up…",
+  "continue_without_password": "Continue without password",
+  "set_password": "Set password and continue",
+  "password_mismatch": "Passwords don't match",
+  "password_min": "Password must be at least 8 characters",
+  "setup_failed": "Setup failed"
+}

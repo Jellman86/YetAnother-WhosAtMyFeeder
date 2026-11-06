@@ -8,6 +8,9 @@ The bell icon in the header opens the notification centre; **Notifications** in 
 the full page. Both show one history, filtered by category: **Everything**, **Birds**, **Updates**,
 **Jobs**, and **Errors**. The **Jobs** and **Errors** categories are owner-only.
 
+**Clear notifications** empties the history on this browser at once. A toast then offers **Undo**
+for ten seconds, which puts the cleared items back beside anything that arrived meanwhile.
+
 The **Jobs** category separates queued, running, and recent work. Video analysis, best-quality
 snapshots, full-visit clips, and backfills stay distinct, so a queued item is never presented as a
 running worker. A job that stops reporting for three quarters of an hour is shown as **stopped**,
@@ -146,12 +149,22 @@ Choose a delivery mode in **Settings → Notifications**:
 - **Standard:** Notify when a confirmed detection is created.
 - **Realtime:** Notify as early as possible and allow update notifications as detections evolve.
 - **Silent:** Disable all notifications.
-- **Advanced (Custom):** Manually toggle the exact triggers.
+- **Advanced controls:** Turn on to choose the exact triggers yourself.
 
 Delayed video notifications wait for the associated photo work within the notification
 timeout. They use the visit's accepted identification and current audio confirmation,
 including manual corrections, rather than a video guess that the promotion rules
 rejected. Deleted, hidden, blocked and unknown visits are checked again before delivery.
+
+## Garden animals
+
+While the Garden animals beta is on, **Settings → Notifications** has a **Garden
+animals** section for alerts about named animals. By default they use your bird
+channels, meaning the ones switched on and configured, and attach the animal photo.
+You can choose channels for Garden alone instead. Bird filters, notification mode
+and the cooldown above apply to birds only. See
+[Send Garden notifications](garden-animals.md#send-garden-notifications) for when an
+alert is sent, what it contains and who can open its link.
 
 ## How it Works
 

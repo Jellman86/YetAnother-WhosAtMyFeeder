@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    readDuplicateUpload,
+    toDateTimeLocalValue,
     MAX_MANUAL_IMAGE_BYTES,
     MAX_MANUAL_VIDEO_BYTES,
     findPredictionForSpecies,
@@ -57,5 +59,41 @@ describe('manual observation species photo', () => {
         expect(formatVideoOffset(4.6)).toBe('0:04');
         expect(formatVideoOffset(72)).toBe('1:12');
         expect(formatVideoOffset(-1)).toBe('0:00');
+    });
+});
+
+const draftId = 'a'.repeat(32);
+
+describe('toDateTimeLocalValue', () => {
+    it('shows a UTC instant as local wall-clock time to the second', () => {
+        const value = toDateTimeLocalValue('2026-05-01T06:15:30Z');
+        expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+        expect(new Date(value).toISOString()).toBe('2026-05-01T06:15:30.000Z');
+    });
+
+    it('is empty for no time or an unreadable one', () => {
+        expect(toDateTimeLocalValue(null)).toBe('');
+        expect(toDateTimeLocalValue('')).toBe('');
+        expect(toDateTimeLocalValue('not a time')).toBe('');
+    });
+});
+
+describe('readDuplicateUpload', () => {
+    it('points at the saved observation when there is one', () => {
+        expect(readDuplicateUpload({ detail: { message: 'x', draft_id: draftId, event_id: `manual_${draftId}` } }))
+            .toEqual({ kind: 'saved', eventId: `manual_${draftId}` });
+    });
+
+    it('points at the draft while it is only waiting for review', () => {
+        expect(readDuplicateUpload({ detail: { message: 'x', draft_id: draftId, event_id: null } }))
+            .toEqual({ kind: 'draft', draftId });
+    });
+
+    it('accepts only identifiers of the shape the server issues', () => {
+        expect(readDuplicateUpload({ detail: 'This media has already been uploaded.' })).toBeNull();
+        expect(readDuplicateUpload({ detail: { draft_id: '../../settings', event_id: 'javascript:alert(1)' } })).toBeNull();
+        expect(readDuplicateUpload({ detail: { draft_id: 42 } })).toBeNull();
+        expect(readDuplicateUpload(null)).toBeNull();
+        expect(readDuplicateUpload('oops')).toBeNull();
     });
 });

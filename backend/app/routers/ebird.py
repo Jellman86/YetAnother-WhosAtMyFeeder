@@ -10,11 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.auth import get_auth_context_with_legacy
+from app.utils.diagnostic_redaction import safe_error_message
+from app.auth import AuthContext, get_auth_context_with_legacy, require_owner
 from app.database import get_db
 from app.config import settings
 from app.utils.public_access import guest_location
+from app.services.bird_export_eligibility import is_bird_exportable
 from app.services.ebird_service import ebird_service
+from app.services.model_output_groups import OutputGroup
+from app.services.species_catalog_resolver import species_catalog_resolver
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.repositories.ebird_repository import EbirdRepository
 
@@ -193,12 +197,35 @@ def _resolve_export_common_name(
     return ""
 
 
+def _export_evidence_groups(
+    *,
+    scientific_name: str | None,
+    model_artifact_id: int | None,
+    model_output_index: int | None,
+) -> tuple[OutputGroup, OutputGroup]:
+    """Catalogue evidence for one row: (producing output group, identity group).
+
+    Either is ``unknown`` when the catalogue cannot positively bind it —
+    a missing artifact, an index with no mapped group, or a scientific
+    name the catalogue does not hold exactly. Unknown is not a verdict."""
+    producing_group: OutputGroup = "unknown"
+    if type(model_output_index) is int and scientific_name:
+        model_sha256 = species_catalog_resolver.model_sha256_for_artifact_id(model_artifact_id)
+        if model_sha256 is not None:
+            producing_group = species_catalog_resolver.cached_output_group(
+                model_sha256, model_output_index, str(scientific_name)
+            )
+    return producing_group, species_catalog_resolver.cached_species_group(scientific_name)
+
+
 def _is_exportable_ebird_detection(
     *,
     display_name: str | None,
     common_name: str | None,
     english_common_name: str | None,
     scientific_name: str | None,
+    producing_group: OutputGroup = "unknown",
+    identity_group: OutputGroup = "unknown",
 ) -> bool:
     normalized_display = str(display_name or "").strip().lower()
     normalized_common = str(common_name or "").strip().lower()
@@ -213,7 +240,10 @@ def _is_exportable_ebird_detection(
         scientific_name=scientific_name,
     ):
         return False
-    return True
+    return is_bird_exportable(
+        producing_group=producing_group,
+        identity_group=identity_group,
+    )
 
 
 def _parse_detection_time(value: object) -> datetime | None:
@@ -230,13 +260,18 @@ def _parse_detection_time(value: object) -> datetime | None:
     return None
 
 
+def require_export_owner(auth: AuthContext = Depends(get_auth_context_with_legacy)) -> AuthContext:
+    # Keep supported legacy owner access while rejecting public/guest contexts.
+    return require_owner(auth)
+
+
 @router.get("/export", response_class=StreamingResponse)
 async def export_ebird_csv(
     from_date: Optional[str] = Query(
         None, alias="from", description="Optional inclusive export start date in YYYY-MM-DD"
     ),
     to_date: Optional[str] = Query(None, alias="to", description="Optional inclusive export end date in YYYY-MM-DD"),
-    auth=Depends(get_auth_context_with_legacy),
+    _auth: AuthContext = Depends(require_export_owner),
 ):
     """
     Export all non-hidden detections in eBird Record Format CSV.
@@ -252,6 +287,11 @@ async def export_ebird_csv(
 
     start = datetime.combine(requested_from, time.min) if requested_from else None
     end_exclusive = datetime.combine(requested_to + timedelta(days=1), time.min) if requested_to else None
+
+    # Catalogue evidence loads once, off the event loop; per-row lookups
+    # afterwards are in-memory. Without a catalogue every group reads
+    # unknown and the export behaves exactly as it did before #728.
+    await asyncio.to_thread(species_catalog_resolver.ensure_loaded)
 
     async def iter_csv():
         f = io.StringIO()
@@ -274,13 +314,22 @@ async def export_ebird_csv(
                     common_name,
                     video_classification_provider,
                     video_classification_backend,
+                    model_artifact_id,
+                    model_output_index,
                     english_common_name,
                 ) = row
+                producing_group, identity_group = _export_evidence_groups(
+                    scientific_name=scientific_name,
+                    model_artifact_id=model_artifact_id,
+                    model_output_index=model_output_index,
+                )
                 if not _is_exportable_ebird_detection(
                     display_name=display_name,
                     common_name=common_name,
                     english_common_name=english_common_name,
                     scientific_name=scientific_name,
+                    producing_group=producing_group,
+                    identity_group=identity_group,
                 ):
                     continue
                 dt = _parse_detection_time(detection_time)
@@ -348,7 +397,9 @@ async def export_ebird_csv(
                             ):
                                 return sci, common
                         except Exception as exc:
-                            log.warning("eBird export enrichment failed", scientific_name=sci, error=str(exc))
+                            log.warning(
+                                "eBird export enrichment failed", scientific_name=sci, error=safe_error_message(exc)
+                            )
                     return sci, None
 
                 pairs = await asyncio.gather(*(_enrich_english(sci) for sci in sci_to_enrich))
@@ -527,7 +578,7 @@ async def get_nearby_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, species_code=species_code
         )
     except Exception as e:
-        log.error("eBird nearby search failed", error=str(e))
+        log.error("eBird nearby search failed", error=safe_error_message(e))
         return {"status": "error", "message": str(e), "results": []}
 
     return {
@@ -569,7 +620,7 @@ async def get_notable_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, notable=True
         )
     except Exception as e:
-        log.error("eBird notable search failed", error=str(e))
+        log.error("eBird notable search failed", error=safe_error_message(e))
         return {"status": "error", "message": str(e), "results": []}
 
     results = ebird_service.simplify_observations(items)
@@ -581,7 +632,7 @@ async def get_notable_observations(
         try:
             tax = await taxonomy_service.get_names(name)
         except Exception as exc:
-            log.warning("eBird notable enrichment failed", species=name, error=str(exc))
+            log.warning("eBird notable enrichment failed", species=name, error=safe_error_message(exc))
             return
         if tax and tax.get("thumbnail_url"):
             item["thumbnail_url"] = tax.get("thumbnail_url")

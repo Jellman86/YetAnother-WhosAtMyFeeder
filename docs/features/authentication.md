@@ -26,6 +26,30 @@ wizard. Creating a password signs that browser in immediately. Either choice com
 account setup, which cannot later be claimed through the unauthenticated setup endpoint. Reopen
 the non-destructive section map from **Settings → Setup wizard**.
 
+The password needs at least 8 characters, with at least one letter and one number, and no more than
+72 bytes. Accented and non-Latin letters take more than one byte each. The account fields offer a
+password manager the new owner login; the MQTT fields in the connection step do not, so the browser
+never fills the owner login in as broker credentials.
+
+With authentication on, an owner who is signed out sees **Sign in**. When public access is also on,
+**Continue without signing in** returns to the guest view.
+
+## Changing your login
+
+Changing the owner password or username signs existing sessions out. Sign in again with the new
+credentials. Media cookies and unused stream tickets from the old login also stop working;
+an already-open live stream closes before delivering another update or heartbeat. Toggling
+authentication also revokes previous login sessions. Legacy API keys remain independent.
+
+Ordinary upgrades and unrelated settings saves preserve your login. Connected email and
+OAuth integrations keep their encryption keys, so changing your password does not disconnect them.
+Importing a configuration backup through Settings cannot restore previously revoked login sessions.
+
+On POSIX systems, saved configuration and newly generated installation secrets use owner-only
+file permissions. Saves use an exclusive temporary file and atomic replacement; failed writes
+leave the previous configuration intact. Downloaded backups still contain secrets and need
+private storage.
+
 ## Password Reset
 
 Currently, there is no email-based "Forgot Password" flow. If you lose your password, you must reset it manually via the server file system.
@@ -73,7 +97,7 @@ medium is not shared rather than shown a broken image or an error.
 
 | Control | Default | What it decides |
 |---|---|---|
-| **Show camera names** | On | Whether camera labels appear, or are blanked out. |
+| **Show camera names** | On | Guests see each camera's name. Off shows a generic label instead. |
 | **Share audio with visitors** | On | BirdNET-Go detections, spectrograms, and audio clips. Off means no audio surfaces at all. |
 | **Share photographs with visitors** | On | Snapshots and thumbnails. Off means visitors see placeholders instead of images. |
 | **Share video with visitors** | On | Clip playback. |
@@ -81,7 +105,11 @@ medium is not shared rather than shown a broken image or an error.
 | **Show AI conversation threads** | **Off** | Whether guests can read the AI Naturalist conversation, not just the summary. |
 | **History window** | Follow retention | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |
 | **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
-| **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
+| **Location shown to visitors** | **Approximate** | How precisely guest-facing features may use your configured location. |
+
+While the **Garden animals** beta is on, guests also see confirmed Garden animals, under the same
+switches and windows as bird detections. Captures waiting for review, dismissed captures and every
+Garden review action stay owner-only.
 
 Public history and media windows use **UTC calendar days**, regardless of the server’s `TZ`
 setting. “Today only” starts at 00:00 UTC and excludes the next midnight; a custom `N`-day
@@ -109,7 +137,7 @@ historical media are shared.
 1. **Enable authentication** even though public access is read-only. Without it, everyone is an
    owner.
 2. **Limit the history and media windows** to the shortest span you are happy to publish.
-3. **Hide camera names** unless you want them public.
+3. **Turn off Show camera names** unless you want them public.
 4. **Leave clip downloads off** unless someone actually needs the files.
 5. **Set Trusted Proxy Hosts** so `X-Forwarded-*` headers cannot be spoofed.
 6. **Keep the instance behind a single reverse proxy** with HTTPS.

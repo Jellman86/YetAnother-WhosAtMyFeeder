@@ -31,6 +31,7 @@ if str(_BACKEND_DIR) not in sys.path:
 
 from app.services.species_catalog_migrations import upgrade_catalog  # noqa: E402
 from app.services.species_catalog_release import release_content_digest  # noqa: E402
+from app.services.model_output_groups import compile_output_groups  # noqa: E402
 from app.services.species_provenance import (  # noqa: E402
     SourceProvenanceError,
     default_manifest_path,
@@ -277,6 +278,7 @@ def build(
 
         if model_mappings_path is not None:
             mappings = json.loads(Path(model_mappings_path).read_text(encoding="utf-8"))
+            groups = compile_output_groups(mappings)
             label_files = mappings.get("label_files") or {}
             for artifact in sorted(mappings.get("artifacts") or [], key=lambda a: str(a["artifact_id"])):
                 entry = label_files.get(artifact["labels_sha256"])
@@ -317,9 +319,14 @@ def build(
                         # stays incomplete and unactivatable exactly as before.
                         connection.execute(
                             "INSERT INTO model_output_taxa"
-                            " (model_artifact_id, output_index, class_kind, species_id, source_label)"
-                            " VALUES (?, ?, 'unknown', NULL, ?)",
-                            (artifact_row_id, row["index"], row["label"]),
+                            " (model_artifact_id, output_index, class_kind, species_id, source_label, taxonomic_group)"
+                            " VALUES (?, ?, 'unknown', NULL, ?, ?)",
+                            (
+                                artifact_row_id,
+                                row["index"],
+                                row["label"],
+                                groups[artifact["model_sha256"]][row["index"]],
+                            ),
                         )
                         continue
                     species_id = None
@@ -333,19 +340,26 @@ def build(
                             )
                     connection.execute(
                         "INSERT INTO model_output_taxa"
-                        " (model_artifact_id, output_index, class_kind, species_id, source_label)"
-                        " VALUES (?, ?, ?, ?, ?)",
-                        (artifact_row_id, row["index"], row["kind"], species_id, row["label"]),
+                        " (model_artifact_id, output_index, class_kind, species_id, source_label, taxonomic_group)"
+                        " VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            artifact_row_id,
+                            row["index"],
+                            row["kind"],
+                            species_id,
+                            row["label"],
+                            groups[artifact["model_sha256"]][row["index"]],
+                        ),
                     )
 
         connection.execute(
             "INSERT INTO catalogue_releases"
             " (schema_version, source_manifest, content_sha256, generated_at, state)"
-            " VALUES (1, ?, ?, ?, 'active')",
+            " VALUES (2, ?, ?, ?, 'active')",
             (
                 source_manifest,
                 release_content_digest(
-                    connection, schema_version=1, source_manifest=source_manifest, generated_at=generated_at
+                    connection, schema_version=2, source_manifest=source_manifest, generated_at=generated_at
                 ),
                 generated_at,
             ),

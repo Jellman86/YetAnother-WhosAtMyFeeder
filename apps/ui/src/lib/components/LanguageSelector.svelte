@@ -16,7 +16,7 @@
     };
 
     let showDropdown = $state(false);
-    let { dropUp = false, compact = false } = $props<{ dropUp?: boolean; compact?: boolean }>();
+    let { dropUp = false, compact = false }: { dropUp?: boolean; compact?: boolean } = $props();
     const menuId = 'language-selector-menu';
     let currentLocaleValue = $state('en'); // Local state for locale value
     let languageChanging = $state(false);
@@ -79,7 +79,7 @@
                         role="menuitem"
                         class="btn min-h-11 min-w-11 w-full justify-start px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
                                {currentLocaleValue === code 
-                                   ? 'bg-brand-500 text-white' 
+                                   ? 'bg-brand-700 text-white' 
                                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'}"
                     >
                         {name}

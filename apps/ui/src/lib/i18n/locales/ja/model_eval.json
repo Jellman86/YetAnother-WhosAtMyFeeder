@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "検証済みの最適なプロバイダー",
+  "col_median_inference": "推論時間の中央値",
+  "col_model": "モデル",
+  "col_validated_providers": "検証済みプロバイダー",
+  "compat_only_body": "この実行では、各プロバイダーが読み込まれ、有限の出力を返し、CPU 基準と一致するかを確認しました。精度は測定していないため、精度の数値は表示されません。精度を測定するには評価を実行してください。",
+  "compat_only_title": "互換性チェックのみ"
+}

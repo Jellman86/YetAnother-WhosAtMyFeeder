@@ -37,8 +37,8 @@ describe('a failed action is never silent', () => {
     it('says a permanent delete failed rather than leaving the dialog as it was', () => {
         // The confirm promises the record leaves history for good. If the request
         // fails the person must be told, or they cannot know which happened.
-        expect(dashboard).toContain("console.error('Failed to delete detection', e)");
-        const start = dashboard.indexOf('async function handleDelete');
+        const start = dashboard.indexOf('async function deleteFromQueue');
+        expect(start).toBeGreaterThan(-1);
         const deleteBlock = dashboard.slice(start, dashboard.indexOf('\n    async function ', start + 1));
         expect(deleteBlock).toContain('toastStore.show(getErrorMessage(e)');
     });

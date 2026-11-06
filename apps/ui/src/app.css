@@ -53,6 +53,13 @@ html[data-theme='dark'] {
   --success-300: 110 231 183;--success-400: 52 211 153; --success-500: 16 185 129;
   --success-600: 5 150 105;  --success-700: 4 120 87;   --success-800: 6 95 70;
   --success-900: 6 78 59;    --success-950: 2 44 34;
+
+  /* Attention is the amber that says "this needs a person", in every theme.
+     A theme may repaint --accent-*; it may not repaint attention. */
+  --attention-50: 255 251 235; --attention-100: 254 243 199; --attention-200: 253 230 138;
+  --attention-300: 252 211 77; --attention-400: 251 191 36;  --attention-500: 245 158 11;
+  --attention-600: 217 119 6;  --attention-700: 180 83 9;    --attention-800: 146 64 14;
+  --attention-900: 120 53 15;  --attention-950: 69 26 3;
 }
 
 html.theme-bluetit {
@@ -166,6 +173,12 @@ html[data-theme='dark'] {
     @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
   }
 
+  /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
+     appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
+  .taxon-rank {
+    @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  }
+
   /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
   .figure {
     font-family: var(--font-display);
@@ -175,7 +188,7 @@ html[data-theme='dark'] {
 
   /* Tab button styling */
   .tab-button {
-    @apply flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium;
+    @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
     @apply transition-colors duration-200;
   }
 
@@ -210,8 +223,13 @@ html[data-theme='dark'] {
     @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
   }
 
+  /* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
+  .btn-danger-solid {
+    @apply bg-red-700 text-white hover:bg-red-800;
+  }
+
   .btn-icon {
-    @apply p-2.5 rounded-xl;
+    @apply min-h-11 min-w-11 p-2.5 rounded-xl;
   }
 
   /* Unified fields */
@@ -221,12 +239,23 @@ html[data-theme='dark'] {
     @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
   }
 
+  /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
+     inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+  .input-focus-inset {
+    @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
+  }
+
   .select-base {
     @apply input-base pr-9 appearance-none;
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.75rem center;
     background-size: 12px 12px;
+  }
+
+  .dark .select-base {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   /* Navigation buttons */
@@ -261,6 +290,23 @@ html[data-theme='dark'] {
 
   .sidebar-nav-inactive {
     @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
+  }
+
+  /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
+     recessed brand key as the selected route, with a lit check so it never reads by tint alone.
+     Never a coloured bar on one edge. */
+  .choice-active {
+    @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
+  }
+
+  .choice-active svg {
+    @apply text-brand-600 dark:text-brand-400;
+  }
+
+  /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
+     the meaning; the dot lets the eye find the row. */
+  .attention-dot {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
   }
 
   /* Badges */
@@ -503,7 +549,8 @@ html.high-contrast.high-contrast.high-contrast {
   color: #ffffff !important;
 }
 
-.high-contrast text-slate-500,
+.high-contrast .text-slate-400,
+.high-contrast .text-slate-500,
 .high-contrast .dark\:text-slate-400,
 .high-contrast .text-slate-600,
 .high-contrast .dark\:text-slate-300 {
@@ -526,8 +573,11 @@ html.high-contrast.high-contrast.high-contrast {
   /* Yellow text for emphasis */
 }
 
+/* Chosen-state fills moved from brand-500 to brand-700 for contrast under white text; they keep
+   the same high-contrast treatment. */
 .high-contrast .bg-teal-500,
 .high-contrast .bg-brand-500,
+.high-contrast .bg-brand-700,
 .high-contrast .bg-indigo-500 {
   background-color: #ffff00 !important;
   color: #000000 !important;

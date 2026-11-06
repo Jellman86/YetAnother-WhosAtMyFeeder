@@ -1,0 +1,649 @@
+"""Explicit owner suggestions, with supervised inference subordinate to birds."""
+
+import asyncio
+from collections.abc import Awaitable, Callable
+import hashlib
+import os
+from pathlib import Path
+import tempfile
+import sqlite3
+import sys
+from typing import Literal
+
+import aiofiles
+from fastapi import HTTPException
+import httpx
+import pycountry
+import structlog
+
+from app.models.inference_execution import InferenceExecution
+from app.config import settings
+from app.database import get_db
+from app.models.garden import (
+    GardenIdentification,
+    GardenIdentificationStatus,
+    GardenIdentifyRequest,
+    GardenModelStatus,
+    GardenPhotoCheckRequest,
+    GardenPhotoCheck,
+    GardenPhotoMass,
+    GardenProvider,
+    GardenVariant,
+)
+from app.repositories.garden_catalog import GardenCatalog, taxon_identity
+from app.repositories.garden_repository import GardenRepository
+from app.services.classifier_service import garden_inference_pressure
+from app.services.frigate_client import frigate_client
+from app.services import garden_motion_privacy
+from app.services.garden_capture_service import garden_capture_service
+from app.services.garden_model_runtime import digest
+from app.services.garden_visitors import GardenPolicy, Taxon, decide_prediction
+from app.services.garden_worker_supervisor import (
+    GardenBusy,
+    GardenCleanupFailed,
+    GardenWarmWorker,
+    finish_despite_cancellation,
+    worker_failure_fields,
+)
+from app.services.model_manager import MODELS_DIR
+from app.utils.api_datetime import utc_naive_now
+from app.utils.frigate_coordinates import normalized_frigate_video_hint
+
+log = structlog.get_logger()
+MODEL_SIZES = {"4.0.3a": 223998782, "4.0.3b": 223999179}
+# Providers that run on the host CPU; any other provider holds an accelerator bird inference may need.
+CPU_PROVIDERS = frozenset({"cpu", "intel_cpu"})
+MODEL_BASE_URL = "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models"
+
+
+def normalize_country(value: str | None) -> str | None:
+    name = " ".join((value or "").split())
+    name = {"uk": "GBR", "great britain": "GBR"}.get(name.casefold(), name)
+    if not name:
+        return None
+    try:
+        return pycountry.countries.lookup(name).alpha_3
+    except LookupError:
+        return None
+
+
+def _has_recovered_cpu(pool: dict) -> bool:
+    state = pool.get("native_cpu_recovery")
+    if not isinstance(state, dict):
+        return False
+    runtime = state.get("runtime")
+    if not isinstance(runtime, dict):
+        return False
+    model_id = state.get("model_id")
+    return (
+        state.get("status") == "degraded"
+        and state.get("reason") == "native_crash_same_model_cpu"
+        and state.get("recovered") is True
+        and isinstance(model_id, str)
+        and bool(model_id)
+        and runtime.get("model_id") == model_id
+        and isinstance(runtime.get("model_sha256"), str)
+        and bool(runtime.get("model_sha256"))
+        and runtime.get("active_provider") in {"cpu", "intel_cpu", "tflite"}
+    )
+
+
+def bird_work_pending(status: dict | None) -> bool:
+    if status is None:
+        return True
+    if any(
+        status.get(priority, {}).get(key, 0) for priority in ("live", "background") for key in ("queued", "running")
+    ):
+        return True
+    if status.get("native_work_pending"):
+        return True
+    if not all(isinstance(status.get(priority), dict) for priority in ("live", "background")):
+        return True
+    return any(
+        pool.get("busy")
+        or pool.get("circuit_open")
+        or (pool.get("last_exit_reason") == "native_runtime_quarantined" and not _has_recovered_cpu(pool))
+        or (pool.get("last_runtime_recovery") or {}).get("status") in {"recovering", "failed"}
+        for pool in status.get("worker_pools", {}).values()
+        if isinstance(pool, dict)
+    )
+
+
+class GardenIdentificationService:
+    def __init__(self) -> None:
+        self.catalog = GardenCatalog()
+        self.models = Path(MODELS_DIR) / "garden"
+        self.busy = False
+        self.error: str | None = None
+        # A saved candidate's check can start once the slot is free; the motion scan yields it.
+        self.check_due = False
+        # When each camera's checks last progressed (monotonic): a check finished or none was due.
+        self.check_progress: dict[str, float] = {}
+        self._photo_review_generation = 0
+        self.automatic_message = "Automatic checks wait for an enabled Garden camera and idle bird inference."
+        self.worker = GardenWarmWorker(
+            "app.services.garden_worker",
+            b"GARDEN_RESULT:",
+            release=lambda: bird_work_pending(garden_inference_pressure()),
+            on_stuck=self._worker_stuck,
+        )
+
+    def _worker_stuck(self) -> None:
+        self.error = "Garden worker did not stop. Restart the application before running more Garden work."
+
+    async def stop(self) -> None:
+        await self.worker.stop()
+
+    async def check_already_due(self) -> bool:
+        return self.check_due
+
+    async def settle_worker(self, next_check_due: Callable[[], Awaitable[bool]]) -> None:
+        """Run before the Garden slot is released: an accelerator model leaves its device and has exited.
+
+        Bird admission does not wait for Garden, so the device must be free once Garden yields.
+        The one exception keeps a burst of automatic checks fast: while birds are idle and
+        another check is already due, the model stays loaded for it. CPU workers keep their
+        idle and bird-pending release.
+        """
+        binding = self.worker.key
+        if not isinstance(binding, tuple) or binding[3] in CPU_PROVIDERS:
+            return
+        keep = False
+        try:
+            keep = not bird_work_pending(garden_inference_pressure()) and await next_check_due()
+        finally:
+            # Anything short of a confirmed reason to stay warm frees the device first:
+            # a cancelled or failed question about the next check still releases the slot.
+            if not keep:
+                await finish_despite_cancellation(self._retire_accelerator())
+
+    async def _retire_accelerator(self) -> None:
+        try:
+            await self.worker.retire("accelerator_yielded")
+        except GardenCleanupFailed:
+            self._worker_stuck()
+
+    async def initialize(self) -> None:
+        try:
+            await asyncio.to_thread(self.catalog.initialize)
+        except (OSError, ValueError, sqlite3.Error) as error:
+            # Optional garden data must not take bird readiness down with it.
+            # status() reports catalogue availability and inference fails closed.
+            log.warning("garden_catalogue_unavailable", error_type=type(error).__name__)
+
+    def model_path(self, variant: str) -> Path:
+        if variant not in MODEL_SIZES:
+            raise ValueError("Unsupported garden model")
+        return self.models / f"speciesnet-{variant}.onnx"
+
+    async def status(self) -> GardenIdentificationStatus:
+        ready = True
+        try:
+            await asyncio.to_thread(self.catalog.load)
+        except (OSError, ValueError, sqlite3.Error):
+            ready = False
+
+        def installed(variant: str) -> bool:
+            try:
+                return self.model_path(variant).stat().st_size == MODEL_SIZES[variant]
+            except OSError:
+                return False
+
+        models = await asyncio.to_thread(
+            lambda: [
+                GardenModelStatus(variant=v, installed=installed(v), size_bytes=size) for v, size in MODEL_SIZES.items()
+            ]
+        )
+        from app.services.garden_automatic_runtime import candidate_providers
+
+        async with get_db() as db:
+            latest = await GardenRepository(db).latest_automatic_check()
+            saved_crops = await GardenRepository(db).crop_storage()
+        execution = latest.execution if latest else None
+        if latest and execution is None and latest.variant and latest.devices:
+            device = latest.devices[0].split(".")[0]
+            provider = {
+                "NPU": "intel_npu",
+                "GPU": "intel_gpu",
+                "CPU": "intel_cpu",
+                "CPUExecutionProvider": "cpu",
+                "CUDAExecutionProvider": "cuda",
+            }.get(device)
+            if provider:
+                execution = InferenceExecution(
+                    model_id="garden-speciesnet-" + latest.variant,
+                    provider=provider,
+                    devices=latest.devices[:8],
+                    checked_at=latest.checked_at
+                    if latest.checked_at.endswith("Z") or "+" in latest.checked_at
+                    else latest.checked_at + "Z",
+                )
+        return GardenIdentificationStatus(
+            preferred_provider=candidate_providers()[0],
+            last_execution=execution,
+            country=normalize_country(settings.location.country),
+            catalogue_ready=ready,
+            busy=self.busy,
+            models=models,
+            error=self.error,
+            saved_crops=saved_crops,
+            automatic_message=self.automatic_message,
+        )
+
+    async def install(self, variant: str) -> GardenIdentificationStatus:
+        if self.busy:
+            raise HTTPException(409, "Another garden operation is running")
+        self.busy = True
+        try:
+            await self.ensure_model(variant)
+        finally:
+            self.busy = False
+        return await self.status()
+
+    async def ensure_model(self, variant: str) -> None:
+        """Install under the caller's shared Garden admission slot."""
+        path = self.model_path(variant)
+        staging: Path | None = None
+        try:
+            bundle = await asyncio.to_thread(self.catalog.load)
+            expected = bundle["model_sha256"][variant]
+            verified = await asyncio.to_thread(path.is_file) and await asyncio.to_thread(digest, path) == expected
+            if not verified:
+                await asyncio.to_thread(path.parent.mkdir, parents=True, exist_ok=True)
+                descriptor, temporary = await asyncio.to_thread(tempfile.mkstemp, prefix=".garden-", dir=path.parent)
+                os.close(descriptor)
+                staging = Path(temporary)
+                checksum = hashlib.sha256()
+                size = 0
+                async with asyncio.timeout(180), httpx.AsyncClient(follow_redirects=True, timeout=60) as client:
+                    async with client.stream("GET", f"{MODEL_BASE_URL}/speciesnet-{variant}.onnx") as response:
+                        response.raise_for_status()
+                        async with aiofiles.open(staging, "wb") as output:
+                            async for chunk in response.aiter_bytes(1024 * 1024):
+                                size += len(chunk)
+                                if size > MODEL_SIZES[variant]:
+                                    raise ValueError("Garden model exceeds its declared size")
+                                checksum.update(chunk)
+                                await output.write(chunk)
+                if size != MODEL_SIZES[variant] or checksum.hexdigest() != expected:
+                    raise ValueError("Garden model checksum mismatch")
+                await asyncio.to_thread(os.replace, staging, path)
+        except (OSError, ValueError, TimeoutError, sqlite3.Error, httpx.HTTPError) as error:
+            log.warning("garden_model_install_failed", error_type=type(error).__name__)
+            raise HTTPException(503, "Garden model could not be downloaded and verified. Try again.") from error
+        finally:
+            if staging is not None:
+                await asyncio.to_thread(staging.unlink, missing_ok=True)
+
+    async def review(self, capture_id: str, action: str) -> None:
+        capture = await garden_capture_service.get(capture_id)
+        image_hash = None
+        if action == "accept":
+            suggestion = capture.identification
+            if capture.status != "confirmed" or capture.camera not in settings.frigate.garden_cameras or not suggestion:
+                raise HTTPException(409, "Confirm animal presence on an enabled garden camera first")
+            image = await garden_capture_service.snapshot(capture_id)
+            image_hash = hashlib.sha256(image).hexdigest()
+            if suggestion.image_sha256 != image_hash:
+                raise HTTPException(
+                    409, "The photo changed. Request a new suggestion before confirming identification."
+                )
+        async with get_db() as db:
+            changed = await GardenRepository(db).review_identification(
+                capture_id,
+                "accepted" if action == "accept" else "dismissed",
+                expected_image_sha256=image_hash,
+                expected=capture.identification,
+            )
+        if not changed:
+            raise HTTPException(409, "No reviewable identification. Refresh the capture first.")
+
+    def invalidate_photo_checks(self) -> None:
+        """An owner review invalidates in-flight advice, including review/restore cycles."""
+        self._photo_review_generation += 1
+
+    async def check_photo(self, capture_id: str, request: GardenPhotoCheckRequest) -> GardenPhotoCheck:
+        if self.error:
+            raise HTTPException(503, self.error)
+        if self.busy:
+            raise HTTPException(409, "Another garden operation is running")
+        self.busy = True
+        privacy_generation = garden_motion_privacy.generation
+        review_generation = self._photo_review_generation
+        try:
+            return await self._check_photo(capture_id, request, privacy_generation, review_generation)
+        except GardenBusy as error:
+            raise HTTPException(409, str(error)) from error
+        except GardenCleanupFailed as error:
+            self.error = "Garden worker did not stop. Garden checks are unavailable until the application restarts."
+            raise HTTPException(503, self.error) from error
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError, TimeoutError, sqlite3.Error) as error:
+            log.warning("garden_photo_check_failed", error_type=type(error).__name__, **worker_failure_fields(error))
+            raise HTTPException(
+                503, "The photo check failed. Check the installed crop model and provider, then retry."
+            ) from error
+        finally:
+            try:
+                await self.settle_worker(self.check_already_due)
+            finally:
+                self.busy = False
+
+    async def _check_photo(
+        self,
+        capture_id: str,
+        request: GardenPhotoCheckRequest,
+        privacy_generation: int,
+        review_generation: int,
+    ) -> GardenPhotoCheck:
+        capture = await garden_capture_service.get(capture_id)
+        source = capture.motion_source
+        if (
+            capture.status != "pending"
+            or not capture.has_snapshot
+            or source is None
+            or capture.camera not in settings.frigate.garden_cameras
+            or source.camera != capture.camera
+        ):
+            raise HTTPException(
+                409, "Photo checks require an available pending motion photo on an enabled garden camera"
+            )
+        if source.image_sha256 != request.image_sha256:
+            raise HTTPException(409, "The displayed photo changed. Refresh before checking it.")
+        image = await garden_capture_service.snapshot(capture_id)
+        if hashlib.sha256(image).hexdigest() != request.image_sha256:
+            raise HTTPException(409, "The displayed photo changed. Refresh before checking it.")
+        bundle = await asyncio.to_thread(self.catalog.load)
+        path = self.model_path("4.0.3a")
+        if not await asyncio.to_thread(path.is_file):
+            raise HTTPException(409, "Download the tracked-crop garden model first")
+
+        def blocked() -> bool:
+            return (
+                garden_motion_privacy.generation != privacy_generation
+                or self._photo_review_generation != review_generation
+                or capture.camera not in settings.frigate.garden_cameras
+                or bird_work_pending(garden_inference_pressure())
+            )
+
+        payload = {
+            "mode": "preview",
+            "variant": "4.0.3a",
+            "model": str(path),
+            "model_sha256": bundle["model_sha256"]["4.0.3a"],
+            "package_sha256": bundle["package_sha256"],
+            "provider": request.provider,
+            "box": list(source.box_xywh),
+        }
+        native = await self._run_photo_worker(image, payload, blocked)
+        if native.get("package_sha256") != bundle["package_sha256"]:
+            raise ValueError("Photo check package differs from the requested catalogue")
+        preview = native["preview"]
+        mass = GardenPhotoMass.model_validate(preview["mass"])
+        suggestion = preview["suggestion"]
+        if suggestion not in {"bird", "mammal", "uncertain", "human_rejected"}:
+            raise ValueError("Invalid photo check suggestion")
+        if type(preview.get("human_winner")) is not bool:
+            raise ValueError("Photo check omitted its human-winner decision")
+        human_evidence = (
+            preview["human_winner"] or mass.human >= GardenPolicy().human_threshold or suggestion == "human_rejected"
+        )
+        if not human_evidence and suggestion in {"bird", "mammal"} and getattr(mass, suggestion) < 0.8:
+            raise ValueError("Photo check suggestion conflicts with complete probability mass")
+        devices = native["devices"]
+        expected = {
+            "cpu": "CPUExecutionProvider",
+            "cuda": "CUDAExecutionProvider",
+            "intel_cpu": "CPU",
+            "intel_gpu": "GPU",
+            "intel_npu": "NPU",
+        }[request.provider]
+        if (
+            not isinstance(devices, list)
+            or not devices
+            or len(devices) > 8
+            or any(not isinstance(device, str) for device in devices)
+            or devices[0].split(".")[0] != expected
+            or (request.provider.startswith("intel_") and any(device.split(".")[0] != expected for device in devices))
+        ):
+            raise ValueError("Photo check did not execute the requested provider")
+        frame_size = native["frame_size"]
+        if (
+            not isinstance(frame_size, (list, tuple))
+            or len(frame_size) != 2
+            or any(type(x) is not int or x <= 0 for x in frame_size)
+        ):
+            raise ValueError("Invalid photo check frame size")
+        async with garden_motion_privacy.lock:
+            current = await garden_capture_service.get(capture_id)
+            current_image = await garden_capture_service.snapshot(capture_id)
+            current_bundle = await asyncio.to_thread(self.catalog.load)
+            if (
+                blocked()
+                or current.status != "pending"
+                or not current.has_snapshot
+                or current.camera != capture.camera
+                or current.motion_source != source
+                or hashlib.sha256(current_image).hexdigest() != request.image_sha256
+                or current_bundle["package_sha256"] != bundle["package_sha256"]
+                or current_bundle["model_sha256"]["4.0.3a"] != payload["model_sha256"]
+            ):
+                raise HTTPException(409, "The capture changed during the photo check. Refresh before trying again.")
+            return GardenPhotoCheck(
+                capture_id=capture_id,
+                image_sha256=request.image_sha256,
+                suggestion="unavailable" if human_evidence else suggestion,
+                mass=None if human_evidence else mass,
+                provider=request.provider,
+                devices=devices,
+                model_sha256=payload["model_sha256"],
+                package_sha256=bundle["package_sha256"],
+                box_xywh=source.box_xywh,
+                frame_size=frame_size,
+            )
+
+    async def _run_photo_worker(self, image: bytes, payload: dict, blocked: Callable[[], bool]) -> dict:
+        if len(image) > 16 * 1024 * 1024:
+            raise ValueError("Garden snapshot exceeds the byte limit")
+        if blocked():
+            raise GardenBusy("The photo context changed or bird inference needs the hardware. Try again when idle.")
+        temporary = await asyncio.to_thread(tempfile.mkdtemp, prefix="yawamf-garden-")
+        try:
+            image_path = Path(temporary) / "snapshot.jpg"
+            async with aiofiles.open(image_path, "wb") as output:
+                await output.write(image)
+            payload = {**payload, "image": str(image_path)}
+            if blocked():
+                raise GardenBusy("The photo context changed or bird inference needs the hardware. Try again when idle.")
+            # A warm worker serves only the exact model, variant and device it loaded.
+            binding = (payload["model"], payload["model_sha256"], payload["variant"], payload["provider"])
+            native = await self.worker.request(binding, payload, blocked, timeout_seconds=120)
+        finally:
+            import shutil
+
+            pending_error = sys.exc_info()[1]
+            cleanup = asyncio.create_task(asyncio.to_thread(shutil.rmtree, temporary))
+            interrupted = False
+            try:
+                while not cleanup.done():
+                    try:
+                        await asyncio.shield(cleanup)
+                    except asyncio.CancelledError:
+                        interrupted = True
+                cleanup.result()
+            except OSError:
+                if pending_error is None and not interrupted:
+                    raise
+                # An unreaped native worker must remain quarantined even if
+                # deleting its private temporary image also fails.
+                log.warning("garden_photo_temporary_cleanup_failed")
+            if interrupted and pending_error is None:
+                raise asyncio.CancelledError
+        return native
+
+    async def identify(self, capture_id: str, request: GardenIdentifyRequest) -> None:
+        if self.error:
+            raise HTTPException(503, self.error)
+        if self.busy:
+            raise HTTPException(409, "Another garden operation is running")
+        self.busy = True
+        try:
+            await self._identify(capture_id, request)
+        except GardenBusy as error:
+            raise HTTPException(409, str(error)) from error
+        except GardenCleanupFailed as error:
+            self.error = (
+                "Garden worker did not stop. Garden identification is unavailable until the application restarts."
+            )
+            raise HTTPException(503, self.error) from error
+        except (OSError, ValueError, RuntimeError, TypeError, KeyError, TimeoutError, sqlite3.Error) as error:
+            log.warning("garden_identification_failed", error_type=type(error).__name__, **worker_failure_fields(error))
+            raise HTTPException(
+                503, "Garden identification failed on the selected provider. Check the model and provider, then retry."
+            ) from error
+        finally:
+            try:
+                await self.settle_worker(self.check_already_due)
+            finally:
+                self.busy = False
+
+    async def _identify(self, capture_id: str, request: GardenIdentifyRequest) -> None:
+        capture = await garden_capture_service.get(capture_id)
+        if capture.camera not in settings.frigate.garden_cameras or capture.status != "confirmed":
+            raise HTTPException(409, "Enable this garden camera and confirm animal presence first")
+        if capture.identification and capture.identification.review == "accepted":
+            raise HTTPException(409, "Dismiss the confirmed identification before requesting another suggestion")
+        country = normalize_country(settings.location.country)
+        if country is None:
+            raise HTTPException(409, "Set a recognised country or ISO country code in Settings → Location first")
+        bundle = await asyncio.to_thread(self.catalog.load)
+        path = self.model_path(request.variant)
+        if not await asyncio.to_thread(path.is_file):
+            raise HTTPException(409, "Download the selected garden model first")
+
+        def blocked() -> bool:
+            return bird_work_pending(garden_inference_pressure())
+
+        if blocked():
+            raise GardenBusy("Bird inference needs the hardware. Try again when it is idle.")
+        event_label = capture.label
+        if capture.motion_source:
+            box = capture.motion_source.box_xywh if request.variant == "4.0.3a" else None
+        else:
+            event = await frigate_client.get_event(capture.frigate_event)
+            if not event or event.get("camera") != capture.camera:
+                raise HTTPException(404, "Frigate no longer has this capture")
+            if event.get("false_positive") or event.get("label") in {"person", "human"}:
+                async with get_db() as db:
+                    await GardenRepository(db).block_capture(capture.id)
+                raise HTTPException(404, "Garden capture no longer available")
+            event_label = str(event.get("label", "")).lower()
+            if event_label not in settings.frigate.garden_labels:
+                raise HTTPException(409, "Frigate's current label is not an enabled garden animal")
+            # REST data.box describes Frigate's representative snapshot in normalized XYWH.
+            data = event.get("data") if isinstance(event.get("data"), dict) else {}
+            box = normalized_frigate_video_hint(data.get("box")) if request.variant == "4.0.3a" else None
+        if request.variant == "4.0.3a" and (box is None or box[0] + box[2] > 1 or box[1] + box[3] > 1):
+            raise HTTPException(409, "A tracked snapshot crop is unavailable. Choose the whole-image model.")
+        image = await garden_capture_service.snapshot(capture_id)
+        payload = {
+            "model": str(path),
+            "model_sha256": bundle["model_sha256"][request.variant],
+            "variant": request.variant,
+            "provider": request.provider,
+            "box": box,
+        }
+        native = await self._run_photo_worker(image, payload, blocked)
+        result = identification_from_predictions(
+            native["predictions"],
+            bundle,
+            policy=GardenPolicy(),
+            country=country,
+            variant=request.variant,
+            provider=request.provider,
+            devices=native["devices"],
+            model_sha256=payload["model_sha256"],
+            image_sha256=hashlib.sha256(image).hexdigest(),
+            box=box,
+            frame_size=native["frame_size"],
+        )
+        if result is None:
+            async with get_db() as db:
+                await GardenRepository(db).block_capture(capture.id)
+            raise HTTPException(404, "Garden capture no longer available")
+        if (
+            normalize_country(settings.location.country) != country
+            or capture.camera not in settings.frigate.garden_cameras
+            or (not capture.motion_source and event_label not in settings.frigate.garden_labels)
+        ):
+            raise HTTPException(409, "Garden camera or location changed. Request a new suggestion.")
+        async with get_db() as db:
+            saved = await GardenRepository(db).save_identification(capture, result)
+        if not saved:
+            raise HTTPException(409, "The capture changed during identification. Refresh before trying again.")
+
+
+def identification_from_predictions(
+    predictions: list,
+    bundle: dict,
+    *,
+    policy: GardenPolicy,
+    country: str,
+    variant: GardenVariant,
+    provider: GardenProvider,
+    devices: list[str],
+    model_sha256: str,
+    image_sha256: str,
+    box: tuple[float, float, float, float] | None,
+    frame_size: tuple[int, int],
+    review: Literal["unreviewed", "accepted"] = "unreviewed",
+    automatic: bool = False,
+) -> GardenIdentification | None:
+    """Turn a worker's top five into a suggestion. None means person evidence: remove the capture."""
+    outputs = [Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["outputs"]]
+    if (
+        not isinstance(predictions, list)
+        or len(predictions) != 5
+        or any(not isinstance(item, list) or len(item) != 2 for item in predictions)
+        or len({i for i, _ in predictions}) != 5
+        or any(type(i) is not int or not 0 <= i < len(outputs) for i, _ in predictions)
+    ):
+        raise ValueError("Invalid garden worker output indices")
+    decision = decide_prediction(
+        [(outputs[i], score) for i, score in predictions],
+        policy,
+        country=country,
+        taxonomy=[Taxon(v["id"], v["name"], tuple(v["ranks"])) for v in bundle["taxonomy"]],
+        geofence=bundle["geofence"],
+    )
+    if decision.reason == "human_rejected":
+        return None
+    taxon = decision.taxon
+    binding = bundle["bindings"].get(taxon.id) if taxon else None
+    identity = taxon_identity({"name": taxon.name, "ranks": taxon.ranks}) if taxon else None
+    return GardenIdentification(
+        outcome="suggestion" if taxon and binding else "unknown",
+        reason=decision.reason if not taxon or binding else "unresolved_identity",
+        review=review if taxon and binding else "unreviewed",
+        automatic=automatic and bool(taxon and binding),
+        taxon_id=taxon.id if taxon else None,
+        species_id=binding,
+        name=taxon.name if taxon else None,
+        rank=identity[1] if identity else None,
+        score=decision.score if taxon else predictions[0][1],
+        geofenced=decision.geofenced,
+        country=country,
+        variant=variant,
+        provider=provider,
+        devices=devices,
+        model_sha256=model_sha256,
+        package_sha256=bundle["package_sha256"],
+        image_sha256=image_sha256,
+        output_index=predictions[0][0],
+        input_kind="tracked_crop" if box else "whole_image",
+        box_xywh=box,
+        frame_size=frame_size,
+        identified_at=utc_naive_now().isoformat() + "Z",
+    )
+
+
+garden_identification_service = GardenIdentificationService()

@@ -9,10 +9,13 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Callable
 
+import cv2
 import numpy as np
 import structlog
 from PIL import Image
 
+from app.models.inference_execution import InferenceExecution
+from app.utils.api_datetime import utc_naive_now
 from app.config import settings
 from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.utils.cuda_runtime import (
@@ -26,6 +29,10 @@ log = structlog.get_logger()
 
 class BirdDetectionError(RuntimeError):
     """A scan failed at runtime rather than finding no usable bird."""
+
+
+# Finders whose strong boxes were checked against hand-boxed feeder frames (#734).
+CONFIRMED_COUNT_FINDER_MODEL_IDS = frozenset({"bird_crop_detector_accurate_rfdetr_nano"})
 
 
 def detector_scan_failed(result: dict[str, Any]) -> bool:
@@ -185,7 +192,7 @@ class BirdCropService:
         *,
         model_id: str = "bird_crop",
         detector_tier: str | None = None,
-        accurate_model_id: str = "bird_crop_detector_accurate_yolox_tiny",
+        accurate_model_id: str | None = None,
         confidence_threshold: float = 0.35,
         expand_ratio: float = 0.12,
         min_crop_size: int = 96,
@@ -193,11 +200,16 @@ class BirdCropService:
         model_loader: Callable[[], Any] | None = None,
         provider_override: str | None = None,
         strict_provider: bool = False,
+        session_factory: Callable[..., Any] | None = None,
     ):
+        from app.services.crop_process_session import CropProcessSession
+
+        self._session_factory = session_factory or CropProcessSession
         self.model_id = str(model_id or "bird_crop")
         normalized_detector_tier = str(detector_tier or "").strip().lower()
         self.detector_tier = normalized_detector_tier if normalized_detector_tier in {"fast", "accurate"} else None
-        self.accurate_model_id = str(accurate_model_id or "bird_crop_detector_accurate_yolox_tiny")
+        # None follows the owner's accurate-detector choice; a fixed id is for probes and tests.
+        self.accurate_model_id = str(accurate_model_id).strip() if accurate_model_id else None
         self.confidence_threshold = float(confidence_threshold)
         self.expand_ratio = max(0.0, float(expand_ratio))
         self.min_crop_size = max(1, int(min_crop_size))
@@ -210,8 +222,11 @@ class BirdCropService:
         self._models_loaded: dict[str, bool] = {}
         self._model_error: str | None = None
         self._model_errors: dict[str, str | None] = {}
+        self._last_executions: dict[str, dict[str, Any]] = {}
         self._active_providers: dict[str, str] = {}
         self._provider_fallbacks: dict[str, str | None] = {}
+        self._loaded_model_ids: dict[str, str] = {}
+        self._loaded_provider_preferences: dict[str, str] = {}
 
     def generate_crop(self, image: Image.Image, *, detector_tier: str | None = None) -> dict[str, Any]:
         """Return the best crop candidate, failing from accurate to fast on any miss."""
@@ -296,6 +311,12 @@ class BirdCropService:
         try:
             candidates = self._infer_candidates(model, image)
         except Exception as exc:
+            from app.services.crop_process_session import CropProcessBusyError
+
+            if isinstance(exc, CropProcessBusyError):
+                return self._empty_result(
+                    "inference_failed", detector_tier=detector_tier, fallback_reason=fallback_reason
+                ), True
             active_provider = str((model or {}).get("provider") or "cpu") if isinstance(model, dict) else "cpu"
             if not self.strict_provider and active_provider != "cpu":
                 try:
@@ -363,7 +384,7 @@ class BirdCropService:
         if native_result.get("reason") == "selected":
             return native_result
 
-        if accurate_available:
+        if accurate_available and not self._frame_scan_policy(self._models.get("accurate")):
             sliced_result = self._generate_sliced_classification_candidate_crop(image)
             if sliced_result is not None and sliced_result.get("reason") == "selected":
                 return sliced_result
@@ -485,6 +506,8 @@ class BirdCropService:
     def _infer_frame_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         """Scan large scenes in overlapping tiles so small birds keep useful model pixels."""
         candidates = [item for item in self._infer_candidates(model, image) if isinstance(item, dict)]
+        if self._frame_scan_policy(model):
+            return candidates
         if settings.media_cache.bird_scan_mode != "intensive" or image.width < 3000 or image.height < 1500:
             return candidates
         for tile_box in self._classification_tile_boxes(image.size, grid_size=3):
@@ -747,14 +770,22 @@ class BirdCropService:
         return max(selected, key=lambda result: float(result.get("confidence") or 0.0))
 
     def _classification_tile_boxes(
-        self, image_size: tuple[int, int], *, grid_size: int | None = None
+        self,
+        image_size: tuple[int, int],
+        *,
+        grid_size: int | None = None,
+        overlap_ratio: float | None = None,
+        model_input_size: int | None = None,
     ) -> list[tuple[int, int, int, int]]:
         width, height = (max(0, int(image_size[0])), max(0, int(image_size[1])))
-        model_input = self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE
+        model_input = int(model_input_size or self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE)
         if min(width, height) < model_input or max(width, height) < model_input * 2:
             return []
 
-        overlap = min(0.49, max(0.0, float(self.CLASSIFICATION_TILE_OVERLAP_RATIO)))
+        overlap = min(
+            0.49,
+            max(0.0, float(self.CLASSIFICATION_TILE_OVERLAP_RATIO if overlap_ratio is None else overlap_ratio)),
+        )
         grid_size = max(2, int(grid_size or self.CLASSIFICATION_TILE_GRID_SIZE))
         divisor = float(grid_size) - (float(grid_size - 1) * overlap)
         tile_width = min(width, max(1, int(math.ceil(float(width) / divisor))))
@@ -893,11 +924,29 @@ class BirdCropService:
         configured = str(getattr(settings.classification, "bird_crop_detector_tier", "fast") or "fast").strip().lower()
         return configured if configured in {"fast", "accurate"} else "fast"
 
+    def _accurate_model_id(self) -> str:
+        if self.accurate_model_id:
+            return self.accurate_model_id
+        from app.services.model_manager import model_manager
+
+        return model_manager._crop_detector_id_for_tier("accurate")
+
     def _model_id_for_tier(self, tier: str) -> str:
-        return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else self.model_id
+        return self._accurate_model_id() if str(tier or "").strip().lower() == "accurate" else self.model_id
 
     def _registry_model_id_for_tier(self, tier: str) -> str:
-        return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else "bird_crop_detector"
+        """Name the artifact that will actually load, so provider validation matches it."""
+        if str(tier or "").strip().lower() != "accurate":
+            return "bird_crop_detector"
+        if self.accurate_model_id:
+            return self.accurate_model_id
+        from app.services.model_manager import model_manager
+
+        try:
+            resolved = str(model_manager.get_crop_detector_spec("accurate").get("model_id") or "").strip()
+        except Exception:
+            resolved = ""
+        return resolved or self._accurate_model_id()
 
     def _normalize_detector_tier(self, detector_tier: str | None = None) -> str:
         normalized = str(detector_tier or "").strip().lower()
@@ -919,8 +968,30 @@ class BirdCropService:
             "expand_ratio": max(0.0, float(self.expand_ratio)),
         }
 
+    def confirmed_count_finder_loaded(self) -> bool:
+        """Whether the loaded whole-scene finder is validated to support confirmed counts.
+
+        YOLOX-Tiny scores most real feeder birds far below the strong floor, so
+        confirming its boxes would undercount; it keeps the earlier count instead.
+        """
+        return bool(self._models_loaded.get("accurate")) and (
+            self._loaded_model_ids.get("accurate") in CONFIRMED_COUNT_FINDER_MODEL_IDS
+        )
+
     def _ensure_model_for_tier(self, tier: str) -> Any | None:
         normalized_tier = "accurate" if str(tier or "").strip().lower() == "accurate" else "fast"
+        wanted_model_id = self._registry_model_id_for_tier(normalized_tier)
+        wanted_provider = self._provider_for_tier(normalized_tier)
+        if (
+            self._loaded_model_ids.get(normalized_tier, wanted_model_id) != wanted_model_id
+            or self._loaded_provider_preferences.get(normalized_tier, wanted_provider) != wanted_provider
+        ):
+            with self._model_lock:
+                self._models.pop(normalized_tier, None)
+                self._models_loaded.pop(normalized_tier, None)
+                self._model_errors.pop(normalized_tier, None)
+                self._active_providers.pop(normalized_tier, None)
+                self._provider_fallbacks.pop(normalized_tier, None)
         if self._models_loaded.get(normalized_tier):
             return self._models.get(normalized_tier)
 
@@ -930,6 +1001,10 @@ class BirdCropService:
             model = self._load_model_for_tier(normalized_tier)
             self._models[normalized_tier] = model
             self._models_loaded[normalized_tier] = model is not None
+            self._loaded_model_ids[normalized_tier] = wanted_model_id
+            # Track the recommendation, not the active device: a failed GPU may
+            # legitimately stay on CPU without retrying the GPU on every frame.
+            self._loaded_provider_preferences[normalized_tier] = wanted_provider
             return model
 
     def _load_model(self) -> Any | None:
@@ -982,11 +1057,17 @@ class BirdCropService:
         if self.provider_override:
             return self.provider_override
         try:
-            from app.services.model_validation import activation_provider_recommendation
+            from app.services.model_validation import activation_provider_recommendation, host_eligible_providers
             from app.services.model_manager import model_manager
 
             model_id = self._registry_model_id_for_tier(tier)
             metadata = model_manager._get_registry_model_meta(model_id) or {}
+            preference = settings.classification.bird_crop_inference_provider if tier == "accurate" else "auto"
+            if preference != "auto":
+                if preference == "cpu":
+                    return "cpu"
+                eligible = host_eligible_providers(model_id, artifact_sha256=metadata.get("sha256"))
+                return preference if preference in eligible else "cpu"
             recommendation = activation_provider_recommendation(
                 model_id,
                 artifact_sha256=str(metadata.get("sha256") or "").strip().lower() or None,
@@ -1007,31 +1088,9 @@ class BirdCropService:
         preprocessing = dict(model_config.get("preprocessing") or {})
         preferred_input_size = self._resolve_config_input_size(model_config)
         normalized_provider = str(provider or "cpu").strip().lower()
-        if normalized_provider in {"cpu", "cuda"}:
-            ort = self._import_onnxruntime()
-            if normalized_provider == "cuda":
-                preload_packaged_cuda_libraries(ort)
-            sess_options = ort.SessionOptions()
-            ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
-            session = ort.InferenceSession(
-                str(model_path),
-                sess_options=sess_options,
-                providers=[ort_provider],
-            )
-            active = list(getattr(session, "get_providers", lambda: [ort_provider])() or [])
-            if not active or active[0] != ort_provider:
-                raise RuntimeError(f"{ort_provider} was requested but is not the primary active provider")
-            if normalized_provider == "cuda":
-                prevent_internal_cuda_fallback(session)
-        else:
-            device = {
-                "intel_cpu": "CPU",
-                "intel_gpu": "GPU",
-                "intel_npu": "NPU",
-            }.get(normalized_provider)
-            if not device:
-                raise ValueError(f"Unsupported crop detector provider: {normalized_provider}")
-            session = _OpenVINODetectorSession(model_path, device=device)
+        session = self._session_factory(
+            model_path, provider=normalized_provider, model_id=self._registry_model_id_for_tier(tier)
+        )
         model_input = session.get_inputs()[0]
         input_shape = getattr(model_input, "shape", None)
         input_layout = self._infer_input_layout(input_shape)
@@ -1057,11 +1116,44 @@ class BirdCropService:
             "provider": normalized_provider,
         }
 
+    def _create_native_session(self, model_path: Path | str, *, provider: str, model_id: str) -> Any:
+        """Load native code only at the detector child boundary."""
+        model_path = Path(model_path)
+        normalized_provider = str(provider).strip().lower()
+        if normalized_provider in {"cpu", "cuda"}:
+            ort = self._import_onnxruntime()
+            if normalized_provider == "cuda":
+                preload_packaged_cuda_libraries(ort)
+            sess_options = ort.SessionOptions()
+            ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
+            session = ort.InferenceSession(
+                str(model_path),
+                sess_options=sess_options,
+                providers=[ort_provider],
+            )
+            active = list(getattr(session, "get_providers", lambda: [ort_provider])() or [])
+            if not active or active[0] != ort_provider:
+                raise RuntimeError(f"{ort_provider} was requested but is not the primary active provider")
+            if normalized_provider == "cuda":
+                prevent_internal_cuda_fallback(session)
+        else:
+            device = {
+                "intel_cpu": "CPU",
+                "intel_gpu": "GPU",
+                "intel_npu": "NPU",
+            }.get(normalized_provider)
+            if not device:
+                raise ValueError(f"Unsupported crop detector provider: {normalized_provider}")
+            session = _OpenVINODetectorSession(model_path, device=device)
+        return session
+
     def reset_models(self) -> None:
         """Release cached detector sessions so a new validation result takes effect."""
         with self._model_lock:
             self._models.clear()
             self._models_loaded.clear()
+            self._loaded_model_ids.clear()
+            self._loaded_provider_preferences.clear()
             self._active_providers.clear()
             self._provider_fallbacks.clear()
             self._model_error = None
@@ -1129,10 +1221,15 @@ class BirdCropService:
         try:
             from app.services.model_manager import model_manager
 
-            try:
-                detector_spec = model_manager.get_crop_detector_spec(normalized_tier)
-            except TypeError:
-                detector_spec = model_manager.get_crop_detector_spec()
+            if normalized_tier == "accurate" and self.accurate_model_id:
+                # A pinned model (hardware validation) must never resolve through
+                # the runtime choice, or a probe would test a different artifact.
+                detector_spec = model_manager.get_crop_detector_spec_by_model_id(self.accurate_model_id)
+            else:
+                try:
+                    detector_spec = model_manager.get_crop_detector_spec(normalized_tier)
+                except TypeError:
+                    detector_spec = model_manager.get_crop_detector_spec()
             managed_model_path = str(detector_spec.get("model_path") or "").strip()
             if managed_model_path:
                 candidates.append(managed_model_path)
@@ -1179,11 +1276,24 @@ class BirdCropService:
                 "reason": "ready" if model_path is not None else "not_installed",
                 "model_path": str(model_path) if model_path is not None else None,
             }
+        from app.services.crop_process_session import crop_cleanup_pending
+
         status["load_error"] = self._model_error
+        if crop_cleanup_pending():
+            status["healthy"] = False
+            status["reason"] = "runtime_cleanup_unconfirmed"
+            status["load_error"] = (
+                "Crop child cleanup is unconfirmed; new detector launches are blocked until it exits."
+            )
+        status["requested_provider"] = settings.classification.bird_crop_inference_provider
         status["policy"] = "accurate_then_fast"
         status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
+        status["last_execution"] = self.last_execution()
         status["active_providers"] = dict(self._active_providers)
         status["provider_fallbacks"] = dict(self._provider_fallbacks)
+        from app.services.bird_finder_revalidation import bird_finder_revalidation
+
+        status["device_check"] = bird_finder_revalidation.status()
         return status
 
     def run_detector_outputs(self, model: Any, image: Image.Image) -> tuple[list[Any], dict[str, float]]:
@@ -1209,13 +1319,99 @@ class BirdCropService:
             verify_cuda_session_provider(session)
         return list(outputs or []), transform
 
+    def last_execution(self) -> dict[str, Any] | None:
+        evidence = self._last_executions.get("accurate")
+        return dict(evidence) if evidence else None
+
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
+        candidates = self._infer_candidates_on_model(model, image)
+        if isinstance(model, dict) and model.get("provider") in {"cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"}:
+            try:
+                tier = str(model.get("detector_tier") or "fast")
+                provider = model["provider"]
+                fallback = self._provider_fallbacks.get(tier)
+                self._last_executions[tier] = InferenceExecution(
+                    model_id=self._registry_model_id_for_tier(tier),
+                    provider=provider,
+                    requested_provider=fallback or provider,
+                    devices=[
+                        {
+                            "cpu": "CPUExecutionProvider",
+                            "intel_cpu": "CPU",
+                            "intel_gpu": "GPU",
+                            "intel_npu": "NPU",
+                            "cuda": "CUDAExecutionProvider",
+                        }[provider]
+                    ],
+                    checked_at=utc_naive_now().isoformat() + "Z",
+                    fallback_reason="runtime_failed" if fallback else None,
+                ).model_dump(mode="json")
+            except Exception as error:  # noqa: BLE001 - optional evidence must not change inference results
+                log.debug("finder_execution_evidence_unavailable", error_type=type(error).__name__)
+        return candidates
+
+    def _infer_candidates_on_model(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)
         if callable(infer_fn):
             results = infer_fn(image)
             return list(results or [])
         if not isinstance(model, dict):
             return []
+        tile_boxes = self._frame_scan_tile_boxes(model, image.size)
+        if not tile_boxes:
+            return self._infer_single_view(model, image)
+        candidates = self._infer_single_view(model, image)
+        for tile_box in tile_boxes:
+            for item in self._infer_single_view(model, image.crop(tile_box)):
+                left, top, right, bottom = item["box"]
+                candidates.append(
+                    {
+                        "box": (left + tile_box[0], top + tile_box[1], right + tile_box[0], bottom + tile_box[1]),
+                        "confidence": item["confidence"],
+                    }
+                )
+        return self._merge_duplicate_boxes(candidates)
+
+    @staticmethod
+    def _frame_scan_policy(model: Any) -> dict[str, Any] | None:
+        if not isinstance(model, dict):
+            return None
+        policy = (model.get("detector_config") or {}).get("frame_scan")
+        return dict(policy) if isinstance(policy, dict) else None
+
+    def _frame_scan_tile_boxes(self, model: Any, image_size: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+        """Tiles that every scan reads alongside the full frame, for detectors tuned that way."""
+        policy = self._frame_scan_policy(model)
+        if not policy:
+            return []
+        return self._classification_tile_boxes(
+            image_size,
+            grid_size=int(policy.get("tile_grid") or self.CLASSIFICATION_TILE_GRID_SIZE),
+            overlap_ratio=float(policy.get("tile_overlap", self.CLASSIFICATION_TILE_OVERLAP_RATIO)),
+            model_input_size=int(model.get("input_width") or self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE),
+        )
+
+    @staticmethod
+    def _merge_duplicate_boxes(candidates: list[dict[str, Any]], iou_threshold: float = 0.6) -> list[dict[str, Any]]:
+        """Keep the strongest box where the full frame and a tile saw the same bird."""
+        kept: list[dict[str, Any]] = []
+        for item in sorted(candidates, key=lambda candidate: float(candidate.get("confidence") or 0.0), reverse=True):
+            box = item["box"]
+            if all(BirdCropService._box_iou(box, other["box"]) < iou_threshold for other in kept):
+                kept.append(item)
+        return kept
+
+    @staticmethod
+    def _box_iou(first: Any, second: Any) -> float:
+        width = max(0.0, min(first[2], second[2]) - max(first[0], second[0]))
+        height = max(0.0, min(first[3], second[3]) - max(first[1], second[1]))
+        intersection = width * height
+        union = (
+            (first[2] - first[0]) * (first[3] - first[1]) + (second[2] - second[0]) * (second[3] - second[1])
+        ) - intersection
+        return intersection / union if union > 0 else 0.0
+
+    def _infer_single_view(self, model: dict[str, Any], image: Image.Image) -> list[dict[str, Any]]:
         output_names = [str(name or "") for name in (model.get("output_names") or [])]
         detector_config = dict(model.get("detector_config") or {})
         outputs, transform = self.run_detector_outputs(model, image)
@@ -1322,6 +1518,14 @@ class BirdCropService:
         resize_mode = str(preprocessing.get("resize_mode") or "letterbox").strip().lower()
         color_space = str(preprocessing.get("color_space") or "RGB").strip().upper()
         normalization = str(preprocessing.get("normalization") or "float32_0_1").strip().lower()
+        if resize_mode == "stretch":
+            return self._prepare_stretched_input(
+                rgb,
+                input_width=input_width,
+                input_height=input_height,
+                color_space=color_space,
+                normalization=normalization,
+            )
         pad_alignment = str(preprocessing.get("pad_alignment") or "center").strip().lower()
         scale = min(float(input_width) / float(src_w), float(input_height) / float(src_h))
         resized_w = max(1, int(round(src_w * scale)))
@@ -1358,6 +1562,89 @@ class BirdCropService:
             "pad_alignment": pad_alignment,
         }
 
+    IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+    def _prepare_stretched_input(
+        self,
+        rgb: Image.Image,
+        *,
+        input_width: int,
+        input_height: int,
+        color_space: str,
+        normalization: str,
+    ) -> tuple[np.ndarray, dict[str, float]]:
+        """Resize each axis independently, as DETR-family exports were trained.
+
+        OpenCV's linear resize on float pixels matches the upstream tensor resize
+        without antialiasing, which Pillow's downscaling filter would add.
+        """
+        src_w, src_h = rgb.size
+        arr = np.asarray(rgb, dtype=np.float32) / 255.0
+        if color_space == "BGR":
+            arr = arr[:, :, ::-1]
+        arr = cv2.resize(arr, (input_width, input_height), interpolation=cv2.INTER_LINEAR)
+        if normalization == "imagenet":
+            arr = (arr - self.IMAGENET_MEAN) / self.IMAGENET_STD
+        elif normalization not in {"float32", "float32_0_1", "0_1"}:
+            arr = arr * 255.0
+        tensor = np.ascontiguousarray(np.transpose(arr, (2, 0, 1))[None, ...], dtype=np.float32)
+        return tensor, {
+            "scale": 1.0,
+            "scale_x": float(input_width) / float(src_w),
+            "scale_y": float(input_height) / float(src_h),
+            "pad_x": 0.0,
+            "pad_y": 0.0,
+            "normalized_yxyx": False,
+            "resize_mode": "direct_resize",
+            "input_width": float(input_width),
+            "input_height": float(input_height),
+            "pad_alignment": "top_left",
+        }
+
+    def _parse_detr_outputs(
+        self,
+        outputs: Any,
+        *,
+        transform: dict[str, float],
+        image_size: tuple[int, int],
+        output_names: list[str],
+        detector_config: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Read DETR-style set predictions: normalized cxcywh boxes plus per-query class logits."""
+        by_name = {name.strip().lower(): outputs[i] for i, name in enumerate(output_names) if i < len(outputs)}
+        boxes = np.asarray(by_name.get("dets", outputs[0]))
+        logits = np.asarray(by_name.get("labels", outputs[1] if len(outputs) > 1 else None))
+        target = int(detector_config.get("target_class_id", 16))
+        if boxes.ndim != 3 or boxes.shape[0] != 1 or boxes.shape[-1] != 4:
+            return []
+        if logits.ndim != 3 or logits.shape[:2] != boxes.shape[:2] or logits.shape[-1] <= target:
+            return []
+        if not (np.isfinite(boxes).all() and np.isfinite(logits).all()):
+            return []
+        floor = float(detector_config.get("min_confidence", 0.0) or 0.0)
+        probabilities = 1.0 / (1.0 + np.exp(-logits[0, :, target].astype(np.float64)))
+        input_width = float(transform.get("input_width") or 0.0) or float(image_size[0]) * float(
+            transform.get("scale_x") or 1.0
+        )
+        input_height = float(transform.get("input_height") or 0.0) or float(image_size[1]) * float(
+            transform.get("scale_y") or 1.0
+        )
+        candidates: list[dict[str, Any]] = []
+        for (cx, cy, width, height), probability in zip(boxes[0], probabilities):
+            if probability < floor:
+                continue
+            box = self._restore_box_to_image(
+                (cx * input_width, cy * input_height, width * input_width, height * input_height),
+                transform=transform,
+                image_size=image_size,
+                detector_config={"box_format": "cxcywh"},
+            )
+            if box is not None:
+                candidates.append({"box": box, "confidence": float(probability)})
+        candidates.sort(key=lambda item: item["confidence"], reverse=True)
+        return candidates
+
     def _parse_detector_outputs(
         self,
         outputs: Any,
@@ -1373,6 +1660,14 @@ class BirdCropService:
         normalized_detector_tier = str(detector_tier or "").strip().lower()
         detector_config = dict(detector_config or {})
         parser = str(detector_config.get("parser") or "").strip().lower()
+        if parser == "detr":
+            return self._parse_detr_outputs(
+                outputs,
+                transform=transform,
+                image_size=image_size,
+                output_names=output_names or [],
+                detector_config=detector_config,
+            )
         if parser == "yolox" or normalized_detector_tier == "accurate":
             parsed = self._parse_yolox_detection_outputs(
                 outputs[0],

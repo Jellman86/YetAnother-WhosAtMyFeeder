@@ -21,6 +21,7 @@ import sqlite3
 import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
+from app.utils.diagnostic_redaction import safe_error_message
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
@@ -46,7 +47,9 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, hls_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.garden_repository import GardenRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
+from app.services.bird_observation_selection import BirdCountRegion
 from app.repositories.species_repository import SpeciesRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
@@ -702,6 +705,9 @@ class BirdScanResponse(BaseModel):
     unavailable_reason: str | None = None
     error: str | None = None
     result_count: int | None = None
+    count_status: Literal["legacy", "complete", "incomplete", "ambiguous", "not_measured"] = "legacy"
+    unconfirmed_regions: tuple[BirdCountRegion, ...] = ()
+    excluded_regions: tuple[BirdCountRegion, ...] = ()
     retained_previous: bool = False
     updated_at: str | None = None
     # Progress, only while the scan is live: how many scans run first, then which step is running.
@@ -950,10 +956,14 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
         if media == "clip" and not settings.public_access.show_clips:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
+    garden_seen: str | None = None
     try:
         async with get_db() as db:
             repo = DetectionRepository(db)
             detection = await repo.get_by_frigate_event(event_id)
+            # A confirmed Garden animal's event is shared as a bird detection's is.
+            if detection is None and settings.system.beta_garden_animals and settings.public_access.enabled:
+                garden_seen = await GardenRepository(db).confirmed_observed_at(event_id)
     except sqlite3.OperationalError as exc:
         log = structlog.get_logger()
         log.warning("Failed to check event access; refusing media", error_type=type(exc).__name__)
@@ -963,12 +973,16 @@ async def require_event_access(event_id: str, auth: AuthContext, lang: str, medi
             headers={"Retry-After": "5"},
         ) from exc
 
-    if not detection or detection.is_hidden or not detection.detection_time:
+    if garden_seen is not None:
+        seen_at = datetime.fromisoformat(garden_seen)
+    elif not detection or detection.is_hidden or not detection.detection_time:
         raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
+    else:
+        seen_at = detection.detection_time
 
     if settings.public_access.enabled:
         cutoff, end = public_media_window()
-        stamp = utc_naive_datetime(detection.detection_time)
+        stamp = utc_naive_datetime(seen_at)
         if stamp < cutoff.replace(tzinfo=None) or (end is not None and stamp >= end.replace(tzinfo=None)):
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
@@ -1023,7 +1037,7 @@ async def _resolve_recording_clip_detection_timestamp(
         structlog.get_logger().warning(
             "Failed to fetch Frigate event while resolving recording clip timestamp",
             event_id=event_id,
-            error=str(exc),
+            error=safe_error_message(exc),
         )
         event_data = None
 
@@ -1754,7 +1768,9 @@ async def request_bird_scan(
     except BirdScanBusyError as exc:
         raise HTTPException(status_code=409, detail="scan_in_progress") from exc
     except BirdScanUnavailable as exc:
-        raise HTTPException(status_code=429 if str(exc) == "queue_full" else 409, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=429 if str(exc) == "queue_full" else 409, detail=safe_error_message(exc)
+        ) from exc
 
 
 @router.patch("/frigate/{event_id}/birds/{bird_id}", response_model=BirdObservationResponse)
@@ -2235,6 +2251,12 @@ async def check_clip_exists(
     if not settings.frigate.clips_enabled:
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
+    from app.services.garden_media_cache import garden_media_cache
+
+    garden_event, garden_clip = await garden_media_cache.event_clip(event_id)
+    if garden_clip is not None:
+        return Response(status_code=200)
+
     (
         recording_cached_path,
         recording_state,
@@ -2252,7 +2274,7 @@ async def check_clip_exists(
                 include_variant=True,
             ),
         )
-    if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
+    if not garden_event and settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
         return Response(status_code=200)
 
     from app.services.archive_service import archive_service
@@ -2504,6 +2526,22 @@ async def proxy_clip(
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
+    # A confirmed Garden animal's kept clip outlasts Frigate's retention. Any other Garden
+    # event is streamed without entering the bird cache: unreviewed media is never kept.
+    from app.services.garden_media_cache import garden_media_cache
+
+    garden_event, garden_clip = await garden_media_cache.event_clip(event_id)
+    if garden_clip is not None:
+        log.info("proxy_clip_garden_kept_hit", event_id=event_id, download=download_requested)
+        return FileResponse(
+            path=garden_clip,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+            },
+        )
+
     # Check cache first
     (
         recording_cached_path,
@@ -2536,7 +2574,7 @@ async def proxy_clip(
             filename=f"{event_id}.mp4",
             headers=response_headers,
         )
-    if settings.media_cache.cache_clips:
+    if settings.media_cache.cache_clips and not garden_event:
         cached_path = media_cache.get_clip_path(event_id)
         if cached_path:
             log.info(
@@ -2587,7 +2625,7 @@ async def proxy_clip(
 
     # Forward Range header if present (only when not caching)
     range_header = request.headers.get("range")
-    should_cache = settings.media_cache.cache_clips and media_cache.available
+    should_cache = settings.media_cache.cache_clips and media_cache.available and not garden_event
     log.debug(
         "proxy_clip_start",
         event_id=event_id,

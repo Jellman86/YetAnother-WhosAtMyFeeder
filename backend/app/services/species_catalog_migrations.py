@@ -34,6 +34,7 @@ def catalog_alembic_config(db_path: Path | None = None) -> Config:
     config = Config(str(CATALOG_INI))
     config.set_main_option("script_location", str(_BACKEND_DIR / "migrations_catalog"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{db_path or default_catalog_path()}")
+    config.attributes["configure_logger"] = False
     return config
 
 

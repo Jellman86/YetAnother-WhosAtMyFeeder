@@ -1,0 +1,178 @@
+"""Bounded CPU recording scans in a warm child. Parent supervises deadline and bird priority.
+
+The detector loads once, for the first scan's model binding. No application settings,
+database, network, species identification or reporting.
+"""
+
+import hashlib
+import math
+from pathlib import Path
+from typing import Any
+
+import cv2
+
+from app.services.garden_detector_runtime import detector_input, decode_candidates
+from app.services.garden_model_runtime import Runtime, digest
+from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
+from app.services.garden_worker_loop import BoundModel, serve
+from app.models.garden_motion import MOTION_KEYFRAME_PREROLL_SECONDS, UNUSABLE_RECORDING_REASONS
+
+
+class UnusableRecording(ValueError):
+    """This recording cannot be scanned, so retrying the same window cannot help.
+
+    It is reported as a result, not a non-zero exit, so the parent never mistakes
+    a bad recording for a crashed worker.
+    """
+
+    def __init__(self, reason: str) -> None:
+        if reason not in UNUSABLE_RECORDING_REASONS:
+            raise ValueError("Unknown unusable-recording reason")
+        super().__init__(reason)
+        self.reason = reason
+
+
+def model_binding(payload: dict[str, Any]) -> tuple[str, str]:
+    return (payload["model"], payload["model_sha256"])
+
+
+def load_detector(payload: dict[str, Any]) -> Runtime:
+    model = Path(payload["model"]).resolve()
+    if digest(model) != payload["model_sha256"]:
+        raise ValueError("Garden detector differs from its pinned model")
+    return Runtime(model, "cpu")
+
+
+def scan_clip(
+    payload: dict[str, Any], *, samples_per_window: int = 3, runtime: Runtime | None = None
+) -> dict[str, Any]:
+    """Nine samples are an explicit offline comparison, never a payload setting.
+
+    ``runtime`` is the warm detector already loaded for this payload's model binding.
+    """
+    if type(samples_per_window) is not int or samples_per_window not in (3, 9):
+        raise ValueError("Motion sampling supports only three live or nine offline samples")
+    clip, photo = (Path(payload[name]).resolve() for name in ("clip", "photo"))
+    duration_limit = float(payload["duration"])
+    if not 0.1 <= duration_limit <= 10 or photo.parent != clip.parent:
+        raise ValueError("Motion scan requires bounded temporary recording and photo paths")
+    if clip.stat().st_size > 16 * 1024 * 1024 or digest(clip) != payload["clip_sha256"]:
+        raise ValueError("Motion recording exceeds its limit or differs from its checksum")
+    if runtime is None:
+        runtime = load_detector(payload)
+    cv2.setNumThreads(1)
+    reader = cv2.VideoCapture(str(clip), cv2.CAP_FFMPEG, [cv2.CAP_PROP_N_THREADS, 1])
+    try:
+        width, height = reader.get(cv2.CAP_PROP_FRAME_WIDTH), reader.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        fps, count = reader.get(cv2.CAP_PROP_FPS), reader.get(cv2.CAP_PROP_FRAME_COUNT)
+        if not all(math.isfinite(v) and v > 0 for v in (width, height, fps, count)):
+            raise UnusableRecording("invalid_metadata")
+        duration = count / fps
+        if width * height > 16_000_000 or fps > 120:
+            raise UnusableRecording("pixel_limit")
+        if not 0.1 <= duration <= duration_limit + MOTION_KEYFRAME_PREROLL_SECONDS:
+            raise UnusableRecording("duration_limit")
+        # Any extra length is keyframe pre-roll from before the requested start, which
+        # belongs to the window before this one; samples stay inside the requested window.
+        preroll = max(0.0, duration - duration_limit)
+        span = min(duration - preroll - 0.1, duration_limit)
+        best = None
+        greys = []
+        seen: dict[int, str] = {}
+        decoded = 0
+
+        def finish(result: dict[str, Any]) -> dict[str, Any]:
+            if samples_per_window == 9:
+                result["sampling"] = {"requested": 9, "decoded": decoded, "inferred": len(seen)}
+            return result
+
+        fractions = (0.1, 0.5, 0.9) if samples_per_window == 3 else tuple(i / 10 for i in range(1, 10))
+        for fraction in fractions:
+            reader.set(cv2.CAP_PROP_POS_MSEC, (preroll + span * fraction) * 1000)
+            ok, frame = reader.read()
+            if not ok:
+                raise UnusableRecording("decode_failed")
+            index = reader.get(cv2.CAP_PROP_POS_FRAMES) - 1
+            if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration:
+                raise UnusableRecording("frame_unbounded")
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            greys.append(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))
+            decoded += 1
+            if samples_per_window == 9:
+                rgb_hash = hashlib.sha256(rgb.tobytes()).hexdigest()
+                if int(index) in seen:
+                    if seen[int(index)] != rgb_hash:
+                        raise ValueError("Motion sampling returned inconsistent pixels for one source frame")
+                    # Keep duplicate greys for the still-motion comparison: a single
+                    # decoded frame must not turn an unmeasurable change into admission.
+                    continue
+                seen[int(index)] = rgb_hash
+            tensor, meta = detector_input(rgb)
+            candidates = decode_candidates(
+                runtime.infer(tensor), meta, payload["names"], payload.get("animal_confidence", 0.5)
+            )
+            if any(label == "person" for label, _, _ in candidates):
+                # A later person sample revokes earlier animal proposals too.
+                return finish({"outcome": "person_rejected"})
+            animals = [candidate for candidate in candidates if candidate[0] == "animal"]
+            if animals and (best is None or animals[0][1] > best[0][1]):
+                best = (
+                    animals[0],
+                    frame.copy(),
+                    int(index),
+                    max(0.0, float(index / fps) - preroll),
+                    hashlib.sha256(rgb.tobytes()).hexdigest(),
+                    hashlib.sha256(tensor.tobytes()).hexdigest(),
+                )
+        if best is None:
+            return finish({"outcome": "no_candidate"})
+        candidate, frame, frame_index, offset, frame_hash, tensor_hash = best
+        motion_ratio = box_motion_ratio(greys, candidate[2])
+        if motion_ratio is not None and motion_ratio < STILL_PROPOSAL_MOTION_RATIO:
+            # Fixtures get re-proposed every few minutes; a visitor changes its box.
+            return finish(
+                {"outcome": "still_rejected", "detector_score": candidate[1], "motion_ratio": round(motion_ratio, 3)}
+            )
+        # Stored evidence is deliberately small; box coordinates are normalized.
+        h, w = frame.shape[:2]
+        scale = min(1.0, 1280 / max(w, h))
+        if scale < 1:
+            frame = cv2.resize(frame, (max(1, round(w * scale)), max(1, round(h * scale))))
+        for quality in (90, 80, 65):
+            ok, encoded = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
+            if ok and encoded.nbytes <= 512 * 1024:
+                image = encoded.tobytes()
+                photo.write_bytes(image)
+                return finish(
+                    {
+                        "outcome": "candidate",
+                        "frame_index": frame_index,
+                        "frame_offset": offset,
+                        "detector_score": candidate[1],
+                        "box_xywh": candidate[2],
+                        "image_sha256": hashlib.sha256(image).hexdigest(),
+                        "devices": runtime.actual,
+                        "detector_input_sha256": tensor_hash,
+                        "sampled_frame_sha256": frame_hash,
+                        "motion_ratio": None if motion_ratio is None else round(motion_ratio, 3),
+                    }
+                )
+        raise UnusableRecording("photo_too_large")
+    finally:
+        reader.release()
+
+
+def main() -> None:
+    detector = BoundModel(load_detector, model_binding)
+
+    def handle(payload: dict[str, Any]) -> dict[str, Any]:
+        try:
+            return scan_clip(payload, runtime=detector.get(payload))
+        except UnusableRecording as error:
+            return {"outcome": "unusable_recording", "reason": error.reason}
+
+    serve("MOTION_RESULT:", handle)
+
+
+if __name__ == "__main__":
+    main()

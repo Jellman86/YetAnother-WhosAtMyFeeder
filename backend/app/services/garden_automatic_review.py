@@ -1,0 +1,503 @@
+"""Bounded SpeciesNet checks for new Garden captures, subordinate to birds."""
+
+import asyncio
+from contextlib import suppress
+from datetime import timedelta
+import hashlib
+import sqlite3
+import time
+
+from fastapi import HTTPException
+import httpx
+import structlog
+
+from app.models.inference_execution import InferenceExecution
+from app.config import settings
+from app.database import get_db
+from app.models.garden import (
+    GardenAutomaticCheck,
+    GardenDomesticRoute,
+    GardenIdentification,
+    GardenPresenceMass,
+)
+from app.repositories.garden_repository import GardenCapture, GardenRepository
+from app.services import garden_motion_privacy
+from app.services.broadcaster import broadcaster
+from app.services.garden_notifications import garden_notification_service
+from app.services.classifier_service import garden_inference_pressure
+from app.services.frigate_client import frigate_client
+from app.services.garden_capture_policy import garden_collection_cameras
+from app.services.garden_capture_service import garden_capture_service
+from app.services.garden_crop_service import garden_crop_service, build_saved_crop
+from app.services.garden_media_cache import garden_media_cache
+from app.services.garden_identification import (
+    bird_work_pending,
+    garden_identification_service,
+    identification_from_predictions,
+    normalize_country,
+)
+from app.services.garden_motion import garden_motion_service
+from app.services.garden_automatic_policy import (
+    at_blank_spot,
+    NamingResult,
+    automatic_check_dismisses,
+    finish_automatic_check,
+    plan_automatic_check,
+)
+from app.services.garden_automatic_runtime import GardenAutomaticRuntime, candidate_providers
+from app.services.garden_domestic_birds import camera_watches_birds, domestic_bird_for_speciesnet, garden_bird_route
+from app.services.garden_visitors import GardenPolicy, presence_outcome
+from app.services.garden_worker_supervisor import GardenBusy, GardenCleanupFailed, worker_failure_fields
+from app.utils.api_datetime import utc_naive_now
+from app.utils.frigate_coordinates import normalized_frigate_video_hint
+
+log = structlog.get_logger()
+
+
+def top_output_id(predictions: object, outputs: list[dict]) -> str | None:
+    """The SpeciesNet output id of the top result, or None when the worker gave no usable ranking."""
+    if not isinstance(predictions, list) or not predictions:
+        return None
+    first = predictions[0]
+    if not isinstance(first, list) or len(first) != 2 or type(first[0]) is not int:
+        return None
+    return outputs[first[0]]["id"] if 0 <= first[0] < len(outputs) else None
+
+
+def naming_result(suggestion: GardenIdentification | None) -> NamingResult:
+    if suggestion is None:
+        return "person"
+    if suggestion.automatic:
+        return "named"
+    return {"low_confidence": "low_confidence", "bird_excluded": "bird"}.get(suggestion.reason, "unresolved")
+
+
+# A camera whose checks have not progressed for this long releases its held candidates to review.
+HOLD_PROGRESS_SECONDS = 30 * 60
+# How long a blank automatic check marks its box as a known blank spot.
+BLANK_SPOT_SECONDS = 12 * 60 * 60
+
+
+def automatic_hold_since() -> str:
+    """Candidates observed before this are never held: a check overdue this long is shown for review."""
+    return (utc_naive_now() - timedelta(seconds=HOLD_PROGRESS_SECONDS)).isoformat()
+
+
+def automatic_hold_cameras(now: float | None = None) -> tuple[str, ...]:
+    """Cameras whose unchecked candidates wait for their automatic check before anyone sees them.
+
+    Only cameras whose checks are progressing: a check finished there, or none was due,
+    within ``HOLD_PROGRESS_SECONDS``. A camera under lasting pressure, a service in error or
+    a fresh start holds nothing, so a capture is never hidden waiting for a check that will
+    not come.
+    """
+    service = garden_identification_service
+    if service.error:
+        return ()
+    moment = time.monotonic() if now is None else now
+    return tuple(
+        camera
+        for camera in garden_collection_cameras()
+        if moment - service.check_progress.get(camera, float("-inf")) < HOLD_PROGRESS_SECONDS
+    )
+
+
+class GardenAutomaticReviewService:
+    def __init__(self) -> None:
+        self.task: asyncio.Task | None = None
+        self.runtime = GardenAutomaticRuntime()
+
+    async def start(self) -> None:
+        if self.task is None:
+            self.task = asyncio.create_task(self._run(), name="garden_automatic_review")
+
+    async def stop(self) -> None:
+        if self.task is not None:
+            self.task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self.task
+            self.task = None
+
+    async def dismiss_settled_low_scores(self) -> int:
+        """Apply the current dismissal policy to captures an earlier policy left waiting.
+
+        Uses the saved check, so nothing is re-run; a capture the owner restored is kept.
+        """
+        async with get_db() as db:
+            dismissed = await GardenRepository(db).dismiss_pending_by_saved_checks()
+        if dismissed:
+            log.info("garden_settled_low_scores_dismissed", count=dismissed)
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+        return dismissed
+
+    async def _run(self) -> None:
+        try:
+            await self.dismiss_settled_low_scores()
+        except (OSError, ValueError, sqlite3.Error) as error:
+            log.warning("garden_settled_low_scores_failed", error_type=type(error).__name__)
+        while True:
+            try:
+                await self.process_once()
+                await garden_crop_service.collect_one()
+                # Keeps newly confirmed media and backfills older captures, one per cycle;
+                # the sweep removes files that a dismissal or revocation elsewhere released.
+                await garden_media_cache.collect_one()
+                await garden_media_cache.sweep()
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:
+                log.warning("garden_automatic_cycle_failed", error_type=type(error).__name__)
+                garden_identification_service.automatic_message = (
+                    "Automatic check unavailable. Photos stay in Needs review."
+                )
+            await asyncio.sleep(10)
+
+    async def _input_box(self, capture: GardenCapture) -> tuple[float, float, float, float] | None:
+        if capture.motion_source:
+            return capture.motion_source.box_xywh
+        event = await frigate_client.get_event(capture.frigate_event)
+        if not event or event.get("camera") != capture.camera:
+            raise HTTPException(404, "Capture metadata unavailable")
+        label = str(event.get("label", "")).lower()
+        if event.get("false_positive") or label in {"person", "human"}:
+            async with get_db() as db:
+                await GardenRepository(db).block_capture(capture.id)
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+            raise GardenBusy("Capture revoked by Frigate")
+        if label not in settings.frigate.garden_labels or label in settings.frigate.ingest_labels:
+            raise HTTPException(409, "Capture label no longer enabled")
+        data = event.get("data") if isinstance(event.get("data"), dict) else {}
+        box = normalized_frigate_video_hint(data.get("box"))
+        if box and box[0] + box[2] <= 1 and box[1] + box[3] <= 1:
+            return box
+        return None
+
+    async def process_once(self) -> None:
+        try:
+            await self._check_next()
+        finally:
+            service = garden_identification_service
+            # A cycle that ran no check, or kept a model for a check that can no longer start,
+            # still leaves no accelerator loaded while nothing is due.
+            if not service.busy:
+                await service.settle_worker(service.check_already_due)
+
+    async def _another_check_due(self, finished: GardenCapture, query: dict) -> bool:
+        try:
+            async with get_db() as db:
+                due = await GardenRepository(db).due_automatic_checks(**query)
+        except (OSError, sqlite3.Error):
+            return False
+        return any(item.id != finished.id for item in due)
+
+    async def _check_next(self) -> None:
+        service = garden_identification_service
+        cameras = garden_collection_cameras()
+        if not cameras or service.error:
+            service.check_due = False
+            return
+        retry_before = (utc_naive_now() - timedelta(minutes=5)).isoformat()
+        policy_version = 1 if settings.frigate.garden_automatic_naming else None
+        country = normalize_country(settings.location.country) if settings.frigate.garden_automatic_naming else None
+        due_query = {
+            "cameras": cameras,
+            "retry_before": retry_before,
+            "policy_version": policy_version,
+            "country": country,
+        }
+        async with get_db() as db:
+            repo = GardenRepository(db)
+            due_checks = await repo.due_automatic_checks(**due_query)
+            blanks = await repo.recent_blank_spots(
+                cameras, (utc_naive_now() - timedelta(seconds=BLANK_SPOT_SECONDS)).isoformat()
+            )
+        now = time.monotonic()
+        for camera in set(cameras) - {due.camera for due in due_checks}:
+            service.check_progress[camera] = now
+        if not due_checks:
+            service.check_due = False
+            service.automatic_message = (
+                "No automatic check is due. Unavailable checks remain in Needs review until their retry."
+            )
+            return
+        # A camera under pressure cannot be checked now; it must not hold up the others.
+        clear_cameras = await garden_motion_service.clear_cameras({due.camera for due in due_checks})
+        ready = [due for due in due_checks if due.camera in clear_cameras]
+        # Candidates away from recent blank spots first, so a real animal is not queued behind a
+        # dawn burst at one bush; then never-checked, then oldest. A deferral lasts only while the
+        # candidate is younger than the hold limit, so sustained arrivals elsewhere cannot starve it.
+        defer_since = automatic_hold_since()
+        original = min(
+            ready,
+            key=lambda due: (
+                due.observed_at >= defer_since and at_blank_spot(due.motion_source, blanks),
+                due.automatic_check is not None,
+                due.observed_at,
+                due.id,
+            ),
+            default=None,
+        )
+        # Priority only for a check that can start once the slot is free, so scanning is never stopped
+        # by a check that cannot run.
+        service.check_due = original is not None
+        if original is None:
+            return
+        if service.busy or bird_work_pending(garden_inference_pressure()):
+            return
+        clear = True
+        service.busy = True
+        generation = garden_motion_privacy.generation
+        review_generation = service._photo_review_generation
+        guard_time = time.monotonic()
+        watcher: asyncio.Task | None = None
+        changed = False
+        named_saved = False
+        named: GardenIdentification | None = None
+        # A paused check made no progress; any finished one, saved or unavailable, did.
+        progressed = True
+
+        def blocked() -> bool:
+            return (
+                original.camera not in garden_collection_cameras()
+                or generation != garden_motion_privacy.generation
+                or review_generation != service._photo_review_generation
+                or bird_work_pending(garden_inference_pressure())
+                or not clear
+                or time.monotonic() - guard_time > 2
+            )
+
+        async def watch() -> None:
+            nonlocal clear, guard_time
+            while True:
+                clear = await garden_motion_service._camera_clear(original.camera)
+                guard_time = time.monotonic()
+                if not clear:
+                    return
+                await asyncio.sleep(0.5)
+
+        try:
+            watcher = asyncio.create_task(watch())
+            service.automatic_message = (
+                "Checking a Garden candidate with SpeciesNet. New devices are compared with CPU first; "
+                "bird inference takes priority."
+            )
+            box = await self._input_box(original)
+            if box is None:
+                raise HTTPException(409, "A tracked snapshot crop is unavailable")
+            variant = "4.0.3a"
+            if blocked():
+                raise GardenBusy("Automatic check paused for birds or camera pressure")
+            await service.ensure_model(variant)
+            bundle = await asyncio.to_thread(service.catalog.load)
+            image = await garden_capture_service.snapshot(original.id)
+            image_sha = hashlib.sha256(image).hexdigest()
+            payload = {
+                "mode": "automatic",
+                "variant": variant,
+                "provider": "cpu",
+                "model": str(service.model_path(variant)),
+                "model_sha256": bundle["model_sha256"][variant],
+                "package_sha256": bundle["package_sha256"],
+                "box": list(box) if box else None,
+            }
+            requested_provider = candidate_providers()[0]
+            automatic_naming = settings.frigate.garden_automatic_naming
+            naming_threshold = settings.frigate.garden_naming_threshold
+            country = normalize_country(settings.location.country)
+            declared = frozenset(settings.frigate.garden_domestic_birds)
+            watches_birds = camera_watches_birds(original.camera, settings.frigate.camera)
+            native, provider = await self.runtime.run(image, payload, blocked, service._run_photo_worker)
+            mass = GardenPresenceMass.model_validate(native["assessment"]["mass"])
+            human_winner = native["assessment"]["human_winner"]
+            if type(human_winner) is not bool:
+                raise ValueError("Automatic check did not meet its runtime contract")
+            if native.get("package_sha256") != bundle["package_sha256"]:
+                raise ValueError("Automatic check mapping changed")
+            presence = presence_outcome(mass.model_dump(), human_winner)
+            domestic = domestic_bird_for_speciesnet(top_output_id(native.get("predictions"), bundle.get("outputs", [])))
+            bird_route = garden_bird_route(domestic, declared, camera_watches_birds=watches_birds)
+            plan = plan_automatic_check(
+                presence, bird_route, automatic_naming=automatic_naming, country_known=country is not None
+            )
+            outcome, decision_reason = plan.outcome, plan.decision_reason
+            named: GardenIdentification | None = None
+            route: GardenDomesticRoute | None = None
+            naming_score: float | None = None
+            if plan.run_naming and country:
+                # The species threshold is authoritative even below the coarse animal-presence floor.
+                suggestion = identification_from_predictions(
+                    native.get("predictions"),
+                    bundle,
+                    policy=GardenPolicy(min_confidence=naming_threshold, domestic_birds=declared),
+                    country=country,
+                    variant=variant,
+                    provider=provider,
+                    devices=native["devices"],
+                    model_sha256=payload["model_sha256"],
+                    image_sha256=image_sha,
+                    box=box,
+                    frame_size=tuple(native["frame_size"]),
+                    review="accepted",
+                    automatic=True,
+                )
+                outcome, decision_reason = finish_automatic_check(
+                    plan,
+                    naming_result(suggestion),
+                    bird_route,
+                    score_below_threshold=suggestion is not None
+                    and suggestion.score is not None
+                    and suggestion.score < naming_threshold,
+                )
+                if suggestion is not None and suggestion.automatic:
+                    named = suggestion
+                    kept = domestic_bird_for_speciesnet(suggestion.taxon_id)
+                    if kept in declared and suggestion.name:
+                        route = GardenDomesticRoute(
+                            domestic_bird=kept,
+                            origin="garden_check",
+                            source_label=suggestion.name,
+                            source_score=suggestion.score,
+                            source_model="garden-speciesnet-" + variant,
+                            routed_at=utc_naive_now().isoformat() + "Z",
+                        )
+                naming_score = suggestion.score if suggestion else None
+            if (automatic_naming, naming_threshold, country, declared, watches_birds) != (
+                settings.frigate.garden_automatic_naming,
+                settings.frigate.garden_naming_threshold,
+                normalize_country(settings.location.country),
+                frozenset(settings.frigate.garden_domestic_birds),
+                camera_watches_birds(original.camera, settings.frigate.camera),
+            ):
+                raise GardenBusy("Automatic naming settings changed during inference")
+            if await self._input_box(original) != box:
+                raise GardenBusy("The detector crop changed during the check")
+            current_image = await garden_capture_service.snapshot(original.id)
+            current_bundle = await asyncio.to_thread(service.catalog.load)
+            if hashlib.sha256(current_image).hexdigest() != image_sha or bundle != current_bundle:
+                raise GardenBusy("Automatic check evidence changed")
+            saved_crop = None
+            if named is not None and original.motion_source:
+                try:
+                    saved_crop = await asyncio.to_thread(
+                        build_saved_crop,
+                        image,
+                        box=box,
+                        expected_sha256=image_sha,
+                        source_start=original.motion_source.clip_start,
+                        source_end=original.motion_source.clip_end,
+                    )
+                except (OSError, ValueError) as error:
+                    log.info("garden_crop_encoding_unavailable", reason=type(error).__name__)
+            async with garden_motion_privacy.lock:
+                current = await garden_capture_service.get(original.id)
+                if blocked() or current != original:
+                    raise GardenBusy("Automatic check context changed")
+                async with get_db() as db:
+                    repo = GardenRepository(db)
+                    if outcome == "human_rejected":
+                        await repo.block_capture(original.id)
+                        changed = True
+                        service.automatic_message = (
+                            "A Garden capture was removed because the check found person evidence."
+                        )
+                    else:
+                        result = GardenAutomaticCheck(
+                            outcome=outcome,
+                            checked_at=utc_naive_now().isoformat(),
+                            policy_version=1 if automatic_naming else 0,
+                            decision_reason=decision_reason,
+                            domestic_candidate=domestic if domestic and domestic not in declared else None,
+                            naming_score=naming_score,
+                            naming_threshold=naming_threshold,
+                            execution=InferenceExecution(
+                                model_id="garden-speciesnet-" + variant,
+                                provider=provider,
+                                requested_provider=requested_provider,
+                                devices=native["devices"],
+                                checked_at=utc_naive_now().isoformat() + "Z",
+                                fallback_reason="accelerator_unavailable"
+                                if provider == "cpu" and requested_provider != "cpu"
+                                else None,
+                            ),
+                            image_sha256=image_sha,
+                            variant=variant,
+                            model_sha256=payload["model_sha256"],
+                            package_sha256=bundle["package_sha256"],
+                            mass=mass,
+                            box_xywh=box,
+                            devices=native["devices"],
+                        )
+                        if named is not None:
+                            changed = await repo.save_automatic_naming(
+                                original,
+                                result,
+                                named,
+                                route=route,
+                                **({"crop": saved_crop} if saved_crop else {}),
+                            )
+                            named_saved = changed
+                            service.automatic_message = (
+                                "Automatic check named an animal; it is in Confirmed animals, where you can correct it."
+                            )
+                        else:
+                            changed = await repo.save_automatic_check(original, result)
+                            service.automatic_message = (
+                                "Automatic check excluded this capture; it is in Dismissed and can be restored."
+                                if automatic_check_dismisses(outcome, decision_reason)
+                                else "Automatic check finished. The capture remains in Needs review."
+                            )
+            if provider == "cpu" and candidate_providers()[0] != "cpu":
+                service.automatic_message += (
+                    " CPU fallback was used; the preferred accelerator has not passed its current Garden check."
+                )
+        except GardenBusy:
+            progressed = False
+            service.automatic_message = "Automatic check paused. It will resume when birds and cameras are idle."
+        except GardenCleanupFailed:
+            service.error = "Garden worker did not stop. Restart the application before running more Garden work."
+        except (
+            OSError,
+            ValueError,
+            RuntimeError,
+            TypeError,
+            KeyError,
+            TimeoutError,
+            sqlite3.Error,
+            HTTPException,
+            httpx.HTTPError,
+        ) as error:
+            log.warning(
+                "garden_automatic_check_failed", error_type=type(error).__name__, **worker_failure_fields(error)
+            )
+            service.automatic_message = (
+                "Automatic check unavailable. The photo stays in Needs review; retry after five minutes."
+            )
+            if not blocked():
+                async with garden_motion_privacy.lock:
+                    if not blocked():
+                        async with get_db() as db:
+                            changed = await GardenRepository(db).save_automatic_check(
+                                original,
+                                GardenAutomaticCheck(
+                                    outcome="unavailable",
+                                    checked_at=utc_naive_now().isoformat(),
+                                ),
+                            )
+        finally:
+            if progressed:
+                service.check_progress[original.camera] = time.monotonic()
+            if watcher is not None:
+                watcher.cancel()
+                with suppress(asyncio.CancelledError):
+                    await watcher
+            try:
+                await service.settle_worker(lambda: self._another_check_due(original, due_query))
+            finally:
+                service.busy = False
+        if changed:
+            await broadcaster.broadcast({"type": "garden_history_changed"})
+            if named_saved:
+                await garden_notification_service.schedule(original.id)
+
+
+garden_automatic_review_service = GardenAutomaticReviewService()

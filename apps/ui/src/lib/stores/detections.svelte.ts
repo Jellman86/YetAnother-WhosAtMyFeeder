@@ -17,6 +17,12 @@ interface FrameResult {
     frameIndex?: number | null;
 }
 
+/** The dashboard store's cancellation keys, distinct from every page's own. */
+export const DETECTIONS_STORE_REQUEST_KEYS = {
+    list: 'detections-store:list',
+    count: 'detections-store:count'
+} as const;
+
 export interface ReclassificationProgress {
     eventId: string;
     strategy?: string | null;
@@ -37,7 +43,7 @@ export interface ReclassificationProgress {
     diagnostics?: VideoClassificationDiagnostics | null;
     // Set when the backend downgrades a video run to snapshot mid-flight (e.g.
     // clip_not_retained, event_not_found with no cached clip).  The UI uses
-    // this to swap the film-reel "video analysis" framing for a "snapshot
+    // this to swap the frame-ribbon "video analysis" framing for a "snapshot
     // fallback" state instead of silently carrying on.
     fallbackFrom?: string | null;
     fallbackReason?: string | null;
@@ -61,6 +67,11 @@ export class DetectionsStore {
      * reacting to every progress tick, and even after its overlay was dismissed or pruned.
      */
     settledReclassifications = $state<Map<string, number>>(new Map());
+    /**
+     * Advanced when the recent history changes after it was first read: an edit, a live update,
+     * or a later read that brought different rows. Reading the history the first time is not a
+     * change, so pages that reload after edits do not read twice on every cold load.
+     */
     mutationVersion = $state(0);
     publicHistoryVersion = $state(0);
     patchMap = $state<Map<string, Partial<Detection>>>(new Map());
@@ -118,7 +129,8 @@ export class DetectionsStore {
     }
 
     async refreshIfStale(): Promise<void> {
-        if (this.isLoading || !this.staleTracker.isStale()) return;
+        // The first read of an access is the app's to start; a refresh sweep must not race it.
+        if (this.isLoading || this.historyStatus === 'pending' || !this.staleTracker.isStale()) return;
         await this.loadInitial();
     }
 
@@ -137,10 +149,11 @@ export class DetectionsStore {
     }
 
     private clearHistory(): void {
+        const hadHistory = this.detections.length > 0 || this.totalToday > 0 || this.patchMap.size > 0;
         this.detections = [];
         this.totalToday = 0;
         this.patchMap = new Map();
-        this.markMutated();
+        if (hadHistory) this.markMutated();
     }
 
     async refreshPublicHistory(): Promise<void> {
@@ -195,21 +208,31 @@ export class DetectionsStore {
                     fetchEvents({
                         limit: this.MAX_ITEMS,
                         startDate,
-                        requestKey: 'detections-store:list'
+                        requestKey: DETECTIONS_STORE_REQUEST_KEYS.list
                     }),
                     fetchEventsCount({
                         startDate: toLocalYMD(),
                         endDate: toLocalYMD(),
-                        requestKey: 'detections-store:count'
+                        requestKey: DETECTIONS_STORE_REQUEST_KEYS.count
                     })
                 ]);
                 if (generation !== this.accessGeneration) return false;
                 // Read before an owner bird edit: the queued refresh supplies the current rows.
                 if (evidenceEpoch !== this.ownerEvidenceEpoch) return true;
+                // A newer authoritative read can reopen a choice (for example after reanalysis
+                // in another tab). Do not retain an older owner patch after that row leaves the page.
+                for (const detection of recent) {
+                    const patch = this.patchMap.get(detection.frigate_event);
+                    if (patch?.manual_tagged === true && patch.classification_input?.source === 'owner_species_choice') {
+                        this.rememberPatch(detection);
+                    }
+                }
+                const changed = this.historyStatus === 'ready'
+                    && (countResult.count !== this.totalToday || JSON.stringify(recent) !== JSON.stringify(this.detections));
                 this.detections = recent;
                 this.totalToday = countResult.count;
                 this.historyStatus = 'ready';
-                this.markMutated();
+                if (changed) this.markMutated();
                 this.staleTracker.touch();
                 return true;
             } catch (e) {
@@ -245,6 +268,11 @@ export class DetectionsStore {
             this.totalToday++;
             this.markMutated();
         }
+    }
+
+    recordOwnerSpeciesChoice(updated: Detection): void {
+        this.updateDetection(updated);
+        void this.refreshAfterOwnerEdit();
     }
 
     updateDetection(updated: Detection) {

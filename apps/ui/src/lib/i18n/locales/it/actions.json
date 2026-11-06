@@ -1,0 +1,17 @@
+{
+  "confirm_delete": "Eliminare l'intera visita di {species}? Il record e i suoi contenuti multimediali escono dalla cronologia definitivamente. Nasconderla invece conserva il record.",
+  "play_video": "Riproduci Video",
+  "deep_reclassify": "Riclassificazione Profonda",
+  "manual_tag": "Tag Manuale",
+  "reclassify": "Riclassifica",
+  "species_info": "Info Specie",
+  "delete_detection": "Elimina questa visita definitivamente",
+  "hide_detection": "Nascondi Rilevamento",
+  "unhide_detection": "Mostra Rilevamento",
+  "read_more_wikipedia": "Leggi altro su Wikipedia",
+  "read_more_source": "Leggi altro su {source}",
+  "delete_selected": "Elimina selezionati",
+  "reclassify_selected": "Riclassifica selezionati",
+  "confirm_species": "Conferma {species}",
+  "pick_species": "Scegli un’altra specie"
+}

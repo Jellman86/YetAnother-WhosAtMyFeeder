@@ -1,0 +1,17 @@
+{
+  "title": "Bem-vindo ao YA-WAMF",
+  "subtitle": "Proteja sua instalação definindo uma senha de administrador.",
+  "language_label": "Idioma",
+  "language_desc": "Você pode alterar depois nas Configurações.",
+  "admin_username": "Usuário administrador",
+  "password": "Senha",
+  "password_hint": "Mínimo de 8 caracteres",
+  "confirm_password": "Confirmar senha",
+  "skip_auth": "Pular autenticação (não recomendado)",
+  "setting_up": "Configurando…",
+  "continue_without_password": "Continuar sem senha",
+  "set_password": "Definir senha e continuar",
+  "password_mismatch": "As senhas não coincidem",
+  "password_min": "A senha deve ter pelo menos 8 caracteres",
+  "setup_failed": "Falha na configuração"
+}

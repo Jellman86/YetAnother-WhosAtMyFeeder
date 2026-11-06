@@ -1,17 +1,12 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
+  import { markerPopup, type MapMarker } from '../utils/map-popup';
   import type { Layer, Map as LeafletMap } from 'leaflet';
 
   type LeafletApi = typeof import('leaflet');
 
   // Props
-  export let markers: { 
-    lat: number; 
-    lng: number; 
-    title?: string; 
-    popupText?: string;
-    isCenter?: boolean; 
-  }[] = [];
+  export let markers: MapMarker[] = [];
   
   // Center can be explicitly provided, or auto-calculated from markers
   export let center: [number, number] | null = null;
@@ -140,11 +135,8 @@
     markers.forEach(m => {
         const marker = leaflet.marker([m.lat, m.lng], { icon: birdIcon }).addTo(mapInstance);
         
-        if (m.popupText) {
-            marker.bindPopup(m.popupText);
-        } else if (m.title) {
-             marker.bindPopup(`<b>${m.title}</b>`);
-        }
+        const content = markerPopup(m);
+        if (content) marker.bindPopup(content);
     });
   }
 </script>

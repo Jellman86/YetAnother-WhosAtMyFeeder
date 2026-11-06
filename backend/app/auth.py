@@ -40,6 +40,7 @@ class TokenData(BaseModel):
     username: str
     exp: datetime
     auth_level: str  # "owner" or "guest"
+    session_version: int = 0
 
 
 class AuthLevel:
@@ -111,7 +112,13 @@ def create_access_token(username: str, auth_level: str = AuthLevel.OWNER) -> str
     from app.config import settings
 
     expiry = datetime.now(timezone.utc) + timedelta(hours=settings.auth.session_expiry_hours)
-    payload = {"username": username, "auth_level": auth_level, "exp": expiry, "iat": datetime.now(timezone.utc)}
+    payload = {
+        "username": username,
+        "auth_level": auth_level,
+        "exp": expiry,
+        "iat": datetime.now(timezone.utc),
+        "session_version": settings.auth.session_version,
+    }
 
     return jwt.encode(payload, settings.auth.session_secret, algorithm="HS256")
 
@@ -133,6 +140,8 @@ def verify_token(token: str) -> TokenData:
     try:
         payload = jwt.decode(token, settings.auth.session_secret, algorithms=["HS256"])
         token_data = TokenData(**payload)
+        if token_data.session_version != settings.auth.session_version:
+            raise HTTPException(status_code=401, detail="Session has changed. Please log in again.")
         return token_data
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -166,6 +175,7 @@ _COOKIE_ROUTES = (
     re.compile(r"^/api/audio/(spectrogram|clip)/[^/]+$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/(preview|media)$"),
     re.compile(r"^/api/manual-observations/[a-f0-9]{32}/species/[0-9]/(photo|scene)$"),
+    re.compile(r"^/api/garden/[a-f0-9]{32}/(snapshot|crop)$"),
     re.compile(r"^/api/sse$"),
 )
 
@@ -345,6 +355,7 @@ class StreamAuth:
 
     context: AuthContext
     session_exp: Optional[datetime]
+    session_version: Optional[int] = None
 
 
 async def get_stream_auth_context(
@@ -378,6 +389,7 @@ async def get_stream_auth_context(
             return StreamAuth(
                 context=AuthContext(auth_level=token_data.auth_level, username=token_data.username),
                 session_exp=token_data.exp,
+                session_version=token_data.session_version,
             )
         except HTTPException:
             log.debug("Invalid bearer token on stream, checking ticket and public access")
@@ -387,16 +399,18 @@ async def get_stream_auth_context(
         return StreamAuth(
             context=AuthContext(auth_level=cookie_session.auth_level, username=cookie_session.username),
             session_exp=cookie_session.exp,
+            session_version=cookie_session.session_version,
         )
 
     ticket = request.query_params.get("ticket")
     if ticket:
         grant = stream_tickets.redeem(ticket)
-        if grant is not None:
+        if grant is not None and grant.session_version == settings.auth.session_version:
             log.debug("Stream opened with ticket", username=grant.username, level=grant.auth_level)
             return StreamAuth(
                 context=AuthContext(auth_level=grant.auth_level, username=grant.username),
                 session_exp=grant.session_exp,
+                session_version=grant.session_version,
             )
         log.debug("Stream ticket rejected: unknown, spent, or expired")
 

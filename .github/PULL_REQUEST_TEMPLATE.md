@@ -27,7 +27,7 @@ Focused and full commands with real results:
 
 - [ ] The change is one reviewable behaviour or maintenance slice.
 - [ ] Focused tests and the repository Definition of Done pass.
-- [ ] `CHANGELOG.md` and maintained documentation are current where needed.
+- [ ] A `changelog.d/` fragment and maintained documentation are current where needed.
 - [ ] Schema changes include a reversible migration and retain one Alembic head.
 - [ ] No secret, private runtime data, unrelated work, or generated user media is included.
 - [ ] Untrusted input, secret redaction, and soft/hard-delete boundaries remain intact.

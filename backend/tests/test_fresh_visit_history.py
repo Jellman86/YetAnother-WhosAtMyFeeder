@@ -3,11 +3,6 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
-import os
-from pathlib import Path
-import shutil
-import subprocess
-import sys
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -28,28 +23,13 @@ from app.services import media_cache as media_cache_module
 START = datetime(2033, 10, 3, 10)
 
 
-@pytest.fixture(scope="module")
-def fresh_history_template(tmp_path_factory):
-    path = tmp_path_factory.mktemp("fresh-visit-schema") / "template.db"
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=Path(__file__).resolve().parents[1],
-        env={**os.environ, "DB_PATH": str(path)},
-        check=True,
-        capture_output=True,
-        timeout=60,
-    )
-    return path
-
-
 @pytest_asyncio.fixture
-async def history(tmp_path, fresh_history_template, monkeypatch):
+async def history(tmp_path, migrated_history_db, monkeypatch):
     from app.config import settings
     from app.routers import events, stats, visits
     from app.services.broadcaster import broadcaster
 
-    path = tmp_path / "fresh-history.db"
-    shutil.copyfile(fresh_history_template, path)
+    path = migrated_history_db
 
     @asynccontextmanager
     async def database():

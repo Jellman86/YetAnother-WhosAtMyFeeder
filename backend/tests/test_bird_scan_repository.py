@@ -8,6 +8,7 @@ import pytest_asyncio
 
 from app.database import close_db, get_db, init_db
 from app.repositories.bird_scan_repository import BirdScanBusyError, BirdScanNotFoundError, BirdScanRepository
+from app.services.bird_observation_selection import BirdCountRegion
 
 INPUT = dict(
     candidate_id="frame-1",
@@ -17,6 +18,124 @@ INPUT = dict(
     clip_variant="event",
     frame_index=1,
 )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("automatic", [False, True])
+async def test_partial_count_and_uncounted_regions_are_published_with_the_same_revision(repo, automatic):
+    region = BirdCountRegion("uncertain", (10, 10, 30, 30), 0.4, "individuality_unresolved")
+    if automatic:
+        changed = await repo.record_automatic_outcome(
+            "scan-test-one",
+            **INPUT,
+            expected_revision=None,
+            expected_generation=None,
+            result_count=2,
+            retained_previous=False,
+            count_status="incomplete",
+            unconfirmed_regions=(region,),
+        )
+    else:
+        await repo.enqueue("scan-test-one", **INPUT)
+        job = await repo.claim_next()
+        changed = await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=2,
+            retained_previous=False,
+            count_status="incomplete",
+            unconfirmed_regions=(region,),
+        )
+    assert changed
+    outcome = await repo.get("scan-test-one")
+    assert outcome.result_count == 2
+    assert outcome.count_status == "incomplete"
+    assert outcome.unconfirmed_regions == (region,)
+    assert outcome.excluded_regions == ()
+    await repo.enqueue("scan-test-one", **INPUT, force=True)
+    queued = await repo.get("scan-test-one")
+    assert queued.unconfirmed_regions == ()
+    assert queued.count_status == "legacy"
+
+
+@pytest.mark.asyncio
+async def test_stale_worker_cannot_replace_new_count_regions(repo):
+    await repo.enqueue("scan-test-one", **INPUT)
+    stale = await repo.claim_next()
+    await repo.recover_running()
+    current = await repo.claim_next()
+    region = BirdCountRegion("unconfirmed", (10, 10, 30, 30), 0.4, "confirmation_unavailable")
+    assert await repo.complete(
+        current.event_id,
+        current.revision,
+        expected_generation=current.generation,
+        result_count=2,
+        retained_previous=False,
+        count_status="incomplete",
+        unconfirmed_regions=(region,),
+    )
+    assert not await repo.complete(
+        stale.event_id,
+        stale.revision,
+        expected_generation=stale.generation,
+        result_count=8,
+        retained_previous=False,
+        count_status="complete",
+    )
+    assert (await repo.get(current.event_id)).unconfirmed_regions == (region,)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,regions",
+    [("incomplete", ()), ("complete", (BirdCountRegion("u", (1, 1, 3, 3), 0.4, "confirmation_unavailable"),))],
+)
+async def test_count_completeness_cannot_contradict_its_regions(repo, status, regions):
+    await repo.enqueue("scan-test-one", **INPUT)
+    job = await repo.claim_next()
+    with pytest.raises(ValueError):
+        await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=1,
+            retained_previous=False,
+            count_status=status,
+            unconfirmed_regions=regions,
+        )
+
+
+@pytest.mark.asyncio
+async def test_manual_completion_refuses_an_exact_count_with_an_ambiguity_error(repo):
+    await repo.enqueue("scan-test-one", **INPUT)
+    job = await repo.claim_next()
+    with pytest.raises(ValueError):
+        await repo.complete(
+            job.event_id,
+            job.revision,
+            expected_generation=job.generation,
+            result_count=0,
+            retained_previous=False,
+            error="ambiguous_localization",
+        )
+    assert (await repo.get(job.event_id)).status == "running"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("count,error", [(None, None), (0, "ambiguous_localization")])
+async def test_automatic_count_and_ambiguity_reason_cannot_contradict_each_other(repo, count, error):
+    with pytest.raises(ValueError):
+        await repo.record_automatic_outcome(
+            "scan-test-one",
+            **INPUT,
+            expected_revision=None,
+            expected_generation=None,
+            result_count=count,
+            retained_previous=False,
+            error=error,
+        )
+    assert await repo.get("scan-test-one") is None
 
 
 @pytest_asyncio.fixture
@@ -161,7 +280,7 @@ async def test_deleted_detection_cannot_be_enqueued_or_completed(repo):
 
 @pytest.mark.asyncio
 async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo):
-    assert await repo.record_automatic_completed(
+    assert await repo.record_automatic_outcome(
         "scan-test-one",
         **INPUT,
         expected_revision=None,
@@ -171,7 +290,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
     )
     first = await repo.get("scan-test-one")
     assert first.status == "completed"
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=None,
@@ -180,7 +299,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
         retained_previous=False,
     )
     await repo.enqueue(first.event_id, **INPUT, force=True)
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=first.revision,
@@ -192,7 +311,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
     assert await repo.complete(
         manual.event_id, manual.revision, expected_generation=manual.generation, result_count=3, retained_previous=False
     )
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         first.event_id,
         **INPUT,
         expected_revision=first.revision,
@@ -201,7 +320,7 @@ async def test_automatic_completion_cannot_replace_active_or_newer_revision(repo
         retained_previous=False,
     )
     assert (await repo.get(first.event_id)).result_count == 3
-    assert await repo.record_automatic_completed(
+    assert await repo.record_automatic_outcome(
         first.event_id,
         **{**INPUT, "candidate_id": "frame-2"},
         expected_revision=(await repo.get(first.event_id)).revision,
@@ -252,7 +371,7 @@ async def test_automatic_scan_started_during_manual_work_cannot_overwrite_finish
     assert await repo.complete(
         manual.event_id, manual.revision, expected_generation=manual.generation, result_count=4, retained_previous=False
     )
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         manual.event_id,
         **INPUT,
         expected_revision=manual.revision,
@@ -267,7 +386,7 @@ async def test_automatic_scan_started_during_manual_work_cannot_overwrite_finish
 async def test_automatic_completion_cannot_resurrect_deleted_detection(repo):
     await repo.db.execute("DELETE FROM detections WHERE frigate_event='scan-test-one'")
     await repo.db.commit()
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         "scan-test-one",
         **INPUT,
         expected_revision=None,
@@ -300,7 +419,7 @@ async def test_deleted_and_recreated_event_cannot_accept_old_worker_with_equal_r
         new.event_id, new.revision, expected_generation=new.generation, result_count=2, retained_previous=False
     )
     done = await repo.get(new.event_id)
-    assert not await repo.record_automatic_completed(
+    assert not await repo.record_automatic_outcome(
         new.event_id,
         **INPUT,
         expected_revision=done.revision,
@@ -314,7 +433,7 @@ async def test_deleted_and_recreated_event_cannot_accept_old_worker_with_equal_r
 @pytest.mark.asyncio
 async def test_automatic_publication_requires_complete_expected_identity(repo):
     with pytest.raises(ValueError, match="generation and revision"):
-        await repo.record_automatic_completed(
+        await repo.record_automatic_outcome(
             "scan-test-one",
             **INPUT,
             expected_revision=None,
@@ -323,7 +442,7 @@ async def test_automatic_publication_requires_complete_expected_identity(repo):
             retained_previous=False,
         )
     with pytest.raises(ValueError, match="generation and revision"):
-        await repo.record_automatic_completed(
+        await repo.record_automatic_outcome(
             "scan-test-one",
             **INPUT,
             expected_revision=1,

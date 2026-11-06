@@ -6,8 +6,15 @@
     import { fetchHeardGroups, type HeardGroup, type HeardVisitCalls } from '../api/audio';
     import { buildHeardTimeline, heardWindow, type HeardBand } from '../utils/heard-timeline';
     import { explorerHeardStore } from '../stores/explorer_heard.svelte';
+    import GardenExplorerRow from '../components/GardenExplorerRow.svelte';
+    import GardenExplorerCard from '../components/GardenExplorerCard.svelte';
+    import { fetchGardenVisits, fetchGardenVisitCaptures, fetchGardenCaptureAtTime, fetchGardenCapture, type GardenServerVisit, type GardenCapture } from '../api/garden';
+    import { explorerSubjectsStore } from '../stores/explorer_subjects.svelte';
+    import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
+    import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
     import { onDestroy, onMount, untrack } from 'svelte';
+    import { MediaQuery } from 'svelte/reactivity';
     import {
         fetchEvents,
         fetchVisits,
@@ -16,7 +23,6 @@
         hideDetection,
         deleteDetection,
         bulkDeleteDetections,
-        fetchClassifierLabels,
         reclassifyDetection,
         updateDetectionSpecies,
         bulkUpdateDetectionSpecies,
@@ -31,14 +37,19 @@
         type SearchResult
     } from '../api';
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
+    import ExplorerSearch from '../components/ExplorerSearch.svelte';
+    import { explorerSearchChoice, taxonAppliesTo, type SearchOption, type TaxonChoice } from '../utils/explorer-search';
+    import { fetchTaxonLineage } from '../api/taxonomy';
     import { detectionsStore } from '../stores/detections.svelte';
     import { explorerViewStore } from '../stores/explorer_view.svelte';
     import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
+    import { gardenHistory } from '../stores/garden_history.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { classifierLabelsStore } from '../stores/classifier_labels.svelte';
     import { toAppPath } from '../app/url-base';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
@@ -46,22 +57,30 @@
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionRow from '../components/DetectionRow.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
-    import VideoPlayer from '../components/VideoPlayer.svelte';
-    import DetectionModal from '../components/DetectionModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadDetectionModal, loadGardenCaptureModal, loadSpeciesDetailModal, loadVideoPlayer } from '../components/lazy-dialogs';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
     import { selectReclassificationStrategy } from '../utils/reclassification';
     import { speciesPickerNames } from '../utils/species-picker';
     import { explanation } from '../utils/explanation';
+    import { explorerPane } from '../utils/explorer-results';
+    import { parseExplorerQuery, writeExplorerQuery, type ExplorerQuery } from '../utils/explorer-query';
+    import { explorerCameraOptions, seenGardenCameras } from '../utils/explorer-cameras';
+    import ExplorerPlaceholders from '../components/ExplorerPlaceholders.svelte';
 
     import { getBirdNames } from '../naming';
     import { createEventMetadataRefresh } from './event-metadata-refresh';
+    import { EVENTS_PAGE_REQUEST_KEYS } from './events-request-keys';
+    import { createLatestRequest } from '../utils/latest-request';
 
     let events = $state<Detection[]>([]);
     let loading = $state(true);
     let error = $state<string | null>(null);
+    /** A read has finished since the results were last cleared, so a count and an empty page mean something. */
+    let measured = $state(false);
+    let countElement = $state<HTMLElement | null>(null);
     let deleting = $state(false);
     let hiding = $state(false);
 
@@ -71,15 +90,19 @@
     let currentPage = $state(1);
     let pageSize = $state(24);
     let totalCount = $state(0);
-    let totalPages = $derived(Math.ceil(totalCount / pageSize));
     let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
     let eventFilters = $state<EventFilters | null>(null);
-    type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
-    let datePreset = $state<DatePreset>('all');
+    /** Cameras the Garden captures read so far came from; a visitor has no other source. */
+    let gardenCamerasSeen = $state.raw<readonly string[]>([]);
+    let datePreset = $state<ExplorerQuery['datePreset']>('all');
     let customStartDate = $state('');
     let customEndDate = $state('');
     let speciesFilter = $state('');
+    /** A group of species chosen in the search, by catalogue id; never set beside a species. */
+    let taxonFilter = $state<number | null>(null);
+    /** The chosen group's names, for its token; read from the catalogue when a link names only its id. */
+    let taxonChoice = $state.raw<TaxonChoice | null>(null);
     let cameraFilter = $state('');
     let favoritesOnly = $state(false);
     let audioConfirmedOnly = $state(false);
@@ -89,8 +112,9 @@
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let pendingEventId = $state<string | null>(null);
+    /** A Garden capture a notification links to, opened once Garden is known to be readable here. */
+    let pendingGardenCaptureId = $state<string | null>(null);
     let lastModalEventId = $state<string | null>(null);
-    let classifierLabels = $state<string[]>([]);
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
@@ -106,6 +130,26 @@
     let heardMatched = $state.raw<HeardVisitCalls[]>([]);
     let heardFailed = $state(false);
     let heardLoadGeneration = 0;
+    let gardenItems = $state.raw<GardenCapture[] | null>(null);
+    let serverGardenVisits = $state.raw<GardenServerVisit[]>([]);
+    let gardenCaptureTotal = $state(0);
+    // Camera candidates held back until their automatic check decides; only the owner is told.
+    let gardenAwaitingCheck = $state(0);
+    let openedGardenGroup = $state.raw<GardenVisit | null>(null);
+    let gardenGroupOffset = $state(0);
+    let gardenGroupLoading = $state(false);
+    let gardenGroupError = $state<string | null>(null);
+    let gardenGroupGeneration = 0;
+    let gardenTotal = $state(0);
+    let gardenFailed = $state(false);
+    let gardenLoadGeneration = 0;
+    let selectedGarden = $state.raw<GardenCapture | null>(null);
+    /** Which Garden captures the Garden view lists; the default is the animals. */
+    let gardenReview = $state<GardenReview>('reviewable');
+    /** A group just dismissed together, offered back while its photos remain. */
+    let gardenUndo = $state.raw<{ ids: string[]; skipped: number; returnToReview: boolean } | null>(null);
+    /** The address asked for Garden animals, as an old Garden page link does. */
+    let gardenRequested = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
     let bulkTagSearchQuery = $state('');
@@ -139,7 +183,7 @@
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
     let eventMetadataRefreshTimeout: number | null = null;
-    let eventsLoadGeneration = 0;
+    const eventsLoad = createLatestRequest();
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
 
@@ -180,25 +224,23 @@
         ].join('|');
     }
 
-    function formatSpeciesLabel(item: EventFilterSpecies) {
-        const showCommon = settingsStore.displayCommonNames;
-        const preferSci = settingsStore.scientificNamePrimary;
+    function speciesOptionNames(item: EventFilterSpecies): { primary: string; secondary: string | null } {
         const naming = getBirdNames({
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
-        }, showCommon, preferSci);
-        return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
+        }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary);
+        return { primary: naming.primary, secondary: naming.secondary || null };
     }
 
     // The API's display name is a stable fallback, not necessarily the owner's chosen
     // naming presentation. Keep the canonical filter value intact while deriving the
     // visible label from the same common/scientific-name policy as detection cards.
     let displaySpecies = $derived(
-        availableSpecies.map((item) => ({
-            ...item,
-            display_name: formatSpeciesLabel(item)
-        }))
+        availableSpecies.map((item) => {
+            const names = speciesOptionNames(item);
+            return { ...item, display_name: names.primary, display_secondary: names.secondary };
+        })
     );
 
     let dateRange = $derived.by(() => {
@@ -212,7 +254,8 @@
     });
 
     async function loadEvents() {
-        const loadGeneration = ++eventsLoadGeneration;
+        const load = eventsLoad.begin();
+        writeAddress();
         loading = true;
         error = null;
         try {
@@ -221,17 +264,46 @@
             let nextTotal: number;
             let nextVisits: DetectionVisit[] = [];
             let nextPrevious: DetectionVisit | null = null;
+            if (gardenOnly) {
+                // Garden pages complete groups; no bird history is read.
+                const gardenGeneration = ++gardenLoadGeneration;
+                const page = await fetchGardenVisits({
+                    start: localDayBound(range.start, false)?.toISOString() ?? null,
+                    end: localDayBound(range.end, true)?.toISOString(),
+                    camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
+                    order: sortOrder === 'oldest' ? 'oldest' : 'newest',
+                    status: gardenReview,
+                    limit: effectivePageSize,
+                    offset: (currentPage - 1) * effectivePageSize
+                });
+                if (!load.isCurrent() || gardenGeneration !== gardenLoadGeneration) return;
+                events = [];
+                pageVisits = [];
+                previousVisit = null;
+                totalCount = page.total;
+                serverGardenVisits = page.visits;
+                gardenItems = page.visits.map((visit) => visit.representative);
+                gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
+                gardenCaptureTotal = page.capture_total;
+            gardenAwaitingCheck = page.awaiting_check ?? 0;
+                gardenTotal = page.total;
+                gardenFailed = false;
+                measured = true;
+                void loadHeard();
+                return;
+            }
             if (groupVisits && !selectionMode) {
                 // Heard calls between this page and the one before it belong to this page, so the
                 // visit just before it is read too, to know where those calls start.
                 const offset = (currentPage - 1) * pageSize;
-                const padded = heardWanted && offset > 0 ? 1 : 0;
+                const padded = (heardWanted || gardenInTimeline) && offset > 0 ? 1 : 0;
                 const result = await fetchVisits({
                     limit: pageSize + padded, offset: offset - padded,
                     startDate: range.start, endDate: range.end,
-                    species: speciesFilter || undefined, camera: cameraFilter || undefined,
+                    species: speciesFilter || undefined, camera: cameraFilter || undefined, taxon: taxonFilter ?? undefined,
                     sort: sortOrder, onlyHidden: showHidden, favoritesOnly, audioConfirmedOnly, multipleSpeciesOnly,
-                    requestKey: 'events-page:visits'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.visits
                 });
                 nextPrevious = padded ? (result.visits[0] ?? null) : null;
                 nextVisits = result.visits.slice(padded);
@@ -246,35 +318,39 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
                     sort: sortOrder,
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
                     fields: 'list',
-                    requestKey: 'events-page:list'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.list
                 }),
                 fetchEventsCount({
                     startDate: range.start,
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
+                    taxon: taxonFilter ?? undefined,
                     onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     multipleSpeciesOnly,
-                    requestKey: 'events-page:count'
+                    requestKey: EVENTS_PAGE_REQUEST_KEYS.count
                 })
                 ]);
                 newEvents = captures;
                 nextTotal = countRes.count;
             }
-            if (loadGeneration !== eventsLoadGeneration) return;
+            if (!load.isCurrent()) return;
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
             totalCount = nextTotal;
+            measured = true;
             void loadHeard();
+            void loadGarden();
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
@@ -286,7 +362,7 @@
                 }
             }
         } catch (e) {
-            if (loadGeneration !== eventsLoadGeneration) return;
+            if (!load.isCurrent()) return;
             if (e instanceof Error && e.name === 'AbortError') {
                 // Request cancellation is expected when filter changes trigger a newer fetch.
                 return;
@@ -296,10 +372,12 @@
                 events = [];
                 totalCount = 0;
             }
-            error = $_('events.load_failed');
+            error = gardenOnly || (groupVisits && !selectionMode)
+                ? $_('events.load_failed', { default: 'The visits could not be loaded. Your history is unchanged.' })
+                : $_('events.load_failed_captures', { default: 'The captures could not be loaded. Your history is unchanged.' });
             console.error('Failed to load events', e);
         } finally {
-            if (loadGeneration === eventsLoadGeneration) loading = false;
+            if (load.isCurrent()) loading = false;
         }
     }
 
@@ -309,7 +387,7 @@
                 eventId,
                 limit: 1,
                 fields: 'detail',
-                requestKey: 'events-page:deep-link'
+                requestKey: EVENTS_PAGE_REQUEST_KEYS.deepLink
             });
             if (!target || pendingEventId !== eventId) return;
             selectedEvent = target;
@@ -347,11 +425,7 @@
             if (includeAuxiliary) {
                 // The hidden count is only ever shown behind owner access, and the
                 // endpoint refuses a guest, so asking as a guest just logs a 403.
-                const [labels, hidden] = await Promise.all([
-                    fetchClassifierLabels().catch(() => ({ labels: [] })),
-                    authStore.hasOwnerAccess ? fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 }
-                ]);
-                classifierLabels = labels.labels;
+                const hidden = authStore.hasOwnerAccess ? await fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 };
                 hiddenCount = hidden.hidden_count;
             }
 
@@ -409,6 +483,16 @@
     function handlePageChange(page: number) {
         currentPage = page;
         void loadEvents();
+        revealResultsTop();
+    }
+
+    /** A new page starts at its top, with focus on the count that will announce it, not at the old page's foot. */
+    function revealResultsTop(): void {
+        const count = countElement;
+        if (!count) return;
+        const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+        count.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+        count.focus({ preventScroll: true });
     }
 
     function handlePageSizeChange(size: number) {
@@ -417,20 +501,86 @@
         void loadEvents();
     }
 
+    /** The filters the rail holds now, as the address states them. */
+    function currentQuery(): ExplorerQuery {
+        return {
+            subjects: gardenAvailable ? subjects : null,
+            gardenReview,
+            datePreset,
+            customStartDate,
+            customEndDate,
+            speciesFilter,
+            taxonFilter,
+            cameraFilter,
+            favoritesOnly,
+            audioConfirmedOnly,
+            multipleSpeciesOnly,
+            showHidden,
+            groupVisits,
+            page: currentPage
+        };
+    }
+
+    function applyQuery(query: ExplorerQuery): void {
+        if (query.subjects) explorerSubjectsStore.set(query.subjects);
+        gardenRequested = query.subjects === 'garden';
+        gardenReview = query.gardenReview;
+        datePreset = query.datePreset;
+        customStartDate = query.customStartDate;
+        customEndDate = query.customEndDate;
+        speciesFilter = query.speciesFilter;
+        taxonFilter = query.taxonFilter;
+        cameraFilter = query.cameraFilter;
+        favoritesOnly = query.favoritesOnly;
+        audioConfirmedOnly = query.audioConfirmedOnly;
+        multipleSpeciesOnly = query.multipleSpeciesOnly;
+        showHidden = query.showHidden;
+        groupVisits = query.groupVisits;
+        currentPage = query.page;
+    }
+
+    /**
+     * The address follows the filters only once the page has read the one it opened with, and
+     * only while this page owns it: a read finishing after the app moved on must not rewrite
+     * another page's address.
+     */
+    let explorerPath: string | null = null;
+
+    /**
+     * Every read states its filters in the address, replacing the current history entry rather
+     * than adding one: Back leaves the Explorer for where it was opened from, instead of stepping
+     * through each filter tried on the way.
+     */
+    function writeAddress(): void {
+        if (explorerPath === null || window.location.pathname !== explorerPath) return;
+        const search = writeExplorerQuery(window.location.search, currentQuery(), { owner: authStore.hasOwnerAccess, gardenAvailable });
+        const next = `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`;
+        if (next !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+            window.history.replaceState(window.history.state, '', next);
+        }
+    }
+
+    // Another history entry for this same page (the app links here with filters) is read again.
+    $effect(() => {
+        const reread = () => {
+            if (explorerPath === null || window.location.pathname !== explorerPath) return;
+            applyQuery(parseExplorerQuery(window.location.search, { owner: authStore.hasOwnerAccess }));
+            void loadEvents();
+        };
+        window.addEventListener('popstate', reread);
+        return () => window.removeEventListener('popstate', reread);
+    });
+
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
-        if (params.get('species')) speciesFilter = params.get('species')!;
-        const requestedDatePreset = params.get('date');
-        if (
-            requestedDatePreset === 'all' ||
-            requestedDatePreset === 'today' ||
-            requestedDatePreset === 'week' ||
-            requestedDatePreset === 'month' ||
-            requestedDatePreset === 'custom'
-        ) datePreset = requestedDatePreset;
-        if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
-        if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
+        applyQuery(parseExplorerQuery(params, { owner: authStore.hasOwnerAccess }));
+        explorerPath = window.location.pathname;
         const deepLinkedEvent = params.get('event');
+        const linkedGardenCapture = params.get(GARDEN_CAPTURE_PARAM);
+        if (linkedGardenCapture !== null) {
+            if (GARDEN_CAPTURE_ID.test(linkedGardenCapture)) pendingGardenCaptureId = linkedGardenCapture;
+            else clearGardenCaptureLinkParam();
+        }
         const deepLinkedShare = params.get('share');
         const videoParam = params.get('video');
         const deepLinkWantsVideo = videoParam === '1' || videoParam === 'true';
@@ -526,12 +676,7 @@
                     bulkSearchResults = await fetchFeederSpecies();
                 } catch (e) {
                     console.error('Bulk species search failed', e);
-                    bulkSearchResults = classifierLabels.slice(0, 20).map((label) => ({
-                        id: label,
-                        display_name: label,
-                        common_name: null,
-                        scientific_name: null
-                    }));
+                    bulkSearchResults = await classifierLabelsStore.searchFallback('', 20);
                 } finally {
                     bulkSearching = false;
                 }
@@ -545,14 +690,7 @@
                 bulkSearchResults = await searchSpecies(query);
             } catch (e) {
                 console.error('Bulk species search failed', e);
-                bulkSearchResults = classifierLabels
-                    .filter((label) => String(label).toLowerCase().includes(query.toLowerCase()))
-                    .map((label) => ({
-                        id: String(label),
-                        display_name: String(label),
-                        common_name: null,
-                        scientific_name: null
-                    }));
+                bulkSearchResults = await classifierLabelsStore.searchFallback(query);
             } finally {
                 bulkSearching = false;
             }
@@ -608,6 +746,43 @@
         }, 700);
     }
 
+    let handledGardenHistoryVersion = gardenHistory.version;
+    $effect(() => {
+        const version = gardenHistory.version;
+        if (version === handledGardenHistoryVersion) return;
+        handledGardenHistoryVersion = version;
+        return untrack(() => {
+            if (!gardenAvailable || (!gardenOnly && !gardenInTimeline)) return;
+            // Coalesce bursts, and cancel a queued refresh when this page unmounts.
+            const timer = setTimeout(async () => {
+                if (gardenOnly) await loadEvents();
+                else await loadGarden();
+                if (selectedGarden && !gardenFailed) {
+                    const refreshed = findRefreshedGardenVisit(serverGardenVisits, openedGardenGroup);
+                    if (refreshed && openedGardenGroup) {
+                        openedGardenGroup = { ...openedGardenGroup, id: refreshed.id, captureCount: refreshed.capture_count };
+                        await loadGardenCapturePage(gardenGroupOffset, false);
+                    } else {
+                        // A species correction can change the visit ID. Re-read this
+                        // capture before closing it; a revoked capture is still removed.
+                        const selected = selectedGarden;
+                        const generation = ++gardenGroupGeneration;
+                        try {
+                            const current = await fetchGardenCaptureAtTime(selected, gardenOnly ? gardenReview : 'reviewable');
+                            if (generation !== gardenGroupGeneration || selectedGarden?.id !== selected.id) return;
+                            selectedGarden = current;
+                            openedGardenGroup = current ? { id: current.id, kind: 'visit', captureCount: 1, items: [current] } : null;
+                            gardenGroupOffset = 0;
+                        } catch (failure) {
+                            if (generation === gardenGroupGeneration) gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
+                        }
+                    }
+                }
+            }, 350);
+            return () => clearTimeout(timer);
+        });
+    });
+
     let handledVisitMutationVersion = detectionsStore.mutationVersion;
     $effect(() => {
         const version = detectionsStore.mutationVersion;
@@ -624,11 +799,12 @@
         if (version <= handledPublicHistoryVersion || !authStore.isGuest) return;
         handledPublicHistoryVersion = version;
         if (version > 0 && authStore.isGuest) untrack(() => {
-            eventsLoadGeneration += 1;
+            eventsLoad.supersede();
             events = [];
             pageVisits = [];
             totalCount = 0;
             loading = true;
+            measured = false;
             error = null;
             clearEventMetadata();
             void refreshCurrentEventsPage(version);
@@ -697,6 +873,8 @@
     });
 
     onDestroy(() => {
+        explorerPath = null;
+        cancelSearchedRecordRead();
         if (eventsSyncFrame !== null && typeof window !== 'undefined') {
             window.cancelAnimationFrame(eventsSyncFrame);
             eventsSyncFrame = null;
@@ -858,6 +1036,10 @@
             const key = detectionDayKey(event);
             counts.set(key, (counts.get(key) ?? 0) + 1);
         }
+        for (const item of (gardenOnly || gardenInTimeline) ? (gardenItems ?? []) : []) {
+            const key = detectionDayKey({ detection_time: item.observed_at } as Detection);
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        }
         return Array.from(counts.entries())
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([key, count]) => ({ key, count, label: formatTimelineBucketLabel(key) }));
@@ -866,6 +1048,7 @@
     let hasActiveExplorerFilters = $derived(
         Boolean(
             speciesFilter ||
+                taxonFilter !== null ||
                 cameraFilter ||
                 favoritesOnly ||
                 audioConfirmedOnly ||
@@ -957,6 +1140,42 @@
         }
     }
 
+    const GARDEN_CAPTURE_PARAM = 'garden_capture';
+    const GARDEN_CAPTURE_ID = /^[a-f0-9]{32}$/;
+
+    /** The link has done its job once the record opens, so a reload or Back does not reopen it. */
+    function clearGardenCaptureLinkParam(): void {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has(GARDEN_CAPTURE_PARAM)) return;
+        url.searchParams.delete(GARDEN_CAPTURE_PARAM);
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+
+    async function openLinkedGardenCapture(id: string, signal: AbortSignal): Promise<void> {
+        try {
+            const capture = await fetchGardenCapture(id, signal);
+            if (signal.aborted || pendingGardenCaptureId !== id) return;
+            pendingGardenCaptureId = null;
+            clearGardenCaptureLinkParam();
+            openGardenCapture(capture);
+        } catch (failure) {
+            if (signal.aborted || pendingGardenCaptureId !== id) return;
+            pendingGardenCaptureId = null;
+            clearGardenCaptureLinkParam();
+            console.error('Failed to resolve Garden capture link', failure);
+            toastStore.warning($_('garden.capture_link_unavailable', { default: 'This Garden capture is no longer available, or is not shared here.' }));
+        }
+    }
+
+    // Reading the linked record is I/O; it waits until Garden is known to be readable here.
+    $effect(() => {
+        const id = pendingGardenCaptureId;
+        if (!id || !gardenAvailable) return;
+        const controller = new AbortController();
+        void openLinkedGardenCapture(id, controller.signal);
+        return () => controller.abort();
+    });
+
     function clearEventVideoDeepLinkParams() {
         const url = new URL(window.location.href);
         let changed = false;
@@ -1008,6 +1227,26 @@
             return;
         }
         selectedEvent = event;
+    }
+
+    function closeGardenRecord(): void {
+        gardenGroupGeneration++;
+        selectedGarden = null;
+        openedGardenGroup = null;
+    }
+
+    /**
+     * A Garden capture's Frigate clip plays in the bird player; the capture carries it only while
+     * clips are on, and for a visitor only while the owner shares video. The Garden record closes
+     * before it plays, as a bird record does, so the player is the only dialog.
+     */
+    function playGardenClip(capture: GardenCapture): void {
+        if (!capture.clip_event) return;
+        videoEventId = capture.clip_event;
+        videoShareToken = null;
+        videoPlayIntent = 'user';
+        showVideo = true;
+        selectedEvent = null;
     }
 
     function playClip(detection: Detection) {
@@ -1089,7 +1328,7 @@
                 toastStore.warning(
                     $_('events.bulk_tag_partial', {
                         values: { count: result.failed_count + result.missing_count },
-                        default: `${result.failed_count + result.missing_count} selected events were not updated.`
+                        default: '{count, plural, one {# selected event was not updated.} other {# selected events were not updated.}}'
                     })
                 );
             }
@@ -1108,7 +1347,7 @@
             title: $_('actions.delete_selected', { default: 'Delete Selected' }),
             message: $_('events.bulk_delete_confirm', {
                 values: { count },
-                default: `Delete ${count} detection${count === 1 ? '' : 's'}? This cannot be undone.`
+                default: 'Delete {count, plural, one {# detection} other {# detections}}? This cannot be undone.'
             }),
             confirmLabel: $_('actions.delete_selected', { default: 'Delete Selected' })
         });
@@ -1121,13 +1360,13 @@
                 events = events.filter(e => !result.deleted_event_ids.includes(e.frigate_event));
                 toastStore.success($_('events.bulk_delete_success', {
                     values: { count: result.deleted_count },
-                    default: `Deleted ${result.deleted_count} detection${result.deleted_count === 1 ? '' : 's'}`
+                    default: 'Deleted {count, plural, one {# detection} other {# detections}}.'
                 }));
             }
             if (result.missing_count > 0) {
                 toastStore.warning($_('events.bulk_delete_missing', {
                     values: { count: result.missing_count },
-                    default: `${result.missing_count} detection${result.missing_count === 1 ? '' : 's'} not found`
+                    default: '{count, plural, one {# detection was not found.} other {# detections were not found.}}'
                 }));
             }
             selectedEventIds = [];
@@ -1162,7 +1401,7 @@
             if (failed === 0) {
                 toastStore.success($_('events.bulk_reclassify_success', {
                     values: { count: queued },
-                    default: `Queued ${queued} detection${queued === 1 ? '' : 's'} for video analysis`
+                    default: 'Queued {count, plural, one {# detection} other {# detections}} for video analysis.'
                 }));
             } else {
                 toastStore.warning($_('events.bulk_reclassify_partial', {
@@ -1180,8 +1419,18 @@
         (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
 
+    // Garden captures are owner-only and beta, so a guest or an installation without Garden sees birds.
+    const gardenAvailable = $derived(
+        (authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true) || authStore.guestCanViewGarden
+    );
+    const subjects = $derived<ExplorerSubjects>(gardenAvailable ? explorerSubjectsStore.value : 'birds');
+    const gardenOnly = $derived(subjects === 'garden');
+    // Page size counts complete server groups, including position stacks.
+    const effectivePageSize = $derived(pageSize);
+    let totalPages = $derived(Math.ceil(totalCount / effectivePageSize));
+
     // Heard calls between visits (off until this device turns them on).
-    const heardWanted = $derived(audioHistoryAvailable && explorerHeardStore.enabled && groupVisits && !selectionMode);
+    const heardWanted = $derived(audioHistoryAvailable && explorerHeardStore.enabled && groupVisits && !selectionMode && subjects !== 'garden');
     /**
      * Calls have no camera, no favourite and no review state, so a filter about those cannot be
      * applied to them. Rather than mix filtered visits with unfiltered calls, the calls step aside
@@ -1193,7 +1442,7 @@
         if (favoritesOnly || showHidden || multipleSpeciesOnly || audioConfirmedOnly) {
             return $_('events.heard.blocked_visit_filter', { default: 'Heard calls are hidden while Favourites, Hidden, Multiple species or Matching call is on. Those only describe camera visits.' });
         }
-        if (speciesFilter.startsWith('taxa:')) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
+        if (speciesFilter.startsWith('taxa:') || taxonFilter !== null) return $_('events.heard.blocked_group', { default: 'Heard calls are hidden while a group of species is chosen. Choose one species to see its calls.' });
         if (sortOrder === 'confidence') return $_('events.heard.blocked_sort', { default: 'Heard calls show between visits only when visits are in time order.' });
         return null;
     });
@@ -1270,9 +1519,320 @@
     });
 
 
+    const gardenCameraCount = $derived(settingsStore.settings?.garden_cameras?.length ?? 0);
+    // The owner's Garden cameras are a setting; a camera taken off Garden keeps its captures, so
+    // the cameras those came from are offered too. A visitor has only the captures to go by.
+    const gardenCameras = $derived(
+        authStore.hasOwnerAccess ? [...(settingsStore.settings?.garden_cameras ?? []), ...gardenCamerasSeen] : gardenCamerasSeen
+    );
+    const cameraOptions = $derived(explorerCameraOptions({
+        subjects,
+        birdCameras: availableCameras,
+        birdCounts: eventFilters?.camera_counts,
+        gardenCameras,
+        chosen: cameraFilter
+    }));
+    const gardenNotice = $derived<GardenBlocker | null>(
+        gardenBlocker(subjects, { speciesFilter, favoritesOnly, showHidden, multipleSpeciesOnly, audioConfirmedOnly, sortOrder, groupVisits, selectionMode })
+    );
+    const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
+    const GARDEN_WINDOW_LIMIT = 200;
+
+    async function loadGarden(): Promise<void> {
+        if (gardenOnly) return;
+        const generation = ++gardenLoadGeneration;
+        if (!gardenInTimeline) {
+            gardenItems = null;
+            gardenFailed = false;
+            return;
+        }
+        const sort = sortOrder === 'oldest' ? 'oldest' : 'newest';
+        const span = gardenWindow({
+            visits: pageVisits,
+            sort,
+            previous: previousVisit,
+            hasNextPage: currentPage * pageSize < totalCount,
+            birdTotal: totalCount,
+            rangeStart: localDayBound(dateRange.start, false),
+            rangeEnd: localDayBound(dateRange.end, true),
+            now: new Date()
+        });
+        if (!span) {
+            gardenItems = [];
+            gardenTotal = 0;
+            return;
+        }
+        try {
+            const page = await fetchGardenVisits({
+                start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
+                end: localDayBound(dateRange.end, true)?.toISOString(),
+                pageStart: span.start?.toISOString(),
+                pageEnd: span.end.toISOString(),
+                camera: cameraFilter || undefined,
+                taxon: taxonFilter ?? undefined,
+                order: sort,
+                limit: GARDEN_WINDOW_LIMIT
+            });
+            if (generation !== gardenLoadGeneration) return;
+            serverGardenVisits = page.visits;
+            gardenItems = page.visits.map((visit) => visit.representative);
+            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
+            gardenCaptureTotal = page.capture_total;
+            gardenAwaitingCheck = page.awaiting_check ?? 0;
+            gardenTotal = page.total;
+            gardenFailed = false;
+        } catch (e) {
+            if (generation !== gardenLoadGeneration) return;
+            if (e instanceof Error && e.name === 'AbortError') return;
+            gardenItems = null;
+            gardenFailed = true;
+            console.error('Failed to load Garden captures', e);
+        }
+    }
+
+    function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
+        return { start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
+            end: localDayBound(dateRange.end, true)?.toISOString(), camera: cameraFilter || undefined,
+            taxon: taxonFilter ?? undefined, status: gardenOnly ? gardenReview : 'reviewable' };
+    }
+
+    async function loadGardenCapturePage(index: number, selectCapture = true): Promise<void> {
+        const group = openedGardenGroup;
+        if (!group) return;
+        const generation = ++gardenGroupGeneration;
+        const selectedId = selectedGarden?.id;
+        gardenGroupLoading = true;
+        gardenGroupError = null;
+        const offset = Math.floor(index / 128) * 128;
+        try {
+            const page = await fetchGardenVisitCaptures(group.id, gardenCaptureScope(), offset);
+            if (generation !== gardenGroupGeneration || !selectedGarden || selectedGarden.id !== selectedId) return;
+            openedGardenGroup = { ...group, captureCount: page.total, items: page.items };
+            gardenGroupOffset = offset;
+            if (selectCapture) selectedGarden = page.items[index - offset] ?? page.items[0] ?? null;
+            else selectedGarden = page.items.find((item) => item.id === selectedId) ?? page.items[0] ?? null;
+        } catch (failure) {
+            if (generation !== gardenGroupGeneration) return;
+            gardenGroupError = failure instanceof Error ? failure.message : $_('garden.save_error');
+        } finally {
+            if (generation === gardenGroupGeneration) gardenGroupLoading = false;
+        }
+    }
+
+    function openGardenCapture(capture: GardenCapture, visit?: GardenVisit, index = 0): void {
+        gardenGroupGeneration++;
+        selectedGarden = capture;
+        openedGardenGroup = visit ? { ...visit, items: [capture] } : gardenGroups.find((group) => group.items[0].id === capture.id) ?? null;
+        gardenGroupOffset = Math.floor(index / 128) * 128;
+        gardenGroupError = null;
+        if (openedGardenGroup) void loadGardenCapturePage(index, false);
+    }
+
+    function setSubjects(next: ExplorerSubjects): void {
+        explorerSubjectsStore.set(next);
+    }
+
+    // Opening a searched record is a read that can outlive the choice that began it, so a newer choice
+    // or leaving the page cancels it, and a read that was cancelled can neither open nor warn.
+    let searchedRecordRead: AbortController | null = null;
+
+    function cancelSearchedRecordRead(): void {
+        searchedRecordRead?.abort();
+        searchedRecordRead = null;
+    }
+
+    function beginSearchedRecordRead(): AbortSignal {
+        cancelSearchedRecordRead();
+        searchedRecordRead = new AbortController();
+        return searchedRecordRead.signal;
+    }
+
+    /** A search result narrows the Explorer through the filters the rail already holds, or opens its record. */
+    function handleSearchChoice(option: SearchOption): void {
+        const choice = explorerSearchChoice(option, { subjects, gardenAvailable, today: toLocalYMD(new Date()) });
+        cancelSearchedRecordRead();
+        if (choice.kind === 'open') {
+            const signal = beginSearchedRecordRead();
+            if (choice.record.kind === 'garden') {
+                void openSearchedGardenCapture(choice.record.id, signal);
+            } else {
+                void openSearchedEvent(choice.record.id, choice.record.hidden === true, signal);
+            }
+            return;
+        }
+        if (choice.subjects) setSubjects(choice.subjects);
+        if (choice.speciesFilter !== undefined) speciesFilter = choice.speciesFilter;
+        if (choice.taxon !== undefined) {
+            taxonFilter = choice.taxon?.id ?? null;
+            taxonChoice = choice.taxon;
+        }
+        if (choice.cameraFilter !== undefined) cameraFilter = choice.cameraFilter;
+        if (choice.datePreset !== undefined) {
+            datePreset = choice.datePreset;
+            customStartDate = choice.customStartDate ?? '';
+            customEndDate = choice.customEndDate ?? '';
+        }
+        gardenUndo = null;
+        currentPage = 1;
+        void loadEvents();
+    }
+
+    async function openSearchedEvent(id: string, hidden: boolean, signal: AbortSignal): Promise<void> {
+        try {
+            // No request key: the key would replace the signal, and this read is cancelled by the search choice.
+            const [target] = await fetchEvents({
+                eventId: id,
+                includeHidden: hidden || undefined,
+                limit: 1,
+                fields: 'detail',
+                requestKey: null,
+                signal
+            });
+            if (signal.aborted) return;
+            if (!target) throw new Error('The searched detection was not returned');
+            selectedEvent = target;
+        } catch (failure) {
+            if (signal.aborted) return;
+            console.error('Failed to open the searched detection', failure);
+            toastStore.warning($_('events.search.record_open_failed', { default: 'This detection could not be opened. It may have been removed.' }));
+        }
+    }
+
+    async function openSearchedGardenCapture(id: string, signal: AbortSignal): Promise<void> {
+        try {
+            const capture = await fetchGardenCapture(id, signal);
+            if (signal.aborted) return;
+            openGardenCapture(capture);
+        } catch (failure) {
+            if (signal.aborted) return;
+            console.error('Failed to open the searched Garden capture', failure);
+            toastStore.warning($_('garden.capture_link_unavailable', { default: 'This Garden capture is no longer available, or is not shared here.' }));
+        }
+    }
+
+    // A group named in a link arrives as its id alone; its names are read from the catalogue for the token.
+    $effect(() => {
+        const id = taxonFilter;
+        if (id === null || taxonChoice?.id === id) return;
+        const controller = new AbortController();
+        fetchTaxonLineage(id, controller.signal)
+            .then(({ lineage }) => {
+                const taxon = lineage.at(-1);
+                if (taxon && taxon.taxon_id === id) taxonChoice = { id, rank: taxon.rank, name: taxon.name ?? null, scientificName: taxon.scientific_name };
+            })
+            .catch((failure: unknown) => {
+                if (!(failure instanceof Error && failure.name === 'AbortError')) console.error('Failed to name the chosen group of species', failure);
+            });
+        return () => controller.abort();
+    });
+
+    /** The chosen group's token: its rank and the name the owner reads species by. */
+    const taxonLabel = $derived.by((): string => {
+        if (taxonFilter === null) return '';
+        const known = taxonChoice?.id === taxonFilter ? taxonChoice : null;
+        if (!known) return $_('events.search.taxon_token_unnamed', { default: 'Chosen group of species' });
+        const name = known.rank === 'species'
+            ? getBirdNames({ display_name: known.name ?? known.scientificName, common_name: known.name ?? undefined, scientific_name: known.scientificName }, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+            : known.name ?? known.scientificName;
+        return $_('events.search.taxon_token', { values: { rank: $_(`taxonomy.rank.${known.rank}`, { default: known.rank }), name }, default: '{rank}: {name}' });
+    });
+
+    /** A capture after a review: kept where it still belongs, otherwise the next photo of its group opens. */
+    function gardenChanged(next: GardenCapture): void {
+        gardenHistory.invalidate();
+        gardenGroupGeneration++;
+        gardenGroupLoading = false;
+        gardenGroupError = null;
+        const view: GardenReview = gardenOnly ? gardenReview : 'reviewable';
+        if (gardenBelongs(next, view)) {
+            gardenItems = (gardenItems ?? []).map((item) => (item.id === next.id ? next : item));
+            selectedGarden = next;
+            if (openedGardenGroup) {
+                const previous = openedGardenGroup.items.find((item) => item.id === next.id);
+                if (!previous || previous.status !== next.status || gardenVisitIdentity(previous) !== gardenVisitIdentity(next)) {
+                    // A changed identity/state no longer belongs to the cached stack.
+                    openedGardenGroup = { id: next.id, kind: 'visit', captureCount: 1, items: [next] };
+                    gardenGroupOffset = 0;
+                } else {
+                    openedGardenGroup = { ...openedGardenGroup, items: openedGardenGroup.items.map((item) => item.id === next.id ? next : item) };
+                }
+            }
+            void (gardenOnly ? loadEvents() : loadGarden());
+            return;
+        }
+        const group = openedGardenGroup?.items ?? [];
+        const at = group.findIndex((item) => item.id === next.id);
+        const neighbour = group[at + 1] ?? group[at - 1] ?? null;
+        gardenItems = (gardenItems ?? []).filter((item) => item.id !== next.id);
+        selectedGarden = neighbour;
+        if (openedGardenGroup) openedGardenGroup = { ...openedGardenGroup, items: group.filter((item) => item.id !== next.id), captureCount: Math.max(0, (openedGardenGroup.captureCount ?? group.length) - 1) };
+        void (gardenOnly ? loadEvents() : loadGarden());
+    }
+
+    function gardenGroupDismissed(ids: string[], skipped: number, restoreMode?: 'review'): void {
+        gardenHistory.invalidate();
+        const removed = new Set(ids);
+        gardenItems = (gardenItems ?? []).filter((item) => !removed.has(item.id));
+        gardenUndo = ids.length ? { ids, skipped, returnToReview: restoreMode === 'review' } : null;
+        selectedGarden = null;
+        openedGardenGroup = null;
+        void (gardenOnly ? loadEvents() : loadGarden());
+        const message = $_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: ids.length } });
+        if (skipped > 0) {
+            toastStore.warning(`${message} ${$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: skipped } })}`);
+        } else {
+            toastStore.success(message);
+        }
+    }
+
+    async function undoGardenGroup(): Promise<void> {
+        const undo = gardenUndo;
+        if (!undo) return;
+        try {
+            const result = await reviewGardenBatch(undo.ids, 'restore');
+            gardenUndo = null;
+            toastStore.success($_('garden.batch_restored', { default: '{count, plural, one {# photo returned to review.} other {# photos returned to review.}}', values: { count: result.updated_ids.length } }));
+            await loadEvents();
+        } catch (failure) {
+            toastStore.error(failure instanceof Error ? failure.message : $_('garden.save_error', { default: 'Could not save your review. Try again.' }));
+        }
+    }
+
+    const gardenNoticeText = $derived.by((): string | null => {
+        switch (gardenNotice) {
+            case 'bird_filter':
+                return $_('garden.explorer.blocked_bird_filter', { default: 'Garden captures are hidden while a species, Favourites, Hidden, Multiple species or Matching call is chosen. Those only describe bird visits.' });
+            case 'confidence_sort':
+                return $_('garden.explorer.blocked_sort', { default: 'Garden captures show between visits only when visits are in time order.' });
+            case 'ungrouped':
+                return $_('garden.explorer.blocked_ungrouped', { default: 'Garden captures show between visits. Group captures into visits, or choose Garden animals to see them on their own.' });
+            case 'selection':
+                return $_('garden.explorer.blocked_selection', { default: 'Garden captures are hidden while you select bird visits.' });
+            case 'bird_filter_ignored':
+                return $_('garden.explorer.bird_filters_ignored', { default: 'Species, Favourites, Hidden, Multiple species, Matching call and confidence order describe bird visits, so they are not applied to Garden captures.' });
+            default:
+                return null;
+        }
+    });
+
+    const gardenDayKey = (item: GardenCapture): string => detectionDayKey({ detection_time: item.observed_at } as Detection);
+    const shownGarden = $derived(
+        (gardenOnly || gardenInTimeline) && gardenItems
+            ? gardenItems.filter((item) => selectedTimelineBucket === 'all' || gardenDayKey(item) === selectedTimelineBucket)
+            : []
+    );
+
+    /** Motion proposals around one position open as one entry, as the Garden review grouped them. */
+    /** One animal's stay is one entry, as a bird's is; unconfirmed motion proposals stack by position. */
+    const gardenGroups = $derived(serverGardenVisits
+        .filter((visit) => shownGarden.some((item) => item.id === visit.representative.id))
+        .map((visit): GardenVisit => ({ id: visit.id, kind: visit.kind,
+            captureCount: visit.capture_count, startTime: visit.start_time, endTime: visit.end_time, items: [visit.representative] })));
+
     type ExplorerEntry =
         | { kind: 'visit'; event: Detection; visit: DetectionVisit | undefined; matchedCalls: number }
-        | { kind: 'band'; band: HeardBand };
+        | { kind: 'band'; band: HeardBand }
+        | { kind: 'garden'; capture: GardenCapture; visit?: GardenVisit };
 
     const eventsByKey = $derived(new Map(events.map((event) => [event.frigate_event, event])));
 
@@ -1282,7 +1842,7 @@
         return first <= day && last >= day;
     }
 
-    const entries = $derived.by((): ExplorerEntry[] => {
+    const birdEntries = $derived.by((): ExplorerEntry[] => {
         if (!heardActive || heardGroups === null || pageVisits.length === 0) {
             return visibleEvents.map((event) => ({ kind: 'visit', event, visit: visitsByEvent.get(event.frigate_event), matchedCalls: 0 }));
         }
@@ -1307,14 +1867,42 @@
         return shown;
     });
 
+    const selectedGardenVisit = $derived(
+        selectedGarden ? openedGardenGroup ?? gardenGroups.find((group) => group.items.some((item) => item.id === selectedGarden?.id)) ?? null : null
+    );
+
+    function entryTime(entry: ExplorerEntry): number {
+        if (entry.kind === 'band') return Date.parse(entry.band.firstHeard);
+        if (entry.kind === 'garden') return Date.parse(entry.capture.observed_at);
+        return Date.parse(entry.event.detection_time);
+    }
+
+    const entries = $derived.by((): ExplorerEntry[] => {
+        const groups = new Map(gardenGroups.map((group) => [group.items[0].id, group]));
+        const withGroup = (entry: ExplorerEntry): ExplorerEntry =>
+            entry.kind === 'garden' ? { ...entry, visit: groups.get(entry.capture.id) } : entry;
+        const leads = gardenGroups.map((group) => group.items[0]);
+        if (gardenOnly) return leads.map((capture) => withGroup({ kind: 'garden', capture }));
+        if (!leads.length) return birdEntries;
+        return placeGardenCaptures(birdEntries, entryTime, leads, sortOrder === 'oldest' ? 'oldest' : 'newest').map(withGroup);
+    });
+
     /** Every call the page shows: those in bands and those counted on their visits. */
     const heardShownCalls = $derived(
-        entries.reduce((sum, entry) => sum + (entry.kind === 'band' ? entry.band.callCount : entry.matchedCalls), 0)
+        entries.reduce((sum, entry) => sum + (entry.kind === 'band' ? entry.band.callCount : entry.kind === 'visit' ? entry.matchedCalls : 0), 0)
     );
 
     function entryKey(entry: ExplorerEntry): string {
-        return entry.kind === 'band' ? `band:${entry.band.key}` : eventKey(entry.event);
+        if (entry.kind === 'band') return `band:${entry.band.key}`;
+        if (entry.kind === 'garden') return `garden:${entry.capture.id}`;
+        return eventKey(entry.event);
     }
+
+    // The search finds and opens anything, so on a desktop it heads the page rather than the
+    // filters, and stays when they are hidden. A phone keeps it above the results in the rail.
+    // Tailwind's lg, so the header and the rail switch at the same width as the layout.
+    const wideExplorer = new MediaQuery('min-width: 1024px', false);
+    const pane = $derived(explorerPane({ loading, failed: error !== null, measured, entries: entries.length, filtered: hasActiveExplorerFilters }));
 
     function openPeakCapture(visit: DetectionVisit | undefined): (() => void) | undefined {
         const capture = visit?.peak_capture;
@@ -1324,16 +1912,54 @@
 
 <svelte:window onkeydown={handleTimelineKeydown} />
 
+{#snippet explorerSearch()}
+    <ExplorerSearch
+        species={displaySpecies}
+        cameras={cameraOptions.cameras}
+        cameraCounts={cameraOptions.counts}
+        shortcutEnabled={!selectedEvent && !showVideo && !selectedGarden && !showBulkTagModal}
+        onchoose={handleSearchChoice}
+    />
+{/snippet}
+
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. -->
-        <p class="hidden text-xs text-slate-500 sm:block dark:text-slate-400">{$_('events.classification_legend')}</p>
+        {#if wideExplorer.current}
+            <div class="min-w-0 max-w-2xl flex-1 basis-80" data-explorer-header-search>{@render explorerSearch()}</div>
+        {/if}
+        <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. Beneath the
+             search and toolbar on a desktop, where the search takes the start of the row. -->
+        <p class="hidden text-xs text-slate-500 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
-            <div class="mr-1 basis-full text-sm text-slate-500 sm:basis-auto dark:text-slate-400" data-explorer-count>
-                <span class="font-semibold text-slate-700 dark:text-slate-200">{groupVisits && !selectionMode
+            <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
+            <div
+                bind:this={countElement}
+                class="mr-1 basis-full rounded text-sm text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
+                role="status"
+                tabindex="-1"
+                data-explorer-count={pane.count}
+            >
+                {#if pane.count === 'pending'}
+                    <span class="sr-only">{$_('events.results_loading', { default: 'Loading results…' })}</span>
+                    <span class="inline-block h-3 w-20 rounded bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                {:else if pane.count === 'unavailable'}
+                    <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
+                {:else}
+                <span class="font-semibold text-slate-700 dark:text-slate-200">{gardenOnly
+                    ? $_('garden.explorer.entry_total', { values: { count: totalCount, captures: gardenCaptureTotal }, default: '{count, plural, one {# Garden visit} other {# Garden visits}} · {captures, plural, one {# capture} other {# captures}}' })
+                    : groupVisits && !selectionMode
                     ? $_('visits.total', { values: { count: totalCount }, default: '{count} visits' })
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
-                {#if heardActive && heardGroups !== null}
+                {/if}
+                {#if pane.count === 'measured' && gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
+                    <span aria-hidden="true">&middot;</span>
+                    <span data-garden-awaiting-check>{$_('garden.explorer.awaiting_check', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}' })}</span>
+                {/if}
+                {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
+                    <span aria-hidden="true">&middot;</span>
+                    {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count, plural, one {# Garden visit on this page} other {# Garden visits on this page}}' })}
+                {/if}
+                {#if pane.count === 'measured' && heardActive && heardGroups !== null}
                     <span aria-hidden="true">&middot;</span>
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
@@ -1351,7 +1977,7 @@
                     {$_('nav.audio_history')}
                 </a>
             {/if}
-            {#if audioHistoryAvailable && groupVisits && !selectionMode}
+            {#if audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly}
                 <button
                     type="button"
                     class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {explorerHeardStore.enabled
@@ -1389,8 +2015,9 @@
                     ? $_('events.filters.show_rail', { default: 'Show filters' })
                     : $_('events.filters.hide_rail', { default: 'Hide filters' })}
             </button>
+            <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
             <div
-                class="inline-flex min-h-11 items-stretch rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
+                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
                 role="group"
                 aria-label={$_('settings.explorer_view.label')}
             >
@@ -1402,7 +2029,7 @@
                         data-explorer-view-toggle={option.value}
                         class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
                                {explorerView === option.value
-                            ? 'bg-brand-500 text-white'
+                            ? 'bg-brand-700 text-white'
                             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
                     >
                         {#if option.value === 'cards'}
@@ -1414,7 +2041,7 @@
                     </button>
                 {/each}
             </div>
-            {#if authStore.hasOwnerAccess}
+            {#if authStore.hasOwnerAccess && !gardenOnly}
                 <button
                     type="button"
                     class="btn min-h-11 px-3 py-2 text-xs {selectionMode
@@ -1434,10 +2061,11 @@
                 <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-brand-700/80 dark:text-brand-100/80">
-                    {selectedEventIds.length
-                        ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
-                        : $_('common.select', { default: 'Select' }) + ' events to act on.'}
+                <p class="text-xs text-brand-700/80 dark:text-brand-100/80" role="status" data-explorer-selection-count>
+                    {$_('events.selection_count', {
+                        values: { count: selectedEventIds.length },
+                        default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
+                    })}
                 </p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
@@ -1480,7 +2108,7 @@
     <div
         class="grid gap-4 lg:items-start lg:gap-6 {explorerFiltersStore.collapsed
             ? ''
-            : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
+            : 'lg:grid-cols-[16rem_minmax(0,1fr)]'}"
         data-explorer-layout
     >
         <div id="explorer-filter-rail" class={explorerFiltersStore.collapsed ? '' : 'lg:sticky lg:top-4'}>
@@ -1488,10 +2116,12 @@
             collapsed={explorerFiltersStore.collapsed}
             oncollapsechange={(next) => explorerFiltersStore.set(next)}
             species={displaySpecies}
-            cameras={availableCameras}
+            cameras={cameraOptions.cameras}
+            cameraCounts={cameraOptions.counts}
             filters={eventFilters}
             {datePreset}
             {speciesFilter}
+            {taxonLabel}
             {cameraFilter}
             {favoritesOnly}
             {audioConfirmedOnly}
@@ -1504,9 +2134,28 @@
             {customEndDate}
             canSeeHidden={authStore.hasOwnerAccess}
             refreshing={refreshingFilterOptions}
+            {gardenAvailable}
+            gardenReviewAvailable={authStore.hasOwnerAccess}
+            {subjects}
+            {gardenReview}
             onchange={(next) => {
+                if (next.subjects !== undefined) {
+                    setSubjects(next.subjects);
+                    // A group with no visitors in the new view would only show an empty page.
+                    if (taxonFilter !== null && taxonChoice?.id === taxonFilter && !taxonAppliesTo(taxonChoice, next.subjects)) {
+                        taxonFilter = null;
+                        toastStore.info($_('events.search.taxon_dropped', { default: 'The group filter was removed because it has no visitors in this view.' }));
+                    }
+                }
+                if (next.gardenReview !== undefined) gardenReview = next.gardenReview;
+                gardenUndo = null;
                 if (next.datePreset !== undefined) datePreset = next.datePreset;
-                if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
+                if (next.speciesFilter !== undefined) {
+                    speciesFilter = next.speciesFilter;
+                    // A species and a group of species are one choice: picking one replaces the other.
+                    if (next.speciesFilter) taxonFilter = null;
+                }
+                if (next.taxonFilter !== undefined) taxonFilter = next.taxonFilter;
                 if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
                 if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
                 if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
@@ -1519,8 +2168,12 @@
                 loadEvents();
             }}
             onclear={() => {
+                if (gardenAvailable) setSubjects('all');
+                gardenReview = 'reviewable';
+                gardenUndo = null;
                 datePreset = 'all';
                 speciesFilter = '';
+                taxonFilter = null;
                 cameraFilter = '';
                 favoritesOnly = false;
                 audioConfirmedOnly = false;
@@ -1532,6 +2185,7 @@
                 loadEvents();
             }}
             onrefresh={() => refreshEventMetadata(true, true)}
+            search={wideExplorer.current ? undefined : explorerSearch}
         />
         </div>
 
@@ -1539,15 +2193,28 @@
 
 
 
-        {#if error}
-            <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
-                {error}
-                <button onclick={loadEvents} class="ml-2 underline">{$_('common.retry')}</button>
+        {#if error && (pane.state === 'error' || pane.state === 'results')}
+            <!-- With nothing to show the failure takes the pane; earlier results stay, dimmed, beneath it. -->
+            <div
+                role="alert"
+                class="card-base flex rounded-2xl border border-red-200 bg-red-50/80 dark:border-red-800/70 dark:bg-red-950/30
+                    {pane.state === 'error' ? 'flex-col items-center px-6 py-10 text-center' : 'mb-4 flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3'}"
+                data-explorer-error={pane.state}
+            >
+                <span class="flex min-w-0 items-start gap-2 text-sm font-semibold text-red-800 dark:text-red-200 {pane.state === 'error' ? 'flex-col items-center' : 'flex-1'}">
+                    <svg class="{pane.state === 'error' ? 'h-8 w-8' : 'mt-0.5 h-4 w-4'} shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" />
+                    </svg>
+                    <span>{error}</span>
+                </span>
+                <button type="button" class="btn btn-secondary min-h-11 px-4 {pane.state === 'error' ? 'mt-4' : ''}" onclick={() => void loadEvents()} data-explorer-retry>
+                    {$_('events.try_again', { default: 'Try again' })}
+                </button>
             </div>
         {/if}
 
-        {#if !loading && timelineBuckets.length > 0}
-            <section data-events-timeline class="pb-4 pt-1">
+        {#if pane.state === 'results' && timelineBuckets.length > 0}
+            <section data-events-timeline class="pb-4 pt-1 transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}">
                 <!--
                     These chips group the loaded page, and clicking one narrows to that
                     day within the page. The heading beside them counts the whole filter,
@@ -1586,7 +2253,7 @@
                                 <path d="M4 14h12"></path>
                                 <path d="M7 14V9M10 14V6M13 14v-3"></path>
                             </svg>
-                            {events.length}
+                            {events.length + ((gardenOnly || gardenInTimeline) ? (gardenItems?.length ?? 0) : 0)}
                         </span>
                     </button>
                     {#each timelineBuckets as bucket}
@@ -1649,16 +2316,88 @@
             </p>
         {/if}
 
-        {#if !loading && visibleEvents.length === 0}
-            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
+        {#if gardenNoticeText}
+            <p class="mb-4 flex items-start gap-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
+                <svg class="mt-0.5 h-4 w-4 shrink-0 text-brand-600 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z" /></svg>
+                <span>{gardenNoticeText}</span>
+            </p>
+        {/if}
+        {#if gardenRequested && authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === false}
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-beta-off>
+                <span class="min-w-0 flex-1">{$_('garden.beta_off_desc', { default: 'Garden animals is a beta feature. Turn it on in Settings, Beta features, to collect and review non-bird visitors. Saved captures are kept while it is off.' })}</span>
+                <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs">{$_('garden.beta_off_action', { default: 'Open Beta features' })}</a>
+            </div>
+        {/if}
+        {#if gardenUndo}
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-undo>
+                <span class="min-w-0 flex-1">
+                    {$_('garden.batch_dismissed', { default: '{count, plural, one {# photo dismissed.} other {# photos dismissed.}}', values: { count: gardenUndo.ids.length } })}
+                    {#if gardenUndo.skipped > 0}{' '}{$_('garden.batch_skipped', { default: '{count, plural, one {# photo was unchanged because its review or availability changed.} other {# photos were unchanged because their review or availability changed.}}', values: { count: gardenUndo.skipped } })}{/if}
+                    {' '}{gardenUndo.returnToReview
+                        ? $_('garden.visit_return_help', { default: 'Returning photos to review does not reconfirm presence or the species name. Dismissed photos may make room for new captures.' })
+                        : $_('garden.batch_undo_help', { default: 'Undo is available while photos remain. Dismissed photos may make room for new captures.' })}
+                </span>
+                <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
+                    ? $_('garden.visit_return', { default: 'Return captures to review' })
+                    : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
+            </div>
+        {/if}
+        {#if gardenInTimeline && gardenFailed}
+            <p class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-line-soft bg-surface px-3 py-2 text-sm text-slate-600 dark:text-slate-300" role="alert" data-explorer-garden-notice>
+                {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
+                <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void loadGarden()}>{$_('common.retry', { default: 'Retry' })}</button>
+            </p>
+        {:else if gardenInTimeline && gardenItems !== null && gardenTotal > gardenItems.length}
+            <p class="mb-4 rounded-xl border border-line-soft bg-surface px-3 py-2.5 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-notice>
+                {$_('garden.explorer.truncated', { values: { shown: gardenItems.length, total: gardenTotal }, default: 'This page spans {total} Garden visits; {shown} are shown. Choose Garden animals to page through them all.' })}
+            </p>
+        {/if}
+
+        <div
+            class="transition-opacity motion-reduce:transition-none {pane.stale ? 'opacity-60' : ''}"
+            aria-busy={loading}
+            data-explorer-results={pane.state}
+            data-explorer-stale={pane.stale}
+        >
+        {#if pane.state === 'error' || pane.state === 'idle'}
+            <!-- The failure is stated above; with no read asked for, nothing is claimed. -->
+        {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
+            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h3>
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+                <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
+            </div>
+        {:else if pane.state === 'empty' && gardenOnly}
+            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                    {gardenReview === 'pending'
+                        ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
+                        : gardenReview === 'confirmed'
+                          ? $_('garden.explorer.empty_confirmed', { default: 'No confirmed animals yet' })
+                          : gardenReview === 'dismissed'
+                            ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
+                            : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
+                </h3>
+                {#if gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
+                    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-garden-awaiting-check-empty>
+                        {$_('garden.explorer.awaiting_check_empty', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.' })}
+                    </p>
+                {/if}
+                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
+                    ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
+                    : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
+            </div>
+        {:else if pane.state === 'empty' || pane.state === 'empty-filtered'}
+            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-empty={pane.state}>
                 <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
                 </svg>
-                {#if hasActiveExplorerFilters}
+                {#if pane.state === 'empty-filtered'}
                     <!-- An empty page under active filters is a statement about the
                          filters, never about the feeder (#301): saying "no events
-                         yet" here told an owner their history was gone. -->
+                         yet" here told an owner their history was gone. A failed read
+                         is neither; explorerPane() keeps it out of both empty states. -->
                     <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
                     <button
@@ -1667,10 +2406,11 @@
                         onclick={() => {
                             datePreset = 'all';
                             speciesFilter = '';
+                            taxonFilter = null;
                             cameraFilter = '';
                             favoritesOnly = false;
                             audioConfirmedOnly = false;
-                multipleSpeciesOnly = false;
+                            multipleSpeciesOnly = false;
                             showHidden = false;
                             customStartDate = '';
                             customEndDate = '';
@@ -1691,9 +2431,14 @@
             <!-- The list takes the page's width like every other surface (#663); a capped column left
                  half of a large display empty beside it. -->
             <div class="divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+                {#if pane.state === 'first-load'}
+                    <ExplorerPlaceholders view="list" />
+                {/if}
                 {#each entries as entry (entryKey(entry))}
                     {#if entry.kind === 'band'}
                         <HeardBandRow band={entry.band} />
+                    {:else if entry.kind === 'garden'}
+                        <GardenExplorerRow capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onplay={playGardenClip} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} />
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
@@ -1705,8 +2450,10 @@
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
                             speciesMix={visitSpeciesMix(visit)}
+                            stackFrame={visit?.peak_capture ?? null}
                             matchedCalls={entry.matchedCalls}
                             onopenCapture={openPeakCapture(visit)}
+                            hideProgress={selectedEvent?.frigate_event === event.frigate_event}
                         />
                         {#if visit}<VisitCaptures {visit} window={captureWindow} onselect={handleEventCardClick} onplay={playClip} />{/if}
                         </div>
@@ -1718,10 +2465,16 @@
                  structural: fixed column counts measured 141-227px cards beside
                  the open sidebar and filter rail, clipping the play button. -->
             <!-- Capture panels float above the grid; every card keeps its place. -->
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
+            <!-- min() lets one card fill a phone narrower than the minimum, as at 320px with the largest text. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))] gap-4" data-explorer-grid>
+                {#if pane.state === 'first-load'}
+                    <ExplorerPlaceholders view="cards" />
+                {/if}
                 {#each entries as entry, index (entryKey(entry))}
                     {#if entry.kind === 'band'}
                         <div class="min-w-0"><HeardBandCard band={entry.band} /></div>
+                    {:else if entry.kind === 'garden'}
+                        <div class="min-w-0"><GardenExplorerCard capture={entry.capture} visit={entry.visit} scope={gardenCaptureScope()} onplay={playGardenClip} onopen={(capture) => openGardenCapture(capture)} oncapture={(capture, index) => openGardenCapture(capture, entry.visit, index)} /></div>
                     {:else}
                     {@const event = entry.event}
                     {@const visit = entry.visit}
@@ -1751,69 +2504,108 @@
                 {/each}
             </div>
         {/if}
+        </div>
 
-        <Pagination
-            {currentPage}
-            {totalPages}
-            totalItems={totalCount}
-            itemsPerPage={pageSize}
-            onPageChange={handlePageChange}
-            onPageSizeChange={handlePageSizeChange}
-        />
+        <!-- An emptied later page keeps its way back. -->
+        {#if pane.state === 'results' || ((pane.state === 'empty' || pane.state === 'empty-filtered') && totalCount > 0)}
+            <Pagination
+                {currentPage}
+                {totalPages}
+                totalItems={totalCount}
+                itemsPerPage={effectivePageSize}
+                showPageSize={effectivePageSize === pageSize}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+            />
+        {/if}
         </div>
     </div>
 </div>
 
 {#if selectedEvent}
-    <DetectionModal
-        detection={selectedEvent}
-        {classifierLabels}
-        llmReady={llmReady}
-        showVideoButton={true}
-        fullVisitAvailable={selectedEvent ? fullVisitAvailability[selectedEvent.frigate_event] === 'available' : false}
-        fullVisitFetched={selectedEvent ? fullVisitFetchState[selectedEvent.frigate_event] === 'ready' : false}
-        fullVisitFetchState={selectedEvent ? (fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle') : 'idle'}
-        onClose={() => selectedEvent = null}
-        onReclassify={handleReclassify}
-        onFetchFullVisit={selectedEventFullVisitHandler}
-        onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
-            events = events.filter((event) => event.frigate_event !== deletedEventId);
-            detectionsStore.removeDetection(deletedEventId, detectionTime);
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-            await loadEvents();
-        }}
-        onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
-            if (isHidden) {
-                if (showHidden) {
-                    events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
-                } else {
-                    events = events.filter((event) => event.frigate_event !== hiddenEventId);
-                    detectionsStore.removeDetection(hiddenEventId, detectionTime);
-                }
-                hiddenCount++;
-            } else {
-                // In the hidden-only view an unhidden row no longer qualifies.
-                events = showHidden
-                    ? events.filter((event) => event.frigate_event !== hiddenEventId)
-                    : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
-                hiddenCount = Math.max(0, hiddenCount - 1);
-            }
-            selectedEvent = null;
-            await refreshEventMetadata(true, false);
-            await loadEvents();
-        }}
-        onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
-            videoEventId = frigateEvent;
-            videoShareToken = null;
-            videoPlayIntent = playIntent;
-            showVideo = true;
-            selectedEvent = null;
-        }}
-        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-    />
+    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
+        {#snippet children(DetectionModal)}
+            {#if selectedEvent}
+                <DetectionModal
+                    detection={selectedEvent}
+                    llmReady={llmReady}
+                    showVideoButton={true}
+                    fullVisitAvailable={fullVisitAvailability[selectedEvent.frigate_event] === 'available'}
+                    fullVisitFetched={fullVisitFetchState[selectedEvent.frigate_event] === 'ready'}
+                    fullVisitFetchState={fullVisitFetchState[selectedEvent.frigate_event] ?? 'idle'}
+                    onClose={() => selectedEvent = null}
+                    onReclassify={handleReclassify}
+                    onFetchFullVisit={selectedEventFullVisitHandler}
+                    onDeleteSuccess={async (deletedEventId: string, detectionTime?: string) => {
+                        events = events.filter((event) => event.frigate_event !== deletedEventId);
+                        detectionsStore.removeDetection(deletedEventId, detectionTime);
+                        selectedEvent = null;
+                        await refreshEventMetadata(true, false);
+                        await loadEvents();
+                    }}
+                    onHideSuccess={async (hiddenEventId: string, detectionTime: string | undefined, isHidden: boolean) => {
+                        if (isHidden) {
+                            if (showHidden) {
+                                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: true } : event);
+                            } else {
+                                events = events.filter((event) => event.frigate_event !== hiddenEventId);
+                                detectionsStore.removeDetection(hiddenEventId, detectionTime);
+                            }
+                            hiddenCount++;
+                        } else {
+                            // In the hidden-only view an unhidden row no longer qualifies.
+                            events = showHidden
+                                ? events.filter((event) => event.frigate_event !== hiddenEventId)
+                                : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+                            hiddenCount = Math.max(0, hiddenCount - 1);
+                        }
+                        selectedEvent = null;
+                        await refreshEventMetadata(true, false);
+                        await loadEvents();
+                    }}
+                    onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
+                        videoEventId = frigateEvent;
+                        videoShareToken = null;
+                        videoPlayIntent = playIntent;
+                        showVideo = true;
+                        selectedEvent = null;
+                    }}
+                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
-{#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+{#if selectedGarden && gardenAvailable}
+    <LazyModal loader={loadGardenCaptureModal} onclose={closeGardenRecord}>
+        {#snippet children(GardenCaptureModal)}
+            {#if selectedGarden}
+                <GardenCaptureModal
+                    capture={selectedGarden}
+                    group={selectedGardenVisit?.items ?? [selectedGarden]}
+                    groupKind={selectedGardenVisit?.kind ?? 'visit'}
+                    groupTotal={selectedGardenVisit?.captureCount ?? 1}
+                    groupOffset={gardenGroupOffset}
+                    groupLoading={gardenGroupLoading}
+                    groupError={gardenGroupError}
+                    onpage={(index) => void loadGardenCapturePage(index)}
+                    onclose={closeGardenRecord}
+                    onchanged={gardenChanged}
+                    onselect={(capture) => (selectedGarden = capture)}
+                    ongroupdismissed={gardenGroupDismissed}
+                    onplay={(capture) => { closeGardenRecord(); playGardenClip(capture); }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
+{/if}
+{#if selectedSpecies}
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />{/if}
+        {/snippet}
+    </LazyModal>
+{/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
@@ -1838,7 +2630,10 @@
                         {$_('actions.manual_tag')}
                     </h4>
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        {selectedEventIds.length} {$_('common.selected', { default: 'selected' })}
+                        {$_('events.selection_count', {
+                            values: { count: selectedEventIds.length },
+                            default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
+                        })}
                     </p>
                 </div>
                 <button
@@ -1893,15 +2688,21 @@
     </div>
 {/if}
 {#if showVideo && videoEventId}
-    <VideoPlayer
-        frigateEvent={videoEventId}
-        shareToken={videoShareToken}
-        playIntent={videoPlayIntent}
-        initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
-        onClose={() => {
-            showVideo = false;
-            videoEventId = null;
-            videoShareToken = null;
-        }}
-    />
+    <LazyModal loader={loadVideoPlayer} onclose={() => { showVideo = false; videoEventId = null; videoShareToken = null; }}>
+        {#snippet children(VideoPlayer)}
+            {#if videoEventId}
+                <VideoPlayer
+                    frigateEvent={videoEventId}
+                    shareToken={videoShareToken}
+                    playIntent={videoPlayIntent}
+                    initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
+                    onClose={() => {
+                        showVideo = false;
+                        videoEventId = null;
+                        videoShareToken = null;
+                    }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}

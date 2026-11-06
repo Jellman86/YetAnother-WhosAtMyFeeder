@@ -1,0 +1,634 @@
+{
+  "schema": 1,
+  "scope": "ordinal temporal-sampling diagnostic; not field recall, species-name accuracy, live qualification or counting",
+  "date": "2026-10-27",
+  "image": {
+    "tag": "dev-cpu",
+    "index_digest": "sha256:af493e7c89ea1ebe6929562611e322d33201c5b836347576b2b6109cfdd0db62",
+    "amd64_manifest_digest": "sha256:5f2630f6d9b3c445534a491f003a9f89074ce24bbe1339e90fd6ce73c9d98508",
+    "revision": "babc6235196b6193bf4e943291a3d2e309418c47"
+  },
+  "model_registry_id": "garden/md1000-cedar",
+  "execution": {
+    "host_kind": "x86_64 WSL2 development host",
+    "provider": "CPUExecutionProvider",
+    "cpu_quota": 2,
+    "memory_cap_bytes": 4294967296,
+    "deadline_seconds_per_policy": 45,
+    "network": "none",
+    "gpu_access": false,
+    "production_data_mounted": false,
+    "application_entrypoint_started": false,
+    "ffmpeg_version": "7.0.2",
+    "ffmpeg_sha256": "e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99"
+  },
+  "source_archive": {
+    "url": "https://ipt.inbo.be/archive.do?r=muntjac_antwerp&v=2",
+    "sha256": "ce6fe09b23a45ab7b37be67fd58ef257893f10efbc0fb4a621772978bc29a189",
+    "bytes": 30358083
+  },
+  "source_manifest": {
+    "kind": "ordered public still sequence, not reconstructed recording time",
+    "dataset": "MUNTJAC_ANTWERP v2",
+    "event": {
+      "observationID": "44c20ea9-cbf9-4f90-82be-b59b32791b2f",
+      "deploymentID": "88de7036-05d4-410f-92e1-dbc35a55b120",
+      "mediaID": "",
+      "eventID": "a793a344-9f37-4d7e-8969-924b51e2b6dc",
+      "eventStart": "2023-05-02T02:31:48Z",
+      "eventEnd": "2023-05-02T02:32:03Z",
+      "observationLevel": "event",
+      "observationType": "animal",
+      "cameraSetupType": "",
+      "scientificName": "Erinaceus europaeus",
+      "count": "1",
+      "lifeStage": "",
+      "sex": "",
+      "behavior": "onduidelijk",
+      "individualID": "",
+      "individualPositionRadius": "",
+      "individualPositionAngle": "",
+      "individualSpeed": "",
+      "bboxX": "",
+      "bboxY": "",
+      "bboxWidth": "",
+      "bboxHeight": "",
+      "classificationMethod": "human",
+      "classifiedBy": "Gerrit Huybreghts",
+      "classificationTimestamp": "2023-05-29T20:05:39Z",
+      "classificationProbability": "0.5",
+      "observationTags": "",
+      "observationComments": ""
+    },
+    "licences": {
+      "data": "CC0-1.0",
+      "media": "CC-BY-4.0"
+    },
+    "images": [
+      {
+        "index": 0,
+        "file": "000.jpg",
+        "url": "https://multimedia.agouti.eu/assets/e4cce7db-2a22-41c3-b728-8878ea5fc546/file",
+        "media_id": "e4cce7db-2a22-41c3-b728-8878ea5fc546",
+        "timestamp": "2023-05-02T02:31:48Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "27d521b5a7ae11778c745b53607f2843ab71b28becd684cdf9f1e3a2d9f25f8b"
+      },
+      {
+        "index": 1,
+        "file": "001.jpg",
+        "url": "https://multimedia.agouti.eu/assets/e7519eee-c762-4633-af6e-50e20a8cc97c/file",
+        "media_id": "e7519eee-c762-4633-af6e-50e20a8cc97c",
+        "timestamp": "2023-05-02T02:31:49Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "f3f5dd8b0f468e52cdcbc563d358625f5f17c8797fdda7015d7f1f1e5a9ef120"
+      },
+      {
+        "index": 2,
+        "file": "002.jpg",
+        "url": "https://multimedia.agouti.eu/assets/42c75233-b136-4c50-9d13-672886d7006e/file",
+        "media_id": "42c75233-b136-4c50-9d13-672886d7006e",
+        "timestamp": "2023-05-02T02:31:50Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "cc54fc06a0f403483e1faf14e35551c8f5997c5a9b522bd388c0aaadae55f441"
+      },
+      {
+        "index": 3,
+        "file": "003.jpg",
+        "url": "https://multimedia.agouti.eu/assets/6905a7a9-865f-4665-bef6-03f9ab3887a4/file",
+        "media_id": "6905a7a9-865f-4665-bef6-03f9ab3887a4",
+        "timestamp": "2023-05-02T02:31:50Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "86f8c17f1c19742b72c9e751a2749c6e83b9df1ea1fa3c9b30f7f30faf852dc5"
+      },
+      {
+        "index": 4,
+        "file": "004.jpg",
+        "url": "https://multimedia.agouti.eu/assets/bf0b3e37-f77c-4623-948a-4fde0da9005b/file",
+        "media_id": "bf0b3e37-f77c-4623-948a-4fde0da9005b",
+        "timestamp": "2023-05-02T02:31:51Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "71775e96056a8159ec848baca634d679b5c7d5622ca4fe676894defb36a7e84e"
+      },
+      {
+        "index": 5,
+        "file": "005.jpg",
+        "url": "https://multimedia.agouti.eu/assets/db60db9e-7ad8-4850-a39a-358040e9b76a/file",
+        "media_id": "db60db9e-7ad8-4850-a39a-358040e9b76a",
+        "timestamp": "2023-05-02T02:31:51Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "e640020670f7dd5b4048acde1a030d568a9c48c18e38d1d447bd61af4c230078"
+      },
+      {
+        "index": 6,
+        "file": "006.jpg",
+        "url": "https://multimedia.agouti.eu/assets/d743fc19-f44d-4ef0-af49-31d9b367c278/file",
+        "media_id": "d743fc19-f44d-4ef0-af49-31d9b367c278",
+        "timestamp": "2023-05-02T02:31:52Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "58ecc5f5b50090bb736a7b0f2e869d363344308f42f13de6e4f38ab66ec7436d"
+      },
+      {
+        "index": 7,
+        "file": "007.jpg",
+        "url": "https://multimedia.agouti.eu/assets/7d0e33c7-4cbd-47ca-8f77-b07ea26fe99d/file",
+        "media_id": "7d0e33c7-4cbd-47ca-8f77-b07ea26fe99d",
+        "timestamp": "2023-05-02T02:31:53Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "7fc10b26e1d2023897038212e98ce5e360eed26635c001212201764676eb30e9"
+      },
+      {
+        "index": 8,
+        "file": "008.jpg",
+        "url": "https://multimedia.agouti.eu/assets/43cc9f35-fc7c-4ec6-9146-6083efa300bf/file",
+        "media_id": "43cc9f35-fc7c-4ec6-9146-6083efa300bf",
+        "timestamp": "2023-05-02T02:31:53Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "014a73106f8c5b00f9dfe115c22b462b6a1206ff3117135de61567fbc95fb1d5"
+      },
+      {
+        "index": 9,
+        "file": "009.jpg",
+        "url": "https://multimedia.agouti.eu/assets/8379dd2d-5932-4826-8374-3a34f0364eac/file",
+        "media_id": "8379dd2d-5932-4826-8374-3a34f0364eac",
+        "timestamp": "2023-05-02T02:31:54Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "fc5f59603f347880e2888c5a8bdc8b21ad6f9dc7315699231fa2a664d0f33498"
+      },
+      {
+        "index": 10,
+        "file": "010.jpg",
+        "url": "https://multimedia.agouti.eu/assets/6c8b5aa7-ab00-494c-a882-484260b1e8d7/file",
+        "media_id": "6c8b5aa7-ab00-494c-a882-484260b1e8d7",
+        "timestamp": "2023-05-02T02:31:58Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "c0c1f597f517e43d2c2f52453977b9a8e0492e74807a974550a923b6fef908a9"
+      },
+      {
+        "index": 11,
+        "file": "011.jpg",
+        "url": "https://multimedia.agouti.eu/assets/0e53bf80-8f5a-43a7-9940-669a4d232505/file",
+        "media_id": "0e53bf80-8f5a-43a7-9940-669a4d232505",
+        "timestamp": "2023-05-02T02:31:58Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "c0524709da6ccd21ec841136d25f20cf0a94844fd5115c69ecd1c41b9fe80818"
+      },
+      {
+        "index": 12,
+        "file": "012.jpg",
+        "url": "https://multimedia.agouti.eu/assets/76592269-f759-4e28-aec3-e8eee060ed44/file",
+        "media_id": "76592269-f759-4e28-aec3-e8eee060ed44",
+        "timestamp": "2023-05-02T02:31:59Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "61e748e468df8815895d05595bd61b8487154bc35f8f360ab426e2b652e1d034"
+      },
+      {
+        "index": 13,
+        "file": "013.jpg",
+        "url": "https://multimedia.agouti.eu/assets/ba84a4f0-229b-4942-83bd-2a64cfe80bdc/file",
+        "media_id": "ba84a4f0-229b-4942-83bd-2a64cfe80bdc",
+        "timestamp": "2023-05-02T02:32:00Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "fe023d24b9c490a8c2008e8647f124858ac390ab5112f3581ff32ee6817738f1"
+      },
+      {
+        "index": 14,
+        "file": "014.jpg",
+        "url": "https://multimedia.agouti.eu/assets/4123cd09-1590-47b1-adb9-97394bb25d45/file",
+        "media_id": "4123cd09-1590-47b1-adb9-97394bb25d45",
+        "timestamp": "2023-05-02T02:32:00Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "7693938aaac7e6417ed050fa5f9aed7decd5a17e6774db45e775891ff9dfdca1"
+      },
+      {
+        "index": 15,
+        "file": "015.jpg",
+        "url": "https://multimedia.agouti.eu/assets/5ef70179-ba61-4e17-9c3c-79edf15640e6/file",
+        "media_id": "5ef70179-ba61-4e17-9c3c-79edf15640e6",
+        "timestamp": "2023-05-02T02:32:01Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "d4a299eecf9ef6beeb106da0aa303e299343ce4d72e54031512f0abdf96c8f0c"
+      },
+      {
+        "index": 16,
+        "file": "016.jpg",
+        "url": "https://multimedia.agouti.eu/assets/e1b7d695-d121-44b9-8101-14917f6f7e7d/file",
+        "media_id": "e1b7d695-d121-44b9-8101-14917f6f7e7d",
+        "timestamp": "2023-05-02T02:32:01Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "c2e033207812e9edbbd3d521daa74a1f10601d49749316db026b143fce7a34da"
+      },
+      {
+        "index": 17,
+        "file": "017.jpg",
+        "url": "https://multimedia.agouti.eu/assets/5b4451c3-a07e-481e-84d7-d53d943b00ae/file",
+        "media_id": "5b4451c3-a07e-481e-84d7-d53d943b00ae",
+        "timestamp": "2023-05-02T02:32:02Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "6f1ab42ad749991c0ec725d677dbaf15f732e5d2c5cf2b260fcf8edd85b971b9"
+      },
+      {
+        "index": 18,
+        "file": "018.jpg",
+        "url": "https://multimedia.agouti.eu/assets/0505628f-b0b7-4756-86bc-acf59218be41/file",
+        "media_id": "0505628f-b0b7-4756-86bc-acf59218be41",
+        "timestamp": "2023-05-02T02:32:03Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "f847dbb92d1c9e857c1d8e4760bb070867439a954170b8246af0b7544b38ee6f"
+      },
+      {
+        "index": 19,
+        "file": "019.jpg",
+        "url": "https://multimedia.agouti.eu/assets/aa13e73e-a18a-48fe-99de-3d0ccd6d8c10/file",
+        "media_id": "aa13e73e-a18a-48fe-99de-3d0ccd6d8c10",
+        "timestamp": "2023-05-02T02:32:03Z",
+        "file_public": true,
+        "shape": [
+          1920,
+          1080
+        ],
+        "sha256": "25d99cbfa5df89974a6d5c44d465a71fd423dee744a4f6c2aca1e6638bb42b1d"
+      }
+    ]
+  },
+  "source_manifest_sha256": "bed8ef3af045d22b278229213e885053d0b76d035d712819fa8bd3696fc160dc",
+  "montage": {
+    "purpose": "ordinal sampling diagnostic, not reconstructed camera timing or field recall",
+    "file": "hedgehog-ordinal-mjpeg-2fps.mp4",
+    "sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+    "bytes": 4923807,
+    "frames": 20,
+    "fps": 2,
+    "original_jpeg_packets_identical": true,
+    "rgb_decode_may_differ_from_still_jpeg_decoder": true,
+    "source_manifest_sha256": "bed8ef3af045d22b278229213e885053d0b76d035d712819fa8bd3696fc160dc"
+  },
+  "decoder_audit": {
+    "python": "3.12.16",
+    "opencv": "4.10.0",
+    "onnxruntime": "1.31.1",
+    "policies": [
+      {
+        "samples": 3,
+        "frames": [
+          {
+            "requested_seconds": 0.9900000000000001,
+            "frame_index": 2,
+            "sampled_frame_sha256": "fea9f794e5eb3dd98fe9be04052e6683f3d2a0b502c3d522560e015d0b0354bb",
+            "detector_input_sha256": "255e28a93e043e180c7ab843a7690231d7a52d45dcba38df80531e7bebfaa305"
+          },
+          {
+            "requested_seconds": 4.95,
+            "frame_index": 10,
+            "sampled_frame_sha256": "8150cc6c3658e9fbe5da49fa6a87291db426825c09150971900c66525962ff1e",
+            "detector_input_sha256": "271849bb80ab82ca6b8fcbb491bab0ab89e6dadb29bc6997c9368c7a55d1ac39"
+          },
+          {
+            "requested_seconds": 8.91,
+            "frame_index": 18,
+            "sampled_frame_sha256": "795faa201158e24c0961d5efecca9f06ac0854cb6ab7dd4fd78f8575843ee995",
+            "detector_input_sha256": "d8e860431edb7951290d57be01a7094ec6126c55f0a0f433b296b07ca01755cf"
+          }
+        ]
+      },
+      {
+        "samples": 9,
+        "frames": [
+          {
+            "requested_seconds": 0.9900000000000001,
+            "frame_index": 2,
+            "sampled_frame_sha256": "fea9f794e5eb3dd98fe9be04052e6683f3d2a0b502c3d522560e015d0b0354bb",
+            "detector_input_sha256": "255e28a93e043e180c7ab843a7690231d7a52d45dcba38df80531e7bebfaa305"
+          },
+          {
+            "requested_seconds": 1.9800000000000002,
+            "frame_index": 4,
+            "sampled_frame_sha256": "bbb7d4a8295549847175909a6e69e06223eb5e7da616fae04dfc22914de72bd2",
+            "detector_input_sha256": "ffa98831762aded297ce6b2953622799cd1b88df0e1bad86f7e8abf3f1122b77"
+          },
+          {
+            "requested_seconds": 2.97,
+            "frame_index": 6,
+            "sampled_frame_sha256": "c1416d26465da59a8fdd0e7fa9cc13b40997460cb0d978cfe1ffca91bb05127b",
+            "detector_input_sha256": "77e5c177641fdd4ffd37e01bb22c461d2a997ff102beeedeccefb02f9f434f0e"
+          },
+          {
+            "requested_seconds": 3.9600000000000004,
+            "frame_index": 8,
+            "sampled_frame_sha256": "12fd42cf88442f62a94441579ffbdd29d7cb59012e7715b443c4f10140ef90f8",
+            "detector_input_sha256": "f7e1381a5ae99b0b415258cde292b338e6691ac91ab1917de4ebaaddc4bfd9a3"
+          },
+          {
+            "requested_seconds": 4.95,
+            "frame_index": 10,
+            "sampled_frame_sha256": "8150cc6c3658e9fbe5da49fa6a87291db426825c09150971900c66525962ff1e",
+            "detector_input_sha256": "271849bb80ab82ca6b8fcbb491bab0ab89e6dadb29bc6997c9368c7a55d1ac39"
+          },
+          {
+            "requested_seconds": 5.94,
+            "frame_index": 12,
+            "sampled_frame_sha256": "e9c030218de4c8504e9b286af2ae8bd898de77d0572bd47a7b53edaf4dff2b38",
+            "detector_input_sha256": "051735e02027227a08f1a51e67ce4bb8289324711d4680c44f152106d209ad1d"
+          },
+          {
+            "requested_seconds": 6.93,
+            "frame_index": 14,
+            "sampled_frame_sha256": "b7d3c211a45326a9f6ece1cd5bb2fefc2bf9e235d57d744a9d9a889d768f43fe",
+            "detector_input_sha256": "3256162f8f4a8b7c3d58a21efc9a44c441f0d57bdcc0df1c01f7fb4e11a47c92"
+          },
+          {
+            "requested_seconds": 7.920000000000001,
+            "frame_index": 16,
+            "sampled_frame_sha256": "634182f3d4af687439d052d491bb88a1d65c2f17d70e35c1ec0e66b320484837",
+            "detector_input_sha256": "b26da4c6b7b2a8d5a66094cbef95cc45d2c38467473e877a242b55062d59e51e"
+          },
+          {
+            "requested_seconds": 8.91,
+            "frame_index": 18,
+            "sampled_frame_sha256": "795faa201158e24c0961d5efecca9f06ac0854cb6ab7dd4fd78f8575843ee995",
+            "detector_input_sha256": "d8e860431edb7951290d57be01a7094ec6126c55f0a0f433b296b07ca01755cf"
+          }
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "threshold_kind": "production_setting",
+      "complete_report": {
+        "source_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+        "model_sha256": "1a1f32bf00b10ed4907dca7d05c66fef8ac37adc48526cdfdf957eaa0e2ffff3",
+        "fps": 2.0,
+        "frames": 20,
+        "size": [
+          1920,
+          1080
+        ],
+        "thresholds": [
+          0.63
+        ],
+        "sampling": "current motion worker: three samples per window, not inference on every frame",
+        "samples_per_window": [
+          3
+        ],
+        "scope": "offline detector only; no Frigate person-overlap veto, persistence, identification or visits",
+        "windows": [
+          {
+            "start_frame": 0,
+            "frames": 20,
+            "duration": 10.0,
+            "clip_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+            "original_frames_verified": 20,
+            "results": [
+              {
+                "animal_confidence": 0.63,
+                "samples_per_window": 3,
+                "elapsed_seconds": 1.751084,
+                "outcome": "no_candidate"
+              }
+            ]
+          }
+        ]
+      },
+      "exit_code": 0,
+      "oom_killed": false,
+      "wall_including_container": 4
+    },
+    {
+      "threshold_kind": "production_setting",
+      "complete_report": {
+        "source_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+        "model_sha256": "1a1f32bf00b10ed4907dca7d05c66fef8ac37adc48526cdfdf957eaa0e2ffff3",
+        "fps": 2.0,
+        "frames": 20,
+        "size": [
+          1920,
+          1080
+        ],
+        "thresholds": [
+          0.63
+        ],
+        "sampling": "offline three/nine-sample comparison; live collector remains at three samples",
+        "samples_per_window": [
+          9
+        ],
+        "scope": "offline detector only; no Frigate person-overlap veto, persistence, identification or visits",
+        "windows": [
+          {
+            "start_frame": 0,
+            "frames": 20,
+            "duration": 10.0,
+            "clip_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+            "original_frames_verified": 20,
+            "results": [
+              {
+                "animal_confidence": 0.63,
+                "samples_per_window": 9,
+                "elapsed_seconds": 3.813611,
+                "outcome": "no_candidate",
+                "sampling": {
+                  "requested": 9,
+                  "decoded": 9,
+                  "inferred": 9
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "exit_code": 0,
+      "oom_killed": false,
+      "wall_including_container": 6
+    },
+    {
+      "threshold_kind": "separate_diagnostic",
+      "complete_report": {
+        "source_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+        "model_sha256": "1a1f32bf00b10ed4907dca7d05c66fef8ac37adc48526cdfdf957eaa0e2ffff3",
+        "fps": 2.0,
+        "frames": 20,
+        "size": [
+          1920,
+          1080
+        ],
+        "thresholds": [
+          0.5
+        ],
+        "sampling": "current motion worker: three samples per window, not inference on every frame",
+        "samples_per_window": [
+          3
+        ],
+        "scope": "offline detector only; no Frigate person-overlap veto, persistence, identification or visits",
+        "windows": [
+          {
+            "start_frame": 0,
+            "frames": 20,
+            "duration": 10.0,
+            "clip_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+            "original_frames_verified": 20,
+            "results": [
+              {
+                "animal_confidence": 0.5,
+                "samples_per_window": 3,
+                "elapsed_seconds": 1.747879,
+                "outcome": "no_candidate"
+              }
+            ]
+          }
+        ]
+      },
+      "exit_code": 0,
+      "oom_killed": false,
+      "wall_including_container": 3
+    },
+    {
+      "threshold_kind": "separate_diagnostic",
+      "complete_report": {
+        "source_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+        "model_sha256": "1a1f32bf00b10ed4907dca7d05c66fef8ac37adc48526cdfdf957eaa0e2ffff3",
+        "fps": 2.0,
+        "frames": 20,
+        "size": [
+          1920,
+          1080
+        ],
+        "thresholds": [
+          0.5
+        ],
+        "sampling": "offline three/nine-sample comparison; live collector remains at three samples",
+        "samples_per_window": [
+          9
+        ],
+        "scope": "offline detector only; no Frigate person-overlap veto, persistence, identification or visits",
+        "windows": [
+          {
+            "start_frame": 0,
+            "frames": 20,
+            "duration": 10.0,
+            "clip_sha256": "9ac7d379406c66f77867b3f86fa018c628528775dc53366e1bf73b78edf0a90d",
+            "original_frames_verified": 20,
+            "results": [
+              {
+                "animal_confidence": 0.5,
+                "samples_per_window": 9,
+                "elapsed_seconds": 3.948931,
+                "outcome": "candidate",
+                "frame_index": 4,
+                "frame_offset": 2.0,
+                "detector_score": 0.6068044304847717,
+                "box_xywh": [
+                  0.31322288513183594,
+                  0.9278951009114583,
+                  0.09499969482421877,
+                  0.04102232191297739
+                ],
+                "image_sha256": "1dc50429fa903006ed8de34ae5bb8afaf044e3d35414d52eb11b082daf8d24e6",
+                "devices": [
+                  "CPUExecutionProvider"
+                ],
+                "detector_input_sha256": "ffa98831762aded297ce6b2953622799cd1b88df0e1bad86f7e8abf3f1122b77",
+                "sampled_frame_sha256": "bbb7d4a8295549847175909a6e69e06223eb5e7da616fae04dfc22914de72bd2",
+                "motion_ratio": 4.394,
+                "sampling": {
+                  "requested": 9,
+                  "decoded": 9,
+                  "inferred": 9
+                },
+                "source_frame_index": 4
+              }
+            ]
+          }
+        ]
+      },
+      "exit_code": 0,
+      "oom_killed": false,
+      "wall_including_container": 5
+    }
+  ],
+  "decision": "keep live three-frame sampling and existing thresholds; independent recording/control panel required",
+  "limits": [
+    "One previously explored event, with a human source classificationProbability of 0.5 and no independent boxes.",
+    "Twenty original JPEG packets were remuxed to ten seconds at 2 fps; duplicate camera timestamps prevent treating that montage as original recording time.",
+    "The 0.5 runs are separate diagnostic follow-ups; Quark uses 0.63 and neither policy emitted a candidate there.",
+    "No native person/fixture/rain/IR-noise control panel was run in this comparison.",
+    "The still-motion filter passed the 0.5 nine-sample proposal at ratio 4.394; this does not qualify its response to other scenes.",
+    "No Frigate person-history veto, admission, persistence, identification, visit counts, sustained load, GPU or NPU was tested.",
+    "Cap values are configured bounds, not measured peak-memory or production-latency evidence."
+  ]
+}

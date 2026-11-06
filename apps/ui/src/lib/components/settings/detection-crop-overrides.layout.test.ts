@@ -33,8 +33,8 @@ describe('automatic model crop policy', () => {
         expect(modelManagerSource).toContain("artifact_kind || 'classifier') === 'crop_detector'");
         expect(modelManagerSource).toContain('cropDetectorModels');
         expect(modelManagerSource).toContain('cropDetectorStatus');
-        expect(modelManagerSource).toContain('model_manager_thumbnail_crop_title');
-        expect(modelManagerSource).toContain('Automatic best quality');
+        expect(modelManagerSource).toContain('bird_finder_title');
+        expect(modelManagerSource).toContain('bird_finder_backup');
         expect(modelManagerSource).not.toContain('id="thumbnail-crop-quality"');
         expect(modelManagerSource).not.toContain('value="fast"');
         expect(modelManagerSource).not.toContain('value="accurate"');

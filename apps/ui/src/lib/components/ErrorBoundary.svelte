@@ -1,10 +1,10 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
 
-    let { children, fallback } = $props<{
+    let { children, fallback }: {
         children: import('svelte').Snippet;
         fallback?: import('svelte').Snippet<[Error]>;
-    }>();
+    } = $props();
 
     let error = $state<Error | null>(null);
     let errorInfo = $state<string>('');
@@ -124,7 +124,7 @@
                 <div class="flex flex-col sm:flex-row gap-3">
                     <button
                         onclick={resetError}
-                        class="flex-1 px-6 py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-xl transition-colors focus-ring"
+                        class="flex-1 px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white font-medium rounded-xl transition-colors focus-ring"
                     >
                         {$_('error.try_again', { default: 'Try Again' })}
                     </button>

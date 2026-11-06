@@ -1,0 +1,10 @@
+{
+  "boundary_title": "Un problème est survenu",
+  "boundary_subtitle": "Une erreur inattendue s’est produite. Veuillez réessayer ou contacter le support si le problème persiste.",
+  "show_details": "Afficher les détails de l’erreur",
+  "try_again": "Réessayer",
+  "copy_details": "Copier les détails de l’erreur",
+  "copied": "Copié",
+  "reload_page": "Recharger la page",
+  "deploy_refresh_required": "YA-WAMF a été mis à jour pendant que cet onglet était ouvert. Actualisez la page pour charger la dernière version."
+}

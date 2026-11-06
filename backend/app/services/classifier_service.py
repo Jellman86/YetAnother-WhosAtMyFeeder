@@ -12,7 +12,6 @@ import hashlib
 import importlib
 import io
 import json
-import math
 import re
 import subprocess
 import threading
@@ -30,13 +29,73 @@ from app.services.photo_presence import has_localized_bird
 from app.services.video_scene_cache import VideoSceneCache
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
-from app.utils.frigate_coordinates import (
-    frigate_snapshot_crop_box,
-    normalized_frigate_video_hint,
-    photographed_track,
-    restore_frigate_hint_box,
-)
+from app.utils.frigate_coordinates import frigate_snapshot_crop_box, restore_frigate_hint_box
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
+from app.config import settings
+from app.utils.python_subprocess import python_subprocess_launch
+from app.services.native_crash_quarantine import (
+    NativeCrashQuarantine,
+    NativeCrashQuarantinedError,
+    artifact_digest,
+)
+from app.services.native_cpu_recovery import NativeCpuRecovery, NativeCpuRecoveryUnavailable
+from app.services.classifier_worker_protocol import ClassifierWorkerRetirementError
+from app.services.inference import runtimes
+from app.services.inference.adapters import InferenceAdapter
+from app.services.inference.adapters.onnx import ONNXModelInstance
+from app.services.inference.adapters.openvino import (
+    OpenVINOModelInstance,
+    openvino_gpu_optional_compile_properties,
+    openvino_gpu_startup_self_test_enabled,
+)
+from app.services.inference.adapters.tflite import ModelInstance
+from app.services.inference.diagnostics import gpu_runtime_failure_code, summarize_runtime_exception
+from app.services.inference.errors import InvalidInferenceOutputError
+from app.services.inference.input_selection import (
+    attach_classification_input_provenance,
+    input_context_extra,
+    normalize_classification_input_context,
+    video_frame_input_context,
+)
+from app.services.inference.outputs import resolve_model_labels, strict_non_finite_output_enabled
+from app.services.inference.provider_policy import (
+    apply_host_validated_providers,
+    is_gpu_provider_name,
+    normalize_inference_provider,
+    provider_capability_contract,
+    provider_supported_for_spec,
+    reconcile_ort_active_provider,
+    resolve_inference_selection,
+    runtime_fallback_targets_for,
+)
+from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig
+from app.services.bird_crop_service import bird_crop_service
+from app.services.crop_source_resolver import crop_source_resolver
+from app.services.classification_admission import (
+    ClassificationAdmissionCoordinator,
+    ClassificationAdmissionTimeoutError,
+    ClassificationLeaseExpiredError,
+)
+from app.services.classifier_supervisor import (
+    ClassifierSupervisor,
+    ClassifierWorkerCircuitOpenError,
+    ClassifierWorkerDeadlineExceededError,
+    ClassifierWorkerExitedError,
+    ClassifierWorkerHeartbeatTimeoutError,
+    ClassifierWorkerStartupTimeoutError,
+)
+from app.services.personalization_service import personalization_service
+from app.services.video_classification_policy import (
+    SourceTemporalConsensus,
+    VIDEO_MIN_FRAME_SEPARATION_SECONDS,
+    VIDEO_SPARSE_POOL_MAX_FRAMES,
+    assess_temporal_consensus,
+    build_target_temporal_consensus,
+    select_event_temporal_source_consensus,
+)
+from app.utils.classifier_labels import normalize_classifier_label
+
+log = structlog.get_logger()
 
 
 class VideoFrameCandidate(NamedTuple):
@@ -47,151 +106,6 @@ class VideoFrameCandidate(NamedTuple):
     detector_confidence: float | None = None
 
 
-# TFLite runtime
-try:
-    import tflite_runtime.interpreter as tflite
-except ImportError:
-    try:
-        import ai_edge_litert.interpreter as tflite
-    except ImportError:
-        try:
-            import tensorflow.lite as tflite
-        except ImportError:
-            tflite = None
-
-
-def _tflite_runtime_name() -> str:
-    module_name = str(getattr(tflite, "__name__", "") or "")
-    if module_name.startswith("ai_edge_litert"):
-        return "litert"
-    if module_name.startswith("tflite_runtime"):
-        return "tflite-runtime"
-    return "tensorflow" if tflite is not None else "unavailable"
-
-
-# ONNX runtime (for high-accuracy models)
-try:
-    import onnxruntime as ort
-
-    ONNX_AVAILABLE = True
-except ImportError:
-    ort = None
-    ONNX_AVAILABLE = False
-
-
-def _preload_onnxruntime_cuda_runtime_libraries() -> None:
-    """Preload packaged CUDA/cuDNN runtime libraries for ONNX Runtime.
-
-    ONNX Runtime supports shipping the CUDA/cuDNN userspace stack via pip.
-    In that setup the shared libraries live under Python site-packages rather
-    than a standard system library path, so we ask ORT to preload them
-    explicitly before probing or creating CUDA sessions.
-    """
-    if ort is None:
-        return
-    from app.utils.cuda_runtime import preload_packaged_cuda_libraries
-
-    preload_packaged_cuda_libraries(ort)
-
-
-def _detect_openvino_support() -> dict:
-    """Resolve OpenVINO Core import across package versions.
-
-    OpenVINO 2025+ exposes the stable ``openvino.Core`` directly.
-    The legacy ``openvino.runtime.Core`` path was deprecated in 2025.x and
-    removed in 2026.0. We try the new path first and fall back for pre-2025
-    installations.
-    """
-    attempts: list[str] = []
-
-    for module_name, attr_name, import_path in (
-        ("openvino", "Core", "openvino.Core"),
-        ("openvino.runtime", "Core", "openvino.runtime.Core"),
-    ):
-        try:
-            module = importlib.import_module(module_name)
-        except Exception as exc:
-            attempts.append(f"{import_path}: {type(exc).__name__}: {exc}")
-            continue
-
-        core_class = getattr(module, attr_name, None)
-        if core_class is None:
-            attempts.append(f"{import_path}: missing attribute {attr_name}")
-            continue
-
-        version = getattr(module, "__version__", None)
-        if not version and module_name != "openvino":
-            try:
-                top_level = importlib.import_module("openvino")
-                version = getattr(top_level, "__version__", None)
-            except Exception:
-                version = None
-
-        return {
-            "available": True,
-            "core_class": core_class,
-            "version": version,
-            "import_path": import_path,
-            "import_error": None,
-        }
-
-    return {
-        "available": False,
-        "core_class": None,
-        "version": None,
-        "import_path": None,
-        "import_error": "; ".join(attempts) if attempts else "OpenVINO not installed",
-    }
-
-
-# OpenVINO runtime (optional; single-image Intel acceleration path)
-_OPENVINO_SUPPORT = _detect_openvino_support()
-OpenVINOCore = _OPENVINO_SUPPORT["core_class"]
-OPENVINO_AVAILABLE = bool(_OPENVINO_SUPPORT["available"])
-
-from app.config import settings  # noqa: E402
-from app.utils.python_subprocess import python_subprocess_launch  # noqa: E402
-
-from app.services.native_crash_quarantine import (  # noqa: E402
-    NativeCrashQuarantine,
-    NativeCrashQuarantinedError,
-    artifact_digest,
-)
-from app.services.native_cpu_recovery import NativeCpuRecovery, NativeCpuRecoveryUnavailable  # noqa: E402
-from app.models.ai_models import ClassificationInputContext, CropGeneratorConfig  # noqa: E402
-from app.services.bird_crop_service import bird_crop_service  # noqa: E402
-from app.services.crop_source_resolver import crop_source_resolver  # noqa: E402
-from app.services.classification_admission import (  # noqa: E402
-    ClassificationAdmissionCoordinator,
-    ClassificationAdmissionTimeoutError,
-    ClassificationLeaseExpiredError,
-)
-from app.services.classifier_supervisor import (  # noqa: E402
-    ClassifierSupervisor,
-    ClassifierWorkerCircuitOpenError,
-    ClassifierWorkerDeadlineExceededError,
-    ClassifierWorkerExitedError,
-    ClassifierWorkerHeartbeatTimeoutError,
-    ClassifierWorkerStartupTimeoutError,
-)
-from app.services.personalization_service import personalization_service  # noqa: E402
-from app.services.video_classification_policy import (  # noqa: E402
-    SourceTemporalConsensus,
-    VIDEO_MIN_FRAME_SEPARATION_SECONDS,
-    VIDEO_SPARSE_POOL_MAX_FRAMES,
-    assess_temporal_consensus,
-    build_target_temporal_consensus,
-    select_event_temporal_source_consensus,
-)
-from app.utils.classifier_labels import (  # noqa: E402
-    build_grouped_classifier_labels,
-    normalize_classifier_label,
-    normalize_classifier_labels,
-)
-
-log = structlog.get_logger()
-
-SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
 CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
 
 
@@ -275,9 +189,6 @@ CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER = max(
     1.0,
     float(os.getenv("CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER", "1.25")),
 )
-LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT = (
-    os.getenv("CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "true").strip().lower() != "false"
-)
 
 
 class LiveImageClassificationOverloadedError(RuntimeError):
@@ -298,51 +209,6 @@ class VideoClassificationWorkerError(RuntimeError):
     def __init__(self, reason_code: str):
         self.reason_code = str(reason_code or "video_worker_unavailable")
         super().__init__(self.reason_code)
-
-
-class InvalidInferenceOutputError(RuntimeError):
-    """Raised when a runtime returns unusable model outputs after successful load."""
-
-    def __init__(
-        self,
-        *,
-        backend: str,
-        provider: str,
-        detail: str,
-        diagnostics: Optional[dict[str, Any]] = None,
-    ):
-        self.backend = str(backend)
-        self.provider = str(provider)
-        self.detail = str(detail)
-        self.diagnostics = dict(diagnostics or {})
-        super().__init__(f"{self.backend}:{self.provider}: {self.detail}")
-
-
-def _normalize_classification_input_context(input_context: Any | None) -> ClassificationInputContext:
-    if isinstance(input_context, ClassificationInputContext):
-        return input_context
-    if input_context is None:
-        return ClassificationInputContext()
-
-    payload: dict[str, Any] = {}
-    if isinstance(input_context, dict):
-        payload = dict(input_context)
-    else:
-        model_dump = getattr(input_context, "model_dump", None)
-        if callable(model_dump):
-            try:
-                dumped = model_dump()
-            except Exception:
-                dumped = None
-            if isinstance(dumped, dict):
-                payload = dumped
-        elif hasattr(input_context, "__dict__"):
-            payload = {key: value for key, value in vars(input_context).items() if not key.startswith("_")}
-
-    try:
-        return ClassificationInputContext.model_validate(payload)
-    except Exception:
-        return ClassificationInputContext()
 
 
 def _select_video_frame_indices(
@@ -429,7 +295,7 @@ def _invoke_model_classify(
     if not callable(classify_fn):
         return []
 
-    normalized_input_context = _normalize_classification_input_context(input_context)
+    normalized_input_context = normalize_classification_input_context(input_context)
     try:
         signature = inspect.signature(classify_fn)
         accepts_input_context = any(
@@ -452,22 +318,6 @@ def _invoke_model_classify(
         ):
             raise
         return classify_fn(image)
-
-
-def _strict_non_finite_output_enabled() -> bool:
-    configured = getattr(getattr(settings, "classification", None), "strict_non_finite_output", None)
-    if isinstance(configured, bool):
-        return configured
-    return LEGACY_CLASSIFIER_STRICT_NON_FINITE_OUTPUT
-
-
-def _openvino_gpu_startup_self_test_enabled() -> bool:
-    return os.getenv("OPENVINO_GPU_STARTUP_SELF_TEST", "1").strip().lower() not in {
-        "0",
-        "false",
-        "no",
-        "off",
-    }
 
 
 def _runtime_benchmark_enabled() -> bool:
@@ -511,22 +361,6 @@ def _safe_isinstance(value: Any, expected_type: Any) -> bool:
     return isinstance(expected_type, type) and isinstance(value, expected_type)
 
 
-def _openvino_gpu_optional_compile_properties() -> dict[str, str]:
-    properties: dict[str, str] = {}
-    execution_mode = os.getenv("OPENVINO_GPU_EXECUTION_MODE_HINT", "").strip()
-    activations_scale = os.getenv("OPENVINO_GPU_ACTIVATIONS_SCALE_FACTOR", "").strip()
-    if execution_mode:
-        properties["EXECUTION_MODE_HINT"] = execution_mode
-    if activations_scale:
-        properties["ACTIVATIONS_SCALE_FACTOR"] = activations_scale
-    return properties
-
-
-def _normalize_inference_provider(value: Optional[str]) -> str:
-    normalized = (value or "auto").strip().lower()
-    return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
-
-
 def _host_validated_providers(
     model_id: str,
     *,
@@ -549,66 +383,16 @@ def _host_validated_providers(
 
 
 def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
-    """Resolve the effective provider contract for this exact installation.
-
-    ``supported_inference_providers`` is the globally safe baseline.
-    ``candidate_inference_providers`` is the wider set an isolated host sweep may
-    probe. Current-image validation evidence narrows the runtime to passing
-    providers and may widen it only to reviewed candidates. Evidence from an
-    older image flavor is filtered by ``host_eligible_providers``.
-    """
-    resolved = dict(spec)
-    supported = _unique_provider_names(spec.get("supported_inference_providers"))
-    candidates = _unique_provider_names(spec.get("candidate_inference_providers") or supported)
-    candidate_set = set(candidates)
+    """Read this installation's validation evidence and apply it to the model contract."""
     artifact_sha256 = str(spec.get("artifact_sha256") or "").strip().lower() or None
-    validated = [
-        provider
-        for provider in _host_validated_providers(
-            model_id,
-            artifact_sha256=artifact_sha256,
-        )
-        if provider in candidate_set
-    ]
+    validated = _host_validated_providers(model_id, artifact_sha256=artifact_sha256)
     try:
         from app.services.model_validation import host_provider_preference_order
 
-        preference = [
-            provider
-            for provider in host_provider_preference_order(
-                model_id,
-                artifact_sha256=artifact_sha256,
-            )
-            if provider in validated
-        ]
+        preference = list(host_provider_preference_order(model_id, artifact_sha256=artifact_sha256))
     except Exception:
         preference = []
-    for provider in validated:
-        if provider not in preference:
-            preference.append(provider)
-
-    # Once a sweep exists it is authoritative: providers that were available
-    # but failed must not remain selectable merely because they are globally
-    # supported. Without a current sweep, retain the safe global baseline so
-    # upgrades do not deactivate a previously working installation.
-    effective = list(preference or supported)
-    resolved["supported_inference_providers"] = effective
-    resolved["candidate_inference_providers"] = candidates
-    resolved["host_added_inference_providers"] = [provider for provider in effective if provider not in supported]
-    resolved["host_validated_inference_providers"] = list(validated)
-    resolved["host_provider_preference_order"] = list(preference)
-    resolved["host_validation_applied"] = bool(validated)
-    return resolved
-
-
-def _unique_provider_names(values: Any) -> list[str]:
-    providers: list[str] = []
-    for value in values or []:
-        provider = _normalize_inference_provider(str(value or ""))
-        if provider == "auto" or provider in providers:
-            continue
-        providers.append(provider)
-    return providers
+    return apply_host_validated_providers(spec, validated_providers=validated, preference_order=preference)
 
 
 def _host_device_eligibility_summary() -> dict[str, Any]:
@@ -621,454 +405,6 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
         return host_eligibility_summary()
     except Exception:
         return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
-
-
-def _normalize_probability_vector(values: np.ndarray, *, context: str) -> np.ndarray:
-    probs = np.asarray(values, dtype=np.float32).reshape(-1)
-    if probs.size == 0:
-        return np.array([], dtype=np.float32)
-
-    finite_mask = np.isfinite(probs)
-    if not finite_mask.any():
-        if not _strict_non_finite_output_enabled():
-            log.warning(
-                "Classifier produced all non-finite probabilities; coercing in non-strict mode",
-                context=context,
-            )
-            probs = np.nan_to_num(probs, nan=1.0, posinf=1.0, neginf=0.0).astype(np.float32, copy=False)
-            total = float(np.sum(np.maximum(probs, 0.0)))
-            if total > 0.0 and np.isfinite(total):
-                return (np.maximum(probs, 0.0) / total).astype(np.float32, copy=False)
-            return np.full((probs.size,), 1.0 / float(probs.size), dtype=np.float32)
-        log.warning("Classifier produced all non-finite probabilities", context=context)
-        return np.array([], dtype=np.float32)
-
-    if not finite_mask.all():
-        probs = probs.copy()
-        bad_count = int((~finite_mask).sum())
-        probs[~finite_mask] = 0.0
-        log.warning(
-            "Classifier produced non-finite probabilities; zeroing invalid entries",
-            context=context,
-            invalid_count=bad_count,
-        )
-
-    probs = np.maximum(probs, 0.0)
-    total = float(np.sum(probs))
-    if not np.isfinite(total) or total <= 0.0:
-        log.warning("Classifier probability normalization failed", context=context, total=total)
-        return np.array([], dtype=np.float32)
-
-    normalized = probs / total
-    if not np.isfinite(normalized).all():
-        log.warning("Classifier normalization still produced non-finite probabilities", context=context)
-        return np.array([], dtype=np.float32)
-    return normalized.astype(np.float32, copy=False)
-
-
-def _safe_softmax(x: np.ndarray, *, context: str) -> np.ndarray:
-    logits = np.asarray(x, dtype=np.float32).reshape(-1)
-    if logits.size == 0:
-        return np.array([], dtype=np.float32)
-
-    finite_mask = np.isfinite(logits)
-    if not finite_mask.any():
-        nan_count = int(np.isnan(logits).sum())
-        pos_inf_count = int((logits == np.inf).sum())
-        neg_inf_count = int((logits == -np.inf).sum())
-        log.warning(
-            "Classifier produced ALL non-finite logits",
-            context=context,
-            nan_count=nan_count,
-            pos_inf_count=pos_inf_count,
-            neg_inf_count=neg_inf_count,
-            total_elements=logits.size,
-        )
-        if not _strict_non_finite_output_enabled():
-            log.warning(
-                "Classifier produced all non-finite logits; coercing in non-strict mode",
-                context=context,
-            )
-            logits = np.nan_to_num(logits, nan=0.0, posinf=80.0, neginf=-80.0).astype(np.float32, copy=False)
-            shifted = logits - float(np.max(logits))
-            exp_logits = np.exp(np.clip(shifted, -80.0, 80.0)).astype(np.float32, copy=False)
-            return _normalize_probability_vector(exp_logits, context=context)
-        log.warning("Classifier produced all non-finite logits", context=context)
-        return np.array([], dtype=np.float32)
-
-    if not finite_mask.all():
-        logits = logits.copy()
-        bad_count = int((~finite_mask).sum())
-        logits[~finite_mask] = -np.inf
-        log.warning(
-            "Classifier produced non-finite logits; excluding invalid entries",
-            context=context,
-            invalid_count=bad_count,
-        )
-
-    max_logit = float(np.max(logits[finite_mask]))
-    shifted = logits - max_logit
-    exp_logits = np.zeros_like(logits, dtype=np.float32)
-    exp_mask = np.isfinite(shifted)
-    exp_logits[exp_mask] = np.exp(np.clip(shifted[exp_mask], -80.0, 80.0))
-    return _normalize_probability_vector(exp_logits, context=context)
-
-
-def _build_classification_results(
-    probs: np.ndarray,
-    labels: list[str],
-    *,
-    top_k: int,
-    grouped_labels: Optional[list[str]] = None,
-) -> list[dict]:
-    probabilities = np.asarray(probs, dtype=np.float32).reshape(-1)
-    if probabilities.size == 0:
-        return []
-
-    if grouped_labels and len(grouped_labels) == probabilities.size:
-        aggregated: dict[str, dict[str, Any]] = {}
-        for i, score in enumerate(probabilities):
-            label = grouped_labels[i] or (labels[i] if i < len(labels) else f"Class {i}")
-            entry = aggregated.get(label)
-            score_value = float(score)
-            if entry is None:
-                aggregated[label] = {
-                    "index": int(i),
-                    "label": label,
-                    "score": score_value,
-                    "_best_member_score": score_value,
-                }
-                continue
-            entry["score"] += score_value
-            if score_value > float(entry["_best_member_score"]):
-                entry["index"] = int(i)
-                entry["_best_member_score"] = score_value
-
-        ranked = sorted(aggregated.values(), key=lambda item: float(item["score"]), reverse=True)
-        for item in ranked:
-            item.pop("_best_member_score", None)
-        return ranked[:top_k]
-
-    top_indices = np.argsort(probabilities)[::-1][:top_k]
-    return [
-        {
-            "index": int(i),
-            "score": float(probabilities[i]),
-            "label": normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}",
-        }
-        for i in top_indices
-    ]
-
-
-def _check_catalogue_output_width(labels: list[str], output_width: int, source: str) -> None:
-    if source == "catalogue" and len(labels) != output_width:
-        raise ValueError(f"Catalogue output width {len(labels)} differs from model output width {output_width}")
-
-
-def _resolve_model_labels(
-    labels_path: str,
-    label_grouping: dict,
-    *,
-    model_sha256: Optional[str] = None,
-    context: str = "model",
-) -> tuple[list[str], list[str], str]:
-    """Labels and their grouping, preferring the catalogue over the label file.
-
-    `labels.txt` is verified when a model is downloaded and never again, so every
-    inference since has trusted whatever is on disk. The catalogue holds the same
-    labels compiled from a file that was proven at install time.
-
-    The catalogue is used only when it holds a complete, contiguous set matching
-    the model's declared output width; anything short of that falls back to the
-    file, so a model it does not know behaves exactly as it does today.
-
-    Returns the labels, the grouped labels, and which source supplied them.
-    """
-    labels: list[str] = []
-    source = "none"
-
-    if model_sha256:
-        try:
-            from app.services.catalogue_labels import catalogue_labels_for_model
-
-            from_catalogue = catalogue_labels_for_model(model_sha256)
-        except Exception as error:  # pragma: no cover - defensive
-            log.debug("Catalogue labels unavailable", context=context, error=str(error))
-            from_catalogue = None
-        if from_catalogue:
-            labels = normalize_classifier_labels(from_catalogue)
-            source = "catalogue"
-
-    if not labels and os.path.exists(labels_path):
-        try:
-            with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
-                labels = normalize_classifier_labels(line.strip() for line in handle.readlines() if line.strip())
-            source = "label_file"
-        except Exception as error:
-            log.error("Failed to load labels", context=context, error=str(error))
-            return [], [], "none"
-
-    grouped: list[str] = []
-    strategy = str((label_grouping or {}).get("strategy") or "").strip()
-    if strategy and labels:
-        grouped = build_grouped_classifier_labels(labels, strategy=strategy)
-    return labels, grouped, source
-
-
-def _resolve_grouped_labels(
-    labels: list[str],
-    *,
-    label_grouping: Optional[dict[str, Any]] = None,
-    existing_grouped_labels: Optional[list[str]] = None,
-) -> list[str]:
-    if existing_grouped_labels:
-        return list(existing_grouped_labels)
-    strategy = str((label_grouping or {}).get("strategy") or "").strip()
-    if not strategy:
-        return []
-    return build_grouped_classifier_labels(labels, strategy=strategy)
-
-
-def _provider_supported_for_spec(spec: Optional[dict[str, Any]], provider: str) -> bool:
-    normalized = _normalize_inference_provider(provider)
-    allowed = {_normalize_inference_provider(item) for item in (spec or {}).get("supported_inference_providers") or []}
-    allowed.discard("auto")
-    return not allowed or normalized in allowed
-
-
-def _classifier_wants_bgr(preprocessing: Optional[dict[str, Any]]) -> bool:
-    """True when a classifier model declares BGR tensor input.
-
-    PIL decoding always gives RGB, so when a model was trained on BGR tensors
-    (unusual for classifiers, but possible) we must reverse the channel axis
-    before normalization. Previously `color_space: "BGR"` was silently dropped
-    on the classifier path — only the crop-detector path honored it.
-    """
-    return str((preprocessing or {}).get("color_space") or "RGB").strip().upper() == "BGR"
-
-
-def _resolve_color_space(preprocessing: Optional[dict[str, Any]]) -> str:
-    color_space = str((preprocessing or {}).get("color_space") or "RGB").strip().upper() or "RGB"
-    # Only "RGB" and "L" (grayscale) are valid for classification preprocessing.
-    # RGBA is excluded: alpha channels are not used by any supported model and produce
-    # 4-channel tensors that break 3-element mean/std normalisation.
-    # BGR is not a PIL mode; models requiring BGR must be handled explicitly.
-    return color_space if color_space in {"RGB", "L"} else "RGB"
-
-
-def _resolve_resize_mode(preprocessing: Optional[dict[str, Any]], *, default: str = "letterbox") -> str:
-    mode = str((preprocessing or {}).get("resize_mode") or default).strip().lower()
-    if mode not in {"letterbox", "center_crop", "direct_resize", "native_aspect_ratio"}:
-        return default
-    return mode
-
-
-def _resolve_padding_color(preprocessing: Optional[dict[str, Any]], *, default: int = 128) -> tuple[int, int, int]:
-    raw = (preprocessing or {}).get("padding_color", default)
-    if isinstance(raw, int):
-        value = max(0, min(255, int(raw)))
-        return (value, value, value)
-    if isinstance(raw, (list, tuple)) and len(raw) == 3:
-        return tuple(max(0, min(255, int(v))) for v in raw)
-    value = max(0, min(255, int(default)))
-    return (value, value, value)
-
-
-def _resolve_interpolation(preprocessing: Optional[dict[str, Any]]) -> Image.Resampling:
-    interpolation = str((preprocessing or {}).get("interpolation") or "bicubic").strip().lower()
-    return {
-        "nearest": Image.Resampling.NEAREST,
-        "bilinear": Image.Resampling.BILINEAR,
-        "bicubic": Image.Resampling.BICUBIC,
-        "lanczos": Image.Resampling.LANCZOS,
-    }.get(interpolation, Image.Resampling.BICUBIC)
-
-
-def _resize_preserving_aspect_shortest_edge(
-    image: Image.Image,
-    shortest_edge: int,
-    *,
-    interpolation: Image.Resampling,
-    rounding: str = "round",
-) -> Image.Image:
-    width, height = image.size
-    if width <= 0 or height <= 0:
-        return image
-    if width <= height:
-        new_width = shortest_edge
-        new_height = max(
-            1,
-            int(shortest_edge * height / width)
-            if rounding == "floor"
-            else int(round(height * (shortest_edge / width))),
-        )
-    else:
-        new_height = shortest_edge
-        new_width = max(
-            1,
-            int(shortest_edge * width / height)
-            if rounding == "floor"
-            else int(round(width * (shortest_edge / height))),
-        )
-    return image.resize((new_width, new_height), interpolation)
-
-
-def _center_crop_to_size(image: Image.Image, target_size: int) -> Image.Image:
-    width, height = image.size
-    left = max(0, int(round((width - target_size) / 2.0)))
-    top = max(0, int(round((height - target_size) / 2.0)))
-    right = left + target_size
-    bottom = top + target_size
-    return image.crop((left, top, right, bottom))
-
-
-def _native_aspect_resize(
-    image: Image.Image, *, patch_size: int, max_seq_len: int, interpolation: Image.Resampling
-) -> Image.Image:
-    """Birder's native patch-grid contract (64-step search with ceiling).
-
-    Keeping the token budget, rather than a square edge, preserves the aspect
-    ratio the NaFlex encoder was trained to consume.
-    """
-    if patch_size <= 0 or max_seq_len <= 0:
-        raise ValueError("Positive patch size and token budget required")
-    width, height = image.size
-    low, high = 0.0, max_seq_len / min(height, width)
-    for _ in range(64):
-        scale = (low + high) / 2.0
-        grid_h, grid_w = max(1, math.ceil(height * scale)), max(1, math.ceil(width * scale))
-        if grid_h * grid_w <= max_seq_len:
-            low = scale
-        else:
-            high = scale
-    grid_h, grid_w = max(1, math.ceil(height * low)), max(1, math.ceil(width * low))
-    return image.resize((grid_w * patch_size, grid_h * patch_size), interpolation)
-
-
-def _inat_location_metadata(latitude: Any, longitude: Any) -> np.ndarray:
-    """Official iNat DINOv2 eight-feature contract, with date/uncertainty absent.
-
-    A real (0,0) location is distinct from missing coordinates. Never substitute
-    today's date for the capture date, or invent a location uncertainty.
-    """
-    result = np.zeros((1, 8), dtype=np.float32)
-    if isinstance(latitude, bool) or isinstance(longitude, bool):
-        return result
-    try:
-        lat, lon = float(latitude), float(longitude)
-    except (TypeError, ValueError):
-        return result
-    if not math.isfinite(lat) or not math.isfinite(lon) or not (-90 <= lat <= 90 and -180 <= lon <= 180):
-        return result
-    lat, lon = math.radians(lat), math.radians(lon)
-    result[0, :3] = (math.cos(lat) * math.cos(lon), math.cos(lat) * math.sin(lon), math.sin(lat))
-    result[0, 6] = 1
-    return result
-
-
-def _classifier_auxiliary_inputs(preprocessing: dict[str, Any]) -> dict[str, np.ndarray]:
-    contract = preprocessing.get("metadata_input")
-    if contract is None:
-        return {}
-    if contract != "inat2021_location_v1":
-        raise ValueError(f"Unsupported classifier metadata contract: {contract}")
-    return {"metadata": _inat_location_metadata(settings.location.latitude, settings.location.longitude)}
-
-
-def _resize_with_preprocessing(
-    image: Image.Image,
-    target_size: int,
-    *,
-    preprocessing: Optional[dict[str, Any]],
-    default_resize_mode: str = "letterbox",
-    default_padding_color: int = 128,
-) -> Image.Image:
-    image = image.convert(_resolve_color_space(preprocessing))
-    interpolation = _resolve_interpolation(preprocessing)
-    resize_mode = _resolve_resize_mode(preprocessing, default=default_resize_mode)
-
-    if resize_mode == "native_aspect_ratio":
-        return _native_aspect_resize(
-            image,
-            patch_size=int((preprocessing or {})["patch_size"]),
-            max_seq_len=int((preprocessing or {})["max_seq_len"]),
-            interpolation=interpolation,
-        )
-
-    if resize_mode == "direct_resize":
-        return image.resize((target_size, target_size), interpolation)
-
-    if resize_mode == "center_crop":
-        crop_pct = float((preprocessing or {}).get("crop_pct") or 1.0)
-        if crop_pct <= 0.0:
-            crop_pct = 1.0
-        scale_size = max(target_size, int(round(target_size / crop_pct)))
-        resized = _resize_preserving_aspect_shortest_edge(
-            image,
-            scale_size,
-            interpolation=interpolation,
-            rounding=str((preprocessing or {}).get("resize_rounding") or "round").strip().lower(),
-        )
-        return _center_crop_to_size(resized, target_size)
-
-    width, height = image.size
-    scale = min(target_size / width, target_size / height)
-    new_width = max(1, int(round(width * scale)))
-    new_height = max(1, int(round(height * scale)))
-    resized = image.resize((new_width, new_height), interpolation)
-    canvas = Image.new(
-        "RGB",
-        (target_size, target_size),
-        _resolve_padding_color(preprocessing, default=default_padding_color),
-    )
-    canvas.paste(resized, ((target_size - new_width) // 2, (target_size - new_height) // 2))
-    return canvas
-
-
-def _summarize_numeric_array(values: np.ndarray, *, name: str) -> dict[str, Any]:
-    arr = np.asarray(values)
-    finite_mask = np.isfinite(arr)
-    finite_values = arr[finite_mask]
-    invalid_output_kind: str | None = None
-    if arr.size == 0:
-        invalid_output_kind = "empty"
-    elif finite_values.size == 0:
-        if np.isnan(arr).any():
-            invalid_output_kind = "all_nan"
-        elif np.isinf(arr).any():
-            invalid_output_kind = "all_inf"
-        else:
-            invalid_output_kind = "no_finite"
-    elif not finite_mask.all():
-        invalid_output_kind = "mixed_non_finite"
-    summary: dict[str, Any] = {
-        "name": str(name),
-        "shape": [int(dim) for dim in arr.shape],
-        "dtype": str(arr.dtype),
-        "element_count": int(arr.size),
-        "finite_count": int(finite_mask.sum()),
-        "nan_count": int(np.isnan(arr).sum()),
-        "pos_inf_count": int(np.isposinf(arr).sum()),
-        "neg_inf_count": int(np.isneginf(arr).sum()),
-        "invalid_output_kind": invalid_output_kind,
-    }
-    if finite_values.size:
-        summary["finite_min"] = float(finite_values.min())
-        summary["finite_max"] = float(finite_values.max())
-        summary["finite_mean"] = float(finite_values.mean())
-    else:
-        summary["finite_min"] = None
-        summary["finite_max"] = None
-        summary["finite_mean"] = None
-    return summary
-
-
-def _summarize_runtime_exception(exc: Exception, *, max_len: int = 280) -> str:
-    message = f"{type(exc).__name__}: {exc}"
-    message = " ".join(message.split())
-    if len(message) > max_len:
-        return f"{message[: max_len - 1]}…"
-    return message
 
 
 def _safe_sha256_file(path: str) -> str | None:
@@ -1129,15 +465,15 @@ def _detect_acceleration_capabilities() -> dict:
         dev_dri_entries = []
 
     caps = {
-        "ort_available": bool(ONNX_AVAILABLE and ort is not None),
+        "ort_available": bool(runtimes.ONNX_AVAILABLE and runtimes.ort is not None),
         "cuda_provider_installed": False,
         "cuda_hardware_available": False,
         "cuda_available": False,
         "cuda_probe_error": None,
-        "openvino_available": bool(OPENVINO_AVAILABLE and OpenVINOCore is not None),
-        "openvino_version": _OPENVINO_SUPPORT.get("version"),
-        "openvino_import_path": _OPENVINO_SUPPORT.get("import_path"),
-        "openvino_import_error": _OPENVINO_SUPPORT.get("import_error"),
+        "openvino_available": bool(runtimes.OPENVINO_AVAILABLE and runtimes.OpenVINOCore is not None),
+        "openvino_version": runtimes.OPENVINO_SUPPORT.get("version"),
+        "openvino_import_path": runtimes.OPENVINO_SUPPORT.get("import_path"),
+        "openvino_import_error": runtimes.OPENVINO_SUPPORT.get("import_error"),
         "openvino_probe_error": None,
         "openvino_gpu_probe_error": None,
         "intel_gpu_available": False,
@@ -1160,8 +496,8 @@ def _detect_acceleration_capabilities() -> dict:
 
     if caps["ort_available"]:
         try:
-            _preload_onnxruntime_cuda_runtime_libraries()
-            caps["cuda_provider_installed"] = "CUDAExecutionProvider" in (ort.get_available_providers() or [])
+            runtimes.preload_onnxruntime_cuda_runtime_libraries()
+            caps["cuda_provider_installed"] = "CUDAExecutionProvider" in (runtimes.ort.get_available_providers() or [])
             if caps["cuda_provider_installed"]:
                 caps["cuda_hardware_available"] = _detect_cuda_hardware_available()
                 if caps["cuda_hardware_available"]:
@@ -1424,400 +760,6 @@ def _detect_cuda_hardware_available() -> bool:
     return False
 
 
-def _cuda_unavailable_reason(caps: dict) -> str:
-    probe_error = str(caps.get("cuda_probe_error") or "").strip()
-    if probe_error:
-        return f"CUDA provider detected but failed runtime probe: {probe_error}"
-    if caps.get("cuda_provider_installed") and not caps.get("cuda_hardware_available"):
-        return "CUDAExecutionProvider is installed but no NVIDIA GPU is accessible in this runtime"
-    return "CUDAExecutionProvider is not available"
-
-
-def _runtime_fallback_targets_for(
-    *,
-    active_backend: str,
-    active_provider: str,
-    caps: dict[str, Any],
-    provider_order: list[str] | tuple[str, ...] | None = None,
-) -> list[tuple[str, str]]:
-    """Return the concrete recovery order for the active inference runtime."""
-    targets: list[tuple[str, str]] = []
-
-    def _append(target_backend: str, target_provider: str) -> None:
-        target = (target_backend, target_provider)
-        if target not in targets and target != (active_backend, active_provider):
-            targets.append(target)
-
-    provider_backends = {
-        "intel_npu": ("openvino", "intel_npu"),
-        "intel_gpu": ("openvino", "intel_gpu"),
-        "cuda": ("onnxruntime", "cuda"),
-        "intel_cpu": ("openvino", "intel_cpu"),
-        "cpu": ("onnxruntime", "cpu"),
-    }
-    available = {
-        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
-        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
-        "cuda": bool(caps.get("ort_available") and caps.get("cuda_available")),
-        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
-        "cpu": bool(caps.get("ort_available")),
-    }
-    for provider in _unique_provider_names(provider_order):
-        if available.get(provider) and provider in provider_backends:
-            backend, normalized_provider = provider_backends[provider]
-            _append(backend, normalized_provider)
-
-    if active_backend == "openvino":
-        if active_provider in {"intel_gpu", "intel_npu"} and caps.get("intel_cpu_available"):
-            _append("openvino", "intel_cpu")
-        if caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        _append("tflite", "tflite")
-        return targets
-
-    if active_backend == "onnxruntime":
-        if active_provider != "cpu" and caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
-            _append("openvino", "intel_cpu")
-        _append("tflite", "tflite")
-        return targets
-
-    if active_backend == "tflite":
-        return targets
-
-    if caps.get("ort_available"):
-        _append("onnxruntime", "cpu")
-    _append("tflite", "tflite")
-    return targets
-
-
-def _provider_capability_contract(
-    *,
-    caps: dict[str, Any],
-    packaged_providers: tuple[str, ...] | list[str],
-    supported_providers: list[str] | tuple[str, ...] | None,
-    active_backend: str,
-    active_provider: str,
-    provider_order: list[str] | tuple[str, ...] | None = None,
-) -> dict[str, list[str]]:
-    """Build the provider list exposed to configuration clients.
-
-    A selectable provider must be packaged by the running image, usable on this
-    host, and supported by the active model when that model declares a provider
-    allow-list. The active runtime and its real recovery targets come first;
-    other valid manual alternatives follow without pretending they are automatic
-    fallbacks.
-    """
-    packaged = {
-        _normalize_inference_provider(provider)
-        for provider in packaged_providers
-        if _normalize_inference_provider(provider) != "auto"
-    }
-    supported = {
-        _normalize_inference_provider(provider)
-        for provider in (supported_providers or [])
-        if _normalize_inference_provider(provider) != "auto"
-    }
-    host_available = {
-        "cpu": bool(caps.get("ort_available")),
-        "cuda": bool(caps.get("cuda_available")),
-        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
-        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
-        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
-    }
-
-    def _host_selectable(provider: str) -> bool:
-        return bool(host_available.get(provider) and (not packaged or provider in packaged))
-
-    def _selectable(provider: str) -> bool:
-        return bool(_host_selectable(provider) and (not supported or provider in supported))
-
-    fallback_candidates = [active_provider]
-    fallback_candidates.extend(_unique_provider_names(provider_order))
-    fallback_candidates.extend(
-        provider
-        for _backend, provider in _runtime_fallback_targets_for(
-            active_backend=active_backend,
-            active_provider=active_provider,
-            caps=caps,
-            provider_order=provider_order,
-        )
-    )
-
-    provider_preference_order: list[str] = []
-    for provider in fallback_candidates:
-        if _selectable(provider) and provider not in provider_preference_order:
-            provider_preference_order.append(provider)
-
-    host_available_providers: list[str] = []
-    for provider in fallback_candidates:
-        if _host_selectable(provider) and provider not in host_available_providers:
-            host_available_providers.append(provider)
-
-    available_providers = list(provider_preference_order)
-    manual_candidates = _unique_provider_names(provider_order)
-    manual_candidates.extend(
-        provider
-        for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu")
-        if provider not in manual_candidates
-    )
-    for provider in manual_candidates:
-        if _host_selectable(provider) and provider not in host_available_providers:
-            host_available_providers.append(provider)
-        if _selectable(provider) and provider not in available_providers:
-            available_providers.append(provider)
-
-    return {
-        "host_available_providers": host_available_providers,
-        "available_providers": available_providers,
-        "provider_preference_order": provider_preference_order,
-    }
-
-
-def _resolve_inference_selection(
-    requested_provider: Optional[str],
-    caps: dict,
-    supported_providers: Optional[list[str]] = None,
-    preferred_providers: Optional[list[str]] = None,
-) -> dict:
-    """Resolve desired inference provider to a concrete backend/device with fallback."""
-    requested = _normalize_inference_provider(requested_provider)
-    allowed = {
-        _normalize_inference_provider(provider)
-        for provider in (supported_providers or [])
-        if _normalize_inference_provider(provider) != "auto"
-    }
-
-    def _provider_allowed(provider: str) -> bool:
-        return not allowed or provider in allowed
-
-    def _reason_with_constraint(base_reason: Optional[str], provider: str, fallback_target: str) -> str:
-        if _provider_allowed(provider):
-            return base_reason or ""
-        constraint_reason = f"Active model artifact does not support {fallback_target}"
-        if base_reason:
-            return f"{constraint_reason}; {base_reason}"
-        return constraint_reason
-
-    def _ort_cpu(reason: Optional[str] = None) -> dict:
-        if caps.get("ort_available") and _provider_allowed("cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cpu",
-                "backend": "onnxruntime",
-                "ort_providers": ["CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": reason,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            fallback_reason = reason or "ONNX Runtime unavailable or unsupported; using OpenVINO CPU"
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": fallback_reason,
-            }
-        return {
-            "requested_provider": requested,
-            "active_provider": "unavailable",
-            "backend": "unavailable",
-            "ort_providers": [],
-            "openvino_device": None,
-            "fallback_reason": reason or "No ONNX-capable runtime available (onnxruntime/OpenVINO)",
-        }
-
-    if requested == "cpu":
-        return _ort_cpu()
-
-    if requested == "cuda":
-        if caps.get("ort_available") and caps.get("cuda_available") and _provider_allowed("cuda"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cuda",
-                "backend": "onnxruntime",
-                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": None,
-            }
-        cuda_fallback_reason = _reason_with_constraint(
-            f"CUDA requested but {_cuda_unavailable_reason(caps)}",
-            "cuda",
-            "CUDA",
-        )
-        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": f"{cuda_fallback_reason}; using OpenVINO GPU",
-            }
-        return _ort_cpu(cuda_fallback_reason)
-
-    if requested == "intel_cpu":
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": None,
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "OpenVINO CPU requested but OpenVINO CPU device is not available",
-                "intel_cpu",
-                "OpenVINO CPU",
-            )
-        )
-
-    if requested == "intel_gpu":
-        if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": None,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": _reason_with_constraint(
-                    "Intel GPU requested but not available; falling back to OpenVINO CPU",
-                    "intel_gpu",
-                    "Intel GPU",
-                ),
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "Intel GPU requested but OpenVINO GPU is not available",
-                "intel_gpu",
-                "Intel GPU",
-            )
-        )
-
-    if requested == "intel_npu":
-        if caps.get("openvino_available") and caps.get("intel_npu_available") and _provider_allowed("intel_npu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_npu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "NPU",
-                "fallback_reason": None,
-            }
-        if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": _reason_with_constraint(
-                    "Intel NPU requested but not available; falling back to OpenVINO CPU",
-                    "intel_npu",
-                    "Intel NPU",
-                ),
-            }
-        return _ort_cpu(
-            _reason_with_constraint(
-                "Intel NPU requested but OpenVINO NPU is not available",
-                "intel_npu",
-                "Intel NPU",
-            )
-        )
-
-    # ``auto`` follows this installation's measured order when available.
-    # Without sweep evidence, use a conservative accelerator-first order; the
-    # effective model contract still prevents unvalidated host-gated candidates
-    # from appearing here.
-    auto_order = _unique_provider_names(preferred_providers)
-    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
-        if provider not in auto_order:
-            auto_order.append(provider)
-
-    for provider in auto_order:
-        if not _provider_allowed(provider):
-            continue
-        if provider == "intel_npu" and caps.get("openvino_available") and caps.get("intel_npu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_npu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "NPU",
-                "fallback_reason": None,
-            }
-        if provider == "intel_gpu" and caps.get("openvino_available") and caps.get("intel_gpu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_gpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "GPU",
-                "fallback_reason": None,
-            }
-        if provider == "cuda" and caps.get("ort_available") and caps.get("cuda_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "cuda",
-                "backend": "onnxruntime",
-                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-                "openvino_device": None,
-                "fallback_reason": None,
-            }
-        if provider == "intel_cpu" and caps.get("openvino_available") and caps.get("intel_cpu_available"):
-            return {
-                "requested_provider": requested,
-                "active_provider": "intel_cpu",
-                "backend": "openvino",
-                "ort_providers": [],
-                "openvino_device": "CPU",
-                "fallback_reason": None,
-            }
-        if provider == "cpu" and caps.get("ort_available"):
-            return _ort_cpu()
-
-    return _ort_cpu("No validated provider for the active model is available on this host")
-
-
-def _reconcile_ort_active_provider(
-    requested_active_provider: str,
-    session_providers: list[str] | None,
-) -> tuple[str, Optional[str]]:
-    """Reconcile planned ORT provider with the session's actual enabled providers.
-
-    ONNX Runtime can initialize a session with CPU only even when CUDA was requested,
-    depending on runtime/library availability. Keep YA-WAMF status/fallback reporting honest.
-    """
-    actual = requested_active_provider
-    providers = list(session_providers or [])
-
-    if requested_active_provider == "cuda" and "CUDAExecutionProvider" not in providers:
-        if "CPUExecutionProvider" in providers:
-            return (
-                "cpu",
-                "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider; using CPUExecutionProvider",
-            )
-        return (
-            "cpu",
-            "CUDA requested but ONNX Runtime session initialized without CUDAExecutionProvider",
-        )
-
-    return actual, None
-
-
 def _extract_openvino_unsupported_ops(error_text: Optional[str]) -> list[str]:
     if not error_text:
         return []
@@ -1887,6 +829,25 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
+def garden_inference_pressure() -> dict | None:
+    """Read admission without constructing or reloading the bird classifier."""
+    service = _classifier_instance
+    if service is None or service._image_execution_mode != "subprocess":
+        return None
+    status = service.get_admission_status()
+    supervisors = {
+        supervisor
+        for supervisor in (service._classifier_supervisor, service._video_supervisor)
+        if supervisor is not None
+    }
+    status["native_work_pending"] = not supervisors or any(supervisor.has_native_work() for supervisor in supervisors)
+    recovery = getattr(service, "_native_cpu_recovery", None)
+    if recovery is not None:
+        pending = getattr(recovery, "has_native_work", None)
+        status["native_work_pending"] = status["native_work_pending"] or not callable(pending) or pending()
+    return status
+
+
 async def refresh_accel_caps_if_running() -> None:
     """Refresh capabilities on the running classifier, never building one.
 
@@ -1946,992 +907,19 @@ def resolve_live_classifier(stored: Any) -> "ClassifierService":
     return stored
 
 
-class ModelInstance:
-    """Represents a loaded TFLite model with its labels."""
-
-    def __init__(
-        self,
-        name: str,
-        model_path: str,
-        labels_path: str,
-        preprocessing: Optional[dict] = None,
-        label_grouping: Optional[dict] = None,
-        model_sha256: Optional[str] = None,
-    ):
-        self.name = name
-        self.model_path = model_path
-        self.labels_path = labels_path
-        self.preprocessing = preprocessing or {}
-        self.label_grouping = dict(label_grouping or {})
-        # The weights this instance loads, bound now: results carry it as their
-        # provenance, and a reinstall can replace the file under a running instance.
-        # Every backend and fallback is built here, including one loading other weights.
-        self.loaded_artifact_sha256 = artifact_digest(model_path)
-        # Fallbacks may load different weights from the selected registry model.
-        # Reuse their bound digest so labels follow those actual output indices.
-        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
-        self.interpreter = None
-        self.labels: list[str] = []
-        self.grouped_labels: list[str] = []
-        self.loaded = False
-        self.error: Optional[str] = None
-        self.input_details = None
-        self.output_details = None
-        self._lock = threading.Lock()
-
-    def load(self) -> bool:
-        """Load the model and labels. Returns True if successful."""
-        with self._lock:
-            if self.loaded:
-                return True
-
-            self.labels, self.grouped_labels, label_source = _resolve_model_labels(
-                self.labels_path,
-                self.label_grouping,
-                model_sha256=self.model_sha256,
-                context=self.name,
-            )
-            self._label_source = label_source
-            if self.labels:
-                log.info(f"Loaded {len(self.labels)} labels for {self.name}", label_source=label_source)
-
-            if not os.path.exists(self.model_path):
-                self.error = f"Model file not found: {self.model_path}"
-                log.warning(f"{self.name} model not found", path=self.model_path)
-                return False
-
-            if tflite is None:
-                self.error = "TFLite runtime not installed"
-                log.error("TFLite runtime not installed")
-                return False
-
-            try:
-                self.interpreter = tflite.Interpreter(model_path=self.model_path)
-                self.interpreter.allocate_tensors()
-                self.input_details = self.interpreter.get_input_details()
-                self.output_details = self.interpreter.get_output_details()
-                self.loaded = True
-                self.error = None
-                log.info(f"{self.name} model loaded successfully")
-                return True
-            except Exception as e:
-                self.error = f"Failed to load model: {str(e)}"
-                log.error(f"Failed to load {self.name} model", error=str(e))
-                return False
-
-    def _preprocess_image(self, image: Image.Image, target_width: int, target_height: int) -> np.ndarray:
-        processed = _resize_with_preprocessing(
-            image,
-            max(int(target_width), int(target_height)),
-            preprocessing=self.preprocessing,
-            default_resize_mode="letterbox",
-            default_padding_color=int(self.preprocessing.get("padding_color", 0) or 0),
-        )
-        if processed.size != (target_width, target_height):
-            processed = processed.resize((target_width, target_height), _resolve_interpolation(self.preprocessing))
-        return np.array(processed, dtype=np.float32)
-
-    def _run_inference(self, image: Image.Image) -> np.ndarray:
-        """Internal method to run inference and return probability vector.
-
-        Args:
-            image: PIL Image to classify
-
-        Returns:
-            Normalized probability vector as numpy array
-        """
-        # Get expected input size from model
-        input_details = self.input_details[0]
-        input_shape = input_details["shape"]
-
-        # Shape is typically [1, height, width, 3] for image models
-        if len(input_shape) == 4:
-            target_height, target_width = input_shape[1], input_shape[2]
-        else:
-            target_height, target_width = 300, 300  # Default fallback
-
-        # Preprocess image
-        input_data = self._preprocess_image(image, target_width, target_height)
-
-        # Normalize based on model input type
-        raw_input_dtype = input_details.get("dtype")
-        input_dtype = (
-            raw_input_dtype
-            if isinstance(raw_input_dtype, np.dtype)
-            else np.dtype(raw_input_dtype)
-            if isinstance(raw_input_dtype, type) and issubclass(raw_input_dtype, np.generic)
-            else None
-        )
-        if input_dtype == np.dtype(np.float32):
-            spec_mean = self.preprocessing.get("mean")
-            spec_std = self.preprocessing.get("std")
-            if spec_mean is not None or spec_std is not None:
-                # Use per-channel mean/std provided in the model spec (ImageNet-style)
-                mean = np.array(spec_mean if spec_mean is not None else [0.485, 0.456, 0.406], dtype=np.float32)
-                std = np.array(spec_std if spec_std is not None else [0.229, 0.224, 0.225], dtype=np.float32)
-                input_data = (input_data / 255.0 - mean) / std
-            else:
-                # Legacy MobileNet-style: maps [0, 255] to [-1, 1] via (x / 127.5) - 1
-                input_data = (input_data - 127.5) / 127.5
-        elif input_dtype is not None and np.issubdtype(input_dtype, np.integer):
-            normalization = str(self.preprocessing.get("normalization") or "uint8").strip().lower()
-            real_input = input_data
-            if normalization not in {"uint8", "none"}:
-                spec_mean = self.preprocessing.get("mean")
-                spec_std = self.preprocessing.get("std")
-                if spec_mean is not None or spec_std is not None:
-                    mean = np.array(
-                        spec_mean if spec_mean is not None else [0.485, 0.456, 0.406],
-                        dtype=np.float32,
-                    )
-                    std = np.array(
-                        spec_std if spec_std is not None else [0.229, 0.224, 0.225],
-                        dtype=np.float32,
-                    )
-                    real_input = (real_input / 255.0 - mean) / std
-                elif normalization in {"float32_0_1", "0_1"}:
-                    real_input = real_input / 255.0
-                else:
-                    real_input = (real_input - 127.5) / 127.5
-
-            quant_params = input_details.get("quantization_parameters", {})
-            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
-            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
-            if normalization in {"uint8", "none"} and input_dtype == np.dtype(np.uint8):
-                # A uint8 model reads the RGB bytes as its quantized input; its scale and zero point
-                # describe what they mean, not a conversion still to apply. Quantizing them again
-                # (scale 1/128, zero point 128 on the bundled MobileNet) saturated the image to white.
-                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
-            elif scales.size > 0 and float(scales[0]) > 0:
-                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
-                quantized = np.rint(real_input / float(scales[0]) + zero_point)
-                limits = np.iinfo(input_dtype)
-                input_data = np.clip(quantized, limits.min, limits.max).astype(input_dtype)
-            elif input_dtype == np.dtype(np.uint8):
-                # Compatibility for older uint8 models that omit quantization
-                # metadata and directly consume raw RGB bytes.
-                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
-            else:
-                raise InvalidInferenceOutputError(
-                    backend="tflite",
-                    provider="tflite",
-                    detail=f"{self.name} int8 input is missing valid quantization metadata",
-                )
-
-        # Add batch dimension
-        input_data = np.expand_dims(input_data, axis=0)
-
-        # Run inference protected by lock
-        with self._lock:
-            self.interpreter.set_tensor(input_details["index"], input_data)
-            self.interpreter.invoke()
-
-            # Get output
-            output_details = self.output_details[0]
-            output_data = self.interpreter.get_tensor(output_details["index"])
-
-        results = np.squeeze(output_data).astype(np.float32)
-
-        # Dequantize if needed
-        raw_output_dtype = output_details.get("dtype")
-        output_dtype = (
-            raw_output_dtype
-            if isinstance(raw_output_dtype, np.dtype)
-            else np.dtype(raw_output_dtype)
-            if isinstance(raw_output_dtype, type) and issubclass(raw_output_dtype, np.generic)
-            else None
-        )
-        if output_dtype is not None and np.issubdtype(output_dtype, np.integer):
-            quant_params = output_details.get("quantization_parameters", {})
-            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
-            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
-
-            if scales.size == results.size and results.ndim == 1:
-                zero_values = zero_points if zero_points.size == results.size else np.zeros_like(scales)
-                results = (results - zero_values) * scales
-            elif scales.size > 0 and float(scales[0]) > 0:
-                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
-                results = (results - zero_point) * float(scales[0])
-            elif output_dtype == np.dtype(np.uint8):
-                results = results / 255.0
-            else:
-                raise InvalidInferenceOutputError(
-                    backend="tflite",
-                    provider="tflite",
-                    detail=f"{self.name} int8 output is missing valid quantization metadata",
-                )
-
-        _check_catalogue_output_width(self.labels, results.size, getattr(self, "_label_source", "none"))
-        # Softmax if needed (logits vs probabilities)
-        finite_results = results[np.isfinite(results)]
-        if finite_results.size == 0:
-            log.warning("TFLite inference produced no finite outputs", model=self.name)
-            raise InvalidInferenceOutputError(
-                backend="tflite",
-                provider="tflite",
-                detail=f"{self.name} inference produced no finite outputs",
-            )
-
-        output_min = float(finite_results.min())
-        output_max = float(finite_results.max())
-        is_probability = output_min >= 0 and output_max <= 1.0
-
-        if is_probability:
-            results = _normalize_probability_vector(results, context=f"{self.name}:tflite")
-        else:
-            results = _safe_softmax(results, context=f"{self.name}:tflite")
-
-        return results
-
-    def classify(self, image: Image.Image, input_context: Any | None = None) -> list[dict]:
-        """Classify an image using this model.
-
-        Args:
-            image: PIL Image to classify
-
-        Returns:
-            List of top 5 classifications with score and label
-        """
-        if not self.loaded or not self.interpreter:
-            log.warning(f"{self.name} model not loaded, cannot classify")
-            return []
-
-        # Run inference and get probability vector
-        results = self._run_inference(image)
-
-        max_results = settings.classification.max_classification_results
-        grouped_labels = _resolve_grouped_labels(
-            self.labels,
-            label_grouping=self.label_grouping,
-            existing_grouped_labels=self.grouped_labels,
-        )
-        return _build_classification_results(
-            results,
-            self.labels,
-            top_k=max_results,
-            grouped_labels=grouped_labels,
-        )
-
-    def classify_raw(self, image: Image.Image) -> np.ndarray:
-        """Classify and return the raw probability vector (for ensemble).
-
-        Args:
-            image: PIL Image to classify
-
-        Returns:
-            Normalized probability vector as numpy array
-        """
-        if not self.loaded or not self.interpreter:
-            return np.array([])
-
-        return self._run_inference(image)
-
-    def cleanup(self):
-        """Clean up model resources."""
-        with self._lock:
-            if self.interpreter is not None:
-                # TFLite interpreters don't have explicit cleanup,
-                # but we can dereference it to allow garbage collection
-                self.interpreter = None
-            self.loaded = False
-            log.info(f"{self.name} model resources cleaned up")
-
-    def get_status(self) -> dict:
-        """Return the current status of this model."""
-        return {
-            "loaded": self.loaded,
-            "error": self.error,
-            "labels_count": len(self.labels),
-            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
-            "enabled": self.interpreter is not None,
-            "model_path": self.model_path,
-            "runtime": "tflite",
-        }
-
-
-class ONNXModelInstance:
-    """Represents a loaded ONNX model with its labels (for high-accuracy models)."""
-
-    def __init__(
-        self,
-        name: str,
-        model_path: str,
-        labels_path: str,
-        preprocessing: Optional[dict] = None,
-        label_grouping: Optional[dict] = None,
-        input_size: int = 384,
-        ort_providers: Optional[list[str]] = None,
-        model_sha256: Optional[str] = None,
-    ):
-        self.name = name
-        self.model_path = model_path
-        self.labels_path = labels_path
-        self.preprocessing = preprocessing or {}
-        self.label_grouping = dict(label_grouping or {})
-        # The weights this instance loads, bound now: results carry it as their
-        # provenance, and a reinstall can replace the file under a running instance.
-        # Every backend and fallback is built here, including one loading other weights.
-        self.loaded_artifact_sha256 = artifact_digest(model_path)
-        # Fallbacks may load different weights from the selected registry model.
-        # Reuse their bound digest so labels follow those actual output indices.
-        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
-        self.input_size = input_size
-        self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
-        self.session = None
-        self._session_primary_provider: str | None = None
-        self.labels: list[str] = []
-        self.grouped_labels: list[str] = []
-        self.loaded = False
-        self.error: Optional[str] = None
-        self._lock = threading.Lock()
-
-        # ImageNet normalization defaults (used by timm models)
-        self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
-        self.std = np.array(self.preprocessing.get("std", [0.229, 0.224, 0.225]))
-
-    def load(self) -> bool:
-        """Load the ONNX model and labels. Returns True if successful."""
-        if self.loaded:
-            return True
-
-        if not ONNX_AVAILABLE:
-            self.error = "ONNX Runtime not installed"
-            log.error("ONNX Runtime not installed")
-            return False
-
-        self.labels, self.grouped_labels, label_source = _resolve_model_labels(
-            self.labels_path,
-            self.label_grouping,
-            model_sha256=self.model_sha256,
-            context=self.name,
-        )
-        self._label_source = label_source
-        if self.labels:
-            log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}", label_source=label_source)
-
-        if not os.path.exists(self.model_path):
-            self.error = f"ONNX model file not found: {self.model_path}"
-            log.warning(f"{self.name} ONNX model not found", path=self.model_path)
-            return False
-
-        try:
-            # Configure ONNX Runtime session with CPU optimizations
-            sess_options = ort.SessionOptions()
-            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-            sess_options.intra_op_num_threads = 4  # Use multiple threads
-
-            # Use providers resolved by ClassifierService (already validated/fallback-aware)
-            providers = list(self.ort_providers or ["CPUExecutionProvider"])
-            if "CUDAExecutionProvider" in providers:
-                _preload_onnxruntime_cuda_runtime_libraries()
-            self.session = ort.InferenceSession(self.model_path, sess_options, providers=providers)
-            self._session_primary_provider = self._active_primary_provider()
-            if self._session_primary_provider == "CUDAExecutionProvider":
-                from app.utils.cuda_runtime import prevent_internal_cuda_fallback
-
-                prevent_internal_cuda_fallback(self.session)
-            self.loaded = True
-            self.error = None
-            log.info(f"{self.name} ONNX model loaded successfully", input_size=self.input_size, providers=providers)
-            return True
-        except Exception as e:
-            self.error = f"Failed to load ONNX model: {str(e)}"
-            log.error(f"Failed to load {self.name} ONNX model", error=str(e))
-            return False
-
-    def _preprocess(self, image: Image.Image) -> np.ndarray:
-        """Preprocess image for ONNX inference."""
-        processed = _resize_with_preprocessing(
-            image,
-            self.input_size,
-            preprocessing=self.preprocessing,
-            default_resize_mode="letterbox",
-            default_padding_color=128,
-        )
-        if self.preprocessing.get("normalization") == "uint8":
-            # Quantized/SSD-style models expect raw uint8 NHWC input
-            return np.array(processed, dtype=np.uint8)[np.newaxis, ...]
-        arr = np.array(processed).astype(np.float32) / 255.0
-        if _classifier_wants_bgr(self.preprocessing):
-            arr = arr[:, :, ::-1]
-        arr = (arr - self.mean) / self.std
-        arr = arr.transpose(2, 0, 1)  # HWC -> CHW (ONNX expects NCHW)
-        return arr[np.newaxis, ...].astype(np.float32)  # Add batch dimension
-
-    def _softmax(self, x: np.ndarray) -> np.ndarray:
-        """Apply softmax to convert logits to probabilities."""
-        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
-        return _safe_softmax(x, context=f"{self.name}:onnx")
-
-    def _active_primary_provider(self) -> str | None:
-        get_providers = getattr(self.session, "get_providers", None)
-        providers = list(get_providers() or []) if callable(get_providers) else []
-        return providers[0] if providers else None
-
-    def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
-        """Run the provider and expose execution failures to recovery policy."""
-        try:
-            with self._lock:
-                if self._session_primary_provider is None:
-                    self._session_primary_provider = self._active_primary_provider()
-                enforce_cuda = self._session_primary_provider == "CUDAExecutionProvider"
-                if enforce_cuda:
-                    from app.utils.cuda_runtime import verify_cuda_session_provider
-
-                    verify_cuda_session_provider(self.session)
-                outputs = self.session.run(
-                    None, {input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
-                )
-                if enforce_cuda:
-                    verify_cuda_session_provider(self.session)
-                return outputs
-        except Exception as exc:
-            log.error(f"ONNX inference failed for {self.name}", error=str(exc))
-            raise InvalidInferenceOutputError(
-                backend="onnxruntime",
-                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
-                detail=f"{self.name} inference execution failed: {exc}",
-                diagnostics={"exception_type": type(exc).__name__},
-            ) from exc
-
-    def _probabilities_from_outputs(self, outputs: list[Any]) -> np.ndarray:
-        """Validate provider output shape before converting logits to probabilities."""
-        try:
-            logits = np.asarray(outputs[0])[0]
-            probs = self._softmax(logits)
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as exc:
-            raise InvalidInferenceOutputError(
-                backend="onnxruntime",
-                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
-                detail=f"{self.name} returned an invalid output structure: {exc}",
-                diagnostics={"exception_type": type(exc).__name__},
-            ) from exc
-        if probs.size == 0:
-            raise InvalidInferenceOutputError(
-                backend="onnxruntime",
-                provider=self._session_primary_provider or (self.ort_providers[0] if self.ort_providers else "cpu"),
-                detail=f"{self.name} inference produced no finite probabilities",
-            )
-        return probs
-
-    def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
-        """Classify an image using this ONNX model."""
-        if not self.loaded or not self.session:
-            log.warning(f"{self.name} ONNX model not loaded, cannot classify")
-            return []
-
-        input_tensor = self._preprocess(image)
-        input_name = self.session.get_inputs()[0].name
-        outputs = self._run_inference(input_name, input_tensor)
-        probs = self._probabilities_from_outputs(outputs)
-
-        grouped_labels = _resolve_grouped_labels(
-            self.labels,
-            label_grouping=self.label_grouping,
-            existing_grouped_labels=self.grouped_labels,
-        )
-        return _build_classification_results(
-            probs,
-            self.labels,
-            top_k=top_k,
-            grouped_labels=grouped_labels,
-        )
-
-    def classify_raw(self, image: Image.Image) -> np.ndarray:
-        """Classify and return the raw probability vector (for ensemble)."""
-        if not self.loaded or not self.session:
-            return np.array([])
-
-        input_tensor = self._preprocess(image)
-        input_name = self.session.get_inputs()[0].name
-        outputs = self._run_inference(input_name, input_tensor)
-        return self._probabilities_from_outputs(outputs)
-
-    def probe(self, image: Image.Image) -> dict[str, Any]:
-        provider = self.ort_providers[0] if self.ort_providers else "CPUExecutionProvider"
-        input_tensor = self._preprocess(image)
-        report: dict[str, Any] = {
-            "status": "ok",
-            "provider": str(provider),
-            "active_providers": [],
-            "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
-        }
-        if not self.loaded or not self.session:
-            report["status"] = "compile_failed"
-            report["error"] = self.error or "ONNX Runtime model is not loaded"
-            return report
-
-        try:
-            try:
-                report["active_providers"] = list(self.session.get_providers() or [])
-            except Exception:
-                report["active_providers"] = []
-            input_name = self.session.get_inputs()[0].name
-            outputs = self._run_inference(input_name, input_tensor)
-            report["active_providers"] = list(self.session.get_providers() or [])
-            logits = np.asarray(outputs[0])
-            if logits.ndim > 0 and logits.shape[0] == 1:
-                logits = logits[0]
-            report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
-            if logits.size == 0 or not np.isfinite(logits).any():
-                report["status"] = "invalid_output"
-            return report
-        except Exception as exc:
-            report["status"] = "runtime_error"
-            report["error"] = _summarize_runtime_exception(exc, max_len=600)
-            try:
-                report["active_providers"] = list(self.session.get_providers() or [])
-            except Exception:
-                report["active_providers"] = []
-            return report
-
-    def cleanup(self):
-        """Clean up ONNX model resources."""
-        if self.session is not None:
-            # ONNX sessions don't have explicit cleanup,
-            # but we can dereference to allow garbage collection
-            self.session = None
-        self._session_primary_provider = None
-        self.loaded = False
-        log.info(f"{self.name} ONNX model resources cleaned up")
-
-    def get_status(self) -> dict:
-        """Return the current status of this model."""
-        return {
-            "loaded": self.loaded,
-            "error": self.error,
-            "labels_count": len(self.labels),
-            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
-            "enabled": self.session is not None,
-            "model_path": self.model_path,
-            "runtime": "onnx",
-            "input_size": self.input_size,
-        }
-
-
-class OpenVINOModelInstance:
-    """Represents a loaded ONNX model compiled with OpenVINO (Intel CPU/GPU)."""
-
-    def __init__(
-        self,
-        name: str,
-        model_path: str,
-        labels_path: str,
-        preprocessing: Optional[dict] = None,
-        label_grouping: Optional[dict] = None,
-        input_size: int = 384,
-        device_name: str = "CPU",
-        startup_self_test_enabled: bool | None = None,
-        model_sha256: Optional[str] = None,
-    ):
-        self.name = name
-        self.model_path = model_path
-        self.labels_path = labels_path
-        self.preprocessing = preprocessing or {}
-        self.label_grouping = dict(label_grouping or {})
-        # The weights this instance loads, bound now: results carry it as their
-        # provenance, and a reinstall can replace the file under a running instance.
-        # Every backend and fallback is built here, including one loading other weights.
-        self.loaded_artifact_sha256 = artifact_digest(model_path)
-        # Fallbacks may load different weights from the selected registry model.
-        # Reuse their bound digest so labels follow those actual output indices.
-        self.model_sha256 = self.loaded_artifact_sha256 or model_sha256
-        self.input_size = input_size
-        self.device_name = device_name
-        self._startup_self_test_enabled = (
-            _openvino_gpu_startup_self_test_enabled()
-            if startup_self_test_enabled is None
-            else bool(startup_self_test_enabled)
-        )
-        self.core = None
-        self.compiled_model = None
-        self._infer_request = None
-        self.input_name: Optional[str] = None
-        self.labels: list[str] = []
-        self.grouped_labels: list[str] = []
-        self.loaded = False
-        self.error: Optional[str] = None
-        self._lock = threading.Lock()
-        self._last_startup_self_test_diagnostics: dict[str, Any] | None = None
-        self._last_startup_self_test_error: str | None = None
-        self._startup_self_test_ran = False
-
-        self.mean = np.array(self.preprocessing.get("mean", [0.485, 0.456, 0.406]))
-        self.std = np.array(self.preprocessing.get("std", [0.229, 0.224, 0.225]))
-
-    def _collect_runtime_diagnostics(
-        self,
-        *,
-        input_tensor: np.ndarray | None = None,
-        logits: np.ndarray | None = None,
-    ) -> dict[str, Any]:
-        diagnostics: dict[str, Any] = {
-            "device_name": str(self.device_name),
-            "model_path": self.model_path,
-        }
-        compiled_properties: dict[str, Any] = {}
-        if self.compiled_model is not None:
-            for name in ("INFERENCE_PRECISION_HINT", "NUM_STREAMS", "PERFORMANCE_HINT", "EXECUTION_DEVICES"):
-                try:
-                    value = self.compiled_model.get_property(name)
-                    if isinstance(value, np.ndarray):
-                        compiled_properties[name] = value.tolist()
-                    elif isinstance(value, tuple):
-                        compiled_properties[name] = list(value)
-                    else:
-                        compiled_properties[name] = str(value)
-                except Exception as exc:
-                    compiled_properties[name] = f"ERROR: {exc}"
-        diagnostics["compile_properties"] = compiled_properties
-        if input_tensor is not None:
-            diagnostics["input_summary"] = _summarize_numeric_array(input_tensor, name="input_tensor")
-        if logits is not None:
-            diagnostics["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
-        return diagnostics
-
-    def _build_startup_self_test_image(self) -> Image.Image:
-        size = max(8, int(self.input_size))
-        x = np.linspace(0, 255, size, dtype=np.uint8)
-        y = np.linspace(255, 0, size, dtype=np.uint8)
-        red = np.tile(x, (size, 1))
-        green = np.tile(y[:, None], (1, size))
-        blue = np.full((size, size), 127, dtype=np.uint8)
-        return Image.fromarray(np.stack((red, green, blue), axis=2), mode="RGB")
-
-    def _run_gpu_startup_self_test(self) -> None:
-        if not self._startup_self_test_enabled:
-            return
-        self._startup_self_test_ran = True
-        image = self._build_startup_self_test_image()
-        input_tensor = self._preprocess(image)
-        logits = self._infer_output_tensor(image, input_tensor=input_tensor)
-        self._last_startup_self_test_diagnostics = self._collect_runtime_diagnostics(
-            input_tensor=input_tensor,
-            logits=logits,
-        )
-        self._last_startup_self_test_error = None
-        if logits.size == 0 or not np.isfinite(logits).any():
-            raise InvalidInferenceOutputError(
-                backend="openvino",
-                provider=self.device_name,
-                detail=f"{self.name} inference produced no finite probabilities during startup self-test",
-                diagnostics=dict(self._last_startup_self_test_diagnostics),
-            )
-        # Also detect near-uniform/degenerate output: if the logit range is
-        # extremely small (<0.5), the softmax will be nearly uniform regardless
-        # of the input — a sign that GPU inference is silently broken.
-        finite_logits = logits[np.isfinite(logits)]
-        if finite_logits.size > 1:
-            logit_range = float(finite_logits.max() - finite_logits.min())
-            if logit_range < 0.5:
-                raise InvalidInferenceOutputError(
-                    backend="openvino",
-                    provider=self.device_name,
-                    detail=(
-                        f"{self.name} inference produced near-uniform logits (range={logit_range:.4f}) "
-                        "during startup self-test — GPU may be silently producing degenerate output"
-                    ),
-                    diagnostics=dict(self._last_startup_self_test_diagnostics),
-                )
-
-    def load(self) -> bool:
-        if self.loaded:
-            return True
-
-        if not OPENVINO_AVAILABLE or OpenVINOCore is None:
-            self.error = "OpenVINO runtime not installed"
-            log.error("OpenVINO runtime not installed")
-            return False
-
-        self.labels, self.grouped_labels, label_source = _resolve_model_labels(
-            self.labels_path,
-            self.label_grouping,
-            model_sha256=self.model_sha256,
-            context=self.name,
-        )
-        self._label_source = label_source
-        if self.labels:
-            log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}", label_source=label_source)
-
-        if not os.path.exists(self.model_path):
-            self.error = f"ONNX model file not found: {self.model_path}"
-            log.warning(f"{self.name} OpenVINO model not found", path=self.model_path)
-            return False
-
-        try:
-            self.core = OpenVINOCore()
-
-            # Enable caching so GPU model compilation isn't repeated from scratch
-            # on every worker process startup, avoiding readiness timeouts.
-            cache_dir = resolve_openvino_cache_dir()
-            os.makedirs(cache_dir, exist_ok=True)
-            self.core.set_property({"CACHE_DIR": cache_dir})
-
-            model = self.core.read_model(self.model_path)
-
-            # Intel GPUs default to f16 inference precision. Un-quantized ONNX models
-            # often have intermediate activations >65504, which overflow f16, resulting
-            # in non-finite logits (NaN/inf) and crashing the strict softmax pipeline.
-            config = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
-            _is_gpu = self.device_name == "GPU" or str(self.device_name).startswith("GPU.")
-            _is_npu = self.device_name == "NPU" or str(self.device_name).startswith("NPU.")
-            if _is_gpu or _is_npu:
-                # Both the iGPU and NPU need a static batch dimension (the NPU compiler
-                # *requires* it; on the iGPU it avoids the clWaitForEvents -14 crash), so
-                # the dynamic-batch reshape below applies to both accelerators.
-                if _is_gpu:
-                    # Intel GPU defaults to f16; un-quantized ONNX activations >65504
-                    # overflow f16 → non-finite logits, so force f32 on the GPU only.
-                    config["INFERENCE_PRECISION_HINT"] = "f32"
-                    config.update(_openvino_gpu_optional_compile_properties())
-                # NPU: only f16/i8 are valid for INFERENCE_PRECISION_HINT (f32 is rejected
-                # at compile — "Wrong value f32 ... Supported values: f16, i8"), so leave
-                # the NPU at its default precision. Validated to give finite, CPU-matching
-                # output (rope_vit_b14: top-5 identical to CPU).
-                try:
-                    partial = model.inputs[0].get_partial_shape()
-                    if partial.rank.is_static and partial[0].is_dynamic:
-                        static_shape = [1] + [partial[d].get_length() for d in range(1, partial.rank.get_length())]
-                        model.reshape(static_shape)
-                except Exception:
-                    pass  # Non-fatal; proceed with original dynamic shape
-
-            self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
-            self._infer_request = None
-            self.input_name = self.compiled_model.inputs[0].get_any_name()
-            if self._startup_self_test_enabled and (_is_gpu or _is_npu):
-                # Reused for the NPU as well — validates the compiled model isn't
-                # producing degenerate / non-finite logits on this accelerator.
-                self._run_gpu_startup_self_test()
-            self.loaded = True
-            self.error = None
-            log.info(
-                "OpenVINO model loaded successfully",
-                model=self.name,
-                device=self.device_name,
-                input_size=self.input_size,
-            )
-            return True
-        except InvalidInferenceOutputError as exc:
-            self.error = f"Failed OpenVINO model startup self-test: {exc.detail}"
-            self._last_startup_self_test_error = self.error
-            log.warning(
-                "OpenVINO model failed startup self-test",
-                model=self.name,
-                device=self.device_name,
-                detail=exc.detail,
-                diagnostics=exc.diagnostics,
-            )
-            self.compiled_model = None
-            self._infer_request = None
-            self.core = None
-            self.loaded = False
-            return False
-        except Exception as e:
-            self.error = f"Failed to load OpenVINO model: {str(e)}"
-            log.error(f"Failed to load {self.name} OpenVINO model", error=str(e), device=self.device_name)
-            return False
-
-    def current_compile_properties(self) -> dict[str, Any]:
-        return self._collect_runtime_diagnostics().get("compile_properties") or {}
-
-    def startup_self_test_status(self) -> dict[str, Any]:
-        return {
-            "enabled": bool(self._startup_self_test_enabled),
-            "ran": bool(self._startup_self_test_ran),
-            "error": self._last_startup_self_test_error,
-            "diagnostics": dict(self._last_startup_self_test_diagnostics or {}),
-        }
-
-    def probe(self, image: Image.Image) -> dict[str, Any]:
-        input_tensor = self._preprocess(image)
-        report: dict[str, Any] = {
-            "status": "ok",
-            "device": str(self.device_name),
-            "compile_properties": self.current_compile_properties(),
-            "input_summary": _summarize_numeric_array(input_tensor, name="input_tensor"),
-        }
-        try:
-            logits = self._infer_output_tensor(image, input_tensor=input_tensor)
-            report["output_summary"] = _summarize_numeric_array(logits, name="output_logits")
-            if logits.size == 0 or not np.isfinite(logits).any():
-                report["status"] = "invalid_output"
-            return report
-        except Exception as exc:
-            report["status"] = "runtime_error"
-            report["error"] = _summarize_runtime_exception(exc, max_len=600)
-            return report
-
-    def _preprocess(self, image: Image.Image) -> np.ndarray:
-        processed = _resize_with_preprocessing(
-            image,
-            self.input_size,
-            preprocessing=self.preprocessing,
-            default_resize_mode="letterbox",
-            default_padding_color=128,
-        )
-        arr = np.array(processed).astype(np.float32) / 255.0
-        if _classifier_wants_bgr(self.preprocessing):
-            arr = arr[:, :, ::-1]
-        arr = (arr - self.mean) / self.std
-        arr = arr.transpose(2, 0, 1)  # NCHW
-        return arr[np.newaxis, ...].astype(np.float32)
-
-    def _softmax(self, x: np.ndarray) -> np.ndarray:
-        _check_catalogue_output_width(self.labels, np.asarray(x).size, getattr(self, "_label_source", "none"))
-        return _safe_softmax(x, context=f"{self.name}:openvino")
-
-    def _infer_output_tensor(
-        self,
-        image: Image.Image,
-        *,
-        input_tensor: np.ndarray | None = None,
-    ) -> np.ndarray:
-        if self.compiled_model is None or self.input_name is None:
-            return np.array([])
-
-        if input_tensor is None:
-            input_tensor = self._preprocess(image)
-        # _preprocess emits NCHW [1,3,H,W]. Some exported models (e.g. MobileNet)
-        # expect NHWC [1,H,W,3]; feed whatever the compiled model declares.
-        try:
-            dims = self.compiled_model.inputs[0].get_partial_shape()
-            if dims.rank.is_static and dims.rank.get_length() == 4:
-                last = dims[3]
-                second = dims[1]
-                if last.is_static and last.get_length() == 3 and not (second.is_static and second.get_length() == 3):
-                    input_tensor = np.ascontiguousarray(np.transpose(input_tensor, (0, 2, 3, 1)))
-        except Exception:
-            pass
-        with self._lock:
-            # One request serves every inference: a request per call churns
-            # runtime allocations on every classification (#314).
-            if self._infer_request is None:
-                self._infer_request = self.compiled_model.create_infer_request()
-            outputs = self._infer_request.infer(
-                {self.input_name: input_tensor, **_classifier_auxiliary_inputs(self.preprocessing)}
-            )
-            try:
-                raw = outputs[self.compiled_model.outputs[0]]
-            except Exception:
-                raw = next(iter(outputs.values()))
-            # The reused request rewrites this buffer on its next inference, so
-            # the caller must own a copy.
-            return np.array(raw)
-
-    def _infer_logits(
-        self,
-        image: Image.Image,
-        *,
-        input_tensor: np.ndarray | None = None,
-    ) -> np.ndarray:
-        raw = self._infer_output_tensor(image, input_tensor=input_tensor)
-        if raw.ndim > 0 and raw.shape[0] == 1:
-            return raw[0]
-        return raw
-
-    def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
-        if not self.loaded or self.compiled_model is None:
-            log.warning(f"{self.name} OpenVINO model not loaded, cannot classify")
-            return []
-        try:
-            input_tensor = self._preprocess(image)
-            logits = self._infer_logits(image, input_tensor=input_tensor)
-            if logits.size == 0:
-                return []
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="openvino",
-                    provider=self.device_name,
-                    detail=f"{self.name} inference produced no finite probabilities",
-                    diagnostics=self._collect_runtime_diagnostics(
-                        input_tensor=input_tensor,
-                        logits=logits,
-                    ),
-                )
-            grouped_labels = _resolve_grouped_labels(
-                self.labels,
-                label_grouping=self.label_grouping,
-                existing_grouped_labels=self.grouped_labels,
-            )
-            return _build_classification_results(
-                probs,
-                self.labels,
-                top_k=top_k,
-                grouped_labels=grouped_labels,
-            )
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error(f"OpenVINO inference failed for {self.name}", error=str(e), device=self.device_name)
-            raise InvalidInferenceOutputError(
-                backend="openvino",
-                provider=str(self.device_name),
-                detail=f"{self.name} runtime exception: {_summarize_runtime_exception(e)}",
-            ) from e
-
-    def classify_raw(self, image: Image.Image) -> np.ndarray:
-        if not self.loaded or self.compiled_model is None:
-            return np.array([])
-        try:
-            input_tensor = self._preprocess(image)
-            logits = self._infer_logits(image, input_tensor=input_tensor)
-            if logits.size == 0:
-                return np.array([])
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="openvino",
-                    provider=self.device_name,
-                    detail=f"{self.name} inference produced no finite probabilities",
-                    diagnostics=self._collect_runtime_diagnostics(
-                        input_tensor=input_tensor,
-                        logits=logits,
-                    ),
-                )
-            return probs
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error("OpenVINO raw classification failed", error=str(e), device=self.device_name)
-            raise InvalidInferenceOutputError(
-                backend="openvino",
-                provider=str(self.device_name),
-                detail=f"{self.name} runtime exception: {_summarize_runtime_exception(e)}",
-            ) from e
-
-    def cleanup(self):
-        self.compiled_model = None
-        self.core = None
-        self.loaded = False
-        log.info(f"{self.name} OpenVINO model resources cleaned up", device=self.device_name)
-
-    def get_status(self) -> dict:
-        return {
-            "loaded": self.loaded,
-            "error": self.error,
-            "labels_count": len(self.labels),
-            "grouped_labels_count": len(set(self.grouped_labels)) if self.grouped_labels else None,
-            "enabled": self.compiled_model is not None,
-            "model_path": self.model_path,
-            "runtime": "openvino",
-            "input_size": self.input_size,
-            "device": self.device_name,
-            "compile_properties": self.current_compile_properties(),
-            "startup_self_test": self.startup_self_test_status(),
-        }
-
-
 class ClassifierService:
     """Service for managing multiple classification models (TFLite and ONNX)."""
 
-    # Union type for model instances
-    ModelType = ModelInstance | ONNXModelInstance | OpenVINOModelInstance
+    # Every runtime adapter satisfies this contract; the facade depends on nothing more.
+    ModelType = InferenceAdapter
 
-    def __init__(self, *, supervisor: Any | None = None, worker_process_mode: bool = False):
+    def __init__(
+        self,
+        *,
+        supervisor: Any | None = None,
+        worker_process_mode: bool = False,
+        crash_quarantine_factory: Callable[[Callable[[], dict[str, Any]]], NativeCrashQuarantine] | None = None,
+    ):
         self._models: dict[str, ClassifierService.ModelType] = {}
         self._models_lock = threading.Lock()
         self._worker_process_mode = bool(worker_process_mode)
@@ -2941,7 +929,7 @@ class ClassifierService:
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
         self._video_supervisor = supervisor
-        self._native_crash_quarantine = NativeCrashQuarantine(self._native_launch_profile)
+        self._native_crash_quarantine = (crash_quarantine_factory or NativeCrashQuarantine)(self._native_launch_profile)
         self._native_cpu_recovery = NativeCpuRecovery(self._native_launch_profile, self._native_crash_quarantine)
         self._bird_crop_service = bird_crop_service
         if worker_process_mode and os.environ.get("YA_WAMF_NATIVE_CPU_RECOVERY") == "1":
@@ -3042,7 +1030,7 @@ class ClassifierService:
             self._video_supervisor = isolated_supervisor
             if self._image_execution_mode == "subprocess":
                 self._classifier_supervisor = isolated_supervisor
-        self._selected_inference_provider = _normalize_inference_provider(
+        self._selected_inference_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._active_inference_provider = "tflite"
@@ -3173,25 +1161,56 @@ class ClassifierService:
         }
 
     def _native_launch_profile(self) -> dict[str, Any]:
-        from app.services.model_validation import current_inference_runtime_signature
+        from app.services.model_validation import (
+            current_inference_runtime_signature,
+            legacy_inference_runtime_signature,
+        )
 
         spec = self._resolve_active_bird_model_spec()
         model_path = str(spec.get("model_path") or "")
         # Record a launch configuration, not a claim about the faulting library.
         # Crop/video/wildlife work shares the same isolated process.
-        return {
+        profile = {
             "schema": 1,
             "model_id": spec.get("model_id"),
             "region": spec.get("resolved_region"),
             "model_sha256": artifact_digest(model_path),
             "external_weights_sha256": artifact_digest(f"{model_path}.data") if model_path else None,
             "labels_sha256": artifact_digest(str(spec.get("labels_path") or "")),
-            "provider": _normalize_inference_provider(settings.classification.inference_provider),
+            "provider": normalize_inference_provider(settings.classification.inference_provider),
             "runtime_signature": current_inference_runtime_signature(),
+            "legacy_runtime_signature": legacy_inference_runtime_signature(),
             "model_runtime": spec.get("runtime"),
             "input_size": spec.get("input_size"),
             "preprocessing": spec.get("preprocessing"),
             "crop_generator": spec.get("crop_generator"),
+        }
+        # Preserve both earlier identities as negative evidence when expanding
+        # the profile to cover auxiliary native workloads.
+        previous = [NativeCrashQuarantine._key(profile)]
+        previous.append(
+            NativeCrashQuarantine._key(profile | {"runtime_signature": profile["legacy_runtime_signature"]})
+        )
+        profile["auxiliary_artifacts"] = self._native_auxiliary_artifacts()
+        profile["video_frames"] = settings.classification.video_classification_frames
+        profile["legacy_profile_keys"] = previous
+        return profile
+
+    def _native_auxiliary_artifacts(self) -> dict[str, Any]:
+        crops = {}
+        for tier in ("fast", "accurate"):
+            path = getattr(self, "_bird_crop_service", bird_crop_service)._resolve_model_path(tier)
+            crops[tier] = {
+                "weights": artifact_digest(str(path)) if path else None,
+                "external_weights": artifact_digest(f"{path}.data") if path else None,
+                "config": artifact_digest(str(path.with_name("model_config.json"))) if path else None,
+            }
+        model_path, labels_path = self._get_model_paths(
+            settings.classification.wildlife_model, settings.classification.wildlife_labels
+        )
+        return {
+            "crop": crops,
+            "wildlife": {"weights": artifact_digest(model_path), "labels": artifact_digest(labels_path)},
         }
 
     def _classify_model_artifact_type(self, model_path: str) -> str:
@@ -3229,7 +1248,7 @@ class ClassifierService:
         return value or None
 
     def _gpu_runtime_settings_snapshot(self) -> dict[str, Any]:
-        startup_self_test_enabled = _openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
+        startup_self_test_enabled = openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
         return {
             "startup_self_test_enabled": startup_self_test_enabled,
             "cache_dir": resolve_openvino_cache_dir(),
@@ -3237,7 +1256,7 @@ class ClassifierService:
                 "PERFORMANCE_HINT": "LATENCY",
                 "NUM_STREAMS": "1",
                 "INFERENCE_PRECISION_HINT": "f32",
-                **_openvino_gpu_optional_compile_properties(),
+                **openvino_gpu_optional_compile_properties(),
             },
             "invalid_retry_limit": CLASSIFIER_GPU_INVALID_RETRY_LIMIT,
             "restore_cooldown_seconds": CLASSIFIER_GPU_RESTORE_COOLDOWN_SECONDS,
@@ -3269,7 +1288,7 @@ class ClassifierService:
     ) -> dict[str, Any]:
         active_model = self._active_openvino_model()
         snapshot = {
-            "selected_provider": _normalize_inference_provider(
+            "selected_provider": normalize_inference_provider(
                 getattr(settings.classification, "inference_provider", "auto")
             ),
             "active_provider": active_provider,
@@ -3361,7 +1380,7 @@ class ClassifierService:
         backend: str,
         provider: str,
     ) -> ModelType | None:
-        if not _provider_supported_for_spec(spec, provider):
+        if not provider_supported_for_spec(spec, provider):
             return None
 
         model_path = str(spec.get("model_path") or "")
@@ -3639,7 +1658,7 @@ class ClassifierService:
                     "status": "error",
                     "should_mount": True,
                     "reason": "benchmark_error",
-                    "error": _summarize_runtime_exception(exc, max_len=600),
+                    "error": summarize_runtime_exception(exc, max_len=600),
                 }
             )
             return self._record_runtime_benchmark(benchmark)
@@ -3655,7 +1674,7 @@ class ClassifierService:
             provider_order = list(self._resolve_active_bird_model_spec().get("host_provider_preference_order") or [])
         except Exception:
             provider_order = []
-        return _runtime_fallback_targets_for(
+        return runtime_fallback_targets_for(
             active_backend=self._inference_backend,
             active_provider=self._active_inference_provider,
             caps=self._accel_caps,
@@ -3700,9 +1719,9 @@ class ClassifierService:
         if time.monotonic() < self._gpu_restore_not_before_monotonic:
             return False
         spec = self._resolve_active_bird_model_spec()
-        if not _provider_supported_for_spec(spec, "intel_gpu"):
+        if not provider_supported_for_spec(spec, "intel_gpu"):
             return False
-        requested_provider = _normalize_inference_provider(
+        requested_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         if requested_provider not in {"auto", "intel_gpu"}:
@@ -4065,6 +2084,27 @@ class ClassifierService:
                 return True
 
             self._runtime_invalid_output_failures += 1
+            if (
+                self._worker_process_mode
+                and error.backend.lower() == "openvino"
+                and is_gpu_provider_name(error.provider)
+            ):
+                # A device-level GPU failure leaves native objects that must
+                # not be reloaded or even destroyed in this process: report
+                # the original code and retire the worker instead (#721).
+                # In-process mode keeps the existing fallback below, so the
+                # API parent is never retired by this rule.
+                failure_code = gpu_runtime_failure_code(error) or gpu_runtime_failure_code(error.detail)
+                if failure_code is not None:
+                    detail = " ".join(str(error.detail).split())[:280]
+                    log.error(
+                        "Classifier GPU runtime failed at device level; retiring worker process",
+                        failed_backend=error.backend,
+                        failed_provider=error.provider,
+                        error_code=failure_code,
+                        detail=detail,
+                    )
+                    raise ClassifierWorkerRetirementError(error_code=failure_code, detail=detail) from error
             if self._attempt_gpu_retry_after_invalid_output(failed_model, error):
                 return True
             replacement, backend, provider, reason = self._load_runtime_fallback_bird_model(
@@ -4136,7 +2176,10 @@ class ClassifierService:
         quarantine = getattr(self, "_native_crash_quarantine", None)
         if quarantine is not None:
             try:
-                quarantine.guard()
+                guard = (
+                    quarantine.guard if getattr(self, "_worker_process_mode", False) else quarantine.guard_in_process
+                )
+                guard()
             except NativeCrashQuarantinedError as exc:
                 log.error("classifier_model_load_quarantined", error=str(exc))
                 return
@@ -4171,7 +2214,7 @@ class ClassifierService:
             preprocessing=preprocessing,
         )
 
-        self._selected_inference_provider = _normalize_inference_provider(
+        self._selected_inference_provider = normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
         self._refresh_accel_caps(force=True)
@@ -4225,18 +2268,18 @@ class ClassifierService:
 
         # Create appropriate model instance based on runtime
         if runtime == "onnx":
-            selection = _resolve_inference_selection(
+            selection = resolve_inference_selection(
                 self._selected_inference_provider,
                 self._accel_caps,
                 supported_providers=supported_inference_providers,
                 preferred_providers=host_provider_preference_order,
             )
-            self._inference_fallback_reason = selection.get("fallback_reason")
-            self._active_inference_provider = selection.get("active_provider", "unavailable")
-            self._inference_backend = selection.get("backend", "unavailable")
+            self._inference_fallback_reason = selection.fallback_reason
+            self._active_inference_provider = selection.active_provider
+            self._inference_backend = selection.backend
 
-            if selection["backend"] == "openvino":
-                openvino_device = selection["openvino_device"] or "CPU"
+            if selection.backend == "openvino":
+                openvino_device = selection.openvino_device or "CPU"
                 self._openvino_model_compile_device = openvino_device
                 bird_model = OpenVINOModelInstance(
                     "bird",
@@ -4276,7 +2319,7 @@ class ClassifierService:
                                 log.warning(
                                     "OpenVINO GPU runtime benchmark failed; retrying with ONNX Runtime CPU fallback",
                                     requested=self._selected_inference_provider,
-                                    device=selection.get("openvino_device"),
+                                    device=selection.openvino_device,
                                     benchmark=benchmark,
                                 )
                                 self._inference_backend = "onnxruntime"
@@ -4326,7 +2369,7 @@ class ClassifierService:
                             session_providers = list(bird_model.session.get_providers() or [])
                         except Exception:
                             session_providers = []
-                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                    reconciled_provider, session_fallback_reason = reconcile_ort_active_provider(
                         self._active_inference_provider,
                         session_providers,
                     )
@@ -4339,7 +2382,7 @@ class ClassifierService:
                         log.warning(
                             "ONNX Runtime session provider mismatch; applying runtime fallback status",
                             requested=self._selected_inference_provider,
-                            planned_active=selection.get("active_provider"),
+                            planned_active=selection.active_provider,
                             actual_active=self._active_inference_provider,
                             session_providers=session_providers,
                             reason=session_fallback_reason,
@@ -4364,7 +2407,7 @@ class ClassifierService:
                     log.warning(
                         "OpenVINO model load failed; retrying with ONNX Runtime CPU fallback",
                         requested=self._selected_inference_provider,
-                        device=selection.get("openvino_device"),
+                        device=selection.openvino_device,
                         error=bird_model.error,
                     )
                     self._inference_backend = "onnxruntime"
@@ -4409,14 +2452,14 @@ class ClassifierService:
                 )
                 runtime = "tflite"
 
-            if selection["backend"] == "onnxruntime":
+            if selection.backend == "onnxruntime":
                 bird_model = ONNXModelInstance(
                     "bird",
                     model_path,
                     labels_path,
                     preprocessing=preprocessing,
                     input_size=input_size,
-                    ort_providers=selection.get("ort_providers") or ["CPUExecutionProvider"],
+                    ort_providers=list(selection.ort_providers) or ["CPUExecutionProvider"],
                 )
                 if bird_model.load():
                     session_providers = []
@@ -4425,7 +2468,7 @@ class ClassifierService:
                             session_providers = list(bird_model.session.get_providers() or [])
                         except Exception:
                             session_providers = []
-                    reconciled_provider, session_fallback_reason = _reconcile_ort_active_provider(
+                    reconciled_provider, session_fallback_reason = reconcile_ort_active_provider(
                         self._active_inference_provider,
                         session_providers,
                     )
@@ -4438,7 +2481,7 @@ class ClassifierService:
                         log.warning(
                             "ONNX Runtime session provider mismatch; applying runtime fallback status",
                             requested=self._selected_inference_provider,
-                            planned_active=selection.get("active_provider"),
+                            planned_active=selection.active_provider,
                             actual_active=self._active_inference_provider,
                             session_providers=session_providers,
                             reason=session_fallback_reason,
@@ -4714,7 +2757,15 @@ class ClassifierService:
             model_id = None
         bird = self._models.get("bird")
         model_path = str(getattr(bird, "model_path", "") or "")
+        crop_execution = None
+        getter = getattr(self._bird_crop_service, "last_execution", None)
+        if callable(getter):
+            try:
+                crop_execution = getter()
+            except Exception:  # noqa: BLE001 - absent diagnostics must not fail classification
+                pass
         return {
+            "crop_execution": crop_execution if isinstance(crop_execution, dict) else None,
             "inference_backend": self._inference_backend,
             "active_provider": self._active_inference_provider,
             "model_id": model_id,
@@ -4771,7 +2822,7 @@ class ClassifierService:
         if str(spec.get("runtime") or "tflite") != "onnx":
             return {"inference_backend": "tflite", "active_provider": "tflite", "model_id": model_id}
         try:
-            selection = _resolve_inference_selection(
+            selection = resolve_inference_selection(
                 self._selected_inference_provider,
                 self._accel_caps_for_read(),
                 supported_providers=list(spec.get("supported_inference_providers") or []),
@@ -4780,8 +2831,8 @@ class ClassifierService:
         except Exception:  # noqa: BLE001
             return None
         return {
-            "inference_backend": str(selection.get("backend") or "unavailable"),
-            "active_provider": str(selection.get("active_provider") or "unavailable"),
+            "inference_backend": str(selection.backend or "unavailable"),
+            "active_provider": str(selection.active_provider or "unavailable"),
             "model_id": model_id,
         }
 
@@ -4927,7 +2978,7 @@ class ClassifierService:
         effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
 
         # Determine which TFLite runtime is actually in use
-        tflite_type = _tflite_runtime_name() if tflite is not None else "none"
+        tflite_type = runtimes.tflite_runtime_name() if runtimes.tflite is not None else "none"
 
         runtime_recovery = {
             "invalid_output_failures": self._runtime_invalid_output_failures,
@@ -4971,9 +3022,9 @@ class ClassifierService:
             "status": "ok" if (bird_runtime_ready and not runtime_recovery_failed) else "error",
             "execution_mode": self._image_execution_mode,
             "runtimes": {
-                "tflite": {"installed": tflite is not None, "type": tflite_type},
-                "onnx": {"installed": ONNX_AVAILABLE, "available": ort is not None},
-                "openvino": {"installed": OPENVINO_AVAILABLE, "available": OpenVINOCore is not None},
+                "tflite": {"installed": runtimes.tflite is not None, "type": tflite_type},
+                "onnx": {"installed": runtimes.ONNX_AVAILABLE, "available": runtimes.ort is not None},
+                "openvino": {"installed": runtimes.OPENVINO_AVAILABLE, "available": runtimes.OpenVINOCore is not None},
             },
             "models": {
                 name: {
@@ -5034,7 +3085,7 @@ class ClassifierService:
             try:
                 spec = self._resolve_active_bird_model_spec()
                 labels_path = str(spec.get("labels_path") or "")
-                labels, _, _ = _resolve_model_labels(labels_path, {}, model_sha256=spec.get("model_sha256"))
+                labels, _, _ = resolve_model_labels(labels_path, {}, model_sha256=spec.get("model_sha256"))
                 return labels
             except Exception:
                 return []
@@ -5114,9 +3165,18 @@ class ClassifierService:
             except Exception:
                 pass
 
-        selected_provider = _normalize_inference_provider(
-            getattr(settings.classification, "inference_provider", "auto")
-        )
+        from app.services.inference_execution import latest_model_execution
+
+        executions = [crop_detector_status.get("last_execution")]
+        for pool in (supervisor_metrics or {}).values():
+            if isinstance(pool, dict):
+                executions.append(pool.get("crop_execution"))
+                if isinstance(pool.get("runtime"), dict):
+                    executions.append(pool["runtime"].get("crop_execution"))
+        latest_execution = latest_model_execution(crop_detector_status.get("model_id"), executions)
+        crop_detector_status["last_execution"] = latest_execution.model_dump(mode="json") if latest_execution else None
+
+        selected_provider = normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto"))
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
         active_model_estimated_ram_mb: Optional[int] = None
@@ -5138,7 +3198,7 @@ class ClassifierService:
             validated_providers = []
             provider_order = []
             candidate_providers = []
-        provider_capabilities = _provider_capability_contract(
+        provider_capabilities = provider_capability_contract(
             caps=caps,
             packaged_providers=packaged_providers,
             supported_providers=supported_providers,
@@ -5173,9 +3233,9 @@ class ClassifierService:
             "image_flavor": image_flavor,
             "packaged_inference_providers": list(packaged_providers),
             "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
-            "runtime": _tflite_runtime_name(),
-            "runtime_installed": tflite is not None,
-            "onnx_available": ONNX_AVAILABLE,
+            "runtime": runtimes.tflite_runtime_name(),
+            "runtime_installed": runtimes.tflite is not None,
+            "onnx_available": runtimes.ONNX_AVAILABLE,
             "active_model_id": active_model_id,
             "effective_model_id": effective_model_id,
             "openvino_available": bool(caps.get("openvino_available")),
@@ -5225,7 +3285,7 @@ class ClassifierService:
             "runtime_gpu_restore_successes": self._runtime_gpu_restore_successes,
             "runtime_gpu_restore_failures": self._runtime_gpu_restore_failures,
             "gpu_restore_not_before_monotonic": self._gpu_restore_not_before_monotonic,
-            "strict_non_finite_output": _strict_non_finite_output_enabled(),
+            "strict_non_finite_output": strict_non_finite_output_enabled(),
             "inference_health": self._inference_health.snapshot(),
             "runtime_benchmarks": dict(self._runtime_benchmarks or {}),
             "openvino_runtime": self._openvino_runtime_snapshot(
@@ -5247,9 +3307,7 @@ class ClassifierService:
             "background_throttled": admission_metrics["background_throttled"],
             **provider_capabilities,
             # legacy compatibility (can be removed later)
-            "cuda_enabled": _normalize_inference_provider(
-                getattr(settings.classification, "inference_provider", "auto")
-            )
+            "cuda_enabled": normalize_inference_provider(getattr(settings.classification, "inference_provider", "auto"))
             == "cuda",
             "models": {},
             "crop_detector": crop_detector_status,
@@ -5365,12 +3423,6 @@ class ClassifierService:
         configured_model = str(getattr(settings.classification, "model", "") or "").strip()
         return configured_model or "unknown"
 
-    def _input_context_extra(self, input_context: ClassificationInputContext, key: str) -> Any | None:
-        extra = getattr(input_context, "__pydantic_extra__", {}) or {}
-        if key in extra:
-            return extra.get(key)
-        return getattr(input_context, key, None)
-
     def _resolve_frigate_hint_crop(
         self,
         image: Image.Image,
@@ -5378,8 +3430,8 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
-            raw_hint = self._input_context_extra(input_context, hint_key)
-            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            raw_hint = input_context_extra(input_context, hint_key)
+            box = restore_frigate_hint_box(raw_hint, image.size)
             if box is None:
                 continue
             expanded = self._expand_hint_box(box, image.size)
@@ -5394,196 +3446,6 @@ class ClassifierService:
             }
         return None
 
-    @staticmethod
-    def _frigate_path_points(raw_path_data: list[Any]) -> list[tuple[float, float, float]]:
-        path_points: list[tuple[float, float, float]] = []
-        for item in raw_path_data:
-            if not isinstance(item, (list, tuple)) or len(item) < 2:
-                continue
-            point = item[0]
-            if not isinstance(point, (list, tuple)) or len(point) < 2:
-                continue
-            try:
-                x = float(point[0])
-                y = float(point[1])
-                timestamp = float(item[1])
-            except (TypeError, ValueError):
-                continue
-            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
-                path_points.append((timestamp, x, y))
-        return path_points
-
-    def _frigate_snapshot_time(self, input_context: ClassificationInputContext) -> float | None:
-        value = self._input_context_extra(input_context, "frigate_snapshot_frame_time")
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value <= 0:
-            return None
-        return float(value)
-
-    def _photographed_track_window(
-        self,
-        input_context: ClassificationInputContext,
-        image_size: tuple[int, int] | None,
-    ) -> tuple[float, float]:
-        """Time window in which Frigate's track still follows the photographed bird."""
-        snapshot_time = self._frigate_snapshot_time(input_context)
-        box = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        if snapshot_time is None or box is None or not isinstance(raw_path_data, list):
-            return -math.inf, math.inf
-        _points, start, end = photographed_track(
-            self._frigate_path_points(raw_path_data),
-            box=box,
-            snapshot_time=snapshot_time,
-            image_size=image_size or (1, 1),
-        )
-        return start, end
-
-    def _tracked_frigate_box_for_frame(
-        self,
-        input_context: ClassificationInputContext,
-        *,
-        frame_offset_seconds: float | None,
-        image_size: tuple[int, int] | None = None,
-    ) -> list[float] | None:
-        """Align Frigate's tracked path with the actual clip timeline."""
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        raw_box = self._input_context_extra(input_context, "frigate_box")
-        raw_clip_start = self._input_context_extra(input_context, "clip_start_timestamp")
-        if (
-            not isinstance(raw_path_data, list)
-            or not isinstance(raw_box, (list, tuple))
-            or len(raw_box) != 4
-            or frame_offset_seconds is None
-        ):
-            return None
-        try:
-            clip_start = float(raw_clip_start)
-            offset = float(frame_offset_seconds)
-        except (TypeError, ValueError):
-            return None
-        if not all(math.isfinite(value) for value in (clip_start, offset)) or offset < 0.0:
-            return None
-        if image_size is None:
-            image_size = (1, 1)
-        normalized_box = normalized_frigate_video_hint(raw_box)
-        if normalized_box is None:
-            return None
-        _left, _top, width, height = normalized_box
-        if width > 1.0 or height > 1.0:
-            return None
-
-        path_points = self._frigate_path_points(raw_path_data)
-        if not path_points:
-            return None
-
-        target_timestamp = clip_start + offset
-        snapshot_time = self._frigate_snapshot_time(input_context)
-        if snapshot_time is not None:
-            path_points, start, end = photographed_track(
-                path_points, box=normalized_box, snapshot_time=snapshot_time, image_size=image_size
-            )
-            if not start <= target_timestamp < end:
-                return None
-        point_timestamp, bottom_center_x, bottom_y = min(
-            path_points,
-            key=lambda item: abs(item[0] - target_timestamp),
-        )
-        if abs(point_timestamp - target_timestamp) > 0.75:
-            return None
-
-        left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
-        top = max(0.0, min(1.0 - height, bottom_y - height))
-        return [left, top, width, height]
-
-    def _video_frame_input_context(
-        self,
-        input_context: ClassificationInputContext,
-        *,
-        frame_offset_seconds: float | None,
-        image_size: tuple[int, int] | None = None,
-    ) -> ClassificationInputContext:
-        """Return crop hints that are valid at this frame's clip timestamp.
-
-        A Frigate event's top-level box describes one tracked instant. Reusing it
-        across a full-visit recording repeatedly classifies the same background
-        patch after a fleeting bird has moved away. Precise hints require a
-        known clip origin and aligned path data. A broader spatial prior remains
-        useful when the exact frame timing is unknown.
-        """
-        frame_context_payload = dict(input_context.model_dump())
-        clip_variant = str(self._input_context_extra(input_context, "clip_variant") or "event").strip().lower()
-        # A spatial prior survives unknown pre-capture timing and also constrains
-        # full-visit recordings. Include the observed path so a moving bird is
-        # not excluded merely because the final region covers its last position.
-        subject_region = normalized_frigate_video_hint(
-            self._input_context_extra(input_context, "frigate_region")
-        ) or normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-        for key in ("frigate_box", "frigate_region"):
-            if normalized_frigate_video_hint(frame_context_payload.get(key)) is None:
-                frame_context_payload.pop(key, None)
-        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
-        if subject_region is not None:
-            normalized_region = subject_region
-            tracked_size = normalized_frigate_video_hint(self._input_context_extra(input_context, "frigate_box"))
-            if normalized_region is not None and tracked_size is not None and isinstance(raw_path_data, list):
-                left, top, width, height = normalized_region
-                right, bottom = left + width, top + height
-                # A track that moved on to another bird must not stretch the event's subject to it.
-                track_start, track_end = self._photographed_track_window(input_context, image_size)
-                for item in raw_path_data:
-                    if (
-                        not isinstance(item, (list, tuple))
-                        or not item
-                        or not isinstance(item[0], (list, tuple))
-                        or len(item[0]) < 2
-                    ):
-                        continue
-                    if math.isfinite(track_start) or math.isfinite(track_end):
-                        timestamp = item[1] if len(item) > 1 else None
-                        if (
-                            isinstance(timestamp, bool)
-                            or not isinstance(timestamp, (int, float))
-                            or not track_start <= timestamp < track_end
-                        ):
-                            continue
-                    x, y = item[0][:2]
-                    if (
-                        isinstance(x, bool)
-                        or isinstance(y, bool)
-                        or not isinstance(x, (int, float))
-                        or not isinstance(y, (int, float))
-                    ):
-                        continue
-                    if not math.isfinite(x) or not math.isfinite(y) or not 0 <= x <= 1 or not 0 <= y <= 1:
-                        continue
-                    left, top = min(left, x - tracked_size[2] / 2), min(top, y - tracked_size[3])
-                    right, bottom = max(right, x + tracked_size[2] / 2), max(bottom, y)
-                left, top, right, bottom = max(0, left), max(0, top), min(1, right), min(1, bottom)
-                subject_region = [left, top, right - left, bottom - top]
-            frame_context_payload["event_subject_region"] = subject_region
-        requires_time_aligned_hint = (
-            clip_variant == "recording"
-            or bool(raw_path_data)
-            or self._input_context_extra(input_context, "clip_start_timestamp") is None
-        )
-        if requires_time_aligned_hint:
-            frame_context_payload.pop("frigate_box", None)
-            frame_context_payload.pop("frigate_region", None)
-            tracked_box = self._tracked_frigate_box_for_frame(
-                input_context,
-                frame_offset_seconds=frame_offset_seconds,
-                image_size=image_size,
-            )
-            if tracked_box is not None:
-                frame_context_payload["frigate_box"] = tracked_box
-        return _normalize_classification_input_context(frame_context_payload)
-
-    @staticmethod
-    def _frigate_snapshot_crop_box(
-        box: tuple[int, int, int, int], image_size: tuple[int, int]
-    ) -> tuple[int, int, int, int] | None:
-        return frigate_snapshot_crop_box(box, image_size)
-
     def _resolve_frigate_snapshot_crop(
         self,
         image: Image.Image,
@@ -5591,9 +3453,9 @@ class ClassifierService:
         input_context: ClassificationInputContext,
     ) -> dict[str, Any] | None:
         """Restore the crop Frigate supplies for an active event snapshot."""
-        aligned_region = self._input_context_extra(input_context, "frigate_snapshot_crop_region")
-        if self._input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
-            crop_box = self._restore_frigate_hint_box(aligned_region, image.size)
+        aligned_region = input_context_extra(input_context, "frigate_snapshot_crop_region")
+        if input_context_extra(input_context, "input_source") == "frigate_recording_snapshot":
+            crop_box = restore_frigate_hint_box(aligned_region, image.size)
             if crop_box is not None:
                 return {
                     "crop_image": image.crop(crop_box),
@@ -5602,11 +3464,11 @@ class ClassifierService:
                     "reason": "frigate_snapshot_scaled_crop",
                 }
         for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
-            raw_hint = self._input_context_extra(input_context, hint_key)
-            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            raw_hint = input_context_extra(input_context, hint_key)
+            box = restore_frigate_hint_box(raw_hint, image.size)
             if box is None:
                 continue
-            crop_box = self._frigate_snapshot_crop_box(box, image.size)
+            crop_box = frigate_snapshot_crop_box(box, image.size)
             if crop_box is None:
                 continue
             return {
@@ -5693,12 +3555,10 @@ class ClassifierService:
     ) -> list[VideoFrameCandidate]:
         """Return bounded, independently evaluated views of one video frame."""
         if bool(input_context.is_cropped):
-            supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
+            supplied_source = str(input_context_extra(input_context, "input_source") or "provided_crop")
             return [VideoFrameCandidate(supplied_source, image, None)]
 
-        subject_box = restore_frigate_hint_box(
-            self._input_context_extra(input_context, "event_subject_region"), image.size
-        )
+        subject_box = restore_frigate_hint_box(input_context_extra(input_context, "event_subject_region"), image.size)
         candidates: list[VideoFrameCandidate] = (
             [VideoFrameCandidate("frigate_region_crop", image.crop(subject_box), subject_box)]
             if subject_box is not None
@@ -5807,13 +3667,6 @@ class ClassifierService:
         crop_result = self._resolve_model_crop(crop_source_image)
         return crop_result or hint_crop
 
-    def _restore_frigate_hint_box(
-        self,
-        raw_hint: Any,
-        image_size: tuple[int, int],
-    ) -> tuple[int, int, int, int] | None:
-        return restore_frigate_hint_box(raw_hint, image_size)
-
     def _expand_hint_box(
         self,
         box: tuple[int, int, int, int],
@@ -5866,7 +3719,7 @@ class ClassifierService:
         *,
         input_context: Any | None = None,
     ) -> tuple[Image.Image, dict[str, Any]]:
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         diagnostics: dict[str, Any] = {
             "crop_attempted": False,
             "crop_applied": False,
@@ -5874,7 +3727,7 @@ class ClassifierService:
             "source_reason": "standard",
         }
 
-        if bool(self._input_context_extra(normalized_input_context, "disable_crop_resolution")):
+        if bool(input_context_extra(normalized_input_context, "disable_crop_resolution")):
             diagnostics["crop_reason"] = "explicit_input_representation"
             return image, diagnostics
 
@@ -5888,9 +3741,7 @@ class ClassifierService:
             )
             return image, diagnostics
 
-        restore_frigate_crop = (
-            self._input_context_extra(normalized_input_context, "restore_frigate_snapshot_crop") is True
-        )
+        restore_frigate_crop = input_context_extra(normalized_input_context, "restore_frigate_snapshot_crop") is True
         if restore_frigate_crop:
             diagnostics["crop_attempted"] = True
             crop_result = self._resolve_frigate_snapshot_crop(
@@ -5902,6 +3753,9 @@ class ClassifierService:
                 diagnostics["crop_applied"] = True
                 diagnostics["crop_reason"] = str(crop_result.get("reason") or "frigate_box")
                 diagnostics["source_reason"] = "frigate_snapshot_crop_restored"
+                diagnostics["input_box"] = list(crop_result["box"])
+                diagnostics["input_frame_size"] = list(image.size)
+                diagnostics["source_same_frame"] = True
                 log.debug(
                     "Frigate snapshot crop restored",
                     crop_attempted=True,
@@ -5924,7 +3778,7 @@ class ClassifierService:
                 crop_attempted=diagnostics["crop_attempted"],
                 crop_applied=False,
                 crop_reason=diagnostics["crop_reason"],
-                error=_summarize_runtime_exception(exc),
+                error=summarize_runtime_exception(exc),
             )
             return image, diagnostics
 
@@ -5961,7 +3815,7 @@ class ClassifierService:
                     crop_applied=False,
                     crop_reason=diagnostics["crop_reason"],
                     source_reason=diagnostics["source_reason"],
-                    error=_summarize_runtime_exception(exc),
+                    error=summarize_runtime_exception(exc),
                 )
                 crop_source_image = image
 
@@ -5978,7 +3832,7 @@ class ClassifierService:
                 crop_applied=False,
                 crop_reason=diagnostics["crop_reason"],
                 source_reason=diagnostics.get("source_reason"),
-                error=_summarize_runtime_exception(exc),
+                error=summarize_runtime_exception(exc),
             )
             return image, diagnostics
 
@@ -5987,6 +3841,10 @@ class ClassifierService:
         if isinstance(crop_image, Image.Image):
             diagnostics["crop_applied"] = True
             diagnostics["crop_reason"] = crop_reason
+            if isinstance(crop_result.get("box"), (list, tuple)):
+                diagnostics["input_box"] = list(crop_result["box"])
+                diagnostics["input_frame_size"] = list(crop_source_image.size)
+                diagnostics["source_same_frame"] = crop_source_image is image
             log.debug(
                 "Bird crop applied",
                 crop_attempted=True,
@@ -6007,52 +3865,6 @@ class ClassifierService:
         )
         return image, diagnostics
 
-    def _resolved_classification_input_provenance(
-        self,
-        *,
-        input_context: ClassificationInputContext,
-        crop_diagnostics: dict[str, Any],
-    ) -> tuple[str, bool]:
-        """Describe the image that actually reached model preprocessing."""
-        supplied_source = str(self._input_context_extra(input_context, "input_source") or "").strip().lower()
-        if bool(crop_diagnostics.get("crop_applied")):
-            crop_reason = str(crop_diagnostics.get("crop_reason") or "").strip().lower()
-            if crop_reason in {"frigate_box", "frigate_region", "frigate_snapshot_scaled_crop"}:
-                if supplied_source == "frigate_recording_snapshot":
-                    return "recording_snapshot_frigate_hint_crop", True
-                return "snapshot_frigate_hint_crop", True
-            return "snapshot_model_crop", True
-        if supplied_source:
-            return supplied_source, bool(input_context.is_cropped)
-        if bool(input_context.is_cropped):
-            return "provided_crop", True
-        return "full_frame", False
-
-    def _attach_classification_input_provenance(
-        self,
-        results: list[dict],
-        *,
-        input_context: ClassificationInputContext,
-        crop_diagnostics: dict[str, Any],
-    ) -> list[dict]:
-        has_explicit_source = bool(str(self._input_context_extra(input_context, "input_source") or "").strip())
-        if (
-            not has_explicit_source
-            and not bool(input_context.is_cropped)
-            and not bool(crop_diagnostics.get("crop_applied"))
-        ):
-            return results
-        input_source, input_is_cropped = self._resolved_classification_input_provenance(
-            input_context=input_context,
-            crop_diagnostics=crop_diagnostics,
-        )
-        for result in results:
-            if not isinstance(result, dict):
-                continue
-            result["input_source"] = input_source
-            result["input_is_cropped"] = input_is_cropped
-        return results
-
     def classify(
         self,
         image: Image.Image,
@@ -6061,7 +3873,7 @@ class ClassifierService:
         input_context: Any | None = None,
     ) -> list[dict]:
         """Classify an image using the bird model."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -6088,7 +3900,7 @@ class ClassifierService:
                     for result in results:
                         if isinstance(result, dict):
                             result["model_sha256"] = model_sha256
-                return self._attach_classification_input_provenance(
+                return attach_classification_input_provenance(
                     results,
                     input_context=normalized_input_context,
                     crop_diagnostics=crop_diagnostics,
@@ -6153,7 +3965,7 @@ class ClassifierService:
     ) -> list[dict]:
         if self._classifier_supervisor is None:
             raise RuntimeError("classifier supervisor is not configured")
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         # A lossless full frame (recording-frame identification and backfill send the
         # native picture) takes 0.3 to 1.4 s to encode; on the loop that stalled SSE,
         # MQTT and the API once per event.
@@ -6266,10 +4078,37 @@ class ClassifierService:
             ),
             "video": settings.classification.video_classification_timeout_seconds,
         }
+        budget = budgets[priority]
+        deadline = asyncio.get_running_loop().time() + budget
+        # Shared cleanup barrier: recovery loads a native model in a new
+        # process, so it must not start while a failed GPU child is still
+        # unreaped — whichever request path noticed the quarantine first.
+        # The wait shares this request's budget and fails closed on expiry.
+        supervisors = {
+            id(candidate): candidate
+            for candidate in (
+                getattr(self, "_classifier_supervisor", None),
+                getattr(self, "_video_supervisor", None),
+            )
+            if candidate is not None and hasattr(candidate, "wait_for_cleanup")
+        }
+        for supervisor in supervisors.values():
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                self._raise_native_quarantine_error(priority)
+            try:
+                waiting = supervisor.wait_for_cleanup(timeout_seconds=remaining)
+                if inspect.isawaitable(waiting):
+                    await waiting
+            except TimeoutError:
+                self._raise_native_quarantine_error(priority)
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining <= 0:
+            self._raise_native_quarantine_error(priority)
         try:
             return await recovery.run(
                 priority=priority,
-                timeout_seconds=budgets[priority],
+                timeout_seconds=remaining,
                 payload=payload,
                 progress_callback=progress_callback,
             )
@@ -6306,11 +4145,11 @@ class ClassifierService:
         quarantine = getattr(self, "_native_crash_quarantine", None)
         if quarantine is not None:
             try:
-                await asyncio.to_thread(quarantine.guard)
+                await asyncio.to_thread(quarantine.guard_in_process)
             except NativeCrashQuarantinedError:
                 if model_kind != "bird":
                     self._raise_native_quarantine_error(priority)
-                normalized = _normalize_classification_input_context(input_context)
+                normalized = normalize_classification_input_context(input_context)
                 return await self._run_native_cpu_recovery(
                     priority,
                     {
@@ -6711,7 +4550,7 @@ class ClassifierService:
         input_context: Any | None = None,
     ) -> list[dict]:
         """Async wrapper for classify to prevent blocking the event loop."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         try:
             base_results = await self._run_image_inference(
                 self.classify, image, camera_name, model_id, normalized_input_context
@@ -6754,7 +4593,7 @@ class ClassifierService:
         queue_timeout_seconds: float | None = None,
     ) -> list[dict]:
         """Live image-classification path with bounded admission and accurate in-flight tracking."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         base_results = await self._run_live_image_inference(
             self.classify,
             image,
@@ -6803,7 +4642,7 @@ class ClassifierService:
         Intended for backfill/batch-style work so live MQTT classification
         remains responsive under sustained load.
         """
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         context = self._classification_admission_context(model_id=model_id)
         if self._image_execution_mode == "subprocess":
             base_results = await self._run_coordinated_supervised_inference(
@@ -6876,7 +4715,7 @@ class ClassifierService:
                 image,
                 None,
                 None,
-                input_context=_normalize_classification_input_context(input_context),
+                input_context=normalize_classification_input_context(input_context),
                 model_kind="wildlife",
                 context=context,
             )
@@ -6960,7 +4799,7 @@ class ClassifierService:
         Returns:
             List of classifications with aggregated scores.
         """
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
@@ -6994,7 +4833,7 @@ class ClassifierService:
             candidate_counts: dict[str, int] = {}
 
             sample_count = min(max_frames, total_frames)
-            clip_variant = str(self._input_context_extra(normalized_input_context, "clip_variant") or "event")
+            clip_variant = str(input_context_extra(normalized_input_context, "clip_variant") or "event")
             frame_indices = _select_video_frame_indices(
                 total_frames=total_frames,
                 sample_count=sample_count,
@@ -7002,15 +4841,13 @@ class ClassifierService:
             )
 
             if bool(normalized_input_context.is_cropped):
-                supplied_source = str(
-                    self._input_context_extra(normalized_input_context, "input_source") or "provided_crop"
-                )
+                supplied_source = str(input_context_extra(normalized_input_context, "input_source") or "provided_crop")
                 expected_input_sources = [supplied_source]
             else:
                 expected_input_sources = ["full_frame"]
                 has_frigate_hint = any(
-                    isinstance(self._input_context_extra(normalized_input_context, key), (list, tuple))
-                    and len(self._input_context_extra(normalized_input_context, key)) == 4
+                    isinstance(input_context_extra(normalized_input_context, key), (list, tuple))
+                    and len(input_context_extra(normalized_input_context, key)) == 4
                     for key in ("frigate_box", "frigate_region")
                 )
                 if has_frigate_hint:
@@ -7023,7 +4860,7 @@ class ClassifierService:
             all_scores_by_input_source: dict[str, list[np.ndarray]] = {}
             all_offsets_by_input_source: dict[str, list[float | None]] = {}
             best_snapshot_evidence: dict[tuple[str, int], dict[str, Any]] = {}
-            scene_directory = self._input_context_extra(normalized_input_context, "_video_scene_directory")
+            scene_directory = input_context_extra(normalized_input_context, "_video_scene_directory")
             scene_cache = (
                 VideoSceneCache(clip_path=Path(video_path), clip_variant=clip_variant)
                 if isinstance(scene_directory, str)
@@ -7081,7 +4918,7 @@ class ClassifierService:
                 image = Image.fromarray(frame_rgb)
                 processed_frame_count += 1
 
-                frame_input_context = self._video_frame_input_context(
+                frame_input_context = video_frame_input_context(
                     normalized_input_context,
                     frame_offset_seconds=frame_offset_sec,
                     image_size=image.size,
@@ -7118,7 +4955,7 @@ class ClassifierService:
                     stage_started = time.perf_counter()
                     scores, active_bird_model = self._classify_raw_with_runtime_recovery(
                         candidate_image,
-                        input_context=_normalize_classification_input_context(candidate_context),
+                        input_context=normalize_classification_input_context(candidate_context),
                     )
                     stage_seconds["bird_inference"] += time.perf_counter() - stage_started
                     if active_bird_model is not None:
@@ -7247,7 +5084,7 @@ class ClassifierService:
                 SourceTemporalConsensus(input_source=input_source, consensus=assessment.consensus)
                 for input_source, assessment in source_assessments.items()
             ]
-            raw_target_labels = self._input_context_extra(normalized_input_context, "event_target_labels")
+            raw_target_labels = input_context_extra(normalized_input_context, "event_target_labels")
             target_labels = {
                 " ".join(normalize_classifier_label(str(label)).replace("_", " ").split()).casefold()
                 for label in (raw_target_labels if isinstance(raw_target_labels, list) else [])
@@ -7358,9 +5195,7 @@ class ClassifierService:
                 ),
                 "event_target_selected": event_target_selected,
                 "runtime": self.runtime_identity(),
-                "event_target_label_source": self._input_context_extra(
-                    normalized_input_context, "event_target_label_source"
-                )
+                "event_target_label_source": input_context_extra(normalized_input_context, "event_target_label_source")
                 or "unavailable",
                 "crop_detector_runtime": {
                     "active_providers": dict(crop_status.get("active_providers") or {}),
@@ -7381,7 +5216,7 @@ class ClassifierService:
                 runtime=diagnostic_payload["runtime"],
                 performance=diagnostic_payload["performance"],
             )
-            include_diagnostics = bool(self._input_context_extra(normalized_input_context, "include_video_diagnostics"))
+            include_diagnostics = bool(input_context_extra(normalized_input_context, "include_video_diagnostics"))
             if selected_source_consensus is None or selected_source_consensus.consensus is None:
                 log.info(
                     "Video classification abstained because inputs lacked consensus or disagreed",
@@ -7490,7 +5325,7 @@ class ClassifierService:
         diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
         scene_cache: VideoSceneCache | None = None,
     ) -> list[dict]:
-        context = dict(_normalize_classification_input_context(input_context).model_dump())
+        context = dict(normalize_classification_input_context(input_context).model_dump())
         # Only this request owner supplies an artifact directory. Public input
         # context must never choose a worker's output path.
         context.pop("_video_scene_directory", None)
@@ -7541,7 +5376,7 @@ class ClassifierService:
         diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
     ) -> list[dict]:
         """Async wrapper for video classification."""
-        normalized_input_context = _normalize_classification_input_context(input_context)
+        normalized_input_context = normalize_classification_input_context(input_context)
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 

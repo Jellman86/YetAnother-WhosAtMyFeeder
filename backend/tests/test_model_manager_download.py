@@ -116,8 +116,8 @@ async def test_reconcile_retired_selection_prefers_installed_convnext_large(tmp_
 
     saved: list[tuple[str, str]] = []
 
-    async def fake_save(_self):
-        saved.append((settings.classification.model, settings.classification.inference_provider))
+    async def fake_save(candidate):
+        saved.append((candidate.classification.model, candidate.classification.inference_provider))
 
     monkeypatch.setattr(type(settings), "save", fake_save)
     monkeypatch.setattr(
@@ -682,7 +682,7 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
     # ConvNeXt Large remains globally excluded from Intel GPU, but its NPU path
-    # is validated on Arrow Lake (see tests/test_model_openvino_npu.py).
+    # is validated on Arrow Lake (see tests/pure/test_model_openvino_npu.py).
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["label_grouping"] == {}
 
@@ -1024,6 +1024,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
     assert [model.id for model in models] == [
         "bird_crop_detector",
         "bird_crop_detector_accurate_yolox_tiny",
+        "bird_crop_detector_accurate_rfdetr_nano",
         "mobilenet_v2_birds",
         "flexivit_il_all",
         "small_birds",
@@ -1044,6 +1045,7 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
     assert [model.sort_order for model in models] == [
         5,
         6,
+        7,
         10,
         13,
         14,

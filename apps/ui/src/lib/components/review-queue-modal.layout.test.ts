@@ -148,7 +148,7 @@ describe('review queue walk-through', () => {
 
     it('says why the item needs a person in words, under one heading, with species as hairline rows', () => {
         const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>([\s\S]*?)<\/p>/)?.[1];
-        expect(reason).toContain('bg-amber-500');
+        expect(reason).toContain('bg-attention-500');
         expect(reason).toContain('dashboard.review_session.threshold_note');
         expect(reason).toContain('dashboard.review_session.new_species_note');
         expect(modalSource).not.toContain('dashboard.review_session.what_is_it');
@@ -158,7 +158,8 @@ describe('review queue walk-through', () => {
     });
 
     it('bands the score like every other surface and labels it for screen readers', () => {
-        expect(modalSource).toContain('{scoreTone(current.score ?? 0)}');
+        // Over the dark media surface, from the shared helper (utils/score-tone.ts).
+        expect(modalSource).toContain('{SCORE_TEXT_ON_MEDIA[scoreBand(current.score)]}');
         expect(modalSource).toContain("$_('detection.confidence', { default: 'Confidence' })");
         expect(modalSource).not.toContain('font-semibold text-accent-300');
     });
@@ -188,9 +189,10 @@ describe('review queue walk-through', () => {
     });
 
     it('flags the reason with the amber tint flagged rows use, not a nested card', () => {
+        // attention-* is the amber that means a person is needed, in every theme (layout-patterns §1.3).
         const reason = modalSource.match(/<p[^>]*data-review-reason[^>]*>/)?.[0] ?? '';
-        expect(reason).toContain('bg-amber-50');
-        expect(reason).toContain('dark:bg-amber-500/10');
+        expect(reason).toContain('bg-attention-50');
+        expect(reason).toContain('dark:bg-attention-500/10');
         expect(reason).not.toMatch(/\brounded|\bborder\b|\bshadow/);
     });
 

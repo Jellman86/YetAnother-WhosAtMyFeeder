@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import SecretInput from './_primitives/SecretInput.svelte';
-    import { AUTH_PASSWORD_REQUIREMENTS_MESSAGE } from '../../auth-password-policy';
+    import { AUTH_PASSWORD_REQUIREMENTS } from '../../auth-password-policy';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -246,7 +246,7 @@
         <SettingsRow
             labelId="setting-auth-password"
             label={$_('settings.auth.password')}
-            description={AUTH_PASSWORD_REQUIREMENTS_MESSAGE}
+            description={$_(AUTH_PASSWORD_REQUIREMENTS.key, { default: AUTH_PASSWORD_REQUIREMENTS.default })}
             layout="stacked"
         >
             <SecretInput
@@ -323,7 +323,7 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
@@ -358,7 +358,7 @@
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-bold uppercase tracking-widest"
+                                class="self-start px-3 py-1.5 rounded-xl bg-brand-700 text-white text-xs font-bold uppercase tracking-widest"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>

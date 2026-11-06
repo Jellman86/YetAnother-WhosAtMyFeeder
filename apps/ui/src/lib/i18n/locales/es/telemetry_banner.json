@@ -1,0 +1,9 @@
+{
+  "title": "¡Ayuda a mejorar YA-WAMF!",
+  "body": "Habilita estadísticas de uso anónimas para orientar prioridades de desarrollo y validar que este proyecto sirve a la comunidad de aficionados a las aves.",
+  "learn_more": "Más información",
+  "enabling": "Habilitando…",
+  "enable": "Habilitar",
+  "dismiss": "No, gracias",
+  "enable_error": "No se pudo habilitar la telemetría. Inténtalo de nuevo desde Configuración."
+}

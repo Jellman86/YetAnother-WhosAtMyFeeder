@@ -64,3 +64,27 @@ def test_building_the_projection_needs_no_database_or_request():
     projection = build_public_settings()
     assert isinstance(projection, PublicSettings)
     assert projection.model_dump().keys() == set(PUBLIC_SETTING_FIELDS)
+
+
+@pytest.mark.parametrize(
+    ("hq_snapshots", "clips", "recording_clips", "expected"),
+    [
+        (True, True, False, True),
+        (True, False, True, True),
+        (True, False, False, False),
+        (False, True, True, False),
+    ],
+)
+def test_bird_counting_is_public_so_the_day_bar_can_hold_its_figure_before_the_day_is_read(
+    monkeypatch, hq_snapshots, clips, recording_clips, expected
+):
+    """New captures are counted only when high-quality snapshots can be made from a clip. A
+    visitor's dashboard needs that to reserve the counted-birds figure while it loads, instead
+    of inserting it when the day's summary arrives and pushing the page down."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", hq_snapshots)
+    monkeypatch.setattr(settings.frigate, "clips_enabled", clips)
+    monkeypatch.setattr(settings.frigate, "recording_clip_enabled", recording_clips)
+
+    assert build_public_settings().bird_counting_enabled is expected

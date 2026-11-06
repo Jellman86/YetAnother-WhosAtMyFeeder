@@ -1,0 +1,755 @@
+import json
+
+import pytest
+
+import app.config as config_module
+from app.config import Settings
+from app.config_loader import CLASSIFICATION_ENV_OVERRIDES
+
+
+@pytest.mark.parametrize("value", [12, 45, 120])
+def test_recording_frame_delay_persists_and_environment_can_override(monkeypatch, tmp_path, value):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {"recording_frame_delay_seconds": 24}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__RECORDING_FRAME_DELAY_SECONDS", raising=False)
+    assert Settings.load().frigate.recording_frame_delay_seconds == 24
+    monkeypatch.setenv("FRIGATE__RECORDING_FRAME_DELAY_SECONDS", str(value))
+    assert Settings.load().frigate.recording_frame_delay_seconds == value
+
+
+def test_llm_model_default_matches_current_ui_default(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("LLM__MODEL", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.llm.model == "gemini-3.1-flash-lite"
+
+
+def test_classification_timeout_seconds_env_override(monkeypatch):
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS", "777")
+
+    loaded = Settings.load()
+
+    assert loaded.classification.video_classification_timeout_seconds == 777
+
+
+def test_classification_stale_minutes_env_override(monkeypatch):
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "61")
+
+    loaded = Settings.load()
+
+    assert loaded.classification.video_classification_stale_minutes == 61
+
+
+def test_classification_image_execution_mode_defaults_to_subprocess(monkeypatch, tmp_path):
+    """Inference does not share a process with the web service by default (#312)."""
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("CLASSIFICATION__IMAGE_EXECUTION_MODE", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.classification.image_execution_mode == "subprocess"
+
+
+def test_notification_cooldown_env_override(monkeypatch):
+    monkeypatch.setenv("NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES", "13")
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.notification_cooldown_minutes == 13
+
+
+def test_notification_species_mode_defaults_to_none(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "none"
+
+
+def test_notification_species_mode_infers_legacy_blacklist(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "notifications": {
+                    "filters": {
+                        "species_blacklist_structured": [
+                            {
+                                "common_name": "House Sparrow",
+                                "scientific_name": "Passer domesticus",
+                                "taxa_id": 123,
+                            }
+                        ]
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "blacklist"
+
+
+def test_notification_species_mode_infers_legacy_whitelist(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"notifications": {"filters": {"species_whitelist": ["Robin"]}}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "whitelist"
+
+
+def test_notification_species_mode_explicit_none_wins_over_stale_lists(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "notifications": {
+                    "filters": {
+                        "species_mode": "none",
+                        "species_whitelist": ["Robin"],
+                        "species_blacklist_structured": [
+                            {
+                                "common_name": "House Sparrow",
+                                "scientific_name": "Passer domesticus",
+                                "taxa_id": 123,
+                            }
+                        ],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.filters.species_mode == "none"
+
+
+def test_maintenance_max_concurrent_env_override(monkeypatch):
+    monkeypatch.setenv("MAINTENANCE__MAX_CONCURRENT", "3")
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.max_concurrent == 3
+
+
+def test_maintenance_missing_behavior_defaults_to_mark_missing(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MAINTENANCE__FRIGATE_MISSING_BEHAVIOR", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.frigate_missing_behavior == "mark_missing"
+    assert loaded.maintenance.auto_purge_missing_clips is False
+    assert loaded.maintenance.auto_purge_missing_snapshots is False
+
+
+def test_maintenance_legacy_auto_delete_missing_clips_migrates_to_delete(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"maintenance": {"auto_delete_missing_clips": True}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MAINTENANCE__FRIGATE_MISSING_BEHAVIOR", raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.maintenance.frigate_missing_behavior == "delete"
+
+
+def test_classification_env_overrides_file_values(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "classification": {
+                    "video_classification_timeout_seconds": 180,
+                    "video_classification_stale_minutes": 15,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS", "777")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "61")
+
+    loaded = Settings.load()
+
+    assert loaded.classification.video_classification_timeout_seconds == 777
+    assert loaded.classification.video_classification_stale_minutes == 61
+
+
+CLASSIFICATION_ENV_PRECEDENCE_CASES = [
+    ("write_frigate_sublabel", "CLASSIFICATION__WRITE_FRIGATE_SUBLABEL", "false", True, False),
+    ("personalized_rerank_enabled", "CLASSIFICATION__PERSONALIZED_RERANK_ENABLED", "true", False, True),
+    ("auto_video_classification", "CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION", "true", False, True),
+    ("video_classification_delay", "CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY", "42", 30, 42),
+    ("video_classification_max_retries", "CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES", "9", 3, 9),
+    ("video_classification_retry_interval", "CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL", "21", 15, 21),
+    ("video_classification_max_concurrent", "CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT", "7", 1, 7),
+    ("video_classification_failure_threshold", "CLASSIFICATION__VIDEO_FAILURE_THRESHOLD", "11", 5, 11),
+    (
+        "video_classification_failure_window_minutes",
+        "CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES",
+        "22",
+        10,
+        22,
+    ),
+    (
+        "video_classification_failure_cooldown_minutes",
+        "CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES",
+        "33",
+        15,
+        33,
+    ),
+    (
+        "video_classification_timeout_seconds",
+        "CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS",
+        "777",
+        180,
+        777,
+    ),
+    ("video_classification_stale_minutes", "CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "61", 15, 61),
+    ("video_classification_frames", "CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "25", 15, 25),
+    ("strict_non_finite_output", "CLASSIFICATION__STRICT_NON_FINITE_OUTPUT", "false", True, False),
+    ("strict_non_finite_output", "CLASSIFIER_STRICT_NON_FINITE_OUTPUT", "false", True, False),
+    ("inference_provider", "CLASSIFICATION__INFERENCE_PROVIDER", "intel_cpu", "cpu", "intel_cpu"),
+    ("inference_provider", "CLASSIFICATION__USE_CUDA", "true", "cpu", "cuda"),
+    ("image_execution_mode", "CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess", "in_process", "subprocess"),
+    ("live_worker_count", "CLASSIFICATION__LIVE_WORKER_COUNT", "4", 2, 4),
+    ("background_worker_count", "CLASSIFICATION__BACKGROUND_WORKER_COUNT", "3", 1, 3),
+    (
+        "worker_heartbeat_timeout_seconds",
+        "CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS",
+        "7.5",
+        5.0,
+        7.5,
+    ),
+    (
+        "video_worker_heartbeat_timeout_seconds",
+        "CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS",
+        "45",
+        30.0,
+        45.0,
+    ),
+    (
+        "worker_hard_deadline_seconds",
+        "CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS",
+        "42.5",
+        35.0,
+        42.5,
+    ),
+    (
+        "background_worker_hard_deadline_seconds",
+        "CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS",
+        "140.0",
+        120.0,
+        140.0,
+    ),
+    (
+        "worker_ready_timeout_seconds",
+        "CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS",
+        "22.5",
+        # Startup runs hardware probes and, on an accelerator, a model compile
+        # that can take tens of seconds; with subprocess the default mode, a
+        # 20s budget flapped worker startup on exactly that hardware (#312).
+        60.0,
+        22.5,
+    ),
+    (
+        "worker_restart_window_seconds",
+        "CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS",
+        "120.0",
+        60.0,
+        120.0,
+    ),
+    ("worker_restart_threshold", "CLASSIFICATION__WORKER_RESTART_THRESHOLD", "6", 3, 6),
+    (
+        "worker_breaker_cooldown_seconds",
+        "CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS",
+        "90.0",
+        60.0,
+        90.0,
+    ),
+    ("live_event_stale_drop_seconds", "CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS", "45.0", 30.0, 45.0),
+    (
+        "live_event_coalescing_enabled",
+        "CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED",
+        "false",
+        True,
+        False,
+    ),
+    (
+        "ai_pricing_json",
+        "CLASSIFICATION__AI_PRICING_JSON",
+        '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]',
+        "[]",
+        '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]',
+    ),
+    ("max_classification_results", "CLASSIFICATION__MAX_CLASSIFICATION_RESULTS", "9", 5, 9),
+]
+
+
+@pytest.mark.parametrize(
+    "classification_key, env_key, env_value, file_value, expected_value",
+    CLASSIFICATION_ENV_PRECEDENCE_CASES,
+    ids=[case[1] for case in CLASSIFICATION_ENV_PRECEDENCE_CASES],
+)
+def test_classification_env_override_matrix(
+    monkeypatch, tmp_path, classification_key, env_key, env_value, file_value, expected_value
+):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"classification": {classification_key: file_value}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv(env_key, env_value)
+
+    loaded = Settings.load()
+
+    assert getattr(loaded.classification, classification_key) == expected_value
+
+
+def test_classification_override_matrix_covers_all_mapped_env_keys():
+    covered_env_keys = {case[1] for case in CLASSIFICATION_ENV_PRECEDENCE_CASES}
+    mapped_env_keys = {env_key for env_keys in CLASSIFICATION_ENV_OVERRIDES.values() for env_key in env_keys}
+    assert covered_env_keys == mapped_env_keys
+
+
+def test_classification_startup_load_env_precedence_with_full_file_payload(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "classification": {
+                    "write_frigate_sublabel": True,
+                    "personalized_rerank_enabled": False,
+                    "auto_video_classification": False,
+                    "video_classification_delay": 30,
+                    "video_classification_max_retries": 3,
+                    "video_classification_retry_interval": 15,
+                    "video_classification_max_concurrent": 1,
+                    "video_classification_failure_threshold": 5,
+                    "video_classification_failure_window_minutes": 10,
+                    "video_classification_failure_cooldown_minutes": 15,
+                    "video_classification_timeout_seconds": 180,
+                    "video_classification_stale_minutes": 15,
+                    "video_classification_frames": 15,
+                    "strict_non_finite_output": True,
+                    "inference_provider": "cpu",
+                    "image_execution_mode": "in_process",
+                    "live_worker_count": 2,
+                    "background_worker_count": 1,
+                    "worker_heartbeat_timeout_seconds": 5.0,
+                    "video_worker_heartbeat_timeout_seconds": 30.0,
+                    "worker_hard_deadline_seconds": 35.0,
+                    "background_worker_hard_deadline_seconds": 120.0,
+                    "worker_ready_timeout_seconds": 20.0,
+                    "worker_restart_window_seconds": 60.0,
+                    "worker_restart_threshold": 3,
+                    "worker_breaker_cooldown_seconds": 60.0,
+                    "live_event_stale_drop_seconds": 30.0,
+                    "live_event_coalescing_enabled": True,
+                    "ai_pricing_json": "[]",
+                    "max_classification_results": 5,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    monkeypatch.setenv("CLASSIFICATION__WRITE_FRIGATE_SUBLABEL", "false")
+    monkeypatch.setenv("CLASSIFICATION__PERSONALIZED_RERANK_ENABLED", "true")
+    monkeypatch.setenv("CLASSIFICATION__AUTO_VIDEO_CLASSIFICATION", "true")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_DELAY", "44")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES", "8")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL", "22")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT", "9")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_FAILURE_THRESHOLD", "12")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES", "27")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES", "33")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS", "321")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES", "66")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES", "31")
+    monkeypatch.setenv("CLASSIFICATION__STRICT_NON_FINITE_OUTPUT", "false")
+    monkeypatch.setenv("CLASSIFICATION__INFERENCE_PROVIDER", "intel_gpu")
+    monkeypatch.setenv("CLASSIFICATION__USE_CUDA", "false")
+    monkeypatch.setenv("CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_WORKER_COUNT", "4")
+    monkeypatch.setenv("CLASSIFICATION__BACKGROUND_WORKER_COUNT", "2")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS", "7.5")
+    monkeypatch.setenv("CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS", "45")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", "42.5")
+    monkeypatch.setenv("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS", "140.0")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "22.5")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS", "120.0")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_RESTART_THRESHOLD", "6")
+    monkeypatch.setenv("CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS", "90.0")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS", "45.0")
+    monkeypatch.setenv("CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED", "false")
+    monkeypatch.setenv(
+        "CLASSIFICATION__AI_PRICING_JSON",
+        '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]',
+    )
+    monkeypatch.setenv("CLASSIFICATION__MAX_CLASSIFICATION_RESULTS", "11")
+
+    loaded = Settings.load()
+
+    assert loaded.classification.write_frigate_sublabel is False
+    assert loaded.classification.personalized_rerank_enabled is True
+    assert loaded.classification.auto_video_classification is True
+    assert loaded.classification.video_classification_delay == 44
+    assert loaded.classification.video_classification_max_retries == 8
+    assert loaded.classification.video_classification_retry_interval == 22
+    assert loaded.classification.video_classification_max_concurrent == 9
+    assert loaded.classification.video_classification_failure_threshold == 12
+    assert loaded.classification.video_classification_failure_window_minutes == 27
+    assert loaded.classification.video_classification_failure_cooldown_minutes == 33
+    assert loaded.classification.video_classification_timeout_seconds == 321
+    assert loaded.classification.video_classification_stale_minutes == 66
+    assert loaded.classification.video_classification_frames == 31
+    assert loaded.classification.strict_non_finite_output is False
+    assert loaded.classification.inference_provider == "intel_gpu"
+    assert loaded.classification.image_execution_mode == "subprocess"
+    assert loaded.classification.live_worker_count == 4
+    assert loaded.classification.background_worker_count == 2
+    assert loaded.classification.worker_heartbeat_timeout_seconds == 7.5
+    assert loaded.classification.video_worker_heartbeat_timeout_seconds == 45.0
+    assert loaded.classification.worker_hard_deadline_seconds == 42.5
+    assert loaded.classification.background_worker_hard_deadline_seconds == 140.0
+    assert loaded.classification.worker_ready_timeout_seconds == 22.5
+    assert loaded.classification.worker_restart_window_seconds == 120.0
+    assert loaded.classification.worker_restart_threshold == 6
+    assert loaded.classification.worker_breaker_cooldown_seconds == 90.0
+    assert loaded.classification.live_event_stale_drop_seconds == 45.0
+    assert loaded.classification.live_event_coalescing_enabled is False
+    assert loaded.classification.ai_pricing_json == '[{"provider":"openai","model":"gpt-test","input_per_1k":0.001}]'
+    assert loaded.classification.max_classification_results == 11
+
+
+def test_legacy_location_temperature_unit_migrates_to_weather_unit_system(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "frigate": {"frigate_url": "http://frigate:5000"},
+                "location": {"temperature_unit": "fahrenheit"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+
+    loaded = Settings.load()
+
+    assert loaded.location.weather_unit_system == "imperial"
+    assert loaded.location.temperature_unit == "fahrenheit"
+
+
+def test_media_cache_high_quality_event_snapshots_env_override(monkeypatch):
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshots is True
+
+
+def test_media_cache_high_quality_event_snapshots_env_overrides_file_value(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_cache": {
+                    "high_quality_event_snapshots": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOTS", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshots is True
+
+
+def test_media_cache_high_quality_event_snapshot_bird_crop_env_override(monkeypatch):
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_bird_crop is True
+
+
+def test_media_cache_high_quality_event_snapshot_bird_crop_env_overrides_file_value(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_cache": {
+                    "high_quality_event_snapshot_bird_crop": False,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_BIRD_CROP", "true")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_bird_crop is True
+
+
+def test_media_cache_high_quality_event_snapshot_jpeg_quality_env_override(monkeypatch):
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "82")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_jpeg_quality == 82
+
+
+def test_media_cache_high_quality_event_snapshot_jpeg_quality_env_overrides_file_value(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "media_cache": {
+                    "high_quality_event_snapshot_jpeg_quality": 95,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "81")
+
+    loaded = Settings.load()
+
+    assert loaded.media_cache.high_quality_event_snapshot_jpeg_quality == 81
+
+
+def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
+    """Configuration the owner saved must come back when the process does.
+
+    The loader builds each section explicitly, and a section it never passes
+    silently takes model defaults - so the stored block was read and thrown
+    away, the settings page showed blank after a restart, and the next save
+    wrote the defaults over the owner's configuration for good.
+    """
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "ha_weather": {
+                    "enabled": True,
+                    "base_url": "https://homeassistant.example.com",
+                    "access_token": "stored-token",
+                    "weather_entity": "weather.forecast_home",
+                    "temperature_entity": "sensor.feeder_temp",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    for name in ("HA_WEATHER__ENABLED", "HA_WEATHER__BASE_URL", "HA_WEATHER__ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.ha_weather.enabled is True
+    assert loaded.ha_weather.base_url == "https://homeassistant.example.com"
+    assert loaded.ha_weather.access_token == "stored-token"
+    assert loaded.ha_weather.weather_entity == "weather.forecast_home"
+    assert loaded.ha_weather.temperature_entity == "sensor.feeder_temp"
+
+
+def test_home_assistant_weather_env_overrides_the_file(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"ha_weather": {"enabled": False, "base_url": "https://from-file.example.com"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("HA_WEATHER__ENABLED", "true")
+    monkeypatch.setenv("HA_WEATHER__BASE_URL", "https://from-env.example.com")
+
+    loaded = Settings.load()
+
+    assert loaded.ha_weather.enabled is True
+    assert loaded.ha_weather.base_url == "https://from-env.example.com"
+
+
+def test_notification_instance_url_env_override(monkeypatch):
+    monkeypatch.setenv("NOTIFICATIONS__INSTANCE_URL", "https://feeder.example.com")
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.instance_url == "https://feeder.example.com"
+
+
+def test_notification_link_target_env_override(monkeypatch):
+    monkeypatch.setenv("NOTIFICATIONS__LINK_TARGET", "frigate")
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.link_target == "frigate"
+
+
+@pytest.mark.parametrize(
+    "field,value,expected",
+    [("PER_SPECIES_MAXIMUM", "10", 10), ("MAX_SIZE_MB", "1024", 1024), ("BIRD_SCAN_MODE", "standard", "standard")],
+)
+def test_media_limit_and_scan_environment_settings_override_saved_values(monkeypatch, tmp_path, field, value, expected):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"media_cache": {"per_species_maximum": 1, "max_size_mb": 1, "bird_scan_mode": "intensive"}})
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv(f"MEDIA_CACHE__{field}", value)
+    loaded = Settings.load()
+    assert getattr(loaded.media_cache, field.lower()) == expected
+
+
+@pytest.mark.parametrize("environment_value,expected", [(None, True), ("false", False), ("true", True)])
+def test_automatic_multi_bird_scan_saved_value_and_environment_precedence(
+    monkeypatch, tmp_path, environment_value, expected
+):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"media_cache": {"automatic_multi_bird_scan": True}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", raising=False)
+    if environment_value is not None:
+        monkeypatch.setenv("MEDIA_CACHE__AUTOMATIC_MULTI_BIRD_SCAN", environment_value)
+    assert Settings.load().media_cache.automatic_multi_bird_scan is expected
+
+
+def test_garden_animal_confidence_env_overrides_file_without_changing_bird_settings(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {"garden_motion_confidence": 0.55}, "classification": {"threshold": 0.73}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.setenv("FRIGATE__GARDEN_MOTION_CONFIDENCE", "0.6")
+    loaded = Settings.load()
+    assert loaded.frigate.garden_motion_confidence == 0.6
+    assert loaded.classification.threshold == 0.73
+
+
+def test_garden_naming_defaults_on_at_080_and_env_overrides_file(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__GARDEN_AUTOMATIC_NAMING", raising=False)
+    monkeypatch.delenv("FRIGATE__GARDEN_NAMING_THRESHOLD", raising=False)
+    loaded = Settings.load()
+    assert loaded.frigate.garden_automatic_naming is True
+    assert loaded.frigate.garden_naming_threshold == 0.8
+    path.write_text(json.dumps({"frigate": {"garden_automatic_naming": True, "garden_naming_threshold": 0.85}}))
+    monkeypatch.setenv("FRIGATE__GARDEN_AUTOMATIC_NAMING", "false")
+    monkeypatch.setenv("FRIGATE__GARDEN_NAMING_THRESHOLD", "0.9")
+    loaded = Settings.load()
+    assert loaded.frigate.garden_automatic_naming is False
+    assert loaded.frigate.garden_naming_threshold == 0.9
+
+
+def test_domestic_birds_default_to_none_and_env_overrides_file(monkeypatch, tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"frigate": {}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", path)
+    monkeypatch.delenv("FRIGATE__GARDEN_DOMESTIC_BIRDS", raising=False)
+    assert Settings.load().frigate.garden_domestic_birds == []
+    path.write_text(json.dumps({"frigate": {"garden_domestic_birds": ["chicken", "quail"]}}))
+    assert Settings.load().frigate.garden_domestic_birds == ["chicken", "quail"]
+    monkeypatch.setenv("FRIGATE__GARDEN_DOMESTIC_BIRDS", '["domestic_goose"]')
+    assert Settings.load().frigate.garden_domestic_birds == ["domestic_goose"]
+
+
+def test_garden_notification_file_settings_respect_environment_without_inheriting_bird_switches(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "frigate": {"garden_notifications_enabled": True, "garden_notification_channels": ["telegram"]},
+                "notifications": {"telegram": {"enabled": False}},
+            }
+        )
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", raising=False)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", raising=False)
+    loaded = Settings.load()
+    assert loaded.frigate.garden_notifications_enabled
+    assert loaded.frigate.garden_notification_channels == ["telegram"]
+    assert not loaded.notifications.telegram.enabled
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_ENABLED", "false")
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", '["discord", "email"]')
+    loaded = Settings.load()
+    assert not loaded.frigate.garden_notifications_enabled
+    assert loaded.frigate.garden_notification_channels == ["discord", "email"]
+
+
+@pytest.mark.parametrize(
+    "saved,env,follows_birds",
+    [
+        ({"garden_notifications_enabled": True}, None, True),
+        ({"garden_notifications_enabled": True, "garden_notification_channels": ["telegram"]}, None, False),
+        (
+            {"garden_notification_channels": ["telegram"], "garden_notifications_use_bird_channels": True},
+            None,
+            True,
+        ),
+        ({"garden_notification_channels": ["telegram"]}, "true", True),
+        ({}, "false", False),
+    ],
+)
+def test_garden_channel_mode_derives_from_saved_channels_unless_saved_or_set(
+    monkeypatch, tmp_path, saved, env, follows_birds
+):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"frigate": saved}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATION_CHANNELS", raising=False)
+    if env is None:
+        monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS", raising=False)
+    else:
+        monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS", env)
+    assert Settings.load().frigate.garden_notifications_use_bird_channels is follows_birds
+
+
+def test_garden_alert_photo_defaults_on_and_follows_file_then_environment(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(json.dumps({"frigate": {"garden_notifications_include_photo": False}}))
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", raising=False)
+    assert Settings.load().frigate.garden_notifications_include_photo is False
+    monkeypatch.setenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO", "true")
+    assert Settings.load().frigate.garden_notifications_include_photo is True
+    config_path.write_text(json.dumps({}))
+    monkeypatch.delenv("FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO")
+    assert Settings.load().frigate.garden_notifications_include_photo is True

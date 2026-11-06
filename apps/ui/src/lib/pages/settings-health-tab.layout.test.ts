@@ -5,14 +5,18 @@ import tabsSource from '../components/settings/SettingsTabs.svelte?raw';
 import panelSource from '../components/settings/SystemHealthPanel.svelte?raw';
 import errorsSource from './Errors.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enSettings from '../i18n/locales/en/settings.json';
+import enStatus from '../i18n/locales/en/status.json';
+import { canonicalSettingsPath, settingsTabFromRoute } from '../settings/settings-route';
+
+const en = { settings: enSettings, status: enStatus };
 
 describe('settings health tab', () => {
     it('exposes diagnostics as a Health settings tab instead of a separate errors page', () => {
-        expect(settingsSource).toContain("export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health'");
+        expect(settingsTabFromRoute('/settings/health')).toBe('health');
+        expect(canonicalSettingsPath('/settings/health', '')).toBeNull();
         expect(tabsSource).toContain('settings.tabs.health');
         expect(settingsSource).toContain("activeTab === 'health'");
-        expect(settingsSource).toContain('<Errors {onNavigate} />');
         expect(appSource).toContain("path === '/settings/errors'");
         expect(appSource).not.toContain("currentRoute.startsWith('/settings/errors')");
     });

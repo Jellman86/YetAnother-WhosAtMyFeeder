@@ -1,0 +1,22 @@
+{
+  "dashboard": "Dashboard",
+  "explorer": "Explorer",
+  "add_observation": "Add observation",
+  "leaderboard": "Leaderboard",
+  "observe": "Observe",
+  "manage": "Manage",
+  "audio_history": "Audio History",
+  "jobs": "Jobs",
+  "settings": "Settings",
+  "setup_wizard": "Setup wizard",
+  "about": "About",
+  "toggle_menu": "Toggle menu",
+  "close_menu": "Close menu",
+  "collapse_sidebar": "Collapse sidebar",
+  "expand_sidebar": "Expand sidebar",
+  "close_language_selector": "Close language selector",
+  "events": "Events",
+  "notifications": "Notifications",
+  "species": "Species",
+  "navigation": "Primary navigation"
+}

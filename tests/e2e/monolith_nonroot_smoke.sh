@@ -11,6 +11,7 @@ docker run -d --name "$CID" \
   --user 568:568 \
   -p 19854:8080 \
   -e DB_PATH=/tmp/speciesid.db \
+  -e SPECIES_CATALOG_PATH=/tmp/data/species_catalog.db \
   -e CONFIG_DIR=/tmp/config \
   -e CONFIG_FILE=/tmp/config/config.json \
   -e DATA_DIR=/tmp/data \
@@ -40,6 +41,7 @@ docker inspect "$CID" --format '{{range (index .NetworkSettings.Ports "8080/tcp"
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/ >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/health >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/ready >/dev/null
+docker exec "$CID" python -c 'import asyncio; from app.services.garden_identification import garden_identification_service; assert asyncio.run(garden_identification_service.status()).catalogue_ready'
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/api/version >/dev/null
 docker exec "$CID" python -c 'from pathlib import Path; Path("/tmp/manual-upload-smoke.jpg").write_bytes(b"x" * (2 * 1024 * 1024))'
 upload_status="$(

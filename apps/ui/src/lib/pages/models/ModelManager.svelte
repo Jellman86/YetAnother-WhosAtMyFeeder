@@ -1,6 +1,7 @@
 <script lang="ts">
+    import ModelExecutionEvidence from '../../components/ModelExecutionEvidence.svelte';
     import { get } from 'svelte/store';
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
@@ -9,17 +10,25 @@
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import { usesSavedFeederLocation } from './model_location_input';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
+    import { BIRD_FINDER_MODEL_IDS, birdFinderDevice, birdFinderDeviceNote, type BirdFinder, type BirdFinderProvider } from '../../settings/bird-finder';
     import { toAppPath } from '../../app/url-base';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     // The live runtime is owned by the Settings page, so the band, the runtime
     // report and this card always show the same, freshest provider.
-    let { executionMode = 'subprocess', autoVideoEnabled = false, classifierStatus, onruntimechange, onopenlocationsettings }: {
+    let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), birdFinderProvider = $bindable<BirdFinderProvider>('auto'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
+        /** The finder staged in the settings form; it is saved by Apply Settings with everything else. */
+        birdFinder?: BirdFinder;
+        birdFinderProvider?: BirdFinderProvider;
         classifierStatus: ClassifierStatus | null;
+        /** A device check owned by the Settings page is running, so another cannot start. */
+        deviceCheckRunning?: boolean;
         onruntimechange?: () => Promise<unknown>;
         onopenlocationsettings?: () => void;
+        /** Runs the shared device check for one finder and settles when it finishes. */
+        oncheckfinderdevices?: (modelId: string) => Promise<void>;
     } = $props();
 
     // Switching tabs in place keeps unsaved settings edits; a full page load
@@ -58,6 +67,34 @@
     let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
+    // What the running service has saved, as opposed to the form's staged choice.
+    const savedBirdFinder = $derived<BirdFinder | null>(
+        cropDetectorStatus
+            ? (cropDetectorStatus.chosen_model_id === BIRD_FINDER_MODEL_IDS.rfdetr_nano ? 'rfdetr_nano' : 'yolox_tiny')
+            : null
+    );
+    const hostProviders = $derived(classifierStatus?.host_available_providers ?? classifierStatus?.available_providers ?? []);
+
+    function deviceList(providers: string[]): string {
+        const names = providers.map(providerLabel);
+        try {
+            return new Intl.ListFormat(get(locale) ?? 'en', { style: 'long', type: 'conjunction' }).format(names);
+        } catch {
+            return names.join(', ');
+        }
+    }
+
+    // The check writes new device evidence, so the finder cards must re-read it.
+    async function checkFinderDevices(modelId: string): Promise<void> {
+        if (!oncheckfinderdevices) return;
+        await oncheckfinderdevices(modelId);
+        try {
+            installedModels = await fetchInstalledModels();
+        } catch {
+            /* the next load shows the result */
+        }
+    }
+
     // Until a worker reports what it loaded, the provider is the plan, not a fact.
     const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
 
@@ -631,20 +668,23 @@
         {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
         {@const maxLineupRam = lineupMaxRam(classifierModels)}
-        {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
-            || cropDetectorModels[0]}
-        {@const selectedCropDetectorInstalled = selectedCropDetector ? isCropDetectorInstalled(selectedCropDetector.id) : false}
-        {@const selectedCropDetectorDownload = selectedCropDetector ? downloadStatuses[selectedCropDetector.id] : undefined}
-        {@const selectedCropDetectorRuntime = selectedCropDetector && cropDetectorStatus?.model_id === selectedCropDetector.id
-            ? cropDetectorStatus
-            : null}
+        {@const birdFinderOptions = (['yolox_tiny', 'rfdetr_nano'] as const)
+            .map((choice) => ({ choice, model: cropDetectorModels.find((model) => model.id === BIRD_FINDER_MODEL_IDS[choice]) }))
+            .filter((option): option is { choice: BirdFinder; model: ModelMetadata } => Boolean(option.model))}
+        {@const chosenFinder = birdFinderOptions.find((option) => option.choice === birdFinder)}
+        {@const chosenFinderDownload = chosenFinder ? downloadStatuses[chosenFinder.model.id] : undefined}
 
         <div class="space-y-6">
             <div>
-                        <div class="flex items-center justify-between gap-3">
-                            <p id="classifier-model-lineup-label" class="block text-base font-bold text-slate-900 dark:text-white">
-                                {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
-                            </p>
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div class="min-w-0 flex-1 basis-64">
+                                <h4 id="classifier-model-lineup-label" class="text-base font-bold text-slate-900 dark:text-white">
+                                    {$_('settings.detection.identification_title', { default: 'Identification model' })}
+                                </h4>
+                                <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {$_('settings.detection.identification_desc', { default: 'Names the species in each bird image. Larger models need more memory for every worker copy and take longer per image. Coverage differs: some know birds only, others birds and other wildlife.' })}
+                                </p>
+                            </div>
                             <button
                                 type="button"
                                 onclick={refreshModels}
@@ -673,11 +713,12 @@
                                                 onclick={() => (selectedModelId = modelOption.id)}
                                                 class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
-                                                <span class="relative flex items-start justify-between gap-2">
-                                                    <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
+                                                <span class="relative flex flex-wrap items-start justify-between gap-2">
+                                                    <span class="min-w-0 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
                                                 </span>
                                                 <span class="relative mt-auto flex flex-col gap-1.5">
+                                                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{scopeLabel(modelOption.taxonomy_scope)}</span>
                                                     <span class="flex items-baseline justify-between gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
                                                         <span>{t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })}</span>
                                                         {#if modelOption.estimated_ram_mb != null}
@@ -719,6 +760,11 @@
                             ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
                             : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
                     </button>
+                    {#if !showAdvancedModels}
+                        <p class="mt-2 px-1 text-sm text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
+                        </p>
+                    {/if}
                 {/if}
             </div>
 
@@ -1023,65 +1069,161 @@
                 {/if}
             {/if}
 
-            {#if selectedCropDetector}
-                <details class="group border-t border-slate-200 dark:border-slate-700">
-                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
-                        <span>{$_('settings.detection.model_manager_thumbnail_crop_title', { default: 'Cropped thumbnails' })}</span>
-                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
-                        </svg>
-                    </summary>
-                    <div class="space-y-5 py-4">
-                        <div class="grid gap-4">
-                            <div>
-                                <p class="text-sm font-bold text-slate-900 dark:text-white">
-                                    {$_('settings.detection.model_manager_thumbnail_crop_quality', { default: 'Automatic best quality' })}
-                                </p>
-                                <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                                    {$_('settings.detection.model_manager_thumbnail_crop_desc', { default: 'YA-WAMF evaluates the accurate detector, fast fallback, and Frigate tracking hints automatically; the clear full frame is used only if none yields a reliable crop.' })}
-                                </p>
-                            </div>
+            {#if birdFinderOptions.length > 0}
+                <section class="border-t border-slate-200 pt-6 dark:border-slate-700">
+                    <fieldset class="min-w-0 space-y-3" aria-describedby="bird-finder-desc">
+                        <legend class="text-base font-bold text-slate-900 dark:text-white">
+                            {$_('settings.detection.bird_finder_title', { default: 'Bird finder' })}
+                        </legend>
+                        <p id="bird-finder-desc" class="max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            {$_('settings.detection.bird_finder_role', { default: 'Locates each bird in the camera frame so YA-WAMF can crop and count it. It does not name the species.' })}
+                        </p>
+                        <div class="grid grid-cols-1 gap-3 *:min-w-0 sm:grid-cols-2">
+                            {#each birdFinderOptions as option (option.choice)}
+                                {@const optionInstalled = isCropDetectorInstalled(option.model.id)}
+                                {@const device = birdFinderDevice(getInstalledModel(option.model.id), hostProviders, option.model)}
+                                {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
+                                {@const devices = deviceList(device.accelerators)}
+                                {@const optionChosen = birdFinder === option.choice}
+                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500 {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
+                                    <input
+                                        type="radio"
+                                        name="bird-finder"
+                                        class="mt-1 h-4 w-4 shrink-0 accent-brand-600"
+                                        value={option.choice}
+                                        checked={optionChosen}
+                                        onchange={() => (birdFinder = option.choice)}
+                                    />
+                                    <span class="min-w-0 flex-1 space-y-1.5 break-words">
+                                        <span class="flex flex-wrap items-center gap-2">
+                                            <span class="font-semibold text-slate-900 dark:text-white">
+                                                {option.choice === 'rfdetr_nano'
+                                                    ? $_('settings.detection.bird_finder_wide', { default: 'Wide frame (RF-DETR Nano)' })
+                                                    : $_('settings.detection.bird_finder_standard', { default: 'Standard (YOLOX-Tiny)' })}
+                                            </span>
+                                            <span class="rounded-full border border-slate-300/70 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                                                {option.choice === 'rfdetr_nano'
+                                                    ? $_('settings.detection.bird_finder_optional_badge', { default: 'Optional' })
+                                                    : $_('settings.detection.bird_finder_default_badge', { default: 'Default' })}
+                                            </span>
+                                        </span>
+                                        <span class="block leading-relaxed text-slate-600 dark:text-slate-300">
+                                            {option.choice === 'rfdetr_nano'
+                                                ? $_('settings.detection.bird_finder_wide_desc', { default: 'Reads the whole frame and four overlapping tiles, so it finds far more small and distant birds. A 103 MB download, and each frame takes longer.' })
+                                                : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
+                                        </span>
+                                        <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {t('settings.detection.model_manager_card_download', '{size} MB download', { size: option.model.file_size_mb })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}
+                                        </span>
+                                        <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                                            {#if !optionInstalled}
+                                                {$_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                                            {:else if deviceNote === 'checked'}
+                                                {t('settings.detection.bird_finder_recommended_checked', 'Recommended: {provider}. Passed the device check on this host.', { provider: providerLabel(device.provider) })}
+                                            {:else if deviceNote === 'cpu_only'}
+                                                {$_('settings.detection.bird_finder_recommended_cpu_only', { default: 'CPU is the available recommendation. This host offers no compatible accelerator.' })}
+                                            {:else if deviceNote === 'check_running'}
+                                                {t('settings.detection.bird_finder_recommended_running', 'Device check running for {devices}. CPU remains available while the check runs.', { devices })}
+                                            {:else if deviceNote === 'check_failed'}
+                                                {t('settings.detection.bird_finder_recommended_failed', '{devices} did not match the CPU on recent bird photos. CPU remains available.', { devices })}
+                                            {:else if deviceNote === 'check_waiting'}
+                                                {t('settings.detection.bird_finder_recommended_waiting', 'Waiting for saved bird photos to re-check {devices}. CPU remains available.', { devices })}
+                                            {:else}
+                                                {t('settings.detection.bird_finder_recommended_unchecked', 'CPU until {devices} pass a device check on this host. No accelerator recommendation yet.', { devices })}
+                                            {/if}
+                                        </span>
+                                    </span>
+                                </label>
+                            {/each}
                         </div>
-
-                        <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
-                            <p class="text-sm text-slate-600 dark:text-slate-300">
-                                <span class="font-semibold text-slate-900 dark:text-white">{selectedCropDetector.name}</span>
-                                · {selectedCropDetectorRuntime?.enabled_for_runtime || selectedCropDetectorInstalled
-                                    ? $_('settings.detection.model_manager_detector_ready', { default: 'Ready' })
-                                    : $_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                        {#if savedBirdFinder && birdFinder !== savedBirdFinder}
+                            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" role="status">
+                                {$_('settings.detection.bird_finder_pending', { default: 'Apply settings to switch the bird finder. The current finder keeps running until then.' })}
                             </p>
-                            <button
-                                type="button"
-                                onclick={() => handleDownload(selectedCropDetector)}
-                                disabled={selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
-                                class="btn btn-secondary min-h-11 shrink-0 px-4"
-                            >
-                                {selectedCropDetectorInstalled
-                                    ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
-                                    : $_('settings.detection.model_manager_download_detector', { default: 'Download detector' })}
-                            </button>
-                        </div>
-                        {#if selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
-                            <div role="status">
-                                <div class="mb-1 flex justify-between text-xs font-semibold">
-                                    <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
-                                    <span class="text-slate-500">{selectedCropDetectorDownload.progress.toFixed(0)}%</span>
-                                </div>
-                                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
-                                    <div class="h-full bg-brand-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
-                                </div>
-                            </div>
+                        {:else if cropDetectorStatus?.reason === 'fallback_default_accurate'}
+                            <p class="text-sm font-semibold text-amber-700 dark:text-amber-300" role="status">
+                                {$_('settings.detection.bird_finder_fallback', { default: 'The wide-frame finder is not downloaded yet, so the standard finder is still in use. Download it below to switch.' })}
+                            </p>
                         {/if}
-                    </div>
-                </details>
+                        {#if chosenFinder}
+                            {@const chosenInstalled = isCropDetectorInstalled(chosenFinder.model.id)}
+                            {@const chosenShortName = chosenFinder.choice === 'rfdetr_nano' ? 'RF-DETR Nano' : 'YOLOX-Tiny'}
+                            {@const chosenDevice = birdFinderDevice(getInstalledModel(chosenFinder.model.id), hostProviders, chosenFinder.model)}
+                            {@const chosenDeviceNote = birdFinderDeviceNote(chosenDevice, cropDetectorStatus?.device_check, chosenFinder.model.id)}
+                            {@const canCheckChosen = chosenInstalled && oncheckfinderdevices !== undefined && chosenDeviceNote !== 'check_running'}
+                            <label class="block max-w-sm space-y-1 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                <span>{t('settings.detection.bird_finder_device', 'Finder device')}</span>
+                                <select class="select-base w-full" bind:value={birdFinderProvider} aria-describedby="bird-finder-device-help">
+                                    <option value="auto">{t('settings.detection.bird_finder_device_auto', 'Automatic (fastest validated device)')}</option>
+                                    <option value="cpu">{providerLabel('cpu')}</option>
+                                    {#each ['intel_cpu', 'intel_gpu', 'intel_npu', 'cuda'] as choice}
+                                        <option value={choice} disabled={!(getInstalledModel(chosenFinder.model.id)?.provider_preference_order ?? []).includes(choice)}>
+                                            {providerLabel(choice)}
+                                        </option>
+                                    {/each}
+                                </select>
+                            </label>
+                            {#if birdFinderProvider !== 'auto' && birdFinderProvider !== 'cpu' && !(getInstalledModel(chosenFinder.model.id)?.provider_preference_order ?? []).includes(birdFinderProvider)}
+                                <p class="text-sm text-amber-800 dark:text-amber-300" role="status">
+                                    {t('settings.detection.provider_saved_unavailable', '{provider} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.', { provider: providerLabel(birdFinderProvider) })}
+                                </p>
+                            {/if}
+                            <p id="bird-finder-device-help" class="text-xs text-slate-600 dark:text-slate-400">
+                                {t('settings.detection.bird_finder_device_help', 'Apply settings to save this device. If it becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.')}
+                            </p>
+                            <ModelExecutionEvidence execution={cropDetectorStatus?.last_execution?.model_id === chosenFinder.model.id ? cropDetectorStatus.last_execution : null} />
+                            <div class="flex flex-wrap items-center gap-3">
+                                {#if canCheckChosen}
+                                    <button
+                                        type="button"
+                                        onclick={() => checkFinderDevices(chosenFinder.model.id)}
+                                        disabled={deviceCheckRunning}
+                                        aria-describedby="bird-finder-check-hint"
+                                        class="btn btn-secondary min-h-11 px-4"
+                                    >
+                                        {deviceCheckRunning
+                                            ? $_('settings.detection.compat_running', { default: 'Running…' })
+                                            : t('settings.detection.bird_finder_check_devices', 'Check {devices} for {name}', { devices: deviceList(chosenDevice.accelerators), name: chosenShortName })}
+                                    </button>
+                                {/if}
+                                <button
+                                    type="button"
+                                    onclick={() => handleDownload(chosenFinder.model)}
+                                    disabled={chosenFinderDownload?.status === 'downloading' || chosenFinderDownload?.status === 'pending'}
+                                    class="btn {chosenInstalled ? 'btn-ghost' : 'btn-secondary'} min-h-11 px-4"
+                                >
+                                    {chosenInstalled
+                                        ? t('settings.detection.bird_finder_redownload', 'Re-download {name}', { name: chosenShortName })
+                                        : t('settings.detection.bird_finder_download', 'Download {name}', { name: chosenShortName })}
+                                </button>
+                            </div>
+                            {#if chosenFinderDownload?.status === 'downloading' || chosenFinderDownload?.status === 'pending'}
+                                <div role="status">
+                                    <div class="mb-1 flex justify-between text-xs font-semibold">
+                                        <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
+                                        <span class="text-slate-500">{chosenFinderDownload.progress.toFixed(0)}%</span>
+                                    </div>
+                                    <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                        <div class="h-full bg-brand-500 transition-all duration-300" style="width: {chosenFinderDownload.progress}%"></div>
+                                    </div>
+                                </div>
+                            {:else if chosenFinderDownload?.status === 'error' && chosenFinderDownload.error}
+                                <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{chosenFinderDownload.error}</p>
+                            {/if}
+                            {#if canCheckChosen}
+                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                    {$_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares this finder on each device with the CPU on bird photos, then uses the fastest one that matches. The identification model is not changed.' })}
+                                </p>
+                            {/if}
+                        {/if}
+                        <p class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.bird_finder_backup', { default: 'If it cannot find a usable bird, YA-WAMF also tries the fast fallback finder and Frigate\'s tracking box, and uses the full frame only when none of them gives a reliable crop.' })}
+                        </p>
+                    </fieldset>
+                </section>
             {/if}
         </div>
 
-        {#if !showAdvancedModels && advancedCount > 0}
-            <p class="px-1 text-sm text-slate-500 dark:text-slate-400">
-                {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
-            </p>
-        {/if}
     {/if}
 </div>
 

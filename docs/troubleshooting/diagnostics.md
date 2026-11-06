@@ -341,11 +341,66 @@ restart the container if an in-process runtime is still stalled, and rerun the s
 safely. Existing events are not duplicated; a better classification can update an existing
 detection.
 
+An individual event can still report `background_image_overloaded` after its
+bounded admission retries while other background work is completing normally.
+Check progress and competing work before treating that result as a native-runtime
+stall. Cancelling a caller removes its request if it is still waiting for a
+classification slot. Once admitted, the work keeps its slot until completion or
+the existing lease cleanup; cancellation does not interrupt native inference or
+make its capacity immediately available.
+
 After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
 switching to workers cannot release a native thread that is still stalled in the parent process.
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
 Wildlife reclassification also uses isolated workers when subprocess execution is active.
+
+### Crop detector process failures
+
+Crop detector model loading and inference run in persistent child processes,
+including high-quality snapshots, bird scans and video crop searches. The API
+and classifier workers keep tensor data and crop geometry, without owning the
+native detector session or its exceptions. A failed child is stopped and reaped
+before the existing CPU fallback can load another detector. Normal repeated
+frames reuse a warm child. Each cached detector adds a process and IPC tensor
+copies, so cold loading and memory use can increase. Intel crop workers decline
+OpenVINO vendor telemetry inside their own process: its optional forked helper
+can inherit a locked input pipe and survive detector exit. This does not edit
+host consent files or YA-WAMF's separate telemetry preference.
+
+A native crop crash or recognised GPU device error retains a separate incident
+under `/config/native-crashes`, with `operation: crop_detector` and the actual
+crop model, artifact and provider. Diagnostic reasons are `native_crop_crash`
+or `crop_worker_retired`. The bird classifier's selected provider may differ
+from the crop detector's provider; a classifier NPU setting does not prove that
+the crop detector used the NPU. Inspect the crop detector's completed execution
+and incident evidence separately.
+
+A quarantined crop configuration is skipped on later loads, allowing the
+existing CPU fallback where permitted. CPU detector failures are contained too.
+A timed-out or ordinarily exited child is reaped; the next request can reload
+it after checking quarantine. The 45-second inference deadline starts after
+queue admission. Queue waiting has a separate 60-second bound; expiry leaves
+the active inference alone. Initial loading has a 180-second deadline.
+
+If cleanup cannot be confirmed, new detector launches are blocked for that owner
+process. Crop status reports `runtime_cleanup_unconfirmed`, and error diagnostics
+record `crop_cleanup_unconfirmed`. A retained wait clears the block only after
+the child is reaped. Shutdown joins owned children. An owner-pipe monitor exits
+the child when its API or classifier worker disappears; Linux also uses a kernel
+parent-death signal, which works if native code holds the Python lock. A process
+in uninterruptible kernel sleep may still require host-level recovery. This does
+not repair a driver hang or qualify the failed accelerator for reuse.
+
+Hardware crop validation uses the same containment and quarantine. A failed
+probe can therefore retain an incident and block later probes of that exact
+configuration. There is no automatic crop quarantine reset or crop-specific
+approval action. Preserve the evidence and follow the manual investigation
+procedure below. Older classifier-level incidents cannot establish the exact
+crop profile: they remain blocking for classification but are not converted
+into crop incidents. Before deploying after a known crop failure, verify the
+current crop provider recommendation separately. A new process boundary does
+not authorize another attempt on a known failing accelerator.
 
 ### Confirmed native worker crashes
 
@@ -363,6 +418,18 @@ cold load and inference must all fit the workload deadline. CPU may be unavailab
 too slow; a successful load alone is not recovery. Successful CPU inference leaves health degraded
 and preserves the original crash evidence. The saved accelerator preference is unchanged.
 
+Queued live detections take the next available CPU recovery turn ahead of queued
+background or video work. An active native call is not interrupted for priority
+alone. Background and video requests retain arrival order with each other and
+can still expire while waiting during sustained live traffic; queueing remains
+inside each request's existing deadline. This does not increase CPU capacity.
+
+For ONNX models, recovery prefers OpenVINO Intel CPU when the current host and
+packaged runtime have passing validation for that exact artifact. Otherwise it
+uses standard CPU recovery. A previously crashed Intel CPU configuration remains
+quarantined and is skipped. Recovery keeps crop detection on isolated standard
+CPU; it does not retry the failed accelerator or change its saved settings.
+
 Caller cancellation permits a later attempt; a completed failed attempt is not repeatedly retried
 for that workload until configuration changes or the process restarts. A native CPU crash is also
 quarantined. Selecting another independently validated provider can be a mitigation. Restarting or
@@ -377,8 +444,69 @@ then start the service. The stop/start clears its in-memory block too. Follow yo
 deployment manager's lifecycle workflow. Never delete the config directory or
 detection database. If evidence cannot be persisted, the current process remains
 blocked and logs `native_crash_quarantine_persistence_failed`; fix config-volume
-permissions before relying on persistence across restarts. Driver-only changes
-not represented in the runtime signature also need explicit revalidation.
+permissions before relying on persistence across restarts.
+
+On Linux, current qualification records include the bound GPU or NPU driver,
+alongside the existing kernel, device and runtime context. Changing from `i915`
+to `xe` invalidates Intel GPU qualification even when optional module version
+files are absent. It does not invalidate current CPU or CUDA provider evidence.
+An unavailable driver binding stays unknown. Runtime identities are cached for
+the process lifetime; restart through your deployment manager after a host driver
+change, then revalidate the accelerator.
+
+The binding identity conservatively includes every visible device in the relevant
+GPU or NPU category, so another card's binding change can also expire Intel
+qualification. If sysfs device information is not exposed inside the container,
+the binding remains unknown; this check cannot detect a driver change it cannot
+observe. Revalidate explicitly after a host change in that case.
+
+Automatic startup revalidation checks native crash quarantine before starting a
+probe. A blocked profile is skipped, including blocks retained from older
+versions; that skip preserves crash evidence and consumes no automatic attempt.
+It does not implement the explicit owner revalidation/release workflow.
+
+### Intel CPU is missing after switching image flavors
+
+The `intel` image includes OpenVINO CPU support. The provider selector also
+depends on detected hardware and the active model's current validation results.
+For example, `intel_cpu_available: true` and Intel CPU in
+`host_available_providers`, but not in `available_providers`, means hardware
+detection succeeded and the model's current provider list excludes it.
+
+Switching from `dev` to `dev-intel` expires validation tied to the old image.
+Earlier startup checks retested only ONNX CPU and the selected accelerator;
+that partial result could hide OpenVINO CPU without testing it. When a previously
+validated, selected accelerator needs its unused startup revalidation attempt,
+the check also tests OpenVINO CPU when qualification is missing or expired and the
+route is packaged, supported by the model and detected on the host. Current Intel CPU
+qualification is retained without another probe. Only passing results become
+selectable and eligible for recovery.
+
+Each automatic provider probe checks the current native crash quarantine before
+starting. Blocked targets are skipped without removing their evidence. Passing
+CPU results are kept even if the accelerator fails, but that failed accelerator
+is not selected or reloaded. A CPU-selected configuration, an already-current
+accelerator or a consumed attempt does not trigger this startup check.
+
+For an already-saved partial result, use **Settings → Detection → Run
+compatibility check** and inspect Intel CPU's result. Leave **test all models**
+off to avoid downloading and testing the entire registry. This check still tests
+installed models and temporarily changes the active model, so run it when the
+extra inference work is acceptable. See [Model Evaluation](../features/model-evaluation.md).
+An upgrade or restart does not repeat a consumed automatic attempt. A failed
+Intel CPU result remains excluded; preserve the diagnostics rather than editing
+validation files or clearing crash quarantine.
+
+This startup change adds at most one sequential provider probe to a previously
+eligible accelerator refresh. It uses the existing subprocess timeout (up to
+five minutes for that additional probe), so slow CPU compilation can delay
+accelerator revalidation. It does not validate sustained live/backfill capacity
+or establish the cause of an earlier GPU fault.
+
+Older crash records remain blocking after this identity upgrade. They did not
+record a binding, so a driver change alone cannot establish that an old fault is
+resolved. Preserve that evidence and follow the exact-profile investigation
+procedure above; there is no new quarantine-reset action.
 
 **Audio context note:** Backfill reprocesses **Frigate** events only. BirdNET-Go audio confirmations are not backfilled unless you have a separate historical audio source to import. After a database reset, audio context will only appear for new detections once BirdNET-Go is running again.
 
@@ -386,7 +514,7 @@ not represented in the runtime signature also need explicit revalidation.
 |--------|-------------|
 | **Already in Database** | The event ID already exists and the AI score was not improved by this scan. |
 | **Below Confidence Threshold** | The AI identified a bird but the score was lower than your "Threshold" setting. |
-| **Below Minimum Floor** | The score was so low it was discarded as a potential false positive. |
+| **Below Minimum Confidence Floor** | The score was so low it was discarded as a potential false positive. |
 | **Filtered (Blocked Label)** | The species is on your Blocklist. |
 | **Frigate Snapshot Missing** | Frigate returned a 404 or empty file for the snapshot request. |
 
@@ -402,3 +530,51 @@ Look for lines like:
 - `Processing MQTT event`: Backend saw a bird event.
 - `Saved detection`: A bird was successfully identified and stored.
 - `Taxonomy lookup`: The system is fetching names from iNaturalist.
+
+
+## GPU graph gaps and CPU activity
+
+**Not measured** means no utilisation value was available for that sample. A
+measured idle device shows **0.0%**. Neither CPU activity nor a missing GPU counter
+establishes a classifier fallback: video decoding, crop detection and other work
+can also use CPU. Check the worker rows for the loaded accelerator and the model
+runtime diagnostics for fallback, restart and quarantine evidence.
+
+Owner diagnostic exports include the existing bounded System history (normally
+30 minutes at five-second intervals), process CPU/memory attribution and loaded
+worker accelerator names alongside classifier diagnostics. Missing measurements
+stay null; they are not converted to zero. Export while the symptom is visible,
+and record the approximate time it began. The graph history resets on restart.
+Exporting reads that history without starting a classification or a new sample.
+The bundle is owner-only and can contain private operational details; review it
+before sharing.
+
+
+### GPU utilisation says Not measured
+
+Capture a fresh bundle while the symptom is present, before restarting. Include the
+local time and whether processing slowed or the queue grew. A missing utilisation
+reading does not establish CPU fallback; worker runtime evidence is separate.
+
+The bundle includes the last two DRM probe samples, normally five seconds apart,
+under `system_telemetry.drm_diagnostics`. These contain read/error counts, parsed
+client counts and client arrivals/departures, plus up to 64 counter observations
+per sample. Each observation records an allow-listed driver, PCI device identity,
+engine and counter unit, current and previous counters, and a bounded reason such
+as `baseline`, `missing_total`, `total_not_advancing` or `counter_regressed`.
+Cycle observations include current and previous total cycles. This evidence can
+distinguish counter access failures, unsupported counters and client turnover.
+It does not establish whether the GPU is stable or why processing became slower.
+
+A GPU's total-cycle clock can wrap independently of its cumulative busy counters.
+For example, Xe hardware with a 36-bit clock at 19.2 MHz wraps about every 59.6
+minutes. YA-WAMF leaves that discontinuous interval unmeasured, then uses the new
+clock baseline for the next valid interval. It does not guess a counter width or
+restart inference. Busy counters still keep their previous high-water mark across
+temporary regressions so recovered work is not counted twice. Standard Xe engine
+names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
+unrecognised names are still replaced with `other`.
+
+No raw fdinfo, file paths, process arguments, environment variables, client IDs or
+exception messages are added to this evidence. Capturing a bundle uses existing
+in-memory samples and does not start inference, change devices or restart workers.

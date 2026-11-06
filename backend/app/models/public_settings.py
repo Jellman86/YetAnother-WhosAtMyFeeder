@@ -31,6 +31,9 @@ class PublicSettings(BaseModel):
     # decision that `public_access_allow_clip_downloads` already makes.
     clips_enabled: bool = Field(description="Whether Frigate clip capture is enabled")
     recording_clip_enabled: bool = Field(description="Whether recording-backed clips are enabled")
+    # Whether new captures are analysed to count birds. The dashboard holds the counted-birds
+    # figure from this while the day loads, instead of inserting it when the counts arrive.
+    bird_counting_enabled: bool = Field(description="Whether new captures are analysed to count birds")
 
 
 PUBLIC_SETTING_FIELDS: tuple[str, ...] = tuple(PublicSettings.model_fields)
@@ -43,4 +46,9 @@ def build_public_settings() -> PublicSettings:
         ebird_default_days_back=settings.ebird.default_days_back,
         clips_enabled=settings.frigate.clips_enabled,
         recording_clip_enabled=settings.frigate.recording_clip_enabled,
+        # The same condition that schedules high-quality snapshots, which is where counting runs.
+        bird_counting_enabled=bool(
+            settings.media_cache.high_quality_event_snapshots
+            and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
+        ),
     )

@@ -29,16 +29,16 @@
         onclick={() => (userOpen = !open)}
         class="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
     >
-        <span class="flex min-w-0 items-center gap-2">
+        <span class="flex min-w-0 flex-wrap items-center gap-2">
             <span class="eyebrow rounded-md border border-line px-2 py-0.5">
                 {$_('settings.common.advanced', { default: 'Advanced' })}
             </span>
-            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <span class="min-w-0 break-words text-sm font-semibold text-slate-700 dark:text-slate-200">
                 {title ?? $_('settings.common.advanced_default_title', { default: 'Advanced options' })}
             </span>
         </span>
         <svg
-            class="w-4 h-4 text-slate-400 transition-transform duration-200 {open ? 'rotate-180' : ''}"
+            class="w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 {open ? 'rotate-180' : ''}"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             aria-hidden="true"
         >

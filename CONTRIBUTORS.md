@@ -16,10 +16,25 @@ Reports, recordings, support bundles and retests help reproduce problems and che
 - [@jeremyheslop](https://github.com/jeremyheslop)
   Thanks for clear bug reports and practical UI/backend fix feedback.
 - [@byrnes-patrick](https://github.com/byrnes-patrick)
-  Thanks for the recent issue reports, diagnostics bundles, and validation feedback that helped land the video analysis and blocked-label fixes.
+  Thanks for issue reports, diagnostic bundles and retests for video analysis and
+  blocked labels, the [Garden review snapshot report (#698)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/698),
+  the [storage measurement report (#755)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/755),
+  the [leaderboard failure report (#762)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/762)
+  and the [distance units report (#911)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/911).
 - [@aav7fl](https://github.com/aav7fl)
   Thanks for the [multi-bird photograph report (#481)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/481),
   original clips, screenshots, support bundles and follow-up testing. That evidence exposed
   species/photo mismatches and disabled photo retention, and informed the follow-up
   [video-decoding work (#576)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/576)
   and [retention controls (#622)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/622).
+  Thanks also for the [Intel GPU stall investigation (#712)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/712),
+  with diagnostic bundles, kernel logs, analysis and repeated retests, which led to the GPU recovery
+  work and the open [FP16 proposal (#723)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/723),
+  the [GPU telemetry report and retests (#778)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/778),
+  and testing the [quarantine work (#722)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/722).
+- [@giulianob](https://github.com/giulianob)
+  Thanks for the [range filter request (#696)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/696),
+  the [early identification request (#743)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/743)
+  and the [multiple-model proposal (#804)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/804), which stays open.
+- [@Blorti](https://github.com/Blorti)
+  Thanks for the [request to show confirmed species on the Dashboard (#791)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/791).

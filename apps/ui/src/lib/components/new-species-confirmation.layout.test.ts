@@ -15,9 +15,16 @@ describe('a new species asks for one human call in the review queue (#310)', () 
         expect(dashboardSource).toContain('onblock={blockFromQueue}');
     });
 
-    it('the card names the reason in words, not just a score', () => {
-        expect(cardSource).toContain("=== 'new_species'");
-        expect(cardSource).toContain('dashboard.review_queue.new_species_tag');
+    it('the card names every reason in words, not just a score', () => {
+        // Each row says why it waits, whatever the reason, through the shared wording.
+        expect(cardSource).toContain('reviewReasonMessage(');
+        expect(cardSource).toContain('queue.reasons.get(detection.frigate_event)');
+        expect(cardSource).toContain('data-review-queue-reason');
+        expect(cardSource).not.toContain("=== 'new_species'");
+    });
+
+    it('a narrow card shows the reason in place of the camera', () => {
+        expect(cardSource).toMatch(/<span class="hidden sm:inline"[^>]*data-review-queue-camera>/);
     });
 
     it('the modal offers confirm and block only for a new species', () => {

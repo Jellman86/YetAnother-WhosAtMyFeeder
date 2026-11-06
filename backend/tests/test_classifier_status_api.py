@@ -11,8 +11,10 @@ from PIL import Image
 from app.auth import AuthContext, AuthLevel, require_owner
 from app.main import app
 from app.config import settings
-from app.database import get_db, init_db, close_db
+from app.database import get_db
 from app.routers import classifier as classifier_router
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 @pytest_asyncio.fixture
@@ -20,15 +22,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -159,6 +152,64 @@ async def test_classifier_upload_endpoints_use_admission_even_in_process(
         assert seen_input_contexts == [{"is_cropped": False}]
     finally:
         settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("endpoint", ["test", "classify", "probe", "wildlife/test"])
+async def test_classifier_upload_endpoints_reject_oversized_images_before_classifying(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch, endpoint
+):
+    classify_calls = []
+    monkeypatch.setattr(classifier_router, "MAX_IMAGE_BYTES", 10)
+    monkeypatch.setattr(
+        classifier_router.classifier_service,
+        "classify_async_background",
+        AsyncMock(side_effect=lambda *_a, **_k: classify_calls.append(1)),
+    )
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+    assert len(image_buffer.getvalue()) > 10
+
+    response = await client.post(
+        f"/api/classifier/{endpoint}",
+        files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 413, response.text
+    assert classify_calls == []
+
+
+@pytest.mark.asyncio
+async def test_classifier_upload_endpoints_reject_images_over_the_pixel_limit(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr("app.utils.image_io.MAX_IMAGE_PIXELS", 10)
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    image_buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), color="white").save(image_buffer, format="PNG")
+
+    response = await client.post(
+        "/api/classifier/classify",
+        files={"image": ("bird.png", image_buffer.getvalue(), "image/png")},
+    )
+
+    assert response.status_code == 413, response.text
+
+
+@pytest.mark.asyncio
+async def test_classifier_test_upload_reports_undecodable_images_without_erroring(client: httpx.AsyncClient):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="owner")
+
+    response = await client.post(
+        "/api/classifier/test",
+        files={"image": ("bird.png", b"not an image", "image/png")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert "error" in response.json()
 
 
 @pytest.mark.asyncio
@@ -311,3 +362,97 @@ async def test_classifier_status_exposes_crop_detector_readiness(
     assert payload["crop_detector"]["healthy"] is False
     assert payload["crop_detector"]["enabled_for_runtime"] is False
     assert payload["crop_detector"]["reason"] == "not_installed"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("owner", [False, True])
+@pytest.mark.parametrize(
+    "runtime",
+    [
+        {
+            "image_execution_mode": "in_process",
+            "runtime_source": "in_process",
+            "loaded": True,
+            "enabled": True,
+            "error": None,
+            "labels_count": 12,
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "planned",
+            "labels_count": None,
+            "worker_pools": {"live": {"workers": 0, "runtime": None}, "late_results_ignored": 0},
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "worker",
+            "effective_model_id": "bird-model",
+            "inference_health": {"status": "ok", "samples": 3},
+            "worker_pools": {"live": {"workers": 1, "runtime": {"backend": "onnx", "provider": "cpu"}}},
+        },
+        {
+            "image_execution_mode": "subprocess",
+            "runtime_source": "in_process_fallback",
+            "worker_in_process_fallback": {
+                "active": True,
+                "reason": "circuit",
+                "active_seconds": 1.5,
+                "classifications": 2,
+            },
+        },
+        {
+            "image_execution_mode": "in_process",
+            "native_runtime_quarantine": {
+                "status": "recovering",
+                "restart_recommended": True,
+                "failed_runtime": {"backend": "onnx", "provider": "cpu"},
+            },
+            "inference_health": {"status": "unhealthy"},
+        },
+    ],
+)
+async def test_operational_status_contract_preserves_runtime_fields_and_omissions(client, monkeypatch, owner, runtime):
+    from app.auth import get_auth_context_with_legacy
+
+    monkeypatch.setattr(classifier_router, "classifier_service", SimpleNamespace(get_status=lambda: dict(runtime)))
+    monkeypatch.setattr(classifier_router.personalization_service, "get_status_summary", AsyncMock(return_value={}))
+    app.dependency_overrides[get_auth_context_with_legacy] = lambda: AuthContext(
+        auth_level=AuthLevel.OWNER if owner else AuthLevel.GUEST, username="test"
+    )
+    try:
+        response = await client.get("/api/classifier/status")
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            **runtime,
+            "personalized_rerank_enabled": settings.classification.personalized_rerank_enabled,
+            "personalization_min_feedback_tags": classifier_router.personalization_service.min_feedback_tags,
+            "personalization_feedback_rows": 0,
+            "personalization_active_camera_models": 0,
+        }
+        schema = app.openapi()["paths"]["/api/classifier/status"]["get"]["responses"]["200"]["content"][
+            "application/json"
+        ]["schema"]
+        assert schema == {"$ref": "#/components/schemas/ClassifierStatusResponse"}
+    finally:
+        app.dependency_overrides.pop(get_auth_context_with_legacy, None)
+
+
+def test_patching_the_live_classifier_proxy_is_undone_on_the_current_classifier(monkeypatch):
+    """A patch through the router's proxy lands on, and is removed from, the live classifier.
+
+    Test tooling restores some patches by deleting the attribute; the proxy must forward that
+    delete, or the patch outlives its test on the shared classifier.
+    """
+    from app.routers import classifier as classifier_router
+
+    live = classifier_router.get_classifier()
+    original = type(live).get_status
+    with monkeypatch.context() as patch:
+        patch.setattr(classifier_router.classifier_service, "get_status", lambda: {"patched": True})
+        assert classifier_router.classifier_service.get_status() == {"patched": True}
+    # Whichever way the patch is undone, the live classifier answers with its own method again.
+    assert live.get_status.__func__ is original
+    setattr(classifier_router.classifier_service, "probe_marker", 1)
+    assert getattr(live, "probe_marker") == 1
+    delattr(classifier_router.classifier_service, "probe_marker")
+    assert not hasattr(live, "probe_marker")

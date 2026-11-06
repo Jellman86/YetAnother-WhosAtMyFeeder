@@ -1,13 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import de from './locales/de.json';
-import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import itLocale from './locales/it.json';
-import ja from './locales/ja.json';
-import pt from './locales/pt.json';
-import ru from './locales/ru.json';
-import zh from './locales/zh.json';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getMessageFormatter, init } from 'svelte-i18n';
+import { authoredLocale } from './authored-locales';
+
+const de = authoredLocale('de');
+const en = authoredLocale('en');
+const es = authoredLocale('es');
+const fr = authoredLocale('fr');
+const itLocale = authoredLocale('it');
+const ja = authoredLocale('ja');
+const pt = authoredLocale('pt');
+const ru = authoredLocale('ru');
+const zh = authoredLocale('zh');
 
 type LocaleRoot = Record<string, unknown>;
 
@@ -21,9 +24,26 @@ function leafPaths(value: LocaleRoot, prefix = ''): string[] {
     });
 }
 
+type MessageAst = ReturnType<ReturnType<typeof getMessageFormatter>['getAst']>;
+
+// Element types from the ICU parser that carry no argument name: literal text and the plural `#`.
+const LITERAL_ELEMENT = 0;
+const POUND_ELEMENT = 7;
+
+/** The arguments a message reads, including those inside plural and select branches. */
+function argumentNames(elements: MessageAst): string[] {
+    return elements.flatMap((element) => {
+        const branches = 'options' in element
+            ? Object.values(element.options as Record<string, { value: MessageAst }>).flatMap((option) => argumentNames(option.value))
+            : [];
+        if (element.type === LITERAL_ELEMENT || element.type === POUND_ELEMENT) return branches;
+        return [String(element.value), ...branches];
+    });
+}
+
 function interpolationTokens(value: unknown): string[] {
     if (typeof value !== 'string') return [];
-    return [...value.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map(match => match[1]).sort();
+    return [...new Set(argumentNames(getMessageFormatter(value).getAst()))].sort();
 }
 
 function pick(obj: LocaleRoot, path: string): unknown {
@@ -103,14 +123,13 @@ const REQUIRED_ACTIVE_KEYS = [
     'nav.close_language_selector',
     'nav.close_menu',
     'notifications.close_toast',
-    'settings.cameras.deselect',
     'settings.cameras.preview',
     'settings.cameras.preview_failed',
     'settings.cameras.preview_label',
     'settings.cameras.preview_live',
     'settings.cameras.preview_loading',
     'settings.cameras.preview_missing_url',
-    'settings.cameras.select',
+    'settings.cameras.watch_for',
     'settings.danger.clear_feedback_button',
     'settings.danger.clear_feedback_desc',
     'settings.danger.clear_feedback_hint',
@@ -296,6 +315,10 @@ const MUST_BE_LOCALIZED = [
 ];
 
 describe('locale audit for active non-English UX', () => {
+    beforeAll(() => {
+        init({ fallbackLocale: 'en', initialLocale: 'en' });
+    });
+
     for (const [localeName, locale] of NON_ENGLISH_LOCALES) {
         it(`${localeName} matches the locale key contract`, () => {
             const englishKeys = new Set(leafPaths(en as LocaleRoot));
@@ -303,8 +326,8 @@ describe('locale audit for active non-English UX', () => {
             const missingKeys = [...englishKeys].filter(key => !localeKeys.has(key)).sort();
             const extraKeys = [...localeKeys].filter(key => !englishKeys.has(key)).sort();
 
-            expect(extraKeys, 'remove keys that are not present in en.json').toEqual([]);
-            expect(missingKeys, 'translate keys that are present in en.json').toEqual([]);
+            expect(extraKeys, 'remove keys that are not present in English (locales/en/)').toEqual([]);
+            expect(missingKeys, 'translate keys that are present in English (locales/en/)').toEqual([]);
         });
 
         it(`${localeName} preserves interpolation tokens`, () => {

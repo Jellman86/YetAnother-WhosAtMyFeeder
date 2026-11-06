@@ -156,8 +156,29 @@ CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model 
 
 #### Crops, photographs and video
 
-**Cropped thumbnails** manages the separate bird detector. The CPU-friendly **Fast** detector is
-the fallback for the experimental **Accurate** YOLOX-Tiny tier. Classifier crop policy is automatic;
+**Settings → Detection → Models → Bird finder** chooses which detector locates birds in full
+frames before they are identified and counted. It does not name species. The choice is saved by
+**Apply Settings** with the rest of the page. The CPU-friendly **Fast** detector remains the
+automatic fallback. Each option shows its download size, estimated RAM, and the device it runs on:
+a graphics or NPU device only after it passed a device check on this host, otherwise the CPU. When
+it is on the CPU, the card names the graphics or NPU devices it could use here, and the chosen
+finder offers **Check *devices* for *finder***. That check covers only the finder, compares each
+device with the CPU on bird photos and does not change the identification model.
+
+A host kernel, driver or image update makes earlier device results stale. After startup, YA-WAMF
+re-checks the chosen finder once on this host's own recent bird snapshots, but only on graphics or
+NPU devices that finder passed before. A finder that never passed on an accelerator here still
+needs the owner's check. If no bird snapshots are saved yet, the re-check waits for a later restart.
+
+- **Standard (YOLOX-Tiny)** is the default. It is small and quick, but misses many birds that are
+  small in a wide frame.
+- **Wide frame (RF-DETR Nano)** reads the whole frame and four overlapping tiles. It finds far more
+  small and distant birds, at the cost of a 103 MB download and about five detector passes per
+  frame. Until it is downloaded, the standard finder stays in use. With this finder, whole-frame
+  bird scans count only its confident boxes and list the rest as not counted; see
+  [Video analysis](video-analysis.md).
+
+Classifier crop policy is automatic;
 a detector score is not a species confidence score. The hardware sweep checks detectors separately
 from classifiers. See [Model Evaluation](model-evaluation.md#provider-compatibility-and-the-post-install-gate).
 

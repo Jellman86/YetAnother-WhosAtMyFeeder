@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from tests.catalog_mapping_fixture import rehash_mapping_fixture
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -111,7 +112,7 @@ def catalog(tmp_path):
                 "artifacts": [
                     {
                         "artifact_id": "status_model",
-                        "model_sha256": "s" * 64,
+                        "model_sha256": "a" * 64,
                         "labels_sha256": "labelsha-status",
                         "runtime": "onnx",
                     }
@@ -122,6 +123,7 @@ def catalog(tmp_path):
     )
 
     path = tmp_path / "catalog.db"
+    rehash_mapping_fixture(mappings)
     seed_builder.build(reference, path, manifest_path=manifest, model_mappings_path=mappings)
     return path
 
@@ -179,20 +181,20 @@ class TestActivationCheck:
         finally:
             connection.close()
 
-        check = SpeciesCatalogStatus(catalog).activation_check("s" * 64, tensor_width=4)
+        check = SpeciesCatalogStatus(catalog).activation_check("a" * 64, tensor_width=4)
 
         assert check["verdict"] == "ready"
         assert check["registry_id"] == "status_model"
 
     def test_an_incomplete_mapping_is_named_as_the_blocker(self, catalog):
-        check = SpeciesCatalogStatus(catalog).activation_check("s" * 64, tensor_width=4)
+        check = SpeciesCatalogStatus(catalog).activation_check("a" * 64, tensor_width=4)
 
         assert check["verdict"] == "incomplete_mapping"
         # Index 2 is declared `unknown` and index 3 resolved to nothing.
         assert check["unresolved_outputs"] == 2
 
     def test_a_tensor_width_mismatch_fails_the_check(self, catalog):
-        check = SpeciesCatalogStatus(catalog).activation_check("s" * 64, tensor_width=1486)
+        check = SpeciesCatalogStatus(catalog).activation_check("a" * 64, tensor_width=1486)
 
         assert check["verdict"] == "width_mismatch"
         assert check["output_width"] == 4
@@ -203,7 +205,7 @@ class TestActivationCheck:
         assert check["verdict"] == "unregistered"
 
     def test_a_missing_catalogue_reports_unavailable(self, tmp_path):
-        check = SpeciesCatalogStatus(tmp_path / "nowhere.db").activation_check("s" * 64)
+        check = SpeciesCatalogStatus(tmp_path / "nowhere.db").activation_check("a" * 64)
 
         assert check["verdict"] == "unavailable"
 

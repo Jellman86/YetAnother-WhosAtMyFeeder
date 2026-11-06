@@ -229,6 +229,7 @@ export interface components {
     enrichment_sightings_source?: string;
     enrichment_single_provider?: string;
     enrichment_summary_source?: string;
+    garden_animals_enabled?: boolean;
     https_warning?: boolean;
     inaturalist_enabled?: boolean;
     is_authenticated: boolean;
@@ -332,6 +333,12 @@ export interface components {
     status: string;
     updated?: number;
 };
+    BirdCountRegion: {
+    box: [number, number, number, number];
+    candidate_id: string;
+    detector_confidence: number | null;
+    reason: string;
+};
     BirdObservationResponse: {
     bird_index: number;
     candidate_id: string;
@@ -364,8 +371,10 @@ export interface components {
     BirdScanResponse: {
     available: boolean;
     candidate_id: string;
+    count_status?: "legacy" | "complete" | "incomplete" | "ambiguous" | "not_measured";
     error?: string | null;
     event_id: string;
+    excluded_regions?: Array<components['schemas']['BirdCountRegion']>;
     queue_ahead?: number | null;
     result_count?: number | null;
     retained_previous?: boolean;
@@ -375,10 +384,13 @@ export interface components {
     started_at?: string | null;
     status: "not_scanned" | "queued" | "running" | "completed" | "failed";
     unavailable_reason?: string | null;
+    unconfirmed_regions?: Array<components['schemas']['BirdCountRegion']>;
     updated_at?: string | null;
 };
     BirdSpeciesCount: {
+    common_name?: string | null;
     count: number;
+    scientific_name?: string | null;
     species: string;
 };
     BirdWeatherTestRequest: {
@@ -443,6 +455,14 @@ export interface components {
     snapshots_deleted: number;
     status: string;
 };
+    CacheStatsMeasurementResponse: {
+    completed_at?: string | null;
+    error?: string | null;
+    id: string;
+    started_at: string;
+    stats?: components['schemas']['CacheStatsResponse'] | null;
+    status: "running" | "completed" | "failed";
+};
     CacheStatsResponse: {
     archive_count?: number;
     archive_durable?: number;
@@ -456,6 +476,12 @@ export interface components {
     clip_count: number;
     clip_size_bytes: number;
     clip_size_mb: number;
+    film_count?: number;
+    film_size_bytes?: number;
+    film_size_mb?: number;
+    garden_count?: number;
+    garden_size_bytes?: number;
+    garden_size_mb?: number;
     newest_file?: string | null;
     oldest_file?: string | null;
     preview_count: number;
@@ -475,6 +501,15 @@ export interface components {
     count: number;
     percentage: number;
 };
+    ClassificationEvidence: {
+    box?: [number, number, number, number] | null;
+    frame_sha256?: string | null;
+    frame_size?: [number, number] | null;
+    frame_time?: number | null;
+    is_cropped?: boolean | null;
+    source: string;
+    supporting_frames?: number | null;
+};
     ClassificationInputContext: {
     is_cropped?: boolean;
 };
@@ -490,6 +525,29 @@ export interface components {
     video_classification_status?: string | null;
     video_classification_timestamp?: string | null;
 };
+    ClassifierCropDeviceCheck: {
+    checked_at: string | null;
+    model_id: string | null;
+    providers: Array<string>;
+    reason: string | null;
+    state: "idle" | "waiting" | "running" | "succeeded" | "failed" | "superseded" | "interrupted";
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierCropStatus: {
+    chosen_model_id?: string;
+    device_check?: components['schemas']['ClassifierCropDeviceCheck'] | null;
+    enabled_for_runtime?: boolean;
+    healthy?: boolean;
+    installed?: boolean;
+    last_execution?: components['schemas']['InferenceExecution'] | null;
+    load_error?: string | null;
+    model_id?: string;
+    model_path?: string | null;
+    reason?: string;
+    resolved_tier?: string;
+    selected_tier?: string;
+    [key: string]: components['schemas']['JsonValue'];
+};
     ClassifierDownloadResponse: {
     input_size?: string | null;
     labels_count?: number | null;
@@ -498,21 +556,134 @@ export interface components {
     path?: string | null;
     status: string;
 };
+    ClassifierHostEligibility: {
+    generated_at?: string | null;
+    model_count?: number;
+    run_id?: string | null;
+    verified_providers?: Array<string>;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierInferenceHealth: {
+    status: "ok" | "degraded" | "unhealthy";
+    [key: string]: components['schemas']['JsonValue'];
+};
     ClassifierLabelsResponse: {
     labels: Array<string>;
+};
+    ClassifierNativeQuarantine: {
+    restart_recommended: boolean;
+    status: "recovering" | "recovered";
+    [key: string]: components['schemas']['JsonValue'];
 };
     ClassifierPredictionResponse: {
     label: string;
     rank: number;
     score: number;
 };
+    ClassifierStatusResponse: {
+    active_model_candidate_providers?: Array<string>;
+    active_model_estimated_ram_mb?: number | null;
+    active_model_id?: string | null;
+    active_model_validated_providers?: Array<string>;
+    active_provider?: string;
+    available_providers?: Array<string>;
+    crop_detector?: components['schemas']['ClassifierCropStatus'] | null;
+    cuda_available?: boolean;
+    cuda_enabled?: boolean;
+    cuda_hardware_available?: boolean;
+    cuda_probe_error?: string | null;
+    cuda_provider_installed?: boolean;
+    dev_accel_present?: boolean;
+    dev_dri_entries?: Array<string>;
+    dev_dri_present?: boolean;
+    effective_model_id?: string | null;
+    enabled?: boolean;
+    error?: string | null;
+    fallback_reason?: string | null;
+    host_available_providers?: Array<string>;
+    host_device_eligibility?: components['schemas']['ClassifierHostEligibility'] | null;
+    image_execution_mode?: "in_process" | "subprocess";
+    image_flavor?: string;
+    image_flavor_warning?: string | null;
+    inference_backend?: string;
+    inference_health?: components['schemas']['ClassifierInferenceHealth'] | null;
+    intel_cpu_available?: boolean;
+    intel_gpu_available?: boolean;
+    intel_npu_available?: boolean;
+    labels_count?: number | null;
+    loaded?: boolean;
+    model_config_warnings?: Array<string>;
+    native_runtime_quarantine?: components['schemas']['ClassifierNativeQuarantine'] | null;
+    onnx_available?: boolean;
+    openvino_available?: boolean;
+    openvino_devices?: Array<string>;
+    openvino_gpu_probe_error?: string | null;
+    openvino_import_error?: string | null;
+    openvino_import_path?: string | null;
+    openvino_model_compile_device?: string | null;
+    openvino_model_compile_error?: string | null;
+    openvino_model_compile_ok?: boolean | null;
+    openvino_model_compile_unsupported_ops?: Array<string>;
+    openvino_probe_error?: string | null;
+    openvino_version?: string | null;
+    packaged_inference_providers?: Array<string>;
+    personalization_active_camera_models?: number;
+    personalization_feedback_rows?: number;
+    personalization_min_feedback_tags?: number;
+    personalized_rerank_enabled?: boolean;
+    process_gid?: number | null;
+    process_groups?: Array<number>;
+    process_uid?: number | null;
+    provider_preference_order?: Array<string>;
+    resolved_background_workers?: number;
+    resolved_live_workers?: number;
+    runtime_source?: "worker" | "planned" | "in_process" | "in_process_fallback" | "default" | null;
+    selected_provider?: string;
+    validated_provider_preference_order?: Array<string>;
+    worker_in_process_fallback?: components['schemas']['ClassifierWorkerFallback'] | null;
+    worker_pools?: components['schemas']['ClassifierWorkerPools'] | null;
+    [key: string]: components['schemas']['JsonValue'];
+};
     ClassifierTestResponse: {
     error?: string | null;
     image_mode?: string | null;
-    image_size?: Array<unknown> | null;
+    image_size?: [number, number] | null;
     results?: Array<Record<string, components['schemas']['JsonValue']>>;
     status?: string | null;
     traceback?: string | null;
+};
+    ClassifierWorkerFallback: {
+    active: boolean;
+    active_seconds: number | null;
+    classifications: number;
+    reason: string | null;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerPool: {
+    circuit_open?: boolean;
+    circuit_open_until_monotonic?: number | null;
+    crop_execution?: components['schemas']['InferenceExecution'] | null;
+    last_exit_reason?: string | null;
+    last_stderr_excerpt?: string;
+    last_stderr_truncated_bytes?: number;
+    restarts?: number;
+    runtime?: components['schemas']['ClassifierWorkerRuntime'] | null;
+    workers?: number;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerPools: {
+    background?: components['schemas']['ClassifierWorkerPool'] | null;
+    late_results_ignored?: number;
+    live?: components['schemas']['ClassifierWorkerPool'] | null;
+    video?: components['schemas']['ClassifierWorkerPool'] | null;
+    [key: string]: components['schemas']['JsonValue'];
+};
+    ClassifierWorkerRuntime: {
+    backend?: string;
+    crop_execution?: components['schemas']['InferenceExecution'] | null;
+    model_id?: string | null;
+    provider?: string;
+    [key: string]: components['schemas']['JsonValue'];
 };
     CleanupResponse: {
     audio_deleted_count?: number | null;
@@ -644,6 +815,7 @@ export interface components {
     audio_species?: string | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     common_name?: string | null;
     detection_index: number;
     detection_time: string | null;
@@ -655,6 +827,7 @@ export interface components {
     frigate_score?: number | null;
     frigate_status?: string;
     id?: number | null;
+    initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
@@ -699,6 +872,7 @@ export interface components {
     bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     detection_index: number;
     detection_time: string | null;
     display_name: string;
@@ -709,6 +883,7 @@ export interface components {
     id?: number | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
+    manual_tagged?: boolean;
     observation_latitude?: number | null;
     observation_location_source?: string | null;
     observation_longitude?: number | null;
@@ -727,6 +902,7 @@ export interface components {
     bird_summary?: components['schemas']['DetectionBirdSummary'] | null;
     camera_name: string;
     category_name: string;
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
     common_name?: string | null;
     detection_index: number;
     detection_time: string | null;
@@ -741,6 +917,7 @@ export interface components {
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
     id?: number | null;
+    initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
@@ -780,6 +957,7 @@ export interface components {
     end_time: string | null;
     latest: components['schemas']['DetectionResponse'];
     needs_review: boolean;
+    owner_confirmed?: boolean;
     peak_capture?: components['schemas']['DetectionResponse'] | null;
     representative: components['schemas']['DetectionResponse'];
     start_time: string | null;
@@ -858,6 +1036,7 @@ export interface components {
     server: components['schemas']['DiagnosticsBundleServerResponse'];
     startup_warnings: Array<Record<string, unknown>>;
     summary: components['schemas']['DiagnosticsBundleSummaryResponse'];
+    system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace: components['schemas']['DiagnosticsWorkspaceResponse'];
 };
@@ -882,6 +1061,7 @@ export interface components {
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
     startup_warnings: Array<Record<string, unknown>>;
+    system_telemetry?: components['schemas']['SystemTelemetryHistoryResponse'] | null;
     taxonomy_repair: Record<string, unknown>;
     workspace_schema_version: string;
 };
@@ -891,6 +1071,36 @@ export interface components {
     model_id: string;
     progress: number;
     status: string;
+};
+    DrmCounterDiagnostic: {
+    device: string;
+    driver: string;
+    elapsed_seconds: number | null;
+    engine: string;
+    previous: number | null;
+    previous_total: number | null;
+    state: "baseline" | "measured" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
+    total: number | null;
+    unit: "ns" | "cycles";
+    value: number;
+};
+    DrmProbeDiagnostics: {
+    counters?: Array<components['schemas']['DrmCounterDiagnostic']>;
+    departed_clients?: number;
+    drivers?: Array<string>;
+    fdinfo_reads?: number;
+    missing_processes?: number;
+    new_clients?: number;
+    omitted_counters?: number;
+    parsed_clients?: number;
+    permission_denied?: number;
+    process_count?: number;
+    read_errors?: number;
+    unsupported_fdinfo?: number;
+};
+    DrmProbeSnapshot: {
+    at: number;
+    diagnostic: components['schemas']['DrmProbeDiagnostics'];
 };
     EbirdNearbyResponse: {
     message?: string | null;
@@ -942,6 +1152,31 @@ export interface components {
     count: number;
     filtered: boolean;
 };
+    ExplorerSearchRecord: {
+    camera?: string | null;
+    common_name?: string | null;
+    display_name?: string | null;
+    hidden?: boolean;
+    id: string;
+    kind: "detection" | "garden";
+    observed_at: string;
+    scientific_name?: string | null;
+};
+    ExplorerSearchResponse: {
+    record?: components['schemas']['ExplorerSearchRecord'] | null;
+    taxa: Array<components['schemas']['ExplorerSearchTaxon']>;
+    truncated: boolean;
+};
+    ExplorerSearchTaxon: {
+    bird_detections: number;
+    bird_species: number;
+    garden_captures: number;
+    garden_species: number;
+    name?: string | null;
+    rank: "species" | "genus" | "family" | "order";
+    scientific_name: string;
+    taxon_id: number;
+};
     FavoriteResponse: {
     archive_state?: string | null;
     event_id: string;
@@ -978,6 +1213,248 @@ export interface components {
     frigate_url: string;
     status: string;
     version: string;
+};
+    GardenAutomaticCheck: {
+    box_xywh?: [number, number, number, number] | null;
+    checked_at: string;
+    decision_reason?: "below_threshold" | "naming_disabled" | "location_required" | "identity_unavailable" | "bird_camera" | "wild_bird" | null;
+    devices?: Array<string>;
+    domestic_candidate?: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail" | null;
+    execution?: components['schemas']['InferenceExecution'] | null;
+    image_sha256?: string | null;
+    mass?: components['schemas']['GardenPresenceMass'] | null;
+    model_sha256?: string | null;
+    naming_score?: number | null;
+    naming_threshold?: number | null;
+    outcome: "animal" | "bird" | "non_animal" | "uncertain" | "unavailable";
+    package_sha256?: string | null;
+    policy_version?: number;
+    variant?: "4.0.3a" | "4.0.3b" | null;
+};
+    GardenBatchReviewRequest: {
+    action: "dismiss" | "restore";
+    ids: Array<string>;
+};
+    GardenBatchReviewResponse: {
+    skipped_count: number;
+    updated_ids: Array<string>;
+};
+    GardenCapturePage: {
+    items: Array<components['schemas']['GardenCaptureResponse']>;
+    limit: number;
+    offset: number;
+    total: number;
+};
+    GardenCaptureResponse: {
+    automatic_check?: components['schemas']['GardenAutomaticCheck'] | null;
+    automatic_check_overridden?: boolean;
+    camera: string;
+    clip_event?: string | null;
+    clip_kept?: boolean;
+    crop?: components['schemas']['GardenCropEvidence'] | null;
+    crop_url?: string | null;
+    domestic_route?: components['schemas']['GardenDomesticRoute'] | null;
+    frigate_label: string;
+    id: string;
+    identification?: components['schemas']['GardenIdentification'] | null;
+    motion_source?: components['schemas']['MotionSource'] | null;
+    observed_at: string;
+    owner_identification?: components['schemas']['GardenOwnerIdentification'] | null;
+    photo_kept?: boolean;
+    review_token?: string | null;
+    reviewed_at: string | null;
+    scientific_name?: string | null;
+    snapshot_url: string | null;
+    source_kind?: "frigate_event" | "motion";
+    status: "pending" | "confirmed" | "dismissed";
+};
+    GardenCropEvidence: {
+    box_xywh: [number, number, number, number];
+    crop_sha256: string;
+    frame_size: [number, number];
+    frame_time?: number | null;
+    image_size: [number, number];
+    source_end: number;
+    source_kind: "motion" | "frigate_clean";
+    source_sha256: string;
+    source_start: number;
+};
+    GardenCropStorage: {
+    bytes: number;
+    count: number;
+    limit: number;
+    max_bytes_per_crop: number;
+};
+    GardenDismissRequest: {
+    captures: Array<components['schemas']['GardenDismissTarget']>;
+};
+    GardenDismissTarget: {
+    id: string;
+    review_token: string;
+};
+    GardenDomesticBirdOption: {
+    declared: boolean;
+    key: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    scientific_names: Array<string>;
+    species_ids: Array<number>;
+};
+    GardenDomesticRoute: {
+    detection_id?: number | null;
+    domestic_bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    origin: "bird_detection" | "garden_check" | "moved_from_birds";
+    routed_at: string;
+    source_label: string;
+    source_model?: string | null;
+    source_scientific_name?: string | null;
+    source_score?: number | null;
+};
+    GardenIdentification: {
+    automatic?: boolean;
+    box_xywh?: [number, number, number, number] | null;
+    country: string;
+    devices: Array<string>;
+    frame_size: [number, number];
+    geofenced?: boolean;
+    identified_at: string;
+    image_sha256: string;
+    input_kind: "tracked_crop" | "whole_image";
+    model_sha256: string;
+    name?: string | null;
+    outcome: "suggestion" | "unknown";
+    output_index: number;
+    package_sha256: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    rank?: string | null;
+    reason: string;
+    review?: "unreviewed" | "accepted" | "dismissed";
+    score?: number | null;
+    species_id?: number | null;
+    taxon_id?: string | null;
+    variant: "4.0.3a" | "4.0.3b";
+};
+    GardenIdentificationStatus: {
+    automatic_message?: string;
+    busy: boolean;
+    catalogue_ready: boolean;
+    country: string | null;
+    error?: string | null;
+    last_execution?: components['schemas']['InferenceExecution'] | null;
+    models: Array<components['schemas']['GardenModelStatus']>;
+    preferred_provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    saved_crops?: components['schemas']['GardenCropStorage'] | null;
+};
+    GardenIdentifyRequest: {
+    provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    variant?: "4.0.3a" | "4.0.3b";
+};
+    GardenKeepBirdResponse: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+    declared: boolean;
+    moved: number;
+    remaining: number;
+    skipped: number;
+};
+    GardenModelStatus: {
+    installed: boolean;
+    size_bytes: number;
+    variant: "4.0.3a" | "4.0.3b";
+};
+    GardenMotionStatus: {
+    animal_confidence?: number;
+    busy: boolean;
+    cameras: Array<string>;
+    catalogue_ready: boolean;
+    catchup_seconds?: number;
+    installed: boolean;
+    interval_seconds?: number;
+    last_outcome?: string | null;
+    last_scan_at?: string | null;
+    message: string;
+    model_bytes?: number;
+    photo_limit?: number;
+    photo_retention_days?: number;
+    queue_camera?: string | null;
+    queue_checked_at?: string | null;
+    queue_limit?: number;
+    queued_windows?: number;
+    state: "disabled" | "waiting" | "scanning" | "unavailable";
+    unreadable_recordings?: Array<components['schemas']['GardenMotionUnreadable']>;
+};
+    GardenMotionUnreadable: {
+    camera: string;
+    count: number;
+    last_reason: "invalid_metadata" | "pixel_limit" | "duration_limit" | "decode_failed" | "frame_unbounded" | "photo_too_large";
+};
+    GardenNotificationStatus: {
+    attempts: Record<string, number>;
+    channels: Array<"discord" | "telegram" | "pushover" | "email">;
+    configured: Record<string, boolean>;
+    delivery_channels: Array<"discord" | "telegram" | "pushover" | "email">;
+    enabled: boolean;
+    include_photo: boolean;
+    use_bird_channels: boolean;
+};
+    GardenOwnerIdentification: {
+    changed_at: string;
+    name: string;
+    scientific_name: string;
+    species_id: number;
+};
+    GardenPhotoCheck: {
+    box_xywh: [number, number, number, number];
+    capture_id: string;
+    devices: Array<string>;
+    frame_size: [number, number];
+    image_sha256: string;
+    mass: components['schemas']['GardenPhotoMass'] | null;
+    model_sha256: string;
+    package_sha256: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    suggestion: "bird" | "mammal" | "uncertain" | "unavailable";
+    variant?: "4.0.3a";
+};
+    GardenPhotoCheckRequest: {
+    image_sha256: string;
+    provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+};
+    GardenPhotoMass: {
+    bird: number;
+    blank: number;
+    human: number;
+    mammal: number;
+    other: number;
+};
+    GardenPresenceMass: {
+    animal: number;
+    bird: number;
+    human: number;
+    non_animal: number;
+    other: number;
+};
+    GardenRenameRequest: {
+    review_token: string;
+    species_id: number;
+};
+    GardenSpecies: {
+    name: string;
+    scientific_name: string;
+    species_id: number;
+};
+    GardenVisitPage: {
+    awaiting_check?: number;
+    capture_total: number;
+    limit: number;
+    offset: number;
+    total: number;
+    visits: Array<components['schemas']['GardenVisitResponse']>;
+};
+    GardenVisitResponse: {
+    capture_count: number;
+    end_time: string;
+    id: string;
+    kind: "position" | "visit";
+    representative: components['schemas']['GardenCaptureResponse'];
+    start_time: string;
 };
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
@@ -1070,6 +1547,14 @@ export interface components {
     InaturalistSubmitResponse: {
     observation_id?: number | null;
     status: string;
+};
+    InferenceExecution: {
+    checked_at: string;
+    devices: Array<string>;
+    fallback_reason?: "runtime_failed" | "accelerator_unavailable" | null;
+    model_id: string;
+    provider: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda";
+    requested_provider?: "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
 };
     InitialPasswordRequest: {
     enable_auth?: boolean;
@@ -1175,6 +1660,7 @@ export interface components {
 };
     LeaderboardSpeciesResponse: {
     history_start?: string | null;
+    nearby_check: "checked" | "off" | "unavailable";
     nearby_days_back?: number | null;
     nearby_radius_km?: number | null;
     previous_window_complete?: boolean;
@@ -1217,8 +1703,12 @@ export interface components {
     username?: string | null;
 };
     MaintenanceStatsResponse: {
+    automatic_cleanup?: boolean;
     detections_to_cleanup: number;
+    kept_newest_per_species?: number;
     oldest_detection?: string | null;
+    preview_detections_to_cleanup?: number | null;
+    preview_retention_days?: number | null;
     retention_days: number;
     total_detections: number;
 };
@@ -1252,6 +1742,8 @@ export interface components {
     taxa_id?: number | null;
 };
     ManualObservationResponse: {
+    captured_at?: string | null;
+    captured_at_source?: "exif" | "video_metadata" | "none";
     content_sha256: string;
     content_type: string;
     created_at?: string | null;
@@ -1385,6 +1877,25 @@ export interface components {
     providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
+    MotionSource: {
+    animal_confidence?: number;
+    box_xywh: [number, number, number, number];
+    camera: string;
+    clip_end: number;
+    clip_sha256: string;
+    clip_start: number;
+    detector_input_sha256?: string | null;
+    detector_score: number;
+    detector_sha256: string;
+    frame_index: number;
+    frame_offset: number;
+    image_sha256: string;
+    sampled_frame_sha256?: string | null;
+};
+    MoveToGardenResponse: {
+    capture_id: string;
+    event_id: string;
+};
     NewSpeciesQueueResponse: {
     items: Array<components['schemas']['NewSpeciesSighting']>;
     max_sightings: number;
@@ -1435,6 +1946,10 @@ export interface components {
     scientific_name?: string | null;
     taxa_id?: number | null;
 };
+    PrepareRevalidationRequest: {
+    attempt_id: string;
+    profile_fingerprint: string;
+};
     ProviderValidationStatus: {
     checked_at?: string | null;
     model_id?: string | null;
@@ -1443,6 +1958,7 @@ export interface components {
     state?: "idle" | "running" | "succeeded" | "failed" | "interrupted" | "superseded";
 };
     PublicSettings: {
+    bird_counting_enabled: boolean;
     classification_threshold: number;
     clips_enabled: boolean;
     ebird_default_days_back: number;
@@ -1459,6 +1975,85 @@ export interface components {
     missing: number;
     status: string;
 };
+    RangeDecisionCounts: {
+    fallback: number;
+    skipped: number;
+    window_days: number;
+};
+    RangeDecisionDetail: {
+    chosen_label?: string | null;
+    chosen_score?: number | null;
+    decided_at?: string | null;
+    original_label: string;
+    original_score: number;
+    outcome: "fallback" | "skipped";
+    region_code: string;
+};
+    RangeDecisionResponse: {
+    decision?: components['schemas']['RangeDecisionDetail'] | null;
+};
+    RangeFilterPreview: {
+    available: boolean;
+    examples: Array<components['schemas']['RangePreviewSpecies']>;
+    model_out_of_range_total?: number | null;
+    recently_seen: Array<components['schemas']['RangePreviewSpecies']>;
+    window_days: number;
+};
+    RangeFilterStatus: {
+    birdnet_enabled: boolean;
+    ebird_configured: boolean;
+    enabled: boolean;
+    filtering: boolean;
+    heard_only_species: number;
+    heard_species: number;
+    last_attempt_at?: string | null;
+    last_error?: string | null;
+    location_precision: "exact" | "approximate" | "country_only" | "none";
+    model?: components['schemas']['RangeModelCoverage'] | null;
+    next_refresh_at?: string | null;
+    problem?: string | null;
+    reason: "active" | "ready" | "needs_location" | "needs_ebird_key" | "waiting_for_list" | "lookup_failed" | "location_changed" | "list_stale" | "list_unusable";
+    recent: components['schemas']['RangeDecisionCounts'];
+    refreshed_at?: string | null;
+    refreshing: boolean;
+    region?: components['schemas']['RangeRegion'] | null;
+    region_level_setting: "county" | "state" | "country";
+    region_species_total?: number | null;
+    source: "ebird";
+    species_in_range?: number | null;
+    stale_after?: string | null;
+};
+    RangeModelCoverage: {
+    bird_species: number;
+    out_of_range: number;
+    unmatched: number;
+};
+    RangePreviewSpecies: {
+    common_name?: string | null;
+    detections?: number | null;
+    last_seen?: string | null;
+    scientific_name: string;
+    species_id: number;
+};
+    RangeRegion: {
+    code: string;
+    codes: Array<string>;
+    level: "county" | "state" | "country";
+    name?: string | null;
+    note?: string | null;
+};
+    RangeSkip: {
+    camera?: string | null;
+    decided_at?: string | null;
+    detected_at?: string | null;
+    frigate_event: string;
+    label: string;
+    region_code: string;
+    score: number;
+};
+    RangeSkipsResponse: {
+    items: Array<components['schemas']['RangeSkip']>;
+};
     ReadinessResponse: {
     db_pool_initialized: boolean;
     ready: boolean;
@@ -1473,7 +2068,7 @@ export interface components {
     new_species: string;
     old_species: string;
     queue_state?: "queued" | "duplicate" | null;
-    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | null;
+    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | "non_bird" | "out_of_range" | null;
     status: "queued" | "success" | "no_result";
     updated: boolean;
 };
@@ -1491,6 +2086,29 @@ export interface components {
     event_id: string;
     recording_state: "complete" | "partial";
     status: "ready" | "partial";
+};
+    RevalidationProfile: {
+    blocked: boolean;
+    eligible: boolean;
+    fingerprint: string;
+    model_id?: string | null;
+    provider?: string | null;
+    reason?: string | null;
+};
+    RevalidationStatus: {
+    approval_scope?: "process";
+    attempt_id?: string | null;
+    finished_at?: string | null;
+    message?: string;
+    model_id?: string | null;
+    profile_fingerprint?: string | null;
+    provider?: string | null;
+    started_at?: string | null;
+    state?: "idle" | "uploading" | "checking" | "running" | "restoring" | "succeeded" | "failed" | "cancelled" | "superseded";
+};
+    RevalidationView: {
+    attempt: components['schemas']['RevalidationStatus'];
+    profile?: components['schemas']['RevalidationProfile'] | null;
 };
     ReverseGeocodeResponse: {
     country?: string | null;
@@ -1531,7 +2149,10 @@ export interface components {
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
     background_worker_count?: number | null;
+    beta_garden_animals?: boolean;
+    bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
+    bird_crop_inference_provider?: "auto" | "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
     birdnet_enabled?: boolean | null;
@@ -1571,6 +2192,17 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_automatic_naming?: boolean;
+    garden_cameras: Array<string>;
+    garden_domestic_birds: Array<"chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail">;
+    garden_labels: Array<string>;
+    garden_motion_cameras: Array<string>;
+    garden_motion_confidence?: number;
+    garden_naming_threshold?: number;
+    garden_notification_channels: Array<"discord" | "telegram" | "pushover" | "email">;
+    garden_notifications_enabled?: boolean;
+    garden_notifications_include_photo?: boolean;
+    garden_notifications_use_bird_channels?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1687,9 +2319,12 @@ export interface components {
     public_access_show_camera_names?: boolean | null;
     public_access_show_clips?: boolean | null;
     public_access_show_snapshots?: boolean | null;
+    range_filter_enabled?: boolean | null;
+    range_filter_region_level?: "county" | "state" | "country" | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
+    recording_frame_delay_seconds?: number;
     retention_days?: number;
     scientific_name_primary?: boolean;
     species_info_source?: string | null;
@@ -1737,7 +2372,10 @@ export interface components {
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
     background_worker_count?: number | null;
+    beta_garden_animals?: boolean | null;
+    bird_crop_accurate_detector?: "yolox_tiny" | "rfdetr_nano" | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
+    bird_crop_inference_provider?: "auto" | "cpu" | "intel_cpu" | "intel_gpu" | "intel_npu" | "cuda" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
     birdnet_enabled?: boolean | null;
@@ -1776,6 +2414,17 @@ export interface components {
     frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    garden_automatic_naming?: boolean;
+    garden_cameras?: Array<string>;
+    garden_domestic_birds?: Array<"chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail">;
+    garden_labels?: Array<string>;
+    garden_motion_cameras?: Array<string>;
+    garden_motion_confidence?: number;
+    garden_naming_threshold?: number;
+    garden_notification_channels?: Array<"discord" | "telegram" | "pushover" | "email">;
+    garden_notifications_enabled?: boolean;
+    garden_notifications_include_photo?: boolean;
+    garden_notifications_use_bird_channels?: boolean;
     ha_weather_access_token?: string | null;
     ha_weather_base_url?: string | null;
     ha_weather_cloud_cover_entity?: string | null;
@@ -1889,9 +2538,12 @@ export interface components {
     public_access_show_camera_names?: boolean | null;
     public_access_show_clips?: boolean | null;
     public_access_show_snapshots?: boolean | null;
+    range_filter_enabled?: boolean | null;
+    range_filter_region_level?: "county" | "state" | "country" | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
+    recording_frame_delay_seconds?: number;
     retention_days?: number;
     scientific_name_primary?: boolean;
     species_info_source?: string | null;
@@ -2111,7 +2763,7 @@ export interface components {
     utilization_percent?: number | null;
 };
     SystemDebugResponse: {
-    disk_usage: Array<unknown>;
+    disk_usage: [number, number, number];
     platform: string;
     python: string;
 };
@@ -2143,6 +2795,7 @@ export interface components {
     accelerator?: components['schemas']['SystemAcceleratorIdentity'] | null;
     accelerators?: Array<components['schemas']['SystemAcceleratorSeries']>;
     app_rss_bytes?: number | null;
+    drm_diagnostics?: Array<components['schemas']['DrmProbeSnapshot']>;
     host: components['schemas']['SystemHostFacts'];
     interval_seconds: number;
     points: Array<components['schemas']['SystemHistoryPointResponse']>;
@@ -2159,10 +2812,47 @@ export interface components {
     children: Array<components['schemas']['TaxonResponse']>;
     parent_id: number;
 };
+    TaxonFactsItem: {
+    first_seen?: string | null;
+    heard?: number | null;
+    last_heard?: string | null;
+    last_seen?: string | null;
+    photo?: components['schemas']['TaxonPhotoResponse'] | null;
+    rank: string;
+    sources: Array<"camera" | "garden">;
+    species_seen: number;
+    taxon_id: number;
+    visits: number;
+};
+    TaxonFactsResponse: {
+    facts: Array<components['schemas']['TaxonFactsItem']>;
+    scope: "all" | "shared";
+    shared_days?: number | null;
+};
     TaxonLineageResponse: {
     lineage: Array<components['schemas']['TaxonResponse']>;
 };
+    TaxonNamesResponse: {
+    languages: number;
+    names: Array<components['schemas']['TaxonOtherNameResponse']>;
+    taxon_id: number;
+    truncated: boolean;
+};
+    TaxonOtherNameResponse: {
+    language: string;
+    name: string;
+    preferred: boolean;
+};
+    TaxonPhotoResponse: {
+    kind: "camera" | "garden";
+    name?: string | null;
+    scientific_name: string;
+    species_id: number;
+    taken_at: string;
+    url: string;
+};
     TaxonResponse: {
+    authorship?: string | null;
     name?: string | null;
     parent_id?: number | null;
     principal: boolean;
@@ -2709,6 +3399,17 @@ export interface paths {
       response: components['schemas']['CacheCleanupResponse'];
     };
   };
+  "/api/cache/measurement": {
+    get: {
+      operationId: "get_cache_measurement_api_cache_measurement_get";
+      path: never;
+      query: {
+    measurement_id?: string | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['CacheStatsMeasurementResponse'];
+    };
+  };
   "/api/cache/stats": {
     get: {
       operationId: "get_cache_stats_api_cache_stats_get";
@@ -2777,13 +3478,53 @@ export interface paths {
       response: components['schemas']['ProviderValidationStatus'];
     };
   };
+  "/api/classifier/quarantine/revalidation": {
+    get: {
+      operationId: "inspect_revalidation_api_classifier_quarantine_revalidation_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationView'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/prepare": {
+    post: {
+      operationId: "prepare_revalidation_api_classifier_quarantine_revalidation_prepare_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['PrepareRevalidationRequest'];
+      response: components['schemas']['RevalidationStatus'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/{attempt_id}/cancel": {
+    post: {
+      operationId: "cancel_revalidation_api_classifier_quarantine_revalidation__attempt_id__cancel_post";
+      path: {
+    attempt_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationStatus'];
+    };
+  };
+  "/api/classifier/quarantine/revalidation/{attempt_id}/inputs": {
+    post: {
+      operationId: "upload_revalidation_api_classifier_quarantine_revalidation__attempt_id__inputs_post";
+      path: {
+    attempt_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RevalidationStatus'];
+    };
+  };
   "/api/classifier/status": {
     get: {
       operationId: "classifier_status_api_classifier_status_get";
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, components['schemas']['JsonValue']>;
+      response: components['schemas']['ClassifierStatusResponse'];
     };
   };
   "/api/classifier/test": {
@@ -3114,6 +3855,7 @@ export interface paths {
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: Array<components['schemas']['DetectionResponse']> | Array<components['schemas']['DetectionListItemResponse']>;
@@ -3151,6 +3893,7 @@ export interface paths {
     only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['EventsCountResponse'];
@@ -3318,6 +4061,17 @@ export interface paths {
       response: components['schemas']['HideResponse'];
     };
   };
+  "/api/events/{event_id}/move-to-garden": {
+    post: {
+      operationId: "move_event_to_garden_api_events__event_id__move_to_garden_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MoveToGardenResponse'];
+    };
+  };
   "/api/events/{event_id}/reclassify": {
     post: {
       operationId: "reclassify_event_api_events__event_id__reclassify_post";
@@ -3329,6 +4083,18 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['ReclassifyResponse'];
+    };
+  };
+  "/api/explorer/search": {
+    get: {
+      operationId: "search_explorer_api_explorer_search_get";
+      path: never;
+      query: {
+    limit?: number;
+    q: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['ExplorerSearchResponse'];
     };
   };
   "/api/frigate/camera/{camera}/latest.jpg": {
@@ -3609,6 +4375,303 @@ export interface paths {
       response: unknown;
     };
   };
+  "/api/garden": {
+    get: {
+      operationId: "list_captures_api_garden_get";
+      path: never;
+      query: {
+    limit?: number;
+    offset?: number;
+    status?: "pending" | "confirmed" | "dismissed";
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/captures/{capture_id}": {
+    get: {
+      operationId: "get_capture_api_garden_captures__capture_id__get";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/crops/storage": {
+    get: {
+      operationId: "crop_storage_api_garden_crops_storage_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCropStorage'];
+    };
+  };
+  "/api/garden/dismiss-captures": {
+    post: {
+      operationId: "dismiss_captures_api_garden_dismiss_captures_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['GardenDismissRequest'];
+      response: components['schemas']['GardenBatchReviewResponse'];
+    };
+  };
+  "/api/garden/domestic-birds": {
+    get: {
+      operationId: "domestic_birds_api_garden_domestic_birds_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: Array<components['schemas']['GardenDomesticBirdOption']>;
+    };
+  };
+  "/api/garden/domestic-birds/{bird}/keep": {
+    post: {
+      operationId: "keep_domestic_bird_api_garden_domestic_birds__bird__keep_post";
+      path: {
+    bird: "chicken" | "domestic_duck" | "domestic_goose" | "turkey" | "guinea_fowl" | "peafowl" | "domestic_pigeon" | "quail";
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenKeepBirdResponse'];
+    };
+  };
+  "/api/garden/identification": {
+    get: {
+      operationId: "identification_status_api_garden_identification_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenIdentificationStatus'];
+    };
+  };
+  "/api/garden/models/{variant}/install": {
+    post: {
+      operationId: "install_garden_model_api_garden_models__variant__install_post";
+      path: {
+    variant: "4.0.3a" | "4.0.3b";
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenIdentificationStatus'];
+    };
+  };
+  "/api/garden/motion": {
+    get: {
+      operationId: "motion_status_api_garden_motion_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenMotionStatus'];
+    };
+  };
+  "/api/garden/motion/install": {
+    post: {
+      operationId: "install_motion_detector_api_garden_motion_install_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenMotionStatus'];
+    };
+  };
+  "/api/garden/notifications": {
+    get: {
+      operationId: "garden_notification_status_api_garden_notifications_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenNotificationStatus'];
+    };
+  };
+  "/api/garden/review-batch": {
+    post: {
+      operationId: "review_batch_api_garden_review_batch_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['GardenBatchReviewRequest'];
+      response: components['schemas']['GardenBatchReviewResponse'];
+    };
+  };
+  "/api/garden/species": {
+    get: {
+      operationId: "garden_species_api_garden_species_get";
+      path: never;
+      query: {
+    q: string;
+};
+      requestBody: unknown;
+      response: Array<components['schemas']['GardenSpecies']>;
+    };
+  };
+  "/api/garden/timeline": {
+    get: {
+      operationId: "capture_timeline_api_garden_timeline_get";
+      path: never;
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    order?: "newest" | "oldest";
+    start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/visits": {
+    get: {
+      operationId: "garden_visits_api_garden_visits_get";
+      path: never;
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    order?: "newest" | "oldest";
+    page_end?: string | null;
+    page_start?: string | null;
+    start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenVisitPage'];
+    };
+  };
+  "/api/garden/visits/{visit_id}/captures": {
+    get: {
+      operationId: "garden_visit_captures_api_garden_visits__visit_id__captures_get";
+      path: {
+    visit_id: string;
+};
+      query: {
+    camera?: string | null;
+    end?: string | null;
+    limit?: number;
+    offset?: number;
+    start?: string | null;
+    status?: "reviewable" | "pending" | "confirmed" | "dismissed";
+    taxon?: number | null;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCapturePage'];
+    };
+  };
+  "/api/garden/{capture_id}/check-photo": {
+    post: {
+      operationId: "check_photo_api_garden__capture_id__check_photo_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenPhotoCheckRequest'];
+      response: components['schemas']['GardenPhotoCheck'];
+    };
+  };
+  "/api/garden/{capture_id}/confirm": {
+    post: {
+      operationId: "confirm_capture_api_garden__capture_id__confirm_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/crop": {
+    get: {
+      operationId: "capture_crop_api_garden__capture_id__crop_get";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/garden/{capture_id}/dismiss": {
+    post: {
+      operationId: "dismiss_capture_api_garden__capture_id__dismiss_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/identification/{action}": {
+    post: {
+      operationId: "review_identification_api_garden__capture_id__identification__action__post";
+      path: {
+    action: "accept" | "dismiss";
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/identify": {
+    post: {
+      operationId: "identify_capture_api_garden__capture_id__identify_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenIdentifyRequest'];
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/restore": {
+    post: {
+      operationId: "restore_capture_api_garden__capture_id__restore_post";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
+  "/api/garden/{capture_id}/snapshot": {
+    get: {
+      operationId: "capture_snapshot_api_garden__capture_id__snapshot_get";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/garden/{capture_id}/species": {
+    put: {
+      operationId: "rename_species_api_garden__capture_id__species_put";
+      path: {
+    capture_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['GardenRenameRequest'];
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+    delete: {
+      operationId: "clear_owner_species_api_garden__capture_id__species_delete";
+      path: {
+    capture_id: string;
+};
+      query: {
+    review_token: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['GardenCaptureResponse'];
+    };
+  };
   "/api/inaturalist/draft": {
     post: {
       operationId: "inaturalist_draft_api_inaturalist_draft_post";
@@ -3823,7 +4886,9 @@ export interface paths {
     get: {
       operationId: "get_maintenance_stats_api_maintenance_stats_get";
       path: never;
-      query: never;
+      query: {
+    retention_days?: number | null;
+};
       requestBody: unknown;
       response: components['schemas']['MaintenanceStatsResponse'];
     };
@@ -4041,6 +5106,55 @@ export interface paths {
       response: components['schemas']['ModelValidateResponse'];
     };
   };
+  "/api/range-filter/decisions/{frigate_event}": {
+    get: {
+      operationId: "get_range_filter_decision_api_range_filter_decisions__frigate_event__get";
+      path: {
+    frigate_event: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeDecisionResponse'];
+    };
+  };
+  "/api/range-filter/preview": {
+    get: {
+      operationId: "get_range_filter_preview_api_range_filter_preview_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterPreview'];
+    };
+  };
+  "/api/range-filter/refresh": {
+    post: {
+      operationId: "refresh_range_list_api_range_filter_refresh_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterStatus'];
+    };
+  };
+  "/api/range-filter/skips": {
+    get: {
+      operationId: "get_range_filter_skips_api_range_filter_skips_get";
+      path: never;
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['RangeSkipsResponse'];
+    };
+  };
+  "/api/range-filter/status": {
+    get: {
+      operationId: "get_range_filter_status_api_range_filter_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['RangeFilterStatus'];
+    };
+  };
   "/api/settings": {
     get: {
       operationId: "get_settings_api_settings_get";
@@ -4225,7 +5339,9 @@ export interface paths {
     species_name: string;
 };
       query: {
+    rank?: "family" | "order" | null;
     refresh?: boolean;
+    scientific_name?: string | null;
 };
       requestBody: unknown;
       response: components['schemas']['SpeciesInfo'];
@@ -4357,6 +5473,17 @@ export interface paths {
       response: components['schemas']['SystemTelemetryHistoryResponse'];
     };
   };
+  "/api/taxonomy/facts": {
+    get: {
+      operationId: "get_taxon_facts_api_taxonomy_facts_get";
+      path: never;
+      query: {
+    ids: Array<number>;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonFactsResponse'];
+    };
+  };
   "/api/taxonomy/lineage": {
     get: {
       operationId: "get_species_lineage_api_taxonomy_lineage_get";
@@ -4390,6 +5517,19 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['TaxonLineageResponse'];
+    };
+  };
+  "/api/taxonomy/{taxon_id}/names": {
+    get: {
+      operationId: "get_taxon_names_api_taxonomy__taxon_id__names_get";
+      path: {
+    taxon_id: number;
+};
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['TaxonNamesResponse'];
     };
   };
   "/api/update-status": {
@@ -4483,6 +5623,7 @@ export interface paths {
     species?: string | null;
     start_date?: string | null;
     start_time?: string | null;
+    taxon?: number | null;
 };
       requestBody: unknown;
       response: components['schemas']['DetectionVisitsResponse'];

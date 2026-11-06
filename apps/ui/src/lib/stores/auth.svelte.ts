@@ -25,6 +25,7 @@ class AuthStore {
     publicAccessShowAudio = $state(true);
     publicAccessShowSnapshots = $state(true);
     publicAccessShowClips = $state(true);
+    gardenAnimalsEnabled = $state(false);
     needsInitialSetup = $state(false);
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
@@ -76,6 +77,8 @@ class AuthStore {
     // Audio is the owner's to share (#291): a guest sees the audio surfaces
     // only when the switch is on.
     canViewAudio = $derived(this.hasOwnerAccess || !this.isGuest || this.publicAccessShowAudio);
+    // Visitors browse confirmed Garden animals beside birds while the owner has Garden animals on.
+    guestCanViewGarden = $derived(this.isGuest && this.gardenAnimalsEnabled);
 
     constructor() {
         // Status is loaded via loadStatus()
@@ -102,6 +105,7 @@ class AuthStore {
             this.publicAccessShowAudio = status.public_access_show_audio ?? true;
             this.publicAccessShowSnapshots = status.public_access_show_snapshots ?? true;
             this.publicAccessShowClips = status.public_access_show_clips ?? true;
+            this.gardenAnimalsEnabled = status.garden_animals_enabled ?? false;
             this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
             this.needsInitialSetup = status.needs_initial_setup ?? false;
             this.isAuthenticated = status.is_authenticated;

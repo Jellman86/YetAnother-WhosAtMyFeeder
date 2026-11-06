@@ -1268,3 +1268,253 @@ async def test_a_visit_first_saved_as_unknown_is_reported_when_a_better_frame_na
     await _save_live(service, 0.9)
 
     mock_deps["birdweather"].report_detection.assert_called_once()
+
+
+@pytest.mark.parametrize("garden_enabled", [False, True])
+@pytest.mark.parametrize("trust_frigate", [False, True])
+def test_known_nonbird_is_terminal_without_borrowing_a_bird_runner_up(monkeypatch, garden_enabled, trust_frigate):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.settings.frigate, "garden_cameras", ["patiocam"] if garden_enabled else [])
+    monkeypatch.setattr(module.settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(module.settings.classification, "trust_frigate_sublabel", trust_frigate)
+    group = MagicMock(side_effect=lambda sha, index, label: "nonbird" if index == 4844 else "bird")
+    monkeypatch.setattr(module.species_catalog_resolver, "cached_output_group", group)
+    service = DetectionService(MagicMock())
+    result, reason = service.select_usable_classification(
+        [
+            {"label": "Sciurus carolinensis", "score": 0.99, "index": 4844, "model_sha256": "a" * 64},
+            {"label": "Erithacus rubecula", "score": 0.98, "index": 7, "model_sha256": "a" * 64},
+        ],
+        "evt-squirrel",
+        "Erithacus rubecula",
+    )
+    assert result is None
+    assert reason == "non_bird"
+    group.assert_called_once_with("a" * 64, 4844, "Sciurus carolinensis")
+
+
+@pytest.mark.parametrize("group", ["bird", "unknown"])
+def test_unverified_or_bird_output_keeps_existing_admission(monkeypatch, group):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.species_catalog_resolver, "cached_output_group", lambda *args: group)
+    result, reason = DetectionService(MagicMock()).filter_and_label(
+        {"label": "Erithacus rubecula", "score": 0.99, "index": 1}, "evt-bird"
+    )
+    assert result["label"] == "Erithacus rubecula"
+    assert reason.startswith("threshold_passed")
+
+
+def test_nonbird_group_does_not_reinterpret_the_unknown_catchall(monkeypatch):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(module.settings.classification, "min_confidence", 0.4)
+    monkeypatch.setattr(module.settings.classification, "trust_frigate_sublabel", False)
+    lookup = MagicMock(return_value="nonbird")
+    monkeypatch.setattr(module.species_catalog_resolver, "cached_output_group", lookup)
+    result, reason = DetectionService(MagicMock()).filter_and_label(
+        {"label": "Sciurus carolinensis", "score": 0.5, "index": 4844}, "evt-weak"
+    )
+    assert result["label"] == "Unknown Bird"
+    assert reason == "unknown_catchall"
+    lookup.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_save_fresh_nonbird_guard_precedes_every_write_and_external_side_effect(mock_deps, monkeypatch):
+    from app.services import detection_service as module
+
+    lookup = MagicMock(return_value="nonbird")
+    monkeypatch.setattr(module.species_catalog_resolver, "fresh_output_group", lookup)
+    result = await DetectionService(MagicMock()).save_detection(
+        frigate_event="evt-squirrel",
+        camera="birdcam",
+        start_time=1700000000,
+        classification={"label": "Sciurus carolinensis", "score": 0.99, "index": 4844, "model_sha256": "a" * 64},
+    )
+    assert result == (False, False)
+    lookup.assert_called_once_with("a" * 64, 4844, "Sciurus carolinensis")
+    mock_deps["taxonomy"].get_names.assert_not_awaited()
+    mock_deps["repo"].upsert_if_higher_score.assert_not_called()
+    mock_deps["broadcaster"].broadcast.assert_not_awaited()
+    mock_deps["birdweather"].report_detection.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("manual_reanalysis", [False, True])
+@pytest.mark.parametrize("persist_video", [False, True])
+async def test_refinement_records_completion_but_never_promotes_known_nonbird(
+    mock_deps, monkeypatch, manual_reanalysis, persist_video
+):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.species_catalog_resolver, "fresh_output_group", lambda *args: "nonbird")
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(manual_tagged=False))
+    result = await DetectionService(MagicMock()).apply_video_result(
+        "evt-squirrel",
+        "Sciurus carolinensis",
+        0.99,
+        4844,
+        manual_tagged=manual_reanalysis,
+        persist_video_result=persist_video,
+        video_model_sha256="a" * 64,
+    )
+    assert not result
+    assert isinstance(result, module.NonBirdSaveRejection)
+    assert mock_deps["repo"].update_video_classification.await_count == int(persist_video)
+    mock_deps["repo"].update_primary_classification.assert_not_awaited()
+    mock_deps["broadcaster"].broadcast.assert_not_awaited()
+    mock_deps["birdweather"].report_detection.assert_not_called()
+
+
+def test_blocking_a_known_nonbird_cannot_make_selection_borrow_a_bird(monkeypatch):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(module.settings.classification, "blocked_labels", ["Sciurus carolinensis"])
+    monkeypatch.setattr(module.settings.classification, "trust_frigate_sublabel", True)
+    monkeypatch.setattr(
+        module.species_catalog_resolver,
+        "cached_output_group",
+        lambda sha, index, label: "nonbird" if index == 4844 else "bird",
+    )
+    assert DetectionService(MagicMock()).select_usable_classification(
+        [
+            {"label": "Sciurus carolinensis", "score": 0.99, "index": 4844},
+            {"label": "Erithacus rubecula", "score": 0.01, "index": 2},
+        ],
+        "evt-blocked-squirrel",
+        "Erithacus rubecula",
+    ) == (None, "non_bird")
+
+
+@pytest.mark.asyncio
+async def test_cold_cache_blocked_winner_cannot_escape_through_borrowed_bird(mock_deps, monkeypatch):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.settings.classification, "threshold", 0.7)
+    monkeypatch.setattr(module.settings.classification, "blocked_labels", ["Sciurus carolinensis"])
+    monkeypatch.setattr(module.settings.classification, "trust_frigate_sublabel", True)
+    monkeypatch.setattr(module.species_catalog_resolver, "cached_output_group", lambda *args: "unknown")
+    monkeypatch.setattr(
+        module.species_catalog_resolver,
+        "fresh_output_group",
+        lambda sha, index, label: "nonbird" if index == 4844 and label == "Sciurus carolinensis" else "unknown",
+    )
+    service = DetectionService(MagicMock())
+    top, reason = service.select_usable_classification(
+        [
+            {"label": "Sciurus carolinensis", "score": 0.99, "index": 4844, "model_sha256": "a" * 64},
+        ],
+        "evt-cold",
+        "Erithacus rubecula",
+    )
+    assert top["index"] == -1 and top.get("model_sha256") is None
+    result = await service.save_detection(
+        frigate_event="evt-cold", camera="birdcam", start_time=1700000000, classification=top
+    )
+    assert result == (False, False)
+    mock_deps["taxonomy"].get_names.assert_not_awaited()
+    mock_deps["repo"].upsert_if_higher_score.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_refinement_rechecks_separate_skipped_winner_evidence(mock_deps, monkeypatch):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(
+        module.species_catalog_resolver,
+        "fresh_output_group",
+        lambda sha, index, label: "nonbird" if index == 4844 else "bird",
+    )
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=MagicMock(manual_tagged=False))
+    result = await DetectionService(MagicMock()).apply_video_result(
+        "evt-cold",
+        "Erithacus rubecula",
+        0.99,
+        2,
+        video_model_sha256="a" * 64,
+        admission_candidates=[{"model_sha256": "a" * 64, "index": 4844, "label": "Sciurus carolinensis"}],
+    )
+    assert not result
+    assert isinstance(result, module.NonBirdSaveRejection)
+    mock_deps["repo"].update_primary_classification.assert_not_awaited()
+
+
+def test_selection_does_not_trust_incoming_skipped_candidate_metadata(monkeypatch):
+    from app.services import detection_service as module
+
+    monkeypatch.setattr(module.species_catalog_resolver, "cached_output_group", lambda *args: "bird")
+    selected, _ = DetectionService(MagicMock()).select_usable_classification(
+        [
+            {
+                "label": "Erithacus rubecula",
+                "score": 0.99,
+                "index": 1,
+                "admission_candidates": [{"label": "Sciurus carolinensis", "index": 4844, "model_sha256": "a" * 64}],
+            }
+        ],
+        "evt-injected",
+    )
+    assert "admission_candidates" not in selected
+
+
+def _renamed_visit(manual_tagged=False):
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.72
+    existing.display_name = "Magpie"
+    existing.category_name = "Pica pica"
+    existing.scientific_name = "Pica pica"
+    existing.common_name = "Magpie"
+    existing.sub_label = None
+    existing.frigate_score = 0.78
+    existing.detection_time = datetime.now()
+    existing.camera_name = "greenhousecam"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = manual_tagged
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    return existing
+
+
+@pytest.mark.asyncio
+async def test_an_automatic_rename_asks_whether_the_visit_is_now_a_kept_bird(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(return_value="capture-1")
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, persist_video_result=False
+        )
+    assert applied is True
+    move.assert_awaited_once_with("event1")
+
+
+@pytest.mark.asyncio
+async def test_the_owners_reclassify_leaves_a_kept_bird_where_the_owner_put_it(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(return_value="capture-1")
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, manual_tagged=True
+        )
+    assert applied is True
+    move.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_failed_move_to_garden_does_not_undo_or_fail_the_committed_rename(mock_deps):
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=_renamed_visit())
+    move = AsyncMock(side_effect=RuntimeError("database is locked"))
+    with patch("app.services.garden_domestic_service.garden_domestic_service.move_renamed_detection", move):
+        applied = await DetectionService(MagicMock()).apply_video_result(
+            "event1", "Gallus gallus", 0.99, 3632, persist_video_result=False
+        )
+    assert applied is True
+    move.assert_awaited_once_with("event1")

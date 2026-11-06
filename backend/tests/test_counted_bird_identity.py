@@ -60,6 +60,32 @@ def test_reported_dunnock_uses_accepted_identity_without_inventing_crop_confiden
     assert evidence == original
 
 
+def test_known_whole_view_cannot_name_a_counted_bird_through_a_later_tracking_hint(evidence):
+    evidence["detection"]["classification_input"] = {"source": "full_frame", "is_cropped": False}
+    bird = resolve_bird_identities(**evidence)[0]
+    assert bird["species"] == "Unknown Bird"
+    assert not bird["tracked"]
+
+
+def test_persisted_classifier_box_needs_the_exact_retained_frame(evidence):
+    evidence["detection"]["classification_input"] = {
+        "source": "snapshot_frigate_hint_crop",
+        "is_cropped": True,
+        "box": [785, 303, 1209, 499],
+        "frame_size": [1920, 1080],
+        "frame_sha256": "a" * 64,
+    }
+    assert not resolve_bird_identities(**evidence)[0]["tracked"]
+    evidence["candidates"].append(
+        {"source_mode": "full_frame", "clip_variant": "frigate_snapshot", "frame_index": 0, "content_sha256": "a" * 64}
+    )
+    bird = resolve_bird_identities(**evidence)[0]
+    assert bird["species"] == "Prunella modularis"
+    assert bird["tracked"]
+    evidence["candidates"][-1]["content_sha256"] = "b" * 64
+    assert not resolve_bird_identities(**evidence)[0]["tracked"]
+
+
 @pytest.mark.parametrize(
     "change",
     [

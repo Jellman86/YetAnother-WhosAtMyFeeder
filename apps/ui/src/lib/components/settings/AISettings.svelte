@@ -1,12 +1,15 @@
 <script lang="ts">
-    import { _ } from 'svelte-i18n';
+    import { _, locale } from 'svelte-i18n';
+    import { get } from 'svelte/store';
     import { onMount } from 'svelte';
     import SecretInput from './_primitives/SecretInput.svelte';
     import { fetchAiUsage, clearAiUsage, testLlm, type AIUsageResponse, type LlmTestResult } from '../../api';
     import { toastStore } from '../../stores/toast.svelte';
     import { confirmAction } from '../../stores/confirm_dialog.svelte';
     import { getErrorMessage } from '../../utils/error-handling';
-    import { getRecommendedLlmModel } from '../../settings/llm-models';
+    import { getLlmModelOptions, getRecommendedLlmModel } from '../../settings/llm-models';
+    import type { AiDraft } from '../../settings/ai-section';
+    import { promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -18,34 +21,32 @@
     import AITestModal from './AITestModal.svelte';
 
     let {
-        llmEnabled = $bindable(false),
-        llmProvider = $bindable('gemini'),
-        llmApiKey = $bindable(''),
-        llmApiKeySaved = $bindable(false),
-        llmModel = $bindable(getRecommendedLlmModel('gemini')),
-        llmAnalysisPromptTemplate = $bindable(''),
-        llmConversationPromptTemplate = $bindable(''),
-        llmChartPromptTemplate = $bindable(''),
-        llmPromptStyle = $bindable('classic'),
-        aiPricingJson = $bindable('[]'),
-        availableModels = [],
-        onApplyStyle,
-        onResetDefaults
+        draft,
+        onchange
     }: {
-        llmEnabled: boolean;
-        llmProvider: string;
-        llmApiKey: string;
-        llmApiKeySaved: boolean;
-        llmModel: string;
-        llmAnalysisPromptTemplate: string;
-        llmConversationPromptTemplate: string;
-        llmChartPromptTemplate: string;
-        llmPromptStyle: string;
-        aiPricingJson: string;
-        availableModels: { value: string; label: string }[];
-        onApplyStyle: () => void;
-        onResetDefaults: () => void;
+        /** The AI tab's part of the Settings draft; Apply saves it with the rest of the form. */
+        draft: AiDraft;
+        onchange: (edit: Partial<AiDraft>) => void;
     } = $props();
+
+    // Choosing a style only picks which templates Apply style writes; it is not saved.
+    let llmPromptStyle = $state('classic');
+    const availableModels = $derived(getLlmModelOptions(draft.llmProvider));
+
+    function applyPromptStyle(style: string): void {
+        const { analysis, conversation, chart } = promptTemplatesFor(style, get(locale) || 'en');
+        onchange({
+            llmAnalysisPromptTemplate: analysis,
+            llmConversationPromptTemplate: conversation,
+            llmChartPromptTemplate: chart
+        });
+        toastStore.success($_('settings.debug.llm_prompt_apply_notice', { default: 'Prompt templates updated.' }));
+    }
+
+    function resetPromptTemplates(): void {
+        llmPromptStyle = 'classic';
+        applyPromptStyle('classic');
+    }
 
     let usage = $state<AIUsageResponse | null>(null);
     let loadingUsage = $state(true);
@@ -63,17 +64,17 @@
         testRunId += 1;
         try {
             testResult = await testLlm({
-                llm_enabled: llmEnabled,
-                llm_provider: llmProvider,
-                llm_model: llmModel,
-                llm_api_key: llmApiKey
+                llm_enabled: draft.llmEnabled,
+                llm_provider: draft.llmProvider,
+                llm_model: draft.llmModel,
+                llm_api_key: draft.llmApiKey
             });
         } catch (error) {
             testResult = {
                 status: 'error',
                 message: getErrorMessage(error) || $_('settings.ai.test_network_error', { default: 'The diagnostic request could not reach YA-WAMF.' }),
-                provider: llmProvider,
-                model: llmModel,
+                provider: draft.llmProvider,
+                model: draft.llmModel,
                 frame_count: 5,
                 failure_stage: 'provider',
                 retryable: true,
@@ -165,23 +166,23 @@
             label={$_('settings.llm.enabled')}
         >
             <SettingsToggle
-                checked={llmEnabled}
+                checked={draft.llmEnabled}
                 labelledBy="setting-llm-enabled"
                 srLabel={$_('settings.llm.enabled')}
-                onchange={(v) => (llmEnabled = v)}
+                onchange={(v) => onchange({ llmEnabled: v })}
             />
         </SettingsRow>
 
-        {#if llmEnabled}
+        {#if draft.llmEnabled}
         <SettingsRow
             labelId="setting-llm-provider"
             label={$_('settings.llm.provider')}
             layout="stacked"
         >
             <SettingsSegmented
-                value={llmProvider}
+                value={draft.llmProvider}
                 ariaLabelTemplate={(label) => label}
-                onchange={(v) => (llmProvider = v)}
+                onchange={(v) => onchange({ llmProvider: v })}
                 options={[
                     { value: 'gemini', label: 'Gemini' },
                     { value: 'openai', label: 'OpenAI' },
@@ -198,23 +199,23 @@
         >
             <SecretInput
                 id="llm-api-key"
-                value={llmApiKey}
-                saved={llmApiKeySaved}
+                value={draft.llmApiKey}
+                saved={draft.llmApiKeySaved}
                 emptyPlaceholder="sk-..."
                 ariaLabel={$_('settings.llm.api_key')}
-                oninput={(v) => (llmApiKey = v)}
+                oninput={(v) => onchange({ llmApiKey: v })}
             />
         </SettingsRow>
 
         <SettingsRow
             labelId="setting-llm-model"
             label={$_('settings.llm.model')}
-            description={llmProvider === 'openrouter'
+            description={draft.llmProvider === 'openrouter'
                 ? $_('settings.llm.openrouter_model_hint', { default: 'Enter any OpenRouter model ID (e.g. google/gemini-3.1-flash-lite). Browse models at openrouter.ai/models.' })
-                : $_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(llmProvider)}` })}
+                : $_('settings.llm.recommended_model', { values: { model: getRecommendedLlmModel(draft.llmProvider) }, default: `Recommended: ${getRecommendedLlmModel(draft.llmProvider)}` })}
             layout="stacked"
         >
-            {#if llmProvider === 'openrouter'}
+            {#if draft.llmProvider === 'openrouter'}
                 <datalist id="llm-model-suggestions">
                     {#each availableModels as model}
                         <option value={model.value}>{model.label}</option>
@@ -224,18 +225,19 @@
                     id="llm-model"
                     type="text"
                     list="llm-model-suggestions"
-                    bind:value={llmModel}
-                    placeholder={getRecommendedLlmModel(llmProvider)}
+                    value={draft.llmModel}
+                    oninput={(event) => onchange({ llmModel: event.currentTarget.value })}
+                    placeholder={getRecommendedLlmModel(draft.llmProvider)}
                     aria-label={$_('settings.llm.model')}
                     class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all"
                 />
             {:else}
                 <SettingsSelect
                     id="llm-model"
-                    value={llmModel}
+                    value={draft.llmModel}
                     ariaLabel={$_('settings.llm.model')}
                     options={availableModels}
-                    onchange={(v) => (llmModel = v)}
+                    onchange={(v) => onchange({ llmModel: v })}
                 />
             {/if}
         </SettingsRow>
@@ -243,13 +245,13 @@
         <button
             type="button"
             onclick={runConnectionTest}
-            disabled={testRunning || (!llmApiKey && !llmApiKeySaved)}
+            disabled={testRunning || (!draft.llmApiKey && !draft.llmApiKeySaved)}
             class="w-full {buttonPrimaryClass}"
         >
             {testRunning ? $_('settings.llm.test_loading') : $_('settings.llm.test_connection')}
         </button>
 
-        {#if !llmApiKey && !llmApiKeySaved}
+        {#if !draft.llmApiKey && !draft.llmApiKeySaved}
         <div class="rounded-2xl border border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 p-4 text-xs text-slate-600 dark:text-slate-300">
             <p class="font-bold mb-2 text-slate-700 dark:text-slate-200">{$_('settings.ai.provider_info_title', { default: 'Cloud AI Providers' })}</p>
             <p class="leading-relaxed">{$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}</p>
@@ -280,12 +282,12 @@
                     </div>
                     <SettingsTextarea
                         id="ai-pricing-json"
-                        value={aiPricingJson}
+                        value={draft.aiPricingJson}
                         rows={8}
                         font="mono"
                         ariaLabel={$_('settings.ai.pricing_json', { default: 'Pricing Registry (JSON)' })}
                         placeholder={'[{"provider": "gemini", "model": "*", "inputPer1M": 0.3, "outputPer1M": 2.5}]'}
-                        oninput={(v) => (aiPricingJson = v)}
+                        oninput={(v) => onchange({ aiPricingJson: v })}
                     />
                 </div>
             </SettingsRow>
@@ -307,10 +309,10 @@
                         onchange={(v) => (llmPromptStyle = v)}
                     />
                     <div class="flex gap-2">
-                        <button type="button" onclick={onApplyStyle} class="flex-1 {buttonPrimaryClass}">
+                        <button type="button" onclick={() => applyPromptStyle(llmPromptStyle)} class="flex-1 {buttonPrimaryClass}">
                             {$_('settings.debug.llm_prompt_apply_style')}
                         </button>
-                        <button type="button" onclick={onResetDefaults} class="flex-1 {buttonSecondaryClass}">
+                        <button type="button" onclick={resetPromptTemplates} class="flex-1 {buttonSecondaryClass}">
                             {$_('settings.debug.llm_prompt_reset_defaults')}
                         </button>
                     </div>
@@ -325,11 +327,11 @@
             >
                 <SettingsTextarea
                     id="llm-prompt-analysis"
-                    value={llmAnalysisPromptTemplate}
+                    value={draft.llmAnalysisPromptTemplate}
                     rows={6}
                     font="mono"
                     ariaLabel={$_('settings.debug.llm_prompt_analysis')}
-                    oninput={(v) => (llmAnalysisPromptTemplate = v)}
+                    oninput={(v) => onchange({ llmAnalysisPromptTemplate: v })}
                 />
             </SettingsRow>
 
@@ -341,11 +343,11 @@
             >
                 <SettingsTextarea
                     id="llm-prompt-conversation"
-                    value={llmConversationPromptTemplate}
+                    value={draft.llmConversationPromptTemplate}
                     rows={6}
                     font="mono"
                     ariaLabel={$_('settings.debug.llm_prompt_conversation')}
-                    oninput={(v) => (llmConversationPromptTemplate = v)}
+                    oninput={(v) => onchange({ llmConversationPromptTemplate: v })}
                 />
             </SettingsRow>
 
@@ -357,11 +359,11 @@
             >
                 <SettingsTextarea
                     id="llm-prompt-chart"
-                    value={llmChartPromptTemplate}
+                    value={draft.llmChartPromptTemplate}
                     rows={6}
                     font="mono"
                     ariaLabel={$_('settings.debug.llm_prompt_chart')}
-                    oninput={(v) => (llmChartPromptTemplate = v)}
+                    oninput={(v) => onchange({ llmChartPromptTemplate: v })}
                 />
             </SettingsRow>
         </AdvancedSection>
@@ -444,8 +446,8 @@
 
 {#if testModalOpen}
     <AITestModal
-        provider={llmProvider}
-        model={llmModel}
+        provider={draft.llmProvider}
+        model={draft.llmModel}
         running={testRunning}
         result={testResult}
         runId={testRunId}

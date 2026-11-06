@@ -167,6 +167,39 @@ async def test_visit_api_and_expansion_return_complete_visible_membership(repo, 
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "score,manual,needs_review",
+    [(0.8688878715, False, False), (0.6, False, False), (0.59, False, True), (0.2, True, False)],
+)
+async def test_whole_view_visit_uses_confidence_and_owner_decisions(repo, monkeypatch, score, manual, needs_review):
+    import httpx
+    from unittest.mock import AsyncMock
+    from app.config import settings
+    from app.main import app
+    from app.routers import events
+
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(settings.classification, "threshold", 0.6)
+    monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    event = await capture(repo, 0, 0)
+    await repo.db.execute(
+        """UPDATE detections SET score=?, manual_tagged=?,
+        classification_input_json='{"source":"full_frame","is_cropped":false}' WHERE frigate_event=?""",
+        (score, manual, event),
+    )
+    await repo.db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
+        assert response.status_code == 200, response.text
+        visit = response.json()["visits"][0]
+        assert visit["needs_review"] is needs_review
+        assert visit["owner_confirmed"] is manual
+        assert visit["representative"]["classification_input"]["source"] == "full_frame"
+        assert visit["representative"]["classification_input"]["is_cropped"] is False
+
+
+@pytest.mark.asyncio
 async def test_terminal_bounds_survive_null_and_invalid_updates(repo):
     event = await capture(repo, 0, 0)
     start = START.replace(tzinfo=timezone.utc).timestamp()
@@ -781,3 +814,36 @@ async def test_recent_visit_peak_work_is_bounded_by_matching_history(repo):
     await repo.db.commit()
     after = await measured_page()
     assert after <= before * 1.5 + 10, f"Unrelated observations grew SQL work from {before} to {after} steps"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("confirmation", ["visible", "hidden", "none", "unknown"])
+async def test_visit_reports_owner_confirmation_from_visible_members_not_model_or_audio(
+    repo, monkeypatch, confirmation
+):
+    import httpx
+    from unittest.mock import AsyncMock
+    from app.config import settings
+    from app.main import app
+    from app.routers import events
+
+    monkeypatch.setattr(settings.auth, "enabled", False)
+    monkeypatch.setattr(settings.public_access, "enabled", False)
+    monkeypatch.setattr(events, "batch_check_clips", AsyncMock(return_value={}))
+    species = "Unknown Bird" if confirmation == "unknown" else "Turdus merula"
+    reviewed = await capture(repo, 0, 0, species=species, hidden=int(confirmation == "hidden"))
+    favorite = await capture(repo, 1, 12, species=species, favorite=True)
+    if confirmation != "none":
+        await repo.db.execute("UPDATE detections SET manual_tagged=1 WHERE frigate_event=?", (reviewed,))
+    await repo.db.execute("UPDATE detections SET score=1, audio_confirmed=1 WHERE frigate_event=?", (favorite,))
+    await repo.db.commit()
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/visits?start_date=2033-10-03&end_date=2033-10-03")
+        assert response.status_code == 200, response.text
+        visits = response.json()["visits"]
+        if confirmation == "unknown":
+            assert all(not visit["owner_confirmed"] for visit in visits)
+        else:
+            assert visits[0]["representative"]["frigate_event"] == favorite
+            assert visits[0]["representative"]["manual_tagged"] is False
+            assert visits[0]["owner_confirmed"] is (confirmation == "visible")

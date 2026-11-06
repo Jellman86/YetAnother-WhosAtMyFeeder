@@ -6,6 +6,8 @@ import visitRowSource from '../components/FieldLogVisitRow.svelte?raw';
 import notableNearbySource from '../components/NotableNearby.svelte?raw';
 import histogramSource from '../components/DailyHistogram.svelte?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
+import popoutSource from '../utils/hover-popout.svelte.ts?raw';
+import panelSource from '../components/HoverPopoutPanel.svelte?raw';
 import recentAudioSource from '../components/RecentAudio.svelte?raw';
 import reviewQueueSource from '../components/ReviewQueueCard.svelte?raw';
 import visitorsSource from '../components/TopVisitors.svelte?raw';
@@ -74,7 +76,8 @@ describe('dashboard field desk layout', () => {
     it('keeps the review queue and its actions to owners', () => {
         // Identify and hide are owner-only calls, so a guest must not be offered them.
         expect(dashboardSource).toContain('let canReview = $derived(authStore.hasOwnerAccess)');
-        expect(dashboardSource).toContain('{#if canReview}');
+        expect(dashboardSource).toContain('needsYourCall({\n        canReview,');
+        expect(dashboardSource).toContain('{#if needsCall.visible}');
         expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
         expect(dashboardSource).toContain('canIdentify={canReview}');
         expect(visitRowSource).toContain('{#if visit.needsReview && canIdentify}');
@@ -82,7 +85,7 @@ describe('dashboard field desk layout', () => {
 
     it('folds repeat frames into visits instead of printing one card per frame', () => {
         expect(dashboardSource).toContain("fetchVisits({ ...window, limit: VISIT_ROW_LIMIT, signal, requestKey: 'dashboard:visits' })");
-        expect(dashboardSource).toContain('buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries })');
+        expect(dashboardSource).toContain('buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap })');
         expect(dashboardSource).not.toContain('LatestDetectionHero');
         expect(dashboardSource).not.toContain('data-dashboard-discovery-feed');
     });
@@ -130,19 +133,21 @@ describe('dashboard field desk layout', () => {
 
     it('opens the capture preview on hover and on keyboard focus, and dismisses it', () => {
         // Every frame in a visit previews itself, so the handlers take the frame index.
-        expect(previewSource).toContain("onpointerenter={(event) => { if (event.pointerType !== 'touch') show(index); }}");
-        expect(previewSource).toContain('onfocusin={(event) => { if (isKeyboardFocus(event.target)) show(index); }}');
-        expect(previewSource).toContain('let openIndex = $state<number | null>(null)');
+        expect(previewSource).toContain('onpointerenter={(event) => popout.pointerEnter(event, index)}');
+        expect(previewSource).toContain('onfocusin={(event) => popout.focusIn(event, index)}');
+        expect(popoutSource).toContain('openIndex = $state<number | null>(null)');
         expect(previewSource).toContain('dashboard.field_log.preview_frame_position');
-        expect(previewSource).toContain('onfocusout={handleFocusOut}');
-        expect(previewSource).toContain("event.key === 'Escape'");
+        expect(previewSource).toContain('onfocusout={popout.focusOut}');
+        expect(previewSource).toContain('onkeydown={popout.keydown}');
+        expect(popoutSource).toContain("event.key === 'Escape'");
         // The pointer must be able to travel into the panel (WCAG 2.2 SC 1.4.13).
-        expect(previewSource).toContain('CLOSE_GRACE_MS');
-        expect(previewSource).toContain('motion-reduce:animate-none');
+        expect(popoutSource).toContain('POPOUT_CLOSE_GRACE_MS');
+        expect(panelSource).toContain('motion-reduce:animate-none');
         // A tooltip trigger does not disclose a region it owns: the panel is
         // portalled to the body with no DOM or aria-controls linkage, so
         // aria-expanded announced a state that pointed at nothing.
         expect(previewSource).not.toContain('aria-expanded');
+        expect(panelSource).not.toContain('aria-expanded');
         expect(previewSource).toContain('focus-ring');
     });
 
@@ -182,7 +187,7 @@ describe('dashboard field desk layout', () => {
             expect(source).toContain('font-display text-xl font-bold text-slate-950 dark:text-white');
             expect(source).toMatch(/<section[^>]*class="panel /);
         }
-        expect(fieldLogSource).toContain('<section class="space-y-4 sm:panel" data-dashboard-field-log>');
+        expect(fieldLogSource).toContain('<section class="field-log space-y-4 sm:panel" data-dashboard-field-log>');
         expect(notableNearbySource).toContain('class="panel space-y-4"');
         expect(recentAudioSource).toContain('data-audio-history-action');
     });

@@ -20,6 +20,7 @@ number: an unknown is reported as unknown (CLAUDE.md section 5).
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -125,13 +126,62 @@ class NpuBusyTimeProbe:
 
 @dataclass(frozen=True)
 class _DrmClient:
-    """One open DRM client: its card, and the nanoseconds each engine class has run."""
+    """One open DRM client: its card, and each engine class's cumulative work.
+
+    Drivers report that work in one of two units. i915 publishes engine
+    nanoseconds (``drm-engine-*``); xe publishes busy cycles against the
+    engine's total cycles (``drm-cycles-*`` / ``drm-total-cycles-*``). The two
+    are not interchangeable: cycles only mean something as a fraction of
+    their own total.
+    """
 
     pdev: str
     driver: str
     client_id: str
     engine_ns: dict[str, int]
     engine_capacity: dict[str, int]
+    engine_cycles: dict[str, int]
+    engine_total_cycles: dict[str, int]
+
+
+@dataclass(frozen=True)
+class DrmCounterDiagnostic:
+    """Allow-listed counter evidence; never raw fdinfo or process identifiers."""
+
+    device: str
+    driver: str
+    engine: str
+    unit: Literal["ns", "cycles"]
+    value: int
+    previous: int | None
+    elapsed_seconds: float | None
+    total: int | None
+    previous_total: int | None
+    state: Literal[
+        "baseline", "measured", "counter_regressed", "missing_total", "total_not_advancing", "invalid_interval"
+    ]
+
+
+@dataclass(frozen=True)
+class DrmProbeDiagnostics:
+    process_count: int = 0
+    fdinfo_reads: int = 0
+    permission_denied: int = 0
+    missing_processes: int = 0
+    read_errors: int = 0
+    unsupported_fdinfo: int = 0
+    drivers: tuple[str, ...] = ()
+    parsed_clients: int = 0
+    new_clients: int = 0
+    departed_clients: int = 0
+    omitted_counters: int = 0
+    counters: tuple[DrmCounterDiagnostic, ...] = ()
+
+
+@dataclass(frozen=True)
+class DrmProbeSnapshot:
+    at: float
+    diagnostic: DrmProbeDiagnostics
 
 
 class DrmEngineTimeProbe:
@@ -147,7 +197,18 @@ class DrmEngineTimeProbe:
     def __init__(self, *, proc_root: Path | str = PROC_ROOT, drm_root: Path | str = DRM_ROOT) -> None:
         self._proc_root = Path(proc_root)
         self._drm_root = Path(drm_root)
-        self._previous: dict[str, tuple[dict[str, int], float]] = {}
+        # Baselines are per (card, client, unit, engine) high-water marks,
+        # never summed across clients first: a joining client's lifetime
+        # total is not this interval's work, and a departing client's total
+        # must not subtract from the rest. The DRM usage-stats spec permits
+        # busy counters to temporarily regress, so a rolled-back busy reading
+        # keeps its high-water until it catches up. Total cycles are a GPU
+        # timestamp, not cumulative client work: rebaseline a backwards clock
+        # after leaving that interval unmeasured, without guessing its width.
+        self._high_water: dict[tuple[str, str, str, str], tuple[int, float]] = {}
+        self.diagnostics = DrmProbeDiagnostics()
+        self._read_counts: dict[str, int] = {}
+        self._drivers: set[str] = set()
 
     @staticmethod
     def _parse_fdinfo(raw: str) -> _DrmClient | None:
@@ -156,6 +217,8 @@ class DrmEngineTimeProbe:
         client_id = ""
         engine_ns: dict[str, int] = {}
         engine_capacity: dict[str, int] = {}
+        engine_cycles: dict[str, int] = {}
+        engine_total_cycles: dict[str, int] = {}
         for line in raw.splitlines():
             key, separator, value = line.partition(":")
             if not separator or not key.startswith("drm-"):
@@ -172,6 +235,16 @@ class DrmEngineTimeProbe:
                     engine_capacity[key[len("drm-engine-capacity-") :]] = max(1, int(value))
                 except ValueError:
                     continue
+            elif key.startswith("drm-total-cycles-"):
+                try:
+                    engine_total_cycles[key[len("drm-total-cycles-") :]] = int(value.split()[0])
+                except (ValueError, IndexError):
+                    continue
+            elif key.startswith("drm-cycles-"):
+                try:
+                    engine_cycles[key[len("drm-cycles-") :]] = int(value.split()[0])
+                except (ValueError, IndexError):
+                    continue
             elif key.startswith("drm-engine-"):
                 # "12345 ns". The unit is always nanoseconds in the spec, but it is
                 # written out, so take the number and ignore the rest.
@@ -179,7 +252,7 @@ class DrmEngineTimeProbe:
                     engine_ns[key[len("drm-engine-") :]] = int(value.split()[0])
                 except (ValueError, IndexError):
                     continue
-        if not driver or not engine_ns:
+        if not driver or not (engine_ns or engine_cycles):
             return None
         return _DrmClient(
             pdev=pdev or driver,
@@ -187,6 +260,8 @@ class DrmEngineTimeProbe:
             client_id=client_id,
             engine_ns=engine_ns,
             engine_capacity=engine_capacity,
+            engine_cycles=engine_cycles,
+            engine_total_cycles=engine_total_cycles,
         )
 
     def _clients(self, pids: Iterable[int]) -> list[_DrmClient]:
@@ -197,68 +272,233 @@ class DrmEngineTimeProbe:
         for pid in pids:
             try:
                 entries = list((self._proc_root / str(pid) / "fdinfo").iterdir())
-            except OSError:
+            except OSError as exc:
+                self._count_read_error(exc, process=True)
                 continue
             for entry in entries:
                 try:
                     raw = entry.read_text(encoding="utf-8")
-                except OSError:
+                except OSError as exc:
+                    self._count_read_error(exc)
                     continue
+                self._read_counts["fdinfo_reads"] += 1
                 if "drm-driver" not in raw:
                     continue
+                for line in raw.splitlines():
+                    key, _, value = line.partition(":")
+                    if key == "drm-driver":
+                        driver = value.strip()
+                        self._drivers.add(driver if driver in _DRIVER_LABELS or driver == "intel_vpu" else "other")
                 client = self._parse_fdinfo(raw)
                 if client is None:
+                    self._read_counts["unsupported_fdinfo"] += 1
                     continue
                 unique[(client.pdev, client.client_id)] = client
         return list(unique.values())
+
+    def _count_read_error(self, exc: OSError, *, process: bool = False) -> None:
+        if isinstance(exc, PermissionError):
+            key = "permission_denied"
+        elif process and isinstance(exc, FileNotFoundError):
+            key = "missing_processes"
+        else:
+            key = "read_errors"
+        self._read_counts[key] += 1
+
+    def _counter_diagnostics(
+        self, clients: list[_DrmClient], now: float
+    ) -> tuple[tuple[DrmCounterDiagnostic, ...], int]:
+        counters: list[DrmCounterDiagnostic] = []
+        omitted = 0
+        for client in clients:
+            for unit, values in (("ns", client.engine_ns), ("cycles", client.engine_cycles)):
+                for engine, value in values.items():
+                    if len(counters) >= 64:
+                        omitted += 1
+                        continue
+                    mark = self._high_water.get((client.pdev, client.client_id, unit, engine))
+                    total = client.engine_total_cycles.get(engine) if unit == "cycles" else None
+                    total_mark = self._high_water.get((client.pdev, client.client_id, "total_cycles", engine))
+                    state = "measured"
+                    if unit == "cycles" and total is None:
+                        state = "missing_total"
+                    elif mark is None or (unit == "cycles" and total_mark is None):
+                        state = "baseline"
+                    elif value < mark[0] or (total is not None and total_mark is not None and total < total_mark[0]):
+                        state = "counter_regressed"
+                    elif now <= mark[1]:
+                        state = "invalid_interval"
+                    elif total is not None and total_mark is not None and total == total_mark[0]:
+                        state = "total_not_advancing"
+
+                    def bounded(number: int | None) -> int | None:
+                        return min(max(number, 0), 2**64 - 1) if number is not None else None
+
+                    counters.append(
+                        DrmCounterDiagnostic(
+                            device=client.pdev
+                            if re.fullmatch(r"[0-9a-fA-F]{4}:[0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-7]", client.pdev)
+                            else "unknown",
+                            driver=client.driver if client.driver in _DRIVER_LABELS else "other",
+                            engine=engine
+                            if engine
+                            in {
+                                "render",
+                                "copy",
+                                "video",
+                                "video-enhance",
+                                "compute",
+                                "gfx",
+                                "dma",
+                                "decode",
+                                "encode",
+                                "rcs",
+                                "bcs",
+                                "vcs",
+                                "vecs",
+                                "ccs",
+                            }
+                            else "other",
+                            unit=unit,
+                            value=bounded(value),
+                            previous=bounded(mark[0]) if mark else None,
+                            elapsed_seconds=round(max(0.0, now - mark[1]), 6) if mark else None,
+                            total=bounded(total),
+                            previous_total=bounded(total_mark[0]) if total_mark and unit == "cycles" else None,
+                            state=state,
+                        )
+                    )
+        return tuple(counters), omitted
 
     def _label_for(self, driver: str, pdev: str, cards: int) -> str:
         label = _DRIVER_LABELS.get(driver, "GPU")
         # One GPU needs no address to identify it; several do.
         return f"{label} {pdev}" if cards > 1 and pdev else label
 
+    def _engine_percents(self, clients: list[_DrmClient], now: float) -> dict[str, float]:
+        """This interval's busy percent per engine class, from per-client deltas.
+
+        Nanosecond engines sum each client's own share of its elapsed wall
+        time. Cycle engines sum busy-cycle deltas over the largest
+        total-cycle delta: clients on one card share the same engine clock,
+        so summing their totals would count the same denominator twice. A
+        client with no baseline, a rolled-back counter, or a total that did
+        not advance contributes nothing rather than an invented number.
+        Nanoseconds win when an engine reports both units."""
+        capacity: dict[str, int] = {}
+        for client in clients:
+            for engine, slots in client.engine_capacity.items():
+                capacity[engine] = max(capacity.get(engine, 1), slots)
+
+        ns_percent: dict[str, float] = {}
+        cycle_busy: dict[str, int] = {}
+        cycle_total: dict[str, int] = {}
+        for client in clients:
+            for engine, nanoseconds in client.engine_ns.items():
+                mark = self._high_water.get((client.pdev, client.client_id, "ns", engine))
+                if mark is None:
+                    continue
+                before, before_at = mark
+                elapsed = now - before_at
+                delta = nanoseconds - before
+                if delta < 0 or elapsed <= 0:
+                    continue
+                slots = capacity.get(engine, 1)
+                ns_percent[engine] = ns_percent.get(engine, 0.0) + delta / (elapsed * 1_000_000_000.0 * slots) * 100.0
+            for engine, cycles in client.engine_cycles.items():
+                if engine not in client.engine_total_cycles:
+                    continue
+                busy_mark = self._high_water.get((client.pdev, client.client_id, "cycles", engine))
+                total_mark = self._high_water.get((client.pdev, client.client_id, "total_cycles", engine))
+                if busy_mark is None or total_mark is None:
+                    continue
+                busy_delta = cycles - busy_mark[0]
+                total_delta = client.engine_total_cycles[engine] - total_mark[0]
+                if busy_delta < 0 or total_delta <= 0:
+                    continue
+                cycle_busy[engine] = cycle_busy.get(engine, 0) + busy_delta
+                cycle_total[engine] = max(cycle_total.get(engine, 0), total_delta)
+
+        percents = dict(ns_percent)
+        for engine, busy in cycle_busy.items():
+            if engine in percents:
+                continue
+            percents[engine] = busy / (cycle_total[engine] * capacity.get(engine, 1)) * 100.0
+        return percents
+
     def read(self, now: float, pids: Iterable[int]) -> list[AcceleratorReading]:
         pid_list = list(pids)
+        self._read_counts = dict.fromkeys(
+            ("fdinfo_reads", "permission_denied", "missing_processes", "read_errors", "unsupported_fdinfo"), 0
+        )
+        self._drivers = set()
         if not pid_list:
+            self.diagnostics = DrmProbeDiagnostics()
             # No processes to attribute means nothing was measured, which is not the
             # same as "the GPU went idle". Keep the last counters so the next read
             # with a real process list still has something to diff against.
             return []
-        by_card: dict[str, tuple[str, dict[str, int], dict[str, int]]] = {}
-        for client in self._clients(pid_list):
-            driver, totals, capacity = by_card.setdefault(client.pdev, (client.driver, {}, {}))
-            for engine, nanoseconds in client.engine_ns.items():
-                totals[engine] = totals.get(engine, 0) + nanoseconds
-            for engine, slots in client.engine_capacity.items():
-                capacity[engine] = max(capacity.get(engine, 1), slots)
+        clients = self._clients(pid_list)
+        current_clients = {(client.pdev, client.client_id) for client in clients}
+        previous_clients = {(key[0], key[1]) for key in self._high_water}
+        counters, omitted = self._counter_diagnostics(clients, now)
+        self.diagnostics = DrmProbeDiagnostics(
+            process_count=len(pid_list),
+            **self._read_counts,
+            drivers=tuple(sorted(self._drivers)),
+            parsed_clients=len(current_clients),
+            new_clients=len(current_clients - previous_clients),
+            departed_clients=len(previous_clients - current_clients),
+            counters=counters,
+            omitted_counters=omitted,
+        )
+        by_card: dict[str, list[_DrmClient]] = {}
+        for client in clients:
+            by_card.setdefault(client.pdev, []).append(client)
 
         readings: list[AcceleratorReading] = []
-        seen: dict[str, tuple[dict[str, int], float]] = {}
-        for pdev, (driver, totals, capacity) in sorted(by_card.items()):
-            seen[pdev] = (totals, now)
-            previous = self._previous.get(pdev)
-            utilization: float | None = None
-            if previous is not None:
-                elapsed = now - previous[1]
-                if elapsed > 0:
-                    busiest = 0.0
-                    for engine, nanoseconds in totals.items():
-                        delta = nanoseconds - previous[0].get(engine, nanoseconds)
-                        if delta < 0:
-                            continue
-                        slots = capacity.get(engine, 1)
-                        busiest = max(busiest, delta / (elapsed * 1_000_000_000.0 * slots) * 100.0)
-                    utilization = _percent(busiest)
+        for pdev, card_clients in sorted(by_card.items()):
+            percents = self._engine_percents(card_clients, now)
+            # A card whose clients all have baselines but no measurable delta
+            # (for example a restarted nanosecond counter) reports the work
+            # that was measured: none. A card with no baseline at all, or only
+            # cycle totals that never advanced, stays unknown.
+            had_ns_baseline = any(
+                (client.pdev, client.client_id, "ns", engine) in self._high_water
+                for client in card_clients
+                for engine in client.engine_ns
+            )
+            if percents:
+                utilization: float | None = _percent(max(percents.values()))
+            elif had_ns_baseline:
+                utilization = 0.0
+            else:
+                utilization = None
             readings.append(
                 AcceleratorReading(
                     id=f"gpu-{pdev}",
                     kind="gpu",
-                    label=self._label_for(driver, pdev, len(by_card)),
+                    label=self._label_for(card_clients[0].driver, pdev, len(by_card)),
                     scope="app",
                     utilization_percent=utilization,
                 )
             )
-        self._previous = seen
+        seen_clients = {(client.pdev, client.client_id) for client in clients}
+        self._high_water = {key: mark for key, mark in self._high_water.items() if (key[0], key[1]) in seen_clients}
+        for client in clients:
+            for unit, counters in (
+                ("ns", client.engine_ns),
+                ("cycles", client.engine_cycles),
+                ("total_cycles", client.engine_total_cycles),
+            ):
+                for engine, value in counters.items():
+                    key = (client.pdev, client.client_id, unit, engine)
+                    mark = self._high_water.get(key)
+                    # Retain cumulative busy work across temporary regressions.
+                    # The total-cycle clock can wrap or reset independently;
+                    # keeping its old high-water would suppress future samples.
+                    if unit == "total_cycles" or mark is None or value >= mark[0]:
+                        self._high_water[key] = (value, now)
         return readings
 
 
@@ -307,6 +547,10 @@ class AcceleratorSampler:
         self._drm = drm_probe if drm_probe is not None else DrmEngineTimeProbe()
         self._nvidia = nvidia_probe if nvidia_probe is not None else NvidiaPresenceProbe()
         self._clock = clock
+
+    @property
+    def drm_diagnostics(self) -> DrmProbeDiagnostics:
+        return self._drm.diagnostics
 
     def sample(self, pids: Iterable[int] = ()) -> list[AcceleratorReading]:
         now = self._clock()

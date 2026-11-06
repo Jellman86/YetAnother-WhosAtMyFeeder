@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "Meilleur fournisseur validé",
+  "col_median_inference": "Inférence médiane",
+  "col_model": "Modèle",
+  "col_validated_providers": "Fournisseurs validés",
+  "compat_only_body": "Cette exécution a vérifié que chaque fournisseur se charge, produit une sortie finie et concorde avec la référence CPU. La précision n’a pas été mesurée, aucun chiffre de précision n’est donc affiché. Lancez une évaluation pour mesurer la précision.",
+  "compat_only_title": "Vérification de compatibilité uniquement"
+}

@@ -32,6 +32,16 @@ const matrix = {
     }
 };
 
+async function selectSettingsSection(page: Page, name: 'Connection' | 'Detection') {
+    const mobileNavigation = page.getByRole('combobox', { name: 'Settings', exact: true });
+    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
+    if (await mobileNavigation.isVisible()) {
+        await mobileNavigation.selectOption({ label: name });
+    } else {
+        await page.getByRole('link', { name, exact: true }).click();
+    }
+}
+
 async function openDetectionWithCompatibilityRun(
     page: Page,
     statusAfterRun: () => { status: number; json: unknown },
@@ -39,7 +49,7 @@ async function openDetectionWithCompatibilityRun(
 ) {
     const counters = {
         settingsReads: 0, statusReadsAfterRun: 0, runFinished: false,
-        savedProvider, saves: [] as Record<string, unknown>[]
+        savedProvider, recordingDelay: 12, imageSource: 'frigate_snapshot', saves: [] as Record<string, unknown>[]
     };
     let runListReads = 0;
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
@@ -51,13 +61,16 @@ async function openDetectionWithCompatibilityRun(
             const body = request.postDataJSON() as Record<string, unknown>;
             counters.saves.push(body);
             if (typeof body.inference_provider === 'string') counters.savedProvider = body.inference_provider;
+            if (typeof body.recording_frame_delay_seconds === 'number') counters.recordingDelay = body.recording_frame_delay_seconds;
+            if (typeof body.classification_image_source === 'string') counters.imageSource = body.classification_image_source;
             return route.fulfill({ json: { status: 'updated' } });
         }
         if (path === '/api/settings') {
             counters.settingsReads++;
             return route.fulfill({ json: {
                 frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883,
-                mqtt_auth: false, classification_threshold: 0.6, inference_provider: counters.savedProvider
+                mqtt_auth: false, classification_threshold: 0.6, inference_provider: counters.savedProvider,
+                recording_frame_delay_seconds: counters.recordingDelay, classification_image_source: counters.imageSource
             } });
         }
         if (path === '/api/classifier/status') {
@@ -88,7 +101,7 @@ async function openDetectionWithCompatibilityRun(
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    await selectSettingsSection(page, 'Detection');
     return counters;
 }
 
@@ -250,4 +263,36 @@ test('an Auto preference stays Auto while the worker runs on the NPU', async ({ 
     const saved = await applySettings(page, counters);
     expect(saved.inference_provider).toBe('auto');
     expect(saved.classification_threshold).toBe(0.75);
+});
+
+test('the recording delay survives navigation and saves with its selected source', async ({ page }) => {
+    const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
+    await selectSettingsSection(page, 'Connection');
+    await expect(page.locator('#recording-frame-delay')).toHaveCount(0);
+    await page.locator('#classification-image-source').selectOption('recording_snapshot');
+    const input = page.getByRole('spinbutton', { name: 'Initial identification delay (seconds)' });
+    await expect(input).toHaveValue('12');
+    await input.fill('45');
+    await selectSettingsSection(page, 'Detection');
+    await selectSettingsSection(page, 'Connection');
+    await expect(input).toHaveValue('45');
+    const saved = await applySettings(page, counters);
+    expect(saved.recording_frame_delay_seconds).toBe(45);
+    expect(saved.classification_image_source).toBe('recording_snapshot');
+    await expect(input).toHaveValue('45');
+    expect(await input.evaluate(element => (element as HTMLInputElement).validity.valid)).toBe(true);
+    await page.addStyleTag({ content: 'html{font-size:200%!important}' });
+    await input.scrollIntoViewIfNeeded();
+    expect(await input.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    expect(await input.evaluate(element => element.getBoundingClientRect().width <= window.innerWidth)).toBe(true);
+});
+
+test('an empty recording delay is explained without sending a settings write', async ({ page }) => {
+    const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: cpuStatus }));
+    await selectSettingsSection(page, 'Connection');
+    await page.locator('#classification-image-source').selectOption('recording_snapshot');
+    await page.locator('#recording-frame-delay').fill('');
+    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Enter a recording-frame delay between 1 and 120 seconds.' })).toBeVisible();
+    expect(counters.saves).toEqual([]);
 });

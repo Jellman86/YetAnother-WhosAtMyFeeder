@@ -22,6 +22,20 @@ describe('jobDiagnosticsStore', () => {
         expect(bundle?.payload.report).toMatchObject({ notes: 'Still waiting' });
     });
 
+    it('exports GPU history gaps alongside the loaded worker provider', () => {
+        const systemTelemetry = {
+            points: [
+                { at: 10, accelerators: { gpu: 42 } },
+                { at: 15, accelerators: { gpu: null } }
+            ],
+            processes: [{ role: 'video_worker', accelerator: 'intel_gpu' }]
+        };
+        const workspacePayload = { system_telemetry: systemTelemetry } as unknown as NonNullable<Parameters<typeof jobDiagnosticsStore.captureBundle>[2]>['workspacePayload'];
+        const bundle = jobDiagnosticsStore.captureBundle('GPU measurement', '', { workspacePayload });
+        expect(bundle?.payload.system_telemetry).toEqual(systemTelemetry);
+        expect(bundle?.payload.raw_evidence).toMatchObject({ system_telemetry: systemTelemetry });
+    });
+
     it('names the code holding a database connection, not just the wait it caused', () => {
         // An owner reading a bundle can act on "app.routers.ai:analyze_event held
         // a connection for 12s". They cannot act on "requests waited 17s".

@@ -1,0 +1,8 @@
+{
+  "col_best_provider": "Miglior provider convalidato",
+  "col_median_inference": "Inferenza mediana",
+  "col_model": "Modello",
+  "col_validated_providers": "Provider convalidati",
+  "compat_only_body": "Questa esecuzione ha verificato che ogni provider si carichi, produca output finiti e concordi con il riferimento CPU. Non ha misurato l’accuratezza, quindi non vengono mostrati valori di accuratezza. Esegui una valutazione per misurare l’accuratezza.",
+  "compat_only_title": "Solo controllo di compatibilità"
+}

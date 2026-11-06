@@ -1,0 +1,9 @@
+{
+  "title": "Aidez à améliorer YA-WAMF !",
+  "body": "Activez des statistiques d’usage anonymes pour guider les priorités de développement et valider que ce projet sert la communauté des passionnés d’oiseaux.",
+  "learn_more": "En savoir plus",
+  "enabling": "Activation…",
+  "enable": "Activer",
+  "dismiss": "Non merci",
+  "enable_error": "Impossible d’activer la télémétrie. Veuillez réessayer depuis les paramètres."
+}

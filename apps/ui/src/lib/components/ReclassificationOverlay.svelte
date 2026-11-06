@@ -5,14 +5,14 @@
     import type { VideoClassificationSourceEvidence } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import SnapshotAnalysisScanner from './SnapshotAnalysisScanner.svelte';
-    import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     import { detectionsStore } from '../stores/detections.svelte';
 
-    let { progress, small = false } = $props<{
+    let { progress, small = false }: {
         progress: ReclassificationProgress;
         small?: boolean;
-    }>();
+    } = $props();
 
     type FrameResult = ReclassificationProgress['frameResults'][number];
     function hasFrameResult(frame: FrameResult | undefined): frame is FrameResult {
@@ -85,6 +85,16 @@
         if (progress.diagnostics?.reason === 'no_source_consensus') {
             return $_('detection.reclassification.unchanged_reason_no_source_consensus', {
                 default: 'The sampled frames did not agree on one species strongly enough.'
+            });
+        }
+        if (code === 'non_bird') {
+            return $_('detection.reclassification.unchanged_reason_non_bird', {
+                default: 'The model identified a non-bird, so the existing identification was kept.'
+            });
+        }
+        if (code === 'out_of_range') {
+            return $_('detection.reclassification.unchanged_reason_out_of_range', {
+                default: 'The model named a species eBird has never recorded in your region, so the existing identification was kept.'
             });
         }
         if (progress.outcome === 'no_result') {
@@ -346,7 +356,7 @@
                             <div in:scale={{ delay: 300 }} class="mt-4 w-full max-w-sm space-y-2">
                                 <button 
                                     onclick={handleDismiss}
-                                    class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
+                                    class="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                                 >
                                     {$_('detection.reclassification.done')}
                                 </button>
@@ -470,7 +480,7 @@
                 <div in:scale={{ delay: 300 }} class="mt-4 w-full">
                     <button 
                         onclick={handleDismiss}
-                        class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
+                        class="w-full py-2.5 bg-brand-700 hover:bg-brand-800 text-white font-bold uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                     >
                         {$_('detection.reclassification.done')}
                     </button>
@@ -488,11 +498,7 @@
                         showFooter={false}
                     />
                 {:else}
-                    <VideoAnalysisFilmReel
-                        {progress}
-                        variant="overlay"
-                        showFooter={false}
-                    />
+                    <FrameScanRibbon {progress} variant="overlay" />
                 {/if}
             </div>
         {:else}
@@ -504,11 +510,7 @@
                     showFooter={false}
                 />
             {:else}
-                <VideoAnalysisFilmReel
-                    {progress}
-                    variant="compact"
-                    showFooter={false}
-                />
+                <FrameScanRibbon {progress} variant="compact" />
             {/if}
         {/if}
     </div>

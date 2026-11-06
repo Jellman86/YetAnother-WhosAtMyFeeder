@@ -1,16 +1,42 @@
 """Durable one-scene bird scans with revision-fenced result publication."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+import json
+import math
 from uuid import uuid4
 from collections.abc import Sequence
 
 import aiosqlite
 
+from app.services.bird_observation_selection import BirdCountRegion
+
 
 SAFE_SCAN_ERRORS = frozenset(
-    {"scan_failed", "media_changed", "reviewed_other_frame", "interrupted", "detection_removed"}
+    {
+        "scan_failed",
+        "media_changed",
+        "reviewed_other_frame",
+        "interrupted",
+        "detection_removed",
+        "ambiguous_localization",
+    }
 )
 _INPUT_COLUMNS = "candidate_id,image_ref,content_sha256,media_version,clip_variant,frame_index"
+COUNT_STATUSES = frozenset({"legacy", "complete", "incomplete", "ambiguous", "not_measured"})
+REGION_REASONS = frozenset(
+    {
+        "finder_not_qualified",
+        "invalid_detector_evidence",
+        "confirmation_unavailable",
+        "unbound_confirmation",
+        "conflicting_confirmation",
+        "insufficient_confirmation",
+        "own_crop_nonbird",
+        "shares_counted_pixels",
+        "individuality_unresolved",
+        "confirmation_budget_exhausted",
+    }
+)
 
 
 class BirdScanBusyError(ValueError):
@@ -40,6 +66,40 @@ class BirdScanJob:
     result_count: int | None
     retained_previous: bool
     error: str | None
+    count_status: str = "legacy"
+    unconfirmed_regions: tuple[BirdCountRegion, ...] = ()
+    excluded_regions: tuple[BirdCountRegion, ...] = ()
+
+
+def _region_payload(region: BirdCountRegion, kind: str) -> dict:
+    if not isinstance(region, BirdCountRegion) or region.reason not in REGION_REASONS:
+        raise ValueError("Unsupported uncounted region")
+    if not isinstance(region.candidate_id, str) or not 1 <= len(region.candidate_id) <= 512:
+        raise ValueError("Invalid region identity")
+    if len(region.box) != 4 or any(type(x) not in {int, float} or not 0 <= x <= 1_000_000 for x in region.box):
+        raise ValueError("Invalid region geometry")
+    if region.box[2] <= region.box[0] or region.box[3] <= region.box[1]:
+        raise ValueError("Invalid region area")
+    confidence = region.detector_confidence
+    if confidence is not None and (
+        type(confidence) not in {int, float} or not 0 <= confidence <= 1 or not math.isfinite(confidence)
+    ):
+        raise ValueError("Invalid region confidence")
+    return {"kind": kind, **asdict(region)}
+
+
+def _encode_regions(
+    count_status: str, unconfirmed: Sequence[BirdCountRegion], excluded: Sequence[BirdCountRegion]
+) -> str:
+    if count_status not in COUNT_STATUSES or len(unconfirmed) + len(excluded) > 4096:
+        raise ValueError("Invalid count qualification")
+    if (count_status == "incomplete" and not unconfirmed) or (count_status == "complete" and unconfirmed):
+        raise ValueError("Count status contradicts unconfirmed regions")
+    if count_status in {"legacy", "not_measured"} and (unconfirmed or excluded):
+        raise ValueError("Unmeasured counts cannot carry qualified regions")
+    rows = [_region_payload(region, "unconfirmed") for region in unconfirmed]
+    rows += [_region_payload(region, "excluded") for region in excluded]
+    return json.dumps(rows, separators=(",", ":"), allow_nan=False)
 
 
 def _job(row: Sequence | None, description: Sequence[Sequence] | None) -> BirdScanJob | None:
@@ -50,6 +110,16 @@ def _job(row: Sequence | None, description: Sequence[Sequence] | None) -> BirdSc
     fields = dict(zip((column[0] for column in description), row, strict=True))
     fields["event_id"] = fields.pop("frigate_event")
     fields["retained_previous"] = bool(fields["retained_previous"])
+    regions = json.loads(fields.pop("count_regions_json"))
+    grouped: dict[str, list[BirdCountRegion]] = {"unconfirmed": [], "excluded": []}
+    for row in regions:
+        if not isinstance(row, dict) or row.get("kind") not in grouped:
+            raise ValueError("Invalid saved count region")
+        region = BirdCountRegion(row["candidate_id"], tuple(row["box"]), row["detector_confidence"], row["reason"])
+        _region_payload(region, row["kind"])
+        grouped[row["kind"]].append(region)
+    fields["unconfirmed_regions"] = tuple(grouped["unconfirmed"])
+    fields["excluded_regions"] = tuple(grouped["excluded"])
     return BirdScanJob(**fields)
 
 
@@ -96,7 +166,8 @@ class BirdScanRepository:
                 SELECT frigate_event,?,?,?,?,?,?,?,'queued' FROM detections WHERE frigate_event=?
                 ON CONFLICT(frigate_event) DO UPDATE SET {assignments},status='queued',
                     revision=bird_scan_jobs.revision+1,created_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,
-                    started_at=NULL,completed_at=NULL,result_count=NULL,retained_previous=0,error=NULL
+                    started_at=NULL,completed_at=NULL,result_count=NULL,retained_previous=0,error=NULL,
+                    count_status='legacy',count_regions_json='[]'
                 WHERE bird_scan_jobs.status NOT IN ('queued','running')
                     AND (? OR bird_scan_jobs.status='failed' OR {different})
                 RETURNING *""",
@@ -133,8 +204,13 @@ class BirdScanRepository:
         retained_previous: bool,
         error: str | None = None,
         commit: bool = True,
+        count_status: str = "legacy",
+        unconfirmed_regions: Sequence[BirdCountRegion] = (),
+        excluded_regions: Sequence[BirdCountRegion] = (),
     ) -> bool:
         _validate_count(result_count)
+        if error == "ambiguous_localization":
+            raise ValueError("An ambiguous localization cannot publish an exact count")
         return await self._finish(
             event_id,
             revision,
@@ -144,6 +220,9 @@ class BirdScanRepository:
             retained_previous=retained_previous,
             error=error,
             commit=commit,
+            count_status=count_status,
+            unconfirmed_regions=unconfirmed_regions,
+            excluded_regions=excluded_regions,
         )
 
     async def fail(
@@ -155,6 +234,9 @@ class BirdScanRepository:
         error: str,
         retained_previous: bool = False,
         commit: bool = True,
+        count_status: str = "legacy",
+        unconfirmed_regions: Sequence[BirdCountRegion] = (),
+        excluded_regions: Sequence[BirdCountRegion] = (),
     ) -> bool:
         return await self._finish(
             event_id,
@@ -165,6 +247,9 @@ class BirdScanRepository:
             retained_previous=retained_previous,
             error=error,
             commit=commit,
+            count_status=count_status,
+            unconfirmed_regions=unconfirmed_regions,
+            excluded_regions=excluded_regions,
         )
 
     async def _finish(
@@ -178,12 +263,30 @@ class BirdScanRepository:
         retained_previous: bool,
         error: str | None,
         commit: bool,
+        count_status: str,
+        unconfirmed_regions: Sequence[BirdCountRegion],
+        excluded_regions: Sequence[BirdCountRegion],
     ) -> bool:
+        encoded = _encode_regions(count_status, unconfirmed_regions, excluded_regions)
+        if (status == "completed" and count_status in {"ambiguous", "not_measured"}) or (
+            status == "failed" and count_status in {"complete", "incomplete"}
+        ):
+            raise ValueError("Job status contradicts count qualification")
         async with self.db.execute(
-            """UPDATE bird_scan_jobs SET status=?,result_count=?,retained_previous=?,error=?,
+            """UPDATE bird_scan_jobs SET status=?,result_count=?,retained_previous=?,error=?,count_status=?,count_regions_json=?,
                 revision=revision+1,completed_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP
                 WHERE frigate_event=? AND revision=? AND generation=? AND status='running' RETURNING frigate_event""",
-            (status, result_count, int(retained_previous), _safe_error(error), event_id, revision, expected_generation),
+            (
+                status,
+                result_count,
+                int(retained_previous),
+                _safe_error(error),
+                count_status,
+                encoded,
+                event_id,
+                revision,
+                expected_generation,
+            ),
         ) as cursor:
             changed = await cursor.fetchone() is not None
         if commit:
@@ -226,7 +329,7 @@ class BirdScanRepository:
         ) as cursor:
             return [_job(row, cursor.description) for row in await cursor.fetchall()]
 
-    async def record_automatic_completed(
+    async def record_automatic_outcome(
         self,
         event_id: str,
         *,
@@ -238,38 +341,68 @@ class BirdScanRepository:
         frame_index: int,
         expected_revision: int | None,
         expected_generation: str | None,
-        result_count: int,
+        result_count: int | None,
         retained_previous: bool,
         error: str | None = None,
         commit: bool = True,
+        count_status: str = "legacy",
+        unconfirmed_regions: Sequence[BirdCountRegion] = (),
+        excluded_regions: Sequence[BirdCountRegion] = (),
     ) -> bool:
         """Publish automatic evidence only against state observed before its scan.
 
-        None means no job existed before scanning. Existing active work always
+        A null result with ambiguous_localization records uncertainty, never zero.
+        A null expected revision means no job existed before scanning. Active work always
         wins; every transition changes its revision, including manual completion.
         """
-        _validate_count(result_count)
+        if result_count is None:
+            if error != "ambiguous_localization":
+                raise ValueError("An uncertain automatic count needs a localization reason")
+            status = "failed"
+        else:
+            _validate_count(result_count)
+            if error == "ambiguous_localization":
+                raise ValueError("An ambiguous localization cannot publish an exact count")
+            status = "completed"
         if (expected_revision is None) != (expected_generation is None):
             raise ValueError("An existing scan needs both its generation and revision")
+        encoded = _encode_regions(count_status, unconfirmed_regions, excluded_regions)
+        if (status == "completed" and count_status in {"ambiguous", "not_measured"}) or (
+            status == "failed" and count_status in {"complete", "incomplete"}
+        ):
+            raise ValueError("Job status contradicts count qualification")
         inputs = (candidate_id, image_ref, content_sha256, media_version, clip_variant, frame_index)
         if expected_revision is None:
             query = f"""INSERT INTO bird_scan_jobs(frigate_event,generation,{_INPUT_COLUMNS},status,result_count,
-                    retained_previous,error,completed_at)
-                SELECT frigate_event,?,?,?,?,?,?,?,'completed',?,?,?,CURRENT_TIMESTAMP
+                    retained_previous,error,count_status,count_regions_json,completed_at)
+                SELECT frigate_event,?,?,?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP
                 FROM detections WHERE frigate_event=? ON CONFLICT(frigate_event) DO NOTHING
                 RETURNING frigate_event"""
-            params = (uuid4().hex, *inputs, result_count, int(retained_previous), _safe_error(error), event_id)
+            params = (
+                uuid4().hex,
+                *inputs,
+                status,
+                result_count,
+                int(retained_previous),
+                _safe_error(error),
+                count_status,
+                encoded,
+                event_id,
+            )
         else:
             assignments = ",".join(f"{column}=?" for column in _INPUT_COLUMNS.split(","))
-            query = f"""UPDATE bird_scan_jobs SET {assignments},status='completed',revision=revision+1,
-                result_count=?,retained_previous=?,error=?,created_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,
+            query = f"""UPDATE bird_scan_jobs SET {assignments},status=?,revision=revision+1,
+                result_count=?,retained_previous=?,error=?,count_status=?,count_regions_json=?,created_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,
                 started_at=NULL,completed_at=CURRENT_TIMESTAMP
                 WHERE frigate_event=? AND revision=? AND generation=? AND status IN ('completed','failed') RETURNING frigate_event"""
             params = (
                 *inputs,
+                status,
                 result_count,
                 int(retained_previous),
                 _safe_error(error),
+                count_status,
+                encoded,
                 event_id,
                 expected_revision,
                 expected_generation,

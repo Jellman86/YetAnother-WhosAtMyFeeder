@@ -1,0 +1,10 @@
+{
+  "boundary_title": "出现问题了",
+  "boundary_subtitle": "发生了意外错误。请重试，如果问题仍然存在，请联系支持。",
+  "show_details": "显示错误详情",
+  "try_again": "重试",
+  "copy_details": "复制错误详情",
+  "copied": "已复制",
+  "reload_page": "重新加载页面",
+  "deploy_refresh_required": "此标签页打开期间，YA-WAMF 已更新。请刷新页面以加载最新版本。"
+}

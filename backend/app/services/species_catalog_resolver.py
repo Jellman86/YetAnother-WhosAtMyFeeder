@@ -16,15 +16,23 @@ pre-catalogue behaviour.
 
 from __future__ import annotations
 
+import re
+import hashlib
+import json
+from contextlib import closing
 import sqlite3
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 import structlog
 
 from app.services.species_catalog_migrations import default_catalog_path
+from app.services.model_output_groups import BoundOutputGroups, OutputGroup
+from app.services.model_taxon_map import scientific_name_from_label
+from app.utils.classifier_labels import normalize_classifier_label
 
 log = structlog.get_logger()
 
@@ -38,11 +46,27 @@ class ShadowResolution:
 
 
 @dataclass(frozen=True)
+class ModelSpeciesCoverage:
+    """Which species a model's outputs name: known birds, species of no recorded group, and unidentified outputs."""
+
+    birds: frozenset[int]
+    ungrouped: frozenset[int]
+    unresolved_outputs: int
+
+
+@dataclass(frozen=True)
 class _OutputEntry:
     artifact_row_id: int
     class_kind: str
     species_id: Optional[int]
     source_label: Optional[str] = None
+    taxonomic_group: OutputGroup = "unknown"
+
+
+@dataclass(frozen=True)
+class _GroupVector:
+    evidence: BoundOutputGroups
+    accepted_labels: tuple[frozenset[str], ...]
 
 
 class SpeciesCatalogResolver:
@@ -68,6 +92,12 @@ class SpeciesCatalogResolver:
         self._mismatches = 0
         self._unverified = 0
         self._last_mismatch: Optional[dict[str, Any]] = None
+        self._group_snapshot: Mapping[str, Mapping[int, _OutputEntry]] = MappingProxyType({})
+        self._group_vectors: Mapping[str, _GroupVector] = MappingProxyType({})
+        self._artifact_sha_by_id: dict[int, str] = {}
+        # species_id -> the one coarse group every mapped output agrees on;
+        # a species whose outputs disagree is absent, which reads unknown.
+        self._species_groups: dict[int, OutputGroup] = {}
 
     def _resolved_path(self) -> Path:
         return Path(self._path or default_catalog_path())
@@ -95,13 +125,21 @@ class SpeciesCatalogResolver:
         try:
             artifact_ids: dict[str, int] = {}
             artifact_sha_by_id: dict[int, str] = {}
-            for row_id, model_sha256 in connection.execute("SELECT id, model_sha256 FROM model_artifacts"):
+            widths = {}
+            for row_id, model_sha256, width in connection.execute(
+                "SELECT id, model_sha256, output_width FROM model_artifacts"
+            ):
                 artifact_ids[str(model_sha256)] = int(row_id)
                 artifact_sha_by_id[int(row_id)] = str(model_sha256)
+                widths[str(model_sha256)] = int(width)
 
             outputs: dict[str, dict[int, _OutputEntry]] = {sha: {} for sha in artifact_ids}
-            for artifact_row_id, output_index, class_kind, species_id, source_label in connection.execute(
-                "SELECT model_artifact_id, output_index, class_kind, species_id, source_label FROM model_output_taxa"
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(model_output_taxa)")}
+            group_column = "taxonomic_group" if "taxonomic_group" in columns else "'unknown'"
+            for artifact_row_id, output_index, class_kind, species_id, source_label, group in connection.execute(
+                "SELECT model_artifact_id, output_index, class_kind, species_id, source_label, "
+                + group_column
+                + " FROM model_output_taxa"
             ):
                 sha = artifact_sha_by_id.get(int(artifact_row_id))
                 if sha is None:
@@ -111,6 +149,7 @@ class SpeciesCatalogResolver:
                     class_kind=str(class_kind),
                     species_id=int(species_id) if species_id is not None else None,
                     source_label=str(source_label) if source_label is not None else None,
+                    taxonomic_group=group if group in {"bird", "nonbird", "unknown"} else "unknown",
                 )
 
             accepted: dict[int, set[str]] = {}
@@ -138,9 +177,216 @@ class SpeciesCatalogResolver:
                     name_to_species[name] = None
 
         self._artifact_ids = artifact_ids
+        self._artifact_sha_by_id = artifact_sha_by_id
+        species_group_sets: dict[int, set[str]] = {}
+        for entries in outputs.values():
+            for entry in entries.values():
+                if entry.species_id is not None and entry.taxonomic_group in {"bird", "nonbird"}:
+                    species_group_sets.setdefault(entry.species_id, set()).add(entry.taxonomic_group)
+        self._species_groups = {
+            species_id: next(iter(groups)) for species_id, groups in species_group_sets.items() if len(groups) == 1
+        }
         self._outputs = outputs
         self._accepted_names = accepted
         self._name_to_species = name_to_species
+        self._group_snapshot = MappingProxyType(
+            {
+                sha: MappingProxyType(
+                    {
+                        index: entry
+                        for index, entry in entries.items()
+                        if 0 <= index < widths[sha] and entry.taxonomic_group != "unknown"
+                    }
+                )
+                for sha, entries in outputs.items()
+            }
+        )
+        vectors = {}
+        for sha, entries in outputs.items():
+            width = widths[sha]
+            if not 0 < width <= 100_000 or set(entries) != set(range(width)):
+                continue
+            ordered = [entries[index] for index in range(width)]
+            labels = tuple(self._accepted_output_labels(entry.source_label) for entry in ordered)
+            if not all(labels):
+                continue
+            content = json.dumps(
+                {"model_sha256": sha, "outputs": [[entry.source_label, entry.taxonomic_group] for entry in ordered]},
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            vectors[sha] = _GroupVector(
+                BoundOutputGroups(
+                    sha, hashlib.sha256(content).hexdigest(), tuple(entry.taxonomic_group for entry in ordered)
+                ),
+                labels,
+            )
+        self._group_vectors = MappingProxyType(vectors)
+
+    def invalidate_output_groups(self) -> None:
+        """Discard cached admission evidence after an app-owned catalogue write."""
+        with self._lock:
+            self._group_snapshot = MappingProxyType({})
+            self._group_vectors = MappingProxyType({})
+            self._cache_key = None
+
+    def warm_output_groups(self) -> bool:
+        """Publish a complete fresh snapshot; callers run this off the event loop."""
+        self.invalidate_output_groups()
+        with self._lock:
+            try:
+                stat = self._resolved_path().stat()
+                self._load()
+                self._cache_key = (stat.st_mtime_ns, stat.st_size)
+                return True
+            except (OSError, ValueError, sqlite3.Error) as error:
+                log.warning("Catalogue output groups unavailable", error_type=type(error).__name__)
+                return False
+
+    def refresh_output_groups_for(self, path: Path) -> bool:
+        """Refresh only the singleton's own catalogue after a committed write."""
+        if Path(path).absolute() != self._resolved_path().absolute():
+            return False
+        return self.warm_output_groups()
+
+    @staticmethod
+    def _group_request(model_sha256: Optional[str], output_index: int, label: str) -> tuple[str, str] | None:
+        if (
+            not isinstance(model_sha256, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", model_sha256.strip().lower())
+            or type(output_index) is not int
+            or output_index < 0
+            or not isinstance(label, str)
+            or not label.strip()
+        ):
+            return None
+        return model_sha256.strip().lower(), label.strip().casefold()
+
+    @staticmethod
+    def _accepted_output_labels(source_label: str | None) -> frozenset[str]:
+        if not isinstance(source_label, str) or not source_label.strip():
+            return frozenset()
+        expected = {source_label.strip().casefold(), normalize_classifier_label(source_label).casefold()}
+        if scientific := scientific_name_from_label(source_label):
+            expected.add(scientific.casefold())
+        return frozenset(expected)
+
+    @classmethod
+    def _bound_group(cls, source_label: str | None, group: str, label: str) -> OutputGroup:
+        if group not in {"bird", "nonbird"}:
+            return "unknown"
+        return group if label in cls._accepted_output_labels(source_label) else "unknown"
+
+    def cached_output_groups(self, model_sha256: str | None, labels: list[str]) -> BoundOutputGroups | None:
+        """Bind the full native output order without any file or database access.
+
+        Unknown outputs remain in the vector. Missing rows, different labels or
+        widths provide no aggregate evidence, even if some individual outputs
+        are known. App-owned catalogue writes discard this snapshot atomically.
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        vector = self._group_vectors.get(checksum)
+        if vector is None or len(labels) != len(vector.accepted_labels):
+            return None
+        if any(
+            not isinstance(label, str) or label.strip().casefold() not in accepted
+            for label, accepted in zip(labels, vector.accepted_labels, strict=True)
+        ):
+            return None
+        return vector.evidence
+
+    def cached_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
+        """Pure lookup for synchronous classification selection, with no I/O."""
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return "unknown"
+        checksum, normalized_label = request
+        entry = self._group_snapshot.get(checksum, {}).get(output_index)
+        return self._bound_group(entry.source_label, entry.taxonomic_group, normalized_label) if entry else "unknown"
+
+    def cached_output_species_id(self, model_sha256: Optional[str], output_index: int, label: str) -> Optional[int]:
+        """The catalogue species a model output names, from the loaded snapshot with no I/O.
+
+        Bound to the label the same way output groups are: a result whose label is
+        not the one the catalogue recorded for that output names nothing here.
+        """
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return None
+        checksum, normalized_label = request
+        entry = self._outputs.get(checksum, {}).get(output_index)
+        if entry is None or entry.class_kind != "species" or entry.species_id is None:
+            return None
+        if self._bound_group(entry.source_label, "bird", normalized_label) != "bird":
+            return None
+        return entry.species_id
+
+    def cached_species_id_for_name(self, scientific_name: Optional[str]) -> Optional[int]:
+        """Exact scientific-name identity from the loaded snapshot with no I/O; ambiguous names resolve nothing."""
+        name = str(scientific_name or "").strip()
+        return self._name_to_species.get(name.casefold()) if name else None
+
+    def model_species_coverage(self, model_sha256: Optional[str]) -> Optional[ModelSpeciesCoverage]:
+        """The species a registered model can name, split by what the catalogue knows of them.
+
+        Returns None for a missing catalogue or an unregistered model, so a caller can
+        tell "names no birds" apart from "not known".
+        """
+        checksum = str(model_sha256 or "").strip().lower()
+        if not checksum or not self._ensure_loaded() or checksum not in self._artifact_ids:
+            return None
+        entries = list(self._outputs.get(checksum, {}).values())
+        named = [entry for entry in entries if entry.class_kind == "species" and entry.species_id is not None]
+        return ModelSpeciesCoverage(
+            birds=frozenset(entry.species_id for entry in named if entry.taxonomic_group == "bird"),
+            ungrouped=frozenset(entry.species_id for entry in named if entry.taxonomic_group == "unknown"),
+            unresolved_outputs=sum(1 for entry in entries if entry.class_kind == "unknown"),
+        )
+
+    def fresh_output_group(self, model_sha256: Optional[str], output_index: int, label: str) -> OutputGroup:
+        """Recheck durable evidence immediately before writes, without the cache."""
+        request = self._group_request(model_sha256, output_index, label)
+        if request is None:
+            return "unknown"
+        checksum, normalized_label = request
+        try:
+            with closing(sqlite3.connect(f"file:{self._resolved_path()}?mode=ro", uri=True)) as connection:
+                row = connection.execute(
+                    "SELECT t.source_label,t.taxonomic_group FROM model_output_taxa t "
+                    "JOIN model_artifacts a ON a.id=t.model_artifact_id "
+                    "WHERE a.model_sha256=? AND t.output_index=? AND t.output_index<a.output_width",
+                    (checksum, output_index),
+                ).fetchone()
+            return self._bound_group(row[0], row[1], normalized_label) if row else "unknown"
+        except (OSError, sqlite3.Error):
+            return "unknown"
+
+    def ensure_loaded(self) -> bool:
+        """Load the catalogue snapshots if needed; safe to call off-thread."""
+        return self._ensure_loaded()
+
+    def model_sha256_for_artifact_id(self, artifact_id: Optional[int]) -> Optional[str]:
+        """The checksum a stored ``model_artifact_id`` refers to, if known.
+
+        Historical detections record the artifact row id, while output-group
+        evidence is keyed by checksum; this is the bridge between them."""
+        if type(artifact_id) is not int or not self._ensure_loaded():
+            return None
+        return self._artifact_sha_by_id.get(artifact_id)
+
+    def cached_species_group(self, scientific_name: Optional[str]) -> OutputGroup:
+        """Coarse group evidence for a scientific name itself.
+
+        Exact catalogue evidence only: a name held by several species, held
+        by none, or whose mapped outputs disagree is ``unknown`` — absent
+        ancestry never proves a non-bird."""
+        name = str(scientific_name or "").strip()
+        if not name or not self._ensure_loaded():
+            return "unknown"
+        species_id = self._name_to_species.get(name.casefold())
+        if species_id is None:
+            return "unknown"
+        return self._species_groups.get(species_id, "unknown")
 
     def shadow_resolve(
         self,

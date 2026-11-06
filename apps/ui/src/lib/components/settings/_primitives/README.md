@@ -5,7 +5,10 @@ instead of rolling its own card chrome, switch markup, or padding scale.
 
 A build-time guard (`settings-style-audit.test.ts`) fails if a migrated tab
 reintroduces inline `role="switch"` markup or bypasses the standard chrome —
-adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard.
+adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard. In every
+settings tab it also fails a `<label>` that wraps an `sr-only` radio or checkbox
+without `focus-within:ring` classes, because the tile is then the only place
+keyboard focus can show.
 
 ## When to reach for what
 
@@ -17,6 +20,7 @@ adding a tab to `MIGRATED_COMPONENTS` is what enrolls it in the guard.
 | A boolean on/off | `SettingsToggle` (the **only** legal source of `role="switch"` in settings) |
 | A `<select>` dropdown | `SettingsSelect` |
 | A grid of mutually-exclusive option tiles or cards | `SettingsSegmented` |
+| A compact single choice inside a list row, with options that can be unavailable (camera Off / Birds / Garden animals / Both) | Native radios in a `role="radiogroup"`, as `CameraWatchRow` does: `sr-only` inputs in `min-h-11` labels with `focus-within:ring`, a check mark on the chosen option and a worded reason linked by `aria-describedby` for a disabled one |
 | A text / number / url / password / email field | `SettingsInput` |
 | A multi-line text field (mono for JSON / templates, sans otherwise) | `SettingsTextarea` |
 | Hide power-user knobs behind "Advanced" — collapsed by default, persists per-browser | `AdvancedSection` |

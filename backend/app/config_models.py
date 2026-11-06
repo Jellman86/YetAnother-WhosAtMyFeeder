@@ -7,6 +7,7 @@ import structlog
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.services.bird_model_region_resolver import normalize_bird_model_region
+from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domestic_birds
 
 log = structlog.get_logger()
 
@@ -227,6 +228,12 @@ class FrigateSettings(BaseModel):
         default="frigate_snapshot",
         description="Initial image source. Recording snapshots use a matching higher-resolution retained frame, with immediate snapshot fallback.",
     )
+    recording_frame_delay_seconds: float = Field(
+        default=12,
+        ge=1,
+        le=120,
+        description="Initial recording-frame identification delay from the snapshot moment, in seconds.",
+    )
     recording_frame_classification_fallback: bool = Field(
         default=True,
         description=(
@@ -258,6 +265,98 @@ class FrigateSettings(BaseModel):
         default_factory=dict,
         description="Per-camera role. 'feeder' (default) treats every Frigate event as a fresh visit; 'nest' deduplicates repeat detections of the same species within nest_dedupe_minutes to prevent inflation from a continuously-present nesting bird.",
     )
+    garden_cameras: list[str] = Field(
+        default_factory=list, description="Independent opt-in cameras for owner-reviewed animal captures"
+    )
+    garden_labels: list[str] = Field(
+        default_factory=lambda: ["cat", "dog"], description="Supported animal labels to collect for garden review"
+    )
+    garden_motion_cameras: list[str] = Field(
+        default_factory=list, description="Opt-in garden cameras for bounded CPU scans of retained motion recordings"
+    )
+    garden_motion_confidence: float = Field(
+        0.5,
+        ge=0.5,
+        le=0.95,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum Cedar animal score for new motion proposals; person privacy threshold is unchanged",
+    )
+    garden_notifications_enabled: bool = Field(
+        False, description="Opt in to Garden alerts independently of bird notifications"
+    )
+    garden_notifications_use_bird_channels: bool = Field(
+        True,
+        description=(
+            "Send Garden alerts on whichever bird channels are switched on and configured. Off sends on "
+            "garden_notification_channels instead. A saved config without this key follows the bird channels "
+            "only when it chose no Garden channels"
+        ),
+    )
+    garden_notification_channels: list[Literal["discord", "telegram", "pushover", "email"]] = Field(
+        default_factory=list,
+        max_length=4,
+        description="Explicit Garden delivery channels using saved notification credentials, used while "
+        "garden_notifications_use_bird_channels is off",
+    )
+    garden_notifications_include_photo: bool = Field(
+        True,
+        description="Attach the capture's saved animal crop, or its photo, to Garden alerts; text only when off "
+        "or when no photo is available",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _garden_channels_default_from_saved_choice(cls, data: object) -> object:
+        # Configs saved before the bird-channel mode existed keep the channels they chose; one
+        # that chose none could never send, so it now follows the bird channels.
+        if isinstance(data, dict) and "garden_notifications_use_bird_channels" not in data:
+            return {**data, "garden_notifications_use_bird_channels": not data.get("garden_notification_channels")}
+        return data
+
+    garden_automatic_naming: bool = Field(
+        True,
+        description="Confirm and name a Garden animal automatically when its species score reaches the naming threshold",
+    )
+    garden_naming_threshold: float = Field(
+        0.8,
+        ge=0.7,
+        le=0.99,
+        allow_inf_nan=False,
+        strict=True,
+        description="Minimum SpeciesNet score to name a Garden animal automatically; checks below it are dismissed and remain restorable",
+    )
+    garden_domestic_birds: list[DomesticBirdKey] = Field(
+        default_factory=list,
+        description="Domestic birds this install keeps; they are recorded as Garden animals on every camera, never as bird detections",
+    )
+
+    @field_validator("garden_motion_cameras", mode="before")
+    @classmethod
+    def _normalize_motion_cameras(cls, value: object) -> list[str]:
+        from app.services.garden_motion_policy import normalize_motion_cameras
+
+        return normalize_motion_cameras(value)
+
+    @field_validator("garden_cameras", mode="before")
+    @classmethod
+    def _normalize_garden_cameras(cls, value: object) -> list[str]:
+        from app.services.garden_capture_policy import normalize_garden_cameras
+
+        return normalize_garden_cameras(value)
+
+    @field_validator("garden_labels", mode="before")
+    @classmethod
+    def _normalize_garden_labels(cls, value: object) -> list[str]:
+        from app.services.garden_capture_policy import normalize_garden_labels
+
+        return normalize_garden_labels(value)
+
+    @field_validator("garden_domestic_birds", mode="before")
+    @classmethod
+    def _normalize_garden_domestic_birds(cls, value: object) -> list[str]:
+        return normalize_domestic_birds(value)
+
     nest_dedupe_minutes: int = Field(
         default=30,
         ge=1,
@@ -291,6 +390,14 @@ class ClassificationSettings(BaseModel):
         default="fast",
         description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
+    bird_crop_accurate_detector: Literal["yolox_tiny", "rfdetr_nano"] = Field(
+        default="yolox_tiny",
+        description="Which accurate bird detector finds birds in full frames before identification",
+    )
+    bird_crop_inference_provider: Literal["auto", "cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"] = Field(
+        default="auto",
+        description="Device preference for the accurate bird finder; unavailable choices fall back to CPU only",
+    )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",
         "crop_model_first",
@@ -321,6 +428,14 @@ class ClassificationSettings(BaseModel):
     scientific_name_primary: bool = Field(default=False, description="Show scientific name as the primary label in UI")
     personalized_rerank_enabled: bool = Field(
         default=False, description="Enable personalized camera/model-aware reranking from manual tags"
+    )
+    range_filter_enabled: bool = Field(
+        default=False,
+        description="Set aside automatic identifications of species eBird has never recorded in this region",
+    )
+    range_filter_region_level: Literal["county", "state", "country"] = Field(
+        default="county",
+        description="Finest eBird region the range filter uses; coarser locations use a coarser region",
     )
     # Auto Video Classification
     auto_video_classification: bool = Field(
@@ -989,6 +1104,10 @@ class SystemSettings(BaseModel):
         description="Trusted proxy hosts for X-Forwarded-* headers",
     )
     debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
+    beta_garden_animals: bool = Field(
+        default=False,
+        description="Beta: collect and review non-bird garden visitors. Off unless the owner turns it on.",
+    )
     update_check_enabled: bool = Field(
         default=True,
         description=(
@@ -1021,6 +1140,7 @@ class AuthSettings(BaseModel):
         default=None,
         description="Secret key for encrypting persisted OAuth tokens; falls back to session_secret if unset",
     )
+    session_version: int = Field(default=0, ge=0, description="Persisted login revocation generation")
     session_expiry_hours: int = Field(
         default=168,  # 7 days
         ge=1,

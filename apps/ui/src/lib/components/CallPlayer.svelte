@@ -130,7 +130,7 @@
     <figcaption class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
         <button
             type="button"
-            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white transition-colors hover:bg-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:bg-slate-400 dark:disabled:bg-slate-700"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:bg-slate-400 dark:disabled:bg-slate-700"
             aria-label={paused
                 ? $_('events.heard.play_call', { values: { species }, default: 'Play the {species} call' })
                 : $_('events.heard.pause_call', { values: { species }, default: 'Pause the {species} call' })}

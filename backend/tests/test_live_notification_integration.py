@@ -8,11 +8,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from io import BytesIO
 import json
-import os
-from pathlib import Path
-import shutil
-import subprocess
-import sys
 import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
@@ -34,23 +29,9 @@ from app.services.species_catalog_resolver import ShadowResolution
 from app.services import media_cache as media_cache_module
 
 
-@pytest.fixture(scope="module")
-def pipeline_schema(tmp_path_factory):
-    path = tmp_path_factory.mktemp("pipeline-schema") / "template.db"
-    subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
-        cwd=Path(__file__).resolve().parents[1],
-        env={**os.environ, "DB_PATH": str(path)},
-        check=True,
-        capture_output=True,
-    )
-    return path
-
-
 @pytest_asyncio.fixture
-async def pipeline(tmp_path, monkeypatch, pipeline_schema):
-    path = tmp_path / "pipeline.db"
-    shutil.copyfile(pipeline_schema, path)
+async def pipeline(tmp_path, monkeypatch, migrated_history_db):
+    path = migrated_history_db
 
     @asynccontextmanager
     async def database():

@@ -6,7 +6,7 @@ const authState: { dateFormat: string; timeFormat: string } = { dateFormat: 'loc
 vi.mock('../stores/settings.svelte', () => ({ settingsStore: settingsState }));
 vi.mock('../stores/auth.svelte', () => ({ authStore: authState }));
 
-const { formatTime, formatDateTime, normalizeDateFormat, normalizeTimeFormat } = await import('./datetime');
+const { formatCalendarDay, formatDay, formatTime, formatDateTime, normalizeDateFormat, normalizeTimeFormat } = await import('./datetime');
 
 // 13:45 local, so the two clocks are unambiguous.
 const AFTERNOON = new Date(2026, 7, 22, 13, 45, 0);
@@ -76,5 +76,56 @@ describe('display preference normalization', () => {
     it.each([undefined, null, '', 'unknown', 24])('falls back to the browser language for invalid preferences %s', value => {
         expect(normalizeDateFormat(value)).toBe('locale');
         expect(normalizeTimeFormat(value)).toBe('locale');
+    });
+});
+
+describe('a calendar day, as a date filter names it', () => {
+    const NOW = new Date(2026, 9, 31, 9, 0, 0);
+
+    beforeEach(() => {
+        settingsState.settings = null;
+        authState.dateFormat = 'locale';
+    });
+
+    it('reads a day and short month in the locale, without the year when it is this year', () => {
+        const expected = new Date(2026, 9, 1).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        expect(formatCalendarDay('2026-10-01', NOW)).toBe(expected);
+    });
+
+    it('adds the year for a day in another year', () => {
+        const expected = new Date(2025, 9, 1).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        expect(formatCalendarDay('2025-10-01', NOW)).toBe(expected);
+    });
+
+    it('keeps the day the input names in every time zone, rather than reading it as UTC midnight', () => {
+        settingsState.settings = { date_format: 'ymd' };
+        expect(formatCalendarDay('2026-10-01', NOW)).toBe('2026-10-01');
+    });
+
+    it('follows a pinned date format', () => {
+        settingsState.settings = { date_format: 'dmy' };
+        expect(formatCalendarDay('2026-10-01', NOW)).toBe('01/10/2026');
+    });
+
+    it('returns an unreadable value as it is', () => {
+        expect(formatCalendarDay('not-a-day', NOW)).toBe('not-a-day');
+    });
+});
+
+describe('a day in a record names its year, so a span across years reads plainly', () => {
+    beforeEach(() => {
+        settingsState.settings = null;
+        authState.dateFormat = 'locale';
+    });
+
+    it('reads as day, short month and year under the locale format', () => {
+        const day = new Date(2025, 2, 14, 7, 12);
+        expect(formatDay(day)).toBe(day.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }));
+    });
+
+    it('follows a pinned date format, and leaves an unreadable value empty', () => {
+        settingsState.settings = { date_format: 'dmy' };
+        expect(formatDay(new Date(2026, 10, 2, 8, 41))).toBe('02/11/2026');
+        expect(formatDay(null)).toBe('');
     });
 });

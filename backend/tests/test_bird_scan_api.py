@@ -67,6 +67,30 @@ async def test_owner_can_request_scan_and_response_excludes_private_input(api):
 
 
 @pytest.mark.asyncio
+async def test_owner_can_see_regions_that_were_not_counted(api):
+    client, get, _, headers = api
+    region = {
+        "candidate_id": "weak",
+        "box": [10, 10, 30, 30],
+        "detector_confidence": 0.4,
+        "reason": "individuality_unresolved",
+    }
+    get.return_value = {
+        **get.return_value,
+        "status": "completed",
+        "result_count": 2,
+        "count_status": "incomplete",
+        "unconfirmed_regions": [region],
+        "excluded_regions": [],
+    }
+    response = await client.get("/api/frigate/scan-event/birds/scan?candidate_id=scene", headers=headers)
+    assert response.status_code == 200
+    assert response.json()["count_status"] == "incomplete"
+    assert response.json()["unconfirmed_regions"] == [region]
+    assert not {"generation", "content_sha256", "image_ref"} & response.json().keys()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("event,expected", [("bad%20event", 400), ("x" * 65, 422)])
 async def test_invalid_event_ids_never_reach_service(api, event, expected):
     client, get, enqueue, headers = api

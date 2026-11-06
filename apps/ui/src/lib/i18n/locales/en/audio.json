@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "Heard",
+    "daily_title": "Activity over time",
+    "daily_sub": "BirdNET-Go detections heard per day",
+    "hourly_title": "Time of day",
+    "species_title": "Species mix",
+    "empty": "No activity in this window."
+  },
+  "stat": {
+    "heard": "Heard",
+    "heard_sub": "BirdNET detections in view",
+    "species": "Species",
+    "species_sub": "Audio-derived species",
+    "peak_hour": "Peak hour",
+    "peak_hour_sub": "{count, plural, one {# detection} other {# detections}}",
+    "no_activity": "No activity yet",
+    "sources": "Sources",
+    "sources_sub": "Microphones or streams"
+  },
+  "filter": {
+    "window": "Window",
+    "24h": "24 hours",
+    "7d": "7 days",
+    "30d": "30 days",
+    "90d": "90 days",
+    "1y": "1 year",
+    "species": "Species",
+    "source": "Source",
+    "min_confidence": "Min confidence",
+    "changed": "Filters changed. Apply to update the list."
+  },
+  "top_species": "Top heard species",
+  "card": {
+    "last_heard": "Last heard",
+    "avg": "avg",
+    "max": "max"
+  },
+  "history": {
+    "title": "Detection history",
+    "sub": "Persisted BirdNET-Go detections, separate from visual visits.",
+    "empty": "No BirdNET detections match these filters.",
+    "showing": "Showing {from}-{to} of {total}",
+    "hide": "Hide locally",
+    "undo": "Undo",
+    "hidden_message": "Audio detection hidden.",
+    "local_only": "Hiding removes an entry from YA-WAMF history and future audio matches. BirdNET-Go is unchanged; upstream deletions are not automatically synced."
+  },
+  "table": {
+    "sound": "Sound",
+    "time": "Time",
+    "species": "Species",
+    "source": "Source",
+    "confidence": "Confidence",
+    "open_birdnet": "Open in BirdNET-Go",
+    "open_visual_match": "Open matching visual detection",
+    "unknown_source": "Unknown source",
+    "spectrogram_alt": "Spectrogram of the {species} call"
+  },
+  "sources": {
+    "title": "Sources",
+    "empty": "No sources yet."
+  },
+  "not_shared_title": "Audio is not shared publicly",
+  "not_shared_body": "The owner of this instance has turned off audio for visitors."
+}

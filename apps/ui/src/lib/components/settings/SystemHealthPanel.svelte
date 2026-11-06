@@ -387,7 +387,12 @@
                     {#each acceleratorSeries as line (line.id)}
                         <div>
                             <dt class="text-2xs font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
-                            <dd class="font-display text-3xl font-bold tabular-nums {line.text}">{formatPercent(line.latest) ?? '—'}</dd>
+                            <dd class="font-display font-bold tabular-nums {line.text} {line.latest === null ? 'text-sm' : 'text-3xl'}">{formatPercent(line.latest) ?? $_('settings.system_health.not_measured', { default: 'Not measured' })}</dd>
+                            {#if line.latest === null}
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-system-health-measurement-gap>
+                                    {$_('settings.system_health.measurement_gap', { default: 'No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.' })}
+                                </p>
+                            {/if}
                             <p class="text-3xs text-slate-400 dark:text-slate-500">{scopeNote(line.scope)}</p>
                         </div>
                     {/each}
@@ -403,8 +408,8 @@
                     <div class="col-span-3 text-xs text-slate-500 md:col-span-1 dark:text-slate-400" data-system-health-host>
                         {#if history.host.cpu_count}
                             {history.host.cpu_quota
-                                ? $_('settings.system_health.cores_limited', { values: { count: history.host.cpu_count, quota: history.host.cpu_quota }, default: '{count} cores, limited to {quota}' })
-                                : $_('settings.system_health.cores', { values: { count: history.host.cpu_count }, default: '{count} cores, no CPU limit on the container' })}
+                                ? $_('settings.system_health.cores_limited', { values: { count: history.host.cpu_count, quota: history.host.cpu_quota }, default: '{count, plural, one {# core} other {# cores}}, limited to {quota}' })
+                                : $_('settings.system_health.cores', { values: { count: history.host.cpu_count }, default: '{count, plural, one {# core} other {# cores}}, no CPU limit on the container' })}
                         {/if}
                     </div>
                 </dl>

@@ -10,6 +10,21 @@ measurements use [Model Evaluation](model-evaluation.md); for October public and
 comparisons use the [integration validation report](../reviews/2026-10-10-model-integration-validation.md).
 Compatibility results measure agreement with CPU, not agreement with the true bird species.
 
+## Wildlife models and feeder admission
+
+Wildlife-wide models can identify mammals, plants and other non-birds. A confident
+result whose producing model checksum, output index and matching source label are
+catalogued as non-bird is rejected from automatic feeder bird history. The same
+check applies to backfill and later automatic or owner-requested model reanalysis,
+independently of Garden animals being enabled. A rejected winner does not promote
+a lower-ranked bird or a Frigate sublabel instead.
+
+Unknown group evidence retains the existing confidence rules; absence of bird
+ancestry alone does not prove a non-bird. The low-confidence **Unknown Bird**
+catch-all is unchanged. Existing sightings and explicit owner species choices are
+preserved. This safeguard does not identify animals for Garden review or prove
+that a photograph contains a bird.
+
 ---
 
 ## Benchmark Results
@@ -34,6 +49,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **FlexiViT Israel Birds** | small | birds_only (Israel checklist) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
 | **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–30ms provider sweep | host-validated |
+| **Bird Finder (RF-DETR Nano)** | accurate | system | n/a | n/a | n/a | n/a | 32ms GPU, 52ms CPU, 81ms NPU per view; 5 views per frame | host-validated |
 
 > **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Israel Birds` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
@@ -51,6 +67,25 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 - **Legacy TFLite MobileNet V2** is fast (13ms) but has fewer labels and lower top-5 accuracy. Hidden in the UI by default and labelled as legacy.
 - **Bird Crop Detector (Fast)** remains the fail-soft cropped-thumbnail fallback because it is small,
   fast, and already validated for CPU use.
+- **Bird Finder (RF-DETR Nano)** is the optional wide-frame accurate detector (#734). Two private
+  sets of feeder frames had every visible bird boxed by visual review and checked by the owner:
+  52 birds in 58 frames, then a separate 64 birds in 59 frames selected partly for two-bird visits.
+  With the full frame plus four 20%-overlapping tiles and a 0.3 floor fixed on the first set, it
+  found 42/52 and 58/64 birds through the application path on CPU, Intel GPU and Intel NPU
+  alike; YOLOX-Tiny's production crop path found 12/52 and 16/64 at the 0.08 counting floor (21/52 and 30/64 at its 0.02 evidence floor). The installed classifier gave a
+  confident species for 37 and 57 of the birds RF-DETR found, and agreed with the species from the
+  hand-drawn box in every confident case on the second set. Most misses were birds partly hidden
+  behind the fountain. Its extra boxes are feeder fixtures, squirrels and parts of real birds. With
+  this finder, whole-frame scans count only boxes scored 0.60 or higher and list weaker ones as not
+  counted (#912). Confirming faint, isolated birds from their own crop remains open in #734. Exported from the Apache-2.0 COCO weights at roboflow/rf-detr
+  7433d59 as a static 384x384 ONNX graph; final detections match PyTorch (IoU at least 0.955,
+  confidence within 0.007), and OpenVINO CPU, GPU and NPU give the same birds on both sets.
+  CUDA is a host-gated candidate after a separate CPU-agreeing container check on
+  an RTX 4070 under WSL, with ONNX Runtime 1.26.0 and driver 617.42. That check used
+  eight committed bird images, synthetic negatives and a derived 4K size probe;
+  it is not another accuracy panel or fresh two-bird counting validation. Run the
+  normal compatibility check on each installation before using CUDA. See the
+  [CUDA validation review](../reviews/2026-10-20-rfdetr-cuda-validation.md).
 - **Bird Crop Detector Accurate (YOLOX-Tiny)** is the optional experimental cropped-thumbnail tier.
   Its artifact is published and it retries with the fast detector whenever it is unavailable or
   returns no usable crop. A 21 July 2026 Quark provider sweep validated CPU and OpenVINO
@@ -164,10 +199,15 @@ limit, in the scene with the most birds. They estimate birds in analyzed capture
 individuals across a visit or day. A low-confidence species is kept as Unknown Bird.
 
 Automatic portraits require usable image detail, matching species evidence and, for detector
-crops, at least 0.08 localization confidence. A matching portrait with species confidence at least
+crops, at least 0.25 localization confidence. A matching portrait with species confidence at least
 0.65 may be preferred when within 0.05 of the whole scene. This avoids leaving an old, contradictory
 portrait simply because the new correct scene is uncropped. An owner-selected photo is preserved
 through later automatic updates; explicit regeneration releases that choice.
+
+Adding another qualifying crop does not cancel the portrait preference. A qualifying crop of
+the exact displayed scene can improve an automatic photo's framing without a separate score
+gain. Replacing it with a different scene still requires a clear improvement. A full view stays
+when localization is uncertain, even if its species prediction is confident.
 
 The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
 tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with
@@ -391,6 +431,29 @@ python3 backend/scripts/pipeline_api_test.py \
 ```
 
 ---
+
+## Where an identification came from
+
+Owner records and **Needs your call** show **Named from…** for new identifications: a bird crop,
+Frigate’s sub-label, video frames, an owner choice, or the whole camera view. Whole-view names
+follow the same confidence threshold as any other identification: a confident name is accepted,
+a low-confidence one waits in review, and either can be renamed later. Whole-view names never
+train or use personalization. Confirming the
+species records **Named by you**; the original input stays available on the record.
+A saved choice clears that detection from the dashboard review queue immediately,
+including while the separate new-species list refreshes. Skipped or failed choices
+remain for review. This also applies to new-species visits older than the
+dashboard's 24-hour window; unreviewed historical newcomers stay available.
+Delayed history responses cannot undo a successful choice, including when the
+visit has left the recent history page. A later reanalysis can reopen the visit
+for review; a failed background refresh keeps the saved choice visible.
+
+Changing the photograph does not change this evidence. The input records its crop coordinates,
+source frame dimensions and recording time when available. A counted bird can borrow a new
+visit identification only when the stored input box matches uniquely in the exact retained frame;
+missing or changed frame evidence leaves that association unresolved. Older records keep their
+unknown source rather than acquiring an inferred one. This owner evidence is excluded from guest
+responses.
 
 ## Validate installed hardware safely
 

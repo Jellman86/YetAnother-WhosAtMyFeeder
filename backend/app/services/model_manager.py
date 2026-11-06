@@ -14,7 +14,7 @@ from datetime import datetime, UTC
 from app.services.openvino_cache import clear_openvino_cache, resolve_openvino_cache_dir
 from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
-from app.config import settings
+from app.config import Settings, settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
 from app.services.model_validation import (
     activation_provider_recommendation,
@@ -23,6 +23,7 @@ from app.services.model_validation import (
     is_model_validated,
 )
 from app.services.bird_model_region_resolver import resolve_bird_model_region
+from app.services.settings_update import commit_settings_change
 
 
 def _directory_entries(path: str) -> list[tuple[str, str]]:
@@ -57,6 +58,12 @@ RETIRED_CLASSIFIER_MODEL_IDS = frozenset(
     }
 )
 _RETIRED_CLASSIFIER_REPLACEMENT_ID = "convnext_large_inat21"
+
+DEFAULT_ACCURATE_CROP_DETECTOR_ID = "bird_crop_detector_accurate_yolox_tiny"
+ACCURATE_CROP_DETECTOR_IDS = {
+    "yolox_tiny": DEFAULT_ACCURATE_CROP_DETECTOR_ID,
+    "rfdetr_nano": "bird_crop_detector_accurate_rfdetr_nano",
+}
 
 # Model Registry
 # Supports both TFLite and ONNX runtimes
@@ -133,6 +140,47 @@ REMOTE_REGISTRY = [
         "sort_order": 6,
         "status": "experimental",
         "notes": "Experimental accurate tier for cropped thumbnails. CPU, CUDA, and OpenVINO CPU/GPU/NPU routes remain subject to the per-host validation gate. Automatic classifier localization uses this validated tier independently and falls back to the fast SSD detector when unavailable.",
+    },
+    {
+        "id": "bird_crop_detector_accurate_rfdetr_nano",
+        "name": "Bird Finder (RF-DETR Nano)",
+        "description": "Finds small and distant birds in full camera frames by reading the whole frame and four overlapping tiles.",
+        "architecture": "RF-DETR Nano",
+        "artifact_kind": "crop_detector",
+        "file_size_mb": 102.8,
+        "accuracy_tier": "Higher",
+        "inference_speed": "Slow",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu"],
+        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano.onnx",
+        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano_labels.txt",
+        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_rfdetr_nano_model_config.json",
+        "sha256": "889453865bc1a776b93c6ec3292d2e06833f3907db99187e37cd01476fb47620",
+        "labels_sha256": "4896d9e76fff04240339eedf66b220f4fdf8196b2597726116adbedbbcd60fd8",
+        "label_format": "detector_classes",
+        "input_size": 384,
+        "preprocessing": {
+            "color_space": "RGB",
+            "resize_mode": "stretch",
+            "interpolation": "bilinear",
+            "normalization": "imagenet",
+        },
+        "detector": {
+            "parser": "detr",
+            "box_format": "cxcywh_normalized",
+            "target_class_id": 16,
+            "min_confidence": 0.3,
+            "frame_scan": {"tile_grid": 2, "tile_overlap": 0.2},
+        },
+        "tier": "accurate",
+        "taxonomy_scope": "system",
+        "recommended_for": "Feeder cameras where birds are small in a wide, high-resolution frame.",
+        "estimated_ram_mb": 900,
+        "advanced_only": True,
+        "sort_order": 7,
+        "status": "experimental",
+        "notes": "Apache-2.0 COCO weights from roboflow/rf-detr 7433d59, exported as a static 384x384 ONNX graph. Validated on Intel CPU, GPU and NPU. CUDA is a host-gated candidate after CPU-agreeing RTX 4070 container checks; run compatibility validation on this host before use. Its 0.3 floor was set on owner-reviewed feeder frames and confirmed on a separate set.",
     },
     {
         "id": "mobilenet_v2_birds",
@@ -866,24 +914,22 @@ class ModelManager:
             )
             replacing_active_model = replacement_id != active_model_id
 
-        previous_setting_model = settings.classification.model
-        previous_provider = settings.classification.inference_provider
         artifact_meta = self._get_registry_model_meta(replacement_id) or {}
         recommended_provider = activation_provider_recommendation(
             replacement_id,
             artifact_sha256=artifact_meta.get("sha256"),
         )
-        settings.classification.model = replacement_id
-        if replacing_active_model:
-            settings.classification.inference_provider = recommended_provider or "auto"
+
+        def select_replacement(candidate: Settings) -> None:
+            candidate.classification.model = replacement_id
+            if replacing_active_model:
+                candidate.classification.inference_provider = recommended_provider or "auto"
 
         try:
             if replacing_active_model:
                 await asyncio.to_thread(self._save_active_model_id, replacement_id)
-            await settings.save()
+            await commit_settings_change(select_replacement)
         except Exception:
-            settings.classification.model = previous_setting_model
-            settings.classification.inference_provider = previous_provider
             if replacing_active_model:
                 try:
                     await asyncio.to_thread(self._save_active_model_id, active_model_id)
@@ -911,7 +957,10 @@ class ModelManager:
         normalized = (
             str(tier or getattr(settings.classification, "bird_crop_detector_tier", "fast") or "fast").strip().lower()
         )
-        return "bird_crop_detector_accurate_yolox_tiny" if normalized == "accurate" else "bird_crop_detector"
+        if normalized != "accurate":
+            return "bird_crop_detector"
+        choice = str(getattr(settings.classification, "bird_crop_accurate_detector", "") or "").strip().lower()
+        return ACCURATE_CROP_DETECTOR_IDS.get(choice, DEFAULT_ACCURATE_CROP_DETECTOR_ID)
 
     def get_crop_detector_meta(self, tier: Optional[str] = None) -> Optional[dict[str, Any]]:
         return self._get_registry_model_meta(self._crop_detector_id_for_tier(tier))
@@ -976,8 +1025,22 @@ class ModelManager:
             selected_tier=normalized_selected_tier,
             resolved_tier=normalized_selected_tier,
         )
+        requested_spec["chosen_model_id"] = requested_model_id
         if normalized_selected_tier != "accurate" or requested_spec["healthy"]:
             return requested_spec
+
+        if requested_model_id != DEFAULT_ACCURATE_CROP_DETECTOR_ID:
+            # A chosen accurate detector that is not installed yet must not drop the
+            # scan to the fast detector while the default accurate one is available.
+            default_spec = self._build_crop_detector_spec(
+                DEFAULT_ACCURATE_CROP_DETECTOR_ID,
+                selected_tier="accurate",
+                resolved_tier="accurate",
+                reason_override="fallback_default_accurate",
+            )
+            if default_spec["healthy"]:
+                default_spec["chosen_model_id"] = requested_model_id
+                return default_spec
 
         fallback_spec = self._build_crop_detector_spec(
             "bird_crop_detector",
@@ -986,6 +1049,7 @@ class ModelManager:
             reason_override="fallback_fast",
         )
         fallback_spec["enabled_for_runtime"] = bool(fallback_spec["healthy"])
+        fallback_spec["chosen_model_id"] = requested_model_id
         return fallback_spec
 
     def get_crop_detector_spec_by_model_id(self, model_id: str) -> dict[str, Any]:

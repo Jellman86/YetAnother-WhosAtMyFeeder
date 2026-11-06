@@ -1,0 +1,13 @@
+{
+  "title": "キーボードショートカット",
+  "navigation": "ナビゲーション",
+  "actions": "操作",
+  "open_panel": "ショートカットパネルを開く",
+  "go_dashboard": "ダッシュボードへ",
+  "go_events": "イベントへ",
+  "go_species": "リーダーボードへ",
+  "go_settings": "設定へ",
+  "close_modal": "モーダルを閉じる",
+  "refresh": "ページを更新",
+  "go_notifications": "通知へ"
+}

@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.catalog_mapping_fixture import rehash_mapping_fixture
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import build_species_catalog_seed as seed_builder  # noqa: E402
@@ -133,6 +135,7 @@ def catalog(tmp_path):
     )
 
     path = tmp_path / "catalog.db"
+    rehash_mapping_fixture(mappings)
     seed_builder.build(reference, path, manifest_path=manifest, model_mappings_path=mappings)
     return path
 

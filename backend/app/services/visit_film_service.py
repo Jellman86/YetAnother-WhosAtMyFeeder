@@ -28,11 +28,9 @@ from typing import Callable
 import structlog
 
 from app.services.frigate_client import frigate_client
-from app.services.media_cache import CACHE_BASE_DIR, media_cache, validate_film_alignment
+from app.services.media_cache import FILMS_DIR, media_cache, validate_film_alignment
 
 log = structlog.get_logger()
-
-FILMS_DIR = Path(os.getenv("VISIT_FILMS_DIR", str(CACHE_BASE_DIR / "films")))
 FILM_SIZE = (640, 360)
 FILM_FPS = 12
 FILM_SECONDS = 4.0

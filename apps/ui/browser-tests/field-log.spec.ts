@@ -18,24 +18,40 @@ function capture(visit: string, index: number) {
 async function open(page: Page, query: string) {
     const errors: string[] = [];
     const captureReads: string[] = [];
+    const media: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
     await page.route(url => url.pathname.startsWith('/api/'), route => {
         const url = new URL(route.request().url());
+        if (url.pathname === '/api/garden/visits/fox/captures') {
+            captureReads.push('garden:fox');
+            const items = Array.from({ length: 4 }, (_, index) => ({
+                id: index === 0 ? 'fox' : `fox-${index}`, camera: 'patio', frigate_label: 'fox',
+                observed_at: new Date(Date.parse('2026-10-02T10:30:00Z') - index * 5000).toISOString(),
+                status: 'confirmed', reviewed_at: null, snapshot_url: `/api/garden/fox-${index}/snapshot`,
+                scientific_name: 'Vulpes vulpes',
+                identification: { outcome: 'suggestion', reason: 'confident', review: 'accepted', automatic: true,
+                    name: 'Red Fox', rank: 'species', score: 0.93, country: 'GBR', variant: '4.0.3b',
+                    provider: 'cpu', devices: ['cpu'], output_index: 3, input_kind: 'whole_image',
+                    frame_size: [1920, 1080], identified_at: '2026-10-02T10:31:00Z' }
+            }));
+            return route.fulfill({ json: { items, total: 4, offset: 0, limit: 20 } });
+        }
         const match = url.pathname.match(/\/api\/visits\/([^/]+)\/captures$/);
         if (match) {
             captureReads.push(match[1]);
             const total = match[1] === 'blackbird' ? 13 : 3;
             return route.fulfill({ json: { captures: Array.from({ length: total }, (_, index) => capture(match[1], index)), total } });
         }
-        if (url.pathname.endsWith('.jpg')) {
+        if (url.pathname.endsWith('.jpg') || /^\/api\/garden\/[^/]+\/(crop|snapshot)$/.test(url.pathname)) {
+            media.push(url.pathname);
             return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#3f6212"/></svg>' });
         }
         return route.fulfill({ status: 503, json: { detail: 'not part of this fixture' } });
     });
     await page.goto(`/browser-tests/field-log.html${query}`);
-    return { errors, captureReads };
+    return { errors, captureReads, media };
 }
 
 function row(page: Page, visitId: string): Locator {
@@ -342,4 +358,293 @@ test('a visit opens from its Show captures button, keys its nodes, and keeps eve
     await expect(visit.locator('[data-visit-capture="blackbird-1"]').getByText('Great Tit', { exact: true })).toBeVisible();
     await toggle.click();
     await expect(visit.locator('[data-visit-capture]').first()).toBeHidden();
+});
+
+
+for (const width of [320, 1280]) {
+    test(`owner-confirmed visit is visible without opening it and distinct from audio at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 1000 });
+        const { captureReads } = await open(page, '?confirmed=1');
+        const marked = row(page, 'blackbird').locator('[data-field-log-owner-confirmed]');
+        await expect(marked).toBeVisible();
+        await expect(marked).toContainText('Owner confirmed');
+        await expect(row(page, 'dunnock').locator('[data-field-log-audio]')).toBeVisible();
+        await expect(row(page, 'dunnock').locator('[data-field-log-owner-confirmed]')).toHaveCount(0);
+        expect(captureReads).toEqual([]);
+        if (width >= 640) {
+            const badge = marked.getByRole('button', { name: 'Owner confirmed', exact: true });
+            await badge.focus();
+            await expect(page.getByRole('tooltip')).toContainText('explicitly confirmed this species');
+        }
+        await noHorizontalOverflow(page);
+    });
+}
+
+for (const width of [320, 1280]) {
+    test(`Garden visits sit on the day's thread between bird visits at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1200 });
+        const { errors } = await open(page, '?garden=1&cameras=two');
+        const rows = page.locator('[data-field-log-row]');
+        await expect(rows).toHaveCount(6);
+        const order = await rows.evaluateAll((items) => items.map((item) =>
+            item.getAttribute('data-field-log-garden') ?? item.getAttribute('data-field-log-visit')));
+        expect(order).toEqual(['blackbird', 'fox', 'dunnock', 'cowbird', 'hedgehog', 'unknown']);
+
+        const fox = page.locator('[data-field-log-garden="fox"]');
+        await expect(fox.locator('[data-garden-marker]')).toHaveText('Garden');
+        await expect(fox.locator('[data-field-log-name]')).toHaveText('Red Fox');
+        await expect(fox.locator('[data-field-log-garden-state]')).toHaveText('Named automatically');
+        await expect(fox).toHaveAttribute('data-needs-review', 'false');
+        await expect(fox.locator('[data-field-log-camera]')).toHaveText('patio');
+
+        const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
+        await expect(hedgehog).toHaveAttribute('data-needs-review', 'true');
+        await expect(hedgehog.locator('[data-field-log-garden-state]')).toHaveText('Needs review: suggested species');
+        await hedgehog.getByRole('button', { name: /Open Garden capture: European Hedgehog/ }).click();
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:hedgehog');
+
+        await fox.getByRole('button', { name: /Open Garden capture: Red Fox/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:fox');
+
+        await noHorizontalOverflow(page);
+        expect(errors).toEqual([]);
+        await page.screenshot({ path: testInfo.outputPath(`garden-${width}.png`), fullPage: true });
+        if (shots) await page.screenshot({ path: `${shots}/field-log-garden-${width}.png`, fullPage: true });
+    });
+}
+
+for (const theme of ['light', 'dark']) {
+    test(`rows that need a person say why in words beside an amber dot, with no edge bar (${theme})`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await open(page, `?garden=1&cameras=two${theme === 'dark' ? '&theme=dark' : ''}`);
+        await expect(page.locator('[data-field-log-row]')).toHaveCount(6);
+        const flagged = page.locator('[data-field-log-row][data-needs-review="true"]');
+        await expect(flagged).toHaveCount(2);
+        await expect(page.locator('[data-field-log-garden="hedgehog"] [data-attention-reason]')).toHaveText('Needs review: suggested species');
+        await expect(page.locator('[data-field-log-visit="unknown"] [data-attention-reason]')).toHaveText('Below the naming threshold');
+        for (const row of await flagged.all()) {
+            await expect(row.locator('[data-attention-reason] .attention-dot')).toBeVisible();
+        }
+        await expect(page.locator('[data-field-log-row][data-needs-review="false"] [data-attention-reason]')).toHaveCount(0);
+        // Amber is a dot and words; nothing on the row's edge says it in colour alone.
+        const edges = await page.locator('[data-field-log-row]').evaluateAll(rows => rows.map(row => ({
+            border: getComputedStyle(row).borderLeftWidth,
+            bars: Array.from(row.children).filter(child => {
+                const style = getComputedStyle(child);
+                return style.position === 'absolute' && parseFloat(style.left) === 0 && child.getBoundingClientRect().width <= 4;
+            }).length
+        })));
+        for (const edge of edges) expect(edge).toEqual({ border: '0px', bars: 0 });
+    });
+}
+
+test('a Garden read failure is stated beside the birds instead of implying a quiet garden', async ({ page }) => {
+    await open(page, '?garden=failed');
+    await expect(page.locator('[data-field-log-row]')).toHaveCount(4);
+    await expect(page.locator('[data-field-log-garden-unavailable]')).toHaveText(
+        'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
+    );
+});
+
+
+for (const width of [390, 1280]) {
+    test(`Garden field-log capture details open the selected photo at ${width}px`, async ({ page }, testInfo) => {
+        await page.setViewportSize({ width, height: 1000 });
+        if (width === 390) await page.emulateMedia({ reducedMotion: 'reduce' });
+        const { captureReads, errors } = await open(page, `?garden=1&cameras=two${width === 390 ? '&theme=dark' : ''}`);
+        const fox = page.locator('[data-field-log-garden="fox"]');
+        expect(captureReads).toEqual([]);
+        await fox.locator('[data-garden-visit-captures-toggle]').click();
+        await expect(fox.locator('[data-garden-visit-capture]')).toHaveCount(4);
+        const chosen = fox.locator('[data-garden-visit-capture="fox-2"]');
+        await expect(chosen.locator('time')).toHaveText('11:29:50');
+        await expect(chosen).toContainText('Vulpes vulpes');
+        await chosen.getByRole('button', { name: /^Open Red Fox capture/ }).focus();
+        await page.keyboard.press('Enter');
+        await expect(page.getByLabel('Selected record')).toHaveText('garden:fox:fox-2');
+        expect(captureReads).toEqual(['garden:fox']);
+        await noHorizontalOverflow(page);
+        expect(errors).toEqual([]);
+        await page.screenshot({ path: testInfo.outputPath(`garden-capture-details-${width}.png`), fullPage: true });
+        if (shots) await page.screenshot({ path: `${shots}/garden-capture-details-${width}.png`, fullPage: true });
+    });
+}
+
+// A Garden capture's thumbnail answers "which animal is that" as a bird's does (layout-patterns §1.4, §4).
+const gardenTrigger = (scope: Locator) => scope.locator('[data-garden-capture-preview] button').first();
+const gardenPanel = (page: Page) => page.locator('[data-garden-capture-preview-panel]');
+
+test('a Garden visit opens the bird pop-out on hover, with its crop, name, score and state, and moves nothing', async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    const fox = page.locator('[data-field-log-garden="fox"]');
+    const before = await box(fox);
+    // The same photo cell as a bird visit's, so the column reads as one.
+    const trigger = await box(gardenTrigger(fox));
+    const bird = await box(row(page, 'blackbird').locator('[data-detection-preview] button').first());
+    expect(Math.abs(trigger.x - bird.x)).toBeLessThanOrEqual(1);
+    expect(trigger.width).toBeCloseTo(bird.width, 0);
+    expect(trigger.height).toBeCloseTo(bird.height, 0);
+
+    await gardenTrigger(fox).hover();
+    const panel = gardenPanel(page);
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'crop');
+    await expect(panel.locator('img')).toHaveAttribute('src', /\/api\/garden\/fox\/crop/);
+    await expect(panel.locator('img')).toHaveAttribute('alt', 'Red Fox on patio');
+    // A saved crop fills the panel's image box as the bird pop-out does: no letterbox bars.
+    const image = panel.locator('img');
+    await expect(image).toHaveCSS('object-fit', 'cover');
+    const frame = await box(panel.locator('[data-garden-capture-preview-image]'));
+    const drawn = await box(image);
+    expect(drawn.width).toBeCloseTo(frame.width, 0);
+    expect(drawn.height).toBeCloseTo(frame.height, 0);
+    await expect(panel).toContainText('Red Fox');
+    await expect(panel).toContainText('93%');
+    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Named automatically');
+    await expect(panel).toContainText('patio');
+    // The pop-out floats above the log: the row and the rows around it do not move.
+    expect(await box(fox)).toEqual(before);
+
+    // The pointer can travel into the panel without losing it (WCAG 2.2 SC 1.4.13).
+    await panel.hover();
+    await expect(panel).toBeVisible();
+    await page.mouse.move(5, 5);
+    await expect(panel).toHaveCount(0);
+    expect(errors).toEqual([]);
+    await gardenTrigger(fox).hover();
+    await page.screenshot({ path: testInfo.outputPath('garden-popout-hover.png') });
+    if (shots) await page.screenshot({ path: `${shots}/field-log-garden-popout.png` });
+});
+
+test('a Garden pop-out opens on keyboard focus and closes on Escape and on blur', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
+    // Arrive by keyboard: step back from the thumbnail, then Tab onto it.
+    await gardenTrigger(hedgehog).focus();
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(gardenTrigger(hedgehog)).toBeFocused();
+    await expect(gardenTrigger(hedgehog)).toHaveAccessibleName('Preview European Hedgehog');
+    const panel = gardenPanel(page);
+    await expect(panel).toBeVisible();
+    // No saved crop, so the snapshot; and a suggestion still waiting is said to be one.
+    await expect(panel).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
+    await expect(panel.locator('img')).toHaveAttribute('src', /\/api\/garden\/hedgehog\/snapshot/);
+    await expect(panel.locator('[data-garden-capture-preview-state]')).toHaveText('Needs review: suggested species');
+
+    await page.keyboard.press('Escape');
+    await expect(panel).toHaveCount(0);
+    await expect(gardenTrigger(hedgehog)).toBeFocused();
+
+    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(panel).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(gardenTrigger(hedgehog)).not.toBeFocused();
+    await expect(panel).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
+test('a Garden pop-out degrades to the snapshot, then to a placeholder, when its media fails', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    await page.route(url => url.pathname === '/api/garden/fox/crop', route => route.fulfill({ status: 404, body: '' }));
+    await page.reload();
+    const fox = page.locator('[data-field-log-garden="fox"]');
+    await gardenTrigger(fox).hover();
+    await expect(gardenPanel(page)).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
+    await expect(gardenPanel(page).locator('img')).toHaveAttribute('src', /\/api\/garden\/fox\/snapshot/);
+
+    await page.route(url => url.pathname === '/api/garden/fox/snapshot', route => route.fulfill({ status: 404, body: '' }));
+    await page.reload();
+    const before = await box(fox);
+    await gardenTrigger(fox).hover();
+    await expect(gardenPanel(page)).toHaveAttribute('data-garden-capture-preview-panel', 'unavailable');
+    await expect(gardenPanel(page).locator('img')).toHaveCount(0);
+    await expect(gardenPanel(page)).toContainText('Red Fox');
+    expect(await box(fox)).toEqual(before);
+    expect(errors).toEqual([]);
+});
+
+test("a Garden visit's captures each open their own pop-out", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    const fox = page.locator('[data-field-log-garden="fox"]');
+    await fox.locator('[data-garden-visit-captures-toggle]').click();
+    const chosen = fox.locator('[data-garden-visit-capture="fox-2"]');
+    await gardenTrigger(chosen).hover();
+    await expect(gardenPanel(page)).toHaveAttribute('data-garden-capture-preview-panel', 'snapshot');
+    await expect(gardenPanel(page).locator('img')).toHaveAttribute('src', /\/api\/garden\/fox-2\/snapshot/);
+    await expect(gardenPanel(page)).toContainText('11:29');
+    // The thumbnail opens that exact capture, as the line does.
+    await gardenTrigger(chosen).click();
+    await expect(page.getByLabel('Selected record')).toHaveText('garden:fox:fox-2');
+    expect(errors).toEqual([]);
+});
+
+test('a visitor sees a Garden pop-out only for a photo the owner shares', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors, media } = await open(page, '?garden=1&cameras=two&guest=1');
+    const fox = page.locator('[data-field-log-garden="fox"]');
+    const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
+    await gardenTrigger(fox).hover();
+    await expect(gardenPanel(page)).toHaveAttribute('data-garden-capture-preview-panel', 'crop');
+    await expect(gardenPanel(page)).toContainText('Red Fox');
+    await page.mouse.move(5, 5);
+    await expect(gardenPanel(page)).toHaveCount(0);
+
+    // Its photo is not shared: a plain frame in the same cell, nothing to focus and nothing to open.
+    await expect(hedgehog.locator('[data-garden-capture-preview]')).toHaveCount(0);
+    const frame = hedgehog.locator('[data-garden-capture-preview-unlisted]');
+    await expect(frame).toHaveAttribute('aria-hidden', 'true');
+    const cell = await box(frame);
+    const shared = await box(gardenTrigger(fox));
+    expect(Math.abs(cell.x - shared.x)).toBeLessThanOrEqual(1);
+    expect(cell.width).toBeCloseTo(shared.width, 0);
+    await frame.hover();
+    await expect(gardenPanel(page)).toHaveCount(0);
+    expect(media.some(path => path.startsWith('/api/garden/hedgehog/'))).toBe(false);
+    expect(errors).toEqual([]);
+});
+
+test('an open pop-out describes its trigger, for a bird and for a Garden animal, and only while open', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    const { errors } = await open(page, '?garden=1&cameras=two');
+    const cases = [
+        { trigger: row(page, 'blackbird').locator('[data-detection-preview] button').first(), panel: page.locator('[data-detection-preview-panel]'), facts: [/\d+%/, 'birdcam'] },
+        { trigger: gardenTrigger(page.locator('[data-field-log-garden="fox"]')), panel: gardenPanel(page), facts: ['93%', 'Named automatically', 'patio'] }
+    ];
+    for (const { trigger, panel, facts } of cases) {
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
+        // By keyboard, the path a screen reader user takes.
+        await trigger.focus();
+        await page.keyboard.press('Shift+Tab');
+        await page.keyboard.press('Tab');
+        await expect(panel).toBeVisible();
+        const id = await panel.getAttribute('id');
+        expect(id).toBeTruthy();
+        await expect(trigger).toHaveAttribute('aria-describedby', id ?? '');
+        for (const fact of facts) {
+            await expect(panel).toContainText(fact);
+            await expect(trigger).toHaveAccessibleDescription(typeof fact === 'string' ? new RegExp(fact) : fact);
+        }
+        await page.keyboard.press('Escape');
+        await expect(panel).toHaveCount(0);
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
+    }
+    // Each thumbnail names its own panel, so two open in turn never share an id.
+    const ids = new Set<string>();
+    for (const trigger of [row(page, 'blackbird').locator('[data-detection-preview] button').first(), gardenTrigger(page.locator('[data-field-log-garden="fox"]')), gardenTrigger(page.locator('[data-field-log-garden="hedgehog"]'))]) {
+        await trigger.hover();
+        await expect(trigger).toHaveAttribute('aria-describedby', /.+/);
+        ids.add((await trigger.getAttribute('aria-describedby')) ?? '');
+        // Leave, so the open panel no longer sits over the next thumbnail.
+        await page.mouse.move(5, 5);
+        await expect(trigger).not.toHaveAttribute('aria-describedby');
+    }
+    expect(ids.size).toBe(3);
+    expect(errors).toEqual([]);
 });

@@ -56,7 +56,7 @@ for their operational behaviour.
 | `backend/migrations_catalog/` | Independent species-catalogue Alembic stream. |
 | `apps/ui/src/lib/api/` | Typed frontend API client and generated OpenAPI types. |
 | `apps/ui/src/lib/pages/`, `components/`, `stores/` | Svelte 5 views, shared controls and application state. |
-| `apps/ui/src/lib/i18n/` | Translated user-facing strings. |
+| `apps/ui/src/lib/i18n/` | Translated user-facing strings, authored one file per top-level domain: `locales/<language>/<domain>.json` (for example `locales/en/settings.json` holds every `settings.*` key). `locales/<language>.ts` joins them; English is always loaded as the fallback. |
 | `apps/ui/browser-tests/` | Rendered production-component fixtures with substituted APIs/media. |
 | `apps/telemetry-worker/` | Optional anonymous telemetry service, with local tests. |
 | `custom_components/yawamf/` | Home Assistant integration. |
@@ -158,5 +158,6 @@ and [release workflow](docs/development/releasing.md).
 
 Future work belongs in [ROADMAP.md](ROADMAP.md) and actionable GitHub issues.
 Historical review reports describe their tested revision; they are not a current
-list of missing capabilities. Implemented changes stay under **Unreleased** in
-[CHANGELOG.md](CHANGELOG.md) until a release is actually published.
+list of missing capabilities. Implemented changes wait as fragments in
+[changelog.d/](changelog.d/README.md), plus older entries under **Unreleased** in
+[CHANGELOG.md](CHANGELOG.md), until a release is actually published.

@@ -6,11 +6,12 @@
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
     import { onMount } from 'svelte';
-    import { fetchClassifierLabels, fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
+    import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
     import FeederPortrait from '../components/FeederPortrait.svelte';
-    import DetectionModal from '../components/DetectionModal.svelte';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import FeederPortraitPlaceholder from '../components/FeederPortraitPlaceholder.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadDetectionModal, loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -47,12 +48,13 @@
     // The opener states what this feeder has recorded, not what the software can do, beside
     // its latest visit. The wider count is how many installs reported to telemetry this week.
     let portrait = $state.raw<FeederPortraitData | null>(null);
+    // Until the read settles its shape stands in, so the colophon does not move when it lands.
+    let portraitFailed = $state(false);
     let communityInstalls = $state<number | null>(null);
     let communityReadEnabled = $state<boolean | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
     let openingEvent = $state<string | null>(null);
-    let classifierLabels = $state<string[]>([]);
     let portraitRefresh = $state(0);
     let portraitGeneration = 0;
 
@@ -60,13 +62,7 @@
         if (openingEvent) return;
         openingEvent = frigateEvent;
         try {
-            const [labels, rows] = await Promise.all([
-                authStore.hasOwnerAccess && classifierLabels.length === 0
-                    ? fetchClassifierLabels().catch(() => ({ labels: [] as string[] }))
-                    : Promise.resolve({ labels: classifierLabels }),
-                fetchEvents({ eventId: frigateEvent, limit: 1 })
-            ]);
-            classifierLabels = labels.labels ?? [];
+            const rows = await fetchEvents({ eventId: frigateEvent, limit: 1 });
             const detection = rows[0] ?? null;
             if (!detection) {
                 toastStore.error($_('about.portrait.gone', { default: 'That visit is no longer in the history.' }));
@@ -86,6 +82,7 @@
             if (!signal.aborted && generation === portraitGeneration) portrait = next;
         } catch (error) {
             if (signal.aborted || generation !== portraitGeneration) return;
+            portraitFailed = true;
             // Without the portrait the page is still worth reading; it opens on the prose.
             if (isTransientRequestError(error)) {
                 logger.warn('Feeder portrait unavailable', { message: getErrorMessage(error) });
@@ -104,6 +101,7 @@
         // A hidden or deleted visit must leave the page, including its downloaded film,
         // before a new public projection arrives. A failed refresh stays clear.
         portrait = null;
+        portraitFailed = false;
         void loadPortrait(controller.signal, generation);
         return () => {
             controller.abort();
@@ -190,8 +188,10 @@
 <div class="space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
-        <div class="flex items-start gap-4">
-            <div class="min-w-0">
+        <!-- On a phone the version sits on its own line, so the runtime version replacing the
+             build's cannot rewrap the title and move the page beneath it. -->
+        <div class="flex flex-wrap items-start gap-x-4 gap-y-2">
+            <div class="min-w-0 basis-full sm:basis-0 sm:grow">
                 <!-- The PageHeader already says "About" for owners; repeating it here was the
                      second half of the doubled heading. -->
                 <h2 id="about-project-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
@@ -202,7 +202,7 @@
                 href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="ml-auto shrink-0 rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
+                class="max-w-full shrink-0 truncate rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs sm:ml-auto text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
                 title={$_('about.view_changelog')}
             >
                 v{versionInfo.base_version}
@@ -217,6 +217,8 @@
                 onopenvisit={openVisit}
                 onopenspecies={(name) => (selectedSpecies = name)}
             />
+        {:else}
+            <FeederPortraitPlaceholder failed={portraitFailed} withCommunity={communityInstalls !== null} />
         {/if}
 
         <div class="max-w-prose space-y-3 text-base leading-7 text-slate-700 dark:text-slate-300">
@@ -263,7 +265,7 @@
                                 href={action.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="group inline-flex items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
+                                class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
                             >
                                 <span class="group-hover:underline">{action.label}</span>
                                 <!-- Sized in the icon rather than left to the display font, which
@@ -290,7 +292,7 @@
                 <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     {#each creditsLinks as credit}
                         <li>
-                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}
+                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center text-brand-600 hover:underline focus-ring dark:text-brand-400">{credit.label}</a>{credit.parts.after}
                         </li>
                     {/each}
                     <li>{$_('about.credits_list.ai_assistants')}</li>
@@ -305,18 +307,29 @@
 </div>
 
 {#if selectedEvent}
-    <DetectionModal
-        detection={selectedEvent}
-        {classifierLabels}
-        llmReady={settingsStore.llmReady}
-        showVideoButton={false}
-        readOnly={!authStore.hasOwnerAccess}
-        onClose={() => (selectedEvent = null)}
-        onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
-        onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
-        onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
-            if (isHidden) forgetVisit(frigateEvent);
-        }}
-    />
+    <LazyModal loader={loadDetectionModal} onclose={() => (selectedEvent = null)}>
+        {#snippet children(DetectionModal)}
+            {#if selectedEvent}
+                <DetectionModal
+                    detection={selectedEvent}
+                    llmReady={settingsStore.llmReady}
+                    showVideoButton={false}
+                    readOnly={!authStore.hasOwnerAccess}
+                    onClose={() => (selectedEvent = null)}
+                    onViewSpecies={(species: string) => { selectedSpecies = species; selectedEvent = null; }}
+                    onDeleteSuccess={(frigateEvent: string) => forgetVisit(frigateEvent)}
+                    onHideSuccess={(frigateEvent: string, _time: string | undefined, isHidden: boolean) => {
+                        if (isHidden) forgetVisit(frigateEvent);
+                    }}
+                />
+            {/if}
+        {/snippet}
+    </LazyModal>
 {/if}
-{#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+{#if selectedSpecies}
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
+{/if}

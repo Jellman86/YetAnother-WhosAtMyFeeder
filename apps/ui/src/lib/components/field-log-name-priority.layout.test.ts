@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import detectionPreviewSource from './DetectionPreview.svelte?raw';
-import fieldLogSource from './FieldLog.svelte?raw';
+import { FIELD_LOG_GRID } from '../utils/field-log';
 
 /**
  * The species name is the primary reading of a field log row. Thumbnails are a
@@ -16,7 +16,8 @@ describe('Field log gives the species name priority over the thumbnail stack', (
         expect(detectionPreviewSource).toContain('+{frameCount - VISIBLE_FRAMES}');
     });
 
-    it('keeps the name column flexible in the row grid', () => {
-        expect(fieldLogSource).toContain('minmax(0,1fr)');
+    it('keeps the name column flexible in the row grid at every width', () => {
+        // Phone, wide and narrow templates each give the name the flexible track.
+        expect(FIELD_LOG_GRID.match(/minmax\(0,1fr\)/g)).toHaveLength(3);
     });
 });

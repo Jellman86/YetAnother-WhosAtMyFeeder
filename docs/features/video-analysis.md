@@ -17,6 +17,16 @@ outcomes. A completed species analysis does not prove that a suitable new photog
 - **Find more birds** scans one retained whole frame. **Scan again** repeats a scan without changing
   the chosen photo or the capture's primary identification, and keeps corrections and exclusions.
   An empty retry preserves earlier counted-bird records.
+- When a large detector box encloses several smaller regions, those regions might
+  be separate birds or parts of one bird. The scan reports that it could not
+  distinguish them and keeps existing findings. This is not a zero count; try
+  another retained whole frame. Species confidence alone cannot resolve the count
+  because a crop can include a nearby bird.
+- With the RF-DETR Nano bird finder, a scan counts only boxes the finder is confident about.
+  Weaker boxes that may be a bird, part of a counted bird or a feeder fixture are not counted.
+  The result then reads **At least N birds confirmed**, and **Show the areas that were not
+  counted** lists each one with a preview, its box outlined, and the reason. With YOLOX-Tiny, which scores most feeder birds too low for this, the
+  scan counts every usable box as before and says **Birds found in this frame**.
 - The scan reports queued and running states separately, then **find**, **name**, **count** and
   **save** progress. A waiting scan shows how many scans are ahead; a running button says
   **Scanning…**. A failed scan is distinct from a photo that has never been scanned.
@@ -46,6 +56,50 @@ consensus; YA-WAMF does not invent their original classification.
 **Score again** requests a model decision. It does not turn the output into a human species choice
 or erase an explicit choice. A below-threshold or abstaining run tries the retained snapshot; if
 neither route qualifies, it keeps the identification and reports **No confident result**.
+
+When the retained photo is a whole frame from the photo search, an automatic snapshot fallback
+reads it only if the visit's bird crops do not contradict it. If the crops name species and none of
+them is the whole frame's species, YA-WAMF keeps the existing identification, its score and its
+recorded input, and reports **No confident result**. Every crop counts, including crops too faint
+to be offered as the photo. **Notifications → Errors** records it as
+`snapshot_whole_frame_disputed_by_crops`, with the crop species. An owner-requested **Score again**
+is still applied, and so is the manual species picker.
+
+### Correcting a name read from a whole frame
+
+The photo search classifies crops of the bird from several moments of the visit. Crops that agree
+on one species can improve the score of the current name, or name a bird recorded as Unknown. They
+can replace a different known name in one case only: the name was read from a single uncropped
+whole frame, such as a recording frame used when Frigate kept no snapshot. On a distant camera the
+bird fills little of that frame, which is the misreading the crops correct. A replacement needs
+all of the following:
+
+- at least two crop moments at least 250 ms apart naming the species, with a median and best score
+  at or above the model's recommended threshold (never below 0.60), and no close second species;
+- the visit is not hidden, has no manual tag and has no species chosen by you;
+- a species that is not Unknown, blocked or outside the range list, and a score at or above the
+  current one.
+
+A name from a crop, from video analysis, from a Frigate sublabel or from you is never replaced this
+way. The new name records the crop source and how many moments support it, and the first
+classification stays on record. The change reaches open pages like any automatic reclassification.
+It sends no new alert, and BirdWeather is not sent a second sighting. Counts and eBird exports
+follow the new name.
+
+If you hide the visit, tag it or choose its species while the photo search is running, or a newer
+identification arrives, the correction is not saved. The final write checks again rather than
+relying on what was read at the start.
+
+The photo is chosen after the name is settled, so a renamed visit's photo is chosen for the new
+species. If no crop of that species qualifies as a photo, the earlier photo stays.
+
+When every crop disputes a whole-frame name but the name is not corrected, for example because the
+crops come from a single moment or agree too weakly, that name does not decide the photo. The photo
+is chosen as it would be for an unnamed visit, so it may show what the crops saw while the old name
+stays. That disagreement is a cue to check the visit and choose its species. It does not happen
+when the crops' species is one YA-WAMF would never assign: blocked, outside the range list, Unknown
+or not a bird. Then the earlier photo choice stays. It also does not happen for a hidden, tagged
+or owner-chosen visit.
 
 ### Photograph progress
 
@@ -82,7 +136,11 @@ with the result of the new attempt.
 
 ## Visual Feedback
 
-During analysis, a real-time **progress overlay** appears on the detection card. It shows:
+A queued capture keeps its photograph and says **Video analysis queued**. When a worker has
+started but frame progress has not arrived, the record says **Preparing video analysis**.
+Neither state reports an estimated frame count or an execution device.
+
+Once live frame progress arrives, a real-time **progress overlay** appears. It shows:
 
 - How many frames have been processed so far
 - The current leading species based on frames analyzed so far

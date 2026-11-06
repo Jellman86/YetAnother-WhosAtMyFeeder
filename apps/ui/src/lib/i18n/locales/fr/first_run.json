@@ -1,0 +1,17 @@
+{
+  "title": "Bienvenue sur YA-WAMF",
+  "subtitle": "Sécurisez votre installation en définissant un mot de passe administrateur.",
+  "language_label": "Langue",
+  "language_desc": "Vous pourrez le changer plus tard dans les paramètres.",
+  "admin_username": "Nom d’utilisateur admin",
+  "password": "Mot de passe",
+  "password_hint": "Minimum 8 caractères",
+  "confirm_password": "Confirmer le mot de passe",
+  "skip_auth": "Ignorer l’authentification (non recommandé)",
+  "setting_up": "Configuration…",
+  "continue_without_password": "Continuer sans mot de passe",
+  "set_password": "Définir le mot de passe et continuer",
+  "password_mismatch": "Les mots de passe ne correspondent pas",
+  "password_min": "Le mot de passe doit contenir au moins 8 caractères",
+  "setup_failed": "Échec de la configuration"
+}

@@ -18,6 +18,7 @@
      */
     import { untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { displayDistance } from '../utils/display-distance.svelte';
     import {
         bulkUpdateDetectionSpecies,
         fetchFeederSpecies,
@@ -331,7 +332,7 @@
                             {$_('leaderboard.check.why_not_bird', { values: { count: visitTotal }, default: '{count} visits. Birders report birds, so the nearby check cannot speak for this one.' })}
                         {:else}
                             {$_('leaderboard.check.why', { values: { count: visitTotal }, default: '{count} visits, all from the camera alone.' })}
-                            {#if nearbyRadiusKm}<strong class="font-semibold text-amber-800 dark:text-amber-200">{' '}{$_('leaderboard.check.why_nearby', { values: { radius: nearbyRadiusKm }, default: 'No birder has reported it within {radius} km.' })}</strong>{/if}
+                            {#if nearbyRadiusKm}<strong class="font-semibold text-amber-800 dark:text-amber-200">{' '}{$_('leaderboard.check.why_nearby', { values: { distance: displayDistance(nearbyRadiusKm, $_) }, default: 'No birder has reported it within {distance}.' })}</strong>{/if}
                         {/if}
                     </p>
                 </div>
@@ -375,7 +376,7 @@
                                     >
                                         <span class="relative block aspect-square overflow-hidden rounded-2xl bg-surface-raised transition group-focus-visible:ring-4 group-focus-visible:ring-brand-400 {on ? 'ring-[3px] ring-brand-500' : 'opacity-50 ring-1 ring-line'}">
                                             <img src={entry.crop} alt="" loading="lazy" class="h-full w-full object-cover" />
-                                            <span class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full {on ? 'bg-brand-500 text-white' : 'bg-slate-950/60 text-slate-300'} ring-2 ring-surface" aria-hidden="true">
+                                            <span class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full {on ? 'bg-brand-700 text-white' : 'bg-slate-950/60 text-slate-300'} ring-2 ring-surface" aria-hidden="true">
                                                 {#if on}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m5 10.5 3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round" /></svg>{/if}
                                             </span>
                                             <span class="absolute bottom-2 right-2 rounded-full bg-slate-950/75 px-2 py-0.5 font-display text-sm font-bold text-brand-200">{Math.round((entry.visit.best_score ?? 0) * 100)}%</span>
@@ -429,7 +430,7 @@
                                     {/if}
                                 </span>
                             </span>
-                            <span class="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white {suggestion.kind === 'confirm' ? 'bg-success-600' : 'bg-brand-600'}">
+                            <span class="shrink-0 rounded-xl px-3 py-2 text-sm font-bold text-white {suggestion.kind === 'confirm' ? 'bg-success-700' : 'bg-brand-700'}">
                                 {#if suggestion.kind === 'rename'}{$_('leaderboard.check.rename_count', { values: { count }, default: 'Rename {count} visits' })}
                                 {:else if suggestion.kind === 'confirm'}{$_('leaderboard.check.confirm_short', { default: 'Confirm' })}
                                 {:else}{$_('leaderboard.check.hide_short', { default: 'Hide' })}{/if}

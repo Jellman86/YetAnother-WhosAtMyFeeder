@@ -5,6 +5,8 @@
     import DeskContextCards from '../src/lib/components/DeskContextCards.svelte';
     import type { Detection } from '../src/lib/api';
     import type { DetectionVisit as ServerVisit } from '../src/lib/api/visits';
+    import type { GardenCapture, GardenServerVisit } from '../src/lib/api/garden';
+    import { mergeFieldLog } from '../src/lib/utils/field-log';
     import { fromServerVisit } from '../src/lib/utils/visit-grouping';
     import { authStore } from '../src/lib/stores/auth.svelte';
     import { settingsStore } from '../src/lib/stores/settings.svelte';
@@ -14,8 +16,12 @@
     authStore.statusLoaded = true;
     authStore.statusHealthy = true;
     authStore.authRequired = true;
-    authStore.isAuthenticated = true;
     const params = new URLSearchParams(location.search);
+    // guest=1: a public visitor shown the confirmed Garden animals the owner shares.
+    const guest = params.get('guest') === '1';
+    authStore.isAuthenticated = !guest;
+    authStore.publicAccessEnabled = guest;
+    authStore.gardenAnimalsEnabled = guest;
     authStore.scientificNamePrimary = params.get('names') === 'scientific';
     const phase = params.get('state') ?? 'ready';
     if (params.get('theme') === 'dark') document.documentElement.classList.add('dark');
@@ -44,10 +50,11 @@
     const blackbird = record('blackbird');
     const serverVisits: ServerVisit[] = [
         visit('blackbird', 13, blackbird, {
+            owner_confirmed: params.get('confirmed') === '1',
             latest: record('blackbird-latest', { detection_time: '2026-10-02T10:44:47Z', score: 0.86 }),
             peak_capture: record('blackbird-peak', { bird_summary: { counted: 3, unknown: 0, excluded: 0, species: [], hint_only: false } })
         }),
-        visit('dunnock', 1, record('dunnock', { display_name: 'Prunella modularis', scientific_name: 'Prunella modularis', common_name: 'Dunnock', detection_time: '2026-10-02T10:20:00Z', score: 0.89 }), { start_time: '2026-10-02T10:20:00Z' }),
+        visit('dunnock', 1, record('dunnock', { display_name: 'Prunella modularis', scientific_name: 'Prunella modularis', common_name: 'Dunnock', detection_time: '2026-10-02T10:20:00Z', score: 0.89 }), { start_time: '2026-10-02T10:20:00Z', audio_confirmed: params.get('confirmed') === '1' }),
         visit('cowbird', 3, record('cowbird', { display_name: 'Molothrus ater', scientific_name: 'Molothrus ater', common_name: 'Brown-headed Cowbird', detection_time: '2026-10-02T09:59:00Z', score: 0.77 }), {
             start_time: '2026-10-02T09:58:10Z',
             latest: record('cowbird-latest', { display_name: 'Molothrus ater', scientific_name: 'Molothrus ater', common_name: 'Brown-headed Cowbird', detection_time: '2026-10-02T09:59:30Z', score: 0.7 })
@@ -55,6 +62,32 @@
         visit('unknown', 2, record('unknown', { display_name: 'Unknown Bird', scientific_name: null, common_name: null, detection_time: '2026-10-02T09:40:00Z', score: 0.42 }), { needs_review: true, start_time: '2026-10-02T09:39:30Z' })
     ];
     const visits = phase === 'ready' ? serverVisits.map((item) => fromServerVisit(item, window)) : [];
+    // Garden visits threaded between the birds, as the Dashboard composes them for an owner.
+    const gardenMode = params.get('garden');
+    function gardenCapture(id: string, overrides: Partial<GardenCapture>): GardenCapture {
+        return {
+            id, camera: 'patio', frigate_label: 'fox', observed_at: '2026-10-02T10:30:00Z', status: 'confirmed', reviewed_at: null,
+            snapshot_url: `/api/garden/${id}/snapshot`, crop_url: `/api/garden/${id}/crop`, ...overrides
+        };
+    }
+    function named(name: string, review: 'accepted' | 'pending', automatic: boolean, score: number): GardenCapture['identification'] {
+        return {
+            outcome: 'suggestion', reason: 'confident', review, automatic, name, rank: 'species', score, country: 'GBR',
+            variant: '4.0.3b', provider: 'cpu', devices: ['cpu'], output_index: 3, input_kind: 'whole_image',
+            frame_size: [1920, 1080], identified_at: '2026-10-02T10:31:00Z'
+        } as GardenCapture['identification'];
+    }
+    const gardenVisits: GardenServerVisit[] = gardenMode === '1' ? [
+        { id: 'fox', kind: 'visit', start_time: '2026-10-02T10:28:00Z', end_time: '2026-10-02T10:30:00Z', capture_count: 4,
+            representative: gardenCapture('fox', { identification: named('Red Fox', 'accepted', true, 0.93) }) },
+        { id: 'hedgehog', kind: 'visit', start_time: '2026-10-02T09:50:00Z', end_time: '2026-10-02T09:50:00Z', capture_count: 1,
+            // No saved crop, so its photo is the snapshot. A visitor is shown it named, without its
+            // photo: the server lists no media address for a photo the owner does not share.
+            representative: gardenCapture('hedgehog', guest
+                ? { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'accepted', true, 0.71), snapshot_url: null, crop_url: null }
+                : { observed_at: '2026-10-02T09:50:00Z', frigate_label: 'animal', identification: named('European Hedgehog', 'pending', false, 0.71), crop_url: null }) }
+    ] : [];
+    const rows = mergeFieldLog(visits, gardenVisits, 12);
     let selected = $state('none');
     let played = $state('none');
     let retried = $state(0);
@@ -68,18 +101,23 @@
     {#if phase !== 'ready'}
         <DayBar
             visitCount={null}
-            countedBirds={0}
-            countedCaptures={0}
+            countedBirds={null}
+            countedCaptures={null}
             speciesCount={null}
             unresolvedCount={null}
             audioCalls={null}
-            audioConfirmations={0}
+            audioConfirmations={null}
+            slots={{ countedBirds: false, audio: false }}
             loading={phase === 'loading'}
             connected={false}
         />
     {/if}
     <FieldLog
-        {visits}
+        {rows}
+        gardenUnavailable={gardenMode === 'failed'}
+        ongardenopen={(visit) => (selected = `garden:${visit.id}`)}
+        gardenScope={{ start: '2026-10-02T00:00:00Z', end: '2026-10-03T00:00:00Z', status: 'reviewable' }}
+        ongardencapture={(visit, capture) => (selected = `garden:${visit.id}:${capture.id}`)}
         hiddenCount={phase === 'ready' ? 2 : 0}
         loading={phase === 'loading'}
         unavailable={phase === 'unavailable'}
@@ -90,7 +128,7 @@
         onretry={() => (retried += 1)}
     />
     {#if phase !== 'ready'}
-        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} />
+        <ReviewQueueCard queue={emptyQueue} status={phase === 'loading' ? 'loading' : 'unavailable'} checks={{ status: phase === 'loading' ? 'loading' : 'unavailable', names: [], nearbyRadiusKm: null, keptBirds: [] }} />
         <DeskContextCards detections={[]} visits={[]} cameraVisits={null} loading={phase === 'loading'} unavailable={phase === 'unavailable'} />
     {/if}
 </main>

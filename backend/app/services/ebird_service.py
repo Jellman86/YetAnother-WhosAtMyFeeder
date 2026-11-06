@@ -1,3 +1,5 @@
+import json
+import math
 import re
 import unicodedata
 from datetime import datetime, timedelta
@@ -7,12 +9,33 @@ import httpx
 import structlog
 
 from app.config import settings
+from app.services.range_filter import HotspotRegion, is_valid_region_code
 
 log = structlog.get_logger()
 
 EBIRD_BASE_URL = "https://api.ebird.org/v2"
 TAXONOMY_CACHE_TTL = timedelta(hours=24)
+DEFAULT_TIMEOUT_SECONDS = 15.0
+#: The full taxonomy with every category is about 6 MB; nothing eBird sends is legitimately larger.
+DEFAULT_MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+#: A regional list is a JSON array of six-letter codes: 4,000 species is about 40 KB.
+REGION_LIST_MAX_BYTES = 512 * 1024
+#: Hotspot and region-info responses are small; a radius search returns at most a few hundred rows.
+REFERENCE_MAX_BYTES = 2 * 1024 * 1024
+REGION_LOOKUP_RADIUS_KM = 25
 LOCALE_CACHE_TTL = timedelta(hours=24)
+
+
+_SPECIES_CODE = re.compile(r"^[a-z0-9]{3,12}$")
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    radius_km = 6371.0
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    d_phi = math.radians(lat2 - lat1)
+    d_lambda = math.radians(lng2 - lng1)
+    a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+    return 2 * radius_km * math.asin(min(1.0, math.sqrt(a)))
 
 
 def _normalize_name(value: str) -> str:
@@ -39,12 +62,18 @@ def _normalize_locale(value: str) -> str:
     return str(value or "").strip().replace("_", "-").lower()
 
 
+class EbirdResponseTooLarge(ValueError):
+    """eBird sent more than a bounded request accepts; the body is discarded unread."""
+
+
 class EbirdService:
-    def __init__(self) -> None:
+    def __init__(self, transport: Optional[httpx.AsyncBaseTransport] = None) -> None:
         # Cache results per locale: {locale: {"fetched_at": datetime, "items": [], "index": {}}}
         self._taxonomy_cache: Dict[str, Dict[str, Any]] = {}
         # Cache locale codes: {"fetched_at": datetime, "codes": set[str], "map": dict[str, str]}
         self._locale_cache: Dict[str, Any] = {}
+        # Tests substitute the network here; production always uses the default transport.
+        self._transport = transport
 
     def _headers(self) -> dict:
         if not settings.ebird.api_key:
@@ -54,24 +83,44 @@ class EbirdService:
     def is_configured(self) -> bool:
         return bool(settings.ebird.enabled and settings.ebird.api_key)
 
-    async def _fetch_json(self, path: str, params: dict) -> List[Dict[str, Any]]:
+    async def _fetch_json(
+        self,
+        path: str,
+        params: dict,
+        *,
+        max_bytes: int = DEFAULT_MAX_RESPONSE_BYTES,
+        timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    ) -> Any:
+        """GET one eBird resource with the key in a header, bounded in time and size.
+
+        The key travels only in the `X-eBirdApiToken` header to eBird's own host and
+        is never part of a URL, a log line or an error message.
+        """
         url = f"{EBIRD_BASE_URL}{path}"
         headers = self._headers()
         if not headers:
             raise ValueError("eBird API key not configured")
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.get(url, params=params, headers=headers)
-                resp.raise_for_status()
-                return resp.json()
-        except httpx.HTTPStatusError as e:
-            log.error(
-                "eBird API error", status_code=e.response.status_code, url=str(e.request.url), detail=e.response.text
-            )
+            async with httpx.AsyncClient(timeout=timeout, transport=self._transport) as client:
+                async with client.stream("GET", url, params=params, headers=headers) as resp:
+                    if resp.status_code >= 400:
+                        detail = (await resp.aread())[:500].decode("utf-8", errors="replace")
+                        log.error("eBird API error", status_code=resp.status_code, path=path, detail=detail)
+                        resp.raise_for_status()
+                    declared = resp.headers.get("content-length")
+                    if declared and declared.isdigit() and int(declared) > max_bytes:
+                        raise EbirdResponseTooLarge(f"eBird response for {path} exceeds {max_bytes} bytes")
+                    body = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        body.extend(chunk)
+                        if len(body) > max_bytes:
+                            raise EbirdResponseTooLarge(f"eBird response for {path} exceeds {max_bytes} bytes")
+            return json.loads(bytes(body))
+        except httpx.HTTPStatusError:
             raise
         except Exception as e:
-            log.error("eBird connection error", error=str(e), url=url)
+            log.error("eBird connection error", error=type(e).__name__, path=path)
             raise
 
     async def _get_supported_locales(self) -> set[str]:
@@ -283,6 +332,72 @@ class EbirdService:
                 return item.get("comName")
 
         return None
+
+    async def get_nearby_hotspot_regions(
+        self,
+        *,
+        query_lat: float,
+        query_lng: float,
+        feeder_lat: float,
+        feeder_lng: float,
+    ) -> List[HotspotRegion]:
+        """The region codes of eBird hotspots around the feeder, nearest first.
+
+        eBird has no reverse-geocoding endpoint, but every hotspot carries its
+        country, state and county codes, so the hotspots around a point name the
+        regions it lies in. eBird is sent the approximate point; distances are
+        measured locally from the exact one, which never leaves this host.
+        """
+        payload = await self._fetch_json(
+            "/ref/hotspot/geo",
+            {"lat": query_lat, "lng": query_lng, "dist": REGION_LOOKUP_RADIUS_KM, "fmt": "json"},
+            max_bytes=REFERENCE_MAX_BYTES,
+        )
+        regions: List[HotspotRegion] = []
+        for item in payload if isinstance(payload, list) else []:
+            if not isinstance(item, dict):
+                continue
+            try:
+                lat = float(item["lat"])
+                lng = float(item["lng"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            country = str(item.get("countryCode") or "").strip().upper()
+            if not is_valid_region_code(country):
+                continue
+            state = str(item.get("subnational1Code") or "").strip().upper() or None
+            county = str(item.get("subnational2Code") or "").strip().upper() or None
+            regions.append(
+                HotspotRegion(
+                    country=country,
+                    state=state if is_valid_region_code(state) else None,
+                    county=county if is_valid_region_code(county) else None,
+                    distance_km=_haversine_km(feeder_lat, feeder_lng, lat, lng),
+                )
+            )
+        return sorted(regions, key=lambda region: region.distance_km)
+
+    async def get_region_species_codes(self, region_code: str) -> List[str]:
+        """Every taxon code eBird has recorded in a region, all seasons and years together."""
+        if not is_valid_region_code(region_code):
+            raise ValueError("invalid eBird region code")
+        payload = await self._fetch_json(f"/product/spplist/{region_code}", {}, max_bytes=REGION_LIST_MAX_BYTES)
+        if not isinstance(payload, list):
+            raise ValueError("eBird regional list was not a list")
+        return [code.strip() for code in payload if isinstance(code, str) and _SPECIES_CODE.fullmatch(code.strip())]
+
+    async def get_region_name(self, region_code: str) -> Optional[str]:
+        """eBird's own name for a region, such as "Sonoma County, California, US"; None if unavailable."""
+        if not is_valid_region_code(region_code):
+            return None
+        try:
+            payload = await self._fetch_json(
+                f"/ref/region/info/{region_code}", {"regionNameFormat": "full"}, max_bytes=REFERENCE_MAX_BYTES
+            )
+        except Exception:
+            return None
+        name = payload.get("result") if isinstance(payload, dict) else None
+        return str(name).strip()[:200] if isinstance(name, str) and name.strip() else None
 
     def simplify_observations(self, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         simplified = []

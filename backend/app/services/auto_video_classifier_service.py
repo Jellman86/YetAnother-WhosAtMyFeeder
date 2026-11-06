@@ -7,18 +7,18 @@ import os
 from pathlib import Path
 import random
 import shutil
-import tempfile
 import structlog
 import time
 from collections import deque
 from datetime import datetime, timezone
-from typing import Optional, Dict, Literal, cast
+from typing import TYPE_CHECKING, Optional, Dict, Literal, cast
 from io import BytesIO
 from PIL import Image
 
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.hq_classification_refinement import crop_labels_disputing_full_frame
 from app.services import classifier_service as classifier_service_module
 from app.services.broadcaster import broadcaster
 from app.services.media_cache import media_cache
@@ -29,6 +29,7 @@ from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.classification_input_provenance import (
+    classification_evidence,
     ClassificationInputProvenance,
     build_snapshot_classification_input_context,
     load_snapshot_classification_input,
@@ -41,6 +42,11 @@ from app.utils.system_stats import get_ram_usage_string
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa: F401 - compatibility for tests
 from app.utils.video_analysis import rank_video_top_frames
+from app.utils.frigate_track import compact_frigate_path_data
+from app.services.video_acquisition import ClipUnavailable, acquire_video_clip
+
+if TYPE_CHECKING:
+    from app.services.detection_service import NonBirdSaveRejection
 
 log = structlog.get_logger()
 
@@ -135,6 +141,8 @@ _NON_BREAKER_VIDEO_OUTCOMES: frozenset[str] = frozenset(
     }
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
+# Whole frames the high-quality photo pipeline may leave as the event photograph.
+_HQ_WHOLE_FRAME_SNAPSHOT_SOURCES = frozenset({"hq_candidate_full_frame", "high_quality_snapshot"})
 SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
 _VIDEO_TOP_FRAMES_LIMIT = 8
 # When the precheck aborts because Frigate has no event yet AND no clip is
@@ -1549,13 +1557,7 @@ class AutoVideoClassifierService:
             context["frigate_snapshot_frame_time"] = float(snapshot_time)
         raw_path_data = payload.get("path_data")
         if isinstance(raw_path_data, list):
-            path_data: list[list[object]] = []
-            for item in raw_path_data[:100]:
-                if not isinstance(item, (list, tuple)) or len(item) < 2:
-                    continue
-                point = item[0]
-                if isinstance(point, (list, tuple)) and len(point) >= 2:
-                    path_data.append([list(point[:2]), item[1]])
+            path_data = compact_frigate_path_data(raw_path_data, limit=100)
             if path_data:
                 context["frigate_path_data"] = path_data
         if clip_start_timestamp is not None:
@@ -1811,24 +1813,12 @@ class AutoVideoClassifierService:
                     )
                     return
 
-            # 2. Prefer a cached recording/full-visit clip when available. The
-            # temp file is reserved first and the loader fills it directly, so
-            # the clip never passes through this process's heap (#341).
-            _fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
-            os.close(_fd)
-            try:
-                clip_loaded, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
-                    frigate_event,
-                    tmp_path,
-                    skip_delay=skip_delay,
-                )
-            except BaseException:
-                with contextlib.suppress(OSError):
-                    await asyncio.to_thread(os.remove, tmp_path)
-                raise
-            if not clip_loaded:
-                with contextlib.suppress(OSError):
-                    await asyncio.to_thread(os.remove, tmp_path)
+            # 2. Prefer a cached recording/full-visit clip when available.
+            acquired = await acquire_video_clip(
+                lambda dest_path: self._load_preferred_clip(frigate_event, dest_path, skip_delay=skip_delay)
+            )
+            if isinstance(acquired, ClipUnavailable):
+                clip_error = acquired.error
                 if snapshot_fallback_requested():
                     log.info(
                         "Falling back to snapshot classification because video is unavailable",
@@ -1871,6 +1861,9 @@ class AutoVideoClassifierService:
                     reason=clip_error or "clip_unavailable",
                 )
                 return
+            tmp_path = acquired.clip_path
+            clip_variant = acquired.clip_variant
+            clip_start_timestamp = acquired.clip_start_timestamp
 
             try:
                 # 4. Run classification
@@ -2168,6 +2161,11 @@ class AutoVideoClassifierService:
                         manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                     )
                     self._record_success(frigate_event, source=source)
+                    from app.services.detection_service import NonBirdSaveRejection
+
+                    if isinstance(usable_result, NonBirdSaveRejection):
+                        await self._complete_nonbird_result(frigate_event)
+                        return
 
                     # Persist top video-analysis frames for HQ snapshot reuse
                     if _video_frame_scores or top.get("_video_snapshot_evidence"):
@@ -2334,7 +2332,7 @@ class AutoVideoClassifierService:
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
-            # tmp_path is set by mkstemp before any await, so it is always available here.
+            # The acquisition stage removes its own file until it hands the clip over.
             if tmp_path is not None:
                 with contextlib.suppress(OSError):
                     await asyncio.to_thread(os.remove, tmp_path)
@@ -3087,7 +3085,7 @@ class AutoVideoClassifierService:
         video_diagnostics: dict | None = None,
         manual_tagged: bool = False,
         publish_completion: bool = True,
-    ) -> bool:
+    ) -> bool | None | NonBirdSaveRejection:
         """Save final results via DetectionService to handle intelligent overrides."""
         from app.services.detection_service import DetectionService
 
@@ -3103,6 +3101,8 @@ class AutoVideoClassifierService:
             video_model_id=result.get("model_id"),
             video_model_sha256=result.get("model_sha256"),
             video_input_source=result.get("input_source"),
+            input_evidence=classification_evidence(result),
+            **({"admission_candidates": result["admission_candidates"]} if result.get("admission_candidates") else {}),
             video_diagnostics=video_diagnostics,
             manual_tagged=manual_tagged,
         )
@@ -3118,6 +3118,21 @@ class AutoVideoClassifierService:
             )
         return usable_result
         # _record_success is already called on completion in _process_event.
+
+    async def _complete_nonbird_result(self, frigate_event: str) -> None:
+        await video_classification_waiter.publish(
+            frigate_event,
+            "completed",
+            label=None,
+            score=None,
+            error=None,
+        )
+        await self._broadcast_reclassification_completed(
+            frigate_event,
+            [],
+            outcome="no_result",
+            reason="non_bird",
+        )
 
     async def _classify_from_snapshot(
         self,
@@ -3167,6 +3182,7 @@ class AutoVideoClassifierService:
             event_id=frigate_event,
             event_data=event_data,
             provenance=provenance,
+            snapshot_data=snapshot_data,
         )
         last_unavailable_error: str | None = None
         for attempt in range(1, SNAPSHOT_FALLBACK_MAX_ATTEMPTS + 1):
@@ -3260,6 +3276,17 @@ class AutoVideoClassifierService:
                 photo_outcome=photo_outcome,
             )
             return reason or "snapshot_no_usable_result"
+        if not manual_tagged and await self._crops_dispute_hq_whole_frame(frigate_event, provenance, top):
+            photo_outcome = await settle_photo()
+            await self._update_status(frigate_event, "failed", error="snapshot_no_usable_result", broadcast=True)
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason="snapshot_no_usable_result",
+                photo_outcome=photo_outcome,
+            )
+            return "snapshot_no_usable_result"
         top_with_provenance = attach_classification_provenance(
             top,
             input_source=provenance.input_source,
@@ -3271,6 +3298,11 @@ class AutoVideoClassifierService:
             manual_tagged=manual_tagged,
             publish_completion=False,
         )
+        from app.services.detection_service import NonBirdSaveRejection
+
+        if isinstance(usable_result, NonBirdSaveRejection):
+            await self._complete_nonbird_result(frigate_event)
+            return None
         photo_outcome = await reconcile_snapshot_identity(frigate_event, automatic=not manual_tagged)
         await video_classification_waiter.publish(
             frigate_event,
@@ -3292,6 +3324,39 @@ class AutoVideoClassifierService:
             score=top["score"],
         )
         return None
+
+    async def _crops_dispute_hq_whole_frame(
+        self, frigate_event: str, provenance: ClassificationInputProvenance, top: dict
+    ) -> bool:
+        """Whether the photo is an HQ whole frame whose species every crop of the visit disputes.
+
+        HQ may display a whole frame when no crop is trusted enough to be the photo. That choice
+        is about the picture; it must not let an automatic re-read of the whole frame rename the
+        bird, or re-confirm a name, against crops of the same visit.
+        """
+        if provenance.is_cropped or provenance.input_source not in _HQ_WHOLE_FRAME_SNAPSHOT_SOURCES:
+            return False
+        async with get_db() as db:
+            candidates = await DetectionRepository(db).list_snapshot_candidates(frigate_event)
+        crop_labels = crop_labels_disputing_full_frame([top.get("label")], candidates)
+        if not crop_labels:
+            return False
+        log.info(
+            "Snapshot fallback result not applied: crops of the visit name a different species than the whole frame",
+            event_id=frigate_event,
+            input_source=provenance.input_source,
+            label=top.get("label"),
+            score=top.get("score"),
+            crop_labels=crop_labels,
+        )
+        self._record_diagnostic(
+            frigate_event,
+            reason_code="snapshot_whole_frame_disputed_by_crops",
+            message="Snapshot fallback kept the existing identification because the visit's crops name another species",
+            severity="info",
+            context={"input_source": provenance.input_source, "label": top.get("label"), "crop_labels": crop_labels},
+        )
+        return True
 
     @staticmethod
     async def _broadcast_snapshot_fallback(

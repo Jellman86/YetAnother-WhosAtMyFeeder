@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import en from './locales/en.json';
+import { authoredLocale } from './authored-locales';
+
+const en = authoredLocale('en');
 
 const sources = import.meta.glob(['../../**/*.svelte', '../../**/*.ts', '!../../**/*.test.ts'], {
     eager: true,

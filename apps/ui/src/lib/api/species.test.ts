@@ -10,7 +10,16 @@ vi.mock('./core', () => ({
     handleResponse: vi.fn()
 }));
 
-import { exportEbirdCsv, fetchEbirdNotable } from './species';
+import { exportEbirdCsv, fetchEbirdNotable, fetchSpeciesInfo } from './species';
+
+it('binds Garden references to the scientific identity rather than a name-only bird search', async () => {
+    apiFetchMock.mockReset();
+    const controller = new AbortController();
+    await fetchSpeciesInfo('Domestic Dog', controller.signal, 'Canis familiaris');
+    expect(apiFetchMock).toHaveBeenCalledWith('/api/species/Domestic%20Dog/info?scientific_name=Canis+familiaris', {
+        signal: controller.signal, timeoutMs: 15_000
+    });
+});
 
 describe('fetchEbirdNotable', () => {
     beforeEach(() => {

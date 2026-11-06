@@ -1,0 +1,9 @@
+{
+  "title": "O YA-WAMF {version} está disponível",
+  "title_dev": "Está disponível uma compilação de desenvolvimento mais recente ({version})",
+  "body": "Estás a usar {current}. Obtém a nova imagem no gestor de contentores para atualizar.",
+  "release_notes": "Notas de lançamento →",
+  "dismiss": "Ignorar",
+  "sidebar_title": "Atualização disponível: {version}",
+  "sidebar_label": "Atualização disponível"
+}

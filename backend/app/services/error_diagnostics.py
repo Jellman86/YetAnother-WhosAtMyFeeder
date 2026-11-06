@@ -1,9 +1,13 @@
+from copy import deepcopy
 import os
 import time
 from collections import Counter, deque
 from datetime import datetime, timezone
 from threading import Lock
 from typing import Any
+from collections.abc import Callable, Sequence
+
+from app.utils.diagnostic_redaction import configured_secrets, redact_diagnostic
 
 
 DIAGNOSTICS_HISTORY_MAX_EVENTS = max(
@@ -35,11 +39,43 @@ def _normalize_optional_dict(value: Any) -> dict[str, Any] | None:
 class ErrorDiagnosticsHistory:
     """Bounded in-memory diagnostics history for operator-visible error bundles."""
 
-    def __init__(self, max_events: int = DIAGNOSTICS_HISTORY_MAX_EVENTS):
+    def __init__(
+        self, max_events: int = DIAGNOSTICS_HISTORY_MAX_EVENTS, *, secret_provider: Callable[[], Sequence[str]] = tuple
+    ):
         self._capacity = max(1, int(max_events))
         self._events: deque[dict[str, Any]] = deque(maxlen=self._capacity)
         self._lock = Lock()
         self._counter = 0
+        self._secret_provider = secret_provider
+
+    def _secrets(self) -> Sequence[str] | None:
+        try:
+            return self._secret_provider()
+        except Exception:
+            # Optional diagnostics must neither expose raw details nor break
+            # ingestion when configuration cannot supply a redaction context.
+            return None
+
+    @staticmethod
+    def _sanitized(record: dict[str, Any], secrets: Sequence[str] | None) -> dict[str, Any]:
+        if secrets is None:
+            record = {
+                **record,
+                "message": "Diagnostic details unavailable",
+                "context": None,
+                "runtime_recovery": None,
+                "event_id": None,
+                "job_id": None,
+                "snapshot_ref": None,
+                "correlation_key": None,
+            }
+        # Bound payload fields separately so a large context cannot remove the
+        # event's machine-readable identity or correlation fields.
+        machine_fields = {"id", "timestamp", "source", "component", "stage", "reason_code", "severity", "worker_pool"}
+        return {
+            key: redact_diagnostic(value, () if key in machine_fields else secrets or ())
+            for key, value in record.items()
+        }
 
     @property
     def capacity(self) -> int:
@@ -84,6 +120,7 @@ class ErrorDiagnosticsHistory:
         normalized_runtime_recovery = _normalize_optional_dict(runtime_recovery)
         normalized_snapshot_ref = _normalize_string(snapshot_ref) or None
 
+        secrets = self._secrets()
         with self._lock:
             self._counter += 1
             record = {
@@ -103,8 +140,9 @@ class ErrorDiagnosticsHistory:
                 "runtime_recovery": normalized_runtime_recovery,
                 "snapshot_ref": normalized_snapshot_ref,
             }
-            self._events.appendleft(record)
-            return dict(record)
+            sanitized = self._sanitized(record, secrets)
+            self._events.appendleft(sanitized)
+            return deepcopy(sanitized)
 
     def snapshot(
         self,
@@ -132,7 +170,8 @@ class ErrorDiagnosticsHistory:
             return True
 
         filtered = [record for record in events if _matches(record)]
-        returned = filtered[:bounded_limit]
+        secrets = self._secrets()
+        returned = [self._sanitized(record, secrets) for record in filtered[:bounded_limit]]
 
         severity_counts = Counter(str(record.get("severity", "warning")) for record in returned)
         component_counts = Counter(str(record.get("component", "unknown")) for record in returned)
@@ -149,4 +188,4 @@ class ErrorDiagnosticsHistory:
         }
 
 
-error_diagnostics_history = ErrorDiagnosticsHistory()
+error_diagnostics_history = ErrorDiagnosticsHistory(secret_provider=configured_secrets)

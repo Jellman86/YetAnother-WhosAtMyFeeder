@@ -6,6 +6,7 @@ import structlog
 import asyncio
 from uuid import uuid4
 
+from app.utils.diagnostic_redaction import safe_error_message
 from app.services.backfill_service import BackfillService
 from app.services.i18n_service import i18n_service
 from app.services.media_cache import media_cache
@@ -487,8 +488,8 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             "cache_stats": cache_stats,
         }
     except Exception as e:
-        log.error("Database reset failed", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        log.error("Database reset failed", error=safe_error_message(e))
+        raise HTTPException(status_code=500, detail=safe_error_message(e))
     finally:
         async with _JOB_LOCK:
             _JOB_TASKS.clear()
@@ -575,9 +576,10 @@ async def backfill_detections(
     except HTTPException:
         raise
     except Exception as e:
-        log.error("Backfill failed", error=str(e))
+        log.error("Backfill failed", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=safe_error_message(e)),
         )
     finally:
         _unregister_request_task(holder_id)
@@ -708,7 +710,7 @@ async def backfill_detections_async(
                 await _publish_job("backfill_failed", job)
             raise
         except Exception as e:
-            log.error("Async backfill failed", error=str(e))
+            log.error("Async backfill failed", error=safe_error_message(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()
@@ -846,7 +848,9 @@ async def backfill_weather(
                 except Exception as e:
                     errors += 1
                     error_reasons["exception"] = error_reasons.get("exception", 0) + 1
-                    log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
+                    log.warning(
+                        "Weather backfill failed", error=safe_error_message(e), event_id=det.get("frigate_event")
+                    )
 
             message = f"Updated {updated} detection(s)"
             if skipped:
@@ -866,9 +870,10 @@ async def backfill_weather(
     except HTTPException:
         raise
     except Exception as e:
-        log.error("Weather backfill failed", error=str(e))
+        log.error("Weather backfill failed", error=safe_error_message(e))
         raise HTTPException(
-            status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
+            status_code=500,
+            detail=i18n_service.translate("errors.backfill.processing_error", lang, error=safe_error_message(e)),
         )
     finally:
         _unregister_request_task(holder_id)
@@ -993,7 +998,9 @@ async def _start_weather_backfill_async(
                     except Exception as e:
                         job.errors += 1
                         job.error_reasons["exception"] = job.error_reasons.get("exception", 0) + 1
-                        log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
+                        log.warning(
+                            "Weather backfill failed", error=safe_error_message(e), event_id=det.get("frigate_event")
+                        )
                     # Cancellation has no completed outcome to count.
                     job.processed += 1
                     _touch_job(job)
@@ -1019,7 +1026,7 @@ async def _start_weather_backfill_async(
                 await _publish_job("backfill_failed", job)
             raise
         except Exception as e:
-            log.error("Async weather backfill failed", error=str(e))
+            log.error("Async weather backfill failed", error=safe_error_message(e))
             job.status = "failed"
             job.message = str(e)
             job.finished_at = _now_iso()

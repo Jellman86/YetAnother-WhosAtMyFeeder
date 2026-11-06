@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import stripSource from './FrameStrip.svelte?raw';
 import previewSource from './DetectionPreview.svelte?raw';
 import filteredSource from './FilteredFramePreview.svelte?raw';
+import popoutSource from '../utils/hover-popout.svelte.ts?raw';
+import gardenPreviewSource from './GardenCapturePreview.svelte?raw';
 import modalSource from './DetectionModal.svelte?raw';
 import reviewSource from './ReviewQueueModal.svelte?raw';
 
@@ -65,17 +67,23 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('gives the other hover pop-outs the same tap rule', () => {
-        for (const source of [previewSource, filteredSource]) {
+        for (const source of [popoutSource, filteredSource]) {
             expect(source).toContain("event.pointerType !== 'touch'");
             expect(source).toContain("target.matches(':focus-visible')");
+        }
+        for (const source of [previewSource, gardenPreviewSource, filteredSource]) {
             expect(source).not.toContain('onmouseenter={() => show(index)}');
             expect(source).not.toContain('onmouseenter={show}');
         }
+        // Birds and Garden animals take the rule from the one shared controller.
+        expect(previewSource).toContain('onpointerenter={(event) => popout.pointerEnter(event, index)}');
+        expect(gardenPreviewSource).toContain('onpointerenter={(event) => popout.pointerEnter(event)}');
     });
 
     it('keeps bound trigger arrays reactive so Svelte does not warn for every thumbnail', () => {
         expect(stripSource).toContain('let triggers = $state<HTMLElement[]>([])');
-        expect(previewSource).toContain('let triggers = $state<HTMLElement[]>([])');
+        expect(popoutSource).toContain('triggers = $state<HTMLElement[]>([])');
+        expect(previewSource).toContain('bind:this={popout.triggers[index]}');
     });
 
     it('labels what the model read in a frame as a read, with one action that names its effect', () => {

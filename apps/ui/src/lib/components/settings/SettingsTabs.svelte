@@ -4,7 +4,7 @@
     import { setupWizardStore } from "../../stores/setup_wizard.svelte";
 
     type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment'
-        | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
+        | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
 
     interface SettingsTabItem {
         id: SettingsTab;
@@ -51,6 +51,7 @@
             tabs: [
                 { id: "health", label: $_("settings.tabs.health"), iconPath: "M3 12h4l2-5 4 10 2-5h6M12 21C7 18 4 14.5 4 10a4 4 0 0 1 7-2.65A4 4 0 0 1 18 10c0 .7-.08 1.36-.24 2" },
                 { id: "security", label: $_("settings.tabs.security"), iconPath: "m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" },
+                { id: "beta", label: $_("settings.tabs.beta", { default: "Beta features" }), iconPath: "M10 2v7.31L4.53 18.4A2.4 2.4 0 0 0 6.6 22h10.8a2.4 2.4 0 0 0 2.07-3.6L14 9.31V2M8.5 2h7M7 16h10" },
                 { id: "data", label: $_("settings.tabs.data"), iconPath: "M19 6c0 1.66-3.13 3-7 3S5 7.66 5 6s3.13-3 7-3 7 1.34 7 3Zm0 0v6c0 1.66-3.13 3-7 3s-7-1.34-7-3V6m14 6v6c0 1.66-3.13 3-7 3s-7-1.34-7-3v-6" },
                 ...(debugUiEnabled
                     ? [{ id: "debug" as const, label: $_("settings.tabs.debug"), iconPath: "M9 3h6m-5 0v5l-5 9a2 2 0 0 0 1.74 3h10.52A2 2 0 0 0 19 17l-5-9V3m-6 11h8" }]

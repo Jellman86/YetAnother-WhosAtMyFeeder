@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import de from './locales/de.json';
-import en from './locales/en.json';
-import es from './locales/es.json';
-import fr from './locales/fr.json';
-import itLocale from './locales/it.json';
-import ja from './locales/ja.json';
-import pt from './locales/pt.json';
-import ru from './locales/ru.json';
-import zh from './locales/zh.json';
+import { authoredLocale } from './authored-locales';
+
+const de = authoredLocale('de');
+const en = authoredLocale('en');
+const es = authoredLocale('es');
+const fr = authoredLocale('fr');
+const itLocale = authoredLocale('it');
+const ja = authoredLocale('ja');
+const pt = authoredLocale('pt');
+const ru = authoredLocale('ru');
+const zh = authoredLocale('zh');
 
 type LocaleRoot = Record<string, unknown>;
 

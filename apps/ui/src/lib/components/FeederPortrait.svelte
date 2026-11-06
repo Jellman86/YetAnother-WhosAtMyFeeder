@@ -45,9 +45,7 @@
     });
 
     function visits(count: number): string {
-        return count === 1
-            ? $_('about.portrait.visit_count_one', { default: '1 visit' })
-            : $_('about.portrait.visit_count', { values: { count: count.toLocaleString() }, default: '{count} visits' });
+        return $_('about.portrait.visit_count', { values: { count }, default: '{count, plural, one {# visit} other {# visits}}' });
     }
 </script>
 
@@ -130,8 +128,8 @@
         {#if communityInstalls !== null}
             <p class="text-xs text-slate-500 dark:text-slate-400" data-about-community>
                 {$_('about.portrait.community', {
-                    values: { count: communityInstalls.toLocaleString() },
-                    default: '{count} feeders ran YA-WAMF this week.'
+                    values: { count: communityInstalls },
+                    default: '{count, plural, one {# feeder ran YA-WAMF this week.} other {# feeders ran YA-WAMF this week.}}'
                 })}
             </p>
         {/if}

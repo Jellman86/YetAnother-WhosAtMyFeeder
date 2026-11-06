@@ -1,0 +1,5 @@
+{
+  "completed": "Última execução concluída: {device} · {time}",
+  "fallback": "Alternativa CPU: o acelerador pedido não concluiu corretamente a verificação ou inferência atual.",
+  "unreported": "Nenhuma execução concluída indicou o dispositivo. Uma recomendação não comprova uma execução."
+}

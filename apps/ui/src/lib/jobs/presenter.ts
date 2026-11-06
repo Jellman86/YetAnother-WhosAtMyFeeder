@@ -40,7 +40,7 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
     if (count === 1) {
         return t('jobs.global_running_single', undefined, '1 job running');
     }
-    return t('jobs.global_running_multi', { count: count.toLocaleString() }, '{count} jobs running');
+    return t('jobs.global_running_multi', { count }, '{count, plural, one {# job running} other {# jobs running}}');
 }
 
 /** A job that has stopped reporting is not running; the headline must not say it is. */

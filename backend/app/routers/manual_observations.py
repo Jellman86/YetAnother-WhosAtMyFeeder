@@ -54,6 +54,16 @@ class ManualObservationResponse(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     location_source: Literal["image_metadata", "manual_pin"] | None = None
+    captured_at: str | None = Field(
+        default=None,
+        description=(
+            "When the file says it was taken, in UTC: EXIF DateTimeOriginal (then DateTime), or an MP4/MOV "
+            "creation time. An EXIF time without an offset is read in the server's TZ. Null when absent or implausible."
+        ),
+    )
+    captured_at_source: Literal["exif", "video_metadata", "none"] = Field(
+        default="none", description="Where captured_at came from; none when the file holds no usable capture time."
+    )
     preview_url: str
     media_url: str
     created_at: str | None = None
@@ -64,7 +74,9 @@ class ManualObservationConfirmRequest(BaseModel):
     label: str = Field(min_length=1, max_length=255)
     camera_name: str = Field(default="Manual upload", max_length=100)
     notes: str | None = Field(default=None, max_length=1000)
-    observed_at: datetime | None = None
+    observed_at: datetime | None = Field(
+        default=None, description="When the sighting happened. Null uses the file's captured_at, then the save time."
+    )
     latitude: float | None = Field(default=None, ge=-90, le=90)
     longitude: float | None = Field(default=None, ge=-180, le=180)
     location_source: Literal["image_metadata", "manual_pin", "none"] | None = None
@@ -147,6 +159,12 @@ def _response(draft: ManualObservationDraft) -> ManualObservationResponse:
         latitude=draft.latitude,
         longitude=draft.longitude,
         location_source=draft.location_source,
+        captured_at=serialize_api_datetime(draft.captured_at) if draft.captured_at else None,
+        captured_at_source=(
+            draft.captured_at_source
+            if draft.captured_at and draft.captured_at_source in {"exif", "video_metadata"}
+            else "none"
+        ),
         preview_url=f"/api/manual-observations/{draft.id}/preview",
         media_url=f"/api/manual-observations/{draft.id}/media",
         created_at=serialize_api_datetime(draft.created_at),

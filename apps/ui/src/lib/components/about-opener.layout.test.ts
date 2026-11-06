@@ -6,7 +6,9 @@ import portraitSource from './FeederPortrait.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
 import speciesSource from '../pages/Species.svelte?raw';
 import privacySource from './PrivacySummary.svelte?raw';
-import en from '../i18n/locales/en.json';
+import enAbout from '../i18n/locales/en/about.json';
+
+const en = { about: enAbout };
 
 describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
     it('sits above the share bar, every tile a visit that opens its species', () => {

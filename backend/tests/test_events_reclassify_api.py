@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timezone
 import io
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -9,10 +10,12 @@ from PIL import Image
 
 from app.auth import AuthContext, AuthLevel, require_owner
 from app.config import settings
-from app.database import close_db, get_db, init_db
+from app.database import get_db
 from app.main import app
 from app.routers import classifier as classifier_router
 from app.services.detection_service import DetectionService
+
+pytestmark = pytest.mark.usefixtures("history_pool")
 
 
 @pytest_asyncio.fixture
@@ -20,15 +23,6 @@ async def client():
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def ensure_db_initialized():
-    await init_db()
-    try:
-        yield
-    finally:
-        await close_db()
 
 
 @pytest.fixture(autouse=True)
@@ -217,6 +211,7 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
             "is_cropped": False,
             "event_id": event_id,
             "input_source": "frigate_snapshot",
+            "source_image_sha256": hashlib.sha256(_image_bytes()).hexdigest(),
             "frigate_box": [0.2, 0.3, 0.4, 0.5],
             "frigate_region": [0.1, 0.2, 0.8, 0.9],
             "restore_frigate_snapshot_crop": True,
@@ -482,3 +477,36 @@ async def test_reclassify_snapshot_forwards_the_producing_models_checksum(client
     finally:
         await _delete_detection(event_id)
         app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_snapshot_reanalysis_does_not_claim_success_when_final_promotion_is_rejected(client):
+    event_id = "evt-fresh-rejection"
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    await _insert_detection(event_id, "Robin", "birdcam")
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(
+        return_value=[{"label": "Sciurus carolinensis", "score": 0.99, "index": 4844}]
+    )
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as frigate,
+            patch.object(DetectionService, "apply_video_result", new=AsyncMock(return_value=False)),
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as broadcast,
+        ):
+            frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            frigate.get_snapshot = AsyncMock(return_value=_image_bytes())
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "snapshot"})
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "no_result"
+        assert response.json()["updated"] is False
+        assert response.json()["new_species"] == "Robin"
+        assert all(
+            call.args[1].get("status") != "success"
+            for call in broadcast.await_args_list
+            if len(call.args) > 1 and isinstance(call.args[1], dict)
+        )
+    finally:
+        await _delete_detection(event_id)

@@ -234,6 +234,9 @@ server {
 }
 ```
 
+YA-WAMF's own nginx already gzips JSON API responses. Do not enable compression for `/api/sse`
+at your proxy: compressing the stream holds events back until a buffer fills.
+
 The exact manual-observation location takes precedence over the generic `/api/` route. The 256 MiB
 request envelope is intentionally bounded: it covers multipart overhead while the application
 continues to reject image files above 25 MiB and video files above 250 MiB. Disabling request

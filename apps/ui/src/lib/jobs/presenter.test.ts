@@ -1,15 +1,17 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getMessageFormatter, init } from 'svelte-i18n';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
 import { buildGlobalProgressSummary, presentPipelineKindRow, presentWorkLane } from './presenter';
 
-function renderTemplate(template: string, values: Record<string, unknown> = {}): string {
-    return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
-}
+beforeAll(() => {
+    init({ fallbackLocale: 'en', initialLocale: 'en' });
+});
 
-function t(_key: string, values?: Record<string, unknown>, fallback?: string): string {
-    return renderTemplate(fallback ?? _key, values);
+// The English defaults go through the same ICU formatter the app uses, so plurals resolve.
+function t(_key: string, values?: Record<string, string | number | boolean | Date | null | undefined>, fallback?: string): string {
+    return String(getMessageFormatter(fallback ?? _key).format(values ?? {}));
 }
 
 function makeJob(overrides: Partial<JobProgressItem> = {}): JobProgressItem {

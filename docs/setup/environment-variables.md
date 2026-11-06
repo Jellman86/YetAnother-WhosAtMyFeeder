@@ -76,6 +76,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `FRIGATE__FRIGATE_AUTH_TOKEN` | _(unset)_ | Bearer token if Frigate requires auth. |
 | `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic; events arrive on `<topic>/events`. |
 | `FRIGATE__CLASSIFICATION_IMAGE_SOURCE` | `frigate_snapshot` | Live input source: `frigate_snapshot` or `recording_snapshot`. Recording input requires retained recording coverage; see [Frigate setup](frigate-config.md). |
+| `FRIGATE__RECORDING_FRAME_DELAY_SECONDS` | `12` | Initial recording-frame identification delay, 1 to 120 seconds. Later tracked snapshot metadata received during the wait is used. No effect in detection-snapshot mode. |
 | `FRIGATE__MQTT_SERVER` | `mqtt` | MQTT broker host. |
 | `FRIGATE__MQTT_PORT` | `1883` | MQTT broker port. |
 | `FRIGATE__MQTT_AUTH` | `false` | Enable MQTT username/password auth. |
@@ -284,6 +285,11 @@ Discord / Pushover / Telegram / Email:
 | Variable | Default | Description |
 | --- | --- | --- |
 | `SYSTEM__DEBUG_UI_ENABLED` | `false` | Show the Debug settings tab. |
+| `SYSTEM__BETA_GARDEN_ANIMALS` | `false` | Turn on the Garden animals beta feature. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_ENABLED` | `false` | Opt in to separate Garden alerts while the beta is enabled. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_USE_BIRD_CHANNELS` | _(derived)_ | `true` sends Garden alerts on the bird channels that are switched on and configured; `false` uses `FRIGATE__GARDEN_NOTIFICATION_CHANNELS`. Unset, a saved choice wins, otherwise it is `true` unless channels were chosen. |
+| `FRIGATE__GARDEN_NOTIFICATION_CHANNELS` | `[]` | Explicit JSON channel array, for example `["telegram"]`; supports `discord`, `telegram`, `pushover`, `email`. Reuses saved credentials independently of bird switches. |
+| `FRIGATE__GARDEN_NOTIFICATIONS_INCLUDE_PHOTO` | `true` | Attach the saved animal crop, or the capture photo, to Garden alerts. |
 | `SYSTEM__UPDATE_CHECK_ENABLED` | `true` | Check for new releases. |
 | `SYSTEM__TRUSTED_PROXY_HOSTS` | _(built-in list)_ | Comma-separated trusted reverse-proxy hosts. |
 | `SYSTEM__BROADCASTER_MAX_QUEUE_SIZE` | `100` | SSE broadcaster queue size. |

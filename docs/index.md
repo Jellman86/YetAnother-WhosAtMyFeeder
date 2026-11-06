@@ -17,7 +17,9 @@ for behavior shipped in a tagged image.
 
 - [Explorer and review](features/explorer.md) — seen visits, heard calls, individual captures and corrections.
 - [Add observation](features/manual-observations.md) — classify and save your own photograph or clip.
+- [Range filter](features/range-filter.md) — set aside birds eBird has never recorded in your region.
 - [Video and photo analysis](features/video-analysis.md) — frame evidence and counted birds.
+- [Garden animals](features/garden-animals.md) — owner review of animal captures, separate from birds.
 - [Favourites](features/favourites.md) — archives, retention and storage limits.
 - [Notifications](features/notifications.md) — channels, filters and background jobs.
 - [Taxonomy and naming](features/taxonomy.md) — species identity, names and leaderboard rankings.
@@ -52,7 +54,9 @@ for behavior shipped in a tagged image.
 
 - [Contributing](../CONTRIBUTING.md) · [Development workflow](../DEVELOPMENT.md) · [Architecture](../DEVELOPER.md).
 - [API reference](api.md) · [Regression testing](development/testing.md) · [Model conversion](conversions/birder-model-conversion.md).
+- [Cedar detector artifact](development/cedar-model.md) — source, conversion and runtime input contract.
+- [Offline Garden replay](development/garden-replay.md) — compare detector sampling without changing live collection or history.
 - [Engineering contract](../CLAUDE.md) · [Code quality](standards/code-quality.md) · [UI/UX](standards/ui-ux.md).
 - [Documentation standard](documentation-standard.md) · [Screenshot capture](images/README.md).
-- [Writing a release](development/releasing.md) · [v2.22.0 notes](releases/v2.22.0.md) · [Contributors](../CONTRIBUTORS.md).
+- [Writing a release](development/releasing.md) · [v2.23.0 notes](releases/v2.23.0.md) · [Contributors](../CONTRIBUTORS.md).
 - [Release archive](releases/) · [Dated reviews](reviews/) · [Roadmap](../ROADMAP.md).

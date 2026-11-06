@@ -1,6 +1,8 @@
 import type { components } from './generated/openapi';
 
 export interface Detection {
+    classification_input?: components['schemas']['ClassificationEvidence'] | null;
+    initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     id?: number;
     frigate_event: string;
     observation_source?: 'frigate' | 'manual_upload';

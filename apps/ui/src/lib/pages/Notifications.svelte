@@ -18,13 +18,14 @@
     import { formatDateTime, formatTime } from '../utils/datetime';
     import { getThumbnailUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
+    import { toastStore } from '../stores/toast.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toAppPath } from '../app/url-base';
     import Pagination from '../components/Pagination.svelte';
     import { paginateItems } from '../utils/pagination';
     import JobCircuitBanner from '../components/JobCircuitBanner.svelte';
 
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
+    let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     const FILTERS: NotificationFilter[] = ['all', 'birds', 'updates', 'jobs', 'errors'];
 
@@ -54,6 +55,20 @@
         // outside this effect's dependency graph so a response cannot restart its own polling loop.
         return untrack(() => serverJobsStore.retain());
     });
+
+    // Clearing is saved at once, so the toast offers the history back for a few seconds.
+    function clearWithUndo(): void {
+        const cleared = notificationCenter.clear();
+        if (cleared.length === 0) return;
+        toastStore.undoable(
+            $_('notifications.cleared', {
+                values: { count: cleared.length },
+                default: '{count, plural, one {Cleared # notification.} other {Cleared # notifications.}}'
+            }),
+            $_('common.undo', { default: 'Undo' }),
+            () => notificationCenter.restore(cleared)
+        );
+    }
 
     function navigate(path: string) {
         if (onNavigate) {
@@ -122,15 +137,15 @@
     }
 
     const TONE_DOT: Record<string, string> = {
-        attention: 'bg-accent-500 border-accent-500',
+        attention: 'bg-attention-500 border-attention-500',
         running: 'bg-brand-500 border-brand-500',
-        done: 'bg-emerald-500 border-emerald-500',
+        done: 'bg-success-500 border-success-500',
         info: 'bg-slate-300 border-slate-300 dark:bg-slate-600 dark:border-slate-600'
     };
     const TONE_ICON: Record<string, string> = {
-        attention: 'text-accent-700 bg-accent-50 border-accent-200 dark:text-accent-300 dark:bg-accent-950/40 dark:border-accent-900',
+        attention: 'text-attention-800 bg-attention-50 border-attention-200 dark:text-attention-300 dark:bg-attention-950/40 dark:border-attention-900',
         running: 'text-brand-700 bg-brand-50 border-brand-200 dark:text-brand-300 dark:bg-brand-950/40 dark:border-brand-900',
-        done: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-950/40 dark:border-emerald-900',
+        done: 'text-success-700 bg-success-50 border-success-200 dark:text-success-300 dark:bg-success-950/40 dark:border-success-900',
         info: 'text-slate-500 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700'
     };
 </script>
@@ -145,10 +160,10 @@
             </h2>
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                 <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{items.length}</b>
-                    {$_('notifications.count_events', { default: 'events' })}</span>
+                    {$_('notifications.count_events', { values: { count: items.length }, default: '{count, plural, one {event} other {events}}' })}</span>
                 {#if unread > 0}
                     <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{unread}</b>
-                        {$_('notifications.count_unread', { default: 'unread' })}</span>
+                        {$_('notifications.count_unread_unit', { values: { count: unread }, default: '{count, plural, one {unread} other {unread}}' })}</span>
                 {/if}
             </p>
         </div>
@@ -161,14 +176,14 @@
             <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
-            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
+            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={clearWithUndo}>
                 {$_('notifications.clear_notifications', { default: 'Clear notifications' })}
             </button>
         </div>
     </div>
 
     <!-- Chips rather than tabs: a failed job belongs in the same list as everything else. -->
-    <div class="flex flex-wrap gap-2" role="group" aria-label={$_('notifications.filter_all', { default: 'Everything' })}>
+    <div class="flex flex-wrap gap-2" role="group" aria-label={$_('notifications.filter_group', { default: 'Filter notifications' })}>
         {#each visibleFilters as name (name)}
             <button
                 type="button"
@@ -304,6 +319,7 @@
                                         {item.title}
                                         {#if !item.read}
                                             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true"></span>
+                                            <span class="sr-only">{$_('notifications.count_unread', { default: 'unread' })}</span>
                                         {/if}
                                     </p>
                                     {#if isStoppedJob(item)}

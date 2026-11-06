@@ -53,6 +53,15 @@ contain 43,092 rows: 40,579 mapped species outputs, four declared non-species cl
 are preserved, so adding a checkpoint does not silently reinterpret historical detections.
 See the [complete mapping evidence](../reviews/2026-10-10-model-output-mapping-coverage.md).
 
+Coarse bird membership is stored separately from canonical species identity.
+Checksum-verified source hierarchy and unambiguous scientific-name bridges can
+identify a known non-bird even when its species identity is unresolved. Catalogue
+release digest version 2 covers both the source label and this group; legacy
+digests cannot introduce group evidence. Imports add group knowledge without
+withdrawing existing identities or known groups, and reject conflicting or mixed
+identity changes. Feeder admission uses a warmed snapshot and rechecks durable
+evidence before writes; see [feeder admission](model-accuracy.md#wildlife-models-and-feeder-admission).
+
 The [integration validation](../reviews/2026-10-10-model-integration-validation.md) records the
 311-image public comparison, 48 retained feeder inputs per model, fresh release downloads and
 180 concurrent/recovery requests on Quark. DINOv2 with saved location accepted 38 correct bird

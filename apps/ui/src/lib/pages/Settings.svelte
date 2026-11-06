@@ -1,10 +1,7 @@
-<script lang="ts" module>
-    export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
-</script>
-
 <script lang="ts">
-    import { onMount, onDestroy, untrack } from 'svelte';
+    import { onMount, onDestroy, tick, untrack } from 'svelte';
     import type { NotificationLinkTarget } from '../settings/notification-link';
+    import { canonicalSettingsPath, settingsTabFromRoute, settingsTabPath, type SettingsTab } from '../settings/settings-route';
     import {
         fetchSettings,
         updateSettings,
@@ -59,18 +56,19 @@
         type RecordingClipCapability
     } from '../api';
     import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
-    import { themeStore, type ColorTheme, type FontTheme, type Theme } from '../stores/theme.svelte';
+    import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
     import { authStore } from '../stores/auth.svelte';
-    import { validateAuthSettingsSave } from '../auth-password-policy';
+    import { passwordProblemMessage, validateAuthSettingsSave } from '../auth-password-policy';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
     import { jobDiagnosticsStore } from '../stores/job_diagnostics.svelte';
     import { notificationCenter } from '../stores/notification_center.svelte';
+    import type { GardenNotificationChannel } from '../api/garden';
     import { notificationPolicy } from '../notifications/policy';
     import {
         formatBackfillProgressSummary,
@@ -80,83 +78,63 @@
     import { formatTerminalBackfillMessage, isBackfillTerminalTransition } from '../backfill/terminal-message';
     import { _, locale } from 'svelte-i18n';
     import { setAppLocale } from '../i18n';
-    import { get } from 'svelte/store';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
     import AdvancedSection from '../components/settings/_primitives/AdvancedSection.svelte';
     import SettingsCard from '../components/settings/_primitives/SettingsCard.svelte';
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
+    import GardenBetaSettings from '../components/settings/GardenBetaSettings.svelte';
+    import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { locationSettingsDirty } from '../settings/location-dirty';
+    import { retentionShrinks } from '../settings/retention-change';
     import {
         inferenceProviderForSave,
         parseInferenceProvider,
         reconcileSavedInferenceProvider,
         type InferenceProvider
     } from '../settings/inference-providers';
-    import { normalizeDateFormat, normalizeTimeFormat } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
 
     // Import all 7 settings components
-    import AccessibilitySettings from '../components/settings/AccessibilitySettings.svelte';
-    import AppearanceSettings from '../components/settings/AppearanceSettings.svelte';
     import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
     import DetectionSettings from '../components/settings/DetectionSettings.svelte';
     import DataSettings from '../components/settings/DataSettings.svelte';
-    import EnrichmentSettings from '../components/settings/EnrichmentSettings.svelte';
     import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
     import NotificationSettings from '../components/settings/NotificationSettings.svelte';
     import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
-    import AISettings from '../components/settings/AISettings.svelte';
-    import Errors from './Errors.svelte';
+    import LazyRoute from '../components/LazyRoute.svelte';
+    import { lazyComponent } from '../app/lazy-component';
+    import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
+    import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
+    import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
+    import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
+    import { sectionIsDirty } from '../settings/section-adapter';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
     } from '../settings/bird-model-region-override';
+    import { parseBirdFinder, type BirdFinder, type BirdFinderProvider } from '../settings/bird-finder';
     import {
         mergeBlockedSpeciesEntries,
         migrateLegacyBlockedLabels,
     } from '../settings/blocked-species';
-    import {
-        coerceLlmModelForProvider,
-        getLlmModelOptions,
-        getRecommendedLlmModel,
-        resolveStoredLlmModel
-    } from '../settings/llm-models';
+    import { getRecommendedLlmModel } from '../settings/llm-models';
 
     let {
         onNavigate,
         currentRoute
-    } = $props<{
+    }: {
         onNavigate?: (path: string, opts?: { replace?: boolean }) => void;
         currentRoute?: string;
-    }>();
+    } = $props();
 
-    const SETTINGS_TABS: SettingsTab[] = [
-        'connection',
-        'detection',
-        'notifications',
-        'health',
-        'integrations',
-        'enrichment',
-        'ai',
-        'security',
-        'data',
-        'appearance',
-        'accessibility',
-        'debug'
-    ];
-
-    function normalizeFontTheme(value: unknown): FontTheme {
-        return value === 'default' || value === 'clean' || value === 'studio'
-            || value === 'classic' || value === 'compact'
-            ? value
-            : 'classic';
-    }
-
-    function normalizeColorTheme(value: unknown): ColorTheme {
-        return value === 'default' || value === 'bluetit' ? value : 'bluetit';
-    }
+    // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
+    const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
+    const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
+    const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
+    const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
+    const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -164,46 +142,6 @@
 
     function normalizePublicDaysMode(value: unknown): 'retention' | 'custom' {
         return value === 'custom' ? 'custom' : 'retention';
-    }
-
-    function tabFromRoute(route: string | undefined): SettingsTab {
-        if (!route) return 'connection';
-        const match = /^\/settings\/([^/]+)/.exec(route);
-        if (!match) return 'connection';
-        const slug = match[1];
-        if (slug === 'errors') return 'health';
-        return (SETTINGS_TABS as string[]).includes(slug) ? (slug as SettingsTab) : 'connection';
-    }
-
-    // Returns the canonical /settings/<tab> URL for any pathname/hash combination,
-    // or null when the input is already canonical (so callers can no-op).
-    function canonicalSettingsPath(pathname: string, hash: string): string | null {
-        if (!pathname.startsWith('/settings')) return null;
-
-        // Trim trailing slash on /settings/ exactly (canonical paths have no trailing /).
-        if (pathname === '/settings/' || pathname === '/settings') {
-            if (hash && (SETTINGS_TABS as string[]).includes(hash)) {
-                return `/settings/${hash}`;
-            }
-            return '/settings/connection';
-        }
-
-        // /settings/errors is a documented alias for /settings/health.
-        if (pathname === '/settings/errors' || pathname.startsWith('/settings/errors/')) {
-            return '/settings/health';
-        }
-
-        const match = /^\/settings\/([^/]+)\/?$/.exec(pathname);
-        if (!match) return null; // Deep sub-path like /settings/data/foo — leave alone.
-        const slug = match[1];
-        if (!(SETTINGS_TABS as string[]).includes(slug)) {
-            // Unknown tab in URL — silently steer back to connection so the
-            // visible tab and the URL agree.
-            return '/settings/connection';
-        }
-        // Strip a trailing slash on /settings/<known>/ if present.
-        const canonical = `/settings/${slug}`;
-        return canonical === pathname ? null : canonical;
     }
 
     let frigateUrl = $state('');
@@ -218,6 +156,17 @@
     let audioTopic = $state('birdnet/text');
     let cameraAudioMapping = $state<Record<string, string>>({});
     let cameraRoles = $state<Record<string, 'feeder' | 'nest'>>({});
+    let gardenCameras = $state<string[]>([]);
+    let gardenLabels = $state('cat, dog');
+    let gardenMotionCameras = $state<string[]>([]);
+    let gardenMotionConfidence = $state(0.5);
+    let gardenNotificationsEnabled = $state(false);
+    let gardenNotificationChannels = $state<GardenNotificationChannel[]>([]);
+    let gardenNotificationsUseBirdChannels = $state(true);
+    let gardenNotificationsIncludePhoto = $state(true);
+    let gardenAutomaticNaming = $state(true);
+    let gardenNamingThreshold = $state(0.8);
+    let gardenDomesticBirds = $state<DomesticBirdKey[]>([]);
     let nestDedupeMinutes = $state(30);
     let birdnetSourceOptions = $state<AudioSourceOption[]>([]);
     let loadingBirdnetSources = $state(false);
@@ -225,6 +174,7 @@
     let audioBufferHours = $state(24);
     let audioCorrelationWindowSeconds = $state(300);
     let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');
+    let recordingFrameDelaySeconds = $state(12);
     let clipsEnabled = $state(true);
     let recordingClipEnabled = $state(false);
     let recordingClipBeforeSeconds = $state(30);
@@ -237,15 +187,30 @@
     let backgroundWorkerCount = $state<number | null>(null);
     let trustFrigateSublabel = $state(true);
     let writeFrigateSublabel = $state(true);
-    let displayCommonNames = $state(true);
-    let scientificNamePrimary = $state(false);
-    let explorerView = $state<'cards' | 'list'>('cards');
+    // The font and colour live in the theme store so a choice previews across the app before
+    // Apply; the rest of the Appearance draft is held here.
+    let appearanceChoices = $state<Omit<AppearanceDraft, 'fontTheme' | 'colorTheme'>>({
+        displayCommonNames: true,
+        scientificNamePrimary: false,
+        explorerView: 'cards',
+        dateFormat: 'locale',
+        timeFormat: 'locale'
+    });
+    const appearanceDraft: AppearanceDraft = $derived({
+        ...appearanceChoices,
+        fontTheme: themeStore.fontTheme,
+        colorTheme: themeStore.colorTheme
+    });
     let personalizedRerankEnabled = $state(false);
+    let rangeFilterEnabled = $state(false);
+    let rangeFilterRegionLevel = $state<'county' | 'state' | 'country'>('county');
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
+    let birdFinder = $state<BirdFinder>('yolox_tiny');
+    let birdFinderProvider = $state<BirdFinderProvider>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
     let inferenceProvider = $state<InferenceProvider>('auto');
     let videoCircuitOpen = $state(false);
@@ -315,957 +280,16 @@
     let inaturalistDefaultPlace = $state('');
     let inaturalistConnectedUser = $state<string | null>(null);
 
-    // LLM Settings
-    let llmEnabled = $state(false);
-    let llmProvider = $state('gemini');
-    let llmApiKey = $state('');
-    let llmApiKeySaved = $state(false);
-    let llmModel = $state(getRecommendedLlmModel('gemini'));
-    let previousLlmProvider = $state('gemini');
-    let llmAnalysisPromptTemplate = $state('');
-    let llmConversationPromptTemplate = $state('');
-    let llmChartPromptTemplate = $state('');
-    let llmPromptStyle = $state<'classic'>('classic');
-    let aiPricingJson = $state('[]');
-
-    const promptTemplates = {
-        classic: {
-            en: {
-                analysis: `You are an expert ornithologist and naturalist.
-{frame_note}
-
-Species identified by system: {species}
-Time of detection: {time}
-{weather_str}
-
-Respond in Markdown with these exact section headings. Under each heading, write 1 short paragraph (or up to 3 bullets if it helps scanning):
-## Appearance
-## Behavior
-## Naturalist Note
-## Seasonal Context
-
-Keep the response concise (under 200 words). No extra sections.
-{language_note}`.trim(),
-                conversation: `You are an expert ornithologist and naturalist. Continue a short Q&A about this detection.
-
-Species identified by system: {species}
-Previous analysis:
-{analysis}
-
-Conversation so far:
-{history}
-
-User question: {question}
-
-Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
-If a section is not relevant, include it with a short "Not observed." line.
-{language_note}`.trim(),
-                chart: `You are a data analyst for bird feeder activity.
-You are looking at a chart of detections over time.
-
-Timeframe: {timeframe}
-Total detections in range: {total_count}
-Series shown: {series}
-{weather_notes}
-{sun_notes}
-
-Respond in Markdown with these exact section headings and short bullet points:
-## Overview
-## Patterns
-## Weather Correlations
-## Notable Spikes/Dips
-## Caveats
-
-Keep it concise (under 200 words). No extra sections.
-{language_note}
-{notes}`.trim()
-            },
-            es: {
-                analysis: `Eres un ornitólogo y naturalista experto.
-{frame_note}
-
-Especie identificada por el sistema: {species}
-Hora de detección: {time}
-{weather_str}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Apariencia
-## Comportamiento
-## Nota de naturalista
-## Contexto estacional
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}`.trim(),
-                conversation: `Eres un ornitólogo y naturalista experto. Continúa una breve sesión de preguntas y respuestas sobre esta detección.
-
-Especie identificada por el sistema: {species}
-Análisis previo:
-{analysis}
-
-Conversación hasta ahora:
-{history}
-
-Pregunta del usuario: {question}
-
-Responde de forma concisa en Markdown usando los mismos encabezados que el análisis (## Apariencia, ## Comportamiento, ## Nota de naturalista, ## Contexto estacional).
-Si una sección no es relevante, inclúyela con una viñeta breve de "No observado".
-{language_note}`.trim(),
-                chart: `Eres un analista de actividad de comederos de aves.
-Estás viendo un gráfico de detecciones a lo largo del tiempo.
-
-Periodo: {timeframe}
-Detecciones totales en el rango: {total_count}
-Series mostradas: {series}
-{weather_notes}
-{sun_notes}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Resumen
-## Patrones
-## Correlaciones con el clima
-## Picos/caídas notables
-## Consideraciones
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}
-{notes}`.trim()
-            },
-            fr: {
-                analysis: `Vous êtes un ornithologue et naturaliste expert.
-{frame_note}
-
-Espèce identifiée par le système : {species}
-Heure de détection : {time}
-{weather_str}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Apparence
-## Comportement
-## Note de naturaliste
-## Contexte saisonnier
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}`.trim(),
-                conversation: `Vous êtes un ornithologue et naturaliste expert. Poursuivez un court échange Q/R sur cette détection.
-
-Espèce identifiée par le système : {species}
-Analyse précédente :
-{analysis}
-
-Conversation jusqu'à présent :
-{history}
-
-Question de l'utilisateur : {question}
-
-Répondez brièvement en Markdown avec les mêmes titres que l'analyse (## Apparence, ## Comportement, ## Note de naturaliste, ## Contexte saisonnier).
-Si une section n'est pas pertinente, incluez-la avec une puce courte « Non observé ».
-{language_note}`.trim(),
-                chart: `Vous êtes analyste des activités d'un nourrisseur d'oiseaux.
-Vous regardez un graphique des détections dans le temps.
-
-Période : {timeframe}
-Détections totales : {total_count}
-Séries affichées : {series}
-{weather_notes}
-{sun_notes}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Aperçu
-## Tendances
-## Corrélations météo
-## Pics/creux notables
-## Limites
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}
-{notes}`.trim()
-            },
-            de: {
-                analysis: `Du bist ein*e erfahrene*r Ornithologe*in und Naturkundler*in.
-{frame_note}
-
-Vom System identifizierte Art: {species}
-Erkennungszeit: {time}
-{weather_str}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Erscheinung
-## Verhalten
-## Naturkundliche Notiz
-## Saisonaler Kontext
-
-Halte die Antwort kurz (unter 200 Wörtern). Keine zusätzlichen Abschnitte.
-{language_note}`.trim(),
-                conversation: `Du bist ein*e erfahrene*r Ornithologe*in und Naturkundler*in. Führe eine kurze Q&A zu dieser Erkennung fort.
-
-Vom System identifizierte Art: {species}
-Vorherige Analyse:
-{analysis}
-
-Bisherige Unterhaltung:
-{history}
-
-Nutzerfrage: {question}
-
-Antworte kurz in Markdown mit denselben Überschriften wie die Analyse (## Erscheinung, ## Verhalten, ## Naturkundliche Notiz, ## Saisonaler Kontext).
-Wenn ein Abschnitt nicht relevant ist, füge ihn mit einem kurzen Stichpunkt „Nicht beobachtet“ hinzu.
-{language_note}`.trim(),
-                chart: `Du bist Datenanalyst*in für Aktivitäten am Vogelhäuschen.
-Du siehst ein Diagramm der Erkennungen über die Zeit.
-
-Zeitraum: {timeframe}
-Gesamterkennungen im Zeitraum: {total_count}
-Angezeigte Reihen: {series}
-{weather_notes}
-{sun_notes}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Überblick
-## Muster
-## Wetterkorrelationen
-## Auffällige Spitzen/Täler
-## Einschränkungen
-
-Halte die Antwort kurz (unter 200 Wörter). Keine zusätzlichen Abschnitte.
-{language_note}
-{notes}`.trim()
-            },
-            it: {
-                analysis: `Sei un esperto ornitologo e naturalista.
-{frame_note}
-
-Specie identificata dal sistema: {species}
-Ora della rilevazione: {time}
-{weather_str}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Aspetto
-## Comportamento
-## Nota naturalistica
-## Contesto stagionale
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}`.trim(),
-                conversation: `Sei un esperto ornitologo e naturalista. Continua una breve Q&A su questa rilevazione.
-
-Specie identificata dal sistema: {species}
-Analisi precedente:
-{analysis}
-
-Conversazione finora:
-{history}
-
-Domanda dell'utente: {question}
-
-Rispondi brevemente in Markdown usando gli stessi titoli dell'analisi (## Aspetto, ## Comportamento, ## Nota naturalistica, ## Contesto stagionale).
-Se una sezione non è pertinente, includila con un punto breve "Non osservato".
-{language_note}`.trim(),
-                chart: `Sei un analista dei dati per l'attività al feeder.
-Stai guardando un grafico delle rilevazioni nel tempo.
-
-Periodo: {timeframe}
-Rilevazioni totali: {total_count}
-Serie mostrate: {series}
-{weather_notes}
-{sun_notes}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Panoramica
-## Andamenti
-## Correlazioni meteo
-## Picchi/cali notevoli
-## Avvertenze
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}
-{notes}`.trim()
-            },
-            pt: {
-                analysis: `Você é um ornitólogo e naturalista experiente.
-{frame_note}
-
-Espécie identificada pelo sistema: {species}
-Hora da detecção: {time}
-{weather_str}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Aparência
-## Comportamento
-## Nota naturalista
-## Contexto sazonal
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}`.trim(),
-                conversation: `Você é um ornitólogo e naturalista experiente. Continue uma breve sessão de perguntas e respostas sobre esta detecção.
-
-Espécie identificada pelo sistema: {species}
-Análise anterior:
-{analysis}
-
-Conversa até agora:
-{history}
-
-Pergunta do usuário: {question}
-
-Responda de forma concisa em Markdown usando os mesmos títulos da análise (## Aparência, ## Comportamento, ## Nota naturalista, ## Contexto sazonal).
-Se uma seção não for relevante, inclua-a com um tópico curto \"Não observado\".
-{language_note}`.trim(),
-                chart: `Você é um analista de atividade em comedouros de aves.
-Você está olhando para um gráfico de detecções ao longo do tempo.
-
-Período: {timeframe}
-Detecções totais no período: {total_count}
-Séries exibidas: {series}
-{weather_notes}
-{sun_notes}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Visão geral
-## Padrões
-## Correlações climáticas
-## Picos/queda notáveis
-## Observações
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}
-{notes}`.trim()
-            },
-            ja: {
-                analysis: `あなたは熟練した鳥類学者・ナチュラリストです。
-{frame_note}
-
-システムが特定した種: {species}
-検出時刻: {time}
-{weather_str}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 外見
-## 行動
-## ナチュラリストのメモ
-## 季節的な背景
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}`.trim(),
-                conversation: `あなたは熟練した鳥類学者・ナチュラリストです。この検出について短いQ&Aを続けてください。
-
-システムが特定した種: {species}
-以前の分析:
-{analysis}
-
-これまでの会話:
-{history}
-
-ユーザーの質問: {question}
-
-分析と同じ見出し（## 外見, ## 行動, ## ナチュラリストのメモ, ## 季節的な背景）を使い、簡潔にMarkdownで回答してください。
-該当しない見出しは「観察されず」の短い箇条書きを入れてください。
-{language_note}`.trim(),
-                chart: `あなたは野鳥の餌台の活動を分析するデータアナリストです。
-時間に沿った検出数のグラフを見ています。
-
-期間: {timeframe}
-総検出数: {total_count}
-表示系列: {series}
-{weather_notes}
-{sun_notes}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 概要
-## パターン
-## 天候との相関
-## 目立つ増減
-## 注意点
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}
-{notes}`.trim()
-            },
-            ru: {
-                analysis: `Вы — опытный орнитолог и натуралист.
-{frame_note}
-
-Вид, определённый системой: {species}
-Время обнаружения: {time}
-{weather_str}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Внешний вид
-## Поведение
-## Заметка натуралиста
-## Сезонный контекст
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}`.trim(),
-                conversation: `Вы — опытный орнитолог и натуралист. Продолжите короткое Q&A об этой детекции.
-
-Вид, определённый системой: {species}
-Предыдущий анализ:
-{analysis}
-
-Диалог до сих пор:
-{history}
-
-Вопрос пользователя: {question}
-
-Отвечайте кратко в Markdown, используя те же заголовки, что и в анализе (## Внешний вид, ## Поведение, ## Заметка натуралиста, ## Сезонный контекст).
-Если раздел не актуален, добавьте короткий пункт «Не наблюдалось».
-{language_note}`.trim(),
-                chart: `Вы — аналитик активности у кормушки.
-Вы смотрите на график детекций во времени.
-
-Период: {timeframe}
-Всего детекций: {total_count}
-Показанные серии: {series}
-{weather_notes}
-{sun_notes}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Обзор
-## Паттерны
-## Корреляции с погодой
-## Заметные пики/спады
-## Ограничения
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}
-{notes}`.trim()
-            },
-            zh: {
-                analysis: `你是一名经验丰富的鸟类学家和自然观察者。
-{frame_note}
-
-系统识别物种：{species}
-检测时间：{time}
-{weather_str}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 外观
-## 行为
-## 自然观察笔记
-## 季节背景
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}`.trim(),
-                conversation: `你是一名经验丰富的鸟类学家和自然观察者。继续围绕这次检测进行简短问答。
-
-系统识别物种：{species}
-之前的分析：
-{analysis}
-
-对话记录：
-{history}
-
-用户问题：{question}
-
-请用Markdown简洁回答，并使用与分析相同的标题（## 外观, ## 行为, ## 自然观察笔记, ## 季节背景）。
-若某部分不适用，请添加“未观察到”的简短要点。
-{language_note}`.trim(),
-                chart: `你是一名喂鸟器活动的数据分析师。
-你正在查看随时间变化的检测图表。
-
-时间范围：{timeframe}
-总检测数：{total_count}
-显示序列：{series}
-{weather_notes}
-{sun_notes}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 概览
-## 模式
-## 天气相关性
-## 显著峰谷
-## 注意事项
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}
-{notes}`.trim()
-            }
-        },
-        field: {
-            en: {
-                analysis: `You are an expert ornithologist writing field notes.
-{frame_note}
-
-Species identified by system: {species}
-Time of detection: {time}
-{weather_str}
-
-Respond in Markdown with these exact section headings and 1–3 short bullet points per section:
-## Appearance
-## Behavior
-## Naturalist Note
-## Seasonal Context
-
-Use vivid but factual language. Keep under 200 words. No extra sections.
-{language_note}`.trim(),
-                conversation: `You are an expert ornithologist writing field notes. Continue a short Q&A about this detection.
-
-Species identified by system: {species}
-Previous analysis:
-{analysis}
-
-Conversation so far:
-{history}
-
-User question: {question}
-
-Answer concisely in Markdown using the same headings as the analysis (## Appearance, ## Behavior, ## Naturalist Note, ## Seasonal Context).
-If a section is not relevant, include it with a short "Not observed" bullet.
-{language_note}`.trim(),
-                chart: `You are a data analyst for bird feeder activity.
-You are looking at a chart of detections over time.
-
-Timeframe: {timeframe}
-Total detections in range: {total_count}
-Series shown: {series}
-{weather_notes}
-{sun_notes}
-
-Respond in Markdown with these exact section headings and short bullet points:
-## Overview
-## Patterns
-## Weather Correlations
-## Notable Spikes/Dips
-## Caveats
-
-Keep it concise (under 200 words). No extra sections.
-{language_note}
-{notes}`.trim()
-            },
-            es: {
-                analysis: `Eres un ornitólogo experto que escribe notas de campo.
-{frame_note}
-
-Especie identificada por el sistema: {species}
-Hora de detección: {time}
-{weather_str}
-
-Responde en Markdown con estos encabezados exactos y 1–3 viñetas breves por sección:
-## Apariencia
-## Comportamiento
-## Nota de naturalista
-## Contexto estacional
-
-Usa un lenguaje vívido pero factual. Menos de 200 palabras. Sin secciones extra.
-{language_note}`.trim(),
-                conversation: `Eres un ornitólogo experto que escribe notas de campo. Continúa una breve Q&A sobre esta detección.
-
-Especie identificada por el sistema: {species}
-Análisis previo:
-{analysis}
-
-Conversación hasta ahora:
-{history}
-
-Pregunta del usuario: {question}
-
-Responde de forma concisa en Markdown con los mismos encabezados del análisis (## Apariencia, ## Comportamiento, ## Nota de naturalista, ## Contexto estacional).
-Si una sección no es relevante, incluye una viñeta breve de \"No observado\".
-{language_note}`.trim(),
-                chart: `Eres un analista de actividad en comederos de aves.
-Estás viendo un gráfico de detecciones a lo largo del tiempo.
-
-Periodo: {timeframe}
-Detecciones totales en el rango: {total_count}
-Series mostradas: {series}
-{weather_notes}
-{sun_notes}
-
-Responde en Markdown con estos encabezados exactos y viñetas breves:
-## Resumen
-## Patrones
-## Correlaciones con el clima
-## Picos/caídas notables
-## Consideraciones
-
-Mantén la respuesta concisa (menos de 200 palabras). Sin secciones adicionales.
-{language_note}
-{notes}`.trim()
-            },
-            fr: {
-                analysis: `Vous êtes un ornithologue expert qui rédige des notes de terrain.
-{frame_note}
-
-Espèce identifiée par le système : {species}
-Heure de détection : {time}
-{weather_str}
-
-Répondez en Markdown avec ces titres exacts et 1–3 puces courtes par section :
-## Apparence
-## Comportement
-## Note de naturaliste
-## Contexte saisonnier
-
-Langage vivant mais factuel. Moins de 200 mots. Pas de sections supplémentaires.
-{language_note}`.trim(),
-                conversation: `Vous êtes un ornithologue expert qui rédige des notes de terrain. Poursuivez une courte Q/R sur cette détection.
-
-Espèce identifiée par le système : {species}
-Analyse précédente :
-{analysis}
-
-Conversation jusqu'à présent :
-{history}
-
-Question de l'utilisateur : {question}
-
-Répondez brièvement en Markdown avec les mêmes titres que l'analyse (## Apparence, ## Comportement, ## Note de naturaliste, ## Contexte saisonnier).
-Si un titre n'est pas pertinent, ajoutez une puce courte « Non observé ».
-{language_note}`.trim(),
-                chart: `Vous êtes analyste des activités d'un nourrisseur d'oiseaux.
-Vous regardez un graphique des détections dans le temps.
-
-Période : {timeframe}
-Détections totales : {total_count}
-Séries affichées : {series}
-{weather_notes}
-{sun_notes}
-
-Répondez en Markdown avec ces titres exacts et des puces courtes :
-## Aperçu
-## Tendances
-## Corrélations météo
-## Pics/creux notables
-## Limites
-
-Restez concis (moins de 200 mots). Aucune section supplémentaire.
-{language_note}
-{notes}`.trim()
-            },
-            de: {
-                analysis: `Du bist ein*e erfahrene*r Ornithologe*in und schreibst Feldnotizen.
-{frame_note}
-
-Vom System identifizierte Art: {species}
-Erkennungszeit: {time}
-{weather_str}
-
-Antworte in Markdown mit genau diesen Überschriften und 1–3 kurzen Stichpunkten pro Abschnitt:
-## Erscheinung
-## Verhalten
-## Naturkundliche Notiz
-## Saisonaler Kontext
-
-Lebendig, aber sachlich. Unter 200 Wörtern. Keine zusätzlichen Abschnitte.
-{language_note}`.trim(),
-                conversation: `Du bist ein*e erfahrene*r Ornithologe*in und schreibst Feldnotizen. Setze eine kurze Q&A zu dieser Erkennung fort.
-
-Vom System identifizierte Art: {species}
-Vorherige Analyse:
-{analysis}
-
-Bisherige Unterhaltung:
-{history}
-
-Nutzerfrage: {question}
-
-Antworte kurz in Markdown mit denselben Überschriften wie die Analyse (## Erscheinung, ## Verhalten, ## Naturkundliche Notiz, ## Saisonaler Kontext).
-Wenn ein Abschnitt nicht relevant ist, füge einen kurzen Stichpunkt „Nicht beobachtet“ hinzu.
-{language_note}`.trim(),
-                chart: `Du bist Datenanalyst*in für Aktivitäten am Vogelhäuschen.
-Du siehst ein Diagramm der Erkennungen über die Zeit.
-
-Zeitraum: {timeframe}
-Gesamterkennungen im Zeitraum: {total_count}
-Angezeigte Reihen: {series}
-{weather_notes}
-{sun_notes}
-
-Antworte in Markdown mit genau diesen Überschriften und kurzen Stichpunkten:
-## Überblick
-## Muster
-## Wetterkorrelationen
-## Auffällige Spitzen/Täler
-## Einschränkungen
-
-Halte die Antwort kurz (unter 200 Wörter). Keine zusätzlichen Abschnitte.
-{language_note}
-{notes}`.trim()
-            },
-            it: {
-                analysis: `Sei un ornitologo esperto che scrive note di campo.
-{frame_note}
-
-Specie identificata dal sistema: {species}
-Ora della rilevazione: {time}
-{weather_str}
-
-Rispondi in Markdown con questi titoli esatti e 1–3 punti elenco brevi per sezione:
-## Aspetto
-## Comportamento
-## Nota naturalistica
-## Contesto stagionale
-
-Linguaggio vivido ma fattuale. Meno di 200 parole. Nessuna sezione extra.
-{language_note}`.trim(),
-                conversation: `Sei un ornitologo esperto che scrive note di campo. Continua una breve Q&A su questa rilevazione.
-
-Specie identificata dal sistema: {species}
-Analisi precedente:
-{analysis}
-
-Conversazione finora:
-{history}
-
-Domanda dell'utente: {question}
-
-Rispondi brevemente in Markdown usando gli stessi titoli dell'analisi (## Aspetto, ## Comportamento, ## Nota naturalistica, ## Contesto stagionale).
-Se una sezione non è pertinente, includi un punto breve \"Non osservato\".
-{language_note}`.trim(),
-                chart: `Sei un analista dei dati per l'attività al feeder.
-Stai guardando un grafico delle rilevazioni nel tempo.
-
-Periodo: {timeframe}
-Rilevazioni totali: {total_count}
-Serie mostrate: {series}
-{weather_notes}
-{sun_notes}
-
-Rispondi in Markdown con questi titoli esatti e punti elenco brevi:
-## Panoramica
-## Andamenti
-## Correlazioni meteo
-## Picchi/cali notevoli
-## Avvertenze
-
-Mantieni la risposta concisa (meno di 200 parole). Nessuna sezione extra.
-{language_note}
-{notes}`.trim()
-            },
-            pt: {
-                analysis: `Você é um ornitólogo experiente que escreve notas de campo.
-{frame_note}
-
-Espécie identificada pelo sistema: {species}
-Hora da detecção: {time}
-{weather_str}
-
-Responda em Markdown com estes títulos exatos e 1–3 tópicos curtos por seção:
-## Aparência
-## Comportamento
-## Nota naturalista
-## Contexto sazonal
-
-Linguagem vívida, porém factual. Menos de 200 palavras. Sem seções extras.
-{language_note}`.trim(),
-                conversation: `Você é um ornitólogo experiente que escreve notas de campo. Continue uma breve Q&A sobre esta detecção.
-
-Espécie identificada pelo sistema: {species}
-Análise anterior:
-{analysis}
-
-Conversa até agora:
-{history}
-
-Pergunta do usuário: {question}
-
-Responda de forma concisa em Markdown usando os mesmos títulos da análise (## Aparência, ## Comportamento, ## Nota naturalista, ## Contexto sazonal).
-Se uma seção não for relevante, inclua um tópico curto \"Não observado\".
-{language_note}`.trim(),
-                chart: `Você é um analista de atividade em comedouros de aves.
-Você está olhando para um gráfico de detecções ao longo do tempo.
-
-Período: {timeframe}
-Detecções totais no período: {total_count}
-Séries exibidas: {series}
-{weather_notes}
-{sun_notes}
-
-Responda em Markdown com estes títulos exatos e tópicos curtos:
-## Visão geral
-## Padrões
-## Correlações climáticas
-## Picos/queda notáveis
-## Observações
-
-Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
-{language_note}
-{notes}`.trim()
-            },
-            ja: {
-                analysis: `あなたは熟練した鳥類学者で、フィールドノートを書いています。
-{frame_note}
-
-システムが特定した種: {species}
-検出時刻: {time}
-{weather_str}
-
-以下の見出しを必ず使い、各セクション1〜3個の短い箇条書きでMarkdown回答:
-## 外見
-## 行動
-## ナチュラリストのメモ
-## 季節的な背景
-
-生き生きとしつつ事実に基づいた表現で。200語未満。追加セクション不要。
-{language_note}`.trim(),
-                conversation: `あなたは熟練した鳥類学者で、フィールドノートを書いています。この検出について短いQ&Aを続けてください。
-
-システムが特定した種: {species}
-以前の分析:
-{analysis}
-
-これまでの会話:
-{history}
-
-ユーザーの質問: {question}
-
-分析と同じ見出し（## 外見, ## 行動, ## ナチュラリストのメモ, ## 季節的な背景）を使い、簡潔にMarkdownで回答してください。
-該当しない見出しは「観察されず」の短い箇条書きを入れてください。
-{language_note}`.trim(),
-                chart: `あなたは野鳥の餌台の活動を分析するデータアナリストです。
-時間に沿った検出数のグラフを見ています。
-
-期間: {timeframe}
-総検出数: {total_count}
-表示系列: {series}
-{weather_notes}
-{sun_notes}
-
-以下の見出しを必ず使い、短い箇条書きでMarkdownで回答してください:
-## 概要
-## パターン
-## 天候との相関
-## 目立つ増減
-## 注意点
-
-簡潔に（200語未満）。追加セクションは不要です。
-{language_note}
-{notes}`.trim()
-            },
-            ru: {
-                analysis: `Вы — опытный орнитолог, пишущий полевые заметки.
-{frame_note}
-
-Вид, определённый системой: {species}
-Время обнаружения: {time}
-{weather_str}
-
-Ответьте в Markdown с точными заголовками и 1–3 короткими пунктами на раздел:
-## Внешний вид
-## Поведение
-## Заметка натуралиста
-## Сезонный контекст
-
-Живо, но фактически. До 200 слов. Без дополнительных разделов.
-{language_note}`.trim(),
-                conversation: `Вы — опытный орнитолог, пишущий полевые заметки. Продолжите короткое Q&A об этой детекции.
-
-Вид, определённый системой: {species}
-Предыдущий анализ:
-{analysis}
-
-Диалог до сих пор:
-{history}
-
-Вопрос пользователя: {question}
-
-Отвечайте кратко в Markdown, используя те же заголовки, что и в анализе (## Внешний вид, ## Поведение, ## Заметка натуралиста, ## Сезонный контекст).
-Если раздел не актуален, добавьте короткий пункт «Не наблюдалось».
-{language_note}`.trim(),
-                chart: `Вы — аналитик активности у кормушки.
-Вы смотрите на график детекций во времени.
-
-Период: {timeframe}
-Всего детекций: {total_count}
-Показанные серии: {series}
-{weather_notes}
-{sun_notes}
-
-Ответьте в Markdown с точными заголовками и краткими пунктами:
-## Обзор
-## Паттерны
-## Корреляции с погодой
-## Заметные пики/спады
-## Ограничения
-
-Ответ должен быть кратким (до 200 слов). Без дополнительных разделов.
-{language_note}
-{notes}`.trim()
-            },
-            zh: {
-                analysis: `你是一名记录野外笔记的鸟类学专家。
-{frame_note}
-
-系统识别物种：{species}
-检测时间：{time}
-{weather_str}
-
-请用Markdown回答，并严格使用以下标题，每个部分1–3个简短要点：
-## 外观
-## 行为
-## 自然观察笔记
-## 季节背景
-
-语言生动但保持事实。少于200词。不要添加额外章节。
-{language_note}`.trim(),
-                conversation: `你是一名记录野外笔记的鸟类学专家。继续围绕这次检测进行简短问答。
-
-系统识别物种：{species}
-之前的分析：
-{analysis}
-
-对话记录：
-{history}
-
-用户问题：{question}
-
-请用Markdown简洁回答，并使用与分析相同的标题（## 外观, ## 行为, ## 自然观察笔记, ## 季节背景）。
-若某部分不适用，请添加“未观察到”的简短要点。
-{language_note}`.trim(),
-                chart: `你是一名喂鸟器活动的数据分析师。
-你正在查看随时间变化的检测图表。
-
-时间范围：{timeframe}
-总检测数：{total_count}
-显示序列：{series}
-{weather_notes}
-{sun_notes}
-
-请用Markdown回答，并严格使用以下标题和简短要点：
-## 概览
-## 模式
-## 天气相关性
-## 显著峰谷
-## 注意事项
-
-保持简洁（少于200词）。不要添加额外章节。
-{language_note}
-{notes}`.trim()
-            }
-        }
-    } as const;
-
-    const resolvePromptLocale = (value: string) => {
-        const normalized = value.split('-')[0];
-        if (promptTemplates.classic[normalized as keyof typeof promptTemplates.classic]) {
-            return normalized;
-        }
-        return 'en';
-    };
-
-    const applyPromptTemplates = (style: keyof typeof promptTemplates = 'classic') => {
-        const localeCode = resolvePromptLocale(get(locale) || 'en');
-        const templates = promptTemplates[style]?.[localeCode as keyof typeof promptTemplates.classic] || promptTemplates.classic.en;
-        llmAnalysisPromptTemplate = templates.analysis;
-        llmConversationPromptTemplate = templates.conversation;
-        llmChartPromptTemplate = templates.chart;
-        toastStore.success($_('settings.debug.llm_prompt_apply_notice', { default: 'Prompt templates updated.' }));
-    };
-
-    const resetPromptTemplates = () => {
-        llmPromptStyle = 'classic';
-        applyPromptTemplates('classic');
-    };
-
-    let availableModels = $derived(getLlmModelOptions(llmProvider));
-
-    // Keep the current model when loading saved settings, but coerce to a valid
-    // preset when the user explicitly switches providers in the UI.
-    $effect(() => {
-        if (llmProvider !== previousLlmProvider) {
-            llmModel = coerceLlmModelForProvider(llmProvider, llmModel);
-            previousLlmProvider = llmProvider;
-        }
+    let aiDraft = $state<AiDraft>({
+        llmEnabled: false,
+        llmProvider: 'gemini',
+        llmApiKey: '',
+        llmApiKeySaved: false,
+        llmModel: getRecommendedLlmModel('gemini'),
+        llmAnalysisPromptTemplate: '',
+        llmConversationPromptTemplate: '',
+        llmChartPromptTemplate: '',
+        aiPricingJson: '[]'
     });
 
     // Telemetry
@@ -1299,10 +323,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessMediaHistoricalDays = $state(7);
     let publicAccessRateLimitPerMinute = $state(30);
     let publicAccessExternalBaseUrl = $state('');
-    let dateFormat = $state('locale');
-    let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
+    let betaGardenAnimals = $state(false);
 
     // Notifications
     let discordEnabled = $state(false);
@@ -1384,10 +407,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     // Accessibility
-    let highContrast = $state(false);
-    let dyslexiaFont = $state(false);
-    let liveAnnouncements = $state(true);
-    let reducedMotion = $state(false);
+    let accessibilityDraft = $state<AccessibilityDraft>({
+        highContrast: false,
+        dyslexiaFont: false,
+        liveAnnouncements: true,
+        reducedMotion: false
+    });
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1399,14 +424,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let ebirdLocale = $state('en');
 
     // Enrichment sources
-    let enrichmentMode = $state<'single' | 'per_enrichment'>('per_enrichment');
-    let enrichmentSingleProvider = $state('wikipedia');
-    let enrichmentSummarySource = $state('wikipedia');
-    let enrichmentTaxonomySource = $state('inaturalist');
-    let enrichmentSightingsSource = $state('disabled');
-    let enrichmentSeasonalitySource = $state('disabled');
-    let enrichmentRaritySource = $state('disabled');
-    let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
+    let enrichmentDraft = $state<EnrichmentDraft>({
+        enrichmentMode: 'per_enrichment',
+        enrichmentSingleProvider: 'wikipedia',
+        enrichmentSummarySource: 'wikipedia',
+        enrichmentTaxonomySource: 'inaturalist',
+        enrichmentSightingsSource: 'disabled',
+        enrichmentSeasonalitySource: 'disabled',
+        enrichmentRaritySource: 'disabled',
+        enrichmentLinksSources: ['wikipedia', 'inaturalist']
+    });
 
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
@@ -1456,12 +483,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     $effect(() => {
         if (inaturalistClientSecretSaved && inaturalistClientSecret) {
             inaturalistClientSecretSaved = false;
-        }
-    });
-
-    $effect(() => {
-        if (llmApiKeySaved && llmApiKey) {
-            llmApiKeySaved = false;
         }
     });
 
@@ -1524,14 +545,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     let availableCameras = $state<string[]>([]);
+    // Only a successful read says which cameras Frigate has; `availableCameras` falls back to the
+    // saved list for the pickers that need names, which must not pass for Frigate's answer.
+    let frigateCameras = $state<string[] | null>(null);
+    let frigateCamerasFailed = $state(false);
     let camerasLoading = $state(false);
 
     let loading = $state(true);
     let saving = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
     let currentTheme: Theme = $state('system');
-    let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);
-    let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);
     let lastFeedbackKey = $state('');
     let lastFeedbackAt = $state(0);
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
@@ -1770,6 +793,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
             { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
             { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
+            { key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 },
             { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
             { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
             { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
@@ -1777,18 +801,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'threshold', val: threshold, store: s.classification_threshold },
             { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
             { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
-            { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
-            { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
-            { key: 'explorerView', val: explorerView, store: s.appearance_explorer_view ?? 'cards' },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
-            { key: 'fontTheme', val: currentFontTheme, store: normalizeFontTheme(s.appearance_font_theme) },
-            { key: 'colorTheme', val: currentColorTheme, store: normalizeColorTheme(s.appearance_color_theme) },
+            { key: 'rangeFilterEnabled', val: rangeFilterEnabled, store: s.range_filter_enabled ?? false },
+            { key: 'rangeFilterRegionLevel', val: rangeFilterRegionLevel, store: s.range_filter_region_level ?? 'county' },
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
+            { key: 'betaGardenAnimals', val: betaGardenAnimals, store: s.beta_garden_animals ?? false },
             { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
             { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
@@ -1836,23 +858,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
             { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
             { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
-            { key: 'enrichmentMode', val: enrichmentMode, store: (s.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment' },
-            { key: 'enrichmentSingleProvider', val: enrichmentSingleProvider, store: s.enrichment_single_provider ?? 'wikipedia' },
-            { key: 'enrichmentSummarySource', val: enrichmentSummarySource, store: s.enrichment_summary_source ?? 'wikipedia' },
-            { key: 'enrichmentTaxonomySource', val: enrichmentTaxonomySource, store: s.enrichment_taxonomy_source ?? 'inaturalist' },
-            { key: 'enrichmentSightingsSource', val: enrichmentSightingsSource, store: s.enrichment_sightings_source ?? 'disabled' },
-            { key: 'enrichmentSeasonalitySource', val: enrichmentSeasonalitySource, store: s.enrichment_seasonality_source ?? 'disabled' },
-            { key: 'enrichmentRaritySource', val: enrichmentRaritySource, store: s.enrichment_rarity_source ?? 'disabled' },
-            { key: 'enrichmentLinksSources', val: JSON.stringify(enrichmentLinksSources), store: JSON.stringify(s.enrichment_links_sources || ['wikipedia', 'inaturalist']) },
-            { key: 'llmEnabled', val: llmEnabled, store: s.llm_enabled ?? false },
-            { key: 'llmProvider', val: llmProvider, store: s.llm_provider ?? 'gemini' },
-            { key: 'llmApiKey', val: llmApiKey, store: normalizeSecret(s.llm_api_key) },
-            { key: 'llmModel', val: llmModel, store: resolveStoredLlmModel(s.llm_provider ?? 'gemini', s.llm_model) },
-            { key: 'llmAnalysisPromptTemplate', val: llmAnalysisPromptTemplate, store: s.llm_analysis_prompt_template || '' },
-            { key: 'llmConversationPromptTemplate', val: llmConversationPromptTemplate, store: s.llm_conversation_prompt_template || '' },
-            { key: 'llmChartPromptTemplate', val: llmChartPromptTemplate, store: s.llm_chart_prompt_template || '' },
-            { key: 'aiPricingJson', val: aiPricingJson, store: s.ai_pricing_json || '[]' },
             { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
+            { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
+            { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
+            { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
+            { key: 'gardenNotificationsEnabled', val: gardenNotificationsEnabled, store: s.garden_notifications_enabled ?? false },
+            { key: 'gardenNotificationChannels', val: JSON.stringify(gardenNotificationChannels), store: JSON.stringify(s.garden_notification_channels ?? []) },
+            { key: 'gardenNotificationsUseBirdChannels', val: gardenNotificationsUseBirdChannels, store: s.garden_notifications_use_bird_channels ?? true },
+            { key: 'gardenNotificationsIncludePhoto', val: gardenNotificationsIncludePhoto, store: s.garden_notifications_include_photo ?? true },
+            { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
+            { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
+            { key: 'gardenDomesticBirds', val: JSON.stringify(gardenDomesticBirds), store: JSON.stringify(s.garden_domestic_birds ?? []) },
+            { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
@@ -1878,8 +895,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
-            { key: 'dateFormat', val: dateFormat, store: normalizeDateFormat(s.date_format) },
-            { key: 'timeFormat', val: timeFormat, store: normalizeTimeFormat(s.time_format) },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -1930,12 +945,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'notifyCooldownMinutes', val: notifyCooldownMinutes, store: s.notifications_notification_cooldown_minutes ?? 0 },
 
             { key: 'birdModelRegionOverride', val: birdModelRegionOverride, store: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
-
-            // Accessibility
-            { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
-            { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
-            { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false }
+            { key: 'birdFinderProvider', val: birdFinderProvider, store: s.bird_crop_inference_provider ?? 'auto' },
+            { key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -1944,6 +955,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         return (
             checks.some(c => c.val !== c.store) ||
+            sectionIsDirty(appearanceSection, appearanceDraft, s) ||
+            sectionIsDirty(accessibilitySection, accessibilityDraft, s) ||
+            sectionIsDirty(enrichmentSection, enrichmentDraft, s) ||
+            sectionIsDirty(aiSection, aiDraft, s) ||
             locationSettingsDirty({
                 current: {
                     latitude: locationLat,
@@ -1962,6 +977,16 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let downloadingModel = $state(false);
 
     let maintenanceStats = $state<MaintenanceStats | null>(null);
+    // Shortening retention deletes history at the next cleanup, so the count is read from the
+    // server (read-only) before saving, for the note under the picker and the confirmation.
+    const savedRetentionDays = $derived(settingsStore.settings ? (settingsStore.settings.retention_days || 0) : null);
+    const retentionShrinking = $derived(savedRetentionDays !== null && retentionShrinks(savedRetentionDays, retentionDays));
+    let retentionPreview = $state<{ days: number; count: number | null; counting: boolean } | null>(null);
+    const retentionNote = $derived(
+        retentionShrinking && retentionPreview?.days === retentionDays
+            ? retentionDeletionText(retentionPreview.days, retentionPreview.count, retentionPreview.counting)
+            : null
+    );
     let cleaningUp = $state(false);
     let clearingFavorites = $state(false);
     let purgingMissingMedia = $state(false);
@@ -1980,6 +1005,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheBirdScanMode = $state<'standard' | 'intensive'>('intensive');
     let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
+    let cacheStatsError = $state(false);
+    let cacheStatsLoading = $state(false);
     let cleaningCache = $state(false);
 
     // Backfill state
@@ -2007,7 +1034,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let analysisStatus = $state<AnalysisStatus | null>(null);
 
     // Tab navigation — derived from the route so /settings/<tab> deep links survive reload.
-    let activeTab = $derived<SettingsTab>(tabFromRoute(currentRoute));
+    let activeTab = $derived<SettingsTab>(settingsTabFromRoute(currentRoute));
 
     const parseDateOnly = (value: string): Date | null => {
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -2059,12 +1086,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     $effect(() => {
         currentTheme = themeStore.theme;
-    });
-    $effect(() => {
-        currentFontTheme = themeStore.fontTheme;
-    });
-    $effect(() => {
-        currentColorTheme = themeStore.colorTheme;
     });
 
     onMount(() => subscribeSettingsUpdates(reconcileLocalSettingsUpdate));
@@ -2133,9 +1154,30 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     });
 
     function handleTabChange(tab: SettingsTab) {
-        const path = `/settings/${tab}`;
+        const path = settingsTabPath(tab);
         if (onNavigate) onNavigate(path);
         else window.history.pushState(null, '', toAppPath(path));
+    }
+
+    // The range filter's next steps live in Integrations; land on the field itself, not the top of the tab.
+    // A field hidden behind its switch (the key while eBird is off, coordinates while the location
+    // is automatic) falls back to that switch, which is the step that reveals it.
+    async function openIntegrationField(...selectors: string[]): Promise<void> {
+        handleTabChange('integrations');
+        await tick();
+        const field = selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean);
+        field?.scrollIntoView({ block: 'center' });
+        field?.focus({ preventScroll: true });
+    }
+
+    // Beta features names the Garden cameras but they are chosen in Connection, so the link lands
+    // on the camera list itself rather than at the top of a tab whose first card is Frigate.
+    async function openCameraSettings(): Promise<void> {
+        handleTabChange('connection');
+        await tick();
+        const list = document.getElementById('settings-camera-list');
+        list?.scrollIntoView({ block: 'start' });
+        list?.focus({ preventScroll: true });
     }
 
     // Drive taxonomy status from the derived active tab so router-driven changes
@@ -2266,7 +1308,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 type: 'success',
                 text: count > 0
                     ? $_('settings.data.timezone_repair_preview_found', {
-                        default: '{count} detections can be repaired.',
+                        default: '{count, plural, one {# detection can be repaired.} other {# detections can be repaired.}}',
                         values: { count }
                     })
                     : $_('settings.data.timezone_repair_preview_none', {
@@ -2303,7 +1345,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             message = {
                 type: 'success',
                 text: $_('settings.data.timezone_repair_apply_success', {
-                    default: 'Repaired {count} detections.',
+                    default: 'Repaired {count, plural, one {# detection} other {# detections}}.',
                     values: { count: result.repaired_count }
                 })
             };
@@ -2328,6 +1370,93 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
+    async function countRetentionDeletions(days: number): Promise<number | null> {
+        try {
+            return (await fetchMaintenanceStats(days)).preview_detections_to_cleanup ?? null;
+        } catch (e) {
+            console.error('Failed to count detections for the new retention', e);
+            return null;
+        }
+    }
+
+    $effect(() => {
+        if (!retentionShrinking) {
+            retentionPreview = null;
+            return;
+        }
+        const days = retentionDays;
+        let current = true;
+        retentionPreview = { days, count: null, counting: true };
+        void countRetentionDeletions(days).then((count) => {
+            if (current) retentionPreview = { days, count, counting: false };
+        });
+        return () => {
+            current = false;
+        };
+    });
+
+    /** What saving `days` of history deletes, worded for the cleanup rule the server applies. */
+    function retentionDeletionText(days: number, count: number | null, counting: boolean): string {
+        if (counting) {
+            return $_('settings.data.retention_shrink_counting', {
+                values: { days },
+                default: 'Counting the detections older than {days} days…'
+            });
+        }
+        const automatic = maintenanceStats?.automatic_cleanup !== false;
+        let consequence: string;
+        if (!automatic) {
+            consequence = count === null
+                ? $_('settings.data.retention_shrink_manual_uncounted', {
+                    values: { days },
+                    default: 'Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete every detection older than {days} days.'
+                })
+                : $_('settings.data.retention_shrink_manual', {
+                    values: { count, days },
+                    default: 'Automatic cleanup is off, so saving deletes nothing by itself. Purge Old Records would then delete {count, plural, one {# detection} other {# detections}} older than {days} days.'
+                });
+        } else {
+            consequence = count === null
+                ? $_('settings.data.retention_shrink_uncounted', {
+                    values: { days },
+                    default: 'Saving this permanently deletes every detection older than {days} days at the next cleanup (on restart, then every 24 hours).'
+                })
+                : $_('settings.data.retention_shrink_note', {
+                    values: { count, days },
+                    default: 'Saving this permanently deletes {count, plural, one {# detection} other {# detections}} older than {days} days at the next cleanup (on restart, then every 24 hours).'
+                });
+        }
+        const floor = maintenanceStats?.kept_newest_per_species ?? 0;
+        const kept = floor > 0
+            ? $_('settings.data.retention_shrink_kept_floor', {
+                values: { floor },
+                default: 'Favourites and the newest {floor, plural, one {# detection} other {# detections}} of each species are kept. Older BirdNET-Go audio and Garden animal records are deleted too.'
+            })
+            : $_('settings.data.retention_shrink_kept', {
+                default: 'Favourites are kept. Older BirdNET-Go audio and Garden animal records are deleted too.'
+            });
+        return `${consequence} ${kept}`;
+    }
+
+    /** Asks before a save that deletes history. False means the owner kept what they have. */
+    async function confirmRetentionChange(): Promise<boolean> {
+        if (!retentionShrinking || maintenanceStats?.automatic_cleanup === false) return true;
+        const days = retentionDays;
+        // Counted again at the moment of asking, so the number is not minutes stale.
+        const count = await countRetentionDeletions(days);
+        if (count === 0) return true;
+        return confirmAction({
+            title: $_('settings.data.retention_confirm_title', { default: 'Delete older history?' }),
+            message: retentionDeletionText(days, count, false),
+            confirmLabel: count === null
+                ? $_('settings.data.retention_confirm_uncounted', { default: 'Save and delete older history' })
+                : $_('settings.data.retention_confirm_button', {
+                    values: { count },
+                    default: 'Save and delete {count, plural, one {# detection} other {# detections}}'
+                })
+        });
+    }
+
     async function handleCleanup() {
         // Deletes history outright, so it asks first like every other destructive action.
         // With unlimited retention the server deletes nothing, so there is nothing to ask.
@@ -2337,7 +1466,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 title: $_('settings.data.purge_button', { default: 'Purge Old Records' }),
                 message: $_('settings.data.purge_confirm', {
                     values: { count: maintenanceStats?.detections_to_cleanup ?? 0, days },
-                    default: "Permanently delete {count} detections and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
+                    default: "Permanently delete {count, plural, one {# detection} other {# detections}} and the BirdNET-Go audio older than {days} days? Favourites and each species' newest kept visits stay. This cannot be undone."
                 }),
                 confirmLabel: $_('settings.data.purge_button', { default: 'Purge Old Records' })
             });
@@ -2494,10 +1623,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function loadCacheStats() {
+        if (cacheStatsLoading) return;
+        cacheStatsLoading = true;
+        cacheStatsError = false;
         try {
             cacheStats = await fetchCacheStats();
+            cacheStatsError = false;
         } catch (e) {
+            // Keep any earlier figure rather than replacing it with nothing;
+            // DataSettings shows an honest unavailable state, never 0 MB.
+            cacheStatsError = true;
             console.error('Failed to load cache stats', e);
+        } finally {
+            cacheStatsLoading = false;
         }
     }
 
@@ -2641,7 +1779,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 type: 'success',
                 text: $_('settings.data.config_backup_imported', {
                     values: { count: result.changed_fields.length },
-                    default: 'Configuration backup imported ({count} sections changed). Run a backfill when you are ready.'
+                    default: 'Configuration backup imported ({count, plural, one {# section changed} other {# sections changed}}). Run a backfill when you are ready.'
                 })
             };
         } catch (e) {
@@ -2863,7 +2001,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         adopt('ebird_enabled', ebirdEnabled, baseline.ebird_enabled ?? false, value => ebirdEnabled = value ?? false);
         adopt('inaturalist_enabled', inaturalistEnabled, baseline.inaturalist_enabled ?? false, value => inaturalistEnabled = value ?? false);
         adopt('birdweather_enabled', birdweatherEnabled, baseline.birdweather_enabled ?? false, value => birdweatherEnabled = value);
-        adopt('llm_enabled', llmEnabled, baseline.llm_enabled ?? false, value => llmEnabled = value);
+        adopt('llm_enabled', aiDraft.llmEnabled, baseline.llm_enabled ?? false, value => aiDraft = { ...aiDraft, llmEnabled: value });
         adopt('telemetry_enabled', telemetryEnabled, baseline.telemetry_enabled ?? true, value => telemetryEnabled = value);
         // Coordinates form one input: never combine half an unsaved pair with setup.
         if (patch.location_latitude !== undefined && patch.location_longitude !== undefined) {
@@ -2930,6 +2068,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (typeof cameraRoles !== 'object' || Array.isArray(cameraRoles)) {
                 cameraRoles = {};
             }
+            gardenCameras = settings.garden_cameras || [];
+            gardenMotionCameras = settings.garden_motion_cameras || [];
+            gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
+            gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
+            gardenNotificationsEnabled = settings.garden_notifications_enabled ?? false;
+            gardenNotificationChannels = settings.garden_notification_channels ?? [];
+            gardenNotificationsUseBirdChannels = settings.garden_notifications_use_bird_channels ?? true;
+            gardenNotificationsIncludePhoto = settings.garden_notifications_include_photo ?? true;
+            gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
+            gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
+            gardenDomesticBirds = [...(settings.garden_domestic_birds ?? [])];
             nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
                 ? settings.nest_dedupe_minutes
                 : 30;
@@ -2945,6 +2094,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             audioBufferHours = settings.audio_buffer_hours ?? 24;
             audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
             classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
+            recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;
             clipsEnabled = settings.clips_enabled ?? true;
             recordingClipEnabled = settings.recording_clip_enabled ?? false;
             recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
@@ -2955,17 +2105,23 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             backgroundWorkerCount = settings.background_worker_count ?? null;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
-            displayCommonNames = settings.display_common_names ?? true;
-            scientificNamePrimary = settings.scientific_name_primary ?? false;
-            explorerView = settings.appearance_explorer_view ?? 'cards';
+            const { fontTheme, colorTheme, ...savedAppearanceChoices } = appearanceSection.decode(settings);
+            appearanceChoices = savedAppearanceChoices;
+            themeStore.setFontTheme(fontTheme);
+            themeStore.setColorTheme(colorTheme);
             personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
+            rangeFilterEnabled = settings.range_filter_enabled ?? false;
+            rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
+            birdFinder = parseBirdFinder(settings.bird_crop_accurate_detector);
+            birdFinderProvider = settings.bird_crop_inference_provider ?? 'auto';
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
+            betaGardenAnimals = settings.beta_garden_animals ?? false;
             inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
             loadedInferenceProvider = settings.inference_provider;
             settingsFormLoads += 1;
@@ -3070,30 +2226,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
             inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
             // Enrichment settings
-            enrichmentMode = (settings.enrichment_mode as typeof enrichmentMode) ?? 'per_enrichment';
-            enrichmentSingleProvider = settings.enrichment_single_provider ?? 'wikipedia';
-            enrichmentSummarySource = settings.enrichment_summary_source ?? 'wikipedia';
-            enrichmentTaxonomySource = settings.enrichment_taxonomy_source ?? 'inaturalist';
-            enrichmentSightingsSource = settings.enrichment_sightings_source ?? 'disabled';
-            enrichmentSeasonalitySource = settings.enrichment_seasonality_source ?? 'disabled';
-            enrichmentRaritySource = settings.enrichment_rarity_source ?? 'disabled';
-            enrichmentLinksSources = settings.enrichment_links_sources || ['wikipedia', 'inaturalist'];
-            // LLM settings
-            llmEnabled = settings.llm_enabled ?? false;
-            llmProvider = settings.llm_provider ?? 'gemini';
-            previousLlmProvider = llmProvider;
-            if (settings.llm_api_key === '***REDACTED***') {
-                llmApiKeySaved = true;
-                llmApiKey = '';
-            } else {
-                llmApiKeySaved = false;
-                llmApiKey = settings.llm_api_key ?? '';
-            }
-            llmModel = resolveStoredLlmModel(llmProvider, settings.llm_model ?? getRecommendedLlmModel(llmProvider));
-            llmAnalysisPromptTemplate = settings.llm_analysis_prompt_template ?? '';
-            llmConversationPromptTemplate = settings.llm_conversation_prompt_template ?? '';
-            llmChartPromptTemplate = settings.llm_chart_prompt_template ?? '';
-            aiPricingJson = settings.ai_pricing_json ?? '[]';
+            enrichmentDraft = enrichmentSection.decode(settings);
+            aiDraft = aiSection.decode(settings);
             // Telemetry
             telemetryEnabled = settings.telemetry_enabled ?? true;
             telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
@@ -3125,8 +2259,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
             publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
-            dateFormat = normalizeDateFormat(settings.date_format);
-            timeFormat = normalizeTimeFormat(settings.time_format);
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
             // Notifications
@@ -3235,15 +2367,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             if (settings.notifications_video_fallback_timeout !== undefined) notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout;
             if (settings.notifications_notification_cooldown_minutes !== undefined) notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes;
 
-            // Accessibility
-            highContrast = settings.accessibility_high_contrast ?? false;
-            dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
-            liveAnnouncements = settings.accessibility_live_announcements ?? true;
-            reducedMotion = settings.accessibility_reduced_motion ?? false;
-
-            // Appearance (persisted)
-            themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));
-            themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));
+            accessibilityDraft = accessibilitySection.decode(settings);
             await loadRecordingClipCapability();
         } catch (e) {
             loadingBirdnetSources = false;
@@ -3261,10 +2385,15 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 const cameras = config.cameras;
                 if (cameras && typeof cameras === 'object') {
                     availableCameras = Object.keys(cameras);
+                    frigateCameras = Object.keys(cameras);
+                    frigateCamerasFailed = false;
+                    return;
                 }
             }
+            frigateCamerasFailed = frigateCameras === null;
         } catch (e) {
             console.error('Failed to load cameras from Frigate', e);
+            frigateCamerasFailed = frigateCameras === null;
             if (selectedCameras.length > 0 && availableCameras.length === 0) {
                  availableCameras = [...selectedCameras];
             }
@@ -3276,6 +2405,21 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     async function saveSettings() {
         saving = true;
         message = null;
+        if (!Number.isFinite(recordingFrameDelaySeconds) || recordingFrameDelaySeconds < 1 || recordingFrameDelaySeconds > 120) {
+            message = { type: 'error', text: $_('settings.frigate.recording_frame_delay_invalid', { default: 'Enter a recording-frame delay between 1 and 120 seconds.' }) };
+            saving = false;
+            return;
+        }
+        if (!Number.isFinite(gardenMotionConfidence) || gardenMotionConfidence < 0.5 || gardenMotionConfidence > 0.95) {
+            message = { type: 'error', text: $_('settings.beta.garden_motion_confidence_invalid', { default: 'Enter an animal proposal threshold between 50% and 95%.' }) };
+            saving = false;
+            return;
+        }
+        if (!Number.isFinite(gardenNamingThreshold) || gardenNamingThreshold < 0.7 || gardenNamingThreshold > 0.99) {
+            message = { type: 'error', text: $_('settings.beta.garden_naming_threshold_invalid', { default: 'Enter a naming threshold between 70% and 99%.' }) };
+            saving = false;
+            return;
+        }
         const authSettingsError = validateAuthSettingsSave({
             authEnabled,
             authHasPassword,
@@ -3283,7 +2427,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             authPasswordConfirm
         });
         if (authSettingsError) {
-            message = { type: 'error', text: authSettingsError };
+            const problem = passwordProblemMessage(authSettingsError);
+            message = { type: 'error', text: $_(problem.key, { default: problem.default }) };
+            saving = false;
+            return;
+        }
+        if (!(await confirmRetentionChange())) {
             saving = false;
             return;
         }
@@ -3303,10 +2452,22 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 audio_topic: audioTopic,
                 camera_audio_mapping: cameraAudioMapping,
                 camera_roles: cameraRoles,
+                garden_cameras: gardenCameras,
+                garden_motion_cameras: gardenMotionCameras,
+                garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
+                garden_motion_confidence: gardenMotionConfidence,
+                garden_notifications_enabled: gardenNotificationsEnabled,
+                garden_notification_channels: gardenNotificationChannels,
+                garden_notifications_use_bird_channels: gardenNotificationsUseBirdChannels,
+                garden_notifications_include_photo: gardenNotificationsIncludePhoto,
+                garden_automatic_naming: gardenAutomaticNaming,
+                garden_naming_threshold: gardenNamingThreshold,
+                garden_domestic_birds: gardenDomesticBirds,
                 nest_dedupe_minutes: nestDedupeMinutes,
                 audio_buffer_hours: audioBufferHours,
                 audio_correlation_window_seconds: audioCorrelationWindowSeconds,
                 classification_image_source: classificationImageSource,
+                recording_frame_delay_seconds: recordingFrameDelaySeconds,
                 clips_enabled: clipsEnabled,
                 recording_clip_enabled: recordingClipEnabled,
                 recording_clip_before_seconds: recordingClipBeforeSeconds,
@@ -3317,17 +2478,19 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 background_worker_count: backgroundWorkerCount,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 write_frigate_sublabel: writeFrigateSublabel,
-                display_common_names: displayCommonNames,
-                scientific_name_primary: scientificNamePrimary,
-                appearance_explorer_view: explorerView,
                 personalized_rerank_enabled: personalizedRerankEnabled,
+                range_filter_enabled: rangeFilterEnabled,
+                range_filter_region_level: rangeFilterRegionLevel,
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
                 video_classification_frames: videoClassificationFrames,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
+                bird_crop_accurate_detector: birdFinder,
+                bird_crop_inference_provider: birdFinderProvider,
                 image_execution_mode: imageExecutionMode,
                 strict_non_finite_output: strictNonFiniteOutput,
+                beta_garden_animals: betaGardenAnimals,
                 inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
                 cameras: selectedCameras,
                 retention_days: retentionDays,
@@ -3380,22 +2543,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 inaturalist_default_latitude: inaturalistDefaultLat,
                 inaturalist_default_longitude: inaturalistDefaultLon,
                 inaturalist_default_place_guess: inaturalistDefaultPlace,
-                enrichment_mode: enrichmentMode,
-                enrichment_single_provider: enrichmentSingleProvider,
-                enrichment_summary_source: enrichmentSummarySource,
-                enrichment_taxonomy_source: enrichmentTaxonomySource,
-                enrichment_sightings_source: enrichmentSightingsSource,
-                enrichment_seasonality_source: enrichmentSeasonalitySource,
-                enrichment_rarity_source: enrichmentRaritySource,
-                enrichment_links_sources: enrichmentLinksSources,
-                llm_enabled: llmEnabled,
-                llm_provider: llmProvider,
-                llm_api_key: llmApiKey,
-                llm_model: llmModel,
-                llm_analysis_prompt_template: llmAnalysisPromptTemplate,
-                llm_conversation_prompt_template: llmConversationPromptTemplate,
-                llm_chart_prompt_template: llmChartPromptTemplate,
-                ai_pricing_json: aiPricingJson,
+                ...enrichmentSection.encodePatch(enrichmentDraft),
+                ...aiSection.encodePatch(aiDraft),
                 telemetry_enabled: telemetryEnabled,
                 telemetry_health_enabled: telemetryHealthEnabled,
                 auth_enabled: authEnabled,
@@ -3417,8 +2566,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_media_historical_days: publicAccessMediaHistoricalDays,
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
                 public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
-                date_format: dateFormat,
-                time_format: timeFormat,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -3468,15 +2615,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
                 notifications_notification_cooldown_minutes: notifyCooldownMinutes,
 
-                // Accessibility
-                accessibility_high_contrast: highContrast,
-                accessibility_dyslexia_font: dyslexiaFont,
-                accessibility_live_announcements: liveAnnouncements,
-                accessibility_reduced_motion: reducedMotion,
-
-                // Appearance
-                appearance_font_theme: currentFontTheme,
-                appearance_color_theme: currentColorTheme
+                ...accessibilitySection.encodePatch(accessibilityDraft),
+                ...appearanceSection.encodePatch(appearanceDraft)
             });
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
@@ -3512,24 +2652,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         if (inaturalistClientSecretSaved) inaturalistClientSecret = '';
     }
 
-    function toggleCamera(camera: string) {
-        if (selectedCameras.includes(camera)) {
-            selectedCameras = selectedCameras.filter(c => c !== camera);
-        } else {
-            selectedCameras = [...selectedCameras, camera];
-        }
-    }
-
     function setTheme(t: Theme) {
         themeStore.setTheme(t);
     }
 
-    function setFontTheme(font: import('../stores/theme.svelte').FontTheme) {
-        themeStore.setFontTheme(font);
-    }
-
-    function setColorTheme(color: import('../stores/theme.svelte').ColorTheme) {
-        themeStore.setColorTheme(color);
+    function updateAppearance({ fontTheme, colorTheme, ...choices }: Partial<AppearanceDraft>): void {
+        if (fontTheme) themeStore.setFontTheme(fontTheme);
+        if (colorTheme) themeStore.setColorTheme(colorTheme);
+        appearanceChoices = { ...appearanceChoices, ...choices };
     }
 
     async function setLanguage(lang: string): Promise<void> {
@@ -3572,16 +2702,21 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:mqttPassword
                     bind:mqttPasswordSaved
                     bind:selectedCameras
+                    bind:gardenCameras
+                    bind:gardenMotionCameras
+                    {betaGardenAnimals}
                     bind:cameraRoles
                     bind:nestDedupeMinutes
                     bind:classificationImageSource
+                    bind:recordingFrameDelaySeconds
                     bind:clipsEnabled
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
                     bind:recordingClipAfterSeconds
                     bind:telemetryEnabled
                     bind:telemetryHealthEnabled
-                    {availableCameras}
+                    {frigateCameras}
+                    {frigateCamerasFailed}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
@@ -3590,7 +2725,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {telemetryPayloadPreview}
                     {versionInfo}
                     {loadCameras}
-                    {toggleCamera}
                 />
             {/if}
 
@@ -3609,6 +2743,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationFrames
                     bind:birdModelRegionOverride
+                    bind:birdFinder
+                    bind:birdFinderProvider
                     bind:imageExecutionMode
                     bind:inferenceProvider
                     {classifierStatus}
@@ -3618,7 +2754,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {videoCircuitOpen}
                     {videoCircuitUntil}
                     {videoCircuitFailures}
-                    onopenlocationsettings={() => handleTabChange('integrations')}
+                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    bind:rangeFilterEnabled
+                    bind:rangeFilterRegionLevel
+                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')}
+                    onopenactivitylog={() => handleTabChange('health')}
+                    onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                 />
             {/if}
 
@@ -3677,6 +2818,12 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:linkTarget={notifyLinkTarget}
                     {frigateExternalUrl}
                     onOpenIntegrations={() => handleTabChange('integrations')}
+                    gardenBeta={betaGardenAnimals}
+                    gardenStatusAvailable={settingsStore.settings?.beta_garden_animals === true}
+                    bind:gardenNotificationsEnabled
+                    bind:gardenUseBirdChannels={gardenNotificationsUseBirdChannels}
+                    bind:gardenNotificationChannels
+                    bind:gardenIncludePhoto={gardenNotificationsIncludePhoto}
                     {sendTestEmail}
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}
@@ -3688,7 +2835,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Health Tab -->
             {#if activeTab === 'health'}
                 <!-- The health page builds the System card itself, with its verdict inside it. -->
-                <Errors {onNavigate} />
+                <LazyRoute loader={loadHealthTab} label={$_('settings.tabs.health')} props={{ onNavigate }} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3757,47 +2904,29 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Enrichment Tab -->
             {#if activeTab === 'enrichment'}
-                <EnrichmentSettings
-                    enrichmentMode={enrichmentMode}
-                    enrichmentSingleProvider={enrichmentSingleProvider}
-                    enrichmentSummarySource={enrichmentSummarySource}
-                    enrichmentTaxonomySource={enrichmentTaxonomySource}
-                    enrichmentSightingsSource={enrichmentSightingsSource}
-                    enrichmentSeasonalitySource={enrichmentSeasonalitySource}
-                    enrichmentRaritySource={enrichmentRaritySource}
-                    enrichmentLinksSources={enrichmentLinksSources}
-                />
+                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
             {/if}
 
             <!-- AI Tab -->
             {#if activeTab === 'ai'}
-                <AISettings
-                    bind:llmEnabled
-                    bind:llmProvider
-                    bind:llmApiKey
-                    bind:llmApiKeySaved
-                    bind:llmModel
-                    bind:llmAnalysisPromptTemplate
-                    bind:llmConversationPromptTemplate
-                    bind:llmChartPromptTemplate
-                    bind:llmPromptStyle
-                    bind:aiPricingJson
-                    {availableModels}
-                    onApplyStyle={() => applyPromptTemplates(llmPromptStyle)}
-                    onResetDefaults={resetPromptTemplates}
+                <LazyRoute
+                    loader={loadAiTab}
+                    label={$_('settings.tabs.ai', { default: 'AI' })}
+                    props={{ draft: aiDraft, onchange: (edit: Partial<AiDraft>) => (aiDraft = editAiDraft(aiDraft, edit)) }}
                 />
             {/if}
 
             <!-- Security Tab -->
             {#if activeTab === 'security'}
                 {#if authStore.httpsWarning}
-                    <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800">
-                        <div class="flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <span><strong>Security Warning:</strong> Authentication is enabled over HTTP. Your credentials may be exposed. Use HTTPS in production.</span>
-                        </div>
+                    <div class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100" data-https-warning>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <p>
+                            <strong class="font-semibold">{$_('settings.security.https_warning_title', { default: 'Passwords travel unencrypted.' })}</strong>
+                            {$_('settings.security.https_warning', { default: 'Sign-in is on, but this page is served over HTTP, so passwords and sessions can be read on the network. Serve YA-WAMF over HTTPS, for example behind your reverse proxy.' })}
+                        </p>
                     </div>
                 {/if}
                 <AuthenticationSettings
@@ -3855,7 +2984,11 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {backfillCustomError}
                     {backfillCustomValid}
                     {maintenanceStats}
+                    {retentionNote}
                     {cacheStats}
+                    {cacheStatsError}
+                    {cacheStatsLoading}
+                    onRetryCacheStats={loadCacheStats}
                     {classifierStatus}
                     {cleaningUp}
                     {clearingFavorites}
@@ -3898,33 +3031,62 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
             <!-- Appearance Tab -->
             {#if activeTab === 'appearance'}
-                <AppearanceSettings
-                    {currentTheme}
-                    currentLocale={$locale || 'en'}
-                    currentDateFormat={dateFormat}
-                    currentTimeFormat={timeFormat}
-                    bind:displayCommonNames
-                    bind:scientificNamePrimary
-                    bind:explorerView
-                    {setTheme}
-                    {currentFontTheme}
-                    {setFontTheme}
-                    {currentColorTheme}
-                    {setColorTheme}
-                    {setLanguage}
-                    setDateFormat={(value) => (dateFormat = value)}
-                    setTimeFormat={(value) => (timeFormat = value)}
+                <LazyRoute
+                    loader={loadAppearanceTab}
+                    label={$_('settings.tabs.appearance')}
+                    props={{
+                        currentTheme,
+                        currentLocale: $locale || 'en',
+                        draft: appearanceDraft,
+                        onchange: updateAppearance,
+                        setTheme,
+                        setLanguage
+                    }}
                 />
             {/if}
 
             <!-- Accessibility Tab -->
             {#if activeTab === 'accessibility'}
-                <AccessibilitySettings
-                    bind:highContrast
-                    bind:dyslexiaFont
-                    bind:liveAnnouncements
-                    bind:reducedMotion
+                <LazyRoute
+                    loader={loadAccessibilityTab}
+                    label={$_('settings.tabs.accessibility')}
+                    props={{
+                        draft: accessibilityDraft,
+                        onchange: (patch: Partial<AccessibilityDraft>) => (accessibilityDraft = { ...accessibilityDraft, ...patch })
+                    }}
                 />
+            {/if}
+
+            {#if activeTab === 'beta'}
+                <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
+                <div class="space-y-4" data-beta-page>
+                    <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
+                        <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
+                        <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
+                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you apply.' })}
+                        </p>
+                    </header>
+                    <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>
+                        <li>
+                            <GardenBetaSettings
+                                bind:enabled={betaGardenAnimals}
+                                cameras={gardenCameras}
+                                motionCameras={gardenMotionCameras}
+                                bind:labels={gardenLabels}
+                                bind:motionConfidence={gardenMotionConfidence}
+                                notificationsEnabled={gardenNotificationsEnabled}
+                                onOpenNotifications={() => handleTabChange('notifications')}
+                                onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                                bind:automaticNaming={gardenAutomaticNaming}
+                                bind:namingThreshold={gardenNamingThreshold}
+                                bind:domesticBirds={gardenDomesticBirds}
+                                savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
+                                onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
+                                onOpenCameras={openCameraSettings}
+                            />
+                        </li>
+                    </ul>
+                </div>
             {/if}
 
             {#if activeTab === 'debug'}

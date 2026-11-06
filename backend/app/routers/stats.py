@@ -6,22 +6,24 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.repositories.bird_observation_repository import BirdObservationRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
 from app.config import settings
+from app.services.accelerator_telemetry import DrmProbeSnapshot
 from app.services.host_facts import collect_host_facts
-from app.services.system_telemetry import system_telemetry_history, system_telemetry_sampler
+from app.services.system_telemetry import process_load_sampler, system_telemetry_history, system_telemetry_sampler
+from app.services.detection_presenter import present_names, summary_detection_fields
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
 from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
-from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
-from app.utils.audio_localization import localize_audio_species_name
+from app.utils.canonical_species import should_hide_species_label
 from app.utils.public_access import (
     hide_public_audio_fields,
     refresh_public_audio_fields,
@@ -51,7 +53,15 @@ class SystemTelemetryResponse(APIModel):
 @guest_rate_limit()
 async def get_system_telemetry(request: Request, response: Response) -> SystemTelemetryResponse:
     """Return one live host-utilization sample for the sidebar's rolling graph."""
-    sample = await asyncio.to_thread(system_telemetry_sampler.sample)
+
+    def _sample():
+        # GPU engine time is published per DRM client, so the sidebar needs
+        # the app's own pids to measure it at all. They only attribute
+        # counters and never reach the response. The sidebar sampler keeps
+        # its own baselines, separate from the history sampler's.
+        return system_telemetry_sampler.sample(process_load_sampler.own_pids())
+
+    sample = await asyncio.to_thread(_sample)
     response.headers["Cache-Control"] = "no-store"
     primary = sample.primary_accelerator
     accelerator = None
@@ -169,6 +179,7 @@ class SystemTelemetryHistoryResponse(APIModel):
     points: list[SystemHistoryPointResponse]
     processes: list[SystemProcessLoadResponse]
     app_rss_bytes: int | None = None
+    drm_diagnostics: list[DrmProbeSnapshot] = Field(default_factory=list)
 
 
 @router.get("/system-telemetry/history", response_model=SystemTelemetryHistoryResponse)
@@ -180,12 +191,17 @@ async def get_system_telemetry_history(
     Owner only: it names this container's processes. Anything else on the host is
     the remainder and is never identified.
     """
+    response.headers["Cache-Control"] = "no-store"
+    return build_system_telemetry_history()
+
+
+def build_system_telemetry_history() -> SystemTelemetryHistoryResponse:
+    """Serialize the existing bounded history without sampling or native work."""
     snapshot = system_telemetry_history.snapshot()
     facts = collect_host_facts()
     worker_accelerators = (
         _active_worker_accelerators() if any(load.role in _WORKER_ROLE_TO_POOL for load in snapshot.processes) else {}
     )
-    response.headers["Cache-Control"] = "no-store"
     accelerator = None
     if snapshot.accelerator_kind in ("npu", "gpu") and snapshot.accelerator_label:
         accelerator = SystemAcceleratorIdentity(kind=snapshot.accelerator_kind, label=snapshot.accelerator_label)
@@ -194,6 +210,7 @@ async def get_system_telemetry_history(
         sampled_at=datetime.now(timezone.utc).isoformat(),
         window_seconds=snapshot.window_seconds,
         interval_seconds=snapshot.interval_seconds,
+        drm_diagnostics=snapshot.drm_diagnostics,
         host=SystemHostFacts(
             cpu_count=facts.get("cpu_count"),
             cpu_quota=facts.get("cpu_quota"),
@@ -564,66 +581,11 @@ async def get_daily_summary(request: Request, auth: AuthContext = Depends(get_au
         if latest_raw:
             d = latest_raw[0]
             if not auth.is_owner:
-                await refresh_public_audio_fields(d, repo)
-            common_name = d.common_name
-            if d.taxa_id:
-                if lang != "en":
-                    localized = await taxonomy_service.get_localized_common_name(d.taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
-                else:
-                    canonical = await taxonomy_service.get_canonical_english_name(d.taxa_id, db=db)
-                    if canonical:
-                        common_name = canonical
-
-            public_species = user_facing_species_fields(
-                display_name=d.display_name,
-                category_name=d.category_name,
-                scientific_name=d.scientific_name,
-                common_name=common_name,
-                taxa_id=d.taxa_id,
-                extra_unknown_labels=unknown_labels,
-            )
-
-            audio_species = d.audio_species
-            if audio_species:
-                confirmed_taxa_id = (
-                    int(public_species["taxa_id"]) if d.audio_confirmed and public_species.get("taxa_id") else None
-                )
-                resolved = await localize_audio_species_name(
-                    audio_species, lang, db, confirmed_taxa_id=confirmed_taxa_id
-                )
-                if resolved:
-                    audio_species = resolved
-
+                await refresh_public_audio_fields(d, AudioHistoryRepository(db))
+            names = await present_names(d, lang, db)
             latest_detection = DetectionResponse(
-                id=d.id,
-                detection_time=d.detection_time,
-                detection_index=d.detection_index,
-                score=d.score,
-                display_name=str(public_species["display_name"]),
-                category_name=public_species["category_name"],
-                frigate_event=d.frigate_event,
-                camera_name="Hidden" if hide_camera_names else d.camera_name,
-                is_hidden=d.is_hidden,
-                is_favorite=d.is_favorite,
-                frigate_score=d.frigate_score,
-                sub_label=d.sub_label,
+                **summary_detection_fields(d, names, hides_camera_names=hide_camera_names),
                 manual_tagged=d.manual_tagged,
-                audio_confirmed=d.audio_confirmed,
-                audio_species=audio_species,
-                audio_score=d.audio_score,
-                temperature=d.temperature,
-                weather_condition=d.weather_condition,
-                weather_cloud_cover=d.weather_cloud_cover,
-                weather_wind_speed=d.weather_wind_speed,
-                weather_wind_direction=d.weather_wind_direction,
-                weather_precipitation=d.weather_precipitation,
-                weather_rain=d.weather_rain,
-                weather_snowfall=d.weather_snowfall,
-                scientific_name=public_species["scientific_name"],
-                common_name=public_species["common_name"],
-                taxa_id=public_species["taxa_id"],
             )
 
         if latest_detection is not None and not auth.is_owner and not settings.public_access.show_audio:

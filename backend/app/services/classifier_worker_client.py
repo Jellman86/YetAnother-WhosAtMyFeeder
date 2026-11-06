@@ -1,9 +1,11 @@
+import json
 import asyncio
 import os
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from app.utils.child_signals import kill_child, terminate_child
 from app.utils.python_subprocess import python_subprocess_launch
 
 from .classifier_worker_protocol import (
@@ -67,7 +69,7 @@ class ClassifierWorkerClient:
         kill_timeout_seconds: float = 5.0,
         inference_provider_override: str | None = None,
     ) -> None:
-        if inference_provider_override not in {None, "cpu"}:
+        if inference_provider_override not in {None, "cpu", "intel_cpu"}:
             raise ValueError("Only an explicit CPU recovery override is supported")
         self._inference_provider_override = inference_provider_override
         self.worker_name = str(worker_name)
@@ -91,6 +93,10 @@ class ClassifierWorkerClient:
         self._busy = False
         self._current_request_id: str | None = None
         self._exit_code: int | None = None
+        # A decoded retirement record the supervisor has not consumed yet.
+        # The watchdog leaves such a worker to the consumer: replacing it
+        # first would drop the assignment the record is validated against.
+        self._pending_retirement = False
         self._stderr_tail = bytearray()
         self._stderr_truncated_bytes = 0
         self._runtime: dict[str, Any] | None = None
@@ -140,7 +146,10 @@ class ClassifierWorkerClient:
         await self._process.stdin.drain()
 
     async def next_event(self) -> dict[str, Any]:
-        return await self._event_queue.get()
+        message = await self._event_queue.get()
+        if message.get("type") == "retirement":
+            self._pending_retirement = False
+        return message
 
     async def wait_closed(self) -> None:
         # Pipe EOF only closes the transport. Only Process.wait confirms that
@@ -174,13 +183,11 @@ class ClassifierWorkerClient:
             raise asyncio.CancelledError
 
     def _signal_process(self, *, kill: bool) -> None:
-        if self._process.returncode is not None:
-            return
         try:
             if kill:
-                self._process.kill()
+                kill_child(self._process)
             else:
-                self._process.terminate()
+                terminate_child(self._process)
         except ProcessLookupError:
             # The process may exit between checking returncode and signalling.
             pass
@@ -208,6 +215,7 @@ class ClassifierWorkerClient:
             "last_stderr_monotonic": self._last_stderr_monotonic,
             "heartbeat_timeout_seconds": self.heartbeat_timeout_seconds,
             "exit_code": self._exit_code,
+            "pending_retirement": self._pending_retirement,
             "recent_stderr_excerpt": self._stderr_excerpt(),
             "stderr_truncated_bytes": self._stderr_truncated_bytes,
             "runtime": dict(self._runtime) if self._runtime else None,
@@ -238,6 +246,8 @@ class ClassifierWorkerClient:
                     self._busy = bool(message.get("busy"))
                     self._current_request_id = message.get("request_id")
                 else:
+                    if message_type == "retirement":
+                        self._pending_retirement = True
                     await self._event_queue.put(message)
         finally:
             self._mark_closed()
@@ -251,8 +261,13 @@ class ClassifierWorkerClient:
 
     async def _wait_loop(self) -> None:
         try:
-            self._exit_code = await self._process.wait()
+            returncode = await self._process.wait()
+            # Only publish the exit once the reader has drained the pipe:
+            # the watchdog keys replacement off exit_code, and a retirement
+            # record flushed just before exit must be queued (and flagged
+            # pending) before the exit can be acted on.
             await asyncio.gather(self._reader_task, self._stderr_task, return_exceptions=True)
+            self._exit_code = returncode
             self._busy = False
             self._current_request_id = None
         finally:
@@ -320,6 +335,12 @@ class ClassifierWorkerClient:
                 "CLASSIFICATION__INFERENCE_PROVIDER": self._inference_provider_override,
                 "YA_WAMF_NATIVE_CPU_RECOVERY": "1",
             }
+        approval = getattr(self, "_native_worker_approval", None)
+        if approval is not None or "YA_WAMF_NATIVE_APPROVAL" in os.environ:
+            environment = dict(os.environ if environment is None else environment)
+            environment.pop("YA_WAMF_NATIVE_APPROVAL", None)
+            if approval is not None:
+                environment["YA_WAMF_NATIVE_APPROVAL"] = json.dumps(approval)
         executable, environment = python_subprocess_launch(environment)
         # The stream limit is the protocol's own: both ends read newline-framed
         # JSON, and a single high-quality frame is megabytes of base64.

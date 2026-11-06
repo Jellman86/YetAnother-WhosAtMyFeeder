@@ -61,3 +61,37 @@ export function formatVideoOffset(seconds: number): string {
     const whole = Math.max(0, Math.floor(seconds));
     return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+
+/**
+ * A UTC instant as a `datetime-local` value in the browser's own zone, to the second, so a time read
+ * from the file is shown as the wall-clock time it was taken and saved back unchanged. Empty when the
+ * value is not a time.
+ */
+export function toDateTimeLocalValue(iso: string | null | undefined): string {
+    const moment = iso ? new Date(iso) : null;
+    if (!moment || Number.isNaN(moment.getTime())) return '';
+    const pad = (value: number): string => String(value).padStart(2, '0');
+    return `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`
+        + `T${pad(moment.getHours())}:${pad(moment.getMinutes())}:${pad(moment.getSeconds())}`;
+}
+
+export type DuplicateUpload =
+    | { kind: 'saved'; eventId: string }
+    | { kind: 'draft'; draftId: string };
+
+const DRAFT_ID = /^[a-f0-9]{32}$/;
+const MANUAL_EVENT_ID = /^manual_[a-f0-9]{32}$/;
+
+/**
+ * Where an upload the server already holds can be found, read from its 409 body. The body is
+ * untrusted, so only identifiers of the exact shape the server issues are accepted.
+ */
+export function readDuplicateUpload(payload: unknown): DuplicateUpload | null {
+    if (!payload || typeof payload !== 'object') return null;
+    const detail = (payload as { detail?: unknown }).detail;
+    if (!detail || typeof detail !== 'object') return null;
+    const { draft_id: draftId, event_id: eventId } = detail as { draft_id?: unknown; event_id?: unknown };
+    if (typeof eventId === 'string' && MANUAL_EVENT_ID.test(eventId)) return { kind: 'saved', eventId };
+    if (typeof draftId === 'string' && DRAFT_ID.test(draftId)) return { kind: 'draft', draftId };
+    return null;
+}

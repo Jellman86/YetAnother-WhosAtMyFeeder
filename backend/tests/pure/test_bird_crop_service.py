@@ -1,0 +1,965 @@
+import types
+
+import numpy as np
+import pytest
+from PIL import Image
+
+from app.config import settings
+from app.services.bird_crop_service import BirdCropService
+
+
+def _make_image(width: int = 100, height: int = 100) -> Image.Image:
+    return Image.new("RGB", (width, height), color="white")
+
+
+def test_video_multi_crop_uses_one_native_scan_and_keeps_other_birds(monkeypatch):
+    service = BirdCropService()
+    scans = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(model, image):
+        scans.append(image.size)
+        return [{"box": (100, 100, 200, 200), "confidence": 0.9}, {"box": (400, 100, 500, 200), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    crops = service.generate_video_classification_candidate_crops(_make_image(3840, 2160), max_crops=3)
+    assert len(crops) == 2
+    assert scans == [(3840, 2160)]
+
+
+def test_video_multi_crop_does_not_escalate_detector_misses(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(service, "_infer_candidates", lambda model, image: [])
+    monkeypatch.setattr(
+        service, "generate_classification_candidate_crop", lambda image: pytest.fail("unbounded fallback")
+    )
+    assert service.generate_video_classification_candidate_crops(_make_image(), max_crops=3) == []
+
+
+@pytest.mark.parametrize("provider", ["cpu", "cuda"])
+def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, tmp_path, provider):
+    calls = []
+
+    class FakeSession:
+        def get_providers(self):
+            return ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"]
+
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 416, 416])]
+
+    def preload_dlls(*, directory):
+        calls.append(("preload", directory))
+
+    def create_session(*args, **kwargs):
+        calls.append(("session", kwargs["providers"]))
+        return FakeSession()
+
+    ort = types.SimpleNamespace(preload_dlls=preload_dlls, SessionOptions=object, InferenceSession=create_session)
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: ort)
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
+
+    service._load_model_on_provider(
+        tier="accurate", model_path=tmp_path / "model.onnx", model_config={}, provider=provider
+    )
+
+    expected = [("session", ["CUDAExecutionProvider" if provider == "cuda" else "CPUExecutionProvider"])]
+    if provider == "cuda":
+        expected.insert(0, ("preload", ""))
+    assert calls == expected
+
+
+def test_observation_boxes_are_not_capped_by_photo_choice_limit(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(1000, 100)
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, frame: [{"box": (index * 40, 10, index * 40 + 30, 50), "confidence": 0.2} for index in range(12)],
+    )
+
+    boxes = service.detect_observation_boxes(image)
+
+    assert len(boxes) == 12
+    assert boxes[-1]["box"] == (440, 10, 470, 50)
+
+
+def test_large_scene_tiles_birds_and_keeps_all_boxes_when_photo_choices_are_bounded(monkeypatch):
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    sizes = []
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def infer(_model, frame):
+        sizes.append(frame.size)
+        return [{"box": (100, 100, 220, 220), "confidence": 0.8}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    crops = service.generate_classification_candidate_crops(image, max_crops=3)
+
+    assert len(sizes) == 10  # whole 4K frame plus nine overlapping tiles
+    assert len(crops) == 3
+    assert len(crops[0]["observation_boxes"]) == 10
+    assert any(box["box"][0] > 2000 for box in crops[0]["observation_boxes"])
+
+
+def test_crop_overlap_merges_similar_tile_boxes_but_keeps_a_group_sized_box():
+    overlap = BirdCropService._box_overlap_ratio
+
+    assert overlap((1157, 631, 1401, 830), (1185, 664, 1427, 904)) >= 0.6
+    assert overlap((1157, 631, 1401, 830), (983, 703, 1448, 1423)) < 0.6
+
+
+def test_generate_crop_selects_and_expands_box(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.25, min_crop_size=10)
+    image = _make_image()
+
+    monkeypatch.setattr(service, "_load_model", lambda: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [{"box": (20, 30, 40, 50), "confidence": 0.92}],
+    )
+
+    result = service.generate_crop(image)
+
+    assert result["reason"] == "selected"
+    assert result["confidence"] == pytest.approx(0.92)
+    assert result["box"] == (15, 25, 45, 55)
+    assert result["crop_image"].size == (30, 30)
+
+
+def test_generate_crop_skips_invalid_high_confidence_candidate(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.0, min_crop_size=10)
+    image = _make_image()
+
+    monkeypatch.setattr(service, "_load_model", lambda: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [
+            {"box": (10, 10, 12, 12), "confidence": 0.99},
+            {"box": (20, 20, 40, 50), "confidence": 0.80},
+        ],
+    )
+
+    result = service.generate_crop(image)
+
+    assert result["reason"] == "selected"
+    assert result["confidence"] == pytest.approx(0.80)
+    assert result["box"] == (20, 20, 40, 50)
+    assert result["crop_image"].size == (20, 30)
+
+
+def test_generate_crop_clamps_expanded_box_to_image_bounds(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.5, min_crop_size=10)
+    image = _make_image(width=60, height=40)
+
+    monkeypatch.setattr(service, "_load_model", lambda: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [{"box": (50, 20, 60, 40), "confidence": 0.88}],
+    )
+
+    result = service.generate_crop(image)
+
+    assert result["reason"] == "selected"
+    assert result["confidence"] == pytest.approx(0.88)
+    assert result["box"] == (45, 10, 60, 40)
+    assert result["crop_image"].size == (15, 30)
+
+
+@pytest.mark.parametrize(
+    "box, expected_reason",
+    [
+        ((10, 10, 13, 13), "too_small"),
+        ((10, 10, 10, 20), "invalid_box"),
+    ],
+)
+def test_generate_crop_rejects_tiny_or_degenerate_boxes(monkeypatch, box, expected_reason):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.25, min_crop_size=10)
+    image = _make_image()
+
+    monkeypatch.setattr(service, "_load_model", lambda: object())
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [{"box": box, "confidence": 0.91}],
+    )
+
+    result = service.generate_crop(image)
+
+    assert result["crop_image"] is None
+    assert result["box"] is None
+    assert result["confidence"] == pytest.approx(0.91)
+    assert result["reason"] == expected_reason
+
+
+@pytest.mark.parametrize(
+    "loader_side_effect, inference_side_effect, expected_reason",
+    [
+        (RuntimeError("load boom"), None, "load_failed"),
+        (None, RuntimeError("infer boom"), "inference_failed"),
+    ],
+)
+def test_generate_crop_soft_fails_when_model_load_or_inference_fails(
+    monkeypatch,
+    loader_side_effect,
+    inference_side_effect,
+    expected_reason,
+):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.25, min_crop_size=10)
+    image = _make_image()
+
+    def _load_model():
+        if loader_side_effect is not None:
+            raise loader_side_effect
+        return object()
+
+    def _infer_candidates(_model, _image):
+        if inference_side_effect is not None:
+            raise inference_side_effect
+        return []
+
+    monkeypatch.setattr(service, "_load_model", _load_model)
+    monkeypatch.setattr(service, "_infer_candidates", _infer_candidates)
+
+    result = service.generate_crop(image)
+
+    assert result["crop_image"] is None
+    assert result["box"] is None
+    assert result["confidence"] is None
+    assert result["reason"] == expected_reason
+
+
+def test_generate_crop_retries_loading_after_initial_empty_load(monkeypatch):
+    service = BirdCropService(confidence_threshold=0.4, expand_ratio=0.0, min_crop_size=10)
+    image = _make_image()
+    load_calls = []
+
+    def _load_model():
+        load_calls.append(len(load_calls))
+        return None if len(load_calls) == 1 else object()
+
+    monkeypatch.setattr(service, "_load_model", _load_model)
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda _model, _image: [{"box": (20, 20, 40, 50), "confidence": 0.91}],
+    )
+
+    first = service.generate_crop(image)
+    second = service.generate_crop(image)
+
+    assert first["reason"] == "load_failed"
+    assert first["crop_image"] is None
+    assert second["reason"] == "selected"
+    assert second["box"] == (20, 20, 40, 50)
+    assert second["confidence"] == pytest.approx(0.91)
+    assert second["crop_image"].size == (20, 30)
+    assert len(load_calls) == 2
+
+
+def test_load_model_uses_local_onnx_detector_path(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 640, 640])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            assert path == str(model_path)
+            assert providers == ["CPUExecutionProvider"]
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
+
+    loaded = service._load_model()
+
+    assert loaded["input_name"] == "images"
+    assert loaded["input_height"] == 640
+    assert loaded["input_width"] == 640
+    assert loaded["session"].__class__.__name__ == "_FakeSession"
+
+
+def test_load_model_uses_current_validated_crop_provider(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService()
+    calls = []
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(
+        "app.services.model_validation.activation_provider_recommendation",
+        lambda model_id, **_kwargs: "intel_gpu" if model_id == "bird_crop_detector" else None,
+    )
+    monkeypatch.setattr(
+        service,
+        "_load_model_on_provider",
+        lambda **kwargs: calls.append(kwargs["provider"]) or {"provider": kwargs["provider"]},
+    )
+
+    loaded = service._load_model()
+
+    assert loaded["provider"] == "intel_gpu"
+    assert calls == ["intel_gpu"]
+    assert service._active_providers["fast"] == "intel_gpu"
+
+
+def test_load_model_falls_back_to_cpu_when_validated_accelerator_stops_compiling(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService(provider_override="intel_npu")
+    calls = []
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+
+    def load(**kwargs):
+        calls.append(kwargs["provider"])
+        if kwargs["provider"] == "intel_npu":
+            raise RuntimeError("compiler rejected graph")
+        return {"provider": kwargs["provider"]}
+
+    monkeypatch.setattr(service, "_load_model_on_provider", load)
+
+    loaded = service._load_model()
+
+    assert loaded["provider"] == "cpu"
+    assert calls == ["intel_npu", "cpu"]
+    assert service._provider_fallbacks["fast"] == "intel_npu"
+
+
+def test_strict_crop_provider_probe_never_falls_back(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService(provider_override="intel_npu", strict_provider=True)
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(
+        service,
+        "_load_model_on_provider",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("NPU compile failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="NPU compile failed"):
+        service._load_model()
+
+
+def test_accelerated_inference_failure_switches_cached_tier_to_cpu(monkeypatch):
+    service = BirdCropService(detector_tier="fast", expand_ratio=0.0, min_crop_size=10)
+    gpu_model = {"provider": "intel_gpu"}
+    cpu_model = {"provider": "cpu"}
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda _tier: gpu_model)
+    monkeypatch.setattr(service, "_replace_tier_with_cpu", lambda _tier, failed_provider: cpu_model)
+
+    def infer(model, _image):
+        if model is gpu_model:
+            raise RuntimeError("device lost")
+        return [{"box": (10, 10, 80, 80), "confidence": 0.9}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    result = service.generate_crop(_make_image())
+
+    assert result["reason"] == "selected"
+    assert result["box"] == (10, 10, 80, 80)
+
+
+def test_load_model_autodiscovers_standard_detector_path_without_env(monkeypatch, tmp_path):
+    model_dir = tmp_path / "bird_crop"
+    model_dir.mkdir(parents=True)
+    model_path = model_dir / "model.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 3, 640, 640])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            assert path == str(model_path)
+            assert providers == ["CPUExecutionProvider"]
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.delenv("BIRD_CROP_MODEL_PATH", raising=False)
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
+    monkeypatch.setattr(service, "_candidate_model_paths", lambda: [str(model_path)])
+
+    loaded = service._load_model()
+
+    assert loaded is not None
+    assert loaded["model_path"] == str(model_path)
+
+
+def test_candidate_model_paths_include_managed_detector_install(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.delenv("BIRD_CROP_MODEL_PATH", raising=False)
+
+    class _FakeModelManager:
+        def get_crop_detector_spec(self):
+            return {"model_path": "/data/models/bird_crop_detector/model.onnx"}
+
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "app.services.model_manager",
+        types.SimpleNamespace(model_manager=_FakeModelManager()),
+    )
+
+    paths = service._candidate_model_paths()
+
+    assert "/data/models/bird_crop_detector/model.onnx" in paths
+
+
+def test_load_model_handles_nhwc_input_shape(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="images", shape=[1, 640, 640, 3])]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
+
+    loaded = service._load_model()
+
+    assert loaded["input_height"] == 640
+    assert loaded["input_width"] == 640
+
+
+def test_infer_candidates_parses_single_output_detection_tensor():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            assert "images" in feeds
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["box"] == pytest.approx((16.0, 32.0, 80.0, 96.0))
+    assert candidates[0]["confidence"] == pytest.approx(0.91)
+
+
+def test_infer_candidates_supports_cxcywh_box_format(monkeypatch):
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[48.0, 64.0, 64.0, 64.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_BOX_FORMAT", "cxcywh")
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["box"] == pytest.approx((16.0, 32.0, 80.0, 96.0))
+
+
+def test_infer_candidates_rejects_unsupported_multiclass_row_layout():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.10, 0.90]]],
+                    dtype=np.float32,
+                )
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "images",
+        "input_height": 160,
+        "input_width": 320,
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert candidates == []
+
+
+def test_load_model_captures_nhwc_uint8_detector_metadata(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    (tmp_path / "model_config.json").write_text(
+        '{"input_size": 300, "preprocessing": {"resize_mode": "direct_resize"}}',
+        encoding="utf-8",
+    )
+
+    class _FakeSession:
+        def get_inputs(self):
+            return [types.SimpleNamespace(name="inputs", shape=["N", "H", "W", 3], type="tensor(uint8)")]
+
+        def get_outputs(self):
+            return [
+                types.SimpleNamespace(name="detection_boxes"),
+                types.SimpleNamespace(name="detection_classes"),
+                types.SimpleNamespace(name="detection_scores"),
+                types.SimpleNamespace(name="num_detections"),
+            ]
+
+    class _FakeOrt:
+        class SessionOptions:
+            pass
+
+        def InferenceSession(self, path, sess_options=None, providers=None):
+            return _FakeSession()
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(service, "_import_onnxruntime", lambda: _FakeOrt())
+    monkeypatch.setattr(service, "_session_factory", service._create_native_session)
+
+    loaded = service._load_model()
+
+    assert loaded["input_name"] == "inputs"
+    assert loaded["input_layout"] == "nhwc"
+    assert loaded["input_type"] == "tensor(uint8)"
+    assert loaded["dynamic_input_hw"] is True
+    assert loaded["preferred_input_height"] == 300
+    assert loaded["preferred_input_width"] == 300
+    assert loaded["preprocessing"]["resize_mode"] == "direct_resize"
+    assert loaded["output_names"] == [
+        "detection_boxes",
+        "detection_classes",
+        "detection_scores",
+        "num_detections",
+    ]
+
+
+def test_infer_candidates_parses_ssd_detection_outputs_and_filters_to_bird_class():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            payload = feeds["inputs"]
+            assert payload.dtype == np.uint8
+            assert payload.shape == (1, 160, 320, 3)
+            return [
+                np.array([[[0.10, 0.20, 0.90, 0.70], [0.0, 0.0, 0.5, 0.5]]], dtype=np.float32),
+                np.array([[16.0, 1.0]], dtype=np.float32),
+                np.array([[0.95, 0.99]], dtype=np.float32),
+                np.array([2.0], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "dynamic_input_hw": True,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+            "num_detections",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["confidence"] == pytest.approx(0.95)
+    assert candidates[0]["box"] == pytest.approx((64.0, 16.0, 224.0, 144.0))
+
+
+def test_prepare_detector_input_resizes_fixed_nhwc_uint8_models():
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+
+    tensor, transform = service._prepare_detector_input(
+        image,
+        input_width=224,
+        input_height=224,
+        input_layout="nhwc",
+        input_type="tensor(uint8)",
+        dynamic_input_hw=False,
+    )
+
+    assert tensor.dtype == np.uint8
+    assert tensor.shape == (1, 224, 224, 3)
+    assert transform["resize_mode"] == "direct_resize"
+    assert transform["scale"] == pytest.approx(1.0)
+    assert transform["scale_x"] == pytest.approx(224.0 / 320.0)
+    assert transform["scale_y"] == pytest.approx(224.0 / 160.0)
+
+
+def test_prepare_detector_input_resizes_dynamic_nhwc_uint8_models_when_preferred_size_is_known():
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+
+    tensor, transform = service._prepare_detector_input(
+        image,
+        input_width=640,
+        input_height=640,
+        input_layout="nhwc",
+        input_type="tensor(uint8)",
+        dynamic_input_hw=True,
+        preferred_input_width=300,
+        preferred_input_height=300,
+    )
+
+    assert tensor.dtype == np.uint8
+    assert tensor.shape == (1, 300, 300, 3)
+    assert transform["resize_mode"] == "direct_resize"
+    assert transform["scale_x"] == pytest.approx(300.0 / 320.0)
+    assert transform["scale_y"] == pytest.approx(300.0 / 160.0)
+
+
+def test_prepare_detector_input_supports_yolox_bgr_raw_topleft_letterbox():
+    service = BirdCropService()
+    image = Image.new("RGB", (320, 160), color=(10, 20, 30))
+
+    tensor, transform = service._prepare_detector_input(
+        image,
+        input_width=416,
+        input_height=416,
+        input_layout="nchw",
+        input_type="tensor(float)",
+        dynamic_input_hw=False,
+        preprocessing={
+            "resize_mode": "letterbox",
+            "color_space": "BGR",
+            "normalization": "none",
+            "pad_alignment": "top_left",
+        },
+    )
+
+    assert tensor.dtype == np.float32
+    assert tensor.shape == (1, 3, 416, 416)
+    assert transform["resize_mode"] == "letterbox"
+    assert transform["pad_alignment"] == "top_left"
+    assert transform["input_width"] == 416
+    assert transform["input_height"] == 416
+    # Original RGB(10,20,30) should become BGR(30,20,10) without /255 normalization.
+    assert tensor[0, 0, 0, 0] == pytest.approx(30.0)
+    assert tensor[0, 1, 0, 0] == pytest.approx(20.0)
+    assert tensor[0, 2, 0, 0] == pytest.approx(10.0)
+    # Bottom padding remains the YOLOX 114 fill value.
+    assert tensor[0, 0, -1, -1] == pytest.approx(114.0)
+
+
+def test_infer_candidates_returns_empty_when_named_ssd_outputs_have_no_bird_class():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array([[[0.10, 0.20, 0.90, 0.70]]], dtype=np.float32),
+                np.array([[1.0]], dtype=np.float32),
+                np.array([[0.95]], dtype=np.float32),
+                np.array([1.0], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "dynamic_input_hw": True,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+            "num_detections",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert candidates == []
+
+
+def test_infer_candidates_allows_overriding_target_bird_class(monkeypatch):
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array([[[0.10, 0.20, 0.90, 0.70]]], dtype=np.float32),
+                np.array([[15.0]], dtype=np.float32),
+                np.array([[0.95]], dtype=np.float32),
+                np.array([1.0], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    monkeypatch.setenv("BIRD_CROP_CLASS_ID", "15")
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "dynamic_input_hw": True,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+            "num_detections",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+
+
+def test_infer_candidates_does_not_fall_through_when_named_ssd_outputs_are_malformed():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            return [
+                np.array(
+                    [[[16.0, 32.0, 80.0, 96.0, 0.91, 0.0]]],
+                    dtype=np.float32,
+                ),
+                np.array([[16.0]], dtype=np.float32),
+                np.array([[0.95]], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "dynamic_input_hw": True,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert candidates == []
+
+
+def test_infer_candidates_parses_fixed_size_ssd_outputs_and_restores_image_box():
+    class _FakeSession:
+        def run(self, _output_names, feeds):
+            payload = feeds["inputs"]
+            assert payload.dtype == np.uint8
+            assert payload.shape == (1, 224, 224, 3)
+            return [
+                np.array([[[0.25, 0.25, 0.75, 0.75]]], dtype=np.float32),
+                np.array([[16.0]], dtype=np.float32),
+                np.array([[0.93]], dtype=np.float32),
+                np.array([1.0], dtype=np.float32),
+            ]
+
+    service = BirdCropService()
+    image = _make_image(width=320, height=160)
+    model = {
+        "session": _FakeSession(),
+        "input_name": "inputs",
+        "input_layout": "nhwc",
+        "input_type": "tensor(uint8)",
+        "input_width": 224,
+        "input_height": 224,
+        "dynamic_input_hw": False,
+        "output_names": [
+            "detection_boxes",
+            "detection_classes",
+            "detection_scores",
+            "num_detections",
+        ],
+    }
+
+    candidates = service._infer_candidates(model, image)
+
+    assert len(candidates) == 1
+    assert candidates[0]["confidence"] == pytest.approx(0.93)
+    assert candidates[0]["box"] == pytest.approx((80.0, 40.0, 240.0, 120.0))
+
+
+@pytest.mark.parametrize("api", ["generate_classification_candidate_crops", "detect_observation_boxes"])
+def test_photo_scan_can_report_transient_runtime_failure_without_changing_default_fail_soft(api, monkeypatch):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object())
+
+    def fail(model, image):
+        raise RuntimeError("temporary runtime failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", fail)
+    image = _make_image(640, 480)
+    assert getattr(service, api)(image) == []
+    with pytest.raises(BirdDetectionError):
+        getattr(service, api)(image, raise_on_error=True)
+
+
+@pytest.mark.parametrize("failure_path", ["sliced", "guided"])
+def test_strict_photo_scan_reports_failure_in_fallback_regions(monkeypatch, failure_path):
+    from app.services.bird_crop_service import BirdDetectionError
+
+    service = BirdCropService()
+    image = _make_image(3840, 2160)
+    monkeypatch.setattr(settings.media_cache, "bird_scan_mode", "balanced")
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: object() if tier == "accurate" else None)
+
+    def infer(model, region):
+        if region.size == image.size:
+            return []
+        raise RuntimeError("temporary region inference failure")
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    kwargs = {"search_box": (10, 10, 500, 500)} if failure_path == "guided" else {}
+    assert service.generate_classification_candidate_crops(image, **kwargs) == []
+    with pytest.raises(BirdDetectionError):
+        service.generate_classification_candidate_crops(image, raise_on_error=True, **kwargs)
+
+
+@pytest.mark.parametrize("failure", ["load", "inference"])
+@pytest.mark.parametrize("fast_available", [True, False])
+def test_ordinary_crop_retains_runtime_failure_when_fallback_finds_no_bird(monkeypatch, failure, fast_available):
+    service = BirdCropService()
+
+    def load(tier):
+        if tier == "accurate" and failure == "load":
+            raise RuntimeError("temporary load failure")
+        return {"tier": tier} if tier == "accurate" or fast_available else None
+
+    def infer(model, image):
+        if model["tier"] == "accurate":
+            raise RuntimeError("temporary inference failure")
+        return []
+
+    monkeypatch.setattr(service, "_ensure_model_for_tier", load)
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert result.get("runtime_error") is True
+
+
+def test_absent_crop_models_are_not_runtime_failures(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_ensure_model_for_tier", lambda tier: None)
+    result = service.generate_crop(_make_image(640, 480), detector_tier="accurate")
+    assert result["crop_image"] is None
+    assert not result.get("runtime_error")
+
+
+def test_successful_finder_inference_records_actual_device_and_fallback(monkeypatch):
+    service = BirdCropService()
+    model = {"provider": "cpu", "detector_tier": "accurate"}
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [])
+    monkeypatch.setattr(service, "_registry_model_id_for_tier", lambda _: "bird_crop_detector_accurate_rfdetr_nano")
+    service._provider_fallbacks["accurate"] = "intel_npu"
+    assert service._infer_candidates(model, Image.new("RGB", (64, 64))) == []
+    evidence = service.last_execution()
+    assert evidence["provider"] == "cpu"
+    assert evidence["requested_provider"] == "intel_npu"
+    assert evidence["fallback_reason"] == "runtime_failed"
+    assert evidence["model_id"] == "bird_crop_detector_accurate_rfdetr_nano"
+    assert evidence["checked_at"].endswith("Z")
+
+    def failed(*_):
+        raise RuntimeError("failed")
+
+    monkeypatch.setattr(service, "_infer_candidates_on_model", failed)
+    with pytest.raises(RuntimeError):
+        service._infer_candidates(model, Image.new("RGB", (64, 64)))
+    assert service.last_execution() == evidence
+
+
+def test_fast_fallback_does_not_overwrite_the_selected_finders_last_execution(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [])
+    monkeypatch.setattr(
+        service, "_registry_model_id_for_tier", lambda tier: "finder" if tier == "accurate" else "fallback"
+    )
+    image = Image.new("RGB", (64, 64))
+    service._infer_candidates({"provider": "intel_npu", "detector_tier": "accurate"}, image)
+    service._infer_candidates({"provider": "cpu", "detector_tier": "fast"}, image)
+    assert service.last_execution()["model_id"] == "finder"
+    assert service.last_execution()["devices"] == ["NPU"]
+
+
+def test_missing_execution_metadata_never_changes_a_successful_finder_result(monkeypatch):
+    service = BirdCropService()
+    monkeypatch.setattr(service, "_infer_candidates_on_model", lambda *_: [{"confidence": 0.9}])
+
+    def missing(*_):
+        raise RuntimeError("metadata unavailable")
+
+    monkeypatch.setattr(service, "_registry_model_id_for_tier", missing)
+    assert service._infer_candidates(
+        {"provider": "intel_npu", "detector_tier": "accurate"}, Image.new("RGB", (64, 64))
+    ) == [{"confidence": 0.9}]
+    assert service.last_execution() is None
+
+
+@pytest.mark.parametrize(
+    "eligible, expected", [(["cpu", "intel_gpu", "intel_npu"], "intel_npu"), (["cpu", "intel_gpu"], "cpu")]
+)
+def test_saved_finder_provider_never_switches_to_a_faster_gpu(monkeypatch, eligible, expected):
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
+    monkeypatch.setattr("app.services.model_validation.host_eligible_providers", lambda *a, **kw: eligible)
+    monkeypatch.setattr(
+        "app.services.model_validation.activation_provider_recommendation", lambda *a, **kw: "intel_gpu"
+    )
+    service = BirdCropService(accurate_model_id="bird_crop_detector_accurate_rfdetr_nano")
+    assert service._provider_for_tier("accurate") == expected
+    # The fast fallback model has its own device evidence, independent of the accurate finder choice.
+    assert service._provider_for_tier("fast") == "intel_gpu"
+
+
+def test_probe_provider_override_remains_independent_of_saved_finder_choice(monkeypatch):
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
+    assert BirdCropService(provider_override="cpu")._provider_for_tier("accurate") == "cpu"

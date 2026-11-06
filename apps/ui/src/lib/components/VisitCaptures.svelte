@@ -8,6 +8,7 @@
     import { VisitCaptureList } from '../utils/visit-capture-list.svelte';
     import { getBirdNames } from '../naming';
     import { formatTime } from '../utils/datetime';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import { captureFacts, hasCaptureTimeline, type CaptureFacts } from '../utils/visit-captures';
     import type { Detection } from '../api';
 
@@ -111,18 +112,12 @@
         if (facts.shown) found.push({ text: $_('visits.shown_photo', { default: 'Visit photo' }), emphasis: true });
         if (facts.favorite) found.push({ text: $_('detection.favorite_label_active', { default: 'Favorited' }), emphasis: true });
         if (facts.birds !== null) {
-            found.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count} birds' }), emphasis: false });
+            found.push({ text: $_('visits.capture_birds', { values: { count: facts.birds }, default: '{count, plural, one {# bird} other {# birds}}' }), emphasis: false });
         }
         if (facts.heard) found.push({ text: $_('detection.fact_heard_yes', { default: 'matching call' }), emphasis: true });
         return found;
     }
 
-    /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */
-    function scoreTone(score: number): string {
-        if (score < 0.6) return 'text-accent-700 dark:text-accent-300';
-        if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
-        return 'text-success-700 dark:text-success-300';
-    }
 </script>
 
 {#if hasCaptureTimeline(visit)}
@@ -154,7 +149,7 @@
                         <span class="font-normal tabular-nums text-slate-500 dark:text-slate-400">&middot; {span}</span>
                         {#if peak !== null && peak >= 2}
                             <span class="block font-medium text-slate-500 dark:text-slate-400">
-                                {$_('visits.peak_birds', { values: { count: peak }, default: '{count} birds in one capture' })}
+                                {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
                             </span>
                         {/if}
                     {/if}
@@ -264,7 +259,7 @@
                                         </svg>
                                     </button>
                                 {/if}
-                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {scoreTone(score)}">
+                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">
                                     {Math.round(score * 100)}%
                                 </BadgeHint>
                             </div>
@@ -309,6 +304,6 @@
     {@render aside()}
 {:else if !inline && peak !== null && peak >= 2}
     <p class="border-t border-slate-200/80 px-4 py-3 text-xs font-medium text-slate-500 dark:border-slate-700/60 dark:text-slate-400" data-visit-captures-peak>
-        {$_('visits.peak_birds', { values: { count: peak }, default: '{count} birds in one capture' })}
+        {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
     </p>
 {/if}

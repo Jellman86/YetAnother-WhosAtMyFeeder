@@ -35,7 +35,7 @@ class TestModelInstance:
         from app.services.classifier_service import ModelInstance
 
         with (
-            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("app.services.inference.runtimes.tflite") as mock_tflite,
             patch("builtins.open", mock_open(read_data="label1\nlabel2\nlabel3")),
             patch("os.path.exists", return_value=True),
         ):
@@ -70,7 +70,7 @@ class TestModelInstance:
         from app.services.classifier_service import ModelInstance
 
         with (
-            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("app.services.inference.runtimes.tflite") as mock_tflite,
             patch("builtins.open", mock_open(read_data="label1\nlabel2")),
             patch("os.path.exists", return_value=True),
         ):
@@ -93,7 +93,7 @@ class TestModelInstance:
         from app.services.classifier_service import ModelInstance
 
         with (
-            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("app.services.inference.runtimes.tflite") as mock_tflite,
             patch("builtins.open", mock_open(read_data="bird1\nbird2\nbird3")),
             patch("os.path.exists", return_value=True),
         ):

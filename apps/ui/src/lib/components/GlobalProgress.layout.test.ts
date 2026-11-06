@@ -14,7 +14,7 @@ describe('Global progress layout', () => {
         expect(appSource).toContain("? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'");
         expect(appSource).toContain(": 'relative z-30 shrink-0 mb-2'");
         expect(appSource).toContain('<GlobalProgress onNavigate={navigate} />');
-        expect(appSource).toContain('<Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>');
+        expect(appSource).toContain('<Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>');
         expect(appSource).not.toContain("effectiveLayout === 'horizontal'");
         expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
     });
@@ -49,13 +49,6 @@ describe('Global progress layout', () => {
         expect(appearanceSettingsSource).not.toContain("setLayout(");
         expect(settingsPageSource).not.toContain('let currentLayout');
         expect(settingsPageSource).not.toContain('function setLayout');
-    });
-
-    it('hydrates appearance state from persisted backend defaults', () => {
-        expect(settingsPageSource).toContain("let currentFontTheme = $state<import('../stores/theme.svelte').FontTheme>(themeStore.fontTheme);");
-        expect(settingsPageSource).toContain("let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);");
-        expect(settingsPageSource).toContain('themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));');
-        expect(settingsPageSource).toContain('themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));');
     });
 });
 

@@ -1,7 +1,9 @@
-from pydantic import BaseModel, field_serializer, field_validator
+from app.models.classification_evidence import ClassificationEvidence
+from pydantic import BaseModel, Field, field_serializer, field_validator
 from datetime import datetime
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.reference_images import bounded_reference_thumbnail
+from app.utils.reference_text import reference_plain_text
 
 
 class OAuthAuthorizeResponse(BaseModel):
@@ -53,6 +55,8 @@ class Detection(APIModel):
     frigate_score: float | None = None
     sub_label: str | None = None
     manual_tagged: bool = False
+    classification_input: ClassificationEvidence | None = None
+    initial_classification_input: ClassificationEvidence | None = None
     # Audio correlation fields
     audio_confirmed: bool = False
     audio_species: str | None = None
@@ -93,8 +97,12 @@ class Detection(APIModel):
 
 
 class BirdSpeciesCount(BaseModel):
-    species: str
+    species: str = Field(..., description="The stored label, usually the classifier's scientific name")
     count: int
+    common_name: str | None = Field(
+        None, description="Catalogue name in the reader's language, when the label resolves"
+    )
+    scientific_name: str | None = Field(None, description="Catalogue scientific name, when the label resolves")
 
 
 class DetectionBirdSummary(BaseModel):
@@ -122,6 +130,8 @@ class DetectionResponse(Detection):
 
 
 class DetectionListItemResponse(APIModel):
+    classification_input: ClassificationEvidence | None = None
+    manual_tagged: bool = False
     id: int | None = None
     detection_time: datetime
     detection_index: int
@@ -157,6 +167,7 @@ class DetectionVisitResponse(APIModel):
     best_score: float
     needs_review: bool
     audio_confirmed: bool
+    owner_confirmed: bool = False
     representative: DetectionResponse
     latest: DetectionResponse
     peak_capture: DetectionResponse | None = None
@@ -221,6 +232,11 @@ class SpeciesInfo(APIModel):
     conservation_status: str | None = None
     taxa_id: int | None = None
     cached_at: datetime | None = None
+
+    @field_validator("extract", "description")
+    @classmethod
+    def readable_reference_text(cls, value: str | None) -> str | None:
+        return reference_plain_text(value)
 
     @field_validator("thumbnail_url")
     @classmethod

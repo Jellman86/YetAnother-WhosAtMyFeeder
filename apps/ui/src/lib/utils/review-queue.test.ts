@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
-import { buildReviewQueue as buildQueue } from './review-queue';
+import { buildReviewQueue as buildQueue, reviewReasonMessage } from './review-queue';
 
 function detection(overrides: Partial<Detection> & { frigate_event: string }): Detection {
     return {
@@ -17,6 +17,18 @@ function buildReviewQueue(detections: readonly Detection[], limit: number = 4) {
 }
 
 describe('buildReviewQueue', () => {
+    it('says whether each detection waits for want of a species or for a shaky score', () => {
+        const queue = buildReviewQueue([
+            detection({ frigate_event: 'unnamed', display_name: 'Unknown Bird', score: 0.91 }),
+            detection({ frigate_event: 'blank', display_name: '  ', score: 0.91 }),
+            detection({ frigate_event: 'shaky', display_name: 'Dunnock', score: 0.42 })
+        ]);
+
+        expect(queue.reasons.get('unnamed')).toBe('unknown_species');
+        expect(queue.reasons.get('blank')).toBe('unknown_species');
+        expect(queue.reasons.get('shaky')).toBe('low_score');
+    });
+
     it('uses the configured naming threshold when deciding what needs a person', () => {
         const queue = buildQueue(
             [
@@ -38,6 +50,19 @@ describe('buildReviewQueue', () => {
 
         expect(queue.total).toBe(2);
         expect(queue.items.map((item) => item.frigate_event)).toEqual(['unknown', 'weak']);
+    });
+
+    it('accepts confident whole-view names while keeping low-confidence whole-view names for review', () => {
+        const queue = buildReviewQueue([
+            detection({ frigate_event: 'confident-whole', display_name: 'Dunnock', score: 0.8688878715,
+                classification_input: { source: 'full_frame', is_cropped: false } }),
+            detection({ frigate_event: 'weak-whole', score: 0.59,
+                classification_input: { source: 'full_frame', is_cropped: false } }),
+            detection({ frigate_event: 'owner-whole', score: 0.2, manual_tagged: true,
+                classification_input: { source: 'full_frame', is_cropped: false } })
+        ]);
+        expect(queue.items.map(item => item.frigate_event)).toEqual(['weak-whole']);
+        expect(queue.reasons.get('weak-whole')).toBe('low_score');
     });
 
     it('puts the longest-waiting detection first so the backlog drains from the back', () => {
@@ -104,6 +129,53 @@ describe('buildReviewQueue', () => {
 });
 
 describe('buildReviewQueue with new-species candidates (#310)', () => {
+    it('honors a saved choice after that event leaves the recent history page', () => {
+        const old = detection({ frigate_event: 'outside-page', score: 0.2 });
+        const localChoices = new Map([['outside-page', { manual_tagged: true, classification_input: { source: 'owner_species_choice' } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(0);
+    });
+
+    it('does not treat an ordinary automatic patch as an owner decision', () => {
+        const old = detection({ frigate_event: 'automatic' });
+        const localChoices = new Map([['automatic', { score: 0.98, classification_input: { source: 'full_frame', is_cropped: false } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(1);
+    });
+
+    it('allows review after an explicit new generation replaces the local choice', () => {
+        const old = detection({ frigate_event: 'reanalysed' });
+        const localChoices = new Map([['reanalysed', { manual_tagged: false, classification_input: { source: 'full_frame', is_cropped: false } }]]);
+        expect(buildQueue([], { reviewThreshold: 0.6, localChoices, newSpecies: [{ detection: old, sightings: 1 }] }).total).toBe(1);
+    });
+
+    it('uses a saved owner decision outside the desk window over a stale newcomer', () => {
+        const old = detection({ frigate_event: 'yesterday', score: 0.2, detection_time: '2026-08-10T08:00:00Z' });
+        const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [reviewed], newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+    });
+
+    it('uses a hidden historical record over an older visible newcomer', () => {
+        const old = detection({ frigate_event: 'hidden-yesterday' });
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [{ ...old, is_hidden: true }], newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+    });
+
+    it('keeps an unreviewed historical newcomer without admitting other old low scores', () => {
+        const newcomer = detection({ frigate_event: 'yesterday-newcomer', score: 0.2 });
+        const oldLowScore = detection({ frigate_event: 'yesterday-low-score', score: 0.1 });
+        const queue = buildQueue([], { reviewThreshold: 0.6, knownDetections: [newcomer, oldLowScore], newSpecies: [{ detection: newcomer, sightings: 2 }] });
+        expect(queue.items.map(item => item.frigate_event)).toEqual(['yesterday-newcomer']);
+        expect(queue.reasons.get('yesterday-newcomer')).toBe('new_species');
+    });
+
+    it('does not requeue a saved owner choice from an older new-species response', () => {
+        const old = detection({ frigate_event: 'reviewed', score: 0.2 });
+        const reviewed = { ...old, manual_tagged: true, classification_input: { source: 'owner_species_choice' } };
+        const queue = buildQueue([reviewed], { reviewThreshold: 0.6, newSpecies: [{ detection: old, sightings: 2 }] });
+        expect(queue.total).toBe(0);
+        expect(queue.reasons.size).toBe(0);
+    });
+
     it('queues an unconfirmed newcomer with its reason and sighting count', () => {
         const newcomer = detection({ frigate_event: 'ibis', display_name: 'Hadeda Ibis', score: 0.34 });
         const queue = buildQueue([detection({ frigate_event: 'named', score: 0.98 })], {
@@ -150,5 +222,23 @@ describe('buildReviewQueue with new-species candidates (#310)', () => {
         });
 
         expect(queue.items.map((item) => item.frigate_event)).toEqual(['older', 'newer']);
+    });
+});
+
+describe('reviewReasonMessage', () => {
+    it('words every reason a detection can wait for', () => {
+        expect(reviewReasonMessage('unknown_species', 0)).toEqual({
+            key: 'dashboard.review_queue.reason_unknown_species',
+            default: 'Unknown species'
+        });
+        expect(reviewReasonMessage('low_score', 0)).toEqual({
+            key: 'dashboard.review_queue.reason_low_score',
+            default: 'Below the naming threshold'
+        });
+        expect(reviewReasonMessage('new_species', 3)).toEqual({
+            key: 'dashboard.review_queue.new_species_tag',
+            default: 'New species · {count, plural, one {# sighting} other {# sightings}}',
+            values: { count: 3 }
+        });
     });
 });

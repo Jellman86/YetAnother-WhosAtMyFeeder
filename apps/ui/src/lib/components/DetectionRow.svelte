@@ -12,6 +12,7 @@
      * score) rather than inventing a second list shape for the same data.
      */
     import { _ } from 'svelte-i18n';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
     import type { Detection } from '../api';
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
@@ -22,7 +23,10 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
     import type { SpeciesInCapture } from '../utils/visit-captures';
+    import { frameScan } from '../utils/frame-scan';
+    import FrameScanRibbon from './FrameScanRibbon.svelte';
 
     interface Props {
         detection: Detection;
@@ -32,13 +36,17 @@
         selected?: boolean;
         /** Species in the visit's busiest capture, when there is more than one. */
         speciesMix?: SpeciesInCapture[] | null;
+        /** That busiest capture, stacked behind the visit's photo so the row reads as several birds. */
+        stackFrame?: Detection | null;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
         /** Opens the capture the species were counted in. */
         onopenCapture?: () => void;
+        /** The open detail view already shows this detection's scan. */
+        hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, matchedCalls = 0, onopenCapture }: Props = $props();
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, stackFrame = null, matchedCalls = 0, onopenCapture, hideProgress = false }: Props = $props();
     const uid = $props.id();
     let speciesOpen = $state(false);
     const mixed = $derived((speciesMix?.length ?? 0) >= 2);
@@ -58,11 +66,9 @@
         }
     });
 
-    const naming = $derived.by(() => {
-        const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
-        const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
-        return getBirdNames(detection, showCommon, preferSci);
-    });
+    const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
+    const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
+    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
 
     const primaryName = $derived(mixed ? $_('events.multiple_species', { default: 'Multiple species' }) : naming.primary);
     const subName = $derived(mixed ? null : naming.secondary);
@@ -83,6 +89,41 @@
     const score = $derived(Math.round((detection.score ?? 0) * 100));
 
     /**
+     * A running reclassification is drawn faintly behind the row, like a sonogram under a field
+     * note, so the row keeps its height and its time column. The bars are too faint to carry
+     * meaning, so the score column states the progress in words while the scan runs, and the
+     * row's small text steps one shade darker to stay at AA contrast over the strongest bars.
+     */
+    const scanProgress = $derived(
+        hideProgress ? null : (detectionsStore.getReclassificationProgress(detection.frigate_event) ?? null)
+    );
+    const scan = $derived(scanProgress ? frameScan(scanProgress) : null);
+    // A snapshot fallback has no frames to draw, only a share of the work done.
+    const scanFromSnapshot = $derived((scanProgress?.fallbackFrom ?? '').toLowerCase() === 'video');
+    const snapshotPercent = $derived(
+        scanProgress && scan ? Math.round((Math.min(scan.total, Math.max(0, scanProgress.currentFrame || 0)) / scan.total) * 100) : 0
+    );
+    const scanStatus = $derived(
+        scan?.complete
+            ? $_('detection.card_analysis.finalizing_subtitle', { default: 'Applying the best match' })
+            : scanFromSnapshot
+              ? $_('detection.card_analysis.snapshot_subtitle', { default: 'Using the best available snapshot' })
+              : $_('detection.card_analysis.video_subtitle', { default: 'Scanning video frames' })
+    );
+    const scanValueText = $derived(
+        !scan
+            ? ''
+            : scanFromSnapshot
+              ? `${snapshotPercent}%`
+              : scan.complete
+                ? $_('detection.frame_scan.complete', { values: { total: scan.total }, default: 'All {total} frames read' })
+                : $_('detection.frame_scan.value_text', {
+                      values: { read: scan.readCount, total: scan.total },
+                      default: '{read} of {total} frames read'
+                  })
+    );
+
+    /**
      * Amber is reserved for "this needs a person", and what counts as needing
      * one is the owner's own classification threshold — the same rule the
      * dashboard's review queue and field log already apply. Inventing a number
@@ -95,25 +136,21 @@
     );
     const needsAttention = $derived(needsReview(detection, reviewThreshold));
 
-    /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */
-    const scoreTone = $derived(
-        (detection.score ?? 0) < 0.6
-            ? 'text-accent-700 dark:text-accent-300'
-            : (detection.score ?? 0) < 0.85
-              ? 'text-brand-700 dark:text-brand-300'
-              : 'text-success-700 dark:text-success-300'
-    );
+    const scoreTone = $derived(SCORE_TEXT[scoreBand(detection.score)]);
 </script>
 
 <div
     class="group relative grid grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-slate-200 px-3 last:border-b-0 dark:border-slate-800
-           {needsAttention ? 'bg-accent-500/10' : ''}
-           {selected ? 'bg-brand-500/10' : ''}"
+           {needsAttention ? 'bg-attention-500/5' : ''}
+           {selected ? 'bg-brand-500/10 ring-2 ring-inset ring-brand-500 dark:ring-brand-400' : ''}"
     data-detection-row
     data-frigate-event={detection.frigate_event}
 >
-    {#if needsAttention}
-        <span class="absolute inset-y-0 left-0 w-[3px] bg-accent-500" aria-hidden="true"></span>
+    {#if scanProgress && !scanFromSnapshot}
+        <!-- Under the subject and score columns only: the time and photo stay clear to scan. -->
+        <div class="pointer-events-none absolute bottom-0 left-36 right-3 top-1.5 z-0 opacity-25">
+            <FrameScanRibbon progress={scanProgress} variant="backdrop" />
+        </div>
     {/if}
 
     <!-- The whole row is the control, so a thumb lands anywhere along it. -->
@@ -122,6 +159,7 @@
         {onclick}
         class="absolute inset-0 z-0 cursor-pointer rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
         aria-label={selectionMode ? selectLabel : openLabel}
+        aria-pressed={selectionMode ? selected : undefined}
     ></button>
 
     <div class="pointer-events-none relative z-10 py-2">
@@ -138,14 +176,12 @@
     <!-- The same pop-out the field log uses, so a row and a log entry answer
          "which bird is that" the same way. It reuses the image already fetched,
          opens on focus as well as hover, and closes on Escape. -->
-    <div class="relative z-10 flex justify-center">
-        {#if mixed}
-            <!-- Layered like a heard band: one capture, more than one species in it. -->
-            <span class="absolute left-1.5 top-1.5 h-11 w-11 rounded-lg bg-slate-200 ring-1 ring-slate-300 dark:bg-slate-700 dark:ring-slate-600" aria-hidden="true"></span>
-        {/if}
+    <div class="relative z-10 flex justify-center" data-detection-row-photo={mixed ? 'stack' : 'single'}>
+        <!-- A capture with several species stacks its busiest capture behind, as a heard band does. -->
         <DetectionPreview
             interactive={!selectionMode}
             {detection}
+            stackBehind={mixed ? (stackFrame ?? detection) : null}
             primaryName={primaryName}
             secondaryName={subName}
             onopen={() => onclick?.()}
@@ -161,10 +197,12 @@
             {/if}
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
-            {#if needsAttention}
-                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="shrink-0 text-accent-700 dark:text-accent-300">
-                    {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold {scan ? 'text-slate-600 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}">
+            {#if scan}
+                <span class="shrink-0 text-brand-800 dark:text-brand-200">{scanStatus}</span>
+            {:else if needsAttention}
+                <BadgeHint text={$_('dashboard.review_session.threshold_note')} class="inline-flex items-center gap-1.5 shrink-0 text-attention-800 dark:text-attention-300" data-attention-reason>
+                    <span class="attention-dot" aria-hidden="true"></span>{$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
                 </BadgeHint>
             {:else if subName && subName !== primaryName}
                 <span class="min-w-0 truncate italic">{subName}</span>
@@ -177,7 +215,7 @@
                 </BadgeHint>
             {/if}
             {#if upstreamMissing}
-                <BadgeHint text={$_('detection.upstream_missing.card_title')} class="shrink-0 text-accent-700 dark:text-accent-300">
+                <BadgeHint text={$_('detection.upstream_missing.card_title')} class="shrink-0 text-orange-700 dark:text-orange-300">
                     {$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
                 </BadgeHint>
             {/if}
@@ -187,7 +225,7 @@
             <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.species_in_capture', { default: 'Species in this capture' })}>
                 {#each speciesMix as entry (entry.species)}
                     <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
-                        {entry.species}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
+                        {getBirdNames(entry, showCommon, preferSci).primary}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
                     </li>
                 {/each}
             </ul>
@@ -211,7 +249,26 @@
                 </svg>
             </button>
         {/if}
-        {#if mixed && !selectionMode}
+        {#if scan}
+            <div
+                class="pointer-events-none min-w-[2.75rem] text-right"
+                role="progressbar"
+                aria-label={$_('detection.frame_scan.title', { default: 'Video frames read' })}
+                aria-valuemin={0}
+                aria-valuemax={scanFromSnapshot ? 100 : scan.total}
+                aria-valuenow={scanFromSnapshot ? snapshotPercent : scan.readCount}
+                aria-valuetext={scanValueText}
+            >
+                <span class="block font-display text-sm font-bold tabular-nums leading-tight text-brand-800 dark:text-brand-300">
+                    {scanFromSnapshot ? `${snapshotPercent}%` : `${scan.readCount}/${scan.total}`}
+                </span>
+                <span class="block text-3xs font-semibold text-slate-600 dark:text-slate-300">
+                    {scanFromSnapshot
+                        ? $_('detection.reclassification.analysis', { default: 'Analysis' })
+                        : $_('detection.frame_scan.frames_unit', { default: 'frames' })}
+                </span>
+            </div>
+        {:else if mixed && !selectionMode}
             <!-- One score cannot speak for several species, so the row offers the species instead. -->
             <button
                 type="button"
@@ -234,21 +291,24 @@
             <div class="pointer-events-none min-w-[2.75rem] text-right">
                 <BadgeHint text={$_('detection.confidence_hint', { values: { score } })}
                     class="font-display text-sm font-bold tabular-nums leading-tight {scoreTone}"
+                    data-detection-score
                 >
                     {score}%
                 </BadgeHint>
             </div>
         {/if}
         {#if selectionMode}
+            <!-- The card's check: filled when chosen, an empty circle when it can be. -->
             <span
-                class="pointer-events-none inline-flex h-5 w-5 items-center justify-center rounded-md border-2
+                class="pointer-events-none inline-flex h-6 w-6 items-center justify-center rounded-full border-2
                        {selected
-                    ? 'border-brand-500 bg-brand-500 text-white'
-                    : 'border-slate-300 dark:border-slate-600'}"
+                    ? 'border-brand-700 bg-brand-700 text-white'
+                    : 'border-slate-400 dark:border-slate-500'}"
                 aria-hidden="true"
+                data-detection-row-check={selected ? 'selected' : 'unselected'}
             >
                 {#if selected}
-                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                 {/if}
@@ -260,7 +320,7 @@
             <ul class="divide-y divide-slate-200/70 dark:divide-slate-800/80">
                 {#each speciesMix as entry (entry.species)}
                     <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
-                        <span class="font-semibold text-slate-800 dark:text-slate-100">{entry.species}</span>
+                        <span class="font-semibold text-slate-800 dark:text-slate-100">{getBirdNames(entry, showCommon, preferSci).primary}</span>
                         <span class="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
                     </li>
                 {/each}

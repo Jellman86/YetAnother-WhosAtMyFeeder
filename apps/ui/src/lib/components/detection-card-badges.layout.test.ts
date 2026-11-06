@@ -51,7 +51,8 @@ describe('detection card overlay badges', () => {
         // the card's overflow-hidden clipped the play button entirely. A
         // minimum card width makes the guarantee structural instead of a
         // breakpoint-by-breakpoint hope.
-        expect(eventsPageSource).toContain('grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]');
+        // min() lets a phone narrower than the minimum, at the largest text, hold one full-width card.
+        expect(eventsPageSource).toContain('grid-cols-[repeat(auto-fill,minmax(min(16rem,100%),1fr))]');
         expect(eventsPageSource).not.toMatch(/md:grid-cols-3|2xl:grid-cols-4/);
     });
 

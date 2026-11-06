@@ -11,10 +11,15 @@ The rule is the one the detection backfill already follows: a name resolving to
 exactly one identity gains it, anything ambiguous or unknown keeps nothing.
 """
 
+import asyncio
+from datetime import datetime, timezone
+import threading
+
 import aiosqlite
 import pytest
 import pytest_asyncio
 
+from app.repositories.audio_history_repository import AudioHistoryRepository
 from app.repositories.detection_repository import DetectionRepository
 from app.services.audio_identity import resolve_audio_identity
 
@@ -111,7 +116,7 @@ async def test_the_backfill_only_touches_rows_without_an_identity(audio_repo):
     await db.commit()
 
     resolver = _Resolver({"Prunella modularis": (10081, "resolved"), "Erithacus rubecula": (9293, "resolved")})
-    summary = await repo.backfill_audio_species_ids(resolver=resolver)
+    summary = await AudioHistoryRepository(repo.db).backfill_audio_species_ids(resolver=resolver)
 
     assert summary["identified"] == 1
     rows = await (await db.execute("SELECT scientific_name, species_id FROM audio_detections ORDER BY id")).fetchall()
@@ -128,7 +133,7 @@ async def test_the_backfill_counts_what_it_could_not_identify(audio_repo):
     )
     await db.commit()
 
-    summary = await repo.backfill_audio_species_ids(resolver=_Resolver({}))
+    summary = await AudioHistoryRepository(repo.db).backfill_audio_species_ids(resolver=_Resolver({}))
     assert summary["identified"] == 0
     assert summary["unresolved"] == 1
 
@@ -143,8 +148,8 @@ async def test_running_the_backfill_again_changes_nothing(audio_repo):
     await db.commit()
     resolver = _Resolver({"Prunella modularis": (10081, "resolved")})
 
-    first = await repo.backfill_audio_species_ids(resolver=resolver)
-    second = await repo.backfill_audio_species_ids(resolver=resolver)
+    first = await AudioHistoryRepository(repo.db).backfill_audio_species_ids(resolver=resolver)
+    second = await AudioHistoryRepository(repo.db).backfill_audio_species_ids(resolver=resolver)
 
     assert first["identified"] == 1
     assert second["identified"] == 0, "a second run has nothing left to do"
@@ -165,7 +170,7 @@ async def test_two_names_for_one_bird_are_counted_once(audio_repo):
         )
     await db.commit()
 
-    rows = await repo.get_audio_species_counts(
+    rows = await AudioHistoryRepository(repo.db).get_audio_species_counts(
         now - timedelta(hours=1), now + timedelta(hours=1), now - timedelta(hours=2), now - timedelta(hours=1)
     )
     assert len(rows) == 1, f"one bird under two names must count once: {rows}"
@@ -185,7 +190,78 @@ async def test_audio_without_identity_groups_by_name_as_before(audio_repo):
         )
     await db.commit()
 
-    rows = await repo.get_audio_species_counts(
+    rows = await AudioHistoryRepository(repo.db).get_audio_species_counts(
         now - timedelta(hours=1), now + timedelta(hours=1), now - timedelta(hours=2), now - timedelta(hours=1)
     )
     assert sorted(r["window_count"] for r in rows) == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_audio_insert_resolves_catalogue_off_loop_before_starting_write(audio_repo, monkeypatch):
+    repo, db = audio_repo
+    await db.execute("CREATE UNIQUE INDEX audio_source_event ON audio_detections(source_event_id)")
+    await db.commit()
+    loop = asyncio.get_running_loop()
+    entered = asyncio.Event()
+    release = threading.Event()
+    caller_thread = threading.get_ident()
+    resolver_threads = []
+
+    def resolve(_name):
+        resolver_threads.append(threading.get_ident())
+        loop.call_soon_threadsafe(entered.set)
+        return 10081 if release.wait(2) else None
+
+    monkeypatch.setattr("app.services.audio_identity.resolve_audio_identity", resolve)
+    insertion = asyncio.create_task(
+        AudioHistoryRepository(repo.db).insert_audio_detection_idempotent(
+            timestamp=datetime.now(timezone.utc),
+            species="Dunnock",
+            confidence=0.9,
+            sensor_id="test",
+            raw_data={},
+            scientific_name="Prunella modularis",
+            source_event_id="async-identity",
+        )
+    )
+    try:
+        await asyncio.wait_for(entered.wait(), 5)
+        assert not insertion.done(), "a blocked catalogue must not block other coroutines"
+        assert not db.in_transaction, "catalogue resolution precedes the write transaction"
+        assert len(resolver_threads) == 1
+        assert resolver_threads[0] != caller_thread
+        release.set()
+        row_id, inserted = await asyncio.wait_for(insertion, 5)
+        assert inserted is True
+        async with db.execute("SELECT species_id FROM audio_detections WHERE id = ?", (row_id,)) as cursor:
+            assert await cursor.fetchone() == (10081,)
+    finally:
+        release.set()
+        await asyncio.gather(insertion, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("identity", [None, 10081])
+async def test_async_audio_identity_preserves_unresolved_ingest_and_idempotency(audio_repo, monkeypatch, identity):
+    repo, db = audio_repo
+    await db.execute("CREATE UNIQUE INDEX audio_source_event ON audio_detections(source_event_id)")
+    await db.commit()
+    monkeypatch.setattr("app.services.audio_identity.resolve_audio_identity", lambda _name: identity)
+    arguments = dict(
+        timestamp=datetime.now(timezone.utc),
+        species="Dunnock",
+        confidence=0.9,
+        sensor_id="test",
+        raw_data={},
+        scientific_name="Prunella modularis",
+        source_event_id="same-event",
+    )
+    row_id, inserted = await AudioHistoryRepository(repo.db).insert_audio_detection_idempotent(**arguments)
+    repeated_id, repeated_inserted = await AudioHistoryRepository(repo.db).insert_audio_detection_idempotent(
+        **arguments
+    )
+    assert inserted is True
+    assert repeated_inserted is False
+    assert repeated_id == row_id
+    async with db.execute("SELECT species_id FROM audio_detections") as cursor:
+        assert await cursor.fetchall() == [(identity,)]

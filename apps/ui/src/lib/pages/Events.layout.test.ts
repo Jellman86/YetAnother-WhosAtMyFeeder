@@ -10,28 +10,36 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('data-explorer-token');
         expect(filtersSource).toContain('data-explorer-facets');
         // Every option states how many results it would return before it is applied.
-        expect(filtersSource).toContain('{item.count ?? 0}');
-        expect(filtersSource).toContain('{cameraCounts[camera] ?? 0}');
-        expect(filtersSource).toContain('{totals?.favorites ?? 0}');
+        expect(filtersSource).toContain('chosenEnd(chosen, item.count ?? 0)');
+        expect(filtersSource).toContain('(cameraCounts[camera] ?? 0)');
+        expect(filtersSource).toContain('chosenEnd(favoritesOnly, totals?.favorites ?? 0)');
         // The panel is closed until asked for, so the photographs are not pushed down.
         expect(filtersSource).toContain('let panelOpen = $state(false)');
     });
 
     it('passes naming-aware species labels to the responsive filter panel', () => {
         expect(eventsSource).toContain('let displaySpecies = $derived(');
-        expect(eventsSource).toContain('display_name: formatSpeciesLabel(item)');
+        // The rail names a species as the cards do, the other name on its own line beneath.
+        expect(eventsSource).toContain('display_name: names.primary, display_secondary: names.secondary');
         expect(eventsSource).toContain('species={displaySpecies}');
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
-    it('shows the complete species facet before the collapsible filters', () => {
-        expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
-        expect(filtersSource).not.toContain('.slice(0, 12)');
+    it('puts the window first and keeps every species reachable in one scrolling rail', () => {
+        expect(filtersSource).toContain('sortExplorerSpecies(species)');
+        // The short list hides nothing for good: Show all reaches every species, and the one search box finds any by name.
+        expect(filtersSource).toContain('{@render search()}');
+        expect(eventsSource).toContain('<ExplorerSearch');
+        expect(filtersSource).toContain('shownExplorerSpecies(');
+        expect(filtersSource).toContain('data-explorer-species-more');
         expect(filtersSource).toContain('data-explorer-species-facet');
         expect(filtersSource).toContain('data-explorer-species-list');
         expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
-        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-date-facet'));
         expect(filtersSource).toContain('lg:overflow-y-auto');
+        // A list scrolling inside the scrolling rail trapped the wheel.
+        expect(filtersSource).not.toContain('max-h-64');
+        expect(filtersSource.indexOf('data-explorer-date-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-species-facet'));
+        expect(filtersSource.indexOf('data-explorer-species-facet')).toBeLessThan(filtersSource.indexOf('data-explorer-camera-facet'));
     });
 
     it('separates the timeline and pagination with space, not rules', () => {
@@ -48,8 +56,15 @@ describe('Explorer page layout', () => {
         expect(paginationSource).toContain('hidden items-center gap-1 sm:flex');
     });
 
+    it('names the page-size select by its visible label and keeps the arrows at the touch floor', () => {
+        // A hidden aria-label different from the visible "Show:" breaks WCAG 2.5.3, Label in Name.
+        expect(paginationSource).toContain('<label for="page-size-selector">');
+        expect(paginationSource).not.toContain('pagination.page_size_aria');
+        expect(paginationSource.match(/class="btn btn-ghost btn-icon /g) ?? []).toHaveLength(2);
+    });
+
     it('labels the page-level selection toggle as Multi Select', () => {
-        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess}');
+        expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && !gardenOnly}');
         expect(eventsSource).toContain("$_('common.multi_select', { default: 'Multi Select' })");
         expect(eventsSource).not.toContain("selectionMode ? $_('common.cancel') : $_('common.select', { default: 'Select' })");
     });
@@ -57,9 +72,36 @@ describe('Explorer page layout', () => {
     it('keeps selection wording in the bulk toolbar instead of inside each card', () => {
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && selectionMode}');
         expect(eventsSource).toContain('{#if authStore.hasOwnerAccess && showBulkTagModal}');
-        expect(eventsSource).toContain("selectedEventIds.length");
-        expect(eventsSource).toContain("$_('common.selected', { default: 'selected' })");
-        expect(eventsSource).toContain("$_('common.select', { default: 'Select' }) + ' events to act on.'");
+        // One plural message, not a number glued to a word and a hard-coded English sentence.
+        expect(eventsSource).toContain("$_('events.selection_count', {");
+        expect(eventsSource).toContain('values: { count: selectedEventIds.length }');
+        expect(eventsSource).not.toContain("$_('common.selected', { default: 'selected' })");
+        expect(eventsSource).not.toContain("' events to act on.'");
+    });
+
+    it('decides the results pane in one tested place, so a failure never reads as an empty history', () => {
+        expect(eventsSource).toContain('const pane = $derived(explorerPane({ loading, failed: error !== null, measured,');
+        // Each empty state is reached only through the decision, never from an unchecked length.
+        expect(eventsSource).not.toContain('!loading && entries.length === 0');
+        expect(eventsSource).toContain("{:else if pane.state === 'empty' || pane.state === 'empty-filtered'}");
+        // The failure is announced, worded, and offers a real button.
+        expect(eventsSource).toMatch(/role="alert"[\s\S]{0,400}data-explorer-error=\{pane\.state\}/);
+        expect(eventsSource).toContain("$_('events.try_again', { default: 'Try again' })");
+        expect(eventsSource).not.toContain('class="ml-2 underline"');
+    });
+
+    it('states the count only once measured, as a status, and dims stale results while busy', () => {
+        expect(eventsSource).toMatch(/role="status"\s+tabindex="-1"\s+data-explorer-count=\{pane\.count\}/);
+        expect(eventsSource).toContain("$_('events.count_unavailable', { default: 'Count unavailable' })");
+        expect(eventsSource).toContain('aria-busy={loading}');
+        expect(eventsSource).toContain("{pane.stale ? 'opacity-60' : ''}");
+        expect(eventsSource).toContain('<ExplorerPlaceholders view="cards" />');
+        expect(eventsSource).toContain('<ExplorerPlaceholders view="list" />');
+    });
+
+    it('starts a new page at its top with focus on the count', () => {
+        expect(eventsSource).toMatch(/function handlePageChange\(page: number\) \{[\s\S]*?revealResultsTop\(\);/);
+        expect(eventsSource).toContain('count.focus({ preventScroll: true });');
     });
 
     it('treats AI analysis fields as part of selected-event sync state', () => {
@@ -92,6 +134,14 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('events.filters.end_date');
     });
 
+    it('keeps the filters in the address by replacing the history entry, never adding one', () => {
+        // Back leaves the Explorer; it does not step through every filter tried (FLT-01).
+        expect(eventsSource).toContain('writeExplorerQuery(window.location.search, currentQuery()');
+        expect(eventsSource).toContain('window.history.replaceState(window.history.state');
+        expect(eventsSource).not.toContain('history.pushState');
+        expect(eventsSource).toContain('applyQuery(parseExplorerQuery(');
+    });
+
     it('says the day chips describe the loaded page, not the whole filter', () => {
         // The chips group `events`, which is one page of results, while the heading
         // beside them counts the whole filter. Two numbers of different scope on one
@@ -103,7 +153,7 @@ describe('Explorer page layout', () => {
     it('does not ask a guest for the owner-only hidden count', () => {
         // A guest is always refused this endpoint and never sees the value, so the
         // request only ever produced a console 403 on every Explorer load.
-        expect(eventsSource).toContain('authStore.hasOwnerAccess ? fetchHiddenCount()');
+        expect(eventsSource).toContain('authStore.hasOwnerAccess ? await fetchHiddenCount()');
         expect(eventsSource).not.toMatch(/\n\s+fetchHiddenCount\(\)\.catch/);
     });
 

@@ -17,14 +17,22 @@
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { createAudioHistoryLoader } from './audio-history-loader';
+    import {
+        DEFAULT_AUDIO_HISTORY_FILTERS,
+        audioHistoryFiltersDiffer,
+        settledAudioHistoryFilters,
+        type AudioHistoryFilters
+    } from './audio-history-filters';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
     import { fetchSettings } from '../api/settings';
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
+    import { SCORE_TEXT, scoreBand } from '../utils/score-tone';
 
     const PAGE_SIZE = 25;
 
@@ -32,10 +40,17 @@
     let lastHiddenId = $state<number | null>(null);
     let visibilityError = $state<string | null>(null);
 
-    let days = $state(30);
-    let speciesFilter = $state('');
-    let sourceFilter = $state('');
-    let minConfidence = $state(0);
+    let days = $state(DEFAULT_AUDIO_HISTORY_FILTERS.days);
+    let speciesFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.species);
+    let sourceFilter = $state(DEFAULT_AUDIO_HISTORY_FILTERS.source);
+    let minConfidence = $state(DEFAULT_AUDIO_HISTORY_FILTERS.minConfidence);
+    // The list, charts and paging follow what was applied, never the half-edited form.
+    let applied = $state<AudioHistoryFilters>({ ...DEFAULT_AUDIO_HISTORY_FILTERS });
+    const filtersChanged = $derived(
+        audioHistoryFiltersDiffer({ days, species: speciesFilter, source: sourceFilter, minConfidence }, applied)
+    );
+    // Spectrograms BirdNET-Go could not render, keyed by its detection id.
+    let failedSpectrograms = $state<Record<number, true>>({});
     let history = $state<AudioHistoryResponse | null>(null);
     let summary = $state<AudioSummaryResponse | null>(null);
     let loading = $state(true);
@@ -102,6 +117,8 @@
     let canNext = $derived(Boolean(history && offset + history.limit < history.total));
 
     let isDark = $derived(themeStore.isDark);
+    // slate-500 on a light page and slate-400 on a dark one: slate-400 on white is 2.56:1, too faint for axis labels.
+    let chartTickColor = $derived(isDark ? '#94a3b8' : '#64748b');
     let hasDaily = $derived((summary?.daily_counts?.length ?? 0) > 0);
     let hasHourly = $derived((summary?.hourly_counts?.length ?? 0) > 0);
     let hasSpecies = $derived((summary?.top_species?.length ?? 0) > 0);
@@ -113,10 +130,10 @@
 
     function requestParams(includePaging = true) {
         return {
-            days,
-            species: speciesFilter.trim() || undefined,
-            source: sourceFilter.trim() || undefined,
-            min_confidence: minConfidence,
+            days: applied.days,
+            species: applied.species || undefined,
+            source: applied.source || undefined,
+            min_confidence: applied.minConfidence,
             limit: includePaging ? PAGE_SIZE : undefined,
             offset: includePaging ? offset : undefined
         };
@@ -188,16 +205,19 @@
         }
     }
 
-    function applyFilters() {
+    function applyFilters(event?: SubmitEvent) {
+        event?.preventDefault();
+        applied = settledAudioHistoryFilters({ days, species: speciesFilter, source: sourceFilter, minConfidence });
         offset = 0;
         void loadAudioHistory();
     }
 
     function clearFilters() {
-        days = 30;
-        speciesFilter = '';
-        sourceFilter = '';
-        minConfidence = 0;
+        days = DEFAULT_AUDIO_HISTORY_FILTERS.days;
+        speciesFilter = DEFAULT_AUDIO_HISTORY_FILTERS.species;
+        sourceFilter = DEFAULT_AUDIO_HISTORY_FILTERS.source;
+        minConfidence = DEFAULT_AUDIO_HISTORY_FILTERS.minConfidence;
+        applied = { ...DEFAULT_AUDIO_HISTORY_FILTERS };
         offset = 0;
         void loadAudioHistory();
     }
@@ -227,6 +247,10 @@
         // Loaded as an <img> src; append the JWT as a query param so it works
         // when authentication is enabled (mirrors Frigate media URLs and RecentAudio).
         return withAuthParams(`${appApiPath(`/audio/spectrogram/${birdnet_id}`)}?width=300`);
+    }
+
+    function markSpectrogramFailed(birdnetId: number | null | undefined): void {
+        if (birdnetId) failedSpectrograms = { ...failedSpectrograms, [birdnetId]: true };
     }
 
     function birdnetDetectionUrl(birdnet_id: number | null | undefined): string | null {
@@ -271,8 +295,8 @@
                     tooltip: { callbacks: { title: (items) => points[items[0]?.dataIndex]?.date ?? '' } },
                 },
                 scales: {
-                    x: { ticks: { color: '#94a3b8', maxTicksLimit: 6 }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                    x: { ticks: { color: chartTickColor, maxTicksLimit: 6 }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
                 },
             },
         };
@@ -307,8 +331,8 @@
                     tooltip: { callbacks: { title: (items) => `${labels[items[0]?.dataIndex] ?? '00'}:00` } },
                 },
                 scales: {
-                    x: { ticks: { color: '#94a3b8', autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
-                    y: { beginAtZero: true, ticks: { color: '#94a3b8', precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
+                    x: { ticks: { color: chartTickColor, autoSkip: false, minRotation: 0, maxRotation: 0, callback: (value) => Number(value) % 3 === 0 ? `${labels[Number(value)]}:00` : '' }, grid: { display: false } },
+                    y: { beginAtZero: true, ticks: { color: chartTickColor, precision: 0 }, grid: { color: isDark ? 'rgba(148,163,184,0.12)' : 'rgba(148,163,184,0.2)' } },
                 },
             },
         };
@@ -386,7 +410,7 @@
             <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{peakHour ? hourLabel(peakHour.hour) : '—'}</dd>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: `${peakHour.count} detections` }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</p>
             </div>
             <div class="px-3 py-4 sm:px-5">
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
@@ -397,7 +421,7 @@
     </section>
 
     <section class="border-b border-slate-200/80 pb-6 dark:border-slate-800" data-audio-history-filters>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto]">
+        <form class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto]" onsubmit={applyFilters}>
             <label class="space-y-1.5">
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
                 <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-brand-500">
@@ -424,10 +448,11 @@
                 <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500" />
             </label>
             <div class="flex items-end gap-2 md:col-span-2 xl:col-span-1">
-                <button type="button" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" onclick={applyFilters} disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
+                <button type="submit" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
                 <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
-        </div>
+        </form>
+        <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
     </section>
 
     <section class="space-y-5" data-audio-history-log>
@@ -489,17 +514,18 @@
                 </thead>
                 <tbody class="block divide-y divide-slate-200/80 border-y border-slate-200/80 md:table-row-group md:border-0 dark:divide-slate-800 dark:border-slate-800">
                     {#each detections as detection}
-                        {@const spec = spectrogramUrl(detection.birdnet_id)}
+                        {@const spec = detection.birdnet_id && failedSpectrograms[detection.birdnet_id] ? null : spectrogramUrl(detection.birdnet_id)}
+                        {@const specAlt = $_('audio.table.spectrogram_alt', { values: { species: detection.species }, default: 'Spectrogram of the {species} call' })}
                         {@const link = birdnetDetectionUrl(detection.birdnet_id)}
                         <tr class="grid grid-cols-[5rem_minmax(0,1fr)_auto] grid-rows-2 gap-x-3 py-3 text-slate-700 md:table-row md:py-0 dark:text-slate-200">
                             <td class="row-span-2 flex items-center md:table-cell md:w-28 md:py-3 md:pr-4">
                                 {#if spec}
                                     {#if link}
                                         <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
-                                            <img data-audio-spectrogram src={spec} alt={detection.species} loading="lazy" class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
+                                            <img data-audio-spectrogram src={spec} alt={specAlt} loading="lazy" onerror={() => markSpectrogramFailed(detection.birdnet_id)} class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                         </a>
                                     {:else}
-                                        <img data-audio-spectrogram src={spec} alt={detection.species} loading="lazy" class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
+                                        <img data-audio-spectrogram src={spec} alt={specAlt} loading="lazy" onerror={() => markSpectrogramFailed(detection.birdnet_id)} class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                     {/if}
                                 {:else}
                                     <div class="flex h-12 w-20 items-center justify-center rounded-md bg-slate-100 text-slate-400 md:w-24 dark:bg-slate-800 dark:text-slate-500">
@@ -534,7 +560,7 @@
                                 {detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}
                             </td>
                             <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right md:table-cell md:py-3">
-                                <span class="font-bold tabular-nums {detection.confidence > 0.7 ? 'text-green-600 dark:text-green-300' : 'text-amber-600 dark:text-amber-300'}">{confidencePercent(detection.confidence)}</span>
+                                <span class="font-bold tabular-nums {SCORE_TEXT[scoreBand(detection.confidence)]}">{confidencePercent(detection.confidence)}</span>
                             </td>
                             {#if authStore.canModify}
                                 <td class="col-span-3 text-right md:table-cell md:py-3 md:pl-3">
@@ -573,7 +599,7 @@
             {#if loading}
                 <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
             {:else if hasDaily}
-                {#key `${days}-${isDark}-${reduceMotion}`}
+                {#key `${applied.days}-${isDark}-${reduceMotion}`}
                     <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
                 {/key}
             {:else}
@@ -587,7 +613,7 @@
                 {#if loading}
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasHourly}
-                    {#key `${days}-${isDark}-${reduceMotion}`}
+                    {#key `${applied.days}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={hourlyChartConfig()} aria-label={$_('audio.chart.hourly_title', { default: 'Time of day' })}></canvas></div>
                     {/key}
                 {:else}
@@ -599,7 +625,7 @@
                 {#if loading}
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
-                    {#key `${days}-${isDark}-${reduceMotion}`}
+                    {#key `${applied.days}-${isDark}-${reduceMotion}`}
                         <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
                             {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
@@ -680,6 +706,10 @@
 </div>
 
 {#if selectedSpecies}
-    <SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 {/if}

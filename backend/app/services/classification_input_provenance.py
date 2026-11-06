@@ -10,9 +10,55 @@ import math
 from typing import Any
 
 import structlog
+from pydantic import ValidationError
+
+from app.models.classification_evidence import ClassificationEvidence
 
 
 log = structlog.get_logger()
+
+
+def classification_evidence(result: dict[str, Any]) -> ClassificationEvidence | None:
+    """Retain known source facts, discarding invalid optional geometry rather than guessing."""
+    source = "frigate_sublabel" if result.get("source") == "frigate_fallback" else result.get("input_source")
+    if not isinstance(source, str) or not source.strip() or len(source.strip()) > 64:
+        return None
+    values: dict[str, Any] = {"source": source.strip()}
+    if type(result.get("input_is_cropped")) is bool and source != "frigate_sublabel":
+        values["is_cropped"] = result["input_is_cropped"]
+    elif source in _CROPPED_SNAPSHOT_SOURCES | {
+        "provided_crop",
+        "model_crop",
+        "frigate_hint_crop",
+        "snapshot_model_crop",
+        "snapshot_frigate_hint_crop",
+        "recording_snapshot_frigate_hint_crop",
+    }:
+        values["is_cropped"] = True
+    elif source in _FULL_FRAME_SNAPSHOT_SOURCES | {"full_frame"}:
+        values["is_cropped"] = False
+    for source_key, target_key in (
+        ("input_box", "box"),
+        ("input_frame_size", "frame_size"),
+        ("input_frame_time", "frame_time"),
+        ("input_frame_sha256", "frame_sha256"),
+        ("temporal_supporting_frames", "supporting_frames"),
+    ):
+        if result.get(source_key) is not None:
+            candidate = {**values, target_key: result[source_key]}
+            # Geometry is validated as one pair below.
+            if target_key in {"box", "frame_size"}:
+                continue
+            try:
+                ClassificationEvidence.model_validate(candidate)
+            except ValidationError:
+                continue
+            values = candidate
+    geometry = {**values, "box": result.get("input_box"), "frame_size": result.get("input_frame_size")}
+    try:
+        return ClassificationEvidence.model_validate(geometry)
+    except ValidationError:
+        return ClassificationEvidence.model_validate(values)
 
 
 _CROPPED_SNAPSHOT_SOURCES = frozenset(
@@ -98,6 +144,7 @@ def build_snapshot_classification_input_context(
     event_id: str,
     event_data: dict[str, Any] | None,
     provenance: ClassificationInputProvenance,
+    snapshot_data: bytes | None = None,
 ) -> dict[str, object]:
     """Build the canonical context for a snapshot classification request.
 
@@ -114,9 +161,12 @@ def build_snapshot_classification_input_context(
         "event_id": str(event_id),
         "input_source": str(provenance.input_source),
     }
+    if snapshot_data:
+        context["source_image_sha256"] = hashlib.sha256(snapshot_data).hexdigest()
     if provenance.input_source == "frigate_recording_snapshot":
         if provenance.recording_alignment() is not None:
             context["frigate_box"] = list(provenance.recording_box)
+            context["recording_frame_time"] = provenance.recording_frame_time
             context["restore_frigate_snapshot_crop"] = True
             if provenance.recording_crop_region is not None:
                 context["frigate_snapshot_crop_region"] = list(provenance.recording_crop_region)

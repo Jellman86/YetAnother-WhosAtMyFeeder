@@ -10,7 +10,7 @@ from typing import Any
 import numpy as np
 from PIL import Image
 
-from app.services.classifier_service import OpenVINOModelInstance
+from app.services.inference.adapters.openvino import OpenVINOModelInstance
 from app.services.model_manager import REMOTE_REGISTRY, model_manager
 
 

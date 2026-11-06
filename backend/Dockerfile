@@ -37,6 +37,9 @@ ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 ENV YAWAMF_IMAGE_FLAVOR=full
+# The API half of the two-image install; the monolith reports "monolith".
+ENV YAWAMF_DEPLOYMENT_MODE=split
+LABEL io.yawamf.deployment.mode="split"
 
 LABEL io.yawamf.image.flavor="full"
 

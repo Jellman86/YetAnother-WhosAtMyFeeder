@@ -1,0 +1,10 @@
+{
+  "boundary_title": "Something went wrong",
+  "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+  "show_details": "Show error details",
+  "try_again": "Try Again",
+  "copy_details": "Copy Error Details",
+  "copied": "Copied",
+  "reload_page": "Reload Page",
+  "deploy_refresh_required": "YA-WAMF was updated while this tab was open. Refresh the page to load the latest build."
+}

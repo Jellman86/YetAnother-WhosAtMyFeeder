@@ -10,7 +10,7 @@
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
     import { serverJobsStore } from '../stores/server_jobs.svelte';
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
+    let { onNavigate }: { onNavigate?: (path: string) => void } = $props();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
@@ -191,7 +191,7 @@
                                 class="text-left text-3xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline"
                                 onclick={openJobsPage}
                             >
-                                {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count} more work lanes' })}
+                                {$_('jobs.more_lanes', { values: { count: pipeline.kinds.length - detailLimit }, default: '+{count, plural, one {# more work lane} other {# more work lanes}}' })}
                             </button>
                         {/if}
                     </div>

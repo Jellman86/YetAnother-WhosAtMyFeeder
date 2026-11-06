@@ -1,4 +1,5 @@
 import json
+from html.parser import HTMLParser
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timezone
@@ -418,7 +419,7 @@ async def test_send_discord_with_snapshot_data(notification_service):
             assert mock_post.called
             call_kwargs = mock_post.call_args.kwargs
             assert "files" in call_kwargs
-            assert call_kwargs["files"]["file"][1] == fake_image
+            assert call_kwargs["files"]["files[0]"][1] == fake_image
 
 
 @pytest.mark.asyncio
@@ -742,3 +743,326 @@ async def test_telegram_text_message_carries_the_button_instead_of_the_snapshot_
                 "text": "Erkennung ansehen",
                 "url": "https://feeder.example.com/events?event=abc",
             }
+
+
+# --- the bird Telegram message, sent through the shared Telegram transport ---------------------
+
+
+async def _bird_telegram_request(notification_service, monkeypatch, *, snapshot_data, detection_url, answer=None):
+    import httpx
+
+    from app.config import settings
+
+    monkeypatch.setattr(settings.notifications.telegram, "bot_token", "123:bird-token")
+    monkeypatch.setattr(settings.notifications.telegram, "chat_id", "42")
+    monkeypatch.setattr(settings.notifications.telegram, "include_snapshot", True)
+    requests = []
+
+    def receive(request):
+        requests.append(request)
+        return answer or httpx.Response(200, json={"ok": True})
+
+    await notification_service.client.aclose()
+    notification_service.client = httpx.AsyncClient(transport=httpx.MockTransport(receive))
+    try:
+        sent = await notification_service._send_telegram(
+            "Blue <Jay> & co",
+            0.95,
+            "front_feeder",
+            datetime.now(timezone.utc),
+            "http://frigate/snapshot.jpg?a=1&b=2",
+            snapshot_data,
+            "en",
+            detection_url=detection_url,
+        )
+    finally:
+        await notification_service.client.aclose()
+    assert len(requests) == 1
+    return sent, requests[0]
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_text_is_the_bold_escaped_sentence_with_the_snapshot_link(
+    notification_service, monkeypatch
+):
+    sent, request = await _bird_telegram_request(
+        notification_service, monkeypatch, snapshot_data=None, detection_url=None
+    )
+    assert sent is True
+    assert str(request.url) == "https://api.telegram.org/bot123:bird-token/sendMessage"
+    assert json.loads(request.content) == {
+        "chat_id": "42",
+        "text": (
+            "🐦 <b>Blue &lt;Jay&gt; &amp; co detected on front_feeder with 95% confidence</b>\n"
+            '<a href="http://frigate/snapshot.jpg?a=1&amp;b=2">View Snapshot</a>'
+        ),
+        "parse_mode": "HTML",
+        "link_preview_options": {"is_disabled": True},
+    }
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_photo_captions_the_sentence_and_buttons_the_detection(notification_service, monkeypatch):
+    sent, request = await _bird_telegram_request(
+        notification_service, monkeypatch, snapshot_data=b"bird-jpeg", detection_url="https://feeder.test/e?id=1&x=2"
+    )
+    assert sent is True
+    assert str(request.url).endswith("/sendPhoto")
+    body = request.content.decode()
+    assert 'name="photo"; filename="snapshot.jpg"' in body and "bird-jpeg" in body
+    assert "🐦 <b>Blue &lt;Jay&gt; &amp; co detected on front_feeder with 95% confidence</b>\r\n" in body
+    assert "View Snapshot" not in body
+    assert '{"inline_keyboard": [[{"text": "View detection", "url": "https://feeder.test/e?id=1&x=2"}]]}' in body
+
+
+@pytest.mark.asyncio
+async def test_bird_telegram_reports_a_refused_send_as_not_sent(notification_service, monkeypatch):
+    import httpx
+
+    sent, _ = await _bird_telegram_request(
+        notification_service,
+        monkeypatch,
+        snapshot_data=None,
+        detection_url=None,
+        answer=httpx.Response(403, json={"ok": False}),
+    )
+    assert sent is False
+
+
+# --- bird Discord and Pushover messages, sent through the shared transports --------------------
+
+
+async def _bird_request(notification_service, send, answer):
+    import httpx
+
+    requests = []
+
+    def receive(request):
+        requests.append(request)
+        return answer
+
+    await notification_service.client.aclose()
+    notification_service.client = httpx.AsyncClient(transport=httpx.MockTransport(receive))
+    try:
+        sent = await send()
+    finally:
+        await notification_service.client.aclose()
+    assert len(requests) == 1
+    return sent, requests[0]
+
+
+def _bird_discord(monkeypatch, include_snapshot=True):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.notifications.discord, "webhook_url", "https://discord.test/api/webhooks/1/secret")
+    monkeypatch.setattr(settings.notifications.discord, "username", "YA-WAMF")
+    monkeypatch.setattr(settings.notifications.discord, "include_snapshot", include_snapshot)
+
+
+SEEN_AT = datetime(2026, 11, 1, 9, 30)
+
+
+@pytest.mark.asyncio
+async def test_bird_discord_embed_states_the_detection_in_bold_and_shows_the_snapshot_by_address(
+    notification_service, monkeypatch
+):
+    import httpx
+
+    _bird_discord(monkeypatch)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_discord(
+            "Robin (juvenile)",
+            0.88,
+            "back_yard",
+            SEEN_AT,
+            "http://frigate/api/events/e1/snapshot.jpg",
+            True,
+            "en",
+            None,
+            detection_url="https://feeder.test/events?event=e1",
+        ),
+        httpx.Response(200, json={"id": "1"}),
+    )
+    assert sent is True
+    assert request.url.params["wait"] == "true"
+    assert json.loads(request.content) == {
+        "username": "YA-WAMF",
+        "allowed_mentions": {"parse": []},
+        "embeds": [
+            {
+                "title": "New Bird Detected: Robin \\(juvenile\\)",
+                "description": (
+                    "**Robin \\(juvenile\\) detected on back\\_yard with 88% confidence**\n**🎤 Audio Confirmed by BirdNET-Go**"
+                ),
+                "color": 3066993,
+                "timestamp": "2026-11-01T09:30:00+00:00",
+                "footer": {"text": "YA-WAMF"},
+                "url": "https://feeder.test/events?event=e1",
+                "image": {"url": "http://frigate/api/events/e1/snapshot.jpg"},
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_bird_discord_attaches_snapshot_bytes_as_the_embed_image(notification_service, monkeypatch):
+    import httpx
+
+    _bird_discord(monkeypatch)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_discord(
+            "Cardinal", 0.92, "feeder", SEEN_AT, "http://frigate/snap.jpg", False, "en", b"bird-jpeg"
+        ),
+        httpx.Response(200, json={"id": "1"}),
+    )
+    assert sent is True
+    body = request.content.decode()
+    assert 'name="files[0]"; filename="snapshot.jpg"' in body and "bird-jpeg" in body
+    assert '"image": {"url": "attachment://snapshot.jpg"}' in body
+    assert "http://frigate/snap.jpg" not in body
+
+
+@pytest.mark.asyncio
+async def test_bird_pushover_sends_the_detection_with_its_time_priority_and_link(notification_service, monkeypatch):
+    import httpx
+    from urllib.parse import parse_qs
+
+    from app.config import settings
+
+    cfg = settings.notifications.pushover
+    for key, value in {
+        "api_token": "app-token",
+        "user_key": "user-key",
+        "priority": 1,
+        "device": "phone",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    sent, request = await _bird_request(
+        notification_service,
+        lambda: notification_service._send_pushover(
+            "Blue Jay",
+            0.95,
+            "front_feeder",
+            SEEN_AT.replace(tzinfo=timezone.utc),
+            "http://frigate/snap.jpg",
+            None,
+            "en",
+        ),
+        httpx.Response(200, json={"status": 1}),
+    )
+    assert sent is True
+    assert str(request.url) == "https://api.pushover.net/1/messages.json"
+    assert {key: values[0] for key, values in parse_qs(request.content.decode()).items()} == {
+        "token": "app-token",
+        "user": "user-key",
+        "title": "New Bird Detected: Blue Jay",
+        "message": "Blue Jay detected on front_feeder with 95% confidence",
+        "html": "0",
+        "priority": "1",
+        "timestamp": str(int(SEEN_AT.replace(tzinfo=timezone.utc).timestamp())),
+        "url": "http://frigate/snap.jpg",
+        "url_title": "View Snapshot",
+        "device": "phone",
+    }
+
+
+@pytest.mark.asyncio
+async def test_bird_email_over_oauth_sends_the_template_from_the_token_mailbox(notification_service, monkeypatch):
+    from app.config import settings
+    from app.services.smtp_service import smtp_service
+
+    cfg = settings.notifications.email
+    for key, value in {
+        "to_email": "owner@example.test",
+        "from_email": "configured@example.test",
+        "use_oauth": True,
+        "oauth_provider": "gmail",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    oauth = AsyncMock(return_value=True)
+    password = AsyncMock(return_value=True)
+    monkeypatch.setattr(smtp_service, "send_email_oauth", oauth)
+    monkeypatch.setattr(smtp_service, "send_email_password", password)
+    sent = await notification_service._send_email(
+        "Robin", "Erithacus rubecula", 0.92, "front", SEEN_AT, "http://frigate/snap.jpg", b"bird-jpeg", False, "en"
+    )
+    assert sent is True
+    password.assert_not_awaited()
+    kwargs = oauth.await_args.kwargs
+    assert kwargs["provider"] == "gmail" and kwargs["to_email"] == "owner@example.test"
+    assert kwargs["from_email"] is None, "the OAuth token's own address sends bird alerts"
+    assert kwargs["image_data"] == b"bird-jpeg"
+    assert "Robin" in kwargs["subject"] and "Erithacus rubecula" in kwargs["html_body"]
+    assert "cid:bird_snapshot" in kwargs["html_body"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("oauth", [False, True])
+async def test_bird_email_escapes_html_fields_and_attributes_but_preserves_plain_text(
+    notification_service, monkeypatch, oauth
+):
+    from app.config import settings
+    from app.services.smtp_service import smtp_service
+
+    cfg = settings.notifications.email
+    for key, value in {
+        "to_email": "owner@example.test",
+        "from_email": "feeder@example.test",
+        "smtp_host": "smtp.example.test",
+        "use_oauth": oauth,
+        "oauth_provider": "gmail",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(cfg, key, value)
+    sender = AsyncMock(return_value=True)
+    monkeypatch.setattr(smtp_service, "send_email_oauth" if oauth else "send_email_password", sender)
+    monkeypatch.setattr(settings.appearance, "font_theme", "clean")
+    monkeypatch.setattr(settings.accessibility, "dyslexia_font", False)
+    species = '<img src="https://untrusted.example.test/species"> & "Robin"'
+    scientific_name = "<b>Erithacus & rubecula</b>"
+    camera = "<svg onload='camera()'> & feeder"
+    weather = "<iframe src='https://untrusted.example.test/weather'></iframe> & rain"
+    link = 'https://feeder.example.test/events?x=1&y=2" onclick="link()'
+    try:
+        assert await notification_service._send_email(
+            species,
+            scientific_name,
+            0.92,
+            camera,
+            SEEN_AT,
+            "",
+            b"jpeg",
+            False,
+            "en",
+            weather=weather,
+            detection_url=link,
+        )
+    finally:
+        await notification_service.client.aclose()
+    data = sender.await_args.kwargs
+    html_body, plain_body = data["html_body"], data["plain_body"]
+    assert "font-family: 'Manrope'," in html_body
+    for value in (species, scientific_name, camera, weather, link):
+        assert value not in html_body
+        assert value in plain_body
+
+    class EmailParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.tags: list[tuple[str, dict[str, str | None]]] = []
+
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            self.tags.append((tag, dict(attrs)))
+
+    parser = EmailParser()
+    parser.feed(html_body)
+    images = [attrs for tag, attrs in parser.tags if tag == "img"]
+    assert images == [{"src": "cid:bird_snapshot", "alt": species, "class": "detection-image"}]
+    links = [attrs for tag, attrs in parser.tags if tag == "a"]
+    assert {"href": link, "class": "button"} in links
+    assert all(not key.startswith("on") for _, attrs in parser.tags for key in attrs)
+    assert not any(tag in {"svg", "iframe"} for tag, _ in parser.tags)

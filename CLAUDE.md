@@ -53,10 +53,12 @@ We work test-first.
 - **Pure logic gets pure unit tests.** Classification admission, canonical-species
   identity, config/env mapping, taxonomy normalisation, and other decision logic
   must be testable without a live database, network, MQTT broker, or ML model. Pass
-  inputs in (parsed payloads, `now`) so tests are deterministic. See
-  [`backend/tests/test_classification_admission.py`](backend/tests/test_classification_admission.py),
-  [`backend/tests/test_canonical_species.py`](backend/tests/test_canonical_species.py),
-  and [`backend/tests/test_config_env_mapping.py`](backend/tests/test_config_env_mapping.py).
+  inputs in (parsed payloads, `now`) so tests are deterministic. They live in
+  `backend/tests/pure/`, which migrates no database and builds no app; its conftest
+  refuses both, so a test that needs them belongs in `backend/tests/`. See
+  [`backend/tests/pure/test_classification_admission.py`](backend/tests/pure/test_classification_admission.py),
+  [`backend/tests/pure/test_canonical_species.py`](backend/tests/pure/test_canonical_species.py),
+  and [`backend/tests/pure/test_config_env_mapping.py`](backend/tests/pure/test_config_env_mapping.py).
 - **A bug fix starts with a test that reproduces the bug**, then the fix.
 - Tests own their fixtures (temp dirs, seeded rows) and clean up; never depend on a
   developer machine, a running Frigate/MQTT, or downloaded models.
@@ -171,7 +173,8 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
   placeholder, must never imply state, and must never shift layout (fixed aspect,
   lazy-loaded).
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
-  `apps/ui/src/lib/i18n/locales/en.json` (use `{ default: '…' }` fallbacks).
+  the English domain file they belong to, `apps/ui/src/lib/i18n/locales/en/<domain>.json` (for example
+  `locales/en/settings.json` for `settings.*` keys), with `{ default: '…' }` fallbacks in code.
 
 The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
 craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
@@ -196,7 +199,11 @@ A change is done when **all** of these hold:
 4. Schema changes have a reversible migration, a single Alembic head, and re-running
    them is a no-op (§3).
 5. The safety/data-integrity model (§1) is intact or strengthened — never weakened.
-6. `CHANGELOG.md` (Unreleased section) records the change.
+6. The change is recorded for the next release: one fragment under
+   [`changelog.d/`](changelog.d/README.md), named after the issue or branch and in
+   the same human-first voice as `CHANGELOG.md`. Do not edit `## [Unreleased]`
+   directly; parallel branches conflict there. The release folds fragments into
+   `CHANGELOG.md` (see [`docs/development/releasing.md`](docs/development/releasing.md)).
 7. Documentation is updated when behaviour, settings, API, or UI labels change
    (`docs/`, `README.md`, and `docs/api.md` for endpoints).
 8. Code is self-documenting and matches surrounding style (§4).

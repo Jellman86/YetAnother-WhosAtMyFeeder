@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import detectionModalSource from './DetectionModal.svelte?raw';
-import en from '../i18n/locales/en.json';
+import { authoredLocale } from '../i18n/authored-locales';
+
+const en = authoredLocale('en');
 
 /**
  * #269: "there is a frigate score and the real score, that is quite confusing
@@ -11,7 +13,7 @@ import en from '../i18n/locales/en.json';
  * which species. Only one of them was labelled, and it was labelled with the
  * name of a product rather than with what it measures.
  */
-// en.json nests deeper than two levels in places, so narrow just the branch
+// English nests deeper than two levels in places, so narrow just the branch
 // this test reads rather than asserting a shape for the whole file.
 const detectionStrings = (en as unknown as { detection: Record<string, string> }).detection;
 

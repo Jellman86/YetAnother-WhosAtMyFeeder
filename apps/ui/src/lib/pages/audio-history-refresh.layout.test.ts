@@ -42,16 +42,16 @@ describe('BirdNET history listening-log layout', () => {
     it('keeps the spectrogram as the meaningful per-detection artifact', () => {
         expect(audioHistorySource).toContain('data-audio-spectrogram');
         expect(audioHistorySource).toContain('loading="lazy"');
-        expect(audioHistorySource).toContain('alt={detection.species}');
+        expect(audioHistorySource).toContain('alt={specAlt}');
     });
 
     it('opens the existing species detail modal from each top-species row', () => {
-        expect(audioHistorySource).toContain("import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte'");
+        expect(audioHistorySource).toContain("import { loadSpeciesDetailModal } from '../components/lazy-dialogs'");
         expect(audioHistorySource).toContain('data-audio-top-species-button');
         expect(audioHistorySource).toContain('onclick={() => selectedSpecies = item.species}');
         expect(audioHistorySource).toContain("$_('leaderboard.view_species'");
         expect(audioHistorySource).toContain('<SpeciesDetailModal');
-        expect(audioHistorySource).toContain('onclose={() => selectedSpecies = null}');
+        expect(audioHistorySource).toContain('onclose={() => (selectedSpecies = null)}');
     });
 
     it('links automatic visual matches to their exact detection', () => {

@@ -197,7 +197,7 @@
                             {#if group.reports > 1}
                                 <!-- Four people saw it is the news; one card says so instead of four saying nothing. -->
                                 <span class="shrink-0 rounded-full border border-line px-2 py-px text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
-                                    {$_('dashboard.notable_nearby.reports', { values: { count: group.reports }, default: '{count} reports' })}
+                                    {$_('dashboard.notable_nearby.reports', { values: { count: group.reports }, default: '{count, plural, one {# report} other {# reports}}' })}
                                 </span>
                             {/if}
                         </p>
@@ -206,7 +206,7 @@
                         {/if}
                         <p class="truncate text-xs text-slate-500 dark:text-slate-400">
                             {group.locations.length > 1
-                                ? $_('dashboard.notable_nearby.places', { values: { count: group.locations.length }, default: '{count} places' })
+                                ? $_('dashboard.notable_nearby.places', { values: { count: group.locations.length }, default: '{count, plural, one {# place} other {# places}}' })
                                 : observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}
                         </p>
                     </div>

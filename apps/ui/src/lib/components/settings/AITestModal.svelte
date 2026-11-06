@@ -49,7 +49,7 @@
                 message: stage.id === 'multi_frame'
                     ? $_('settings.ai.test_multiframe_ok', {
                         values: { count: result.frame_count },
-                        default: `${result.frame_count} JPEG frames were accepted in one request.`
+                        default: '{count, plural, one {# JPEG frame was accepted in one request.} other {# JPEG frames were accepted in one request.}}'
                     })
                     : $_('settings.ai.test_stage_ok', { default: 'Passed' })
             }));

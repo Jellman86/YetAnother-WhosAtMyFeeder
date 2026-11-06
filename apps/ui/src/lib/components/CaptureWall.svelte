@@ -343,7 +343,7 @@
     }
     type Kind = 'species' | 'others' | 'checks';
     function segmentName(key: string, kind: Kind): string {
-        if (kind === 'others') return $_('leaderboard.wall_others', { values: { count: groups.others.species }, default: '{count} other species' });
+        if (kind === 'others') return $_('leaderboard.wall_others', { values: { count: groups.others.species }, default: '{count, plural, one {# other species} other {# other species}}' });
         if (kind === 'checks') return $_('leaderboard.spotlight_needs_check', { default: 'Needs a check' });
         return rowByKey(key)?.displayName ?? key;
     }
@@ -502,7 +502,7 @@
         {#if shown.length > 0}
             <div class="flex flex-wrap items-center justify-between gap-2">
                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count} recent visits. Each opens its species.' })}
+                    {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
                     <button type="button" class="btn btn-ghost text-xs" aria-expanded={opened} onclick={() => (opened = !opened)} data-capture-wall-more>

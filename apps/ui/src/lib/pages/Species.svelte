@@ -3,6 +3,7 @@
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
+    import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { wallTiles } from '../leaderboard/wall';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
@@ -26,7 +27,8 @@
         type SpeciesInfo
     } from '../api';
     import { chartjs, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
-    import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
+    import LazyModal from '../components/LazyModal.svelte';
+    import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
     import {
@@ -49,6 +51,7 @@
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
+    import { displayDistance } from '../utils/display-distance.svelte';
     import { logger } from '../utils/logger';
     import { toLocalYMD } from '../utils/date-only';
     import { _, locale } from 'svelte-i18n';
@@ -58,7 +61,8 @@
     import type { ChartDataset, Plugin } from 'chart.js';
     import { doughnutInsightPlugin } from '../actions/chartjs-doughnut';
     import type { TemperatureUnit } from '../utils/temperature';
-    import { evidenceFor, isCorroborated, isUnlikelyHere, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { evidenceFor, isCorroborated, trendMeasured, type SpeciesEvidence } from '../leaderboard/evidence';
+    import { heardFor, heardLookup, needsSpeciesCheck, parseSpeciesPageLink } from '../leaderboard/species-checks';
     import { busiestHourOfDay } from '../leaderboard/heatmap';
     import ActivityHeatmap from '../components/ActivityHeatmap.svelte';
     import { otherSeriesColor, speciesSeriesColor, SPECIES_SERIES_SLOTS } from '../leaderboard/species-palette';
@@ -105,7 +109,9 @@
     let pageElement: HTMLDivElement | undefined;
     let refreshHeight = $state(0);
     let error = $state<string | null>(null);
-    let span = $state<LeaderboardSpan>('month');
+    // A link can ask for a window and for the checks card, as the Dashboard's "Needs your call" does.
+    const pageLink = parseSpeciesPageLink(window.location.search, window.location.hash);
+    let span = $state<LeaderboardSpan>(pageLink.span ?? 'month');
     let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let historyStart = $state<string | null>(null);
     let countsAreVisits = $state(false);
@@ -259,13 +265,19 @@
         buildShowcaseRows(leaderboardRows, {
             sourceMode,
             portraits,
-            isFlagged: (row) => isUnlikelyHere(evidenceFor(row, { audioKnown }), row.reported_nearby),
+            isFlagged: (row) => needsSpeciesCheck(row, { audioKnown }),
             referenceFor: (name) => ({
                 url: getCachedSpeciesInfo(name)?.thumbnail_url ?? null,
                 source: getCachedSpeciesInfo(name)?.source ?? null
             })
         })
     );
+    // A flagged species can be a domestic bird the owner keeps under its wild name: the bird model
+    // calls chickens Red Junglefowl. Only an owner with Garden on can move those records.
+    const gardenOwner = $derived(authStore.hasOwnerAccess && settingsStore.settings?.beta_garden_animals === true);
+    const domesticOffers = new DomesticBirdOffers(() => gardenOwner);
+    const keptBirds = $derived(gardenOwner ? domesticOffers.offersFor(showcaseRows.filter((row) => row.flagged)) : []);
+
     function showcaseCountLabel(count: number): string {
         if (sourceMode === 'both') {
             return countsAreVisits
@@ -357,6 +369,13 @@
         checks.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'nearest' });
         checks.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
     }
+    // A link to the checks lands on them once the window has loaded; with none left, the page simply opens.
+    let checksFocusPending = pageLink.focusChecks;
+    $effect(() => {
+        if (!checksFocusPending || loading) return;
+        checksFocusPending = false;
+        if (showcaseRows.some((row) => row.flagged)) void tick().then(scrollToChecks);
+    });
     let topByTrend = $derived(
         !trendAvailable
             ? null
@@ -393,7 +412,7 @@
         return '—';
     }
     let unlikelyRows = $derived(
-        leaderboardRows.filter((row) => isUnlikelyHere(evidenceOf(row), row.reported_nearby))
+        leaderboardRows.filter((row) => needsSpeciesCheck(row, { audioKnown }))
     );
     let unlikelyKeys = $derived(new Set(unlikelyRows.map((row) => `${row.species}|${row.audio_only}`)));
     function unlikelyHere(row: LeaderboardTableRow): boolean {
@@ -449,25 +468,7 @@
             : null
     );
 
-    // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
-    // localized species name, so we can merge them onto the visual leaderboard rows.
-    let audioByKey = $derived(() => {
-        const map = new Map<string, AudioSpeciesLeaderboardItem>();
-        for (const a of audioSpecies) {
-            if (a.scientific_name) map.set(`sci:${a.scientific_name.toLowerCase()}`, a);
-            if (a.species) map.set(`nm:${a.species.toLowerCase()}`, a);
-        }
-        return map;
-    });
-
-    function heardForRow(row: LeaderboardRow, map: Map<string, AudioSpeciesLeaderboardItem>) {
-        if (row.scientific_name) {
-            const bySci = map.get(`sci:${row.scientific_name.toLowerCase()}`);
-            if (bySci) return bySci;
-        }
-        if (row.species) return map.get(`nm:${row.species.toLowerCase()}`);
-        return undefined;
-    }
+    let audioByKey = $derived(heardLookup(audioSpecies));
 
     // Rows for the leaderboard table: visual species with heard data merged in, plus
     // (in Heard/Both modes) audio-only species that were never seen on camera. Sort key
@@ -476,12 +477,12 @@
     function leaderboardTableRows(mode: SourceMode): LeaderboardTableRow[] {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
-        const map = audioByKey();
+        const map = audioByKey;
         const usedAudioKeys = new Set<string>();
 
         const rows: LeaderboardTableRow[] = leaderboardSpecies().map((item) => {
             const naming = getBirdNames(item, showCommon, preferSci);
-            const heard = heardForRow(item, map);
+            const heard = heardFor(item, map);
             if (heard) {
                 if (heard.scientific_name) usedAudioKeys.add(`sci:${heard.scientific_name.toLowerCase()}`);
                 if (heard.species) usedAudioKeys.add(`nm:${heard.species.toLowerCase()}`);
@@ -689,6 +690,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 species = mapAllTimeSpecies(allSpecies);
                 countsAreVisits = false;
+                domesticOffers.measured();
                 leaderboardWindow = null;
                 historyStart = null;
                 previousWindowComplete = false;
@@ -698,6 +700,7 @@
                 if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
                 countsAreVisits = windowCountsAreVisits(response);
                 species = mapWindowSpecies(response, countsAreVisits);
+                domesticOffers.measured();
                 leaderboardWindow = {
                     start: response.window_start,
                     end: response.window_end
@@ -1616,7 +1619,7 @@
 {#snippet unlikelyReason(radiusKm: number)}
     <span class="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
         <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
-        {$_('leaderboard.unlikely_reason', { values: { radius: radiusKm }, default: 'Not reported within {radius} km' })}
+        {$_('leaderboard.unlikely_reason', { values: { distance: displayDistance(radiusKm, $_) }, default: 'Not reported within {distance}' })}
     </span>
 {/snippet}
 
@@ -1634,18 +1637,18 @@
     <!-- Ranking controls -->
     <div class="border-y border-slate-200/80 py-4 dark:border-slate-700/70">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div class="flex flex-wrap gap-2" aria-label={$_('leaderboard.title')}>
+            <div class="flex flex-wrap gap-2" role="group" aria-label={$_('leaderboard.span_group', { default: 'Time span' })} data-leaderboard-span-bar>
             <button
                 type="button"
-                aria-pressed={span === 'month'}
-                onclick={() => span = 'month'}
-                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
+                aria-pressed={span === 'day'}
+                onclick={() => span = 'day'}
+                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                    <path d="M3 8h14"></path>
+                    <circle cx="10" cy="10" r="4.2"></circle>
+                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
                 </svg>
-                {$_('leaderboard.sort_by_month')}
+                {$_('leaderboard.sort_by_day')}
             </button>
             <button
                 type="button"
@@ -1660,15 +1663,15 @@
             </button>
             <button
                 type="button"
-                aria-pressed={span === 'day'}
-                onclick={() => span = 'day'}
-                class="tab-button {span === 'day' ? 'tab-button-active' : 'tab-button-inactive'}"
+                aria-pressed={span === 'month'}
+                onclick={() => span = 'month'}
+                class="tab-button {span === 'month' ? 'tab-button-active' : 'tab-button-inactive'}"
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <circle cx="10" cy="10" r="4.2"></circle>
-                    <path d="M10 2.8v2.1M10 15.1v2.1M2.8 10h2.1M15.1 10h2.1"></path>
+                    <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                    <path d="M3 8h14"></path>
                 </svg>
-                {$_('leaderboard.sort_by_day')}
+                {$_('leaderboard.sort_by_month')}
             </button>
             <button
                 type="button"
@@ -1786,6 +1789,11 @@
                 nearbyRadiusKm={nearbyCheck?.radiusKm ?? null}
                 onopen={(key) => (selectedSpecies = key)}
                 oncheck={authStore.hasOwnerAccess ? (key) => (checkStart = key) : undefined}
+                {keptBirds}
+                onkept={(bird) => {
+                    domesticOffers.kept(bird);
+                    void loadLeaderboard();
+                }}
             />
         {/if}
 
@@ -1811,7 +1819,7 @@
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? hourLabel(busiestHour.hour) : '—'}</dd>
-                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count.toLocaleString() }, default: '{count} detections on camera' })}</dd>{/if}
+                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
                 <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
@@ -1871,8 +1879,8 @@
                     <span class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
                     <p>
                         {$_('leaderboard.unlikely_note', {
-                            values: { count: unlikelyRows.length, radius: nearbyCheck.radiusKm, days: nearbyCheck.daysBack },
-                            default: '{count} species have no call, no confirmation and no eBird report within {radius} km in the last {days} days. They are probably misidentifications: open one to confirm or correct it.'
+                            values: { count: unlikelyRows.length, distance: displayDistance(nearbyCheck.radiusKm, $_), days: nearbyCheck.daysBack },
+                            default: '{count, plural, one {# species has no call, no confirmation and no eBird report within {distance} in the last {days} days. It is probably a misidentification: open it to confirm or correct it.} other {# species have no call, no confirmation and no eBird report within {distance} in the last {days} days. They are probably misidentifications: open one to confirm or correct it.}}'
                         })}
                     </p>
                 </div>
@@ -2296,10 +2304,11 @@
 
 <!-- Species Detail Modal -->
 {#if selectedSpecies}
-    <SpeciesDetailModal
-        speciesName={selectedSpecies}
-        onclose={() => selectedSpecies = null}
-    />
+    <LazyModal loader={loadSpeciesDetailModal} onclose={() => (selectedSpecies = null)}>
+        {#snippet children(SpeciesDetailModal)}
+            {#if selectedSpecies}<SpeciesDetailModal speciesName={selectedSpecies} onclose={() => (selectedSpecies = null)} />{/if}
+        {/snippet}
+    </LazyModal>
 {/if}
 
 {#if checkStart !== null}

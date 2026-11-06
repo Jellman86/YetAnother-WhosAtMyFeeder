@@ -17,6 +17,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from tests.catalog_mapping_fixture import rehash_mapping_fixture
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
@@ -300,7 +301,7 @@ def _mappings_json(tmp_path, outputs=None, taxon_override=None):
                 "artifacts": [
                     {
                         "artifact_id": "fake_model",
-                        "model_sha256": "m" * 64,
+                        "model_sha256": "a" * 64,
                         "labels_sha256": "labelsha-fake",
                         "runtime": "onnx",
                     }
@@ -309,6 +310,7 @@ def _mappings_json(tmp_path, outputs=None, taxon_override=None):
         ),
         encoding="utf-8",
     )
+    rehash_mapping_fixture(path)
     return path
 
 
@@ -327,7 +329,7 @@ class TestSeedIntegration:
 
     def test_the_artifact_is_registered_with_its_checksums(self, built):
         rows = _query(built, "SELECT registry_id, model_sha256, output_width, runtime, state FROM model_artifacts")
-        assert rows == [("fake_model", "m" * 64, 4, "onnx", "registered")]
+        assert rows == [("fake_model", "a" * 64, 4, "onnx", "registered")]
         mapping_set = _query(built, "SELECT mapping_set_sha256 FROM model_artifacts")[0][0]
         assert mapping_set and len(mapping_set) == 64
 
@@ -393,7 +395,7 @@ class TestImporterCarry:
         import_release(bundle, catalog_path=live)
 
         artifact = _query(live, "SELECT id, model_sha256, output_width FROM model_artifacts")
-        assert len(artifact) == 1 and artifact[0][1] == "m" * 64
+        assert len(artifact) == 1 and artifact[0][1] == "a" * 64
         tit = _query(live, "SELECT species_id FROM model_output_taxa WHERE output_index = 0")[0][0]
         concept = _query(
             live,

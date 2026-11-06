@@ -89,3 +89,26 @@ async def test_without_a_floor_only_favourites_survive(history):
         remaining = {row[0] for row in await (await db.execute("SELECT frigate_event FROM detections")).fetchall()}
     assert deleted == 9
     assert remaining == {"dunnock_0"}
+
+
+@pytest.mark.asyncio
+async def test_the_retention_preview_counts_exactly_what_the_cleanup_deletes(history):
+    cutoff = datetime(2026, 2, 1, tzinfo=timezone.utc)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.favorite_detection("robin_0")
+        # The hidden dunnock is deleted too, so the preview counts it.
+        previewed = await repo.count_older_than(cutoff, preserve_favorites=True, species_floor=2)
+        rows_before = (await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone())[0]
+        deleted = await repo.delete_older_than(cutoff, preserve_favorites=True, species_floor=2)
+    assert rows_before == 10
+    assert previewed == deleted == 5
+
+
+@pytest.mark.asyncio
+async def test_the_retention_preview_deletes_nothing(history):
+    cutoff = datetime.now(timezone.utc) + timedelta(days=1)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        assert await repo.count_older_than(cutoff) == 10
+        assert (await (await db.execute("SELECT COUNT(*) FROM detections")).fetchone())[0] == 10

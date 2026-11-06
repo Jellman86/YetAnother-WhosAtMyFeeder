@@ -1,0 +1,22 @@
+{
+  "dashboard": "Tableau de bord",
+  "explorer": "Explorateur",
+  "add_observation": "Ajouter une observation",
+  "leaderboard": "Classement",
+  "observe": "Observer",
+  "manage": "Gérer",
+  "audio_history": "Historique audio",
+  "settings": "Paramètres",
+  "setup_wizard": "Assistant de configuration",
+  "about": "À propos",
+  "toggle_menu": "Menu",
+  "collapse_sidebar": "Réduire la barre latérale",
+  "expand_sidebar": "Développer la barre latérale",
+  "jobs": "Tâches",
+  "close_menu": "Fermer le menu",
+  "close_language_selector": "Fermer le sélecteur de langue",
+  "events": "Événements",
+  "notifications": "Notifications",
+  "species": "Espèces",
+  "navigation": "Navigation principale"
+}

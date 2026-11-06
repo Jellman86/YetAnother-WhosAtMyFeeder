@@ -44,17 +44,19 @@ describe('detection card full-visit fetch wiring', () => {
         expect(dashboardPageSource).not.toContain('initialClipVariant={videoClipVariant}');
     });
 
-    it('uses an icon-only edge selector and stronger cyan framing in selection mode', () => {
+    it('shows selection as a brand ring and a check badge, never a blur over the bird', () => {
         expect(detectionCardSource).toMatch(/relative[^"\n]*rounded-\[2rem\][^"\n]*transition-all/);
-        expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35");
-        expect(detectionCardSource).toContain("{#if selectionMode && selected && !analysisActive}");
-        expect(detectionCardSource).toContain("absolute inset-0 z-40 overflow-hidden rounded-2xl pointer-events-none");
-        expect(detectionCardSource).toContain("bg-cyan-500/24 backdrop-blur-sm");
-        expect(detectionCardSource).toContain("absolute inset-0 z-50 flex items-center justify-center");
-        expect(detectionCardSource).toContain("class=\"h-16 w-16 text-white drop-shadow-[0_6px_18px_rgba(8,47,73,0.45)]\"");
-        expect(detectionCardSource).not.toContain('absolute -left-1.5 -top-1.5 z-30 pointer-events-none');
+        expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-brand-600 ring-2 ring-brand-500/60");
+        // Every card shows its check while selecting: filled when chosen, an empty circle when not.
+        expect(detectionCardSource).toContain('{#if selectionMode && !analysisActive}');
+        expect(detectionCardSource).toContain("data-detection-card-check={selected ? 'selected' : 'unselected'}");
+        // A veil over the photo and the name hid what had been chosen.
+        expect(detectionCardSource).not.toContain('backdrop-blur-sm"></div>');
+        expect(detectionCardSource).not.toContain('bg-cyan-500/24');
+        // The state is on the control, not only drawn.
+        expect(detectionCardSource).toContain('aria-pressed={selectionMode ? selected : undefined}');
+        expect(detectionCardSource).toContain("$_('events.row_select'");
         expect(detectionCardSource).not.toContain("$_('common.selected', { default: 'Selected' })");
-        expect(detectionCardSource).not.toContain("$_('common.select', { default: 'Select' })");
     });
 
     it('lets active video analysis take over the card chrome and border', () => {
@@ -68,6 +70,6 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).not.toContain('<ReclassificationOverlay');
         expect(detectionCardSource).toContain('{#if !analysisActive}');
         expect(detectionCardSource).toContain('{#if (onReclassify || onRetag) && !analysisActive}');
-        expect(detectionCardSource).toContain('{#if selectionMode && selected && !analysisActive}');
+        expect(detectionCardSource).toContain('{#if selectionMode && !analysisActive}');
     });
 });

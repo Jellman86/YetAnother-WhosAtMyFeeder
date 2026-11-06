@@ -158,8 +158,8 @@ selected again.
 
 ## Validate this host
 
-The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Device
-compatibility** use the same provider-validation engine. Candidates are the exact
+The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Hardware →
+Check devices on this host** use the same provider-validation engine. Candidates are the exact
 intersection of:
 
 1. providers packaged by the running image;
@@ -242,12 +242,12 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 
 ## Expected result
 
-Under **Settings → Detection**, the accelerator status pills reflect what YA-WAMF
+Under **Settings → Detection → Hardware → Runtime report**, the accelerator status pills reflect what YA-WAMF
 found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU was
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
-Open **Advanced model manager** to inspect the active model. **Current runtime**
+Select the active model under **Settings → Detection → Models** to inspect it. **Current runtime**
 shows the provider that is running now, and **Automatic order** lists its verified
 fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
 accuracy and use case; it does not claim which device is active.
@@ -306,6 +306,43 @@ On Unraid, use the image-tag and NVIDIA Driver plugin workflow in the dedicated
 `YAWAMF_MONALITHIC_TAG` into a container environment variable; edit the Unraid
 Repository tag instead.
 
+### Optional RF-DETR bird finder
+
+RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
+**Settings → Detection → Models → Bird finder**, select RF-DETR Nano, download it and
+select **Apply Settings**, then run **Hardware → Check devices on this host** with it installed.
+The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
+for the species classifier does not validate the bird finder.
+
+Before a passing result, the bird finder uses CPU. Failed checks and stale
+artifact, image or CUDA runtime/driver evidence cannot select CUDA. Existing
+downloads can keep their model sidecar; the running application's registry
+supplies the reviewed candidate list. YOLOX-Tiny remains the default bird finder.
+
+RF-DETR also has Intel GPU and NPU routes in the Intel-capable images. Each needs
+its own current host validation; the species classifier's selected device does
+not choose the crop detector's device. The compatibility API can check only the
+installed RF-DETR artifact using `compat_only`, `sweep_devices` and its `model_ids`
+entry, as shown in the [API reference](../api.md#model-evaluation-owner).
+The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
+The fastest passing crop provider is recommended. **Finder device** can instead
+keep a specific validated device, such as **Intel NPU (OpenVINO)**. Save it with
+**Apply Settings**. If its evidence expires or the device fails, the accurate
+finder uses CPU rather than switching to another accelerator. The fast fallback
+finder keeps its own device evidence. Startup re-checks respect the saved choice;
+manual **Check devices** still checks all supported devices, so do not use it to
+retry a known failing GPU during an NPU-only investigation. Existing worker crop sessions
+adopt a changed recommendation on their next use without restarting the worker.
+After a kernel, driver or image update, startup re-checks the chosen finder once on
+its previously passing accelerators, using the newest saved bird snapshots.
+If an accelerator fails at runtime, CPU fallback remains in place while its
+recommendation is unchanged. Checks consume compute and may compete with video
+processing; a model-forward benchmark does not predict full video throughput.
+
+The reference RTX 4070 container passed real CUDA execution and CPU consistency
+checks. This does not qualify every NVIDIA host, sustained workload or two-bird
+counting accuracy. See the [validation evidence and limits](../reviews/2026-10-20-rfdetr-cuda-validation.md).
+
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under
@@ -313,3 +350,40 @@ Repository tag instead.
 - See [`configuration.md`](configuration.md) for all detection settings and
   [`../troubleshooting/diagnostics.md`](../troubleshooting/diagnostics.md) if
   inference is falling back unexpectedly.
+
+## Check a quarantined native profile
+
+If saved native crash evidence blocks the selected model/provider, choose a
+concrete provider and subprocess image execution, save the settings, then open
+**Settings → Detection → Check quarantined profile**. On Linux, an owner can
+upload three different bird photos and a short clip, acknowledge the native
+execution risk and run a bounded disposable-worker check. Keep the host idle;
+classification demand aborts the check. Cancel waits for child cleanup.
+
+A pass permits only the exact checked isolated-worker profile until the next
+application restart. Saved crash evidence remains. Changing the video frame count
+or crop/wildlife weights does not release a failed primary model/provider; the
+changed full configuration needs its own successful owner check. Earlier incident
+files remain intact and are checked for the same conservative block. Unreadable,
+malformed or excessive incident records prevent launch until the evidence can be
+verified; inspect `/config/native-crashes` without deleting records to force a retry.
+
+If the check fails, its message identifies a safe cause where available: unreadable
+inputs, indistinguishable outputs, a failed crop check, provider/artifact mismatch
+or a recognised GPU device failure code. Unexpected/native exits retain a generic
+failure message. Raw runtime exceptions, uploaded file paths and stderr are not
+returned. Correct the stated input/runtime issue before explicitly trying again.
+This does not automatically
+qualify an excluded provider, reset circuit breakers, rewrite detections or prove
+species accuracy. An unavailable provider, failed output check, changed profile
+or incomplete cleanup keeps quarantine. See the
+[safety and resource limits](../reviews/2026-10-19-owner-native-profile-revalidation.md).
+
+
+## Automatic Garden checks
+
+Garden's automatic SpeciesNet crop checks follow the Detection device preference, with a separate
+CPU-agreement check bound to the Garden model and this host. A bird model's validation does not
+qualify SpeciesNet. Auto considers packaged NPU, Intel GPU and CUDA routes; unavailable or failed
+routes use CPU and retain their negative evidence. Motion scans remain on CPU. These checks do
+not change bird runtime validation or qualify accuracy and sustained live concurrency.

@@ -1,0 +1,66 @@
+{
+  "chart": {
+    "heard": "Oídas",
+    "daily_title": "Actividad a lo largo del tiempo",
+    "daily_sub": "Detecciones de BirdNET-Go oídas por día",
+    "hourly_title": "Hora del día",
+    "species_title": "Distribución de especies",
+    "empty": "No hay actividad en este período."
+  },
+  "stat": {
+    "heard": "Oídas",
+    "heard_sub": "Detecciones de BirdNET mostradas",
+    "species": "Especies",
+    "species_sub": "Especies identificadas por audio",
+    "peak_hour": "Hora de mayor actividad",
+    "peak_hour_sub": "{count, plural, one {# detección} other {# detecciones}}",
+    "no_activity": "Aún no hay actividad",
+    "sources": "Fuentes",
+    "sources_sub": "Micrófonos o transmisiones"
+  },
+  "filter": {
+    "window": "Período",
+    "24h": "24 horas",
+    "7d": "7 días",
+    "30d": "30 días",
+    "90d": "90 días",
+    "1y": "1 año",
+    "species": "Especie",
+    "source": "Fuente",
+    "min_confidence": "Confianza mínima",
+    "changed": "Filtros cambiados. Aplique para actualizar la lista."
+  },
+  "top_species": "Especies más oídas",
+  "card": {
+    "last_heard": "Oída por última vez",
+    "avg": "prom.",
+    "max": "máx."
+  },
+  "history": {
+    "title": "Historial de detecciones",
+    "sub": "Detecciones persistentes de BirdNET-Go, separadas de las visitas visuales.",
+    "empty": "Ninguna detección de BirdNET coincide con estos filtros.",
+    "showing": "Mostrando {from}-{to} de {total}",
+    "hide": "Ocultar localmente",
+    "undo": "Deshacer",
+    "hidden_message": "Detección de audio oculta.",
+    "local_only": "Ocultar elimina la entrada del historial de YA-WAMF y de futuras coincidencias de audio. BirdNET-Go no cambia; sus eliminaciones no se sincronizan automáticamente."
+  },
+  "table": {
+    "sound": "Sonido",
+    "time": "Hora",
+    "species": "Especie",
+    "source": "Fuente",
+    "confidence": "Confianza",
+    "open_birdnet": "Abrir en BirdNET-Go",
+    "open_visual_match": "Abrir detección visual coincidente",
+    "unknown_source": "Fuente desconocida",
+    "spectrogram_alt": "Espectrograma del canto de {species}"
+  },
+  "sources": {
+    "title": "Fuentes",
+    "empty": "Aún no hay fuentes."
+  },
+  "not_shared_title": "El audio no se comparte públicamente",
+  "not_shared_body": "El propietario de esta instancia ha desactivado el audio para visitantes."
+}

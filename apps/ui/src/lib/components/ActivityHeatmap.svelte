@@ -66,13 +66,12 @@
 
     function countLabel(count: number): string {
         if (subject) {
-            return count === 1
-                ? $_('leaderboard.heatmap_subject_one', { values: { subject }, default: '1 {subject} detection' })
-                : $_('leaderboard.heatmap_subject_many', { values: { count: count.toLocaleString(), subject }, default: '{count} {subject} detections' });
+            return $_('leaderboard.heatmap_subject_many', {
+                values: { count, subject },
+                default: '{count, plural, one {# {subject} detection} other {# {subject} detections}}'
+            });
         }
-        return count === 1
-            ? $_('leaderboard.heatmap_count_one', { default: '1 detection' })
-            : $_('leaderboard.heatmap_count_many', { values: { count: count.toLocaleString() }, default: '{count} detections' });
+        return $_('leaderboard.heatmap_count_many', { values: { count }, default: '{count, plural, one {# detection} other {# detections}}' });
     }
 
     // What a screen reader hears on each cell: the same sentence the tooltip shows.

@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import heapq
 import inspect
+from itertools import count
 import time
 from typing import Any, Callable
 
 from .classifier_worker_client import ClassifierWorkerClient
 from .classifier_worker_protocol import build_classify_request, build_classify_video_request
-from .native_crash_quarantine import NativeCrashQuarantine
+from .native_crash_quarantine import NativeCrashQuarantine, NativeCrashQuarantinedError
 
 
 # A request that reached the shared worker with less than this share of its
@@ -20,6 +22,59 @@ _PROGRESS_CLEANUP_SECONDS = 0.05
 
 class NativeCpuRecoveryUnavailable(RuntimeError):
     """CPU recovery could not meet the identity or workload deadline contract."""
+
+
+class _CpuRecoveryLock:
+    """Give queued live work the next turn without preempting native inference."""
+
+    def __init__(self) -> None:
+        self._locked = False
+        self._sequence = count()
+        self._waiters: list[tuple[int, int, asyncio.Future[None]]] = []
+
+    def locked(self) -> bool:
+        return self._locked
+
+    async def acquire(self, priority: str | None = None) -> bool:
+        if not self._locked:
+            self._locked = True
+            return True
+        # Profile refresh and shutdown take precedence over new inference;
+        # background and video retain arrival order with each other.
+        rank = 0 if priority is None else 1 if priority == "live" else 2
+        future = asyncio.get_running_loop().create_future()
+        waiter = (rank, next(self._sequence), future)
+        heapq.heappush(self._waiters, waiter)
+        try:
+            await future
+        except asyncio.CancelledError:
+            if not future.cancelled():
+                # Ownership was handed over before cancellation was delivered.
+                self.release()
+            else:
+                try:
+                    self._waiters.remove(waiter)
+                except ValueError:
+                    pass
+                heapq.heapify(self._waiters)
+            raise
+        return True
+
+    def release(self) -> None:
+        if not self._locked:
+            raise RuntimeError("CPU recovery lock is not acquired")
+        while self._waiters:
+            _, _, future = heapq.heappop(self._waiters)
+            if not future.done():
+                future.set_result(None)
+                return
+        self._locked = False
+
+    async def __aenter__(self) -> None:
+        await self.acquire()
+
+    async def __aexit__(self, *_args: object) -> None:
+        self.release()
 
 
 class NativeCpuRecovery:
@@ -33,7 +88,7 @@ class NativeCpuRecovery:
         self._profile_getter = profile_getter
         self._quarantine = quarantine
         self._worker_factory = worker_factory or self._new_worker
-        self._lock = asyncio.Lock()
+        self._lock = _CpuRecoveryLock()
         self._worker: Any = None
         self._profile: dict[str, Any] | None = None
         self._source_profile: dict[str, Any] | None = None
@@ -52,11 +107,34 @@ class NativeCpuRecovery:
             worker_name="native-cpu",
             worker_generation=self._generation,
             heartbeat_timeout_seconds=5,
-            inference_provider_override="cpu",
+            inference_provider_override=(self._profile or {}).get("provider", "cpu"),
         )
+
+    def _cpu_profile(self, source: dict[str, Any]) -> dict[str, Any]:
+        from .model_validation import host_eligible_providers
+
+        providers = ["cpu"]
+        model_id, digest = source.get("model_id"), source.get("model_sha256")
+        if source.get("model_runtime") == "onnx" and model_id and digest:
+            if "intel_cpu" in host_eligible_providers(model_id, artifact_sha256=digest):
+                providers.insert(0, "intel_cpu")
+        # Validation does not erase a later native fault. Keep the exact failed
+        # profile blocked while permitting a different isolated CPU runtime.
+        for provider in providers:
+            profile = source | {"provider": provider}
+            try:
+                self._quarantine.guard(profile)
+            except NativeCrashQuarantinedError:
+                continue
+            return profile
+        raise NativeCpuRecoveryUnavailable("All same-model CPU recovery profiles are quarantined")
 
     def snapshot(self) -> dict[str, dict[str, Any]]:
         return {key: dict(value) for key, value in self._states.items()}
+
+    def has_native_work(self) -> bool:
+        """An idle retained worker is safe; busy, unreaped or closed recovery is not."""
+        return self._closed or self._lock.locked() or self._cleanup_pending
 
     def _state(self, priority: str, status: str, runtime: dict[str, Any] | None = None) -> None:
         self._states[priority] = {
@@ -77,6 +155,7 @@ class NativeCpuRecovery:
                 component="classifier_worker",
                 severity="warning",
                 reason_code=f"native_cpu_recovery_{status}",
+                worker_pool=priority,
                 message="Same-model isolated CPU recovery completed."
                 if status == "degraded"
                 else "Same-model isolated CPU recovery did not meet the workload contract.",
@@ -179,7 +258,7 @@ class NativeCpuRecovery:
             # Queueing, model load, identity checks and inference share one budget.
             # A CPU taking 45 seconds cannot be called recovered for a 35s live job.
             async with asyncio.timeout(timeout_seconds):
-                await self._lock.acquire()
+                await self._lock.acquire(priority)
                 acquired = True
                 queued_seconds = timeout_seconds - (deadline - loop.time())
                 if self._closed:
@@ -189,7 +268,7 @@ class NativeCpuRecovery:
                 profile = await asyncio.to_thread(self._profile_getter)
                 if profile.get("provider") in {"cpu", "intel_cpu", "tflite"}:
                     raise NativeCpuRecoveryUnavailable("The failing profile already uses CPU")
-                cpu_profile = profile | {"provider": "cpu"}
+                cpu_profile = await asyncio.to_thread(self._cpu_profile, profile)
                 if cpu_profile != self._profile:
                     await self._close_worker()
                     self._profile = cpu_profile

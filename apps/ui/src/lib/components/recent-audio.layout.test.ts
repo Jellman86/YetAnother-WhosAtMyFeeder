@@ -12,6 +12,14 @@ describe('RecentAudio dashboard widget layout', () => {
         expect(recentAudioSource).toMatch(/data-audio-history-action[^>]+rounded-full/);
     });
 
+    it('names the species heard and leaves the call totals to the day bar', () => {
+        expect(recentAudioSource).toContain("$_('dashboard.desk.species_heard'");
+        expect(recentAudioSource).toContain('data-dashboard-species-heard');
+        expect(recentAudioSource).not.toContain('dashboard.day_bar.calls_heard');
+        expect(recentAudioSource).not.toContain('dashboard.day_bar.cross_confirmed');
+        expect(recentAudioSource).not.toContain('{matchedCalls.toLocaleString()}');
+    });
+
     it('explains a microphone that matched no visit without raising it as work', () => {
         // Amber is for what needs a person; this is context.
         expect(recentAudioSource).toContain('data-dashboard-no-match');
@@ -21,11 +29,14 @@ describe('RecentAudio dashboard widget layout', () => {
 
     it('serializes background refreshes and stops them with the component lifecycle', () => {
         expect(recentAudioSource).toContain('scheduleAudioPoll();');
-        expect(recentAudioSource).toContain('scheduleSummaryPoll();');
         expect(recentAudioSource).toContain('if (!document.hidden)');
         expect(recentAudioSource).not.toContain('setInterval(loadAudio');
-        expect(recentAudioSource).not.toContain('setInterval(loadSummary');
         expect(recentAudioSource).toContain('audioLoader.dispose();');
-        expect(recentAudioSource).toContain('summaryLoader.dispose();');
+    });
+
+    it('shows the window summary the Dashboard read for the day bar instead of reading it again', () => {
+        expect(recentAudioSource).not.toContain('fetchAudioSummary');
+        expect(recentAudioSource).toContain('summary: AudioSummaryResponse | null;');
+        expect(recentAudioSource).toContain('{#if (loading || summaryLoading) && !summary}');
     });
 });

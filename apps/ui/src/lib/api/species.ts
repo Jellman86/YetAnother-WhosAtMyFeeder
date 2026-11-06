@@ -58,9 +58,23 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
 // on a live install that burst alone produced a dozen 300 to 650 ms waits.
 const speciesInfoGate = createSlotGate(3);
 
-export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal): Promise<SpeciesInfo> {
+/**
+ * Reference information for a species, or with `rank` for the family or order of that scientific
+ * name. The scientific name binds the lookup to that taxon, so a name search never lands on the
+ * wrong page.
+ */
+export async function fetchSpeciesInfo(
+    speciesName: string,
+    signal?: AbortSignal,
+    scientificName?: string,
+    rank?: 'family' | 'order'
+): Promise<SpeciesInfo> {
     return speciesInfoGate.run(async () => {
-        const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`, {
+        const params = new URLSearchParams(scientificName ? { scientific_name: scientificName } : {});
+        if (scientificName && rank) params.set('rank', rank);
+        const text = params.toString();
+        const query = text ? `?${text}` : '';
+        const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info${query}`, {
             signal,
             timeoutMs: 15_000
         });

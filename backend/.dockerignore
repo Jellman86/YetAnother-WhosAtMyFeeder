@@ -12,3 +12,11 @@ scripts/
 !scripts/build_species_catalog_seed.py
 tests/
 venv/
+# Local environment files may contain credentials and are never image inputs.
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!.env.rpi.example
+!**/.env.example
