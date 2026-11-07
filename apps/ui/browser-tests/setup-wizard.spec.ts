@@ -802,3 +802,17 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         expect(errors).toEqual([]);
     });
 }
+
+test('a failed check is not also reported as a green completion', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Classifier model & hardware');
+    await modelSelect(page).selectOption(DINO);
+    await validateButton(page).click();
+    await expect(wizard(page).getByText('Checking this model on each device…').or(wizard(page).getByText('Starting the check…')).first()).toBeVisible();
+    fake.finishEval(['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu']);
+    await expect(wizard(page).getByRole('alert')).toContainText('did not pass the check');
+    await expect(wizard(page).getByText('Hardware validation completed')).toHaveCount(0);
+    await expect(wizard(page).getByText(/Runtime:|providers:/)).toHaveCount(0);
+});
+

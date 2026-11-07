@@ -149,7 +149,7 @@ def test_integrations_optional_when_all_disabled():
 
 
 def test_integrations_need_attention_when_enabled_without_required_credentials():
-    frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=["front"], birdnet_enabled=True)
+    frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=["front"], birdnet_enabled=True, audio_topic="")
     state = compute_setup_state(
         _settings(
             frigate=frigate,
@@ -170,6 +170,7 @@ def test_integrations_ok_only_when_enabled_integrations_have_required_configurat
         frigate_url="http://frigate:5000",
         mqtt_server="mqtt",
         audio_topic="birdnet",
+        birdnet_url="http://birdnet:8080",
         camera=["front"],
         birdnet_enabled=True,
     )
@@ -201,3 +202,40 @@ async def test_endpoint_returns_setup_state(client):
     payload = response.json()
     assert "initial_setup_complete" in payload
     assert [s["id"] for s in payload["sections"]] == list(SETUP_SECTION_IDS)
+
+
+def test_model_names_the_running_model_rather_than_the_saved_file_name():
+    settings = _settings()
+    settings.classification.model = "model.tflite"
+    state = compute_setup_state(settings, active_model_id="small_birds")
+    section = _by_id(state)["model"]
+    assert section.detail == "Small Birds"
+    assert section.detail_values == {"model": "Small Birds"}
+
+
+def test_model_says_bundled_when_nobody_has_chosen_one():
+    settings = _settings()
+    settings.classification.model = "model.tflite"
+    section = _by_id(compute_setup_state(settings, active_model_id="model.tflite"))["model"]
+    assert section.status == "ok"
+    assert section.detail_code == "model_fallback"
+
+
+def test_birdnet_left_on_by_default_is_not_called_configured():
+    frigate = FrigateSettings(frigate_url="http://frigate:5000", birdnet_enabled=True, audio_topic="birdnet")
+    section = _by_id(compute_setup_state(_settings(frigate=frigate)))["integrations"]
+    assert section.status == "optional"
+    assert section.detail_code == "integrations_birdnet_listening"
+    assert "BirdNET-Go" not in section.detail_values.get("configured", "")
+
+
+def test_birdnet_with_a_url_is_configured():
+    frigate = FrigateSettings(
+        frigate_url="http://frigate:5000",
+        birdnet_enabled=True,
+        audio_topic="birdnet",
+        birdnet_url="http://birdnet:8080",
+    )
+    section = _by_id(compute_setup_state(_settings(frigate=frigate)))["integrations"]
+    assert section.status == "ok"
+    assert "BirdNET-Go" in section.detail_values["configured"]

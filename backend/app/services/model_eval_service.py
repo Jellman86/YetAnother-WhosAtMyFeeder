@@ -508,11 +508,7 @@ class ModelEvalRunner:
                         {
                             "model_id": model.id,
                             "reason": "activation_failed",
-                            "detail": (
-                                "model_manager.activate_model returned False. Common cause: "
-                                "family models with eu/na variants whose top-level dir lacks "
-                                "model.onnx — model_manager validates the parent dir."
-                            ),
+                            "detail": "The model's files are missing or incomplete, so it could not be run.",
                             "ready": getattr(model, "ready", None),
                             "ready_reason": getattr(model, "reason", None),
                         }

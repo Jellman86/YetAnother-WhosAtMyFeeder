@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.model_manager import is_retired_model, registry_artifact_kind
+from app.services.model_manager import is_retired_model, registry_artifact_kind, registry_model_name
 
 # Section ids line up with the wizard steps (welcome/language is not a config section).
 SETUP_SECTION_IDS = ("account", "connection", "cameras", "model", "quality", "integrations")
@@ -99,9 +99,9 @@ def _cameras(settings) -> SetupSectionState:
     return SetupSectionState(id="cameras", status="ok", detail="All cameras", detail_code="cameras_all")
 
 
-def _model(settings) -> SetupSectionState:
+def _model(settings, active_model_id: str | None) -> SetupSectionState:
     # A bundled classifier always ships, so this is functional out of the box.
-    model_id = str(settings.classification.model or "").strip()
+    model_id = str(active_model_id or settings.classification.model or "").strip()
     if is_retired_model(model_id):
         return SetupSectionState(
             id="model",
@@ -116,10 +116,12 @@ def _model(settings) -> SetupSectionState:
             detail="A crop detector is selected as the classifier",
             detail_code="model_wrong_kind",
         )
-    if model_id:
+    name = registry_model_name(model_id)
+    if name:
         return SetupSectionState(
-            id="model", status="ok", detail=model_id, detail_code="model_selected", detail_values={"model": model_id}
+            id="model", status="ok", detail=name, detail_code="model_selected", detail_values={"model": name}
         )
+    # Anything the registry does not list runs the bundled model, whatever the saved name says.
     return SetupSectionState(id="model", status="ok", detail="Bundled fallback", detail_code="model_fallback")
 
 
@@ -138,9 +140,16 @@ def _integrations(settings) -> SetupSectionState:
     notifications = settings.notifications
     configured: list[str] = []
     incomplete: list[str] = []
+    # BirdNET-Go is on by default, so being on says nothing about whether anyone set it up. Its URL
+    # is the one part a person has to provide, and the only thing that can be checked.
+    birdnet_unconfirmed = False
     if settings.frigate.birdnet_enabled:
-        target = configured if settings.frigate.mqtt_server and settings.frigate.audio_topic else incomplete
-        target.append("BirdNET-Go")
+        if not (settings.frigate.mqtt_server and settings.frigate.audio_topic):
+            incomplete.append("BirdNET-Go")
+        elif (settings.frigate.birdnet_url or "").strip():
+            configured.append("BirdNET-Go")
+        else:
+            birdnet_unconfirmed = True
 
     enabled_notification_channels = [
         channel
@@ -206,20 +215,27 @@ def _integrations(settings) -> SetupSectionState:
             detail_code="integrations_configured",
             detail_values={"configured": ", ".join(configured)},
         )
+    if birdnet_unconfirmed:
+        return SetupSectionState(
+            id="integrations",
+            status="optional",
+            detail="BirdNET-Go is listening over MQTT, with no URL to check it",
+            detail_code="integrations_birdnet_listening",
+        )
     return SetupSectionState(
         id="integrations", status="optional", detail="None enabled", detail_code="integrations_none"
     )
 
 
-def compute_setup_state(settings) -> SetupState:
-    """Derive per-section readiness from the current settings (pure, no I/O)."""
+def compute_setup_state(settings, *, active_model_id: str | None = None) -> SetupState:
+    """Derive per-section readiness from the current settings and running model (pure, no I/O)."""
     return SetupState(
         initial_setup_complete=bool(getattr(settings.auth, "initial_setup_complete", False)),
         sections=[
             _account(settings),
             _connection(settings),
             _cameras(settings),
-            _model(settings),
+            _model(settings, active_model_id),
             _quality(settings),
             _integrations(settings),
         ],
