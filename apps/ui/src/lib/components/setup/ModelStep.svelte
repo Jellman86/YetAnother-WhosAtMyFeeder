@@ -613,8 +613,9 @@
                                         {$_('setup.model.best_provider_without_timing', { values: { provider: providerLabel(outcome.provider) }, default: `Best validated provider: ${providerLabel(outcome.provider)}` })}
                                     {/if}
                                 </p>
-                                {#if !rowOk(m) && m.warnings?.[0]?.message}
-                                    <p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{m.warnings[0].message}</p>
+                                {#if !rowOk(m)}
+                                    {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
+                                    {#if reason}<p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{reason}</p>{/if}
                                 {/if}
                                 {#if m.failed_providers?.length}
                                     <p class="text-xs text-amber-700 dark:text-amber-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
