@@ -425,12 +425,8 @@
             installedModels = classifierModels(installed);
             status = classifierStatus;
             resolvedFamilies = families;
-            // A result for the other region says nothing about this one.
-            results = null;
-            matrix = null;
-            validationFailed = false;
-            validationMsg = '';
-            providerMessage = '';
+            // A result for the other region says nothing about this one, nor does its provider.
+            resetValidationResult(selectedModelId);
         } catch (err) {
             regionOverride = previous;
             errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
@@ -516,34 +512,6 @@
             {/if}
         </div>
 
-        <div>
-            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
-            <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
-                {#each providerChoices as choice (choice.value)}
-                    <option value={choice.value} disabled={choice.unavailable}>
-                        {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
-                    </option>
-                {/each}
-            </select>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
-            {#if providerPreferenceLabel}
-                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                    {$_('settings.detection.provider_runtime_order', {
-                        values: { order: providerPreferenceLabel },
-                        default: `Current runtime order: ${providerPreferenceLabel}`
-                    })}
-                </p>
-            {/if}
-            {#if configuredProviderUnavailable}
-                <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
-                    {$_('settings.detection.provider_saved_unavailable', {
-                        values: { provider: providerLabel(selectedProvider as InferenceProvider) },
-                        default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
-                    })}
-                </p>
-            {/if}
-        </div>
-
         {#if isRegional}
             <div data-setup-model-region>
                 <label for="setup-model-region" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
@@ -578,6 +546,34 @@
                 </p>
             </div>
         {/if}
+
+        <div>
+            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+            <select id="setup-provider" bind:value={selectedProvider} onchange={() => { providerTouched = true; providerMessage = ''; }} disabled={validating || downloading || saving} class="select-base mt-1">
+                {#each providerChoices as choice (choice.value)}
+                    <option value={choice.value} disabled={choice.unavailable}>
+                        {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
+                    </option>
+                {/each}
+            </select>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            {#if providerPreferenceLabel}
+                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {$_('settings.detection.provider_runtime_order', {
+                        values: { order: providerPreferenceLabel },
+                        default: `Current runtime order: ${providerPreferenceLabel}`
+                    })}
+                </p>
+            {/if}
+            {#if configuredProviderUnavailable}
+                <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                    {$_('settings.detection.provider_saved_unavailable', {
+                        values: { provider: providerLabel(selectedProvider as InferenceProvider) },
+                        default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
+                    })}
+                </p>
+            {/if}
+        </div>
 
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">

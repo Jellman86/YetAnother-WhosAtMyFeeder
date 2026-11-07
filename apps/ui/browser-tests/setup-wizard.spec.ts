@@ -927,6 +927,7 @@ test('a regional model says which species list it will use, and validating runs 
     await region.getByLabel('Bird model region').selectOption('eu');
     await expect(region.getByRole('status')).toContainText('This model will use the species list for Europe.');
     await expect.poll(() => fake.settingsWrites()).toContainEqual({ bird_model_region_override: 'eu' });
+    await expect(wizard(page).getByText('is saved but', { exact: false })).toHaveCount(0);
     await validateButton(page).click();
     await expect.poll(() => fake.posts('/api/diagnostics/model-eval/runs').length).toBe(1);
     expect(fake.requestIndex(r => r.method === 'POST' && r.path === '/api/settings')).toBeLessThan(
