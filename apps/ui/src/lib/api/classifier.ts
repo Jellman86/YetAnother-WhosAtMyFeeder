@@ -275,6 +275,14 @@ export async function fetchAvailableModels(): Promise<ModelMetadata[]> {
     return handleResponse<ModelMetadata[]>(response);
 }
 
+export type ResolvedModelFamilies = paths['/api/models/families/resolved']['get']['response'];
+
+/** Which region each regional model family runs for, given the saved settings. Owner only. */
+export async function fetchResolvedModelFamilies(): Promise<ResolvedModelFamilies> {
+    const response = await apiFetch(`${API_BASE}/models/families/resolved`);
+    return handleResponse<ResolvedModelFamilies>(response);
+}
+
 export async function fetchInstalledModels(): Promise<InstalledModel[]> {
     const response = await apiFetch(`${API_BASE}/models/installed`);
     return handleResponse<InstalledModel[]>(response);

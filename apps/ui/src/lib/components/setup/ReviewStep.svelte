@@ -88,6 +88,8 @@
             }
             case 'integrations_configured':
                 return $_('setup.review.detail.integrations_configured', { values: { integrations: text('configured') }, default: `Configured: ${text('configured')}` });
+            case 'integrations_birdnet_listening':
+                return $_('setup.review.detail.integrations_birdnet_listening', { default: 'BirdNET-Go is listening over MQTT, with no URL to check it' });
             case 'integrations_none':
                 return $_('setup.review.detail.integrations_none', { default: 'None enabled' });
             default:
