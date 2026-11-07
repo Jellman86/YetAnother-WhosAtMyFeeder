@@ -200,6 +200,13 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       refreshCoordinator.onNavigate();
   }
 
+  // Setup left unfinished comes back for the owner, who may have had to sign in first.
+  $effect(() => {
+      if (authStore.statusLoaded && !authStore.needsInitialSetup && authStore.hasOwnerAccess) {
+          untrack(() => setupWizardStore.resumeInterrupted());
+      }
+  });
+
   // Route guard: settings page should only be accessible when authenticated
   // (or when auth is disabled entirely).
   $effect(() => {

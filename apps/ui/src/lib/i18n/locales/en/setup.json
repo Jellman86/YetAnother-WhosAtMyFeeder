@@ -25,6 +25,8 @@
     "mqtt_password_saved": "A saved password will be kept unless you enter a replacement.",
     "continue_hint": "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable.",
     "description": "YA-WAMF reads detections from Frigate over MQTT and fetches snapshots from its API. Point it at both, then test.",
+    "frigate_auth_hint": "If your Frigate requires a sign-in, set FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then test again.",
+    "frigate_auth_link": "Environment variables",
     "frigate_fail": "Could not reach Frigate",
     "frigate_ok": "Connected to Frigate {version}",
     "frigate_url": "Frigate URL",

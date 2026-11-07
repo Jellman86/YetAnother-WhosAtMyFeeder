@@ -72,6 +72,7 @@ class FakeBackend {
     requests: RecordedRequest[] = [];
     unexpected: string[] = [];
     allowExtraReads = false;
+    frigateTestFails = false;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
     evalError = '';
@@ -233,7 +234,7 @@ class FakeBackend {
             this.settings = { ...this.settings, ...(body ?? {}) };
             return json({ status: 'success' });
         }
-        if (path === '/api/frigate/test') return json({ status: 'ok', version: '0.16.0' });
+        if (path === '/api/frigate/test') return this.frigateTestFails ? json({ detail: 'Frigate authentication failed.' }, 401) : json({ status: 'ok', version: '0.16.0' });
         if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
         if (path === '/api/events/filters') return json({ cameras: ['feeder'], species: [] });
         if (path === '/api/audio/sources') return json([]);
@@ -802,3 +803,64 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         expect(errors).toEqual([]);
     });
 }
+
+test('in first run, a section opened from Review goes straight back to Review', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await expectStep(page, 'Welcome to YA-WAMF');
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
+    await continueButton(page).click();
+    await expectStep(page, 'Cameras & detection');
+    await continueButton(page).click();
+    await expectStep(page, 'Classifier model & hardware');
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await openSectionFromReview(page, 'Best available snapshots');
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    await wizard(page).getByRole('button', { name: 'Finish', exact: true }).click();
+    await expect(wizard(page)).toHaveCount(0);
+});
+
+test('reloading part way through first run comes back to the same step, and Finish ends it', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+
+    await page.reload();
+
+    await expectStep(page, 'Frigate & MQTT connection');
+    await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip and open the app' }).click();
+    await expect(wizard(page)).toHaveCount(0);
+
+    await page.reload();
+
+    await expect(page.getByRole('heading', { name: 'App opened' })).toBeVisible();
+    await expect(wizard(page)).toHaveCount(0);
+});
+
+test('a failed Frigate test says how to give it a token', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.frigateTestFails = true;
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Frigate & MQTT connection');
+    await expect(wizard(page).locator('[data-setup-frigate-auth-hint]')).toHaveCount(0);
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    await expect(wizard(page).locator('[data-setup-frigate-auth-hint]')).toContainText('FRIGATE_AUTH_TOKEN');
+});

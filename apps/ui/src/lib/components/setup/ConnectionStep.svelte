@@ -10,6 +10,8 @@
 
     type TestState = { ok: boolean; message: string } | null;
 
+    const TOKEN_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/main/docs/setup/environment-variables.md';
+
     let frigateUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
@@ -199,6 +201,13 @@
                 <span>{result?.message}</span>
             </div>
         {/each}
+
+        {#if frigateResult && !frigateResult.ok}
+            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400" data-setup-frigate-auth-hint>
+                {$_('setup.connection.frigate_auth_hint', { default: 'If your Frigate requires a sign-in, set FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then test again.' })}
+                <a href={TOKEN_DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-600 underline dark:text-brand-400">{$_('setup.connection.frigate_auth_link', { default: 'Environment variables' })}</a>
+            </p>
+        {/if}
 
         {#if savedOnce && !frigateResult?.ok}
             <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>

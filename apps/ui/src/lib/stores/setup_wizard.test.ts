@@ -18,6 +18,12 @@ import { setupWizardStore, WIZARD_STEPS } from './setup_wizard.svelte';
 
 describe('setupWizardStore', () => {
     beforeEach(() => {
+        const stored = new Map<string, string>();
+        vi.stubGlobal('localStorage', {
+            getItem: (key: string) => stored.get(key) ?? null,
+            setItem: (key: string, value: string) => void stored.set(key, value),
+            removeItem: (key: string) => void stored.delete(key)
+        });
         setupWizardStore.close();
         setupWizardStore.setupState = null;
         setupWizardStore.goto(0);
@@ -91,5 +97,59 @@ describe('setupWizardStore', () => {
         expect(setupWizardStore.statusFor('connection')).toBe('ok');
         expect(setupWizardStore.detailFor('connection')).toBe('http://frigate:5000');
         expect(setupWizardStore.statusFor(null)).toBeNull();
+    });
+
+    it('a section opened from Review in first run goes back to Review, on finishing or leaving it', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.gotoStep('review');
+        setupWizardStore.openFromReview('connection');
+        expect(setupWizardStore.current.id).toBe('connection');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('review');
+
+        setupWizardStore.openFromReview('cameras');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('review');
+    });
+
+    it('walking through first run without Review still moves on step by step', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.gotoStep('connection');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('cameras');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('connection');
+    });
+
+    it('resumes an interrupted first run at the step it reached', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.gotoStep('model');
+        setupWizardStore.active = false;
+
+        setupWizardStore.resumeInterrupted();
+
+        expect(setupWizardStore.active).toBe(true);
+        expect(setupWizardStore.mode).toBe('first_run');
+        expect(setupWizardStore.current.id).toBe('model');
+    });
+
+    it('does not reopen once setup was finished or skipped', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.gotoStep('model');
+        setupWizardStore.close();
+
+        setupWizardStore.resumeInterrupted();
+
+        expect(setupWizardStore.active).toBe(false);
+    });
+
+    it('a re-run never leaves anything to resume', () => {
+        setupWizardStore.open('rerun');
+        setupWizardStore.gotoStep('model');
+        setupWizardStore.close();
+
+        setupWizardStore.resumeInterrupted();
+
+        expect(setupWizardStore.active).toBe(false);
     });
 });

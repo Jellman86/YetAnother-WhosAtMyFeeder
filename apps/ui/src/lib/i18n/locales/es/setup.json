@@ -25,6 +25,8 @@
     "mqtt_password_saved": "La contraseña guardada se conservará salvo que introduzcas otra.",
     "continue_hint": "Los ajustes se han guardado. Puedes continuar y corregir la conexión más tarde, pero no llegarán detecciones hasta que Frigate sea accesible.",
     "description": "YA-WAMF lee las detecciones de Frigate por MQTT y obtiene las instantáneas de su API. Indica la dirección de ambos y luego haz la prueba.",
+    "frigate_auth_hint": "Si tu Frigate requiere iniciar sesión, define FRIGATE_AUTH_TOKEN en el entorno con el que arranca YA-WAMF, reinícialo y vuelve a probar.",
+    "frigate_auth_link": "Variables de entorno",
     "frigate_fail": "No se pudo contactar con Frigate",
     "frigate_url": "URL de Frigate",
     "mqtt_fail": "No se pudo contactar con el broker MQTT",
