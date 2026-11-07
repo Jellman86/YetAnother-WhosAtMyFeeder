@@ -49,7 +49,7 @@ function timestamp(detection: Detection): number {
 }
 
 /** The classifier gave no species: the label is empty or the "Unknown Bird" placeholder. */
-export function hasNoSpecies(detection: Detection): boolean {
+function hasNoSpecies(detection: Detection): boolean {
     const label = (detection.display_name ?? '').trim().toLowerCase();
     return !label || label === UNRESOLVED_LABEL;
 }

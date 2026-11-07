@@ -48,7 +48,7 @@ async function serve(page: Page, served: Served): Promise<void> {
         if (url.pathname === '/api/garden/domestic-birds/chicken/keep') {
             return route.fulfill({ json: { bird: 'chicken', declared: true, moved: 8, skipped: 0, remaining: 0 } });
         }
-        if (url.pathname === '/api/events/new-species') return route.fulfill({ json: { items: [] } });
+        if (url.pathname === '/api/events/review-queue') return route.fulfill({ json: { items: [], total: 0 } });
         if (url.pathname === '/api/events') return route.fulfill({ json: [] });
         // Supporting dashboard readings are unavailable; the panel depends only on the readings above.
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });

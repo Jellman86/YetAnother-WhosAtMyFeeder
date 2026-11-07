@@ -23,14 +23,15 @@ describe('applyManualTagResult', () => {
         it(`clears a low-confidence whole-view review after a saved ${status} owner choice without a page refresh`, () => {
             const initial = { source: 'recording_frame', is_cropped: false };
             const wholeView = { ...detection, score: 0.4, classification_input: initial, initial_classification_input: initial };
-            expect(buildReviewQueue([wholeView], { reviewThreshold: 0.6 }).total).toBe(1);
+            const waiting = { entries: [{ detection: wholeView, reason: 'low_score' as const, sightings: null }], total: 1 };
+            expect(buildReviewQueue(waiting, { reviewThreshold: 0.6 }).total).toBe(1);
             const updated = applyManualTagResult(wholeView, {
                 status, event_id: detection.frigate_event, new_species: detection.display_name,
                 manual_tagged: true
             });
             expect(updated.classification_input).toEqual({ source: 'owner_species_choice' });
             expect(updated.initial_classification_input).toEqual(initial);
-            expect(buildReviewQueue([updated], { reviewThreshold: 0.6 }).total).toBe(0);
+            expect(buildReviewQueue(waiting, { reviewThreshold: 0.6, knownDetections: [updated] }).total).toBe(0);
         });
     }
 

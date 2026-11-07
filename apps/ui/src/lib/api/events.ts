@@ -212,10 +212,10 @@ export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-coun
     return handleResponse<paths['/api/events/hidden-count']['get']['response']>(response);
 }
 
-export type NewSpeciesQueueResponse = paths['/api/events/new-species']['get']['response'];
+export type ReviewQueueResponse = paths['/api/events/review-queue']['get']['response'];
 
-/** Species that appeared recently and no person has confirmed (#310). Owner only. */
-export async function fetchNewSpeciesQueue(): Promise<NewSpeciesQueueResponse> {
-    const response = await apiFetch(`${API_BASE}/events/new-species`);
-    return handleResponse<NewSpeciesQueueResponse>(response);
+/** Everything waiting on a person, oldest first, with the full count. Owner only. */
+export async function fetchReviewQueue(options: { limit: number; signal?: AbortSignal }): Promise<ReviewQueueResponse> {
+    const response = await apiFetch(`${API_BASE}/events/review-queue?limit=${options.limit}`, { signal: options.signal });
+    return handleResponse<ReviewQueueResponse>(response);
 }

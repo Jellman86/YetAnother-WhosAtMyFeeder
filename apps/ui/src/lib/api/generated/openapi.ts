@@ -2115,6 +2115,17 @@ export interface components {
     place_guess?: string | null;
     state?: string | null;
 };
+    ReviewQueueItem: {
+    event: components['schemas']['DetectionResponse'];
+    reason: "unknown_species" | "low_score" | "new_species";
+    species_sightings?: number | null;
+};
+    ReviewQueueResponse: {
+    items: Array<components['schemas']['ReviewQueueItem']>;
+    total: number;
+    window_end: string;
+    window_start: string;
+};
     SeasonalityResponse: {
     local: boolean;
     month_counts: Array<number>;
@@ -3929,6 +3940,20 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['NewSpeciesQueueResponse'];
+    };
+  };
+  "/api/events/review-queue": {
+    get: {
+      operationId: "get_review_queue_api_events_review_queue_get";
+      path: never;
+      query: {
+    limit?: number;
+    max_sightings?: number;
+    window_days?: number;
+    window_hours?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['ReviewQueueResponse'];
     };
   };
   "/api/events/{event_id}": {
