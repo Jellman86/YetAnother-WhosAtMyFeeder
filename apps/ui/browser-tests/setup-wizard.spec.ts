@@ -935,9 +935,15 @@ test('a regional model says which species list it will use, and validating runs 
 });
 
 test('a saved country names the species list, and a model that is not regional asks no region question', async ({ page }) => {
-    const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }], settings: { location_country: 'France', bird_model_region_override: 'eu' } });
+    const fake = new FakeBackend({
+        activeModelId: MOBILENET,
+        installed: [{ id: MOBILENET }, { id: 'small_birds', ready: true, validated: false }],
+        settings: { location_country: 'France', bird_model_region_override: 'eu' }
+    });
     await openRerun(page, fake);
     await openSectionFromReview(page, 'Classifier model & hardware');
+    // Only once the step has loaded does an absent control mean anything.
+    await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(wizard(page).locator('[data-setup-model-region]')).toHaveCount(0);
     await modelSelect(page).selectOption('small_birds');
     await wizard(page).getByLabel('Bird model region').selectOption('auto');
