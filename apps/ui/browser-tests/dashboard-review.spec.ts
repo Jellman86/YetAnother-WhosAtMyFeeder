@@ -159,3 +159,28 @@ test('Needs your call says it could not check when the queue fails, never that n
     await card.getByRole('button', { name: /try again|retry/i }).click();
     await expect(card.getByText('Every visit in the last 24 hours has a species. Nothing waiting on you.')).toBeVisible();
 });
+
+test('finishing a walkthrough that could not hold everything says more are waiting (#917)', async ({ page }) => {
+    const listed = { frigate_event: 'listed', display_name: 'Unknown Bird', category_name: 'Unknown Bird', camera_name: 'birdcam',
+        detection_time: new Date(Date.now() - 3600000).toISOString(), score: 0.9, manual_tagged: false };
+    await page.route(url => url.pathname.startsWith('/api/'), route => {
+        const request = route.request(), path = new URL(request.url()).pathname;
+        if (path === '/api/events') return route.fulfill({ json: [] });
+        if (path === '/api/events/review-queue') return route.fulfill({ json: { items: [{ event: listed, reason: 'unknown_species' }], total: 3 } });
+        if (request.method() === 'POST' && path.endsWith('/hide')) return route.fulfill({ json: { status: 'ok', event_id: listed.frigate_event, is_hidden: true } });
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
+        if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
+        if (path === '/api/species/feeder') return route.fulfill({ json: [] });
+        if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-count]')).toHaveText('3');
+    await card.getByRole('button', { name: 'Work through the queue' }).click();
+    const modal = page.locator('[data-review-queue-modal]');
+    await modal.getByRole('button', { name: /Skip|skip/ }).first().click();
+    await expect(modal.locator('[data-review-more-waiting]')).toContainText('2 more are waiting');
+    await expect(modal.getByRole('heading', { name: 'Queue clear' })).toHaveCount(0);
+});
+

@@ -127,6 +127,7 @@
     "position": "{position} von {total}",
     "summary": "{resolved} entschieden, {skipped} übersprungen",
     "done": "Warteschlange leer",
+    "more_waiting": "{count, plural, one {# weiterer Eintrag wartet. Öffnen Sie die Warteschlange erneut, um fortzufahren.} other {# weitere Einträge warten. Öffnen Sie die Warteschlange erneut, um fortzufahren.}}",
     "done_with_skips": "Warteschlange durchgearbeitet",
     "done_note": "Jeder Besuch hat eine Art. Ihre Korrekturen verbessern die Rangfolge je Kamera.",
     "skipped_note": "{count, plural, one {# für später übrig. Sie bleibt in der Warteschlange.} other {# für später übrig. Sie bleiben in der Warteschlange.}}",

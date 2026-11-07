@@ -89,8 +89,7 @@
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {#each choices as choice (choice.camera)}
                         <label class="block cursor-pointer space-y-2 rounded-xl border p-2 {selected.includes(choice.camera) ? 'border-brand-500' : 'border-slate-200 dark:border-slate-700'}">
-                            <!-- The picture repeats the name, which the checkbox already gives a screen reader. -->
-                            <div aria-hidden="true"><CameraThumbnail camera={choice.camera} /></div>
+                            <div aria-hidden="true"><CameraThumbnail camera={choice.camera} showName={false} /></div>
                             <span class="flex min-h-11 items-center gap-2 text-sm font-medium text-slate-800 dark:text-slate-100">
                                 <input type="checkbox" checked={selected.includes(choice.camera)} onchange={(event) => toggle(choice.camera, event.currentTarget.checked)} class="h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
                                 <span class="min-w-0 break-words">{choice.camera}</span>

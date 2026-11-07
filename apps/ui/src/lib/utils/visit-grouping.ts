@@ -75,7 +75,8 @@ export function ownerConfirmationScope(
     detection: Detection,
     visit: Pick<ServerVisit, 'owner_confirmed'> | undefined
 ): 'visit' | 'capture' | null {
-    if (visit) return visit.owner_confirmed === true || isOwnerConfirmed(detection) ? 'visit' : null;
+    // A record that has since lost its species cannot wear a confirmation read before it did.
+    if (visit) return (visit.owner_confirmed === true && !hasNoSpecies(detection)) || isOwnerConfirmed(detection) ? 'visit' : null;
     return isOwnerConfirmed(detection) ? 'capture' : null;
 }
 
