@@ -37,4 +37,8 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   the [early identification request (#743)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/743)
   and the [multiple-model proposal (#804)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/804), which stays open.
 - [@Blorti](https://github.com/Blorti)
-  Thanks for the [request to show confirmed species on the Dashboard (#791)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/791).
+  Thanks for the [request to show confirmed species on the Dashboard (#791)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/791),
+  the follow-up for the [Explorer (#918)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/918) and the
+  report that [Small and Medium Birds would not activate (#919)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/919).
+- [@miroslawkluz](https://github.com/miroslawkluz)
+  Thanks for the [report and numbers on the Needs your call undercount (#917)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/917).
