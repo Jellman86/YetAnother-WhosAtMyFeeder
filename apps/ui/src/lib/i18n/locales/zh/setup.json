@@ -36,13 +36,16 @@
   "cameras": {
     "title": "摄像头与检测",
     "description": "选择 YA-WAMF 要监控的 Frigate 摄像头。高级检测和分类阈值仍在“检测”设置中管理。",
-    "detected_note": "未设置摄像头列表，因此 YA-WAMF 正在监控所有摄像头。以下摄像头正在产生检测：",
     "gates_hint": "缺少检测？快照能否到达 YA-WAMF，取决于 Frigate 自身的 min_score / threshold / min_initialized 门槛。",
     "gates_link": "调优指南 →",
     "list": "摄像头（逗号分隔）",
-    "list_hint": "请使用 Frigate 配置中的确切摄像头名称。",
+    "list_unread": "无法读取 Frigate 的摄像头列表，因此无法检查这些名称。名称不完全匹配的摄像头永远不会看到鸟。留空可监视所有摄像头。",
+    "not_in_frigate": "Frigate 中没有此名称的摄像头，因此它永远不会看到鸟。",
     "offline": "无预览",
-    "use_detected": "添加这些"
+    "pick": "要监视的摄像头",
+    "retry": "重新读取 Frigate 的摄像头",
+    "watching_all": "正在监视所有摄像头，包括您以后添加到 Frigate 的摄像头。勾选摄像头可只监视这些摄像头。",
+    "watching_some": "{count, plural, other {正在监视 # 个摄像头。}}其他摄像头将被忽略。"
   },
   "model": {
     "title": "分类模型与硬件",
@@ -74,6 +77,9 @@
     "phase_preparing": "正在准备检查…",
     "phase_sweep": "正在每个设备上检查此模型…",
     "phase_finishing": "正在完成检查…",
+    "region_no_country": "尚未保存国家，因此“自动”会使用北美物种列表。如果您的喂食器在欧洲，请选择欧洲。",
+    "region_chosen": "此模型将使用{region}的物种列表。",
+    "region_from_country": "您保存的国家选择了{region}的物种列表。",
     "incomplete_install": "此模型尚未完整安装。请重新下载并验证后再继续。",
     "check_running": "检查完成后即可继续。离开此步骤不会停止检查。稍后可返回查看已保存的结果。",
     "provider_replaced": "{previous} 未通过此模型的检查，已改为选择 {provider}。",

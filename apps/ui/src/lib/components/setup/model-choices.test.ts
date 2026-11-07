@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { feederCoordinates, validationRecommendation } from './model-choices';
+import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
 import type { DeviceMatrix, ModelEvalModelSummary } from '../../api/model_eval';
 
 describe('wizard feeder coordinates', () => {
@@ -56,5 +56,21 @@ describe('wizard validation recommendation', () => {
     it('does not borrow results for a different model or a critical failure', () => {
         expect(validationRecommendation('other', undefined, matrix).providers).toEqual([]);
         expect(validationRecommendation('bird', { ...summary, warnings: [{ severity: 'critical', code: 'failed', message: 'failed' }] }, null).provider).toBeNull();
+    });
+});
+
+describe('wizard regional model message', () => {
+    it('says a chosen region is what will run', () => {
+        expect(regionMessage('eu', null, 'na')).toEqual({ kind: 'chosen', region: 'eu' });
+    });
+
+    it('warns that Auto has nothing to go on without a country', () => {
+        expect(regionMessage('auto', null, 'na')).toEqual({ kind: 'no_country' });
+        expect(regionMessage('auto', '   ', 'na')).toEqual({ kind: 'no_country' });
+    });
+
+    it('names the region a saved country selects, and claims none it could not read', () => {
+        expect(regionMessage('auto', 'France', 'eu')).toEqual({ kind: 'from_country', region: 'eu' });
+        expect(regionMessage('auto', 'France', undefined)).toEqual({ kind: 'from_country', region: null });
     });
 });

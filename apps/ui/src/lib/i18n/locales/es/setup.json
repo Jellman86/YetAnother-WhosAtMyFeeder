@@ -36,13 +36,16 @@
   "cameras": {
     "title": "Cámaras y detección",
     "description": "Elige las cámaras de Frigate que vigilará YA-WAMF. Los filtros avanzados de detección y clasificación permanecen en los ajustes de Detección.",
-    "detected_note": "No hay una lista de cámaras definida, así que YA-WAMF vigila todas las cámaras. Estas están generando detecciones:",
     "gates_hint": "¿Faltan detecciones? Los propios filtros min_score / threshold / min_initialized de Frigate deciden si una instantánea llega alguna vez a YA-WAMF.",
     "gates_link": "Guía de ajuste →",
     "list": "Cámaras (separadas por comas)",
-    "list_hint": "Usa los nombres exactos de las cámaras de tu configuración de Frigate.",
+    "list_unread": "No se pudo leer la lista de cámaras de Frigate, así que estos nombres no se pueden comprobar. Un nombre que no coincida exactamente nunca verá un ave. Déjalo vacío para vigilar todas las cámaras.",
+    "not_in_frigate": "Frigate no tiene ninguna cámara con este nombre, así que nunca verá un ave.",
     "offline": "Sin vista previa",
-    "use_detected": "Añadir estas"
+    "pick": "Cámaras que vigilar",
+    "retry": "Volver a leer las cámaras de Frigate",
+    "watching_all": "Se vigilan todas las cámaras, incluidas las que añadas más tarde a Frigate. Marca cámaras para vigilar solo esas.",
+    "watching_some": "{count, plural, one {Se vigila # cámara.} other {Se vigilan # cámaras.}} Las demás cámaras se ignoran."
   },
   "model": {
     "title": "Modelo clasificador y hardware",
@@ -74,6 +77,9 @@
     "phase_preparing": "Preparando la comprobación…",
     "phase_sweep": "Comprobando este modelo en cada dispositivo…",
     "phase_finishing": "Terminando la comprobación…",
+    "region_no_country": "No hay ningún país guardado, así que Auto usa la lista de especies de Norteamérica. Elige Europa si tu comedero está en Europa.",
+    "region_chosen": "Este modelo usará la lista de especies de {region}.",
+    "region_from_country": "Tu país guardado selecciona la lista de especies de {region}.",
     "incomplete_install": "La instalación de este modelo está incompleta. Descárgalo y verifícalo de nuevo antes de continuar.",
     "check_running": "Podrás continuar cuando termine la prueba. Salir de este paso no la detiene. Vuelve más tarde para consultar los resultados guardados.",
     "provider_replaced": "{previous} no superó la prueba de este modelo, por lo que se ha seleccionado {provider}.",

@@ -36,13 +36,16 @@
   "cameras": {
     "title": "Cameras & detection",
     "description": "Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings.",
-    "detected_note": "No camera list set, so YA-WAMF is watching all cameras. These are producing detections:",
     "gates_hint": "Missing detections? Frigate's own min_score / threshold / min_initialized gates decide whether a snapshot ever reaches YA-WAMF.",
     "gates_link": "Tuning guide →",
     "list": "Cameras (comma-separated)",
-    "list_hint": "Use the exact camera names from your Frigate config.",
+    "list_unread": "Frigate's camera list could not be read, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera.",
+    "not_in_frigate": "Frigate has no camera with this name, so it will never see a bird.",
     "offline": "No preview",
-    "use_detected": "Add these"
+    "pick": "Cameras to watch",
+    "retry": "Read Frigate's cameras again",
+    "watching_all": "Watching every camera, including any you add to Frigate later. Tick cameras to watch only those.",
+    "watching_some": "{count, plural, one {Watching # camera.} other {Watching # cameras.}} Other cameras are ignored."
   },
   "model": {
     "title": "Classifier model & hardware",
@@ -74,6 +77,9 @@
     "phase_preparing": "Preparing the check…",
     "phase_sweep": "Checking this model on each device…",
     "phase_finishing": "Finishing the check…",
+    "region_no_country": "No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.",
+    "region_chosen": "This model will use the species list for {region}.",
+    "region_from_country": "Your saved country selects the species list for {region}.",
     "incomplete_install": "This model install is incomplete. Download and verify it again before continuing.",
     "check_running": "Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.",
     "provider_replaced": "{previous} did not pass the check for this model, so {provider} is selected instead.",
