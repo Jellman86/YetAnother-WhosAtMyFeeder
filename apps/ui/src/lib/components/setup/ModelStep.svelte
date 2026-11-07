@@ -262,10 +262,11 @@
                 if (!providerTouched || !explicitPassed) selectedProvider = checked.provider;
                 providerTouched = true;
             }
-            errorMsg = validationFailed ? $_('setup.model.no_passing_provider', { default: 'This model did not pass hardware validation. Review the results and try again before continuing.' }) : '';
+            errorMsg = validationFailed ? $_('setup.model.no_passing_provider', { default: 'This model did not pass the check. Review the results and try again before continuing.' }) : '';
             validating = false;
             progress = null;
-            validationMsg = validationSummary(results);
+            // A failure is stated once, in the alert above: it is not also a green completion.
+            validationMsg = validationFailed ? '' : validationSummary(results);
             await setupWizardStore.refresh();
         } catch {
             if (validationDeadline > 0 && Date.now() >= validationDeadline) {
@@ -376,17 +377,20 @@
 
     function modelHardwareNote(model: ModelMetadata | null): string {
         if (!model) return '';
-        const providers = (model.supported_inference_providers || []).join(', ') || 'CPU';
-        const ram = model.estimated_ram_mb ? ` Around ${model.estimated_ram_mb} MB RAM recommended.` : '';
-        return `${model.recommended_for} Runtime: ${model.runtime || 'ONNX/TFLite'}; providers: ${providers}.${ram}`;
+        if (!model.estimated_ram_mb) return model.recommended_for;
+        return `${model.recommended_for} ${$_('setup.model.ram_note', { values: { ram: model.estimated_ram_mb }, default: 'Around {ram} MB RAM recommended.' })}`;
+    }
+
+    function phaseLabel(phase: string): string {
+        if (phase === 'starting') return $_('setup.model.phase_starting', { default: 'Starting the check…' });
+        if (phase === 'complete') return $_('setup.model.phase_finishing', { default: 'Finishing the check…' });
+        if (phase === 'device_sweep') return $_('setup.model.phase_sweep', { default: 'Checking this model on each device…' });
+        return $_('setup.model.phase_preparing', { default: 'Preparing the check…' });
     }
 
     function validationSummary(models: ModelEvalModelSummary[]): string {
         if (!models.length) return $_('setup.model.no_results', { default: 'No installed models were evaluated.' });
-        const ok = models.filter(rowOk).length;
-        return ok === models.length
-            ? $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' })
-            : $_('setup.model.validation_partial', { values: { ok, total: models.length }, default: `Hardware validation completed: ${ok}/${models.length} models ready.` });
+        return $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' });
     }
 
     function resetValidationResult(modelId: string): void {
@@ -649,17 +653,16 @@
                 aria-valuemin="0"
                 aria-valuemax={progress.total > 0 ? progress.total : undefined}
                 aria-valuenow={progress.total > 0 ? progress.done : undefined}
-                aria-valuetext={progress.label}
+                aria-valuetext={phaseLabel(progress.phase)}
                 class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{progress.label}</span>
+                    <span class="font-medium text-brand-800 dark:text-brand-200">{phaseLabel(progress.phase)}</span>
                     {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
                     <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
                 </div>
-                <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
             <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving || savingRegion}>
@@ -689,7 +692,7 @@
                         {@const outcome = validationRecommendation(m.model_id, m, matrix)}
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{m.model_id}</p>
+                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{availableModels.find((model) => model.id === m.model_id)?.name ?? m.model_id}</p>
                                 <p class="text-xs text-slate-500 dark:text-slate-400">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}
@@ -697,6 +700,10 @@
                                         {$_('setup.model.best_provider_without_timing', { values: { provider: providerLabel(outcome.provider) }, default: `Best validated provider: ${providerLabel(outcome.provider)}` })}
                                     {/if}
                                 </p>
+                                {#if !rowOk(m)}
+                                    {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
+                                    {#if reason}<p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{reason}</p>{/if}
+                                {/if}
                                 {#if m.failed_providers?.length}
                                     <p class="text-xs text-amber-700 dark:text-amber-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
                                 {/if}

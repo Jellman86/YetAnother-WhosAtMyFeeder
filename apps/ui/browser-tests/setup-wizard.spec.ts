@@ -73,6 +73,7 @@ class FakeBackend {
     requests: RecordedRequest[] = [];
     unexpected: string[] = [];
     allowExtraReads = false;
+    evalWarnings: Json[] = [];
     frigateConfigFails = false;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
@@ -303,7 +304,7 @@ class FakeBackend {
                     validated_providers: [...passed].reverse(), failed_providers: this.evalFailedProviders,
                     images_evaluated: 24, top1_accuracy: 0, top3_accuracy: 0, top5_accuracy: 0, abstention_rate: 0,
                     high_confidence_unknown_rate: 0, mean_latency_ms: 999, p50_latency_ms: 999, p95_latency_ms: 999,
-                    shared_core_top1: 0, regional_top1: 0, warnings: []
+                    shared_core_top1: 0, regional_top1: 0, warnings: this.evalWarnings
                 }]
             });
         }
@@ -806,6 +807,21 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         expect(errors).toEqual([]);
     });
 }
+
+test('a failed check is not also reported as a green completion', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Classifier model & hardware');
+    await modelSelect(page).selectOption(DINO);
+    await validateButton(page).click();
+    await expect(wizard(page).getByText('Checking this model on each device…').or(wizard(page).getByText('Starting the check…')).first()).toBeVisible();
+    fake.evalWarnings = [{ severity: 'critical', code: 'failed', message: 'The model could not be loaded on this host.' }];
+    fake.finishEval(['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu']);
+    await expect(wizard(page).getByRole('alert')).toContainText('did not pass the check');
+    await expect(wizard(page).locator('[data-setup-model-warning]')).toHaveText('The model could not be loaded on this host.');
+    await expect(wizard(page).getByText('Hardware validation completed')).toHaveCount(0);
+    await expect(wizard(page).getByText(/Runtime:|providers:/)).toHaveCount(0);
+});
 
 test('cameras come from Frigate, and a saved name it does not have is flagged', async ({ page }) => {
     const fake = new FakeBackend({ settings: { cameras: ['feedr'] } });

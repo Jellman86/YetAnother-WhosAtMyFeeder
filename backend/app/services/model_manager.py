@@ -240,7 +240,7 @@ REMOTE_REGISTRY = [
         "estimated_ram_mb": 768,
         "advanced_only": False,
         "sort_order": 14,
-        "status": "planned",
+        "status": "experimental",
         "family_id": "small_birds",
         "default_region": "na",
         "crop_generator": {
@@ -466,7 +466,7 @@ REMOTE_REGISTRY = [
         "estimated_ram_mb": 1536,
         "advanced_only": False,
         "sort_order": 18,
-        "status": "planned",
+        "status": "experimental",
         "family_id": "medium_birds",
         "default_region": "na",
         "crop_generator": {
@@ -652,6 +652,13 @@ def registry_artifact_kind(model_id: str) -> str:
     normalized = str(model_id or "").strip()
     metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
     return str((metadata or {}).get("artifact_kind") or "classifier").strip().lower()
+
+
+def registry_model_name(model_id: str) -> Optional[str]:
+    """The name people know a model by, or None when the registry does not list it."""
+    normalized = str(model_id or "").strip()
+    metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
+    return str(metadata["name"]) if metadata else None
 
 
 def is_retired_model(model_id: str) -> bool:
