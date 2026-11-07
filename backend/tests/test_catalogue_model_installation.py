@@ -229,3 +229,38 @@ async def test_family_listing_reports_the_installed_variant_status(manager, tmp_
     monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: None)
     incomplete = next(model for model in await manager.list_installed_models() if model.id == "small_birds")
     assert (incomplete.ready, incomplete.reason) == (False, "labels_missing")
+
+
+def test_a_trial_cannot_replace_a_fresh_install_default(manager, tmp_path, monkeypatch):
+    """A fresh install's default is the bundled file name, which activation refuses, so a
+    restore through activation left the trial model live across restarts."""
+    monkeypatch.setattr(module.settings.classification, "model", "model.tflite")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+    _install_family_variant(tmp_path, "small_birds", "eu")
+    fresh = module.ModelManager()
+    assert fresh.active_model_id == "model.tflite"
+
+    assert fresh._activate_model_sync("small_birds") is True
+    fresh._restore_active_model_sync("model.tflite")
+
+    assert fresh.active_model_id == "model.tflite"
+    assert module.ModelManager().active_model_id == "model.tflite"
+    assert not (tmp_path / "active_model.json").exists()
+
+
+def test_a_trial_puts_back_a_chosen_model_that_can_no_longer_be_activated(manager, tmp_path, monkeypatch):
+    """A restore returns to what was running. It is not a new selection to be approved."""
+    monkeypatch.setattr(module.settings.classification, "model", "model.tflite")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+    _install_family_variant(tmp_path, "small_birds", "eu")
+    chosen = module.ModelManager()
+    chosen._save_active_model_id("deleted_model")
+
+    assert chosen._activate_model_sync("small_birds") is True
+    chosen._restore_active_model_sync("deleted_model")
+
+    assert module.ModelManager().active_model_id == "deleted_model"
