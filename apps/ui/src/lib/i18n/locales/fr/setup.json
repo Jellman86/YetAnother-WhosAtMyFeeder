@@ -36,13 +36,16 @@
   "cameras": {
     "title": "Caméras et détection",
     "description": "Choisissez les caméras Frigate surveillées par YA-WAMF. Les seuils avancés de détection et de classification restent dans les paramètres Détection.",
-    "detected_note": "Aucune liste de caméras n’est définie, YA-WAMF surveille donc toutes les caméras. Celles-ci produisent des détections :",
     "gates_hint": "Des détections manquent ? Les filtres min_score / threshold / min_initialized de Frigate déterminent si un instantané parvient jusqu’à YA-WAMF.",
     "gates_link": "Guide de réglage →",
     "list": "Caméras (séparées par des virgules)",
-    "list_hint": "Utilisez les noms exacts des caméras de votre configuration Frigate.",
+    "list_unread": "La liste des caméras de Frigate n’a pas pu être lue : ces noms ne peuvent donc pas être vérifiés. Un nom qui ne correspond pas exactement ne verra jamais d’oiseau. Laissez vide pour surveiller toutes les caméras.",
+    "not_in_frigate": "Frigate n’a aucune caméra portant ce nom : elle ne verra donc jamais d’oiseau.",
     "offline": "Pas d’aperçu",
-    "use_detected": "Ajouter celles-ci"
+    "pick": "Caméras à surveiller",
+    "retry": "Relire les caméras de Frigate",
+    "watching_all": "Toutes les caméras sont surveillées, y compris celles ajoutées plus tard à Frigate. Cochez des caméras pour ne surveiller que celles-ci.",
+    "watching_some": "{count, plural, one {# caméra surveillée.} other {# caméras surveillées.}} Les autres caméras sont ignorées."
   },
   "model": {
     "title": "Modèle de classification et matériel",
