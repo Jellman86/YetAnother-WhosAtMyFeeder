@@ -61,6 +61,24 @@ export function needsReview(detection: Detection, reviewThreshold: number | null
     return (detection.score ?? 0) < reviewThreshold;
 }
 
+/** A person named this species. Tagging a record as unknown confirms nothing. */
+export function isOwnerConfirmed(detection: Detection): boolean {
+    return detection.manual_tagged === true && !hasNoSpecies(detection);
+}
+
+/**
+ * What an Explorer record can claim was confirmed. A grouped card may wear a capture other than the
+ * confirmed one, so the visit answers for itself; the record still counts while a fresh choice has
+ * not reached the visit yet.
+ */
+export function ownerConfirmationScope(
+    detection: Detection,
+    visit: Pick<ServerVisit, 'owner_confirmed'> | undefined
+): 'visit' | 'capture' | null {
+    if (visit) return visit.owner_confirmed === true || isOwnerConfirmed(detection) ? 'visit' : null;
+    return isOwnerConfirmed(detection) ? 'capture' : null;
+}
+
 function belongsToVisit(previous: Detection, candidate: Detection, gapMs: number): boolean {
     if (previous.display_name !== candidate.display_name) return false;
     if (previous.camera_name !== candidate.camera_name) return false;
@@ -92,7 +110,7 @@ function toVisit(frames: Detection[], reviewThreshold: number | null): Detection
         startTime: oldest.detection_time,
         endTime: lead.detection_time,
         needsReview: frames.every((frame) => needsReview(frame, reviewThreshold)),
-        ownerConfirmed: frames.some((frame) => frame.manual_tagged === true && !needsReview(frame, null)),
+        ownerConfirmed: frames.some(isOwnerConfirmed),
         // A visit needs a person only if every frame does, but one heard call confirms it.
         // A manual observation has no camera moment for a call to match.
         audioConfirmed: frames.some(

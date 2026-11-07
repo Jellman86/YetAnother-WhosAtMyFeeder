@@ -208,3 +208,36 @@ test('favouriting a capture opened from its visit marks that capture in the visi
     await expect(item.locator('[data-visit-capture="first-2"]')).not.toContainText('Favorited');
     expect(errors).toEqual([]);
 });
+
+test('a confirmed species says so on Explorer visits and on single captures (#918)', async ({ page }) => {
+    const at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const visitOf = (id: string, confirmed: boolean) => ({
+        visit_id: id, start_time: at, end_time: at, capture_count: 2, best_score: 0.91, needs_review: false, owner_confirmed: confirmed,
+        audio_confirmed: false, representative: record(id, at), latest: record(id, at), peak_capture: null
+    });
+    await openExplorer(page, '', path => {
+        if (path === '/api/visits') return { total: 2, gap_seconds: 60, visits: [visitOf('first', true), visitOf('single', false)] };
+        if (path === '/api/events') return [{ ...record('first', at), manual_tagged: true }, record('single', at)];
+        return undefined;
+    });
+    // The card's photo is not the confirmed capture: the visit still answers for it.
+    const confirmedCard = page.locator('[data-explorer-visit="first"] [data-detection-card]');
+    await expect(confirmedCard.locator('[data-explorer-owner-confirmed="visit"]')).toHaveAccessibleName('Owner confirmed');
+    await expect(page.locator('[data-explorer-visit="single"] [data-explorer-owner-confirmed]')).toHaveCount(0);
+    await page.getByRole('button', { name: 'List', exact: true }).click();
+    const confirmedRow = page.locator('[data-explorer-visit="first"] [data-explorer-owner-confirmed="visit"]');
+    await expect(confirmedRow).toHaveText('Owner confirmed');
+    await expect(page.locator('[data-explorer-visit="single"] [data-explorer-owner-confirmed]')).toHaveCount(0);
+    if (shots) await page.screenshot({ path: `${shots}/explorer-owner-confirmed-list.png` });
+
+    // A single capture speaks for itself: only the one a person tagged carries the mark.
+    await page.getByRole('button', { name: 'Captures', exact: true }).click();
+    await expect(page.locator('[data-explorer-owner-confirmed="capture"]')).toHaveText('Owner confirmed');
+    await expect(page.locator('[data-explorer-owner-confirmed="visit"]')).toHaveCount(0);
+    if (shots) {
+        await page.screenshot({ path: `${shots}/explorer-owner-confirmed-captures.png` });
+        await page.setViewportSize({ width: 390, height: 780 });
+        await page.screenshot({ path: `${shots}/explorer-owner-confirmed-mobile.png` });
+    }
+});
+

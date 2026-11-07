@@ -30,5 +30,6 @@
   "node_capture_shown": "Capture à {time}, dans cette visite, et sa photo de visite",
   "open_capture": "Ouvrir la capture de {species}",
   "owner_confirmed": "Confirmé par le propriétaire",
-  "owner_confirmed_hint": "Un propriétaire a explicitement confirmé cette espèce sur au moins une capture visible de la visite. La confiance du modèle et les sons correspondants sont des indices distincts."
+  "owner_confirmed_hint": "Un propriétaire a explicitement confirmé cette espèce sur au moins une capture visible de la visite. La confiance du modèle et les sons correspondants sont des indices distincts.",
+  "owner_confirmed_capture_hint": "Un propriétaire a explicitement confirmé cette espèce sur cette capture. La confiance du modèle et les sons correspondants sont des indices distincts."
 }

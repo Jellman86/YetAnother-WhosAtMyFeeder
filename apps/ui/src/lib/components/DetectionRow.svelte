@@ -40,13 +40,15 @@
         stackFrame?: Detection | null;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
+        /** Whether a person confirmed this record's species, and of what that is true. */
+        ownerConfirmation?: 'visit' | 'capture' | null;
         /** Opens the capture the species were counted in. */
         onopenCapture?: () => void;
         /** The open detail view already shows this detection's scan. */
         hideProgress?: boolean;
     }
 
-    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, stackFrame = null, matchedCalls = 0, onopenCapture, hideProgress = false }: Props = $props();
+    let { detection, onclick, onPlay, selectionMode = false, selected = false, speciesMix = null, stackFrame = null, matchedCalls = 0, ownerConfirmation = null, onopenCapture, hideProgress = false }: Props = $props();
     const uid = $props.id();
     let speciesOpen = $state(false);
     const mixed = $derived((speciesMix?.length ?? 0) >= 2);
@@ -206,6 +208,11 @@
                 </BadgeHint>
             {:else if subName && subName !== primaryName}
                 <span class="min-w-0 truncate italic">{subName}</span>
+            {/if}
+            {#if ownerConfirmation}
+                <BadgeHint text={ownerConfirmation === 'visit' ? $_('visits.owner_confirmed_hint') : $_('visits.owner_confirmed_capture_hint')} class="inline-flex shrink-0 items-center gap-1 text-success-700 dark:text-success-300" data-explorer-owner-confirmed={ownerConfirmation}>
+                    <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 10 4 4 8-8" /></svg>{$_('visits.owner_confirmed')}
+                </BadgeHint>
             {/if}
             {#if hasAudioConfirmed}
                 <BadgeHint text={$_('detection.audio_evidence_hint')} class="shrink-0 text-brand-600 dark:text-brand-400">

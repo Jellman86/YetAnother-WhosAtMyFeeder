@@ -4,6 +4,7 @@ import {
     VISIT_GAP_MS,
     groupDetectionsIntoVisits as groupVisits,
     needsReview,
+    ownerConfirmationScope,
     fromServerVisit,
     withinDeskWindow
 } from './visit-grouping';
@@ -232,3 +233,32 @@ describe('owner confirmation on a visit', () => {
         expect(fromServerVisit({ ...summary, owner_confirmed: false }).ownerConfirmed).toBe(false);
     });
 });
+
+describe('ownerConfirmationScope (#918)', () => {
+    const named = { display_name: 'Dunnock', manual_tagged: false } as Detection;
+    const tagged = { display_name: 'Dunnock', manual_tagged: true } as Detection;
+    const taggedUnknown = { display_name: 'Unknown Bird', manual_tagged: true } as Detection;
+
+    it('a grouped visit is confirmed when any capture was, even if another one wears its card', () => {
+        expect(ownerConfirmationScope(named, { owner_confirmed: true })).toBe('visit');
+    });
+
+    it('a grouped card counts a fresh choice before the visit has been read again', () => {
+        expect(ownerConfirmationScope(tagged, { owner_confirmed: false })).toBe('visit');
+    });
+
+    it('an unconfirmed visit claims nothing', () => {
+        expect(ownerConfirmationScope(named, { owner_confirmed: false })).toBeNull();
+    });
+
+    it('a single capture speaks only for itself', () => {
+        expect(ownerConfirmationScope(tagged, undefined)).toBe('capture');
+        expect(ownerConfirmationScope(named, undefined)).toBeNull();
+    });
+
+    it('tagging a record as unknown confirms no species', () => {
+        expect(ownerConfirmationScope(taggedUnknown, undefined)).toBeNull();
+        expect(ownerConfirmationScope(taggedUnknown, { owner_confirmed: false })).toBeNull();
+    });
+});
+
