@@ -26,7 +26,7 @@ test('accepted historical choice survives an older pending count and omission fr
         if (path === '/api/events/historical-choice' && request.method() === 'PATCH') {
             return route.fulfill({ json: { status: 'unchanged', event_id: record.frigate_event, new_species: 'Dunnock', category_name: 'Dunnock', manual_tagged: true } });
         }
-        if (path === '/api/events/new-species') return route.fulfill({ json: { items: [{ ...record, species_sightings: 1 }] } });
+        if (path === '/api/events/review-queue') return route.fulfill({ json: { items: [{ event: record, reason: 'new_species', species_sightings: 1 }], total: 1 } });
         if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
         if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
@@ -59,7 +59,7 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             initial_classification_input: { source: 'recording_frame', is_cropped: false }
         }));
         const writes: string[] = [];
-        let newSpeciesReads = 0;
+        let queueReads = 0;
         await page.route(url => url.pathname.startsWith('/api/'), route => {
             const request = route.request();
             const path = new URL(request.url()).pathname;
@@ -72,9 +72,9 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             }
             if (path === '/api/events') return route.fulfill({ json: records });
             // Deliberately keep returning the pre-review projection, including after a save.
-            if (path === '/api/events/new-species') {
-                newSpeciesReads++;
-                return route.fulfill({ json: { items: records.map(record => ({ ...record, species_sightings: 1 })) } });
+            if (path === '/api/events/review-queue') {
+                queueReads++;
+                return route.fulfill({ json: { items: records.map(event => ({ event, reason: 'new_species', species_sightings: 1 })), total: records.length } });
             }
             if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
             if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
@@ -100,7 +100,7 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             await modal.getByRole('button', { name: 'Confirm Dunnock', exact: true }).click();
             await expect(modal.getByRole('heading', { name: 'Queue clear' })).toBeVisible();
             await modal.getByRole('button', { name: 'Back to the dashboard' }).click();
-            await expect.poll(() => newSpeciesReads).toBeGreaterThanOrEqual(3);
+            await expect.poll(() => queueReads).toBeGreaterThanOrEqual(3);
             await expect(card.locator('[data-review-queue-count]')).toHaveCount(0);
             await expect(card.getByText('Every visit in the last 24 hours has a species. Nothing waiting on you.')).toBeVisible();
             await expect(card.getByRole('button', { name: 'Work through the queue' })).toHaveCount(0);
@@ -108,3 +108,79 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
         }
     });
 }
+
+test('Needs your call counts what the server says is waiting, and the walkthrough reads all of it (#917)', async ({ page }) => {
+    const waiting = Array.from({ length: 24 }, (_unused, index) => ({
+        frigate_event: `unknown-${index}`, display_name: 'Unknown Bird', category_name: 'Unknown Bird', camera_name: 'birdcam',
+        detection_time: new Date(Date.now() - (24 - index) * 1800000).toISOString(), score: 0.9, manual_tagged: false
+    }));
+    const limits: number[] = [];
+    await page.route(url => url.pathname.startsWith('/api/'), route => {
+        const url = new URL(route.request().url());
+        // The recent history holds no sign of them: every one has been pushed off its page.
+        if (url.pathname === '/api/events') return route.fulfill({ json: [] });
+        if (url.pathname === '/api/events/review-queue') {
+            const limit = Number(url.searchParams.get('limit'));
+            limits.push(limit);
+            return route.fulfill({ json: { items: waiting.slice(0, limit).map(event => ({ event, reason: 'unknown_species' })), total: waiting.length } });
+        }
+        if (url.pathname.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
+        if (/\/snapshot(?:\/thumbnail)?$/.test(url.pathname)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
+        if (url.pathname === '/api/species/feeder') return route.fulfill({ json: [] });
+        if (url.pathname === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-count]')).toHaveText('24');
+    await card.getByRole('button', { name: 'Work through the queue' }).click();
+    const modal = page.locator('[data-review-queue-modal]');
+    await expect(modal.locator('[data-review-position]')).toHaveText('1 of 24');
+    expect(Math.max(...limits)).toBeGreaterThanOrEqual(24);
+});
+
+test('Needs your call says it could not check when the queue fails, never that nothing is waiting (#917)', async ({ page }) => {
+    let failing = true;
+    await page.route(url => url.pathname.startsWith('/api/'), route => {
+        const path = new URL(route.request().url()).pathname;
+        if (path === '/api/events') return route.fulfill({ json: [] });
+        if (path === '/api/events/review-queue') {
+            if (failing) return route.fulfill({ status: 503, json: { detail: 'Queue unavailable.' } });
+            return route.fulfill({ json: { items: [], total: 0 } });
+        }
+        if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.getByText('The queue could not be checked, so it is not known whether anything is waiting.')).toBeVisible();
+    await expect(card.getByText('Nothing waiting on you.')).toHaveCount(0);
+    failing = false;
+    await card.getByRole('button', { name: /try again|retry/i }).click();
+    await expect(card.getByText('Every visit in the last 24 hours has a species. Nothing waiting on you.')).toBeVisible();
+});
+
+test('finishing a walkthrough that could not hold everything says more are waiting (#917)', async ({ page }) => {
+    const listed = { frigate_event: 'listed', display_name: 'Unknown Bird', category_name: 'Unknown Bird', camera_name: 'birdcam',
+        detection_time: new Date(Date.now() - 3600000).toISOString(), score: 0.9, manual_tagged: false };
+    await page.route(url => url.pathname.startsWith('/api/'), route => {
+        const request = route.request(), path = new URL(request.url()).pathname;
+        if (path === '/api/events') return route.fulfill({ json: [] });
+        if (path === '/api/events/review-queue') return route.fulfill({ json: { items: [{ event: listed, reason: 'unknown_species' }], total: 3 } });
+        if (request.method() === 'POST' && path.endsWith('/hide')) return route.fulfill({ json: { status: 'ok', event_id: listed.frigate_event, is_hidden: true } });
+        if (path.endsWith('/snapshot/candidates')) return route.fulfill({ json: { candidates: [], birds: [] } });
+        if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
+        if (path === '/api/species/feeder') return route.fulfill({ json: [] });
+        if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
+        return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
+    });
+    await page.goto('/browser-tests/dashboard-review.html');
+    const card = page.locator('[data-dashboard-review-queue]');
+    await expect(card.locator('[data-review-queue-count]')).toHaveText('3');
+    await card.getByRole('button', { name: 'Work through the queue' }).click();
+    const modal = page.locator('[data-review-queue-modal]');
+    await modal.getByRole('button', { name: /Skip|skip/ }).first().click();
+    await expect(modal.locator('[data-review-more-waiting]')).toContainText('2 more are waiting');
+    await expect(modal.getByRole('heading', { name: 'Queue clear' })).toHaveCount(0);
+});
+

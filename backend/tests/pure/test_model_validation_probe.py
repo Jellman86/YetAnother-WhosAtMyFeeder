@@ -417,6 +417,10 @@ class _FakeManager:
         self.active_model_id = model_id
         return True
 
+    async def restore_active_model(self, model_id):
+        self.activations.append(model_id)
+        self.active_model_id = model_id
+
 
 class _FakeClassifier:
     def __init__(self, results, provider="cpu"):

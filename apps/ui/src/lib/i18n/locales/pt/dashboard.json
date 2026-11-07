@@ -127,6 +127,7 @@
     "position": "{position} de {total}",
     "summary": "{resolved} decididas, {skipped} ignoradas",
     "done": "Fila vazia",
+    "more_waiting": "{count, plural, one {Falta # em espera. Abra a fila novamente para continuar.} other {Faltam # em espera. Abra a fila novamente para continuar.}}",
     "done_with_skips": "Fila concluída",
     "done_note": "Todas as visitas têm espécie. Suas correções melhoram a ordenação por câmera.",
     "skipped_note": "{count, plural, one {# para mais tarde. Continua na fila.} other {# para mais tarde. Continuam na fila.}}",

@@ -127,6 +127,7 @@
     "position": "{position} di {total}",
     "summary": "{resolved} decise, {skipped} saltate",
     "done": "Coda vuota",
+    "more_waiting": "{count, plural, one {Ne resta # in attesa. Riapri la coda per continuare.} other {Ne restano # in attesa. Riapri la coda per continuare.}}",
     "done_with_skips": "Coda completata",
     "done_note": "Ogni visita ha una specie. Le tue correzioni migliorano l'ordinamento per telecamera.",
     "skipped_note": "{count, plural, one {# rimandata. Resta in coda.} other {# rimandate. Restano in coda.}}",

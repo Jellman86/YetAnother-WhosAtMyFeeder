@@ -8,13 +8,15 @@
         fetchClassifierStatus,
         fetchDownloadStatus,
         fetchInstalledModels,
+        fetchResolvedModelFamilies,
         getVisibleTieredModelLineup,
         selectSetupModelId,
         summarizeModelMetadata,
         type ClassifierStatus,
         type DownloadProgress,
         type InstalledModel,
-        type ModelMetadata
+        type ModelMetadata,
+        type ResolvedModelFamilies
     } from '../../api/classifier';
     import { fetchSettings, updateSettings } from '../../api/settings';
     import {
@@ -35,7 +37,8 @@
     import WizardStepLayout from './WizardStepLayout.svelte';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
-    import { feederCoordinates, validationRecommendation } from './model-choices';
+    import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
+    import { BIRD_MODEL_REGION_OVERRIDE_VALUES, normalizeBirdModelRegionOverride, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
 
     let status = $state<ClassifierStatus | null>(null);
     let loadState = $state<WizardLoadStatus>('loading');
@@ -59,6 +62,10 @@
     let longitudeText = $state('');
     let savedLatitude: number | null = null;
     let savedLongitude: number | null = null;
+    let regionOverride = $state<BirdModelRegionOverride>('auto');
+    let savedCountry = $state<string | null>(null);
+    let resolvedFamilies = $state<ResolvedModelFamilies | null>(null);
+    let savingRegion = $state(false);
     let runId = '';
     let runModelId = '';
     let poller: ReturnType<typeof setInterval> | null = null;
@@ -84,6 +91,8 @@
     let usesLocation = $derived(selectedModel !== null && usesSavedFeederLocation(selectedModel));
     let coordinates = $derived(feederCoordinates(latitudeText, longitudeText));
     let locationValid = $derived(!usesLocation || coordinates.error === null);
+    let isRegional = $derived(Object.keys(selectedModel?.region_variants ?? {}).length > 0);
+    let regionNotice = $derived(regionMessage(regionOverride, savedCountry, resolvedFamilies?.[selectedModelId]?.effective_region));
     let selectedValidatedProviders = $derived(
         selectedValidation
             ? recommendation.providers
@@ -138,17 +147,19 @@
         selectedProvider !== 'auto'
         && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
     );
-    let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading);
+    let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading && !savingRegion);
 
     async function load(): Promise<void> {
         loadState = 'loading';
         errorMsg = '';
         try {
-            const [classifierStatus, available, installed, settings] = await Promise.all([
+            const [classifierStatus, available, installed, settings, families] = await Promise.all([
                 fetchClassifierStatus(),
                 fetchAvailableModels(),
                 fetchInstalledModels(),
-                fetchSettings()
+                fetchSettings(),
+                // Only the wording depends on this, so the step still works without it.
+                fetchResolvedModelFamilies().catch(() => null)
             ]);
             if (destroyed) return;
             status = classifierStatus;
@@ -160,6 +171,9 @@
             installedModels = classifierModels(installed);
             selectedModelId = selectSetupModelId(classifierStatus, availableModels, installedModels);
             selectedProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
+            regionOverride = normalizeBirdModelRegionOverride(settings.bird_model_region_override);
+            savedCountry = settings.location_country ?? null;
+            resolvedFamilies = families;
             savedLatitude = settings.location_latitude ?? null;
             savedLongitude = settings.location_longitude ?? null;
             latitudeText = savedLatitude === null ? '' : String(savedLatitude);
@@ -248,10 +262,11 @@
                 if (!providerTouched || !explicitPassed) selectedProvider = checked.provider;
                 providerTouched = true;
             }
-            errorMsg = validationFailed ? $_('setup.model.no_passing_provider', { default: 'This model did not pass hardware validation. Review the results and try again before continuing.' }) : '';
+            errorMsg = validationFailed ? $_('setup.model.no_passing_provider', { default: 'This model did not pass the check. Review the results and try again before continuing.' }) : '';
             validating = false;
             progress = null;
-            validationMsg = validationSummary(results);
+            // A failure is stated once, in the alert above: it is not also a green completion.
+            validationMsg = validationFailed ? '' : validationSummary(results);
             await setupWizardStore.refresh();
         } catch {
             if (validationDeadline > 0 && Date.now() >= validationDeadline) {
@@ -362,17 +377,20 @@
 
     function modelHardwareNote(model: ModelMetadata | null): string {
         if (!model) return '';
-        const providers = (model.supported_inference_providers || []).join(', ') || 'CPU';
-        const ram = model.estimated_ram_mb ? ` Around ${model.estimated_ram_mb} MB RAM recommended.` : '';
-        return `${model.recommended_for} Runtime: ${model.runtime || 'ONNX/TFLite'}; providers: ${providers}.${ram}`;
+        if (!model.estimated_ram_mb) return model.recommended_for;
+        return `${model.recommended_for} ${$_('setup.model.ram_note', { values: { ram: model.estimated_ram_mb }, default: 'Around {ram} MB RAM recommended.' })}`;
+    }
+
+    function phaseLabel(phase: string): string {
+        if (phase === 'starting') return $_('setup.model.phase_starting', { default: 'Starting the check…' });
+        if (phase === 'complete') return $_('setup.model.phase_finishing', { default: 'Finishing the check…' });
+        if (phase === 'device_sweep') return $_('setup.model.phase_sweep', { default: 'Checking this model on each device…' });
+        return $_('setup.model.phase_preparing', { default: 'Preparing the check…' });
     }
 
     function validationSummary(models: ModelEvalModelSummary[]): string {
         if (!models.length) return $_('setup.model.no_results', { default: 'No installed models were evaluated.' });
-        const ok = models.filter(rowOk).length;
-        return ok === models.length
-            ? $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' })
-            : $_('setup.model.validation_partial', { values: { ok, total: models.length }, default: `Hardware validation completed: ${ok}/${models.length} models ready.` });
+        return $_('setup.model.validation_success', { default: 'Hardware validation completed successfully.' });
     }
 
     function resetValidationResult(modelId: string): void {
@@ -387,6 +405,40 @@
         const preferred = parseInferenceProvider(installed?.preferred_inference_provider);
         selectedProvider = preferred ?? 'auto';
         providerTouched = false;
+    }
+
+    // Saved straight away, because the check that follows has to run the region that was chosen.
+    async function chooseRegion(next: BirdModelRegionOverride): Promise<void> {
+        const previous = regionOverride;
+        regionOverride = next;
+        savingRegion = true;
+        errorMsg = '';
+        try {
+            await updateSettings({ bird_model_region_override: next });
+            if (destroyed) return;
+            const [installed, classifierStatus, families] = await Promise.all([
+                fetchInstalledModels(),
+                fetchClassifierStatus(),
+                fetchResolvedModelFamilies().catch(() => null)
+            ]);
+            if (destroyed) return;
+            installedModels = classifierModels(installed);
+            status = classifierStatus;
+            resolvedFamilies = families;
+            // A result for the other region says nothing about this one, nor does its provider.
+            resetValidationResult(selectedModelId);
+        } catch (err) {
+            regionOverride = previous;
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+        } finally {
+            savingRegion = false;
+        }
+    }
+
+    function regionName(region: 'eu' | 'na'): string {
+        return region === 'eu'
+            ? $_('settings.detection.region_override_eu', { default: 'Europe' })
+            : $_('settings.detection.region_override_na', { default: 'North America' });
     }
 
     async function saveLocation(): Promise<void> {
@@ -459,6 +511,41 @@
                 {/if}
             {/if}
         </div>
+
+        {#if isRegional}
+            <div data-setup-model-region>
+                <label for="setup-model-region" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
+                <select
+                    id="setup-model-region"
+                    value={regionOverride}
+                    onchange={(event) => chooseRegion(normalizeBirdModelRegionOverride(event.currentTarget.value))}
+                    disabled={validating || downloading || saving || savingRegion}
+                    class="select-base mt-1"
+                    aria-describedby="setup-model-region-status"
+                >
+                    {#each BIRD_MODEL_REGION_OVERRIDE_VALUES as option (option)}
+                        <option value={option}>
+                            {option === 'auto' ? $_('settings.detection.region_override_auto', { default: 'Auto' }) : regionName(option)}
+                        </option>
+                    {/each}
+                </select>
+                <p
+                    id="setup-model-region-status"
+                    role="status"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}"
+                >
+                    {#if regionNotice.kind === 'no_country'}
+                        {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
+                    {:else if regionNotice.kind === 'chosen'}
+                        {$_('setup.model.region_chosen', { values: { region: regionName(regionNotice.region) }, default: 'This model will use the species list for {region}.' })}
+                    {:else if regionNotice.region}
+                        {$_('setup.model.region_from_country', { values: { region: regionName(regionNotice.region) }, default: 'Your saved country selects the species list for {region}.' })}
+                    {:else}
+                        {$_('settings.detection.region_override_desc', { default: 'Auto uses your configured country. Manual override always wins.' })}
+                    {/if}
+                </p>
+            </div>
+        {/if}
 
         <div>
             <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
@@ -562,20 +649,19 @@
                 aria-valuemin="0"
                 aria-valuemax={progress.total > 0 ? progress.total : undefined}
                 aria-valuenow={progress.total > 0 ? progress.done : undefined}
-                aria-valuetext={progress.label}
+                aria-valuetext={phaseLabel(progress.phase)}
                 class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
             >
                 <div class="flex items-center justify-between text-sm">
-                    <span class="font-medium text-brand-800 dark:text-brand-200">{progress.label}</span>
+                    <span class="font-medium text-brand-800 dark:text-brand-200">{phaseLabel(progress.phase)}</span>
                     {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
                     <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
                 </div>
-                <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
-            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving}>
+            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving || savingRegion}>
                 {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
             </button>
         {/if}
@@ -602,7 +688,7 @@
                         {@const outcome = validationRecommendation(m.model_id, m, matrix)}
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
-                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{m.model_id}</p>
+                                <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{availableModels.find((model) => model.id === m.model_id)?.name ?? m.model_id}</p>
                                 <p class="text-xs text-slate-500 dark:text-slate-400">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}
@@ -610,6 +696,10 @@
                                         {$_('setup.model.best_provider_without_timing', { values: { provider: providerLabel(outcome.provider) }, default: `Best validated provider: ${providerLabel(outcome.provider)}` })}
                                     {/if}
                                 </p>
+                                {#if !rowOk(m)}
+                                    {@const reason = m.warnings?.find((warning) => warning.severity === 'critical')?.message}
+                                    {#if reason}<p class="text-xs text-amber-700 dark:text-amber-300" data-setup-model-warning>{reason}</p>{/if}
+                                {/if}
                                 {#if m.failed_providers?.length}
                                     <p class="text-xs text-amber-700 dark:text-amber-300">{$_('setup.model.failed_providers', { values: { providers: m.failed_providers.map((value) => providerLabel(parseInferenceProvider(value) ?? 'auto')).join(', ') }, default: `Failed: ${m.failed_providers.join(', ')}` })}</p>
                                 {/if}

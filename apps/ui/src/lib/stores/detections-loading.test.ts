@@ -54,7 +54,8 @@ it('allows a later authoritative reanalysis to reopen a saved choice even after 
     store.recordOwnerSpeciesChoice(chosen as never);
     await vi.waitFor(() => expect(fetchEvents).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(store.isLoading).toBe(false));
-    const queue = () => buildReviewQueue([], { reviewThreshold: 0.6, knownDetections: store.detections, localChoices: store.patchMap, newSpecies: [{ detection: reanalysed as never, sightings: 1 }] });
+    const waiting = { entries: [{ detection: reanalysed as never, reason: 'new_species' as const, sightings: 1 }], total: 1 };
+    const queue = () => buildReviewQueue(waiting, { reviewThreshold: 0.6, knownDetections: store.detections, localChoices: store.patchMap });
     expect(queue().total).toBe(0);
     await store.loadInitial();
     expect(queue().total).toBe(1);

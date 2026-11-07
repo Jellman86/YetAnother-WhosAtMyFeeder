@@ -28,6 +28,26 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
 
 type WizardMode = 'first_run' | 'rerun';
 
+/** The account step ends first run on the server, so only this browser knows setup was left unfinished. */
+const FIRST_RUN_STEP_KEY = 'yawamf.setup_wizard.first_run_step';
+
+function readFirstRunStep(): string | null {
+    try {
+        return localStorage.getItem(FIRST_RUN_STEP_KEY);
+    } catch {
+        return null;
+    }
+}
+
+function writeFirstRunStep(stepId: string | null): void {
+    try {
+        if (stepId === null) localStorage.removeItem(FIRST_RUN_STEP_KEY);
+        else localStorage.setItem(FIRST_RUN_STEP_KEY, stepId);
+    } catch {
+        // Without storage a reload simply cannot resume, which is what happened before.
+    }
+}
+
 /**
  * Shared wizard navigation + section readiness. The store holds no config itself — each step
  * reads/writes the real config through the settings API — so re-running a single step never
@@ -39,6 +59,8 @@ class SetupWizardStore {
     index = $state(0);
     setupState = $state<SetupState | null>(null);
     active = $state(false);
+    /** A section opened from Review goes back there, rather than on through the steps after it. */
+    private returnToReview = false;
     refreshing = $state(false);
     refreshFailed = $state(false);
     private refreshPromise: Promise<void> | null = null;
@@ -46,13 +68,27 @@ class SetupWizardStore {
     /** Open the wizard. First-run mode starts at the beginning; re-run opens on the section map. */
     open(mode: WizardMode = 'first_run'): void {
         this.mode = mode;
-        this.index = mode === 'first_run' ? 0 : this.indexOf('review'); // re-run shows review/map first
+        this.returnToReview = false;
+        this.goto(mode === 'first_run' ? 0 : this.indexOf('review')); // re-run shows review/map first
+        this.active = true;
+        void this.refresh();
+    }
+
+    /** Pick up a first run that a reload or a closed tab interrupted after the account step. */
+    resumeInterrupted(): void {
+        const stepId = readFirstRunStep();
+        if (this.active || !stepId || !this.steps.some((step) => step.id === stepId)) return;
+        this.mode = 'first_run';
+        this.returnToReview = false;
+        this.gotoStep(stepId);
         this.active = true;
         void this.refresh();
     }
 
     close(): void {
         this.active = false;
+        this.returnToReview = false;
+        writeFirstRunStep(null);
     }
 
     async refresh(): Promise<void> {
@@ -81,6 +117,17 @@ class SetupWizardStore {
 
     goto(index: number): void {
         this.index = Math.max(0, Math.min(index, this.steps.length - 1));
+        if (this.mode === 'first_run') writeFirstRunStep(this.current.id);
+    }
+
+    openFromReview(stepId: string): void {
+        this.returnToReview = true;
+        this.gotoStep(stepId);
+    }
+
+    private backToReview(): void {
+        this.returnToReview = false;
+        this.gotoStep('review');
     }
 
     gotoStep(stepId: string): void {
@@ -96,7 +143,7 @@ class SetupWizardStore {
     }
 
     completeStep(): void {
-        if (this.mode === 'rerun') this.gotoStep('review');
+        if (this.mode === 'rerun' || this.returnToReview) this.backToReview();
         else this.next();
     }
 
@@ -105,7 +152,7 @@ class SetupWizardStore {
     }
 
     leaveStep(): void {
-        if (this.mode === 'rerun') this.gotoStep('review');
+        if (this.mode === 'rerun' || this.returnToReview) this.backToReview();
         else this.back();
     }
 

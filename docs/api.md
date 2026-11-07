@@ -276,8 +276,13 @@ current behaviour.
   reveal older private visits.
 - `GET /api/events/hidden-count` (owner)
 - `GET /api/events/new-species` (owner) — species that appeared recently with no confirmed
-  history, each represented by its latest sighting, for the dashboard's review queue.
+  history, each represented by its latest sighting.
   `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
+- `GET /api/events/review-queue` (owner) — everything waiting on a person, for the dashboard's
+  **Needs your call**: visible, undecided detections with no species or a score below the naming
+  threshold in the last `window_hours` (default 24), plus each new species' latest sighting. Lists
+  the oldest `limit` (default 12, up to 500), each with its `reason`, and `total` counts everything
+  however many were listed. `max_sightings` and `window_days` work as they do for new species.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)

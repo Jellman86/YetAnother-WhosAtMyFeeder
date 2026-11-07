@@ -127,6 +127,7 @@
     "position": "{position} de {total}",
     "summary": "{resolved} decididas, {skipped} omitidas",
     "done": "Cola vacía",
+    "more_waiting": "{count, plural, one {Queda # más en espera. Abre la cola de nuevo para continuar.} other {Quedan # más en espera. Abre la cola de nuevo para continuar.}}",
     "done_with_skips": "Cola completada",
     "done_note": "Cada visita tiene especie. Tus correcciones mejoran el orden por cámara.",
     "skipped_note": "{count, plural, one {# para más tarde. Sigue en la cola.} other {# para más tarde. Siguen en la cola.}}",

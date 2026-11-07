@@ -6,8 +6,10 @@
 
     interface Props {
         camera: string;
+        /** Off where a label beside the picture already gives the name. */
+        showName?: boolean;
     }
-    let { camera }: Props = $props();
+    let { camera, showName = true }: Props = $props();
 
     let url = $state<string | null>(null);
     let frameState = $state<'loading' | 'ok' | 'offline'>('loading');
@@ -42,7 +44,7 @@
 
 <div class="group relative aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
     {#if frameState === 'ok' && url}
-        <img src={url} alt={camera} class="h-full w-full object-cover" />
+        <img src={url} alt={camera} class="h-full w-full object-cover" onerror={() => (frameState = 'offline')} />
     {:else}
         <div class="flex h-full w-full items-center justify-center">
             {#if frameState === 'loading'}
@@ -53,7 +55,7 @@
         </div>
     {/if}
     <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
-        <span class="truncate text-xs font-semibold text-white">{camera}</span>
+        <span class="truncate text-xs font-semibold text-white">{showName ? camera : ''}</span>
         <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-success-400' : frameState === 'loading' ? 'bg-slate-300' : 'bg-rose-400'}"></span>
     </div>
 </div>

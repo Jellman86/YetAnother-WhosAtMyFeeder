@@ -45,6 +45,8 @@
         speciesMix?: SpeciesInCapture[] | null;
         /** Heard calls that fold into this visit because they confirm it. */
         matchedCalls?: number;
+        /** Whether a person confirmed this record's species, and of what that is true. */
+        ownerConfirmation?: 'visit' | 'capture' | null;
     }
 
     let {
@@ -63,7 +65,8 @@
         fullVisitFetchState: _fullVisitFetchState = 'idle',
         footer,
         speciesMix = null,
-        matchedCalls = 0
+        matchedCalls = 0,
+        ownerConfirmation = null
     }: Props = $props();
     const mixed = $derived((speciesMix?.length ?? 0) >= 2);
 
@@ -283,6 +286,16 @@
                         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
                         </svg>
+                    </BadgeHint>
+                {/if}
+                {#if ownerConfirmation}
+                    <BadgeHint
+                        class="w-7 h-7 rounded-full bg-success-700/95 text-white flex items-center justify-center shadow-lg shadow-success-700/40"
+                        text={ownerConfirmation === 'visit' ? $_('visits.owner_confirmed_hint') : $_('visits.owner_confirmed_capture_hint')}
+                        label={$_('visits.owner_confirmed')}
+                        data-explorer-owner-confirmed={ownerConfirmation}
+                    >
+                        <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 10 4 4 8-8" /></svg>
                     </BadgeHint>
                 {/if}
                 {#if isVerified}

@@ -28,7 +28,7 @@ async function countColdLoadReads(page: Page, path: string, status: Record<strin
             '/api/events': [],
             '/api/events/count': { count: 0 },
             '/api/events/filters': { species: [], cameras: [] },
-            '/api/events/new-species': { items: [] },
+            '/api/events/review-queue': { items: [], total: 0 },
             '/api/visits': { total: 0, gap_seconds: 60, visits: [] },
             '/api/stats/daily-summary': dailySummary,
             '/api/audio/summary': audioSummary,

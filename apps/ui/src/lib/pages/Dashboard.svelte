@@ -26,7 +26,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchNewSpeciesQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
+    import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
     import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
@@ -44,7 +44,7 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
-    import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
+    import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, visibleUnresolvedCount, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
     import { dayBarSlots } from '../utils/day-bar';
     import { applyManualTagResult } from '../utils/manual-tag';
 
@@ -135,7 +135,7 @@
             const result = await updateDetectionSpecies(detection.frigate_event, species);
             detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
-            void refreshNewSpecies();
+            loadReviewQueue();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -146,7 +146,8 @@
         try {
             await hideDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
-            void refreshNewSpecies();
+            reviewReading = withoutEvent(reviewReading, detection.frigate_event);
+            loadReviewQueue();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -157,7 +158,8 @@
         try {
             await deleteDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
-            void refreshNewSpecies();
+            reviewReading = withoutEvent(reviewReading, detection.frigate_event);
+            loadReviewQueue();
             await loadSummary();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
@@ -186,38 +188,77 @@
                 }),
                 'success'
             );
-            void refreshNewSpecies();
+            loadReviewQueue();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
         }
     }
 
-    // Each unconfirmed new species' latest sighting, asking for one human call (#310).
-    let newSpeciesEntries = $state<NewSpeciesEntry[]>([]);
-    async function refreshNewSpecies(): Promise<void> {
-        if (!canReview) {
-            newSpeciesEntries = [];
-            return;
+    // What is waiting comes from the server, so it covers the whole day and every new species (#917)
+    // rather than however much of the day still fits in the recent history.
+    const REVIEW_QUEUE_READ_LIMIT = 8;
+    const REVIEW_SESSION_READ_LIMIT = 500;
+    const REVIEW_QUEUE_MIN_INTERVAL_MS = 15_000;
+    let reviewReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
+    let reviewReadingStatus = $state<ReadingStatus>('loading');
+    let lastReviewQueueRead = 0;
+    const reviewQueueLoader = createObservationProjectionLoader({
+        fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, signal }),
+        apply: (response) => {
+            reviewReading = readingFromResponse(response);
+            reviewReadingStatus = 'ready';
+        },
+        clear: () => {
+            reviewReading = EMPTY_REVIEW_QUEUE_READING;
+            reviewReadingStatus = 'loading';
+        },
+        fail: (e) => {
+            reviewReadingStatus = 'unavailable';
+            logger.warn('Review queue unavailable', { message: getErrorMessage(e) });
         }
-        try {
-            const res = await fetchNewSpeciesQueue();
-            newSpeciesEntries = res.items.map((item) => ({
-                detection: item as unknown as Detection,
-                sightings: item.species_sightings
-            }));
-        } catch {
-            newSpeciesEntries = [];
-        }
+    });
+    function loadReviewQueue(): void {
+        if (!canReview) return;
+        lastReviewQueueRead = Date.now();
+        void reviewQueueLoader.load();
+    }
+    function retryReviewQueue(): void {
+        reviewReadingStatus = 'loading';
+        loadReviewQueue();
     }
 
     $effect(() => {
-        void canReview;
-        void refreshNewSpecies();
+        if (canReview) {
+            untrack(loadReviewQueue);
+            return;
+        }
+        reviewQueueLoader.invalidate();
+        // A list read before signing out must not open itself at the next sign-in.
+        reviewSessionRequest += 1;
     });
 
-    // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap }));
+    let reviewQueue = $derived(buildReviewQueue(reviewReading, { reviewThreshold, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap }));
+
+    // The walkthrough needs more than the card previews, so it reads its own list when opened.
+    let reviewSessionReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
+    let reviewSessionOpening = false;
+    let reviewSessionRequest = 0;
+    async function openReviewSession(): Promise<void> {
+        if (reviewSessionOpening) return;
+        reviewSessionOpening = true;
+        const request = ++reviewSessionRequest;
+        try {
+            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT });
+            if (request !== reviewSessionRequest) return;
+            reviewSessionReading = readingFromResponse(response);
+            reviewSessionOpen = true;
+        } catch (e) {
+            if (request === reviewSessionRequest) toastStore.show(getErrorMessage(e), 'error');
+        } finally {
+            reviewSessionOpening = false;
+        }
+    }
 
     // The range check over the desk's 24 hours: the Species page's day window, flagged the same way,
     // so the desk never says nothing is waiting while a species check is.
@@ -391,13 +432,15 @@
     // Until the day has been read, its figures are unknown rather than zero.
     let summaryPending = $derived(summary === null && summaryLoading);
     let summaryUnavailable = $derived(summary === null && !summaryLoading);
-    let queueStatus = $derived<ReadingStatus>(
+    let historyReadingStatus = $derived<ReadingStatus>(
         detectionsStore.historyStatus === 'ready'
             ? 'ready'
             : detectionsStore.historyStatus === 'failed' && !detectionsStore.isLoading
               ? 'unavailable'
               : 'loading'
     );
+    let queueStatus = $derived<ReadingStatus>(canReview ? reviewReadingStatus : historyReadingStatus);
+    let unresolvedTotal = $derived(canReview ? reviewQueue.total : visibleUnresolvedCount(deskDetections, reviewThreshold));
 
     let needsCall = $derived(needsYourCall({
         canReview,
@@ -415,6 +458,7 @@
             if (document.visibilityState !== 'visible') return;
             void loadSummary();
             loadSpeciesChecks();
+            loadReviewQueue();
         }, SUMMARY_POLL_MS);
         // The day bar and the Heard card share this one reading, kept within a visitor's request budget.
         const audioPollMs = authStore.isGuest
@@ -423,7 +467,7 @@
         const audioInterval = setInterval(() => {
             if (document.visibilityState === 'visible' && birdnetEnabled) void audioSummaryLoader.load();
         }, audioPollMs);
-        return () => { clearInterval(interval); clearInterval(audioInterval); summaryLoader.dispose(); audioSummaryLoader.dispose(); };
+        return () => { clearInterval(interval); clearInterval(audioInterval); summaryLoader.dispose(); audioSummaryLoader.dispose(); reviewQueueLoader.dispose(); };
     });
 
     // Turning Garden on or off, or signing in as the owner, changes what the log may hold.
@@ -465,7 +509,10 @@
         handledVisitMutation = version;
         // An owner's correction can confirm a flagged species, so the range check is read again too.
         const timeout = setTimeout(() => { void loadSummary(); loadSpeciesChecks(); }, 2000);
-        return () => clearTimeout(timeout);
+        // Each read asks Frigate about every listed event, so a busy feeder reads this less often.
+        // The owner's own decisions read it straight away.
+        const queueTimeout = setTimeout(loadReviewQueue, Math.max(2000, lastReviewQueueRead + REVIEW_QUEUE_MIN_INTERVAL_MS - Date.now()));
+        return () => { clearTimeout(timeout); clearTimeout(queueTimeout); };
     });
 
     // What the microphone heard: the day bar's call count and the Heard card read this one summary.
@@ -588,6 +635,7 @@
     /** A bird correction, exclusion or recount changes the day's total and the log's summaries. */
     function handleBirdsChanged(): void {
         void loadSummary();
+        loadReviewQueue();
         void detectionsStore.refreshAfterOwnerEdit();
     }
 </script>
@@ -598,7 +646,7 @@
         countedBirds={summary ? (summary.counted_birds ?? 0) : null}
         countedCaptures={summary ? (summary.counted_captures ?? 0) : null}
         speciesCount={summary ? last24hSpecies : null}
-        unresolvedCount={queueStatus === 'ready' || reviewQueue.total > 0 ? reviewQueue.total : null}
+        unresolvedCount={queueStatus === 'ready' || unresolvedTotal > 0 ? unresolvedTotal : null}
         othersAwaitReview={canReview && needsCall.checks !== 'clear' && needsCall.checks !== 'off'}
         audioCalls={audioSummary?.total ?? null}
         audioConfirmations={summary ? audioConfirmations : null}
@@ -645,9 +693,9 @@
                         queue={reviewQueue}
                         status={queueStatus}
                         checks={checksView}
-                        onretry={() => void detectionsStore.loadInitial()}
+                        onretry={retryReviewQueue}
                         onreview={openRecord}
-                        onreviewall={() => (reviewSessionOpen = true)}
+                        onreviewall={() => void openReviewSession()}
                         onopenchecks={() => onnavigate?.(SPECIES_CHECKS_LINK)}
                         onretrychecks={() => loadSpeciesChecks({ retry: true })}
                         onkept={speciesKept}
@@ -703,10 +751,9 @@
 </div>
 
 {#if reviewSessionOpen && canReview}
-    {@const fullQueue = buildReviewQueue(deskDetections, {
+    {@const fullQueue = buildReviewQueue(reviewSessionReading, {
         reviewThreshold,
         limit: Number.MAX_SAFE_INTEGER,
-        newSpecies: newSpeciesEntries,
         knownDetections: detectionsStore.detections,
         localChoices: detectionsStore.patchMap
     })}
@@ -715,6 +762,7 @@
             <ReviewQueueModal
                 onbirdschanged={handleBirdsChanged}
                 queue={fullQueue.items}
+                moreWaiting={fullQueue.remaining}
                 reasons={fullQueue.reasons}
                 onidentify={identifyFromQueue}
                 onhide={hideFromQueue}

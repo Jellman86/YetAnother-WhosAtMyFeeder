@@ -88,7 +88,7 @@ async function openDashboard(page: Page, { status, readingDelayMs = 0 }: Opening
             '/api/settings/public': { classification_threshold: 0.6, ebird_default_days_back: 7, clips_enabled: true, recording_clip_enabled: false, bird_counting_enabled: true },
             '/api/events': data.events,
             '/api/events/count': { count: data.events.length },
-            '/api/events/new-species': { items: [] },
+            '/api/events/review-queue': { items: [], total: 0 },
             '/api/audio/recent': [],
             '/api/update-status': { update_available: false }
         };

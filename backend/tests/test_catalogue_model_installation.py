@@ -159,3 +159,108 @@ async def test_bad_weight_part_is_rejected_even_with_other_valid_files(manager, 
                 progress_start=0,
                 progress_end=100,
             )
+
+
+def _install_family_variant(root, family_id, region, *, labels=False, config=True):
+    variant_dir = root / family_id / region
+    variant_dir.mkdir(parents=True)
+    (variant_dir / "model.onnx").write_bytes(b"model")
+    if labels:
+        (variant_dir / "labels.txt").write_text("Bird\n")
+    if config:
+        (variant_dir / "model_config.json").write_text("{}")
+    return variant_dir
+
+
+@pytest.fixture
+def catalogue_knows_every_artifact(monkeypatch):
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+
+
+@pytest.fixture
+def selections(manager, monkeypatch):
+    saved = []
+    monkeypatch.setattr(manager, "_save_active_model_id", saved.append)
+    return saved
+
+
+@pytest.mark.parametrize("family_id", ["small_birds", "medium_birds"])
+@pytest.mark.parametrize("region", ["eu", "na"])
+def test_fresh_family_download_without_label_file_activates(
+    manager, tmp_path, catalogue_knows_every_artifact, selections, family_id, region
+):
+    _install_family_variant(tmp_path, family_id, region)
+
+    assert manager._activate_model_sync(family_id) is True
+    assert selections == [family_id]
+
+
+def test_family_install_from_before_its_sidecar_still_activates(
+    manager, tmp_path, catalogue_knows_every_artifact, selections
+):
+    """Startup repairs a missing sidecar in the background; it must not block selection meanwhile."""
+    _install_family_variant(tmp_path, "small_birds", "eu", labels=True, config=False)
+
+    assert manager._activate_model_sync("small_birds") is True
+    assert selections == ["small_birds"]
+
+
+def test_family_variant_with_no_labels_anywhere_stays_inactive(manager, tmp_path, monkeypatch, selections):
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: None)
+    _install_family_variant(tmp_path, "small_birds", "eu")
+
+    assert manager._activate_model_sync("small_birds") is False
+    assert selections == []
+
+
+@pytest.mark.asyncio
+async def test_family_listing_reports_the_installed_variant_status(manager, tmp_path, monkeypatch):
+    """The listing and activation must agree, or validation starts on a model activation will refuse."""
+    _install_family_variant(tmp_path, "small_birds", "eu")
+
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+    ready = next(model for model in await manager.list_installed_models() if model.id == "small_birds")
+    assert (ready.ready, ready.reason) == (True, "ready")
+
+    monkeypatch.setattr("app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: None)
+    incomplete = next(model for model in await manager.list_installed_models() if model.id == "small_birds")
+    assert (incomplete.ready, incomplete.reason) == (False, "labels_missing")
+
+
+def test_a_trial_cannot_replace_a_fresh_install_default(manager, tmp_path, monkeypatch):
+    """A fresh install's default is the bundled file name, which activation refuses, so a
+    restore through activation left the trial model live across restarts."""
+    monkeypatch.setattr(module.settings.classification, "model", "model.tflite")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+    _install_family_variant(tmp_path, "small_birds", "eu")
+    fresh = module.ModelManager()
+    assert fresh.active_model_id == "model.tflite"
+
+    assert fresh._activate_model_sync("small_birds") is True
+    fresh._restore_active_model_sync("model.tflite")
+
+    assert fresh.active_model_id == "model.tflite"
+    assert module.ModelManager().active_model_id == "model.tflite"
+    assert not (tmp_path / "active_model.json").exists()
+
+
+def test_a_trial_puts_back_a_chosen_model_that_can_no_longer_be_activated(manager, tmp_path, monkeypatch):
+    """A restore returns to what was running. It is not a new selection to be approved."""
+    monkeypatch.setattr(module.settings.classification, "model", "model.tflite")
+    monkeypatch.setattr(
+        "app.services.catalogue_labels.catalogue_labels_for_model", lambda sha: ["Bird"] if sha else None
+    )
+    _install_family_variant(tmp_path, "small_birds", "eu")
+    chosen = module.ModelManager()
+    chosen._save_active_model_id("deleted_model")
+
+    assert chosen._activate_model_sync("small_birds") is True
+    chosen._restore_active_model_sync("deleted_model")
+
+    assert module.ModelManager().active_model_id == "deleted_model"

@@ -1579,7 +1579,7 @@ async def run_validation_probe(model_id: str) -> dict:
         # silently changes what the user is running.
         if original_active and original_active != model_manager.active_model_id:
             try:
-                await model_manager.activate_model(original_active)
+                await model_manager.restore_active_model(original_active)
                 await classifier.reload_bird_model()
             except Exception as e:
                 log.warning("model_validation_restore_failed", model_id=original_active, error=str(e))

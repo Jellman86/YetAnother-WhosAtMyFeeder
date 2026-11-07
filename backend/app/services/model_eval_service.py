@@ -417,7 +417,7 @@ class ModelEvalRunner:
             finally:
                 if original_active and original_active != model_manager.active_model_id:
                     try:
-                        await model_manager.activate_model(original_active)
+                        await model_manager.restore_active_model(original_active)
                         if hasattr(classifier_service, "reload_bird_model"):
                             await classifier_service.reload_bird_model()
                     except Exception as e:
@@ -508,11 +508,7 @@ class ModelEvalRunner:
                         {
                             "model_id": model.id,
                             "reason": "activation_failed",
-                            "detail": (
-                                "model_manager.activate_model returned False. Common cause: "
-                                "family models with eu/na variants whose top-level dir lacks "
-                                "model.onnx — model_manager validates the parent dir."
-                            ),
+                            "detail": "The model's files are missing or incomplete, so it could not be run.",
                             "ready": getattr(model, "ready", None),
                             "ready_reason": getattr(model, "reason", None),
                         }
@@ -757,7 +753,7 @@ class ModelEvalRunner:
             # Restore original active model
             if original_active and original_active != model_manager.active_model_id:
                 try:
-                    await model_manager.activate_model(original_active)
+                    await model_manager.restore_active_model(original_active)
                     if hasattr(classifier_service, "reload_bird_model"):
                         await classifier_service.reload_bird_model()
                 except Exception as e:

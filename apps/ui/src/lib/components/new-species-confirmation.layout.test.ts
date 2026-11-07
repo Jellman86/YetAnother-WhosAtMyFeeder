@@ -8,10 +8,9 @@ describe('a new species asks for one human call in the review queue (#310)', () 
     // Explorer. The existing "Needs your call" queue is the home for it:
     // same card, same modal, one more reason.
 
-    it('the dashboard feeds unconfirmed newcomers into both queue builds', () => {
-        expect(dashboardSource).toContain('fetchNewSpeciesQueue');
-        const merges = dashboardSource.split('newSpecies: newSpeciesEntries').length - 1;
-        expect(merges).toBe(2);
+    it('the dashboard reads unconfirmed newcomers with everything else that is waiting', () => {
+        expect(dashboardSource).toContain('fetchReviewQueue');
+        expect(dashboardSource).not.toContain('fetchNewSpeciesQueue');
         expect(dashboardSource).toContain('onblock={blockFromQueue}');
     });
 
@@ -39,7 +38,7 @@ describe('a new species asks for one human call in the review queue (#310)', () 
     it('blocking appends to the settings list and refreshes the queue', () => {
         expect(dashboardSource).toContain('blocked_species: [');
         expect(dashboardSource).toContain('...existing');
-        const refreshes = dashboardSource.split('void refreshNewSpecies()').length - 1;
+        const refreshes = dashboardSource.split('loadReviewQueue();').length - 1;
         expect(refreshes).toBeGreaterThanOrEqual(3);
     });
 });

@@ -236,11 +236,11 @@ REMOTE_REGISTRY = [
         "tier": "small",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.65,
-        "recommended_for": "Regional birds-only small model with auto region selection.",
+        "recommended_for": "Regional birds-only small model for Europe or North America.",
         "estimated_ram_mb": 768,
         "advanced_only": False,
         "sort_order": 14,
-        "status": "planned",
+        "status": "experimental",
         "family_id": "small_birds",
         "default_region": "na",
         "crop_generator": {
@@ -462,11 +462,11 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.65,
-        "recommended_for": "Regional birds-only medium model with auto region selection.",
+        "recommended_for": "Regional birds-only medium model for Europe or North America.",
         "estimated_ram_mb": 1536,
         "advanced_only": False,
         "sort_order": 18,
-        "status": "planned",
+        "status": "experimental",
         "family_id": "medium_birds",
         "default_region": "na",
         "crop_generator": {
@@ -654,6 +654,13 @@ def registry_artifact_kind(model_id: str) -> str:
     return str((metadata or {}).get("artifact_kind") or "classifier").strip().lower()
 
 
+def registry_model_name(model_id: str) -> Optional[str]:
+    """The name people know a model by, or None when the registry does not list it."""
+    normalized = str(model_id or "").strip()
+    metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
+    return str(metadata["name"]) if metadata else None
+
+
 def is_retired_model(model_id: str) -> bool:
     """Return whether a legacy classifier is intentionally absent from the current catalog."""
     return str(model_id or "").strip() in RETIRED_CLASSIFIER_MODEL_IDS
@@ -829,7 +836,10 @@ class ModelManager:
                         return result
             except Exception:
                 pass
-        # No persisted selection — fall back to the configured default
+        return self._configured_default_model_id()
+
+    def _configured_default_model_id(self) -> str:
+        """What runs when nobody has chosen a model."""
         config_default = str(getattr(settings.classification, "model", "") or "").strip()
         return config_default or "mobilenet_v2_birds"
 
@@ -842,6 +852,27 @@ class ModelManager:
                 json.dump({"active_model_id": model_id}, handle)
             os.replace(temporary_path, config_path)
             self.active_model_id = model_id
+
+    def _restore_active_model_sync(self, model_id: str) -> None:
+        """Put back the selection a trial activation replaced.
+
+        A restore returns to what was already running, so it skips the checks that guard a
+        new selection. A fresh install's default is the bundled model's file name, which
+        activation refuses, and going through it would leave the trial model live.
+        """
+        if model_id != self._configured_default_model_id():
+            self._save_active_model_id(model_id)
+            return
+        # Nobody had chosen a model, so nothing should now claim that somebody did.
+        with self._active_model_lock:
+            try:
+                os.remove(os.path.join(MODELS_DIR, "active_model.json"))
+            except FileNotFoundError:
+                pass
+            self.active_model_id = model_id
+
+    async def restore_active_model(self, model_id: str) -> None:
+        await asyncio.to_thread(self._restore_active_model_sync, model_id)
 
     def _is_classifier_installed(self, model_id: str) -> bool:
         """Return whether a current classifier has a complete runnable artifact."""
@@ -976,6 +1007,19 @@ class ModelManager:
         if model_meta.get("model_config_url") and not os.path.exists(os.path.join(model_dir, "model_config.json")):
             return False, "config_missing"
         return True, "ready"
+
+    def _family_variant_install_status(self, model_meta: dict[str, Any], resolved: dict[str, Any]) -> tuple[bool, str]:
+        """Judge an installed family variant by the regional artifact that is on disk.
+
+        Catalogue labels are found by artifact checksum, which only the variant carries. A
+        missing sidecar does not count against it: startup repairs those in the background,
+        and the registry covers loading until then.
+        """
+        variant_meta = self._merge_family_variant_meta(model_meta, region=str(resolved.get("resolved_region") or ""))
+        return self._model_install_status(
+            {**variant_meta, "model_config_url": None},
+            str(Path(resolved["model_path"]).parent),
+        )
 
     def _is_model_install_complete(self, model_meta: dict[str, Any], model_dir: str) -> bool:
         complete, _reason = self._model_install_status(model_meta, model_dir)
@@ -1639,12 +1683,15 @@ class ModelManager:
                             metadata.model_dump(),
                         )
                         if resolved:
+                            ready, reason = self._family_variant_install_status(metadata.model_dump(), resolved)
                             installed.append(
                                 InstalledModel(
                                     id=item,
                                     path=str(resolved["model_path"]),
                                     labels_path=str(resolved["labels_path"]),
                                     is_active=(item == self.active_model_id),
+                                    ready=ready,
+                                    reason=reason,
                                     metadata=metadata,
                                 )
                             )
@@ -2258,20 +2305,23 @@ class ModelManager:
             model_meta = self._get_registry_model_meta(model_id)
             if model_meta:
                 # Family models (e.g. medium_birds with eu/na variants) place
-                # their model artifact inside a variant subdir, not at the
-                # parent. Validate the resolved variant dir for those.
-                check_dir = target_dir
-                if self._is_family_model(model_meta):
-                    resolved = self._resolve_installed_family_variant(target_dir, model_meta)
-                    if resolved and resolved.get("model_path"):
-                        check_dir = str(Path(resolved["model_path"]).parent)
-                complete, reason = self._model_install_status(model_meta, check_dir)
+                # their model artifact inside a variant subdir, not at the parent.
+                resolved = (
+                    self._resolve_installed_family_variant(target_dir, model_meta)
+                    if self._is_family_model(model_meta)
+                    else None
+                )
+                complete, reason = (
+                    self._family_variant_install_status(model_meta, resolved)
+                    if resolved
+                    else self._model_install_status(model_meta, target_dir)
+                )
                 if not complete:
                     log.warning(
                         "Activation failed: model install incomplete",
                         model_id=model_id,
                         reason=reason,
-                        model_dir=check_dir,
+                        model_dir=str(Path(resolved["model_path"]).parent) if resolved else target_dir,
                     )
                     return False
             self._save_active_model_id(model_id)

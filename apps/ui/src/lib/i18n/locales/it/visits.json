@@ -30,5 +30,6 @@
   "node_capture_shown": "Acquisizione delle {time}, parte di questa visita e usata come foto della visita",
   "open_capture": "Apri l’acquisizione di {species}",
   "owner_confirmed": "Confermato dal proprietario",
-  "owner_confirmed_hint": "Un proprietario ha confermato esplicitamente questa specie in almeno una ripresa visibile della visita. La confidenza del modello e l’audio corrispondente sono prove separate."
+  "owner_confirmed_hint": "Un proprietario ha confermato esplicitamente questa specie in almeno una ripresa visibile della visita. La confidenza del modello e l’audio corrispondente sono prove separate.",
+  "owner_confirmed_capture_hint": "Un proprietario ha confermato esplicitamente questa specie in questa ripresa. La confidenza del modello e l’audio corrispondente sono prove separate."
 }

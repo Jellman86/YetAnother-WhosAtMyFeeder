@@ -14953,6 +14953,71 @@
         "title": "ReverseGeocodeResponse",
         "type": "object"
       },
+      "ReviewQueueItem": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/DetectionResponse"
+          },
+          "reason": {
+            "enum": [
+              "unknown_species",
+              "low_score",
+              "new_species"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "species_sightings": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Sightings"
+          }
+        },
+        "required": [
+          "event",
+          "reason"
+        ],
+        "title": "ReviewQueueItem",
+        "type": "object"
+      },
+      "ReviewQueueResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "Everything waiting, however many items were asked for",
+            "title": "Total",
+            "type": "integer"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "window_start",
+          "window_end"
+        ],
+        "title": "ReviewQueueResponse",
+        "type": "object"
+      },
       "SeasonalityResponse": {
         "properties": {
           "local": {
@@ -22908,7 +22973,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.23.0"
+    "version": "2.23.1"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -27800,6 +27865,104 @@
           }
         ],
         "summary": "Get New Species Queue"
+      }
+    },
+    "/api/events/review-queue": {
+      "get": {
+        "description": "Everything waiting on a person: the source of Needs your call (#917).\n\nCounted here rather than from a recent page of detections, so a visit stays\nqueued however many others arrive after it. Owner only.",
+        "operationId": "get_review_queue_api_events_review_queue_get",
+        "parameters": [
+          {
+            "description": "How many to list, oldest first",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "description": "How many to list, oldest first",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How far back a detection can still be waiting",
+            "in": "query",
+            "name": "window_hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "description": "How far back a detection can still be waiting",
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Window Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "A species with more sightings is established",
+            "in": "query",
+            "name": "max_sightings",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "description": "A species with more sightings is established",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Max Sightings",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only species first seen this recently",
+            "in": "query",
+            "name": "window_days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "description": "Only species first seen this recently",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Window Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Review Queue"
       }
     },
     "/api/events/{event_id}": {

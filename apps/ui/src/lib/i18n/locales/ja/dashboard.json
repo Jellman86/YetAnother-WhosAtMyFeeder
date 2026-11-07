@@ -127,6 +127,7 @@
     "position": "{total} 件中 {position} 件目",
     "summary": "{resolved} 件を判断、{skipped} 件をスキップ",
     "done": "キューは空です",
+    "more_waiting": "{count, plural, other {あと # 件が待機中です。続けるにはキューをもう一度開いてください。}}",
     "done_with_skips": "キューを処理しました",
     "done_note": "すべての訪問に種名が付きました。修正はカメラごとの並び順に反映されます。",
     "skipped_note": "{count, plural, other {# 件を後回しにしました。キューに残ります。}}",

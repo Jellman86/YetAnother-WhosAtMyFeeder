@@ -46,8 +46,9 @@ from app.utils.public_access import (
     public_utc_day,
     public_events_window,
 )
-from app.utils.api_datetime import serialize_api_datetime
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.canonical_species import (
+    hidden_species_exact_labels,
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
     unknown_species_labels,
@@ -847,6 +848,72 @@ async def get_new_species_queue(
         ],
         max_sightings=max_sightings,
         window_days=window_days,
+    )
+
+
+class ReviewQueueItem(BaseModel):
+    event: DetectionResponse
+    reason: Literal["unknown_species", "low_score", "new_species"]
+    species_sightings: Optional[int] = None
+
+
+class ReviewQueueResponse(BaseModel):
+    items: List[ReviewQueueItem]
+    total: int = Field(description="Everything waiting, however many items were asked for")
+    window_start: str
+    window_end: str
+
+
+# Above any model's label count, so every new species is counted however many there are.
+REVIEW_QUEUE_NEW_SPECIES_LIMIT = 20_000
+
+
+@router.get("/events/review-queue", response_model=ReviewQueueResponse)
+async def get_review_queue(
+    request: Request,
+    limit: int = Query(default=12, ge=1, le=500, description="How many to list, oldest first"),
+    window_hours: int = Query(default=24, ge=1, le=168, description="How far back a detection can still be waiting"),
+    max_sightings: int = Query(default=3, ge=1, le=50, description="A species with more sightings is established"),
+    window_days: int = Query(default=14, ge=1, le=365, description="Only species first seen this recently"),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Everything waiting on a person: the source of Needs your call (#917).
+
+    Counted here rather than from a recent page of detections, so a visit stays
+    queued however many others arrive after it. Owner only.
+    """
+    window_end = utc_naive_now()
+    window_start = window_end - timedelta(hours=window_hours)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        new_species = await repo.get_new_species_candidates(
+            max_sightings=max_sightings,
+            first_seen_cutoff=window_end - timedelta(days=window_days),
+            excluded_labels=hidden_species_exact_labels(),
+            limit=REVIEW_QUEUE_NEW_SPECIES_LIMIT,
+        )
+        entries, total = await repo.get_review_queue(
+            window_start=window_start,
+            window_end=window_end,
+            threshold=settings.classification.threshold,
+            new_species=new_species,
+            limit=limit,
+        )
+    presented = await present_events([entry.detection for entry in entries], request, auth)
+    by_event = {event.frigate_event: event for event in presented}
+    return ReviewQueueResponse(
+        items=[
+            ReviewQueueItem(
+                event=by_event[entry.detection.frigate_event],
+                reason=entry.reason,
+                species_sightings=entry.species_sightings,
+            )
+            for entry in entries
+            if entry.detection.frigate_event in by_event
+        ],
+        total=total,
+        window_start=serialize_api_datetime(window_start) or "",
+        window_end=serialize_api_datetime(window_end) or "",
     )
 
 
