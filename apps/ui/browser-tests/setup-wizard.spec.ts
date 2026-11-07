@@ -37,7 +37,8 @@ const MODELS: Record<string, Json> = {
         candidate_inference_providers: ['cpu', 'intel_cpu', 'cuda', 'intel_gpu', 'intel_npu'],
         preprocessing: { metadata_input: 'inat2021_location_v1' }
     }),
-    [BROKEN]: metadata(BROKEN, { name: 'Broken install', tier: 'medium' })
+    [BROKEN]: metadata(BROKEN, { name: 'Broken install', tier: 'medium' }),
+    small_birds: metadata('small_birds', { name: 'Small Birds', region_variants: { eu: {}, na: {} }, default_region: 'na' })
 };
 
 interface InstalledEntry {
@@ -242,7 +243,8 @@ class FakeBackend {
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
         if (path.startsWith('/api/frigate/camera/')) return route.fulfill({ status: 404, body: '' });
         if (path === '/api/classifier/status') return json(this.status());
-        if (path === '/api/models/available') return json([MODELS[MOBILENET], MODELS[DINO], MODELS[BROKEN]]);
+        if (path === '/api/models/available') return json([MODELS[MOBILENET], MODELS[DINO], MODELS[BROKEN], MODELS.small_birds]);
+        if (path === '/api/models/families/resolved') return json({ small_birds: { effective_region: this.settings.bird_model_region_override === 'eu' ? 'eu' : 'na' } });
         if (path === '/api/models/installed') return json(this.installedResponse());
 
         const download = path.match(/^\/api\/models\/([^/]+)\/download$/);
@@ -837,3 +839,29 @@ test('typing cameras is only offered when Frigate cannot be read, and says the n
     expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder', 'nestbox'] });
 });
 
+test('a regional model says which species list it will use, and validating runs the region chosen', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }] });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Classifier model & hardware');
+    await modelSelect(page).selectOption('small_birds');
+    const region = wizard(page).locator('[data-setup-model-region]');
+    await expect(region.getByRole('status')).toContainText('No country is saved, so Auto uses the North American species list');
+    await region.getByLabel('Bird model region').selectOption('eu');
+    await expect(region.getByRole('status')).toContainText('This model will use the species list for Europe.');
+    await expect.poll(() => fake.settingsWrites()).toContainEqual({ bird_model_region_override: 'eu' });
+    await validateButton(page).click();
+    await expect.poll(() => fake.posts('/api/diagnostics/model-eval/runs').length).toBe(1);
+    expect(fake.requestIndex(r => r.method === 'POST' && r.path === '/api/settings')).toBeLessThan(
+        fake.requestIndex(r => r.method === 'POST' && r.path === '/api/diagnostics/model-eval/runs')
+    );
+});
+
+test('a saved country names the species list, and a model that is not regional asks no region question', async ({ page }) => {
+    const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }], settings: { location_country: 'France', bird_model_region_override: 'eu' } });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Classifier model & hardware');
+    await expect(wizard(page).locator('[data-setup-model-region]')).toHaveCount(0);
+    await modelSelect(page).selectOption('small_birds');
+    await wizard(page).getByLabel('Bird model region').selectOption('auto');
+    await expect(wizard(page).locator('[data-setup-model-region]').getByRole('status')).toContainText('Your saved country selects the species list');
+});

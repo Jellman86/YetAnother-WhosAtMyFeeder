@@ -112,7 +112,7 @@ size and memory estimates are listed in the [model release](https://github.com/J
 | **EVA-02 Large** | Large comparison model. The reporter's sustained Intel GPU/backfill fault in [#490](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/490) remains unconfirmed; another host's passing check does not close it. |
 
 #### Birds-Only Families: Small Birds / Medium Birds
-- Region-aware family entries that resolve to EU or North America candidate assets based on your configured location.
+- Region-aware family entries that resolve to EU or North America candidate assets. **Bird model region**, in the setup wizard's model step and **Settings → Detection**, decides which. On **Auto** it follows your saved country, and with no country saved it uses North America.
 - Their regional output vocabularies exclude many species present in wildlife-wide models; compare coverage and accuracy on your own birds.
 - `Small Birds` targets lower RAM and faster inference.
 - `Medium Birds` is the larger regional option.
