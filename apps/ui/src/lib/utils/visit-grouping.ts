@@ -62,7 +62,7 @@ export function needsReview(detection: Detection, reviewThreshold: number | null
 }
 
 /** A person named this species. Tagging a record as unknown confirms nothing. */
-export function isOwnerConfirmed(detection: Detection): boolean {
+function isOwnerConfirmed(detection: Detection): boolean {
     return detection.manual_tagged === true && !hasNoSpecies(detection);
 }
 
