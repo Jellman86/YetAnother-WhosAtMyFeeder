@@ -34,6 +34,8 @@
 
     interface Props {
         queue: Detection[];
+        /** Waiting beyond this list, so finishing it does not mean nothing is left. */
+        moreWaiting?: number;
         /** Why each detection is queued; absent means a low score. */
         reasons?: Map<string, ReviewReason>;
         onidentify: (detection: Detection, species: string) => Promise<void> | void;
@@ -47,7 +49,7 @@
         onbirdschanged?: () => void;
     }
 
-    let { queue, reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
+    let { queue, moreWaiting = 0, reasons, onidentify, onhide, onblock, ondelete, onopen, onclose, onbirdschanged }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // The photograph is the record's own saved snapshot, the picture already chosen for it. The
@@ -518,7 +520,7 @@
                     </svg>
                 </div>
                 <h3 class="font-display text-xl font-bold text-slate-900 dark:text-white">
-                    {session.skipped > 0
+                    {session.skipped > 0 || moreWaiting > 0
                         ? $_('dashboard.review_session.done_with_skips', { default: 'Queue worked through' })
                         : $_('dashboard.review_session.done', { default: 'Queue clear' })}
                 </h3>
@@ -528,10 +530,17 @@
                               values: { count: session.skipped },
                               default: '{count, plural, one {# left for later. It stays in the queue.} other {# left for later. They stay in the queue.}}'
                           })
-                        : $_('dashboard.review_session.done_note', {
-                              default: 'Every visit has a species. Your corrections feed the per-camera ranking.'
-                          })}
+                        : moreWaiting > 0
+                          ? ''
+                          : $_('dashboard.review_session.done_note', {
+                                default: 'Every visit has a species. Your corrections feed the per-camera ranking.'
+                            })}
                 </p>
+                {#if moreWaiting > 0}
+                    <p class="max-w-sm text-sm font-semibold text-attention-800 dark:text-attention-300" data-review-more-waiting>
+                        {$_('dashboard.review_session.more_waiting', { values: { count: moreWaiting }, default: '{count, plural, one {# more is waiting. Open the queue again to carry on.} other {# more are waiting. Open the queue again to carry on.}}' })}
+                    </p>
+                {/if}
                 <button class="btn btn-primary mt-2 min-h-11 px-5 py-2" onclick={onclose}>
                     {$_('dashboard.review_session.back', { default: 'Back to the dashboard' })}
                 </button>

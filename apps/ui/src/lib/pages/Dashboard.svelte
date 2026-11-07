@@ -199,8 +199,10 @@
     // rather than however much of the day still fits in the recent history.
     const REVIEW_QUEUE_READ_LIMIT = 8;
     const REVIEW_SESSION_READ_LIMIT = 500;
+    const REVIEW_QUEUE_MIN_INTERVAL_MS = 15_000;
     let reviewReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
     let reviewReadingStatus = $state<ReadingStatus>('loading');
+    let lastReviewQueueRead = 0;
     const reviewQueueLoader = createObservationProjectionLoader({
         fetch: (signal) => fetchReviewQueue({ limit: REVIEW_QUEUE_READ_LIMIT, signal }),
         apply: (response) => {
@@ -217,7 +219,9 @@
         }
     });
     function loadReviewQueue(): void {
-        if (canReview) void reviewQueueLoader.load();
+        if (!canReview) return;
+        lastReviewQueueRead = Date.now();
+        void reviewQueueLoader.load();
     }
     function retryReviewQueue(): void {
         reviewReadingStatus = 'loading';
@@ -225,8 +229,13 @@
     }
 
     $effect(() => {
-        if (canReview) untrack(loadReviewQueue);
-        else reviewQueueLoader.invalidate();
+        if (canReview) {
+            untrack(loadReviewQueue);
+            return;
+        }
+        reviewQueueLoader.invalidate();
+        // A list read before signing out must not open itself at the next sign-in.
+        reviewSessionRequest += 1;
     });
 
     let reviewQueue = $derived(buildReviewQueue(reviewReading, { reviewThreshold, knownDetections: detectionsStore.detections, localChoices: detectionsStore.patchMap }));
@@ -234,14 +243,18 @@
     // The walkthrough needs more than the card previews, so it reads its own list when opened.
     let reviewSessionReading = $state.raw<ReviewQueueReading>(EMPTY_REVIEW_QUEUE_READING);
     let reviewSessionOpening = false;
+    let reviewSessionRequest = 0;
     async function openReviewSession(): Promise<void> {
         if (reviewSessionOpening) return;
         reviewSessionOpening = true;
+        const request = ++reviewSessionRequest;
         try {
-            reviewSessionReading = readingFromResponse(await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT }));
+            const response = await fetchReviewQueue({ limit: REVIEW_SESSION_READ_LIMIT });
+            if (request !== reviewSessionRequest) return;
+            reviewSessionReading = readingFromResponse(response);
             reviewSessionOpen = true;
         } catch (e) {
-            toastStore.show(getErrorMessage(e), 'error');
+            if (request === reviewSessionRequest) toastStore.show(getErrorMessage(e), 'error');
         } finally {
             reviewSessionOpening = false;
         }
@@ -495,8 +508,11 @@
         if (version <= handledVisitMutation) return;
         handledVisitMutation = version;
         // An owner's correction can confirm a flagged species, so the range check is read again too.
-        const timeout = setTimeout(() => { void loadSummary(); loadSpeciesChecks(); loadReviewQueue(); }, 2000);
-        return () => clearTimeout(timeout);
+        const timeout = setTimeout(() => { void loadSummary(); loadSpeciesChecks(); }, 2000);
+        // Each read asks Frigate about every listed event, so a busy feeder reads this less often.
+        // The owner's own decisions read it straight away.
+        const queueTimeout = setTimeout(loadReviewQueue, Math.max(2000, lastReviewQueueRead + REVIEW_QUEUE_MIN_INTERVAL_MS - Date.now()));
+        return () => { clearTimeout(timeout); clearTimeout(queueTimeout); };
     });
 
     // What the microphone heard: the day bar's call count and the Heard card read this one summary.
@@ -746,6 +762,7 @@
             <ReviewQueueModal
                 onbirdschanged={handleBirdsChanged}
                 queue={fullQueue.items}
+                moreWaiting={fullQueue.remaining}
                 reasons={fullQueue.reasons}
                 onidentify={identifyFromQueue}
                 onhide={hideFromQueue}

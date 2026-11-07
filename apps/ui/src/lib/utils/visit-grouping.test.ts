@@ -256,6 +256,11 @@ describe('ownerConfirmationScope (#918)', () => {
         expect(ownerConfirmationScope(named, undefined)).toBeNull();
     });
 
+    it('a visit read before its record lost its species no longer claims confirmation', () => {
+        const nowUnknown = { display_name: 'Unknown Bird', manual_tagged: false } as Detection;
+        expect(ownerConfirmationScope(nowUnknown, { owner_confirmed: true })).toBeNull();
+    });
+
     it('tagging a record as unknown confirms no species', () => {
         expect(ownerConfirmationScope(taggedUnknown, undefined)).toBeNull();
         expect(ownerConfirmationScope(taggedUnknown, { owner_confirmed: false })).toBeNull();

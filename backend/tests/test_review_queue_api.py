@@ -4,7 +4,7 @@ The Dashboard used to count from its newest 50 detections, so an unknown bird fe
 queue as soon as 50 others had arrived, and the panel could say nothing was waiting.
 """
 
-from datetime import timedelta
+from datetime import timedelta, timezone
 
 import pytest
 import pytest_asyncio
@@ -13,7 +13,6 @@ from httpx import ASGITransport, AsyncClient
 from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
-from app.repositories.detection_repository import unresolved_species_sql
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 from app.utils.canonical_species import UNKNOWN_BIRD_DISPLAY_LABEL, user_facing_species_label
 
@@ -43,8 +42,9 @@ async def seed(
     hidden: int = 0,
     manual: int = 0,
     scientific: str | None = "Erithacus rubecula",
+    stored_at: str | None = None,
 ) -> None:
-    at = serialize_storage_datetime(utc_naive_now() - timedelta(hours=age_hours))
+    at = stored_at or serialize_storage_datetime(utc_naive_now() - timedelta(hours=age_hours))
     async with get_db() as db:
         await db.execute(
             """
@@ -165,14 +165,68 @@ async def test_every_label_shown_as_unknown_is_queued_as_unknown(name, category)
     assert data["items"][0]["event"]["display_name"] == UNKNOWN_BIRD_DISPLAY_LABEL
 
 
+@pytest.mark.parametrize("name", ["European Robin", "Sand allies"])
 @pytest.mark.asyncio
-async def test_a_named_species_is_not_mistaken_for_an_unknown_one():
-    assert user_facing_species_label("European Robin", raw_label="European Robin") != UNKNOWN_BIRD_DISPLAY_LABEL
-    clause, params = unresolved_species_sql("d")
-    async with get_db() as db:
-        await seed("named", name="European Robin")
-        async with db.execute(f"SELECT COUNT(*) FROM detections d WHERE {clause}", params) as cursor:
-            assert (await cursor.fetchone())[0] == 0
+async def test_a_named_species_is_not_mistaken_for_an_unknown_one(name):
+    assert user_facing_species_label(name, raw_label=name) != UNKNOWN_BIRD_DISPLAY_LABEL
+    await seed_established_species()
+    await seed("named-1", name=name)
+    await seed("named-2", name=name)
+    await seed("named-3", name=name)
+    await seed("named-4", name=name)
+
+    data = await read_queue()
+
+    assert data["total"] == 0
+
+
+@pytest.mark.parametrize("name", ["Unknown  Bird", "Unknown\tBird", "\t"])
+@pytest.mark.asyncio
+async def test_labels_only_python_reads_as_unknown_are_still_queued(name):
+    assert user_facing_species_label(name, raw_label="Unknown Bird") == UNKNOWN_BIRD_DISPLAY_LABEL
+    await seed_established_species()
+    await seed("odd-whitespace", name=name, category="Unknown Bird", score=0.95, scientific=None)
+
+    data = await read_queue()
+
+    assert events(data) == ["odd-whitespace"]
+
+
+@pytest.mark.asyncio
+async def test_every_stored_time_format_is_placed_correctly_in_the_window():
+    await seed_established_species()
+    now = utc_naive_now()
+    old_t = (now - timedelta(hours=25)).isoformat()
+    inside_t = (now - timedelta(hours=1)).isoformat()
+    oldest_inside = (now - timedelta(hours=20)).isoformat()
+    aware = (now - timedelta(hours=10)).replace(tzinfo=timezone.utc).isoformat()
+    newer_space = serialize_storage_datetime(now - timedelta(hours=5))
+    for event, stored_at in (
+        ("before-window-t", old_t),
+        ("inside-t", inside_t),
+        ("oldest-t", oldest_inside),
+        ("aware", aware),
+        ("space", newer_space),
+    ):
+        await seed(event, name="Unknown Bird", scientific=None, stored_at=stored_at)
+
+    data = await read_queue()
+
+    assert events(data) == ["oldest-t", "aware", "space", "inside-t"]
+    assert data["total"] == 4
+    assert events(await read_queue("?limit=1")) == ["oldest-t"]
+
+
+@pytest.mark.asyncio
+async def test_every_new_species_is_counted_however_many_there_are():
+    await seed_established_species()
+    for index in range(205):
+        await seed(f"new-{index}", name=f"Species {index}", age_hours=48, scientific=f"Genus species{index}")
+
+    data = await read_queue("?limit=3")
+
+    assert data["total"] == 205
+    assert len(data["items"]) == 3
 
 
 @pytest.mark.asyncio

@@ -864,8 +864,8 @@ class ReviewQueueResponse(BaseModel):
     window_end: str
 
 
-# More newcomers than this would mean the feeder's whole species list is new, not a queue to work through.
-REVIEW_QUEUE_NEW_SPECIES_LIMIT = 200
+# Above any model's label count, so every new species is counted however many there are.
+REVIEW_QUEUE_NEW_SPECIES_LIMIT = 20_000
 
 
 @router.get("/events/review-queue", response_model=ReviewQueueResponse)
