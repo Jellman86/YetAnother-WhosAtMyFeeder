@@ -48,3 +48,18 @@ export function validationRecommendation(
     const latency = provider ? (entries ? entries[provider]?.latency_ms : summary.p50_latency_ms) : null;
     return { provider, medianMs: typeof latency === 'number' && Number.isFinite(latency) && latency >= 0 ? latency : null, providers };
 }
+
+export type RegionMessage =
+    | { kind: 'chosen'; region: 'eu' | 'na' }
+    | { kind: 'no_country' }
+    | { kind: 'from_country'; region: 'eu' | 'na' | null };
+
+/**
+ * What a regional model will do with the saved choices. Without a country, Auto can only fall back
+ * to North America, and a feeder in Europe needs to be told that before it runs on the wrong birds.
+ */
+export function regionMessage(override: 'auto' | 'eu' | 'na', country: string | null | undefined, effectiveRegion: unknown): RegionMessage {
+    if (override !== 'auto') return { kind: 'chosen', region: override };
+    if (!(country ?? '').trim()) return { kind: 'no_country' };
+    return { kind: 'from_country', region: effectiveRegion === 'eu' || effectiveRegion === 'na' ? effectiveRegion : null };
+}

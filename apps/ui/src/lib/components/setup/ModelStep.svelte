@@ -8,13 +8,15 @@
         fetchClassifierStatus,
         fetchDownloadStatus,
         fetchInstalledModels,
+        fetchResolvedModelFamilies,
         getVisibleTieredModelLineup,
         selectSetupModelId,
         summarizeModelMetadata,
         type ClassifierStatus,
         type DownloadProgress,
         type InstalledModel,
-        type ModelMetadata
+        type ModelMetadata,
+        type ResolvedModelFamilies
     } from '../../api/classifier';
     import { fetchSettings, updateSettings } from '../../api/settings';
     import {
@@ -35,7 +37,8 @@
     import WizardStepLayout from './WizardStepLayout.svelte';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
-    import { feederCoordinates, validationRecommendation } from './model-choices';
+    import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
+    import { BIRD_MODEL_REGION_OVERRIDE_VALUES, normalizeBirdModelRegionOverride, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
 
     let status = $state<ClassifierStatus | null>(null);
     let loadState = $state<WizardLoadStatus>('loading');
@@ -59,6 +62,10 @@
     let longitudeText = $state('');
     let savedLatitude: number | null = null;
     let savedLongitude: number | null = null;
+    let regionOverride = $state<BirdModelRegionOverride>('auto');
+    let savedCountry = $state<string | null>(null);
+    let resolvedFamilies = $state<ResolvedModelFamilies | null>(null);
+    let savingRegion = $state(false);
     let runId = '';
     let runModelId = '';
     let poller: ReturnType<typeof setInterval> | null = null;
@@ -84,6 +91,8 @@
     let usesLocation = $derived(selectedModel !== null && usesSavedFeederLocation(selectedModel));
     let coordinates = $derived(feederCoordinates(latitudeText, longitudeText));
     let locationValid = $derived(!usesLocation || coordinates.error === null);
+    let isRegional = $derived(Object.keys(selectedModel?.region_variants ?? {}).length > 0);
+    let regionNotice = $derived(regionMessage(regionOverride, savedCountry, resolvedFamilies?.[selectedModelId]?.effective_region));
     let selectedValidatedProviders = $derived(
         selectedValidation
             ? recommendation.providers
@@ -138,17 +147,19 @@
         selectedProvider !== 'auto'
         && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
     );
-    let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading);
+    let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading && !savingRegion);
 
     async function load(): Promise<void> {
         loadState = 'loading';
         errorMsg = '';
         try {
-            const [classifierStatus, available, installed, settings] = await Promise.all([
+            const [classifierStatus, available, installed, settings, families] = await Promise.all([
                 fetchClassifierStatus(),
                 fetchAvailableModels(),
                 fetchInstalledModels(),
-                fetchSettings()
+                fetchSettings(),
+                // Only the wording depends on this, so the step still works without it.
+                fetchResolvedModelFamilies().catch(() => null)
             ]);
             if (destroyed) return;
             status = classifierStatus;
@@ -160,6 +171,9 @@
             installedModels = classifierModels(installed);
             selectedModelId = selectSetupModelId(classifierStatus, availableModels, installedModels);
             selectedProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
+            regionOverride = normalizeBirdModelRegionOverride(settings.bird_model_region_override);
+            savedCountry = settings.location_country ?? null;
+            resolvedFamilies = families;
             savedLatitude = settings.location_latitude ?? null;
             savedLongitude = settings.location_longitude ?? null;
             latitudeText = savedLatitude === null ? '' : String(savedLatitude);
@@ -389,6 +403,44 @@
         providerTouched = false;
     }
 
+    // Saved straight away, because the check that follows has to run the region that was chosen.
+    async function chooseRegion(next: BirdModelRegionOverride): Promise<void> {
+        const previous = regionOverride;
+        regionOverride = next;
+        savingRegion = true;
+        errorMsg = '';
+        try {
+            await updateSettings({ bird_model_region_override: next });
+            if (destroyed) return;
+            const [installed, classifierStatus, families] = await Promise.all([
+                fetchInstalledModels(),
+                fetchClassifierStatus(),
+                fetchResolvedModelFamilies().catch(() => null)
+            ]);
+            if (destroyed) return;
+            installedModels = classifierModels(installed);
+            status = classifierStatus;
+            resolvedFamilies = families;
+            // A result for the other region says nothing about this one.
+            results = null;
+            matrix = null;
+            validationFailed = false;
+            validationMsg = '';
+            providerMessage = '';
+        } catch (err) {
+            regionOverride = previous;
+            errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
+        } finally {
+            savingRegion = false;
+        }
+    }
+
+    function regionName(region: 'eu' | 'na'): string {
+        return region === 'eu'
+            ? $_('settings.detection.region_override_eu', { default: 'Europe' })
+            : $_('settings.detection.region_override_na', { default: 'North America' });
+    }
+
     async function saveLocation(): Promise<void> {
         if (!usesLocation) return;
         const location = feederCoordinates(latitudeText, longitudeText);
@@ -488,6 +540,41 @@
             {/if}
         </div>
 
+        {#if isRegional}
+            <div data-setup-model-region>
+                <label for="setup-model-region" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.region_override_title', { default: 'Bird model region' })}</label>
+                <select
+                    id="setup-model-region"
+                    value={regionOverride}
+                    onchange={(event) => chooseRegion(normalizeBirdModelRegionOverride(event.currentTarget.value))}
+                    disabled={validating || downloading || saving || savingRegion}
+                    class="select-base mt-1"
+                    aria-describedby="setup-model-region-status"
+                >
+                    {#each BIRD_MODEL_REGION_OVERRIDE_VALUES as option (option)}
+                        <option value={option}>
+                            {option === 'auto' ? $_('settings.detection.region_override_auto', { default: 'Auto' }) : regionName(option)}
+                        </option>
+                    {/each}
+                </select>
+                <p
+                    id="setup-model-region-status"
+                    role="status"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}"
+                >
+                    {#if regionNotice.kind === 'no_country'}
+                        {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
+                    {:else if regionNotice.kind === 'chosen'}
+                        {$_('setup.model.region_chosen', { values: { region: regionName(regionNotice.region) }, default: 'This model will use the species list for {region}.' })}
+                    {:else if regionNotice.region}
+                        {$_('setup.model.region_from_country', { values: { region: regionName(regionNotice.region) }, default: 'Your saved country selects the species list for {region}.' })}
+                    {:else}
+                        {$_('settings.detection.region_override_desc', { default: 'Auto uses your configured country. Manual override always wins.' })}
+                    {/if}
+                </p>
+            </div>
+        {/if}
+
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
                 <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
@@ -575,7 +662,7 @@
                 <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
-            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving}>
+            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId || !locationValid || saving || savingRegion}>
                 {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
             </button>
         {/if}
