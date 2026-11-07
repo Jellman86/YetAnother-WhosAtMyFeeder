@@ -1,4 +1,4 @@
-from typing import Callable, Collection, Optional
+from typing import Callable, Collection, Literal, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -30,6 +30,36 @@ log = structlog.get_logger()
 # Recorded with the first classification when the stored species is a trusted
 # Frigate sub-label rather than YA-WAMF's own identification.
 INITIAL_LABEL_SOURCE_FRIGATE_SUBLABEL = "frigate_sublabel"
+
+
+def unresolved_species_sql(alias: str) -> tuple[str, list[str]]:
+    """Match what presentation shows as "Unknown Bird" (`user_facing_species_label`).
+
+    Applies its rules to a stored row, so a record is queued as unknown exactly when
+    the person reviewing it would see no species.
+    """
+    labels = list(dict.fromkeys(str(label).strip().lower() for label in hidden_species_exact_labels()))
+    fragments = [str(fragment).strip().lower() for fragment in hidden_species_substrings()]
+    display = f"LOWER(TRIM(COALESCE({alias}.display_name, '')))"
+    clauses = [f"{display} = ''"]
+    params: list[str] = []
+    for column in (display, f"LOWER(TRIM(COALESCE({alias}.category_name, '')))"):
+        clauses.append(f"{column} IN ({','.join('?' for _ in labels)})")
+        params.extend(labels)
+        for fragment in fragments:
+            clauses.append(f"{column} LIKE ?")
+            params.append(f"%{fragment}%")
+    return "(" + " OR ".join(clauses) + ")", params
+
+
+ReviewReason = Literal["unknown_species", "low_score", "new_species"]
+
+
+@dataclass(frozen=True)
+class ReviewQueueEntry:
+    detection: "Detection"
+    reason: ReviewReason
+    species_sightings: Optional[int] = None
 
 
 AI_PROMPT_CONTEXT_COLUMNS = ("id", "display_name", "detection_time", "temperature", "weather_condition")
@@ -1831,6 +1861,73 @@ class DetectionRepository:
         # Rows come back positional; the sighting count is the one column
         # appended after DETECTION_SELECT_COLUMNS.
         return [(_row_to_detection(row), int(row[-1])) for row in rows]
+
+    async def get_review_queue(
+        self,
+        *,
+        window_start: datetime,
+        window_end: datetime,
+        threshold: float,
+        new_species: list[tuple[Detection, int]],
+        limit: int,
+    ) -> tuple[list[ReviewQueueEntry], int]:
+        """What is waiting on a person, oldest first, with the full count however long the list is.
+
+        A detection waits when it is visible, no person has decided it, it falls inside the
+        window, and it has no species or scores below the threshold. Each new species' latest
+        sighting waits too, wherever it falls, and counts once if it qualifies both ways.
+        """
+        unresolved, unresolved_params = unresolved_species_sql("d")
+        waiting = f"""
+            (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            AND COALESCE(d.manual_tagged, 0) = 0
+            AND d.detection_time >= ?
+            AND d.detection_time <= ?
+            AND ({unresolved} OR d.score < ?)
+        """
+        waiting_params = [
+            serialize_storage_datetime(window_start),
+            serialize_storage_datetime(window_end),
+            *unresolved_params,
+            threshold,
+        ]
+        async with self.db.execute(f"SELECT COUNT(*) FROM detections d WHERE {waiting}", waiting_params) as cursor:
+            row = await cursor.fetchone()
+        waiting_total = int(row[0]) if row else 0
+
+        new_events = [detection.frigate_event for detection, _sightings in new_species]
+        also_waiting = 0
+        if new_events:
+            placeholders = ",".join("?" for _ in new_events)
+            async with self.db.execute(
+                f"SELECT COUNT(*) FROM detections d WHERE {waiting} AND d.frigate_event IN ({placeholders})",
+                [*waiting_params, *new_events],
+            ) as cursor:
+                row = await cursor.fetchone()
+            also_waiting = int(row[0]) if row else 0
+
+        query = f"""
+            SELECT {DETECTION_SELECT_COLUMNS}, CASE WHEN {unresolved} THEN 1 ELSE 0 END AS has_no_species
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE {waiting}
+            ORDER BY d.detection_time ASC, d.id ASC
+            LIMIT ?
+        """
+        async with self.db.execute(query, [*unresolved_params, *waiting_params, max(1, int(limit))]) as cursor:
+            rows = await cursor.fetchall()
+
+        entries: dict[str, ReviewQueueEntry] = {}
+        for row in rows:
+            detection = _row_to_detection(row)
+            reason: ReviewReason = "unknown_species" if row[-1] else "low_score"
+            entries[detection.frigate_event] = ReviewQueueEntry(detection, reason)
+        # "First of its kind here" is the sharper question than "shaky score".
+        for detection, sightings in new_species:
+            entries[detection.frigate_event] = ReviewQueueEntry(detection, "new_species", sightings)
+
+        ordered = sorted(entries.values(), key=lambda entry: (entry.detection.detection_time, entry.detection.id or 0))
+        return ordered[: max(1, int(limit))], waiting_total + len(new_events) - also_waiting
 
     async def delete_by_id(self, detection_id: int) -> bool:
         """Delete a detection by ID. Returns True if deleted."""

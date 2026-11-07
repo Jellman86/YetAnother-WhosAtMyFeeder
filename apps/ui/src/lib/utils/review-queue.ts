@@ -1,5 +1,5 @@
-import type { Detection } from '../api';
-import { hasNoSpecies, needsReview } from './visit-grouping';
+import type { Detection, ReviewQueueResponse } from '../api';
+import { needsReview } from './visit-grouping';
 
 /** Why a detection is asking for a person: no species at all, a shaky score, or a
  * species this feeder has never confirmed (#310). */
@@ -42,32 +42,50 @@ export interface ReviewQueue {
 
 const REVIEW_QUEUE_PREVIEW_LIMIT = 4;
 
-export interface NewSpeciesEntry {
+export interface QueuedDetection {
     detection: Detection;
-    sightings: number;
+    reason: ReviewReason;
+    /** How many sightings a new species has; null for any other reason. */
+    sightings: number | null;
+}
+
+/** What the server says is waiting. The total covers everything, the entries only what was asked for. */
+export interface ReviewQueueReading {
+    entries: readonly QueuedDetection[];
+    total: number;
+}
+
+export const EMPTY_REVIEW_QUEUE_READING: ReviewQueueReading = { entries: [], total: 0 };
+
+export function readingFromResponse(response: ReviewQueueResponse): ReviewQueueReading {
+    return {
+        entries: response.items.map((item) => ({
+            detection: item.event as unknown as Detection,
+            reason: item.reason,
+            sightings: item.species_sightings ?? null
+        })),
+        total: response.total
+    };
+}
+
+/** A decision the server has taken: gone from this reading without waiting for the next one. */
+export function withoutEvent(reading: ReviewQueueReading, frigateEvent: string): ReviewQueueReading {
+    const entries = reading.entries.filter((entry) => entry.detection.frigate_event !== frigateEvent);
+    return { entries, total: Math.max(reading.total - (reading.entries.length - entries.length), 0) };
 }
 
 export interface ReviewQueueOptions {
     reviewThreshold: number | null;
     limit?: number;
-    /** Latest sightings of species with no confirmed history here. */
-    newSpecies?: readonly NewSpeciesEntry[];
-    /** Known history can hold owner decisions outside the desk's time window. */
+    /** The live record of a queued detection, newer than the reading that listed it. */
     knownDetections?: readonly Detection[];
     /** Explicit saved owner choices can outlive the recent history page. */
     localChoices?: ReadonlyMap<string, Partial<Detection>>;
 }
 
-function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
-    if (detection.is_hidden) return false;
-    // A manual tag is the human decision this queue is asking for.
-    if (detection.manual_tagged) return false;
-    return needsReview(detection, reviewThreshold);
-}
-
-function oldestFirst(left: Detection, right: Detection): number {
-    const leftAt = Date.parse(left.detection_time);
-    const rightAt = Date.parse(right.detection_time);
+function oldestFirst(left: QueuedDetection, right: QueuedDetection): number {
+    const leftAt = Date.parse(left.detection.detection_time);
+    const rightAt = Date.parse(right.detection.detection_time);
     if (Number.isNaN(leftAt) && Number.isNaN(rightAt)) return 0;
     if (Number.isNaN(leftAt)) return 1;
     if (Number.isNaN(rightAt)) return -1;
@@ -75,48 +93,41 @@ function oldestFirst(left: Detection, right: Detection): number {
 }
 
 /**
- * The detections still waiting on a person, oldest first. Pure over the lists
- * it is given: recent low-score detections, plus each unconfirmed new
- * species' latest sighting — deduplicated, with the more specific reason
- * winning when one detection qualifies both ways.
+ * The server decides what is waiting. Newer knowledge here can only take a detection away:
+ * a saved choice or a live update settles it before the next reading arrives.
  */
 export function buildReviewQueue(
-    detections: readonly Detection[],
-    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, newSpecies = [], knownDetections = detections, localChoices }: ReviewQueueOptions
+    reading: ReviewQueueReading,
+    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT, knownDetections = [], localChoices }: ReviewQueueOptions
 ): ReviewQueue {
-    const open = detections.filter((detection) => isOpen(detection, reviewThreshold)).sort(oldestFirst);
-
-    const reasons = new Map<string, ReviewReason>();
-    const newSpeciesSightings = new Map<string, number>();
-    for (const detection of open) reasons.set(detection.frigate_event, hasNoSpecies(detection) ? 'unknown_species' : 'low_score');
-
-    const seen = new Set(open.map((detection) => detection.frigate_event));
-    const currentDetections = new Map(knownDetections.map(detection => [detection.frigate_event, detection]));
-    const newcomers: Detection[] = [];
-    for (const entry of newSpecies) {
-        const current = currentDetections.get(entry.detection.frigate_event) ?? entry.detection;
+    const known = new Map(knownDetections.map((detection) => [detection.frigate_event, detection]));
+    const open: QueuedDetection[] = [];
+    for (const entry of reading.entries) {
+        const current = known.get(entry.detection.frigate_event) ?? entry.detection;
         const choice = localChoices?.get(current.frigate_event);
         const detection = choice?.manual_tagged === true && choice.classification_input?.source === 'owner_species_choice'
             ? { ...current, ...choice }
             : current;
-        const sightings = entry.sightings;
         if (detection.is_hidden || detection.manual_tagged) continue;
-        // "First of its kind here" is the sharper question than "shaky score".
-        reasons.set(detection.frigate_event, 'new_species');
-        newSpeciesSightings.set(detection.frigate_event, sightings);
-        if (seen.has(detection.frigate_event)) continue;
-        seen.add(detection.frigate_event);
-        newcomers.push(detection);
+        // A new species waits for its first confirmation whatever its score.
+        if (entry.reason !== 'new_species' && reviewThreshold !== null && !needsReview(detection, reviewThreshold)) continue;
+        open.push({ ...entry, detection });
+    }
+    open.sort(oldestFirst);
+
+    const reasons = new Map<string, ReviewReason>();
+    const newSpeciesSightings = new Map<string, number>();
+    for (const { detection, reason, sightings } of open) {
+        reasons.set(detection.frigate_event, reason);
+        if (sightings !== null) newSpeciesSightings.set(detection.frigate_event, sightings);
     }
 
-    const all = [...open, ...newcomers].sort(oldestFirst);
+    const total = Math.max(reading.total - (reading.entries.length - open.length), 0);
+    const items = open.slice(0, limit).map((entry) => entry.detection);
+    return { items, total, remaining: Math.max(total - items.length, 0), oldest: items[0] ?? null, reasons, newSpeciesSightings };
+}
 
-    return {
-        items: all.slice(0, limit),
-        total: all.length,
-        remaining: Math.max(all.length - limit, 0),
-        oldest: all[0] ?? null,
-        reasons,
-        newSpeciesSightings
-    };
+/** A guest cannot read the queue, so the day bar's figure comes from the history they can see. */
+export function visibleUnresolvedCount(detections: readonly Detection[], reviewThreshold: number | null): number {
+    return detections.filter((detection) => !detection.is_hidden && !detection.manual_tagged && needsReview(detection, reviewThreshold)).length;
 }
