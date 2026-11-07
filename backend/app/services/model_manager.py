@@ -829,7 +829,10 @@ class ModelManager:
                         return result
             except Exception:
                 pass
-        # No persisted selection — fall back to the configured default
+        return self._configured_default_model_id()
+
+    def _configured_default_model_id(self) -> str:
+        """What runs when nobody has chosen a model."""
         config_default = str(getattr(settings.classification, "model", "") or "").strip()
         return config_default or "mobilenet_v2_birds"
 
@@ -842,6 +845,27 @@ class ModelManager:
                 json.dump({"active_model_id": model_id}, handle)
             os.replace(temporary_path, config_path)
             self.active_model_id = model_id
+
+    def _restore_active_model_sync(self, model_id: str) -> None:
+        """Put back the selection a trial activation replaced.
+
+        A restore returns to what was already running, so it skips the checks that guard a
+        new selection. A fresh install's default is the bundled model's file name, which
+        activation refuses, and going through it would leave the trial model live.
+        """
+        if model_id != self._configured_default_model_id():
+            self._save_active_model_id(model_id)
+            return
+        # Nobody had chosen a model, so nothing should now claim that somebody did.
+        with self._active_model_lock:
+            try:
+                os.remove(os.path.join(MODELS_DIR, "active_model.json"))
+            except FileNotFoundError:
+                pass
+            self.active_model_id = model_id
+
+    async def restore_active_model(self, model_id: str) -> None:
+        await asyncio.to_thread(self._restore_active_model_sync, model_id)
 
     def _is_classifier_installed(self, model_id: str) -> bool:
         """Return whether a current classifier has a complete runnable artifact."""

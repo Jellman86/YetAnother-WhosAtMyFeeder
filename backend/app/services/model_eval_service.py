@@ -417,7 +417,7 @@ class ModelEvalRunner:
             finally:
                 if original_active and original_active != model_manager.active_model_id:
                     try:
-                        await model_manager.activate_model(original_active)
+                        await model_manager.restore_active_model(original_active)
                         if hasattr(classifier_service, "reload_bird_model"):
                             await classifier_service.reload_bird_model()
                     except Exception as e:
@@ -757,7 +757,7 @@ class ModelEvalRunner:
             # Restore original active model
             if original_active and original_active != model_manager.active_model_id:
                 try:
-                    await model_manager.activate_model(original_active)
+                    await model_manager.restore_active_model(original_active)
                     if hasattr(classifier_service, "reload_bird_model"):
                         await classifier_service.reload_bird_model()
                 except Exception as e:
