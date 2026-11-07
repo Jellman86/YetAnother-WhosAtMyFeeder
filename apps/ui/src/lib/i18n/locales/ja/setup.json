@@ -36,13 +36,16 @@
   "cameras": {
     "title": "カメラと検出",
     "description": "YA-WAMF が監視する Frigate カメラを選択します。高度な検出・分類ゲートは「検出」設定で管理します。",
-    "detected_note": "カメラ一覧が設定されていないため、YA-WAMF はすべてのカメラを監視しています。次のカメラで検出が発生しています:",
     "gates_hint": "検出が届かない場合は、Frigate 側の min_score / threshold / min_initialized ゲートを確認してください。スナップショットが YA-WAMF に届くかどうかはこれらで決まります。",
     "gates_link": "調整ガイド →",
     "list": "カメラ（カンマ区切り）",
-    "list_hint": "Frigate 設定にあるカメラ名を正確に入力してください。",
+    "list_unread": "Frigate のカメラ一覧を読み取れなかったため、これらの名前を確認できません。名前が完全に一致しないと鳥を検出できません。すべてのカメラを監視するには空欄のままにしてください。",
+    "not_in_frigate": "Frigate にこの名前のカメラはないため、鳥を検出することはありません。",
     "offline": "プレビューなし",
-    "use_detected": "これらを追加"
+    "pick": "監視するカメラ",
+    "retry": "Frigate のカメラを再読み込み",
+    "watching_all": "すべてのカメラを監視しています。後から Frigate に追加したカメラも含まれます。特定のカメラだけを監視するにはチェックを入れてください。",
+    "watching_some": "{count, plural, other {# 台のカメラを監視しています。}}他のカメラは無視されます。"
   },
   "model": {
     "title": "分類モデルとハードウェア",

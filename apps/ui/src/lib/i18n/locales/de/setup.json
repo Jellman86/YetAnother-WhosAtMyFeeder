@@ -36,13 +36,16 @@
   "cameras": {
     "title": "Kameras & Erkennung",
     "description": "Wähle die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen.",
-    "detected_note": "Keine Kameraliste festgelegt, daher überwacht YA-WAMF alle Kameras. Diese Kameras liefern Erkennungen:",
     "gates_hint": "Fehlen Erkennungen? Die Frigate-eigenen Grenzen min_score / threshold / min_initialized entscheiden, ob ein Schnappschuss überhaupt bei YA-WAMF ankommt.",
     "gates_link": "Leitfaden zur Feineinstellung →",
     "list": "Kameras (kommagetrennt)",
-    "list_hint": "Verwenden Sie die exakten Kameranamen aus Ihrer Frigate-Konfiguration.",
+    "list_unread": "Die Kameraliste von Frigate konnte nicht gelesen werden, daher lassen sich diese Namen nicht prüfen. Ein Name, der nicht genau passt, sieht nie einen Vogel. Lassen Sie das Feld leer, um alle Kameras zu beobachten.",
+    "not_in_frigate": "Frigate hat keine Kamera mit diesem Namen, daher wird sie nie einen Vogel sehen.",
     "offline": "Keine Vorschau",
-    "use_detected": "Diese hinzufügen"
+    "pick": "Zu beobachtende Kameras",
+    "retry": "Kameras von Frigate erneut lesen",
+    "watching_all": "Alle Kameras werden beobachtet, auch solche, die Sie später in Frigate hinzufügen. Haken Sie Kameras an, um nur diese zu beobachten.",
+    "watching_some": "{count, plural, one {# Kamera wird beobachtet.} other {# Kameras werden beobachtet.}} Andere Kameras werden ignoriert."
   },
   "model": {
     "title": "Klassifizierungsmodell & Hardware",

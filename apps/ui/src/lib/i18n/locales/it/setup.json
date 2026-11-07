@@ -36,13 +36,16 @@
   "cameras": {
     "title": "Telecamere e rilevamento",
     "description": "Scegli le telecamere Frigate che YA-WAMF deve monitorare. Le soglie avanzate di rilevamento e classificazione restano nelle impostazioni Rilevamento.",
-    "detected_note": "Nessun elenco di telecamere impostato, quindi YA-WAMF monitora tutte le telecamere. Queste stanno producendo rilevamenti:",
     "gates_hint": "Mancano rilevamenti? Sono i filtri min_score / threshold / min_initialized di Frigate a decidere se un’istantanea arriva a YA-WAMF.",
     "gates_link": "Guida alla regolazione →",
     "list": "Telecamere (separate da virgole)",
-    "list_hint": "Usa i nomi esatti delle telecamere presenti nella configurazione di Frigate.",
+    "list_unread": "Non è stato possibile leggere l’elenco delle telecamere di Frigate, quindi questi nomi non possono essere controllati. Un nome che non corrisponde esattamente non vedrà mai un uccello. Lascia vuoto per sorvegliare tutte le telecamere.",
+    "not_in_frigate": "Frigate non ha una telecamera con questo nome, quindi non vedrà mai un uccello.",
     "offline": "Nessuna anteprima",
-    "use_detected": "Aggiungi queste"
+    "pick": "Telecamere da sorvegliare",
+    "retry": "Rileggi le telecamere di Frigate",
+    "watching_all": "Tutte le telecamere sono sorvegliate, comprese quelle che aggiungerai a Frigate in seguito. Seleziona delle telecamere per sorvegliare solo quelle.",
+    "watching_some": "{count, plural, one {# telecamera sorvegliata.} other {# telecamere sorvegliate.}} Le altre telecamere vengono ignorate."
   },
   "model": {
     "title": "Modello di classificazione e hardware",

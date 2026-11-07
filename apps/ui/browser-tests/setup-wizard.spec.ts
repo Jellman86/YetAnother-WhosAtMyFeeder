@@ -73,6 +73,7 @@ class FakeBackend {
     requests: RecordedRequest[] = [];
     unexpected: string[] = [];
     allowExtraReads = false;
+    frigateConfigFails = false;
     downloadDone = false;
     evalState: 'idle' | 'running' | 'done' | 'error' = 'idle';
     evalError = '';
@@ -236,9 +237,8 @@ class FakeBackend {
         }
         if (path === '/api/frigate/test') return json({ status: 'ok', version: '0.16.0' });
         if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
-        if (path === '/api/events/filters') return json({ cameras: ['feeder'], species: [] });
         if (path === '/api/audio/sources') return json([]);
-        if (path === '/api/frigate/config') return json({ cameras: { feeder: {} } });
+        if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
         if (path === '/api/backfill/async' && method === 'POST') return json({ id: 'history-job', status: 'running', processed: 0, total: 20, message: 'Scanning Frigate event history' });
         if (path.startsWith('/api/frigate/camera/')) return route.fulfill({ status: 404, body: '' });
@@ -378,7 +378,8 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await continueButton(page).click();
 
     await expectStep(page, 'Cameras & detection');
-    await wizard(page).getByLabel('Cameras (comma-separated)').fill('feeder, nestbox');
+    await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
+    await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
     await continueButton(page).click();
 
     await expectStep(page, 'Classifier model & hardware');
@@ -482,7 +483,7 @@ test('a re-run edits one section and leaves every other setting alone', async ({
     expect(fake.posts(`/api/models/${MOBILENET}/activate`)).toEqual([]);
 
     await openSectionFromReview(page, 'Cameras & detection');
-    await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveValue('feeder');
+    await expect(wizard(page).getByRole('checkbox', { name: 'feeder', exact: true })).toBeChecked();
     await wizard(page).getByRole('button', { name: 'Back' }).click();
     await expectStep(page, 'Review setup');
     expect(fake.settingsWrites()).toEqual([{ inference_provider: 'cpu' }]);
@@ -781,7 +782,8 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
             await longitude(page).fill(LON);
         } else if (change === 'cameras') {
             await openSectionFromReview(page, 'Cameras & detection');
-            await wizard(page).getByLabel('Cameras (comma-separated)').fill('feeder, nestbox');
+            await wizard(page).getByRole('checkbox', { name: 'feeder', exact: true }).check();
+            await wizard(page).getByRole('checkbox', { name: 'nestbox', exact: true }).check();
         } else if (change === 'quality') {
             await openSectionFromReview(page, 'Best available snapshots');
             await wizard(page).getByRole('checkbox', { name: 'Best available event snapshots' }).uncheck();
@@ -804,6 +806,38 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         expect(errors).toEqual([]);
     });
 }
+
+test('cameras come from Frigate, and a saved name it does not have is flagged', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { cameras: ['feedr'] } });
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    const choices = wizard(page).locator('[data-setup-camera-choices]');
+    await expect(choices.getByRole('checkbox')).toHaveCount(3);
+    await expect(wizard(page).getByLabel('Cameras (comma-separated)')).toHaveCount(0);
+    await expect(choices.locator('[data-setup-camera-missing]')).toHaveCount(1);
+    await expect(choices.locator('[data-setup-camera-summary]')).toContainText('Watching 1 camera.');
+    await choices.getByRole('checkbox', { name: /^feedr/ }).uncheck();
+    await expect(choices.locator('[data-setup-camera-summary]')).toContainText('Watching every camera');
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    expect(fake.settingsWrites()).toContainEqual({ cameras: [] });
+});
+
+test('typing cameras is only offered when Frigate cannot be read, and says the names go unchecked', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.frigateConfigFails = true;
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Cameras & detection');
+    await expect(wizard(page).locator('[data-setup-camera-unread]')).toContainText('could not be read');
+    await wizard(page).getByLabel('Cameras (comma-separated)').fill('feeder, feeder, nestbox');
+    fake.frigateConfigFails = false;
+    await wizard(page).getByRole('button', { name: "Read Frigate's cameras again" }).click();
+    const choices = wizard(page).locator('[data-setup-camera-choices]');
+    await expect(choices.getByRole('checkbox', { name: 'nestbox', exact: true })).toBeChecked();
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    expect(fake.settingsWrites()).toContainEqual({ cameras: ['feeder', 'nestbox'] });
+});
 
 test('a regional model says which species list it will use, and validating runs the region chosen', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }] });
