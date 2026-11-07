@@ -73,6 +73,7 @@ class FakeBackend {
     requests: RecordedRequest[] = [];
     unexpected: string[] = [];
     allowExtraReads = false;
+    frigateTestFails = false;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
     downloadDone = false;
@@ -236,7 +237,7 @@ class FakeBackend {
             this.settings = { ...this.settings, ...(body ?? {}) };
             return json({ status: 'success' });
         }
-        if (path === '/api/frigate/test') return json({ status: 'ok', version: '0.16.0' });
+        if (path === '/api/frigate/test') return this.frigateTestFails ? json({ detail: 'Frigate authentication failed.' }, 401) : json({ status: 'ok', version: '0.16.0' });
         if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
         if (path === '/api/audio/sources') return json([]);
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
@@ -808,6 +809,67 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
     });
 }
 
+test('in first run, a section opened from Review goes straight back to Review', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await expectStep(page, 'Welcome to YA-WAMF');
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    await expect(wizard(page).getByText('Connected to Frigate 0.16.0')).toBeVisible();
+    await continueButton(page).click();
+    await expectStep(page, 'Cameras & detection');
+    await continueButton(page).click();
+    await expectStep(page, 'Classifier model & hardware');
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip step' }).click();
+    await openSectionFromReview(page, 'Best available snapshots');
+    await continueButton(page).click();
+    await expectStep(page, 'Review setup');
+    await wizard(page).getByRole('button', { name: 'Finish', exact: true }).click();
+    await expect(wizard(page)).toHaveCount(0);
+});
+
+test('reloading part way through first run comes back to the same step, and Finish ends it', async ({ page }) => {
+    const fake = new FakeBackend({ firstRun: true });
+    await openFixture(page, fake);
+    await wizard(page).getByRole('button', { name: 'Get started' }).click();
+    await wizard(page).getByRole('checkbox').check();
+    await continueButton(page).click();
+    await expectStep(page, 'Frigate & MQTT connection');
+
+    await page.reload();
+
+    await expectStep(page, 'Frigate & MQTT connection');
+    await wizard(page).getByRole('button', { name: 'Skip setup' }).click();
+    await wizard(page).getByRole('button', { name: 'Skip and open the app' }).click();
+    await expect(wizard(page)).toHaveCount(0);
+
+    await page.reload();
+
+    await expect(page.getByRole('heading', { name: 'App opened' })).toBeVisible();
+    await expect(wizard(page)).toHaveCount(0);
+});
+
+test('a failed Frigate test says how to give it a token', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.frigateTestFails = true;
+    await openRerun(page, fake);
+    await openSectionFromReview(page, 'Frigate & MQTT connection');
+    await expect(wizard(page).locator('[data-setup-frigate-auth-hint]')).toHaveCount(0);
+    await wizard(page).getByLabel('Frigate URL').fill('http://frigate:5000');
+    await wizard(page).getByLabel('MQTT broker').fill('mqtt');
+    await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
+    await expect(wizard(page).locator('[data-setup-frigate-auth-hint]')).toContainText('FRIGATE_AUTH_TOKEN');
+});
+
 test('a failed check is not also reported as a green completion', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
     await openRerun(page, fake);
@@ -873,9 +935,15 @@ test('a regional model says which species list it will use, and validating runs 
 });
 
 test('a saved country names the species list, and a model that is not regional asks no region question', async ({ page }) => {
-    const fake = new FakeBackend({ installed: [{ id: 'small_birds', ready: true, validated: false }], settings: { location_country: 'France', bird_model_region_override: 'eu' } });
+    const fake = new FakeBackend({
+        activeModelId: MOBILENET,
+        installed: [{ id: MOBILENET }, { id: 'small_birds', ready: true, validated: false }],
+        settings: { location_country: 'France', bird_model_region_override: 'eu' }
+    });
     await openRerun(page, fake);
     await openSectionFromReview(page, 'Classifier model & hardware');
+    // Only once the step has loaded does an absent control mean anything.
+    await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(wizard(page).locator('[data-setup-model-region]')).toHaveCount(0);
     await modelSelect(page).selectOption('small_birds');
     await wizard(page).getByLabel('Bird model region').selectOption('auto');

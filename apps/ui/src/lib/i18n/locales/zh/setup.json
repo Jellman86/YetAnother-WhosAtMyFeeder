@@ -25,6 +25,8 @@
     "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。",
     "continue_hint": "设置已保存。您可以先继续，稍后再修复连接，但在 Frigate 可访问之前不会收到检测。",
     "description": "YA-WAMF 通过 MQTT 从 Frigate 读取检测，并通过其 API 获取快照。请填写这两项的地址，然后进行测试。",
+    "frigate_auth_hint": "如果您的 Frigate 需要登录，请在 YA-WAMF 的启动环境中设置 FRIGATE_AUTH_TOKEN，重新启动后再次测试。",
+    "frigate_auth_link": "环境变量",
     "frigate_fail": "无法连接 Frigate",
     "frigate_url": "Frigate 地址",
     "mqtt_fail": "无法连接 MQTT 代理",

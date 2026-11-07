@@ -25,6 +25,8 @@
     "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。",
     "continue_hint": "設定は保存されました。続行して接続を後で修正することもできますが、Frigate に接続できるまで検出は取り込まれません。",
     "description": "YA-WAMF は MQTT 経由で Frigate から検出を読み取り、その API からスナップショットを取得します。両方の接続先を指定してからテストしてください。",
+    "frigate_auth_hint": "Frigate でサインインが必要な場合は、YA-WAMF の起動環境に FRIGATE_AUTH_TOKEN を設定して再起動し、もう一度テストしてください。",
+    "frigate_auth_link": "環境変数",
     "frigate_fail": "Frigate に接続できませんでした",
     "frigate_url": "Frigate の URL",
     "mqtt_fail": "MQTT ブローカーに接続できませんでした",

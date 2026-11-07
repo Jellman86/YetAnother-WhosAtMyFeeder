@@ -6,6 +6,9 @@
     import Settings from '../src/lib/pages/Settings.svelte';
     const showSettings = new URL(window.location.href).searchParams.has('settings');
     let route = $state('/settings/detection');
+    $effect(() => {
+        if (authStore.statusLoaded && !authStore.needsInitialSetup && authStore.hasOwnerAccess) setupWizardStore.resumeInterrupted();
+    });
 </script>
 
 <!-- The same two mount points App.svelte uses: first run replaces the app, a re-run overlays it. -->
