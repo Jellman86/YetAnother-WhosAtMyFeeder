@@ -868,6 +868,8 @@ test('a failed Frigate test says how to give it a token', async ({ page }) => {
     await wizard(page).getByLabel('MQTT broker').fill('mqtt');
     await wizard(page).getByRole('button', { name: 'Save & test connection' }).click();
     await expect(wizard(page).locator('[data-setup-frigate-auth-hint]')).toContainText('FRIGATE_AUTH_TOKEN');
+});
+
 test('a failed check is not also reported as a green completion', async ({ page }) => {
     const fake = new FakeBackend({ installed: [{ id: DINO, ready: true, validated: false }] });
     await openRerun(page, fake);
