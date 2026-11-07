@@ -6,6 +6,61 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.23.1] - 2026-11-07
+
+- **Needs your call now counts everything waiting.** It used to work from your newest 50 detections,
+  so on a busy day older visits dropped out of the count and the review, and it could say nothing was
+  waiting when something was. The count and the list now come from the server, through the new
+  [`GET /api/events/review-queue`](docs/api.md), and cover the whole 24 hours plus every new species.
+  A failed read now says so instead of quietly leaving out new species.
+
+- **Confirmed species show in the Explorer too.** Cards and rows now carry the **Owner confirmed**
+  mark the Dashboard already had, in both views. A grouped visit shows it when any capture was
+  confirmed, even if the photo on its card is a different one.
+
+- **Small Birds and Medium Birds activate after a fresh download again.** Since v2.22.0 these models
+  read their species names from the catalogue, so a new download has no `labels.txt`, but activation
+  still asked for that file and stopped with "model files are missing or incomplete". Activation and
+  the installed-model list now check the regional model actually on disk.
+
+- **Needs your call holds up with older records.** It now places every stored time format correctly in
+  the 24 hours, judges unknown birds by the same rule that displays them, counts every new species, and
+  takes the count and list from one read. Finishing a walkthrough that could not hold everything says
+  how many more are waiting, rather than "Queue clear".
+
+- **Validating a model no longer switches to it on a new install.** Until a model had been chosen,
+  the previous selection could not be put back after a validation, so the model being checked became
+  the live one, stayed live after a restart, and the setup summary kept naming the old one.
+  Validating now always returns to what was running, in the setup wizard, Model Manager and
+  Model Evaluation.
+
+- **The setup wizard lists your Frigate cameras instead of asking you to type them.** A mistyped name
+  was accepted and marked as configured, and detections from every real camera were then ignored.
+  You now tick the cameras Frigate reports, a saved name Frigate does not have is flagged, and the
+  step says whether every camera or only some are being watched. Typing is only offered when Frigate's
+  list cannot be read.
+
+- **Setup picks up where you left it.** Reloading or closing the page part way through used to drop you
+  on the Dashboard with no sign setup was unfinished. The wizard now returns to the step you reached,
+  after signing in if you set a password, until you finish or skip it.
+- **Review goes back to Review.** In the setup wizard, opening a section from the summary now returns
+  to the summary instead of walking through every later step.
+- **A failed Frigate test explains the token.** The Connection step now says how to set
+  `FRIGATE_AUTH_TOKEN` when Frigate cannot be reached, since a Frigate that requires a sign-in fails
+  that test.
+
+- **The setup wizard's summary says what is really set up.** BirdNET-Go is on by default, so a new
+  install read as "Configured: BirdNET-Go" with nothing configured; it now says it is listening with
+  no URL to check it. The summary names the model that is running, not the file name `model.tflite`.
+- **The model step reads more plainly.** Small and Medium Birds are labelled Experimental rather than
+  Planned, a failed check is no longer also shown as a green completion and says why it failed, and
+  the memory note and check progress are translated.
+
+- **The setup wizard asks which region Small and Medium Birds are for.** With no country saved, these
+  models silently used the North American species list everywhere, while saying "auto region
+  selection". The model step now offers **Bird model region**, says which list will run, and warns
+  when Auto has no country to go on.
+
 ## [2.23.0] - 2026-11-06
 
 - Classifiers retain model-bound bird, non-bird and unknown group scores for
