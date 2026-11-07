@@ -109,8 +109,9 @@ export function buildReviewQueue(
             ? { ...current, ...choice }
             : current;
         if (detection.is_hidden || detection.manual_tagged) continue;
-        // A new species waits for its first confirmation whatever its score.
-        if (entry.reason !== 'new_species' && reviewThreshold !== null && !needsReview(detection, reviewThreshold)) continue;
+        // Only a better score settles a detection here. A new species waits whatever it scores, and an
+        // unknown bird that gains a name clears on the next reading, which that live update triggers.
+        if (entry.reason === 'low_score' && reviewThreshold !== null && !needsReview(detection, reviewThreshold)) continue;
         open.push({ ...entry, detection });
     }
     open.sort(oldestFirst);

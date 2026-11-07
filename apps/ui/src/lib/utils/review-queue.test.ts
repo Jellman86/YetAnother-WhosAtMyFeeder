@@ -102,6 +102,16 @@ describe('buildReviewQueue', () => {
         expect(queue.items).toEqual([]);
     });
 
+    it('keeps an unknown bird waiting until the next reading says otherwise', () => {
+        const listed = detection({ frigate_event: 'raw', display_name: 'Unknown Bird', score: 0.9 });
+        const queue = buildReviewQueue(reading([entry(listed, 'unknown_species')]), {
+            reviewThreshold: 0.6,
+            knownDetections: [{ ...listed, display_name: 'background' }]
+        });
+
+        expect(queue.total).toBe(1);
+    });
+
     it('keeps a waiting low score while settings have not said what the threshold is', () => {
         const queue = buildReviewQueue(reading([entry(detection({ frigate_event: 'weak', score: 0.2 }))]), { reviewThreshold: null });
 
