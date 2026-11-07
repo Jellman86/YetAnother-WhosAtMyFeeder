@@ -30,5 +30,6 @@
   "node_capture_shown": "Capture at {time}, part of this visit, and its visit photo",
   "open_capture": "Open {species} capture",
   "owner_confirmed": "Owner confirmed",
-  "owner_confirmed_hint": "An owner explicitly confirmed this species in at least one visible capture of the visit. Model confidence and matching audio are separate evidence."
+  "owner_confirmed_hint": "An owner explicitly confirmed this species in at least one visible capture of the visit. Model confidence and matching audio are separate evidence.",
+  "owner_confirmed_capture_hint": "An owner explicitly confirmed this species in this capture. Model confidence and matching audio are separate evidence."
 }

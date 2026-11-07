@@ -141,7 +141,9 @@ wrong species, and a confident model can still be wrong.
 A rename applies to every capture of the selected visits, including visits with more than 50
 captures. It also teaches personalised identification, so the sheet offers no undo for a rename.
 Check the selected scope before applying an answer. Owner confirmations and corrections are
-protected from routine automatic reclassification.
+protected from routine automatic reclassification. A confirmed species shows **Owner confirmed** on
+its card or row. On a grouped visit that means at least one capture was confirmed, which may not be
+the one on the card.
 
 For a single photo, **Find more birds** and **Scan again** keep counting separate from its primary
 identification. See [video and photo evidence](video-analysis.md#check-a-photograph-and-count-the-birds).

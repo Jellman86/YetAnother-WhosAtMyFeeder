@@ -13,6 +13,7 @@
     import { findRefreshedGardenVisit, gardenVisitIdentity, gardenBelongs, gardenBlocker, gardenWindow, placeGardenCaptures, type GardenVisit, type ExplorerSubjects, type GardenBlocker, type GardenReview } from '../utils/garden-explorer';
     import { reviewGardenBatch } from '../api/garden';
     import type { DetectionVisit } from '../api/visits';
+    import { ownerConfirmationScope } from '../utils/visit-grouping';
     import { onDestroy, onMount, untrack } from 'svelte';
     import { MediaQuery } from 'svelte/reactivity';
     import {
@@ -2449,6 +2450,7 @@
                             onPlay={() => playClip(event)}
                             selectionMode={selectionMode}
                             selected={selectedEventIds.includes(event.frigate_event)}
+                            ownerConfirmation={ownerConfirmationScope(event, visit)}
                             speciesMix={visitSpeciesMix(visit)}
                             stackFrame={visit?.peak_capture ?? null}
                             matchedCalls={entry.matchedCalls}
@@ -2496,6 +2498,7 @@
                         selectionMode={selectionMode}
                         selected={selectedEventIds.includes(event.frigate_event)}
                         footer={visit && hasCaptureFooter(visit) ? captures : undefined}
+                        ownerConfirmation={ownerConfirmationScope(event, visit)}
                         speciesMix={visitSpeciesMix(visit)}
                         matchedCalls={entry.matchedCalls}
                     />
