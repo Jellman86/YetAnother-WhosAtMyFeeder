@@ -977,6 +977,19 @@ class ModelManager:
             return False, "config_missing"
         return True, "ready"
 
+    def _family_variant_install_status(self, model_meta: dict[str, Any], resolved: dict[str, Any]) -> tuple[bool, str]:
+        """Judge an installed family variant by the regional artifact that is on disk.
+
+        Catalogue labels are found by artifact checksum, which only the variant carries. A
+        missing sidecar does not count against it: startup repairs those in the background,
+        and the registry covers loading until then.
+        """
+        variant_meta = self._merge_family_variant_meta(model_meta, region=str(resolved.get("resolved_region") or ""))
+        return self._model_install_status(
+            {**variant_meta, "model_config_url": None},
+            str(Path(resolved["model_path"]).parent),
+        )
+
     def _is_model_install_complete(self, model_meta: dict[str, Any], model_dir: str) -> bool:
         complete, _reason = self._model_install_status(model_meta, model_dir)
         return complete
@@ -1639,12 +1652,15 @@ class ModelManager:
                             metadata.model_dump(),
                         )
                         if resolved:
+                            ready, reason = self._family_variant_install_status(metadata.model_dump(), resolved)
                             installed.append(
                                 InstalledModel(
                                     id=item,
                                     path=str(resolved["model_path"]),
                                     labels_path=str(resolved["labels_path"]),
                                     is_active=(item == self.active_model_id),
+                                    ready=ready,
+                                    reason=reason,
                                     metadata=metadata,
                                 )
                             )
@@ -2258,20 +2274,23 @@ class ModelManager:
             model_meta = self._get_registry_model_meta(model_id)
             if model_meta:
                 # Family models (e.g. medium_birds with eu/na variants) place
-                # their model artifact inside a variant subdir, not at the
-                # parent. Validate the resolved variant dir for those.
-                check_dir = target_dir
-                if self._is_family_model(model_meta):
-                    resolved = self._resolve_installed_family_variant(target_dir, model_meta)
-                    if resolved and resolved.get("model_path"):
-                        check_dir = str(Path(resolved["model_path"]).parent)
-                complete, reason = self._model_install_status(model_meta, check_dir)
+                # their model artifact inside a variant subdir, not at the parent.
+                resolved = (
+                    self._resolve_installed_family_variant(target_dir, model_meta)
+                    if self._is_family_model(model_meta)
+                    else None
+                )
+                complete, reason = (
+                    self._family_variant_install_status(model_meta, resolved)
+                    if resolved
+                    else self._model_install_status(model_meta, target_dir)
+                )
                 if not complete:
                     log.warning(
                         "Activation failed: model install incomplete",
                         model_id=model_id,
                         reason=reason,
-                        model_dir=check_dir,
+                        model_dir=str(Path(resolved["model_path"]).parent) if resolved else target_dir,
                     )
                     return False
             self._save_active_model_id(model_id)
