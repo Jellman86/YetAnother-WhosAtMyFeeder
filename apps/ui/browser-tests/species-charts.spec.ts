@@ -315,6 +315,47 @@ test('the trend chart keeps its set height on a wide screen', async ({ page }) =
     expect(width / height).toBeLessThanOrEqual(4.5);
 });
 
+test('two taxa that translate to the same name still render and stay separate', async ({ page }) => {
+    const nuthatches = [
+        { name: 'Sitta europaea', count: 49 },
+        { name: 'Sittidae', count: 33 },
+    ].map(({ name, count }) => ({ ...species[0], species: 'Kleiber', common_name: 'Kleiber', scientific_name: name, window_count: count }));
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/api/leaderboard/species?*', route => route.fulfill({ json: { span: 'month', species: nuthatches, window_start: start, window_end: end } }));
+    await page.route('**/api/stats/detections/timeline?*', route => route.fulfill({ json: {
+        span: 'month', bucket: 'day', points, total_count: 54, window_start: start, window_end: end,
+        compare_series: nuthatches.map(({ scientific_name }) => ({
+            species: scientific_name,
+            points: points.map(point => ({ bucket_start: point.bucket_start, count: 2 })),
+        })),
+    } }));
+    const heatmapSpecies: Array<string | null> = [];
+    await page.route('**/api/stats/detections/activity-heatmap?*', route => {
+        const asked = new URL(route.request().url()).searchParams.get('species');
+        heatmapSpecies.push(asked);
+        return route.fulfill({ json: {
+            span: 'month', window_start: start, window_end: end, total_count: 54, max_cell_count: 12, species: asked,
+            cells: [{ day_of_week: 1, hour: 8, count: 12 }],
+        } });
+    });
+    await page.reload();
+
+    const legend = page.getByRole('group', { name: 'Series in this chart' });
+    await expect(legend.getByRole('button', { name: 'Hide Kleiber (Sitta europaea)', exact: true })).toBeVisible();
+    await legend.getByRole('button', { name: 'Hide Kleiber (Sittidae)', exact: true }).click();
+    await expect(legend.getByRole('button', { name: 'Show Kleiber (Sittidae)', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(legend.getByRole('button', { name: 'Hide Kleiber (Sitta europaea)', exact: true })).toHaveAttribute('aria-pressed', 'true');
+
+    const heatmapPicker = page.getByRole('group', { name: 'Show the activity of' });
+    await heatmapPicker.getByRole('button', { name: 'Kleiber (Sittidae)', exact: true }).click();
+    await expect.poll(() => heatmapSpecies.at(-1)).toBe('Sittidae');
+    await expect(page.getByRole('grid', { name: /Kleiber \(Sittidae\)/ })).toBeVisible();
+    await expect(heatmapPicker.getByRole('button', { name: 'Kleiber (Sittidae)', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(heatmapPicker.getByRole('button', { name: 'Kleiber (Sitta europaea)', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    expect(errors).toEqual([]);
+});
+
 test('the Dashboard link opens the 24 hour window at the species checks', async ({ page }) => {
     const spans: string[] = [];
     const junglefowl = {
