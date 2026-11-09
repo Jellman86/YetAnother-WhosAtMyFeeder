@@ -59,7 +59,7 @@
                 </p>
             </div>
             <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
-                {#each checks as row (row.key)}
+                {#each checks as row, index (`${row.key}|${index}`)}
                     {@const thumb = pictureFor(row)}
                     <li class="shrink-0">
                         <button

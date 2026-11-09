@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.23.2] - 2026-11-09
+
+- The Species page no longer fails to load when two birds share a translated name, such as
+  *Sitta europaea* and the family Sittidae, both "Kleiber" in German. Where names collide, charts
+  and the activity picker now add the scientific name so you can tell them apart, and each picks
+  out the right bird.
+
+- Updates FastAPI to 0.162.0 and raises the minimum Pillow version to 13.0.0. The API contract is
+  unchanged.
+
 ## [2.23.1] - 2026-11-07
 
 - **Needs your call now counts everything waiting.** It used to work from your newest 50 detections,

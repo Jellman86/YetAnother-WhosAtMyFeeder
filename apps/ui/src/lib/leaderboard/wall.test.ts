@@ -44,6 +44,22 @@ describe('the leaderboard wall', () => {
         expect(tiles[0]).toMatchObject({ frigateEvent: 'a2', score: 0.95, captures: 3, rank: 1, speciesKey: 'Dunnock' });
     });
 
+    it('gives a visit to the right taxon when two taxa share a translated name', () => {
+        const rows = [
+            row('Kleiber (Sitta europaea)', 1, { key: 'Sitta europaea', scientificName: 'Sitta europaea' }),
+            row('Kleiber (Sittidae)', 2, { key: 'Sittidae', scientificName: 'Sittidae' })
+        ];
+        const tiles = wallTiles(
+            [capture('n2', 'Kleiber', 0, { scientific_name: 'Sittidae' }), capture('n1', 'Kleiber', 30, { scientific_name: 'Sitta europaea' })],
+            rows,
+            options
+        );
+        expect(tiles.map((tile) => [tile.frigateEvent, tile.speciesKey, tile.rank, tile.name])).toEqual([
+            ['n2', 'Sittidae', 2, 'Kleiber (Sittidae)'],
+            ['n1', 'Sitta europaea', 1, 'Kleiber (Sitta europaea)']
+        ]);
+    });
+
     it('keeps visits more than a minute apart separate, newest first', () => {
         const tiles = wallTiles([capture('b2', 'Dunnock', 0), capture('b1', 'Dunnock', 30)], [row('Dunnock', 1)], options);
         expect(tiles.map((tile) => tile.frigateEvent)).toEqual(['b2', 'b1']);

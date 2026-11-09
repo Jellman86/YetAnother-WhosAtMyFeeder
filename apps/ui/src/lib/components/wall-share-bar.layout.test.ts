@@ -53,7 +53,7 @@ describe('the leaderboard share bar, now the wall\'s navigation', () => {
         expect(wallSource).toContain("if (kind === 'checks') {\n            onchecks();");
         expect(leaderboardSource).toContain('onchecks={scrollToChecks}');
         expect(checksSource).toContain('data-spotlight-checks');
-        expect(checksSource).toContain('{#each checks as row (row.key)}');
+        expect(checksSource).toContain('{#each checks as row, index (`${row.key}|${index}`)}');
         expect(en.leaderboard.spotlight_needs_check).toBe('Needs a check');
     });
 
