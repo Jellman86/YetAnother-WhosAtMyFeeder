@@ -41,4 +41,8 @@ Reports, recordings, support bundles and retests help reproduce problems and che
   the follow-up for the [Explorer (#918)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/918) and the
   report that [Small and Medium Birds would not activate (#919)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/919).
 - [@miroslawkluz](https://github.com/miroslawkluz)
-  Thanks for the [report and numbers on the Needs your call undercount (#917)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/917).
+  Thanks for the [report and numbers on the Needs your call undercount (#917)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/917),
+  and for retesting the fix on v2.23.1.
+- [@zobe123](https://github.com/zobe123)
+  Thanks for the [report that the Species page failed when two birds shared a German name (#938)](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/938),
+  with the exact taxa, the browser error and a working workaround.
