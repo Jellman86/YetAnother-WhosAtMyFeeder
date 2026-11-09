@@ -51,6 +51,44 @@ describe('the leaderboard showcase rows', () => {
     });
 });
 
+describe('species that share a translated name', () => {
+    const nuthatches = [
+        row('Kleiber', { displayName: 'Kleiber', subName: 'Sitta europaea', scientific_name: 'Sitta europaea' }),
+        row('Kleiber', { displayName: 'Kleiber', subName: 'Sittidae', scientific_name: 'Sittidae' }),
+        row('Dohle', { displayName: 'Dohle', scientific_name: 'Coloeus monedula' })
+    ];
+    const asked: string[] = [];
+    const rows = buildShowcaseRows(nuthatches, {
+        sourceMode: 'seen',
+        portraits: [],
+        referenceFor: (species) => {
+            asked.push(species);
+            return { url: null, source: null };
+        }
+    });
+
+    it('gives each taxon its own key and leaves an unshared name as it was', () => {
+        expect(rows.map((item) => item.key)).toEqual(['Sitta europaea', 'Sittidae', 'Dohle']);
+    });
+
+    it('names each taxon so the share bar can tell them apart', () => {
+        expect(rows.map((item) => item.displayName)).toEqual(['Kleiber (Sitta europaea)', 'Kleiber (Sittidae)', 'Dohle']);
+    });
+
+    it('does not repeat the scientific name beneath a label that already carries it', () => {
+        expect(rows.slice(0, 2).map((item) => item.subName)).toEqual([null, null]);
+    });
+
+    it('asks for the reference image of the taxon, not the shared name', () => {
+        expect(asked).toEqual(['Sitta europaea', 'Sittidae', 'Dohle']);
+    });
+
+    it('produces share bar segments with different keys', () => {
+        const keys = shareSegments(rows).map((segment) => segment.key);
+        expect(new Set(keys).size).toBe(keys.length);
+    });
+});
+
 describe('the showcase flag', () => {
     it('carries the page\'s misidentification flag onto the tiles, and nothing when there is no rule', () => {
         const rows = buildShowcaseRows([row('Dunnock'), row('Golden-crowned Sparrow')], {

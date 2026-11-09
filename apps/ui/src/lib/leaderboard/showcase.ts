@@ -1,6 +1,7 @@
 import type { LeaderboardPortrait } from '../api';
 import type { SourceMode } from './source-metrics';
 import { countForMode } from './source-metrics';
+import { distinctSeriesLabels } from '../utils/distinct-series-labels';
 
 /** One species at the top of the leaderboard: what it is, how it stands, and what to show for it. */
 export interface ShowcaseRow {
@@ -72,15 +73,22 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
     }
 ): ShowcaseRow[] {
     const limit = options.limit ?? rows.length;
-    return rows.slice(0, limit).map((row, index) => {
-        const reference = options.referenceFor(row.species);
+    const ranked = rows.slice(0, limit);
+    const labels = distinctSeriesLabels(ranked.map((row) => ({ name: row.displayName, qualifier: row.scientific_name })));
+    const nameUses = new Map<string, number>();
+    for (const row of ranked) nameUses.set(row.species, (nameUses.get(row.species) ?? 0) + 1);
+    return ranked.map((row, index) => {
+        // The row's name is translated, so two taxa can share it. Only the scientific name then says which.
+        const key = (nameUses.get(row.species) ?? 0) > 1 ? row.scientific_name || row.species : row.species;
+        const reference = options.referenceFor(key);
         const portrait = portraitFor(row, options.portraits);
         const metricRow = row as unknown as Parameters<typeof countForMode>[0];
         return {
-            key: row.species,
+            key,
             rank: index + 1,
-            displayName: row.displayName,
-            subName: row.subName,
+            displayName: labels[index],
+            // A label that now carries the scientific name need not repeat it underneath.
+            subName: labels[index] !== row.displayName && row.subName === row.scientific_name ? null : row.subName,
             count: countForMode(metricRow, options.sourceMode),
             photo: portrait?.image_url ?? null,
             scientificName: row.scientific_name ?? null,

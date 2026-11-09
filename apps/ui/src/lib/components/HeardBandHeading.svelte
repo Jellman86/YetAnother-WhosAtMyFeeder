@@ -38,7 +38,7 @@
     </span>
 </p>
 <ul class="mt-1.5 flex flex-wrap gap-1.5" aria-label={$_('events.heard.species_list', { default: 'Species heard' })}>
-    {#each shown as entry (entry.name)}
+    {#each shown as entry, index (`${entry.name}|${index}`)}
         <li class="inline-flex min-h-6 items-center gap-1.5 rounded-full border border-line-soft bg-surface px-2 text-2xs font-semibold text-slate-700 dark:text-slate-200">
             {entry.name}<span class="font-bold tabular-nums text-brand-700 dark:text-brand-300">{entry.count}</span>
         </li>

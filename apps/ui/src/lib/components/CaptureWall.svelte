@@ -403,7 +403,7 @@
             aria-label={$_('leaderboard.spotlight_share_heading', { default: 'Share by species' })}
             data-capture-wall-share
         >
-            {#each segments as segment (segment.key)}
+            {#each segments as segment, index (`${segment.key}|${index}`)}
                 {@const colour = segmentColour(segment)}
                 {@const out = activeSegment === segment.key}
                 <li class="segment" style:flex-grow={segmentGrow(segment)}>

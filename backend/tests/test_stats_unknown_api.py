@@ -654,3 +654,65 @@ async def test_activity_heatmap_can_show_one_species(
     finally:
         await _delete_detection(finch_event)
         await _delete_detection(pigeon_event)
+
+
+@pytest.mark.asyncio
+async def test_activity_heatmap_separates_two_taxa_by_scientific_name_when_they_translate_alike(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    utc_window_end = datetime(2026, 4, 10, 18, 0, 0)
+
+    class _FakeDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is not None:
+                return utc_window_end.replace(tzinfo=tz)
+            return cls(2026, 4, 10, 18, 0, 0)
+
+    monkeypatch.setattr(stats_router, "datetime", _FakeDateTime)
+
+    suffix = uuid.uuid4().hex[:8]
+    taxon_id_base = 900_000_000 + int(suffix[:6], 16)
+    species_event = f"stats-heatmap-sitta-{suffix}"
+    family_event = f"stats-heatmap-sittidae-{suffix}"
+    family = f"Sittidae {suffix}"
+    shared_translation = f"Kleiber {suffix}"
+    await _insert_species_bucket_detection(
+        species_event,
+        detection_time="2026-04-10 13:30:00",
+        taxa_id=taxon_id_base,
+        scientific_name=f"Sitta europaea {suffix}",
+        common_name=f"Eurasian Nuthatch {suffix}",
+        display_name=f"Eurasian Nuthatch {suffix}",
+    )
+    await _insert_species_bucket_detection(
+        family_event,
+        detection_time="2026-04-10 13:45:00",
+        taxa_id=taxon_id_base + 1,
+        scientific_name=family,
+        common_name=f"Nuthatches {suffix}",
+        display_name=f"Nuthatches {suffix}",
+    )
+    async with get_db() as db:
+        await db.executemany(
+            "INSERT INTO taxonomy_translations (taxa_id, language_code, common_name) VALUES (?, 'de', ?)",
+            [(taxon_id_base, shared_translation), (taxon_id_base + 1, shared_translation)],
+        )
+        await db.commit()
+
+    try:
+        only_family = await client.get(
+            "/api/stats/detections/activity-heatmap",
+            params={"span": "week", "species": family},
+            headers={"Accept-Language": "de"},
+        )
+        assert only_family.status_code == 200, only_family.text
+        assert only_family.json()["total_count"] == 1
+        assert only_family.json()["species"] == family
+    finally:
+        await _delete_detection(species_event)
+        await _delete_detection(family_event)

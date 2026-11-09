@@ -5,6 +5,7 @@
     import { buildShowcaseRows, SPOTLIGHT_PORTRAITS } from '../leaderboard/showcase';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { wallTiles } from '../leaderboard/wall';
+    import { distinctSeriesLabels, type SeriesName } from '../utils/distinct-series-labels';
     import { onDestroy, tick, untrack } from 'svelte';
     import {
         analyzeLeaderboardGraph,
@@ -424,12 +425,15 @@
 
     // The weekday grid can show one species' pattern: "when does the Robin come?" is the question
     // the all-species grid cannot answer. A choice that falls out of the window's list lapses.
-    let heatmapSpeciesOptions = $derived(
-        leaderboardRows.filter((row) => !row.audio_only && row.count > 0 && row.species !== 'Unknown Bird').slice(0, 5)
-    );
+    let heatmapSpeciesOptions = $derived.by(() => {
+        const rows = leaderboardRows.filter((row) => !row.audio_only && row.count > 0 && row.species !== 'Unknown Bird').slice(0, 5);
+        const labels = distinctSeriesLabels(rows.map((row) => ({ name: row.displayName, qualifier: row.scientific_name })));
+        // Asked for by scientific name where there is one: the row's name is translated and can be shared.
+        return rows.map((row, index) => ({ ...row, displayName: labels[index], heatmapKey: row.scientific_name || row.species }));
+    });
     let heatmapChoice = $state<string | null>(null);
     let heatmapSpecies = $derived(
-        heatmapChoice && heatmapSpeciesOptions.some((row) => row.species === heatmapChoice) ? heatmapChoice : null
+        heatmapChoice && heatmapSpeciesOptions.some((row) => row.heatmapKey === heatmapChoice) ? heatmapChoice : null
     );
     let speciesHeatmap = $state.raw<DetectionsActivityHeatmapResponse | null>(null);
     let speciesHeatmapLoading = $state(false);
@@ -464,7 +468,7 @@
     let shownHeatmap = $derived(heatmapSpecies ? speciesHeatmap : activityHeatmap);
     let heatmapSubject = $derived(
         shownHeatmap?.species
-            ? (heatmapSpeciesOptions.find((row) => row.species === shownHeatmap?.species)?.displayName ?? shownHeatmap.species)
+            ? (heatmapSpeciesOptions.find((row) => row.heatmapKey === shownHeatmap?.species)?.displayName ?? shownHeatmap.species)
             : null
     );
 
@@ -1079,6 +1083,7 @@
 
         const series: Array<{
             name: string;
+            qualifier?: string;
             type: 'bar' | 'area' | 'line';
             color: string;
             data: Array<{ x: number; y: number | null }>;
@@ -1120,6 +1125,7 @@
                 compareEntries.forEach((entry, idx) => {
                     series.push({
                         name: displayNames.get(entry.species) ?? entry.species,
+                        qualifier: entry.species,
                         type: 'bar',
                         color: speciesSeriesColor(speciesSlot().get(entry.species) ?? idx, isDark()),
                         data: indexedPoints.map(({ point, x }) => ({
@@ -1170,11 +1176,12 @@
         }
 
         const labels = indexedPoints.map(({ point }) => point.label);
-        const datasets: ChartDataset<'bar' | 'line', number[]>[] = series.map((item) => {
+        const seriesLabels = distinctSeriesLabels(series);
+        const datasets: ChartDataset<'bar' | 'line', number[]>[] = series.map((item, seriesIndex) => {
             const isBar = item.type === 'bar';
             return {
                 type: isBar ? 'bar' : 'line',
-                label: item.name,
+                label: seriesLabels[seriesIndex],
                 data: item.data.map((point) => point.y ?? NaN),
                 backgroundColor: isBar ? item.color : (item.type === 'area' ? `${item.color}33` : item.color),
                 borderColor: item.color,
@@ -1189,7 +1196,7 @@
                 pointHoverRadius: 4,
                 borderDash: item.name === smoothName ? [5, 4] : [],
                 order: isBar ? 2 : 1,
-                hidden: hiddenTimelineSeries.includes(item.name)
+                hidden: hiddenTimelineSeries.includes(seriesLabels[seriesIndex])
             };
         });
         const rainBands = rainBandAnnotations();
@@ -1388,16 +1395,16 @@
         if (!sorted.length) return { labels: [] as string[], series: [] as number[] };
         const top = sorted.slice(0, DONUT_MAX_SLICES);
         const rest = sorted.slice(DONUT_MAX_SLICES);
-        const labels = top.map((s) => s.displayName);
+        const names: SeriesName[] = top.map((s) => ({ name: s.displayName, qualifier: s.scientific_name }));
         const values = top.map((s) => s.count || 0);
         if (rest.length > 0) {
             const otherCount = rest.reduce((sum, s) => sum + (s.count || 0), 0);
             if (otherCount > 0) {
-                labels.push($_('leaderboard.other_species', { default: 'Other' }));
+                names.push({ name: $_('leaderboard.other_species', { default: 'Other' }) });
                 values.push(otherCount);
             }
         }
-        return { labels, series: values };
+        return { labels: distinctSeriesLabels(names), series: values };
     });
     function donutColor(index: number): string {
         return index < DONUT_MAX_SLICES ? speciesSeriesColor(index, isDark()) : otherSeriesColor(isDark());
@@ -2200,8 +2207,8 @@
                             <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === null ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === null} onclick={() => (heatmapChoice = null)}>
                                 {$_('leaderboard.heatmap_all_species', { default: 'All species' })}
                             </button>
-                            {#each heatmapSpeciesOptions as option (option.species)}
-                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.species ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === option.species} onclick={() => (heatmapChoice = option.species)}>
+                            {#each heatmapSpeciesOptions as option, index (`${option.heatmapKey}|${index}`)}
+                                <button type="button" class="btn btn-ghost min-h-11 shrink-0 whitespace-nowrap px-2.5 text-xs {heatmapSpecies === option.heatmapKey ? 'bg-slate-100 font-semibold text-slate-900 dark:bg-slate-800 dark:text-white' : ''}" aria-pressed={heatmapSpecies === option.heatmapKey} onclick={() => (heatmapChoice = option.heatmapKey)}>
                                     {option.displayName}
                                 </button>
                             {/each}

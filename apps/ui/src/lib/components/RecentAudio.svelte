@@ -140,7 +140,7 @@
             <div class="space-y-1.5" data-dashboard-most-heard>
                 <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">{$_('dashboard.desk.most_heard', { default: 'Heard most' })}</p>
                 <ol class="space-y-1.5">
-                    {#each mostHeard as item (item.species)}
+                    {#each mostHeard as item, index (`${item.species}|${index}`)}
                         <li class="space-y-1">
                             <div class="flex items-baseline justify-between gap-3 text-sm">
                                 <span class="min-w-0 truncate text-slate-800 dark:text-slate-100">{item.species}</span>
