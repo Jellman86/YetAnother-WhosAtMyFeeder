@@ -41,6 +41,13 @@ async function mockGarden(page: Page, mock: Mock) {
             const items = mock.items(url.searchParams.get('status') ?? 'reviewable');
             return route.fulfill({ json: gardenVisitResponse(items, url) });
         }
+        if (path === '/api/garden/timeline') {
+            // The page re-reads an open capture here when a review moves it to a new visit.
+            const status = url.searchParams.get('status') ?? 'reviewable';
+            const items = mock.items(status).filter(item => item.camera === url.searchParams.get('camera')
+                && item.observed_at === url.searchParams.get('start'));
+            return route.fulfill({ json: { items, total: items.length, limit: 200, offset: 0 } });
+        }
         if (path === '/api/garden/identification') return route.fulfill({ json: mock.identification ?? modelStatus });
         if (path === '/api/garden/motion') return route.fulfill({ json: motionStatus });
         if (path.endsWith('/snapshot')) return mock.snapshot ? mock.snapshot(route) : route.fulfill({ contentType: 'image/svg+xml', body: photo(1280, 720) });
@@ -330,8 +337,12 @@ for (const outcome of ['species', 'group', 'unknown'] as const) {
             await expect(record(page).getByRole('button', { name: `Confirm ${name}`, exact: true })).toHaveCount(0);
         } else {
             if (outcome === 'group') await expect(record(page).getByText('Animal group only; species is unresolved.')).toBeVisible();
+            // Naming the animal moves it to a new visit, so the page re-reads the open capture to keep it.
+            const reread = page.waitForResponse(response => new URL(response.url()).pathname === '/api/garden/timeline');
             await record(page).getByRole('button', { name: `Confirm ${name}`, exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal and species confirmed by you');
+            await reread;
+            await expect(record(page)).toBeVisible();
             await record(page).getByRole('button', { name: 'Discard identification', exact: true }).click();
             await expect(record(page).locator('[data-garden-capture-status]')).toHaveText('Animal confirmed, species not named');
         }

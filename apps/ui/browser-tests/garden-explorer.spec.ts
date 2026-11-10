@@ -394,6 +394,8 @@ test('confirmed visit dismissal sends only the displayed review snapshots and of
         return route.fulfill({ json: { updated_ids: [first.id, second.id], skipped_count: 0 } });
     });
     await page.evaluate(() => window.dispatchEvent(new Event('fixture-garden-change')));
+    // The refresh renames the first capture and joins the second to it; open the visit it produces.
+    await expect(page.locator('[data-garden-card-group]')).toHaveText('2 captures in this visit');
     await page.getByRole('button', { name: /Open Garden capture: Red fox/ }).click();
     const dialog = page.locator('[data-garden-capture-modal]');
     // The hide control dismisses the whole visit, as a bird's does; one capture is dismissed beside its photo.
