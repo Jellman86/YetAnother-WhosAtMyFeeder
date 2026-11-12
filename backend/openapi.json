@@ -7515,6 +7515,7 @@
             "enum": [
               "baseline",
               "measured",
+              "counter_wrapped",
               "counter_regressed",
               "missing_total",
               "total_not_advancing",
