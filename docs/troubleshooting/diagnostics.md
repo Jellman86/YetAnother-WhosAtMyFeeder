@@ -561,7 +561,8 @@ under `system_telemetry.drm_diagnostics`. These contain read/error counts, parse
 client counts and client arrivals/departures, plus up to 64 counter observations
 per sample. Each observation records an allow-listed driver, PCI device identity,
 engine and counter unit, current and previous counters, and a bounded reason such
-as `baseline`, `missing_total`, `total_not_advancing` or `counter_regressed`.
+as `baseline`, `missing_total`, `total_not_advancing`, `counter_wrapped` or
+`counter_regressed`.
 Cycle observations include current and previous total cycles. This evidence can
 distinguish counter access failures, unsupported counters and client turnover.
 It does not establish whether the GPU is stable or why processing became slower.
@@ -571,8 +572,18 @@ For example, Xe hardware with a 36-bit clock at 19.2 MHz wraps about every 59.6
 minutes. YA-WAMF leaves that discontinuous interval unmeasured, then uses the new
 clock baseline for the next valid interval. It does not guess a counter width or
 restart inference. Busy counters still keep their previous high-water mark across
-temporary regressions so recovered work is not counted twice. Standard Xe engine
-names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
+temporary regressions so recovered work is not counted twice.
+
+Xe busy counters themselves have been seen wrapping at 2^32 cycles while the
+total-cycle clock beside them does not (#944). A drop from just below 2^32 to a
+small value is a wrap, not a temporary regression: the counter moved forward by
+less than half of its 32-bit range. YA-WAMF reports that sample as
+`counter_wrapped` and follows the counter from its new value. The wrapped work is
+counted only when the previous mark is from the sample before and the work fits
+inside that clock interval. Otherwise that one interval is left unmeasured.
+Counters wider than 32 bits never take this path.
+
+Standard Xe engine names (`rcs`, `bcs`, `vcs`, `vecs`, `ccs`) remain visible in support diagnostics;
 unrecognised names are still replaced with `other`.
 
 No raw fdinfo, file paths, process arguments, environment variables, client IDs or

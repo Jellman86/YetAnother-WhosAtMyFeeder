@@ -1079,7 +1079,7 @@ export interface components {
     engine: string;
     previous: number | null;
     previous_total: number | null;
-    state: "baseline" | "measured" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
+    state: "baseline" | "measured" | "counter_wrapped" | "counter_regressed" | "missing_total" | "total_not_advancing" | "invalid_interval";
     total: number | null;
     unit: "ns" | "cycles";
     value: number;
