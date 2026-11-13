@@ -10,7 +10,6 @@ never as a forecast value presented as measured.
 
 import asyncio
 import math
-import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Literal, Optional
@@ -66,7 +65,12 @@ IlluminanceMissingReason = Literal[
     "invalid_entity_id", "unreachable", "not_illuminance", "unavailable", "not_numeric", "out_of_range"
 ]
 
-_ENTITY_ID = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
+#: Home Assistant caps an entity id at 255 characters: a domain, one dot, an object id.
+_ENTITY_ID_MAX_LENGTH = 255
+_ENTITY_ID_CHARACTERS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_")
+
+#: No lux value needs more characters than this; a longer state is not parsed at all.
+_NUMERIC_STATE_MAX_LENGTH = 32
 
 
 @dataclass(frozen=True)
@@ -79,7 +83,12 @@ class IlluminanceReading:
 
 def is_entity_id(value: Any) -> bool:
     """Whether a configured value is safe to place in a Home Assistant state URL."""
-    return isinstance(value, str) and _ENTITY_ID.fullmatch(value) is not None
+    # Checked character by character over a bounded length, so a hostile value costs
+    # nothing: no pattern is matched against it.
+    if not isinstance(value, str) or len(value) > _ENTITY_ID_MAX_LENGTH:
+        return False
+    domain, dot, object_id = value.partition(".")
+    return bool(dot and domain and object_id) and _ENTITY_ID_CHARACTERS.issuperset(domain + object_id)
 
 
 def valid_illuminance_lux(value: Any) -> Optional[float]:
@@ -115,6 +124,8 @@ def read_illuminance(payload: Any) -> IlluminanceReading:
     if state is None or (isinstance(state, str) and state.strip().lower() in _UNKNOWN_STATES):
         return IlluminanceReading(reason="unavailable")
     if isinstance(state, bool) or not isinstance(state, (str, int, float)):
+        return IlluminanceReading(reason="not_numeric")
+    if isinstance(state, str) and len(state) > _NUMERIC_STATE_MAX_LENGTH:
         return IlluminanceReading(reason="not_numeric")
     try:
         value = float(state)

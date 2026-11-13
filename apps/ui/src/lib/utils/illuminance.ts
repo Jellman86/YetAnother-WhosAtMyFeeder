@@ -3,11 +3,15 @@ import type { components } from '../api/generated/openapi';
 export type HaIlluminanceTestReading = components['schemas']['HaIlluminanceTestReading'];
 type MissingReason = NonNullable<HaIlluminanceTestReading['reason']>;
 
-const ENTITY_ID = /^[a-z0-9_]+\.[a-z0-9_]+$/;
+const ENTITY_ID_MAX_LENGTH = 255;
+const ENTITY_ID_PART = /^[a-z0-9_]+$/;
 
 /** Whether a typed value has the shape of a Home Assistant entity id, such as `sensor.feeder_illuminance`. */
 export function isHomeAssistantEntityId(value: string): boolean {
-    return ENTITY_ID.test(value.trim());
+    const id = value.trim();
+    if (id.length > ENTITY_ID_MAX_LENGTH) return false;
+    const parts = id.split('.');
+    return parts.length === 2 && parts.every((part) => ENTITY_ID_PART.test(part));
 }
 
 /** A stored light level as text, or null when none was measured. `lx` is the SI symbol and is not translated. */

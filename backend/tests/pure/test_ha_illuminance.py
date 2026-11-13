@@ -141,3 +141,41 @@ def test_a_reading_belongs_to_a_detection_only_near_its_own_moment():
     assert illuminance_at_detection(900.0, detected_at=detected, now=detected - timedelta(hours=1)) is None
     assert illuminance_at_detection(None, detected_at=detected, now=detected) is None
     assert illuminance_at_detection(-5.0, detected_at=detected, now=detected) is None
+
+
+def test_a_pathological_entity_id_is_rejected_without_pattern_matching():
+    """The id is owner-typed but still untrusted: rejecting it must not scale with its length."""
+    import time
+
+    hostile = [
+        "0" * 2_000_000,
+        "sensor." + "0" * 2_000_000 + "!",
+        "0" * 1_000_000 + "." + "0" * 1_000_000,
+        "." * 500_000,
+    ]
+    started = time.perf_counter()
+    for value in hostile:
+        assert is_entity_id(value) is False
+    assert time.perf_counter() - started < 0.5
+    # The longest id Home Assistant allows is still accepted; one character more is not.
+    assert is_entity_id("sensor." + "a" * 248) is True
+    assert is_entity_id("sensor." + "a" * 249) is False
+
+
+@pytest.mark.parametrize(
+    "entity_id", ["sensor.", ".feeder", "sensor..feeder", "sensor.feeder.lux", "sensor.feeder\n", "sensor.fée"]
+)
+def test_an_entity_id_needs_exactly_one_domain_and_one_object_id(entity_id):
+    assert is_entity_id(entity_id) is False
+
+
+def test_a_pathological_sensor_state_is_missing_data_and_costs_nothing():
+    import time
+
+    started = time.perf_counter()
+    for state in ("0" * 2_000_000, "1" + "0" * 5_000, "1e" + "9" * 1_000_000, " " * 1_000_000 + "5"):
+        reading = read_illuminance(_sensor(state, unit_of_measurement="lx"))
+        assert reading.lux is None
+        assert reading.reason == "not_numeric"
+    assert time.perf_counter() - started < 0.5
+    assert read_illuminance(_sensor("0001240.500000", unit_of_measurement="lx")).lux == pytest.approx(1240.5)
