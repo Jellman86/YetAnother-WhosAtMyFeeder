@@ -11,8 +11,11 @@ import pytest
 
 from app.services.ha_weather import (
     ILLUMINANCE_MAX_LUX,
+    IlluminanceReading,
     illuminance_at_detection,
     is_entity_id,
+    map_sensor_state,
+    map_weather_entity,
     read_illuminance,
     valid_illuminance_lux,
 )
@@ -179,3 +182,40 @@ def test_a_pathological_sensor_state_is_missing_data_and_costs_nothing():
         assert reading.reason == "not_numeric"
     assert time.perf_counter() - started < 0.5
     assert read_illuminance(_sensor("0001240.500000", unit_of_measurement="lx")).lux == pytest.approx(1240.5)
+
+
+# Home Assistant states arrive as JSON, which can carry integers far beyond any
+# float. float(10**400) raises OverflowError rather than ValueError; a reading
+# that large must become missing data, never an exception in the ingest path.
+_OVERSIZED_INTEGER = 10**400
+
+
+def test_oversized_integer_state_is_not_a_reading() -> None:
+    payload = {"state": _OVERSIZED_INTEGER, "attributes": {"unit_of_measurement": "lx"}}
+    assert read_illuminance(payload) == IlluminanceReading(reason="not_numeric")
+
+
+def test_oversized_integer_is_not_a_valid_lux_value() -> None:
+    assert valid_illuminance_lux(_OVERSIZED_INTEGER) is None
+
+
+def test_weather_entity_with_oversized_or_infinite_attributes_records_them_as_unknown() -> None:
+    payload = {
+        "state": "cloudy",
+        "attributes": {
+            "temperature": _OVERSIZED_INTEGER,
+            "temperature_unit": "°C",
+            "wind_speed": "1e999",
+            "wind_speed_unit": "km/h",
+            "cloud_coverage": 80,
+        },
+    }
+    weather = map_weather_entity(payload)
+    assert weather.get("temperature") is None
+    assert weather.get("wind_speed") is None
+    assert weather["cloud_cover"] == 80.0
+
+
+def test_sensor_override_with_oversized_state_is_unknown() -> None:
+    payload = {"state": _OVERSIZED_INTEGER, "attributes": {"unit_of_measurement": "°C"}}
+    assert map_sensor_state(payload, "temperature") is None

@@ -97,7 +97,8 @@ def valid_illuminance_lux(value: Any) -> Optional[float]:
         return None
     try:
         lux = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
+        # JSON integers have no size limit; one too large for a float is not a reading.
         return None
     if not math.isfinite(lux) or not 0.0 <= lux <= ILLUMINANCE_MAX_LUX:
         return None
@@ -129,7 +130,7 @@ def read_illuminance(payload: Any) -> IlluminanceReading:
         return IlluminanceReading(reason="not_numeric")
     try:
         value = float(state)
-    except ValueError:
+    except (ValueError, OverflowError):
         return IlluminanceReading(reason="not_numeric")
     lux = valid_illuminance_lux(value)
     if lux is None:
@@ -153,9 +154,11 @@ def _to_float(value: Any) -> Optional[float]:
     if isinstance(value, str) and value.strip().lower() in _UNKNOWN_STATES:
         return None
     try:
-        return float(value)
-    except (TypeError, ValueError):
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
         return None
+    # An infinite or NaN reading is not a measurement, and could not be served as JSON.
+    return number if math.isfinite(number) else None
 
 
 def convert_temperature_c(value: Optional[float], unit: Optional[str]) -> Optional[float]:
