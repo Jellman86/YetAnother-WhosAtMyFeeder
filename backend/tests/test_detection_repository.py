@@ -32,6 +32,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             weather_precipitation FLOAT,
             weather_rain FLOAT,
             weather_snowfall FLOAT,
+            illuminance_lux FLOAT,
             scientific_name TEXT,
             common_name TEXT,
             taxa_id INTEGER,

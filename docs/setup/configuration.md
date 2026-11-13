@@ -171,7 +171,9 @@ a saved credential can be re-tested without typing it again.
   iNaturalist first.
 - **Home Assistant weather** — use selected HA sensors instead of a regional forecast.
   Readings are reused for up to 30 seconds; unavailable sensors stay unknown rather
-  than borrowing forecast values. See [Home Assistant](../integrations/home-assistant.md).
+  than borrowing forecast values. An optional **Illuminance entity** stores a lux sensor's
+  reading with each new detection. See
+  [Home Assistant](../integrations/home-assistant.md#weather-and-light-from-your-own-sensors).
 - **Location** — your latitude and longitude for weather enrichment and location-aware classifiers such as DINOv2, optional `state` and
   `country` values for the eBird export, and **Display Units** (`Metric`, `Imperial`, or
   `British` for °C with mph and mm). Distances elsewhere in the UI follow this choice.

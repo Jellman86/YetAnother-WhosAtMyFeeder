@@ -573,6 +573,7 @@ def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
                     "access_token": "stored-token",
                     "weather_entity": "weather.forecast_home",
                     "temperature_entity": "sensor.feeder_temp",
+                    "illuminance_entity": "sensor.feeder_illuminance",
                 }
             }
         ),
@@ -589,6 +590,7 @@ def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
     assert loaded.ha_weather.access_token == "stored-token"
     assert loaded.ha_weather.weather_entity == "weather.forecast_home"
     assert loaded.ha_weather.temperature_entity == "sensor.feeder_temp"
+    assert loaded.ha_weather.illuminance_entity == "sensor.feeder_illuminance"
 
 
 def test_home_assistant_weather_env_overrides_the_file(monkeypatch, tmp_path):

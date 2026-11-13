@@ -213,6 +213,13 @@ fresh day. This does not cache sharing preferences.
 
 - `GET /api/events`
 - `GET /api/events/count`
+
+Every detection carries `illuminance_lux`: the light level in lux that a configured
+[Home Assistant illuminance entity](integrations/home-assistant.md#illuminance-entity) measured
+when the detection was first saved, or `null` when nothing was measured. It is a stored
+measurement, never derived, and is not rewritten later. Live `detection` and
+`detection_updated` stream events carry the same field.
+
 - `GET /api/explorer/search?q=` searches species, genera, families and orders with
   visible history. It matches scientific names, common names in the reader's language
   and English, and owner name overrides. Matching ignores case, accents and name
@@ -1193,6 +1200,15 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured
   Home Assistant weather source so the settings page can prove the URL, token, and entities work.
+  The JSON body accepts optional `base_url`, `access_token`, `weather_entity` and
+  `illuminance_entity` overrides, so edited values can be tested before saving, and `scope`
+  (`all`, `weather` or `illuminance`) to read one part alone. The response carries `readings`
+  (weather only), `weather` (`ok`, `error` or `not_configured`) and `illuminance`: `null` when no
+  illuminance entity is set, otherwise `entity_id`, `status`, the measured `lux`, or a `reason`
+  when there is none (`invalid_entity_id`, `unreachable`, `not_illuminance`, `unavailable`,
+  `not_numeric` or `out_of_range`). `status` is `ok` only when every part that was read
+  answered. A request that reads an illuminance entity answers `200` with these fields even
+  when a part failed; a weather-only read that returns nothing still answers `502`.
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.

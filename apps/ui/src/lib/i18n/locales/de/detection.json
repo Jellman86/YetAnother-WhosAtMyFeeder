@@ -75,6 +75,7 @@
   "weather_precip": "Niederschlag",
   "weather_rain": "Regen",
   "weather_snow": "Schnee",
+  "weather_light": "Helligkeit",
   "weather_icy": "Eisig",
   "id": "Erkennungs-ID",
   "open_in_frigate": "In Frigate öffnen",

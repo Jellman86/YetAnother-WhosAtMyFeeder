@@ -35,6 +35,10 @@ class WeatherService:
                 settings.ha_weather.access_token,
                 settings.ha_weather.weather_entity,
                 tuple(sorted(settings.ha_weather.override_entities().items())),
+                settings.ha_weather.illuminance_entity,
+                settings.location.latitude,
+                settings.location.longitude,
+                settings.location.automatic,
             )
         return ("forecast", settings.location.latitude, settings.location.longitude, settings.location.automatic)
 
@@ -82,25 +86,41 @@ class WeatherService:
             return dict(weather)
 
     async def _fetch_current_weather(self) -> dict:
+        """Fetch current conditions from Home Assistant, the forecast, or both."""
+        ha = settings.ha_weather
+        if not ha.is_usable() or not (ha.has_weather_source() or (ha.illuminance_entity or "").strip()):
+            return await self._fetch_forecast_weather()
+
+        from app.services.ha_weather import HomeAssistantWeatherSource
+
+        source = HomeAssistantWeatherSource(
+            base_url=ha.base_url or "",
+            access_token=ha.access_token or "",
+            weather_entity=ha.weather_entity,
+            override_entities=ha.override_entities(),
+            illuminance_entity=ha.illuminance_entity,
+        )
+        # A configured Home Assistant weather source replaces the forecast API
+        # for live conditions: local sensors are the better evidence, and when
+        # one cannot answer, that reading stays unknown rather than being
+        # backfilled from a forecast and presented as measured (#277).
+        if ha.has_weather_source():
+            return await source.get_current_weather()
+        # Only a light sensor is named (#945). Nothing local was declared for
+        # the weather, so the forecast stays its source; the light level comes
+        # from the sensor alone and a forecast can never supply it.
+        forecast, measured = await asyncio.gather(self._fetch_forecast_weather(), source.get_current_weather())
+        weather = {key: value for key, value in forecast.items() if key != "illuminance_lux"}
+        if "illuminance_lux" in measured:
+            weather["illuminance_lux"] = measured["illuminance_lux"]
+        return weather
+
+    async def _fetch_forecast_weather(self) -> dict:
         """Fetch current weather for the configured location.
 
         Note: Always fetches temperature in Celsius for consistent database storage.
         Frontend converts to user's preferred unit for display.
         """
-        # A configured Home Assistant source replaces the forecast API for
-        # live conditions: local sensors are the better evidence, and when
-        # one cannot answer, that reading stays unknown rather than being
-        # backfilled from a forecast and presented as measured (#277).
-        if settings.ha_weather.is_usable():
-            from app.services.ha_weather import HomeAssistantWeatherSource
-
-            source = HomeAssistantWeatherSource(
-                base_url=settings.ha_weather.base_url or "",
-                access_token=settings.ha_weather.access_token or "",
-                weather_entity=settings.ha_weather.weather_entity,
-                override_entities=settings.ha_weather.override_entities(),
-            )
-            return await source.get_current_weather()
         try:
             lat, lon = await self.get_location()
 

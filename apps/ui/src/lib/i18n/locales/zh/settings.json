@@ -470,7 +470,19 @@
       "test_loading": "获取中…",
       "test_title": "Home Assistant 天气测试",
       "test_subtitle": "获取您的检测将会记录的当前读数。",
-      "stage_fetch": "来自 Home Assistant 的实时读数"
+      "stage_fetch": "来自 Home Assistant 的实时读数",
+      "illuminance": "照度实体",
+      "illuminance_desc": "可选。以 lx 报告的光线传感器，例如 sensor.feeder_illuminance。其读数会随每次新检测一起保存。无法应答时，不保存光照水平。",
+      "illuminance_invalid": "这不是实体 ID。请使用 Home Assistant 为该传感器显示的 ID，例如 sensor.feeder_illuminance。",
+      "stage_illuminance": "来自照度实体的光照水平",
+      "illuminance_measured": "{entity} 测得 {reading}。",
+      "illuminance_invalid_entity_id": "{entity} 不是 Home Assistant 实体 ID。请使用类似 sensor.feeder_illuminance 的 ID。",
+      "illuminance_unreachable": "Home Assistant 未返回 {entity}。请检查实体 ID、URL 和令牌。",
+      "illuminance_not_illuminance": "{entity} 不是照度传感器。请选择设备类别为照度或单位为 lx 的传感器。",
+      "illuminance_unavailable": "{entity} 目前在 Home Assistant 中未知或不可用。在其应答之前，检测不会记录光照水平。",
+      "illuminance_not_numeric": "{entity} 未报告数字，因此不记录光照水平。",
+      "illuminance_out_of_range": "{entity} 报告的值超出 0 到 200,000 lx 的范围，因此不予记录。",
+      "illuminance_no_answer": "测试未返回光照读数。"
     }
   },
   "enrichment": {

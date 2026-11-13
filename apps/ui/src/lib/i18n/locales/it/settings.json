@@ -470,7 +470,19 @@
       "test_loading": "Recupero…",
       "test_title": "Test meteo Home Assistant",
       "test_subtitle": "Recupera le letture attuali che le tue rilevazioni registrerebbero.",
-      "stage_fetch": "Letture in tempo reale da Home Assistant"
+      "stage_fetch": "Letture in tempo reale da Home Assistant",
+      "illuminance": "Entità di illuminamento",
+      "illuminance_desc": "Facoltativo. Un sensore di luce che misura in lx, ad es. sensor.feeder_illuminance. La sua lettura viene salvata con ogni nuovo rilevamento. Se non può rispondere, non viene salvato alcun livello di luce.",
+      "illuminance_invalid": "Questo non è un ID entità. Usa l'ID che Home Assistant mostra per il sensore, ad esempio sensor.feeder_illuminance.",
+      "stage_illuminance": "Livello di luce dall'entità di illuminamento",
+      "illuminance_measured": "{reading} misurati da {entity}.",
+      "illuminance_invalid_entity_id": "{entity} non è un ID entità di Home Assistant. Usane uno come sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant non ha restituito {entity}. Controlla l'ID entità, l'URL e il token.",
+      "illuminance_not_illuminance": "{entity} non è un sensore di illuminamento. Scegli un sensore con classe dispositivo illuminamento o unità lx.",
+      "illuminance_unavailable": "{entity} è sconosciuto o non disponibile in Home Assistant in questo momento. I rilevamenti non registrano il livello di luce finché non risponde.",
+      "illuminance_not_numeric": "{entity} non ha riportato un numero, quindi non viene registrato alcun livello di luce.",
+      "illuminance_out_of_range": "{entity} ha riportato un valore fuori da 0 a 200.000 lx, quindi non viene registrato.",
+      "illuminance_no_answer": "Il test non ha restituito alcuna lettura della luce."
     }
   },
   "enrichment": {

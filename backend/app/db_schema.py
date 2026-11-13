@@ -46,6 +46,8 @@ detections = Table(
     Column("weather_precipitation", Float),
     Column("weather_rain", Float),
     Column("weather_snowfall", Float),
+    # Measured by a Home Assistant lux sensor at the detection; never derived (#945).
+    Column("illuminance_lux", Float),
     Column("scientific_name", String),
     Column("common_name", String),
     Column("taxa_id", Integer),

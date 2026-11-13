@@ -470,7 +470,19 @@
       "test_loading": "Получение…",
       "test_title": "Тест погоды Home Assistant",
       "test_subtitle": "Получает текущие показания, которые записали бы ваши обнаружения.",
-      "stage_fetch": "Текущие показания из Home Assistant"
+      "stage_fetch": "Текущие показания из Home Assistant",
+      "illuminance": "Сущность освещённости",
+      "illuminance_desc": "Необязательно. Датчик света, сообщающий значение в лк (lx), например sensor.feeder_illuminance. Его показание сохраняется с каждым новым обнаружением. Если он не может ответить, уровень света не сохраняется.",
+      "illuminance_invalid": "Это не идентификатор сущности. Используйте идентификатор, который Home Assistant показывает для датчика, например sensor.feeder_illuminance.",
+      "stage_illuminance": "Уровень света от сущности освещённости",
+      "illuminance_measured": "{entity} измерил {reading}.",
+      "illuminance_invalid_entity_id": "{entity} не является идентификатором сущности Home Assistant. Используйте такой, как sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant не вернул {entity}. Проверьте идентификатор сущности, URL и токен.",
+      "illuminance_not_illuminance": "{entity} не является датчиком освещённости. Выберите датчик с классом устройства «освещённость» или единицей lx.",
+      "illuminance_unavailable": "{entity} сейчас неизвестен или недоступен в Home Assistant. Обнаружения не сохраняют уровень света, пока он не ответит.",
+      "illuminance_not_numeric": "{entity} не сообщил число, поэтому уровень света не сохраняется.",
+      "illuminance_out_of_range": "{entity} сообщил значение вне диапазона от 0 до 200 000 lx, поэтому оно не сохраняется.",
+      "illuminance_no_answer": "Тест не вернул показание света."
     }
   },
   "enrichment": {

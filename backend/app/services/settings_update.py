@@ -419,6 +419,7 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
         ("ha_weather_precipitation_entity", "precipitation_entity"),
         ("ha_weather_rain_entity", "rain_entity"),
         ("ha_weather_snowfall_entity", "snowfall_entity"),
+        ("ha_weather_illuminance_entity", "illuminance_entity"),
     ):
         if _ha_field in fields_set:
             _ha_value = getattr(update, _ha_field)

@@ -75,6 +75,7 @@
   "weather_precip": "Осадки",
   "weather_rain": "Дождь",
   "weather_snow": "Снег",
+  "weather_light": "Свет",
   "weather_icy": "Лёд",
   "id": "ID обнаружения",
   "open_in_frigate": "Открыть в Frigate",

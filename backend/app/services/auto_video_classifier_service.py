@@ -3023,6 +3023,7 @@ class AutoVideoClassifierService:
                                 "weather_precipitation": det.weather_precipitation,
                                 "weather_rain": det.weather_rain,
                                 "weather_snowfall": det.weather_snowfall,
+                                "illuminance_lux": det.illuminance_lux,
                                 "scientific_name": public_species["scientific_name"],
                                 "common_name": public_species["common_name"],
                                 "taxa_id": public_species["taxa_id"],

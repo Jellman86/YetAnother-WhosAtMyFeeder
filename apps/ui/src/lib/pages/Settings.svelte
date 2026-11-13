@@ -268,6 +268,7 @@
     let haWeatherPrecipitationEntity = $state('');
     let haWeatherRainEntity = $state('');
     let haWeatherSnowfallEntity = $state('');
+    let haWeatherIlluminanceEntity = $state('');
 
     // iNaturalist Settings
     let inaturalistEnabled = $state(false);
@@ -846,6 +847,7 @@
             { key: 'haWeatherPrecipitationEntity', val: haWeatherPrecipitationEntity, store: s.ha_weather_precipitation_entity ?? '' },
             { key: 'haWeatherRainEntity', val: haWeatherRainEntity, store: s.ha_weather_rain_entity ?? '' },
             { key: 'haWeatherSnowfallEntity', val: haWeatherSnowfallEntity, store: s.ha_weather_snowfall_entity ?? '' },
+            { key: 'haWeatherIlluminanceEntity', val: haWeatherIlluminanceEntity, store: s.ha_weather_illuminance_entity ?? '' },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
             { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
             { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
@@ -2192,6 +2194,7 @@
             haWeatherPrecipitationEntity = settings.ha_weather_precipitation_entity ?? '';
             haWeatherRainEntity = settings.ha_weather_rain_entity ?? '';
             haWeatherSnowfallEntity = settings.ha_weather_snowfall_entity ?? '';
+            haWeatherIlluminanceEntity = settings.ha_weather_illuminance_entity ?? '';
             // eBird settings
             ebirdEnabled = settings.ebird_enabled ?? false;
             if (settings.ebird_api_key === '***REDACTED***') {
@@ -2531,6 +2534,7 @@
                 ha_weather_precipitation_entity: haWeatherPrecipitationEntity || null,
                 ha_weather_rain_entity: haWeatherRainEntity || null,
                 ha_weather_snowfall_entity: haWeatherSnowfallEntity || null,
+                ha_weather_illuminance_entity: haWeatherIlluminanceEntity.trim() || null,
                 ebird_enabled: ebirdEnabled,
                 ebird_api_key: ebirdApiKey,
                 ebird_default_radius_km: ebirdDefaultRadiusKm,
@@ -2868,6 +2872,7 @@
                     bind:haWeatherPrecipitationEntity
                     bind:haWeatherRainEntity
                     bind:haWeatherSnowfallEntity
+                    bind:haWeatherIlluminanceEntity
                     bind:ebirdEnabled
                     bind:ebirdApiKey
                     bind:ebirdApiKeySaved

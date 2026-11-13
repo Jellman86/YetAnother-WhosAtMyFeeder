@@ -470,7 +470,19 @@
       "test_loading": "Obteniendo…",
       "test_title": "Prueba del clima de Home Assistant",
       "test_subtitle": "Obtiene las lecturas actuales que registrarían tus detecciones.",
-      "stage_fetch": "Lecturas en vivo de Home Assistant"
+      "stage_fetch": "Lecturas en vivo de Home Assistant",
+      "illuminance": "Entidad de iluminancia",
+      "illuminance_desc": "Opcional. Un sensor de luz que informa en lx, p. ej. sensor.feeder_illuminance. Su lectura se guarda con cada detección nueva. Si no puede responder, no se guarda ningún nivel de luz.",
+      "illuminance_invalid": "Esto no es un ID de entidad. Use el ID que Home Assistant muestra para el sensor, como sensor.feeder_illuminance.",
+      "stage_illuminance": "Nivel de luz de la entidad de iluminancia",
+      "illuminance_measured": "{reading} medidos por {entity}.",
+      "illuminance_invalid_entity_id": "{entity} no es un ID de entidad de Home Assistant. Use uno como sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant no devolvió {entity}. Compruebe el ID de la entidad, la URL y el token.",
+      "illuminance_not_illuminance": "{entity} no es un sensor de iluminancia. Elija un sensor con la clase de dispositivo iluminancia o la unidad lx.",
+      "illuminance_unavailable": "{entity} está desconocido o no disponible en Home Assistant en este momento. Las detecciones no registran nivel de luz hasta que responda.",
+      "illuminance_not_numeric": "{entity} no informó un número, así que no se registra ningún nivel de luz.",
+      "illuminance_out_of_range": "{entity} informó un valor fuera de 0 a 200.000 lx, así que no se registra.",
+      "illuminance_no_answer": "La prueba no devolvió ninguna lectura de luz."
     }
   },
   "enrichment": {

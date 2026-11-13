@@ -470,7 +470,19 @@
       "test_loading": "Wird abgerufen…",
       "test_title": "Home-Assistant-Wettertest",
       "test_subtitle": "Ruft die aktuellen Messwerte ab, die Ihre Erkennungen aufzeichnen würden.",
-      "stage_fetch": "Live-Messwerte von Home Assistant"
+      "stage_fetch": "Live-Messwerte von Home Assistant",
+      "illuminance": "Beleuchtungsstärke-Entität",
+      "illuminance_desc": "Optional. Ein Lichtsensor, der lx meldet, z. B. sensor.feeder_illuminance. Sein Messwert wird mit jeder neuen Erkennung gespeichert. Kann er nicht antworten, wird keine Helligkeit gespeichert.",
+      "illuminance_invalid": "Das ist keine Entitäts-ID. Verwenden Sie die ID, die Home Assistant für den Sensor anzeigt, etwa sensor.feeder_illuminance.",
+      "stage_illuminance": "Helligkeit von der Beleuchtungsstärke-Entität",
+      "illuminance_measured": "{reading} von {entity} gemessen.",
+      "illuminance_invalid_entity_id": "{entity} ist keine Entitäts-ID von Home Assistant. Verwenden Sie eine wie sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant hat {entity} nicht zurückgegeben. Prüfen Sie die Entitäts-ID, die URL und das Token.",
+      "illuminance_not_illuminance": "{entity} ist kein Beleuchtungsstärke-Sensor. Wählen Sie einen Sensor mit der Geräteklasse Beleuchtungsstärke oder der Einheit lx.",
+      "illuminance_unavailable": "{entity} ist in Home Assistant gerade unbekannt oder nicht verfügbar. Erkennungen speichern keine Helligkeit, bis der Sensor antwortet.",
+      "illuminance_not_numeric": "{entity} hat keine Zahl gemeldet, daher wird keine Helligkeit gespeichert.",
+      "illuminance_out_of_range": "{entity} hat einen Wert außerhalb von 0 bis 200.000 lx gemeldet, daher wird er nicht gespeichert.",
+      "illuminance_no_answer": "Der Test hat keinen Helligkeitswert zurückgegeben."
     }
   },
   "enrichment": {

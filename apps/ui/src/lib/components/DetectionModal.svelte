@@ -87,6 +87,7 @@
         getTemperatureUnitForSystem,
         resolveWeatherUnitSystem
     } from '../utils/weather-units';
+    import { formatIlluminance } from '../utils/illuminance';
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
@@ -1480,6 +1481,11 @@
         }
         if (detection.weather_snowfall !== undefined && detection.weather_snowfall !== null && detection.weather_snowfall > 0) {
             parts.push(`${$_('detection.weather_snow')} ${formatPrecip(detection.weather_snowfall)}`);
+        }
+        // Measured by a light sensor at the detection (#945); never estimated from the weather.
+        const light = formatIlluminance(detection.illuminance_lux);
+        if (light !== null) {
+            parts.push(`${$_('detection.weather_light', { default: 'Light' })} ${light}`);
         }
         return parts.join(' · ');
     });

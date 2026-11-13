@@ -470,7 +470,19 @@
       "test_loading": "Récupération…",
       "test_title": "Test météo Home Assistant",
       "test_subtitle": "Récupère les mesures actuelles que vos détections enregistreraient.",
-      "stage_fetch": "Mesures en direct depuis Home Assistant"
+      "stage_fetch": "Mesures en direct depuis Home Assistant",
+      "illuminance": "Entité d'éclairement",
+      "illuminance_desc": "Facultatif. Un capteur de lumière qui mesure en lx, par ex. sensor.feeder_illuminance. Sa mesure est enregistrée avec chaque nouvelle détection. S'il ne peut pas répondre, aucun niveau de lumière n'est enregistré.",
+      "illuminance_invalid": "Ce n'est pas un identifiant d'entité. Utilisez celui que Home Assistant affiche pour le capteur, par exemple sensor.feeder_illuminance.",
+      "stage_illuminance": "Niveau de lumière de l'entité d'éclairement",
+      "illuminance_measured": "{reading} mesurés par {entity}.",
+      "illuminance_invalid_entity_id": "{entity} n'est pas un identifiant d'entité Home Assistant. Utilisez-en un comme sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant n'a pas renvoyé {entity}. Vérifiez l'identifiant de l'entité, l'URL et le jeton.",
+      "illuminance_not_illuminance": "{entity} n'est pas un capteur d'éclairement. Choisissez un capteur de classe d'appareil éclairement ou d'unité lx.",
+      "illuminance_unavailable": "{entity} est inconnu ou indisponible dans Home Assistant pour le moment. Les détections n'enregistrent aucun niveau de lumière tant qu'il ne répond pas.",
+      "illuminance_not_numeric": "{entity} n'a pas renvoyé de nombre, aucun niveau de lumière n'est donc enregistré.",
+      "illuminance_out_of_range": "{entity} a renvoyé une valeur hors de 0 à 200 000 lx, elle n'est donc pas enregistrée.",
+      "illuminance_no_answer": "Le test n'a renvoyé aucune mesure de lumière."
     }
   },
   "enrichment": {

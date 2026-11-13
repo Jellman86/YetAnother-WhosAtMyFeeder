@@ -213,7 +213,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.video_classification_input_source, d.video_classification_diagnostics,
                       d.species_id, d.model_artifact_id, d.model_output_index,
                       f.archive_snapshot_state, f.archive_clip_state, d.classification_input_json,
-                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id)"""
+                      (SELECT i.classification_input_json FROM detection_initial_classifications i WHERE i.detection_id = d.id),
+                      d.illuminance_lux"""
 
 
 @dataclass
@@ -247,6 +248,8 @@ class Detection:
     weather_precipitation: Optional[float] = None
     weather_rain: Optional[float] = None
     weather_snowfall: Optional[float] = None
+    # Light level in lx measured at the detection; None when nothing was measured.
+    illuminance_lux: Optional[float] = None
     # Taxonomy fields
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
@@ -452,6 +455,9 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
     if len(row) > 52:
         d.classification_input = _parse_classification_input(row[51])
         d.initial_classification_input = _parse_classification_input(row[52])
+
+    if len(row) > 53:
+        d.illuminance_lux = row[53]
 
     return d
 
@@ -1954,8 +1960,8 @@ class DetectionRepository:
         try:
             await self.db.execute(
                 """
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     detection.detection_time,
@@ -1991,6 +1997,7 @@ class DetectionRepository:
                     checked_at,
                     None,
                     _classification_input_json(detection.classification_input),
+                    detection.illuminance_lux,
                 ),
             )
             await self.db.commit()
@@ -2169,14 +2176,15 @@ class DetectionRepository:
             checked_at,
             None,
             _classification_input_json(detection.classification_input),
+            detection.illuminance_lux,
         )
 
         # Attempt insert first.
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             insert_params,
         )
@@ -2227,6 +2235,9 @@ class DetectionRepository:
                 weather_precipitation = COALESCE(:weather_precipitation, weather_precipitation),
                 weather_rain = COALESCE(:weather_rain, weather_rain),
                 weather_snowfall = COALESCE(:weather_snowfall, weather_snowfall),
+                -- The first reading is the one taken nearest the detection; a later frame
+                -- of the same event neither replaces nor erases it.
+                illuminance_lux = COALESCE(illuminance_lux, :illuminance_lux),
                 scientific_name = CASE
                     WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
                     THEN COALESCE(:scientific_name, scientific_name)
@@ -2287,6 +2298,7 @@ class DetectionRepository:
                 "weather_precipitation": detection.weather_precipitation,
                 "weather_rain": detection.weather_rain,
                 "weather_snowfall": detection.weather_snowfall,
+                "illuminance_lux": detection.illuminance_lux,
                 "scientific_name": getattr(detection, "scientific_name", None),
                 "common_name": getattr(detection, "common_name", None),
                 "taxa_id": getattr(detection, "taxa_id", None),
@@ -2371,8 +2383,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error, classification_input_json, illuminance_lux)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 detection.detection_time,
@@ -2408,6 +2420,7 @@ class DetectionRepository:
                 checked_at,
                 None,
                 _classification_input_json(detection.classification_input),
+                detection.illuminance_lux,
             ),
         )
         changes = await self._last_statement_changes()

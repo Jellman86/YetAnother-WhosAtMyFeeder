@@ -116,6 +116,7 @@ export interface Settings {
     ha_weather_precipitation_entity?: string | null;
     ha_weather_rain_entity?: string | null;
     ha_weather_snowfall_entity?: string | null;
+    ha_weather_illuminance_entity?: string | null;
     ebird_enabled?: boolean;
     ebird_api_key?: string | null;
     ebird_default_radius_km?: number;
