@@ -210,10 +210,10 @@ A change is done when **all** of these hold:
 
 ## 7. Commands & local environment
 
-Backend (Python 3.12, from `backend/`):
+Backend (Python 3.13, from `backend/`):
 
 ```bash
-python3.12 -m venv .venv && source .venv/bin/activate
+python3.13 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
 pytest                                                     # full suite
@@ -340,7 +340,7 @@ learning. It receives MQTT events from Frigate, classifies species with local ML
 models (TFLite/ONNX), correlates with audio detections from BirdNET-Go, and serves
 a real-time web dashboard with notifications.
 
-**Tech stack:** Python 3.12 + FastAPI + SQLite + Alembic (backend); Svelte 5 +
+**Tech stack:** Python 3.13 + FastAPI + SQLite + Alembic (backend); Svelte 5 +
 TypeScript + Tailwind + Vite (frontend); ONNX Runtime / TensorFlow Lite (ML);
 MQTT (aiomqtt) for ingest, SSE for the frontend; Docker Compose deployment.
 
