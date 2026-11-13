@@ -9,9 +9,14 @@ never as a forecast value presented as measured.
 """
 
 import asyncio
+import math
+import re
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Literal, Optional
+
 import httpx
 import structlog
-from typing import Any, Optional
 
 log = structlog.get_logger()
 
@@ -47,6 +52,88 @@ OVERRIDE_KINDS = {
     "rain": "length",
     "snowfall": "length",
 }
+
+
+#: Direct sunlight is about 100,000 lx and no common sensor reports past 200,000.
+#: The same bound is the CHECK on detections.illuminance_lux.
+ILLUMINANCE_MAX_LUX = 200_000.0
+
+#: A reading describes a detection only when it was taken near that detection.
+#: A backlog replayed later carries the light of the replay, not of the bird.
+ILLUMINANCE_MAX_EVENT_AGE_SECONDS = 300.0
+
+IlluminanceMissingReason = Literal[
+    "invalid_entity_id", "unreachable", "not_illuminance", "unavailable", "not_numeric", "out_of_range"
+]
+
+_ENTITY_ID = re.compile(r"[a-z0-9_]+\.[a-z0-9_]+")
+
+
+@dataclass(frozen=True)
+class IlluminanceReading:
+    """A measured light level, or the reason there is none."""
+
+    lux: Optional[float] = None
+    reason: Optional[IlluminanceMissingReason] = None
+
+
+def is_entity_id(value: Any) -> bool:
+    """Whether a configured value is safe to place in a Home Assistant state URL."""
+    return isinstance(value, str) and _ENTITY_ID.fullmatch(value) is not None
+
+
+def valid_illuminance_lux(value: Any) -> Optional[float]:
+    """The value as lux when it is a finite number a light sensor can report."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        lux = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(lux) or not 0.0 <= lux <= ILLUMINANCE_MAX_LUX:
+        return None
+    return lux
+
+
+def read_illuminance(payload: Any) -> IlluminanceReading:
+    """Parse a sensor state as illuminance in lx, saying why when it is not one.
+
+    Accepted: a numeric sensor whose unit is lx, or whose device class is
+    illuminance and which names no other unit. Nothing is converted or
+    derived, so every other entity is missing data.
+    """
+    if not isinstance(payload, dict):
+        return IlluminanceReading(reason="unreachable")
+    attributes = payload.get("attributes")
+    attributes = attributes if isinstance(attributes, dict) else {}
+    unit = str(attributes.get("unit_of_measurement") or "").strip().lower()
+    device_class = str(attributes.get("device_class") or "").strip().lower()
+    if unit != "lx" and not (device_class == "illuminance" and not unit):
+        return IlluminanceReading(reason="not_illuminance")
+
+    state = payload.get("state")
+    if state is None or (isinstance(state, str) and state.strip().lower() in _UNKNOWN_STATES):
+        return IlluminanceReading(reason="unavailable")
+    if isinstance(state, bool) or not isinstance(state, (str, int, float)):
+        return IlluminanceReading(reason="not_numeric")
+    try:
+        value = float(state)
+    except ValueError:
+        return IlluminanceReading(reason="not_numeric")
+    lux = valid_illuminance_lux(value)
+    if lux is None:
+        return IlluminanceReading(reason="out_of_range")
+    return IlluminanceReading(lux=lux)
+
+
+def illuminance_at_detection(lux: Any, *, detected_at: datetime, now: datetime) -> Optional[float]:
+    """The reading, when it was taken close enough to the detection to describe it."""
+    measured = valid_illuminance_lux(lux)
+    if measured is None:
+        return None
+    if abs((now - detected_at).total_seconds()) > ILLUMINANCE_MAX_EVENT_AGE_SECONDS:
+        return None
+    return measured
 
 
 def _to_float(value: Any) -> Optional[float]:
@@ -188,12 +275,14 @@ class HomeAssistantWeatherSource:
         access_token: str,
         weather_entity: Optional[str],
         override_entities: dict[str, str],
+        illuminance_entity: Optional[str] = None,
         timeout_seconds: float = 3.0,
     ) -> None:
         self._base_url = str(base_url or "").rstrip("/")
         self._access_token = str(access_token or "")
         self._weather_entity = str(weather_entity or "").strip() or None
         self._override_entities = {k: v.strip() for k, v in (override_entities or {}).items() if v and v.strip()}
+        self._illuminance_entity = str(illuminance_entity or "").strip() or None
         self._timeout_seconds = max(0.5, float(timeout_seconds))
 
     async def _fetch_state(self, entity_id: str, *, client: httpx.AsyncClient) -> Optional[dict]:
@@ -212,17 +301,26 @@ class HomeAssistantWeatherSource:
             return None
 
     async def get_current_weather(self) -> dict:
-        """The entity's readings with each configured override on top.
+        """The stored weather fields, with `illuminance_lux` when it was measured."""
+        weather, _ = await self.read_current()
+        return weather
+
+    async def read_current(self) -> tuple[dict, Optional[IlluminanceReading]]:
+        """The entity's readings with each configured override on top, and the light level.
 
         A failed or unavailable sensor contributes nothing: unknown stays
         unknown rather than borrowing a forecast and calling it measured.
+        The second value is None when no illuminance entity is configured.
         """
+        illuminance_entity = self._illuminance_entity if is_entity_id(self._illuminance_entity) else None
         entity_ids = list(
             dict.fromkeys(
-                ([self._weather_entity] if self._weather_entity else []) + list(self._override_entities.values())
+                ([self._weather_entity] if self._weather_entity else [])
+                + list(self._override_entities.values())
+                + ([illuminance_entity] if illuminance_entity else [])
             )
         )
-        # At most eight configured entities; their independent timeout budgets
+        # At most nine configured entities; their independent timeout budgets
         # must fit within the ingest context deadline, rather than add together.
         async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
             states = await asyncio.gather(*(self._fetch_state(entity_id, client=client) for entity_id in entity_ids))
@@ -236,4 +334,12 @@ class HomeAssistantWeatherSource:
                 # The override is the declared source of truth for this
                 # category; when it cannot answer, the category is unknown.
                 weather.pop(category, None)
-        return weather
+
+        if self._illuminance_entity is None:
+            return weather, None
+        if illuminance_entity is None:
+            return weather, IlluminanceReading(reason="invalid_entity_id")
+        reading = read_illuminance(by_entity.get(illuminance_entity))
+        if reading.lux is not None:
+            weather["illuminance_lux"] = reading.lux
+        return weather, reading

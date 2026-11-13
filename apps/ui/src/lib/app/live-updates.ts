@@ -246,6 +246,7 @@ export function toDetection(data: SseData): Detection {
         weather_precipitation: data.weather_precipitation,
         weather_rain: data.weather_rain,
         weather_snowfall: data.weather_snowfall,
+        illuminance_lux: data.illuminance_lux,
         scientific_name: data.scientific_name,
         common_name: data.common_name,
         taxa_id: data.taxa_id,

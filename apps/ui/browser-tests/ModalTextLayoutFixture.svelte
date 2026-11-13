@@ -25,6 +25,12 @@
         detection.scientific_name = 'Prunella modularis';
         detection.audio_context_species = ['Dunnock'];
     }
+    // `?light=<lux>` adds a measured light level beside ordinary weather; `?light=only` leaves the weather out.
+    const light = new URLSearchParams(window.location.search).get('light');
+    if (light !== null) {
+        detection.illuminance_lux = light === 'only' ? 0.42 : Number(light);
+        if (light !== 'only') Object.assign(detection, { weather_condition: 'Cloudy', temperature: 9, weather_cloud_cover: 80 });
+    }
     if (new URLSearchParams(window.location.search).get('observedProgress') === 'true') {
         detectionsStore.startReclassification(detection.frigate_event, 7, 'auto_video');
         for (let frame = 1; frame <= 3; frame += 1) {

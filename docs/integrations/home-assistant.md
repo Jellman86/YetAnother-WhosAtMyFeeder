@@ -63,6 +63,53 @@ on the integration asking for new ones.
 | **Bird Count (24h)** | How many detections there were in the last 24 hours. It is a rolling window, not a count since midnight, so it can go down as old visits age out. |
 | **Latest Snapshot** | (Optional) A camera entity showing the last detected bird. |
 
+## Weather and light from your own sensors
+
+This direction is separate from the custom component above: here YA-WAMF reads from Home
+Assistant. Open **Settings → Integrations → Home Assistant weather**, switch it on, and enter
+the URL YA-WAMF can reach and a long-lived access token (Home Assistant profile, **Security**,
+**Long-lived access tokens**).
+
+| Field | What it does |
+|-------|--------------|
+| **Weather entity** | The general weather source, such as `weather.home`. |
+| **Per-reading sensor overrides** | One sensor each for temperature, wind speed, wind direction, cloud cover, precipitation, rain and snowfall. An override outranks the weather entity for its one reading. |
+| **Illuminance entity** | Optional. A light sensor, such as `sensor.feeder_illuminance`, whose reading in lux is stored with each new detection. |
+
+Once a weather entity or an override is named, those sensors replace the forecast for live
+weather, and a sensor that cannot answer leaves its reading unknown.
+
+### Illuminance entity
+
+A lux sensor near the feeder records the light a bird was actually seen in, which the time of
+day and the cloud cover can only suggest.
+
+- **What is accepted.** A sensor whose state is a number and whose unit is `lx`, or whose
+  device class is `illuminance` with no other unit. The value must be between 0 and
+  200,000 lx. Nothing is converted, so a sensor reporting in another unit is rejected.
+- **What is stored.** The reading goes into the detection's `illuminance_lux` field when the
+  detection is first saved. It is never changed afterwards: not by a later frame of the same
+  visit, not by changing or removing the entity, and not by a weather backfill. Detections
+  from before you named the sensor keep no light level.
+- **When there is no reading.** `unknown`, `unavailable`, a value that is not a number, a value
+  out of range, an entity that is not an illuminance sensor, or Home Assistant not answering
+  all store no light level. YA-WAMF never estimates one from the forecast, the sun or the
+  cloud cover. A detection that reaches YA-WAMF more than five minutes after it happened
+  (a replayed backlog, for example) also stores none, because the reading would describe the
+  wrong moment.
+- **Weather is unaffected.** With only an illuminance entity named, and no weather entity or
+  override, weather still comes from the forecast provider.
+- **Freshness.** Readings are shared for up to 30 seconds, as weather readings are, so two
+  detections in the same half minute can carry the same value.
+
+**Fetch a live reading** tests the fields as typed, before you save. The light level has its
+own line in the result: either the measured value in lux, or the reason there is none.
+
+The stored value appears in a detection's **Conditions** row ("Light 1,240 lx"), in the API as
+`illuminance_lux` on every detection (`null` when none was measured), and in the
+[eBird export](ebird.md#exporting-to-ebird)'s species comment. There are no charts or filters
+by light level yet.
+
 ## Automation Example
 For automations that should fire on every new detection, prefer the event sensor:
 

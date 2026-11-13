@@ -12,7 +12,8 @@
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import { reverseGeocode } from '../../api/geocoding';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
-    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult, type DiagnosticStep } from '../../utils/diagnostic-runner';
+    import { illuminanceStepOutcome, isHomeAssistantEntityId, type IlluminanceStepText } from '../../utils/illuminance';
     import { testBirdNET, testBirdWeather, testHaWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
     import type { WeatherUnitSystem } from '../../utils/weather-units';
     import {
@@ -47,6 +48,7 @@
         haWeatherPrecipitationEntity = $bindable(''),
         haWeatherRainEntity = $bindable(''),
         haWeatherSnowfallEntity = $bindable(''),
+        haWeatherIlluminanceEntity = $bindable(''),
         ebirdEnabled = $bindable(false),
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
@@ -109,6 +111,7 @@
         haWeatherPrecipitationEntity: string;
         haWeatherRainEntity: string;
         haWeatherSnowfallEntity: string;
+        haWeatherIlluminanceEntity: string;
         ebirdEnabled: boolean;
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
@@ -245,13 +248,31 @@
         bwRunning = false;
     }
 
+    const haWeatherNamesWeather = $derived(
+        [
+            haWeatherEntity,
+            haWeatherTemperatureEntity,
+            haWeatherWindSpeedEntity,
+            haWeatherWindDirectionEntity,
+            haWeatherCloudCoverEntity,
+            haWeatherPrecipitationEntity,
+            haWeatherRainEntity,
+            haWeatherSnowfallEntity
+        ].some((entity) => entity.trim() !== '')
+    );
+    const illuminanceEntityInvalid = $derived(
+        haWeatherIlluminanceEntity.trim() !== '' && !isHomeAssistantEntityId(haWeatherIlluminanceEntity)
+    );
+
     async function runHaWeatherDiagnostic(): Promise<void> {
         hawTestOpen = true;
         hawRunning = true;
         hawResult = null;
         hawRunId += 1;
-        hawResult = await runSequentialDiagnostic(
-            [
+        const illuminanceEntity = haWeatherIlluminanceEntity.trim();
+        // The weather check is left out only when a light sensor is all that is named.
+        const steps: DiagnosticStep[] = haWeatherNamesWeather || !illuminanceEntity
+            ? [
                 {
                     id: 'readings',
                     label: $_('settings.integrations.ha_weather.stage_fetch', { default: 'Live readings from Home Assistant' }),
@@ -259,15 +280,48 @@
                         const result = await testHaWeather({
                             baseUrl: haWeatherBaseUrl || undefined,
                             accessToken: haWeatherAccessToken || undefined,
-                            weatherEntity: haWeatherEntity || undefined
+                            weatherEntity: haWeatherEntity || undefined,
+                            scope: 'weather'
                         });
                         return { status: result.status, message: result.message };
                     }
                 }
-            ],
-            (stages) => (hawStages = stages)
-        );
+            ]
+            : [];
+        // The light sensor is its own check with its own request, so the dialog can
+        // show the measured value or the reason there is none.
+        if (illuminanceEntity) {
+            steps.push({
+                id: 'illuminance',
+                label: $_('settings.integrations.ha_weather.stage_illuminance', { default: 'Light level from the illuminance entity' }),
+                run: async () => {
+                    const result = await testHaWeather({
+                        baseUrl: haWeatherBaseUrl || undefined,
+                        accessToken: haWeatherAccessToken || undefined,
+                        illuminanceEntity: haWeatherIlluminanceEntity.trim(),
+                        scope: 'illuminance'
+                    });
+                    return illuminanceStepOutcome(result.illuminance, illuminanceStepText());
+                }
+            });
+        }
+        hawResult = await runSequentialDiagnostic(steps, (stages) => (hawStages = stages));
         hawRunning = false;
+    }
+
+    function illuminanceStepText(): IlluminanceStepText {
+        return {
+            measured: (values) => $_('settings.integrations.ha_weather.illuminance_measured', { values, default: '{reading} measured by {entity}.' }),
+            missing: {
+                invalid_entity_id: (values) => $_('settings.integrations.ha_weather.illuminance_invalid_entity_id', { values, default: '{entity} is not a Home Assistant entity id. Use one such as sensor.feeder_illuminance.' }),
+                unreachable: (values) => $_('settings.integrations.ha_weather.illuminance_unreachable', { values, default: 'Home Assistant did not return {entity}. Check the entity id, the URL and the token.' }),
+                not_illuminance: (values) => $_('settings.integrations.ha_weather.illuminance_not_illuminance', { values, default: '{entity} is not an illuminance sensor. Choose a sensor with the illuminance device class or the unit lx.' }),
+                unavailable: (values) => $_('settings.integrations.ha_weather.illuminance_unavailable', { values, default: '{entity} is unknown or unavailable in Home Assistant right now. Detections record no light level until it answers.' }),
+                not_numeric: (values) => $_('settings.integrations.ha_weather.illuminance_not_numeric', { values, default: '{entity} did not report a number, so no light level is recorded.' }),
+                out_of_range: (values) => $_('settings.integrations.ha_weather.illuminance_out_of_range', { values, default: '{entity} reported a value outside 0 to 200,000 lx, so it is not recorded.' })
+            },
+            noAnswer: $_('settings.integrations.ha_weather.illuminance_no_answer', { default: 'The test returned no light reading.' })
+        };
     }
 
     async function connectInaturalist(): Promise<void> {
@@ -1136,6 +1190,29 @@
                 ariaLabel={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
                 oninput={(v) => (haWeatherEntity = v)}
             />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-ha-weather-illuminance"
+            label={$_('settings.integrations.ha_weather.illuminance', { default: 'Illuminance entity' })}
+            description={$_('settings.integrations.ha_weather.illuminance_desc', { default: 'Optional. A light sensor that reports lx, e.g. sensor.feeder_illuminance. Its reading is stored with each new detection. When it cannot answer, no light level is stored.' })}
+            descriptionId="setting-ha-weather-illuminance-desc"
+            layout="stacked"
+        >
+            <SettingsInput
+                id="ha-weather-illuminance"
+                type="text"
+                value={haWeatherIlluminanceEntity}
+                ariaLabel={$_('settings.integrations.ha_weather.illuminance', { default: 'Illuminance entity' })}
+                describedBy={illuminanceEntityInvalid ? 'ha-weather-illuminance-error setting-ha-weather-illuminance-desc' : 'setting-ha-weather-illuminance-desc'}
+                invalid={illuminanceEntityInvalid}
+                oninput={(v) => (haWeatherIlluminanceEntity = v)}
+            />
+            {#if illuminanceEntityInvalid}
+                <p id="ha-weather-illuminance-error" class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300">
+                    {$_('settings.integrations.ha_weather.illuminance_invalid', { default: 'This is not an entity id. Use the id Home Assistant shows for the sensor, such as sensor.feeder_illuminance.' })}
+                </p>
+            {/if}
         </SettingsRow>
 
         <AdvancedSection

@@ -827,6 +827,7 @@ export interface components {
     frigate_score?: number | null;
     frigate_status?: string;
     id?: number | null;
+    illuminance_lux?: number | null;
     initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
@@ -917,6 +918,7 @@ export interface components {
     has_frigate_event?: boolean;
     has_snapshot?: boolean;
     id?: number | null;
+    illuminance_lux?: number | null;
     initial_classification_input?: components['schemas']['ClassificationEvidence'] | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
@@ -1459,15 +1461,25 @@ export interface components {
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
+    HaIlluminanceTestReading: {
+    entity_id: string;
+    lux?: number | null;
+    reason?: "invalid_entity_id" | "unreachable" | "not_illuminance" | "unavailable" | "not_numeric" | "out_of_range" | null;
+    status: "ok" | "error";
+};
     HaWeatherTestRequest: {
     access_token?: string | null;
     base_url?: string | null;
+    illuminance_entity?: string | null;
+    scope?: "all" | "weather" | "illuminance";
     weather_entity?: string | null;
 };
     HaWeatherTestResponse: {
+    illuminance?: components['schemas']['HaIlluminanceTestReading'] | null;
     message: string;
     readings?: Record<string, unknown>;
     status: "ok" | "error";
+    weather?: "ok" | "error" | "not_configured";
 };
     HeardGroupResponse: {
     best_birdnet_id?: number | null;
@@ -2219,6 +2231,7 @@ export interface components {
     ha_weather_cloud_cover_entity?: string | null;
     ha_weather_enabled?: boolean | null;
     ha_weather_entity?: string | null;
+    ha_weather_illuminance_entity?: string | null;
     ha_weather_precipitation_entity?: string | null;
     ha_weather_rain_entity?: string | null;
     ha_weather_snowfall_entity?: string | null;
@@ -2441,6 +2454,7 @@ export interface components {
     ha_weather_cloud_cover_entity?: string | null;
     ha_weather_enabled?: boolean | null;
     ha_weather_entity?: string | null;
+    ha_weather_illuminance_entity?: string | null;
     ha_weather_precipitation_entity?: string | null;
     ha_weather_rain_entity?: string | null;
     ha_weather_snowfall_entity?: string | null;

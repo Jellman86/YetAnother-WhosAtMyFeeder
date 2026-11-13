@@ -470,7 +470,19 @@
       "test_loading": "取得中…",
       "test_title": "Home Assistant 天気テスト",
       "test_subtitle": "検出時に記録される現在の測定値を取得します。",
-      "stage_fetch": "Home Assistant からのライブ測定値"
+      "stage_fetch": "Home Assistant からのライブ測定値",
+      "illuminance": "照度エンティティ",
+      "illuminance_desc": "任意。lx で報告する光センサー（例: sensor.feeder_illuminance）。その測定値は新しい検出ごとに保存されます。応答できない場合、明るさは保存されません。",
+      "illuminance_invalid": "これはエンティティ ID ではありません。Home Assistant がセンサーに表示する ID（例: sensor.feeder_illuminance）を使用してください。",
+      "stage_illuminance": "照度エンティティからの明るさ",
+      "illuminance_measured": "{entity} が {reading} を測定しました。",
+      "illuminance_invalid_entity_id": "{entity} は Home Assistant のエンティティ ID ではありません。sensor.feeder_illuminance のような ID を使用してください。",
+      "illuminance_unreachable": "Home Assistant が {entity} を返しませんでした。エンティティ ID、URL、トークンを確認してください。",
+      "illuminance_not_illuminance": "{entity} は照度センサーではありません。デバイスクラスが照度、または単位が lx のセンサーを選んでください。",
+      "illuminance_unavailable": "{entity} は現在 Home Assistant で不明または利用不可です。応答するまで、検出に明るさは記録されません。",
+      "illuminance_not_numeric": "{entity} が数値を報告しなかったため、明るさは記録されません。",
+      "illuminance_out_of_range": "{entity} が 0 から 200,000 lx の範囲外の値を報告したため、記録されません。",
+      "illuminance_no_answer": "テストで明るさの測定値が返されませんでした。"
     }
   },
   "enrichment": {

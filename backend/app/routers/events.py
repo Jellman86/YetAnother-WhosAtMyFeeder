@@ -344,6 +344,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "weather_precipitation": detection.weather_precipitation,
         "weather_rain": detection.weather_rain,
         "weather_snowfall": detection.weather_snowfall,
+        "illuminance_lux": getattr(detection, "illuminance_lux", None),
         "scientific_name": public_species["scientific_name"],
         "common_name": public_species["common_name"],
         "taxa_id": public_species["taxa_id"],

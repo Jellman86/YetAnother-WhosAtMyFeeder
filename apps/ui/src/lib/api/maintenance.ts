@@ -1,5 +1,5 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
-import type { paths } from './generated/openapi';
+import type { components, paths } from './generated/openapi';
 
 export type CacheStats = paths['/api/cache/stats']['get']['response'];
 
@@ -237,16 +237,14 @@ export async function testMQTTPublish(options: MQTTTestRequest = {}): Promise<{ 
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export interface HaWeatherTestResult {
-    status: string;
-    message: string;
-    readings?: Record<string, unknown>;
-}
+export type HaWeatherTestResult = components['schemas']['HaWeatherTestResponse'];
 
 export async function testHaWeather(options: {
     baseUrl?: string;
     accessToken?: string;
     weatherEntity?: string;
+    illuminanceEntity?: string;
+    scope?: components['schemas']['HaWeatherTestRequest']['scope'];
 } = {}): Promise<HaWeatherTestResult> {
     const response = await apiFetch(`${API_BASE}/settings/ha-weather/test`, {
         method: 'POST',
@@ -254,7 +252,9 @@ export async function testHaWeather(options: {
         body: JSON.stringify({
             base_url: options.baseUrl || undefined,
             access_token: options.accessToken || undefined,
-            weather_entity: options.weatherEntity || undefined
+            weather_entity: options.weatherEntity || undefined,
+            illuminance_entity: options.illuminanceEntity || undefined,
+            scope: options.scope
         })
     });
     return handleResponse<HaWeatherTestResult>(response);

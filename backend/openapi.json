@@ -5648,6 +5648,17 @@
             ],
             "title": "Id"
           },
+          "illuminance_lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Lux"
+          },
           "initial_classification_input": {
             "anyOf": [
               {
@@ -6399,6 +6410,17 @@
               }
             ],
             "title": "Id"
+          },
+          "illuminance_lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Lux"
           },
           "initial_classification_input": {
             "anyOf": [
@@ -10291,6 +10313,61 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaIlluminanceTestReading": {
+        "description": "The light level the configured sensor would add to a detection right now.",
+        "properties": {
+          "entity_id": {
+            "title": "Entity Id",
+            "type": "string"
+          },
+          "lux": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Measured illuminance in lx; null when there is no reading",
+            "title": "Lux"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "invalid_entity_id",
+                  "unreachable",
+                  "not_illuminance",
+                  "unavailable",
+                  "not_numeric",
+                  "out_of_range"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why there is no reading",
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity_id",
+          "status"
+        ],
+        "title": "HaIlluminanceTestReading",
+        "type": "object"
+      },
       "HaWeatherTestRequest": {
         "properties": {
           "access_token": {
@@ -10315,6 +10392,28 @@
             ],
             "title": "Base Url"
           },
+          "illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Illuminance Entity"
+          },
+          "scope": {
+            "default": "all",
+            "description": "Read everything configured, or only the weather or only the illuminance entity",
+            "enum": [
+              "all",
+              "weather",
+              "illuminance"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
           "weather_entity": {
             "anyOf": [
               {
@@ -10332,6 +10431,17 @@
       },
       "HaWeatherTestResponse": {
         "properties": {
+          "illuminance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HaIlluminanceTestReading"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Outcome of the illuminance entity; null when none is configured"
+          },
           "message": {
             "title": "Message",
             "type": "string"
@@ -10342,11 +10452,23 @@
             "type": "object"
           },
           "status": {
+            "description": "ok only when every configured part answered",
             "enum": [
               "ok",
               "error"
             ],
             "title": "Status",
+            "type": "string"
+          },
+          "weather": {
+            "default": "not_configured",
+            "description": "Outcome of the weather entity and sensor overrides alone",
+            "enum": [
+              "ok",
+              "error",
+              "not_configured"
+            ],
+            "title": "Weather",
             "type": "string"
           }
         },
@@ -15877,6 +15999,17 @@
             ],
             "title": "Ha Weather Entity"
           },
+          "ha_weather_illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Illuminance Entity"
+          },
           "ha_weather_precipitation_entity": {
             "anyOf": [
               {
@@ -18224,6 +18357,18 @@
             ],
             "description": "Weather entity used as the general source",
             "title": "Ha Weather Entity"
+          },
+          "ha_weather_illuminance_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Illuminance sensor (lx) recorded with each detection",
+            "title": "Ha Weather Illuminance Entity"
           },
           "ha_weather_precipitation_entity": {
             "anyOf": [

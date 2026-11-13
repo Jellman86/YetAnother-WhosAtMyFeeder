@@ -42,6 +42,8 @@ export interface Detection {
     weather_precipitation?: number;
     weather_rain?: number;
     weather_snowfall?: number;
+    /** Light level in lx measured at the detection; absent when none was measured. */
+    illuminance_lux?: number;
     scientific_name?: string | null;
     common_name?: string | null;
     taxa_id?: number | null;

@@ -31,6 +31,7 @@ from app.services.garden_domestic_birds import DomesticBirdKey, normalize_domest
 from app.services.notification_links import instance_base, notification_link
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
+from app.services.ha_weather import IlluminanceMissingReason
 from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
@@ -644,12 +645,31 @@ class HaWeatherTestRequest(BaseModel):
     base_url: Optional[str] = None
     access_token: Optional[str] = None
     weather_entity: Optional[str] = None
+    illuminance_entity: Optional[str] = None
+    scope: Literal["all", "weather", "illuminance"] = Field(
+        "all", description="Read everything configured, or only the weather or only the illuminance entity"
+    )
+
+
+class HaIlluminanceTestReading(BaseModel):
+    """The light level the configured sensor would add to a detection right now."""
+
+    entity_id: str
+    status: Literal["ok", "error"]
+    lux: Optional[float] = Field(None, description="Measured illuminance in lx; null when there is no reading")
+    reason: Optional[IlluminanceMissingReason] = Field(None, description="Why there is no reading")
 
 
 class HaWeatherTestResponse(BaseModel):
-    status: Literal["ok", "error"]
+    status: Literal["ok", "error"] = Field(description="ok only when every configured part answered")
     message: str
     readings: dict[str, Any] = Field(default_factory=dict)
+    weather: Literal["ok", "error", "not_configured"] = Field(
+        "not_configured", description="Outcome of the weather entity and sensor overrides alone"
+    )
+    illuminance: Optional[HaIlluminanceTestReading] = Field(
+        None, description="Outcome of the illuminance entity; null when none is configured"
+    )
 
 
 @router.post("/settings/ha-weather/test", response_model=HaWeatherTestResponse)
@@ -663,43 +683,67 @@ async def test_ha_weather(
     token = request.access_token if request.access_token not in (None, "", "***REDACTED***") else None
     token = token or settings.ha_weather.access_token or ""
     weather_entity = (request.weather_entity or settings.ha_weather.weather_entity or "").strip() or None
+    override_entities = settings.ha_weather.override_entities()
+    illuminance_entity = (request.illuminance_entity or settings.ha_weather.illuminance_entity or "").strip() or None
+    if request.scope == "weather":
+        illuminance_entity = None
+    elif request.scope == "illuminance":
+        weather_entity, override_entities = None, {}
     if not base_url or not token:
         return JSONResponse(
             status_code=400,
             content={"status": "error", "message": "A base URL and access token are required.", "readings": {}},
         )
 
-    override_entities = settings.ha_weather.override_entities()
-    if not weather_entity and not override_entities:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "status": "error",
-                "message": "Nothing to read yet: set a weather entity (e.g. weather.home) or at least one sensor override.",
-                "readings": {},
-            },
+    weather_configured = bool(weather_entity or override_entities)
+    if not weather_configured and not illuminance_entity:
+        nothing_to_read = (
+            "Nothing to read yet: set an illuminance entity (e.g. sensor.feeder_illuminance)."
+            if request.scope == "illuminance"
+            else "Nothing to read yet: set a weather entity (e.g. weather.home), a sensor override or an illuminance entity."
         )
+        return JSONResponse(status_code=400, content={"status": "error", "message": nothing_to_read, "readings": {}})
 
     source = HomeAssistantWeatherSource(
         base_url=base_url,
         access_token=token,
         weather_entity=weather_entity,
         override_entities=override_entities,
+        illuminance_entity=illuminance_entity,
     )
-    readings = await source.get_current_weather()
-    if not readings:
-        return JSONResponse(
-            status_code=502,
-            content={
-                "status": "error",
-                "message": "No readings came back. Check the URL, the token, and the entity ids.",
-                "readings": {},
-            },
+    measured, light = await source.read_current()
+    readings = {key: value for key, value in measured.items() if key != "illuminance_lux"}
+    no_readings = "No readings came back. Check the URL, the token, and the entity ids."
+    if weather_configured and not readings and illuminance_entity is None:
+        return JSONResponse(status_code=502, content={"status": "error", "message": no_readings, "readings": {}})
+
+    illuminance = (
+        HaIlluminanceTestReading(
+            entity_id=illuminance_entity,
+            status="ok" if light.lux is not None else "error",
+            lux=light.lux,
+            reason=light.reason,
         )
+        if illuminance_entity is not None and light is not None
+        else None
+    )
+    weather_outcome: Literal["ok", "error", "not_configured"] = (
+        "not_configured" if not weather_configured else "ok" if readings else "error"
+    )
+    if weather_outcome == "ok":
+        message = f"{len(readings)} reading(s) received from Home Assistant."
+    elif weather_outcome == "error":
+        message = no_readings
+    elif request.scope == "illuminance":
+        message = "Illuminance entity read."
+    else:
+        message = "No weather entity or sensor override is set, so weather still comes from the forecast."
     return HaWeatherTestResponse(
-        status="ok",
-        message=f"{len(readings)} reading(s) received from Home Assistant.",
+        status="error" if weather_outcome == "error" or (illuminance and illuminance.status == "error") else "ok",
+        message=message,
         readings=readings,
+        weather=weather_outcome,
+        illuminance=illuminance,
     )
 
 
@@ -1064,6 +1108,9 @@ class SettingsUpdate(BaseModel):
     ha_weather_precipitation_entity: Optional[str] = Field(None, description="Sensor overriding precipitation")
     ha_weather_rain_entity: Optional[str] = Field(None, description="Sensor overriding rainfall")
     ha_weather_snowfall_entity: Optional[str] = Field(None, description="Sensor overriding snowfall")
+    ha_weather_illuminance_entity: Optional[str] = Field(
+        None, description="Illuminance sensor (lx) recorded with each detection"
+    )
     # eBird settings
     ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
     ebird_api_key: Optional[str] = Field(None, description="eBird API key")
@@ -1653,6 +1700,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "ha_weather_precipitation_entity": settings.ha_weather.precipitation_entity,
         "ha_weather_rain_entity": settings.ha_weather.rain_entity,
         "ha_weather_snowfall_entity": settings.ha_weather.snowfall_entity,
+        "ha_weather_illuminance_entity": settings.ha_weather.illuminance_entity,
         # eBird settings
         "ebird_enabled": ebird_active,
         "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,

@@ -75,6 +75,7 @@
   "weather_precip": "降水",
   "weather_rain": "雨",
   "weather_snow": "雪",
+  "weather_light": "明るさ",
   "weather_icy": "凍結",
   "id": "検出ID",
   "open_in_frigate": "Frigate で開く",

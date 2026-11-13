@@ -329,7 +329,7 @@ override** — they're per-install data rather than deployment config:
   above do have env overrides; these four do not.
 - **Home Assistant weather entity overrides:** the individual temperature, wind
   speed, wind direction, cloud cover, precipitation, rain, and snowfall entities
-  under `ha_weather`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
+  under `ha_weather`, and the optional `illuminance_entity`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
   are env-configurable; the per-measurement overrides are not.
 - **Selected cameras**, their feeder/nest roles, Frigate ingest labels, and the audio source mapping.
 - **Audio tuning:** correlation window, buffer age and minimum audio confidence.

@@ -9,6 +9,8 @@
         ariaLabel?: string;
         /** Id of the help or unit text read after the field's name. */
         describedBy?: string;
+        /** Marks the value as rejected; the reason must be in the text `describedBy` names. */
+        invalid?: boolean;
         autocomplete?: HTMLInputAttributes['autocomplete'];
         min?: number;
         max?: number;
@@ -25,6 +27,7 @@
         placeholder,
         ariaLabel,
         describedBy,
+        invalid = false,
         autocomplete,
         min,
         max,
@@ -46,6 +49,7 @@
     {step}
     aria-label={ariaLabel}
     aria-describedby={describedBy}
+    aria-invalid={invalid ? 'true' : undefined}
     {value}
     oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
     onkeydown={(e) => onkeydown?.(e)}

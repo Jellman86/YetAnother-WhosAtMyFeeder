@@ -75,6 +75,7 @@
   "weather_precip": "Precip",
   "weather_rain": "Pioggia",
   "weather_snow": "Neve",
+  "weather_light": "Luce",
   "weather_icy": "Ghiaccio",
   "id": "ID rilevamento",
   "open_in_frigate": "Apri in Frigate",

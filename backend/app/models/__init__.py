@@ -71,6 +71,8 @@ class Detection(APIModel):
     weather_precipitation: float | None = None
     weather_rain: float | None = None
     weather_snowfall: float | None = None
+    # Measured light level in lx from a Home Assistant sensor; null when none was measured.
+    illuminance_lux: float | None = None
     # Taxonomy fields
     scientific_name: str | None = None
     common_name: str | None = None

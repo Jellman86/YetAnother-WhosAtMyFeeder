@@ -17,6 +17,7 @@ from app.config import settings
 from app.utils.public_access import guest_location
 from app.services.bird_export_eligibility import is_bird_exportable
 from app.services.ebird_service import ebird_service
+from app.services.ha_weather import valid_illuminance_lux
 from app.services.model_output_groups import OutputGroup
 from app.services.species_catalog_resolver import species_catalog_resolver
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -75,6 +76,7 @@ def _format_ebird_row(
     video_classification_provider: str | None,
     video_classification_backend: str | None,
     used_scientific_fallback: bool = False,
+    illuminance_lux: float | None = None,
 ) -> list[str]:
     date_str = checklist_start.strftime("%m/%d/%Y")
     time_str = checklist_start.strftime("%H:%M")
@@ -118,6 +120,11 @@ def _format_ebird_row(
         species_comment_parts.append(f"AI confidence {confidence:.2f}")
     if used_scientific_fallback:
         species_comment_parts.append("common name unavailable")
+    # The record format has no column for light, so the reading taken with the
+    # best-scoring detection goes in the comment. No reading adds nothing.
+    measured_lux = valid_illuminance_lux(illuminance_lux)
+    if measured_lux is not None:
+        species_comment_parts.append(f"measured light {measured_lux:.0f} lx")
     species_comment = "; ".join(species_comment_parts)
 
     # Feeder cameras can fire many detections for the same visiting bird, so a
@@ -297,7 +304,19 @@ async def export_ebird_csv(
         f = io.StringIO()
         writer = csv.writer(f, quoting=csv.QUOTE_MINIMAL)
         parsed_rows: list[
-            tuple[str, str | None, datetime, float, str | None, str | None, str | None, str | None, str | None, date]
+            tuple[
+                str,
+                str | None,
+                datetime,
+                float,
+                str | None,
+                str | None,
+                str | None,
+                str | None,
+                str | None,
+                date,
+                float | None,
+            ]
         ] = []
 
         # eBird spreadsheet import is strict about column order and often treats headers as data,
@@ -316,6 +335,7 @@ async def export_ebird_csv(
                     video_classification_backend,
                     model_artifact_id,
                     model_output_index,
+                    illuminance_lux,
                     english_common_name,
                 ) = row
                 producing_group, identity_group = _export_evidence_groups(
@@ -348,6 +368,7 @@ async def export_ebird_csv(
                         video_classification_backend,
                         english_common_name,
                         bucket,
+                        illuminance_lux,
                     )
                 )
 
@@ -363,7 +384,7 @@ async def export_ebird_csv(
             # "Common Blackbird" with a different iNat preferred name.
             sci_to_enrich: set[str] = set()
             for _row in parsed_rows:
-                _display, _sci, _, _, _, _common, _, _, _en, _ = _row
+                _display, _sci, _, _, _, _common, _, _, _en, _, _ = _row
                 if not _sci:
                     continue
                 _sci_lower = str(_sci).strip().lower()
@@ -423,7 +444,7 @@ async def export_ebird_csv(
             # value = (count, best_score, scientific_name, provider, backend)
             species_agg: dict[
                 tuple[ChecklistKey, str],
-                tuple[int, float, str | None, str | None, str | None],
+                tuple[int, float, str | None, str | None, str | None, float | None],
             ] = {}
             # Preserve insertion order for deterministic output
             checklist_species_order: list[tuple[ChecklistKey, str]] = []
@@ -439,6 +460,7 @@ async def export_ebird_csv(
                 video_classification_backend,
                 english_common_name,
                 bucket,
+                illuminance_lux,
             ) in parsed_rows:
                 effective_english = english_common_name or enrichment_map.get(scientific_name or "")
                 export_name = _resolve_export_common_name(
@@ -473,10 +495,11 @@ async def export_ebird_csv(
                         scientific_name,
                         video_classification_provider,
                         video_classification_backend,
+                        illuminance_lux,
                     )
                     checklist_species_order.append(species_key)
                 else:
-                    prev_count, prev_best, prev_sci, prev_prov, prev_back = existing
+                    prev_count, prev_best, prev_sci, prev_prov, prev_back, prev_lux = existing
                     # Keep metadata from the highest-scoring detection
                     if score_f > prev_best:
                         species_agg[species_key] = (
@@ -485,6 +508,7 @@ async def export_ebird_csv(
                             scientific_name,
                             video_classification_provider,
                             video_classification_backend,
+                            illuminance_lux,
                         )
                     else:
                         species_agg[species_key] = (
@@ -493,12 +517,13 @@ async def export_ebird_csv(
                             prev_sci,
                             prev_prov,
                             prev_back,
+                            prev_lux,
                         )
 
             # Emit one row per species per checklist
             for species_key in checklist_species_order:
                 ck, export_name = species_key
-                count, best_score, scientific_name, provider, backend = species_agg[species_key]
+                count, best_score, scientific_name, provider, backend, best_lux = species_agg[species_key]
                 start_dt = checklist_start[ck]
                 end_dt = checklist_end[ck]
                 duration = max(0, int((end_dt - start_dt).total_seconds() // 60))
@@ -519,6 +544,7 @@ async def export_ebird_csv(
                         video_classification_provider=provider,
                         video_classification_backend=backend,
                         used_scientific_fallback=is_sci_fallback,
+                        illuminance_lux=best_lux,
                     )
                 )
 

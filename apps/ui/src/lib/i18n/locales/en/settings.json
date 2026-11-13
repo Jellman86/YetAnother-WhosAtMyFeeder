@@ -470,7 +470,19 @@
       "test_loading": "Fetching…",
       "test_title": "Home Assistant weather test",
       "test_subtitle": "Fetches the current readings your detections would record.",
-      "stage_fetch": "Live readings from Home Assistant"
+      "stage_fetch": "Live readings from Home Assistant",
+      "illuminance": "Illuminance entity",
+      "illuminance_desc": "Optional. A light sensor that reports lx, e.g. sensor.feeder_illuminance. Its reading is stored with each new detection. When it cannot answer, no light level is stored.",
+      "illuminance_invalid": "This is not an entity id. Use the id Home Assistant shows for the sensor, such as sensor.feeder_illuminance.",
+      "stage_illuminance": "Light level from the illuminance entity",
+      "illuminance_measured": "{reading} measured by {entity}.",
+      "illuminance_invalid_entity_id": "{entity} is not a Home Assistant entity id. Use one such as sensor.feeder_illuminance.",
+      "illuminance_unreachable": "Home Assistant did not return {entity}. Check the entity id, the URL and the token.",
+      "illuminance_not_illuminance": "{entity} is not an illuminance sensor. Choose a sensor with the illuminance device class or the unit lx.",
+      "illuminance_unavailable": "{entity} is unknown or unavailable in Home Assistant right now. Detections record no light level until it answers.",
+      "illuminance_not_numeric": "{entity} did not report a number, so no light level is recorded.",
+      "illuminance_out_of_range": "{entity} reported a value outside 0 to 200,000 lx, so it is not recorded.",
+      "illuminance_no_answer": "The test returned no light reading."
     }
   },
   "enrichment": {

@@ -75,6 +75,7 @@
   "weather_precip": "Precip",
   "weather_rain": "Lluvia",
   "weather_snow": "Nieve",
+  "weather_light": "Luz",
   "weather_icy": "Helado",
   "id": "ID de detección",
   "open_in_frigate": "Abrir en Frigate",

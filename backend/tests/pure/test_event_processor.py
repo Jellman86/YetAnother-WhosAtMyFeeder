@@ -2040,3 +2040,33 @@ async def test_final_nonbird_save_rejection_is_an_expected_drop_without_post_com
     assert processor.get_status()["expected_drop_reasons"]["filter_non_bird"] == 1
     assert processor.get_status()["fault_drop_reasons"] == {}
     processor.detection_service.is_known_nonbird.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("age_seconds, expected", [(20, 900.0), (3600, None)])
+async def test_measured_light_is_saved_only_with_an_event_it_was_measured_for(age_seconds, expected):
+    """A lux reading is taken when the event is processed, so a replayed backlog gets none (#945)."""
+    from datetime import datetime, timedelta, timezone
+
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))
+    detected = datetime.now(timezone.utc) - timedelta(seconds=age_seconds)
+    event = SimpleNamespace(
+        frigate_event="evt-lux",
+        camera="birdcam",
+        start_time_ts=detected.timestamp(),
+        detection_dt=detected,
+        frigate_score=0.9,
+        sub_label=None,
+    )
+
+    await processor._save_detection(
+        event,
+        {"label": "Robin", "score": 0.9, "audio_confirmed": False, "audio_species": None, "audio_score": None},
+        {"weather_data": {"temperature": 9.0, "illuminance_lux": 900.0}, "audio_match": None},
+    )
+
+    saved = processor.detection_service.save_detection.await_args.kwargs
+    assert saved["illuminance_lux"] == expected
+    # The weather is unaffected by the age of the event, as before.
+    assert saved["temperature"] == 9.0

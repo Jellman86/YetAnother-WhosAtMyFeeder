@@ -825,6 +825,9 @@ class HomeAssistantWeatherSettings(BaseModel):
     precipitation_entity: Optional[str] = Field(default=None, description="Sensor overriding precipitation")
     rain_entity: Optional[str] = Field(default=None, description="Sensor overriding rainfall")
     snowfall_entity: Optional[str] = Field(default=None, description="Sensor overriding snowfall")
+    illuminance_entity: Optional[str] = Field(
+        default=None, description="Illuminance sensor (lx) recorded with each detection, e.g. sensor.feeder_illuminance"
+    )
 
     def override_entities(self) -> dict[str, str]:
         pairs = {
@@ -840,6 +843,10 @@ class HomeAssistantWeatherSettings(BaseModel):
 
     def is_usable(self) -> bool:
         return bool(self.enabled and (self.base_url or "").strip() and (self.access_token or "").strip())
+
+    def has_weather_source(self) -> bool:
+        """Whether anything is named to supply weather, as distinct from the light level alone."""
+        return bool((self.weather_entity or "").strip() or self.override_entities())
 
 
 class EbirdSettings(BaseModel):

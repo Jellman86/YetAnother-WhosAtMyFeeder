@@ -41,6 +41,7 @@ function detection(data: components['schemas']['DetectionResponse']): Detection 
         weather_precipitation: data.weather_precipitation ?? undefined,
         weather_rain: data.weather_rain ?? undefined,
         weather_snowfall: data.weather_snowfall ?? undefined,
+        illuminance_lux: data.illuminance_lux ?? undefined,
         video_classification_score: data.video_classification_score ?? undefined,
         video_classification_label: data.video_classification_label ?? undefined,
         video_classification_timestamp: data.video_classification_timestamp ?? undefined,
