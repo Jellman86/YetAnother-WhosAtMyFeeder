@@ -1,6 +1,7 @@
 {
   "title": "設定",
   "subtitle": "YA-WAMFインスタンスの構成と管理",
+  "load_failed": "設定を読み込めなかったため、編集用の内容は表示していません。YA-WAMF のバックエンドが動作していることを確認して、もう一度お試しください。",
   "language_selector": "言語",
   "language_desc": "UIテキストと通知の内容を変更します。",
   "date_format": {

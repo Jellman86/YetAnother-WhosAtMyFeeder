@@ -1,6 +1,7 @@
 {
   "title": "Paramètres",
   "subtitle": "Configurez et gérez votre instance YA-WAMF",
+  "load_failed": "Vos paramètres n'ont pas pu être lus, rien n'est donc affiché pour modification. Vérifiez que le backend YA-WAMF fonctionne, puis réessayez.",
   "language_selector": "Langue",
   "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
   "date_format": {

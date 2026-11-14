@@ -1,6 +1,7 @@
 {
   "title": "Configurações",
   "subtitle": "Configure e gerencie sua instância YA-WAMF",
+  "load_failed": "Não foi possível ler as definições, por isso nada é mostrado para edição. Verifique se o backend do YA-WAMF está em execução e tente novamente.",
   "language_selector": "Idioma",
   "language_desc": "Altera o texto da interface e conteúdo das notificações.",
   "date_format": {

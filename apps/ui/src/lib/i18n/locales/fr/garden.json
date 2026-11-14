@@ -167,7 +167,11 @@
     "state_domestic": "Nommé automatiquement comme oiseau domestique que vous élevez",
     "state_domestic_moved": "Déplacé depuis les oiseaux comme oiseau domestique que vous élevez",
     "awaiting_check": "{count, plural, one {# capture de caméra attend la vérification automatique} other {# captures de caméra attendent la vérification automatique}}",
-    "awaiting_check_empty": "{count, plural, one {# capture de caméra attend la vérification automatique.} other {# captures de caméra attendent la vérification automatique.}} Les animaux qu’elle nomme vont dans Animaux confirmés, les photos sans animal dans Rejetées, et ce qu’elle ne peut pas trancher apparaît ici."
+    "awaiting_check_empty": "{count, plural, one {# capture de caméra attend la vérification automatique.} other {# captures de caméra attendent la vérification automatique.}} Les animaux qu’elle nomme vont dans Animaux confirmés, les photos sans animal dans Rejetées, et ce qu’elle ne peut pas trancher apparaît ici.",
+    "late_reading": "Lecture des captures du jardin…",
+    "late_ready": "{count, plural, one {# capture du jardin de cette page a été lue après les visites.} other {# captures du jardin de cette page ont été lues après les visites.}}",
+    "late_none": "Aucune capture du jardin sur cette page.",
+    "late_show": "Afficher les captures du jardin"
   },
   "automatic_animal_manual": "Animal détecté. La nomination automatique est désactivée ou cet ancien résultat attend une nouvelle vérification.",
   "automatic_below_threshold": "Sous le seuil automatique. Déplacé dans Rejetés ; restaurez la photo pour la vérifier.",

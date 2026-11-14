@@ -65,6 +65,59 @@ describe('SettingsStore', () => {
         vi.restoreAllMocks();
     });
 
+    it('rejects a fresh read whose refresh fails instead of handing back the old copy, then recovers', async () => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            const newer = { cameras: ['birdcam', 'table'] } as unknown as Settings;
+            const fetchSettings = vi.fn<() => Promise<Settings>>()
+                .mockResolvedValueOnce(ownerSettings)
+                .mockRejectedValueOnce(new Error('backend away'))
+                .mockResolvedValueOnce(newer);
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+
+            expect(await store.read(5_000)).toEqual(ownerSettings);
+
+            vi.advanceTimersByTime(5_001);
+            await expect(store.read(5_000)).rejects.toThrow('backend away');
+            // A reader that only displays settings may still use the copy held, and is told its age is unknown.
+            expect(store.settings).toEqual(ownerSettings);
+            expect(store.error).toBe('backend away');
+            expect(await store.read()).toEqual(ownerSettings);
+
+            expect(await store.read(5_000)).toEqual(newer);
+            expect(store.error).toBeNull();
+            expect(fetchSettings).toHaveBeenCalledTimes(3);
+        } finally {
+            vi.useRealTimers();
+            vi.restoreAllMocks();
+        }
+    });
+
+    it('rejects a fresh read that joined a refresh which then failed', async () => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            let fail!: (error: Error) => void;
+            const fetchSettings = vi.fn<() => Promise<Settings>>()
+                .mockResolvedValueOnce(ownerSettings)
+                .mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+            await store.load();
+            vi.advanceTimersByTime(60_000);
+
+            const refresh = store.load();
+            const joined = store.read(5_000);
+            fail(new Error('backend away'));
+            await refresh;
+
+            await expect(joined).rejects.toThrow('backend away');
+        } finally {
+            vi.useRealTimers();
+            vi.restoreAllMocks();
+        }
+    });
+
     it('does not request settings for a guest session', async () => {
         const fetchSettings = vi.fn(async () => ownerSettings);
         const store = new SettingsStore({ fetchSettings, canReadSettings: () => false });

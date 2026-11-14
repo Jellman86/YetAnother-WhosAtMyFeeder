@@ -167,7 +167,11 @@
     "state_domestic": "Named automatically as a domestic bird you keep",
     "state_domestic_moved": "Moved from birds as a domestic bird you keep",
     "awaiting_check": "{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}",
-    "awaiting_check_empty": "{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here."
+    "awaiting_check_empty": "{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.",
+    "late_reading": "Reading Garden captures…",
+    "late_ready": "{count, plural, one {# Garden capture on this page was read after the visits.} other {# Garden captures on this page were read after the visits.}}",
+    "late_none": "No Garden captures on this page.",
+    "late_show": "Show Garden captures"
   },
   "motion_limits_scoped": "Motion detector only: CPU · At least {seconds}s between scans · Up to {limit} photos · {days}-day photo retention",
   "confirm_manually": "Confirm animal manually",

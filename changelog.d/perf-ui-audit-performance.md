@@ -22,3 +22,11 @@
   **Settings → Health** the system chart, the status line and the "Updated" reading keep their
   space before they arrive, and the Leaderboard's loading wall is the height of the wall that
   replaces it.
+- The Explorer no longer waits on a slow Garden read. A first page with Garden animals on shows
+  its visits after at most 0.3 seconds; if the Garden captures are not in by then, one row above
+  the visits says they are being read, then offers them with **Show Garden captures**, says there
+  are none, or says the read failed with **Retry**. Captures that arrive late are not dropped in
+  between visits you are already looking at.
+- Settings that cannot be read are no longer shown as a form. If the backend does not answer when
+  you open **Settings**, the page says so and offers **Try again** instead of a form of defaults
+  or of an older copy that could be applied over the configuration the backend holds.

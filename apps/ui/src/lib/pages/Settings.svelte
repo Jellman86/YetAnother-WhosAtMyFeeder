@@ -59,6 +59,7 @@
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startVisiblePoll } from '../app/visible-poll';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
@@ -237,6 +238,7 @@
     // status reads can still say idle. Keep polling for a bounded while after starting:
     // a run with nothing to repair finishes before it is ever seen running.
     const TAXONOMY_START_GRACE_MS = 15_000;
+    let settingsLoadFailed = $state(false);
     /** A read the shell finished this recently is the same answer a second request would get. */
     const SHARED_SETTINGS_READ_MS = 5_000;
     let taxonomyAwaitingStartUntil = 0;
@@ -1137,15 +1139,12 @@
     // the settings form or accumulating overlapping background reads.
     $effect(() => {
         if (activeTab !== 'detection' || !authStore.showSettings) return;
-        const refreshRuntime = (): void => {
-            if (!document.hidden && classifierStatusReads === 0) void loadClassifierStatus();
-        };
-        refreshRuntime();
-        const interval = window.setInterval(refreshRuntime, REFRESH_CADENCE_MS.classifierRuntime);
-        document.addEventListener('visibilitychange', refreshRuntime);
+        const stop = untrack(() => startVisiblePoll({
+            read: () => (classifierStatusReads === 0 ? loadClassifierStatus() : undefined),
+            delayMs: () => REFRESH_CADENCE_MS.classifierRuntime
+        }));
         return () => {
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange', refreshRuntime);
+            stop();
             classifierStatusRequest += 1;
         };
     });
@@ -2391,9 +2390,13 @@
 
             accessibilityDraft = accessibilitySection.decode(settings);
             await loadRecordingClipCapability();
+            settingsLoadFailed = false;
         } catch (e) {
             loadingBirdnetSources = false;
-            message = { type: 'error', text: $_('notifications.settings_load_failed') };
+            // A page-opening read that failed leaves nothing trustworthy to edit; the page says so
+            // and offers the read again. A refresh behind a form already shown only reports itself.
+            if (silent) message = { type: 'error', text: $_('notifications.settings_load_failed') };
+            else settingsLoadFailed = true;
         } finally {
             if (!silent) loading = false;
         }
@@ -2706,6 +2709,10 @@
     subtitle={$_('settings.subtitle')}
     {loading}
     {message}
+    loadFailure={settingsLoadFailed
+        ? $_('settings.load_failed', { default: 'Your settings could not be read, so nothing is shown for editing. Check that the YA-WAMF backend is running, then try again.' })
+        : null}
+    onRetryLoad={() => void loadSettings()}
     {isDirty}
     {saving}
     onSave={saveSettings}

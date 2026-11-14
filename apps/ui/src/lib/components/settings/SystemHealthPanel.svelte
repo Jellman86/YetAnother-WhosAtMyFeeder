@@ -4,6 +4,7 @@
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import { fetchSystemTelemetryHistory, type SystemTelemetryHistory } from '../../api';
     import { REFRESH_CADENCE_MS } from '../../app/refresh-cadence';
+    import { startVisiblePoll } from '../../app/visible-poll';
     import { formatTime } from '../../utils/datetime';
     import {
         CHART_HEIGHT,
@@ -71,16 +72,10 @@
 
     onMount(() => {
         const controller = new AbortController();
-        void refresh(controller.signal);
-        const tick = () => {
-            if (document.visibilityState === 'visible') void refresh(controller.signal);
-        };
-        const interval = window.setInterval(tick, POLL_MS);
-        document.addEventListener('visibilitychange', tick);
+        const stop = startVisiblePoll({ read: () => refresh(controller.signal), delayMs: () => POLL_MS });
         return () => {
             controller.abort();
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange', tick);
+            stop();
         };
     });
 

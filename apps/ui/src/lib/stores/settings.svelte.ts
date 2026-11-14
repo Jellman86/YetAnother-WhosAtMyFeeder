@@ -78,15 +78,19 @@ export class SettingsStore {
     /**
      * The settings for a reader that does not need its own request: the shell, a header control and
      * a page all ask during one page load, and one response answers them. Joins a read in flight,
-     * reuses one no older than `maxAgeMs`, and reads otherwise. Saves and live updates keep the held
-     * copy current, so a reader that only displays settings can accept any age.
+     * reuses a copy no older than `maxAgeMs`, and reads otherwise.
+     *
+     * A reader that names an age is promised a copy that fresh. If the read it needs fails, this
+     * rejects with the reason; it never hands back the older copy as though it had just been read.
+     * A reader that only displays settings passes no age and accepts the copy held, which saves and
+     * live updates keep current.
      */
     async read(maxAgeMs: number = Number.POSITIVE_INFINITY): Promise<Settings> {
         if (!this.canReadSettings()) throw new Error('Settings are not available to this session');
-        const held = this.settings;
-        if (held && this._loadPromise === null && Date.now() - this.lastReadAt <= maxAgeMs) return held;
+        const freshEnough = (): boolean => this.settings !== null && Date.now() - this.lastReadAt <= maxAgeMs;
+        if (this._loadPromise === null && freshEnough() && this.settings) return this.settings;
         await this.load();
-        if (!this.settings) throw new Error(this.error ?? 'Settings could not be read');
+        if (!freshEnough() || !this.settings) throw new Error(this.error ?? 'Settings could not be read');
         return this.settings;
     }
 

@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { addMessages, init, locale } from 'svelte-i18n';
 import { authoredLocale } from '../i18n/authored-locales';
+import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+import type { PollDocument } from '../app/visible-poll';
+import type { JobsSnapshot } from '../api/jobs';
 import { ServerJobsStore } from './server_jobs.svelte';
 
 const en = authoredLocale('en');
@@ -189,5 +192,114 @@ describe('ServerJobsStore', () => {
 
         expect(merged).toHaveLength(1);
         expect(merged[0]).toMatchObject({ id: 'backfill:weather:da620f73', current: 52, total: 94, startedAt: 1 });
+    });
+});
+
+function fakeTab(): PollDocument & { show(): void; hide(): void; listeners(): number } {
+    const listeners = new Set<() => void>();
+    const tab = {
+        hidden: false,
+        addEventListener: (_type: 'visibilitychange', listener: () => void) => { listeners.add(listener); },
+        removeEventListener: (_type: 'visibilitychange', listener: () => void) => { listeners.delete(listener); },
+        show(): void { tab.hidden = false; for (const listener of [...listeners]) listener(); },
+        hide(): void { tab.hidden = true; for (const listener of [...listeners]) listener(); },
+        listeners: () => listeners.size
+    };
+    return tab;
+}
+
+const idle: JobsSnapshot = { captured_at: '2026-11-14T10:00:00Z', items: [], lanes: [] };
+const working: JobsSnapshot = {
+    captured_at: '2026-11-14T10:00:00Z',
+    items: [{ id: 'backfill:1', kind: 'backfill', source: 'maintenance', status: 'running', current: 1, total: 9 }],
+    lanes: []
+} as unknown as JobsSnapshot;
+
+describe('ServerJobsStore polling', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('reads when first retained, once a minute while idle, and every five seconds while work runs', async () => {
+        vi.useFakeTimers();
+        let snapshot = idle;
+        const fetchSnapshot = vi.fn(async () => snapshot);
+        const store = new ServerJobsStore({ fetchSnapshot, canReadJobs: () => true, tab: fakeTab() });
+
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(REFRESH_CADENCE_MS.serverJobsIdle - 1);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+
+        snapshot = working;
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(3 * REFRESH_CADENCE_MS.serverJobsActive);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(5);
+        release();
+    });
+
+    it('reads nothing while the tab is hidden and catches up when it is shown', async () => {
+        vi.useFakeTimers();
+        const tab = fakeTab();
+        const fetchSnapshot = vi.fn(async () => idle);
+        const store = new ServerJobsStore({ fetchSnapshot, canReadJobs: () => true, tab });
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(0);
+
+        tab.hide();
+        await vi.advanceTimersByTimeAsync(10 * REFRESH_CADENCE_MS.serverJobsIdle);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+        tab.show();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+        release();
+    });
+
+    it('keeps polling after a failed read and says the status is unavailable meanwhile', async () => {
+        vi.useFakeTimers();
+        const fetchSnapshot = vi.fn<() => Promise<JobsSnapshot>>()
+            .mockRejectedValueOnce(new Error('backend away'))
+            .mockResolvedValue(idle);
+        const store = new ServerJobsStore({ fetchSnapshot, canReadJobs: () => true, tab: fakeTab() });
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(store.error).toBe('backend away');
+
+        await vi.advanceTimersByTimeAsync(REFRESH_CADENCE_MS.serverJobsIdle);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+        expect(store.error).toBeNull();
+        release();
+    });
+
+    it('stops when the last holder lets go, leaving no timer or listener, and one holder leaving does not stop another', async () => {
+        vi.useFakeTimers();
+        const tab = fakeTab();
+        const fetchSnapshot = vi.fn(async () => idle);
+        const store = new ServerJobsStore({ fetchSnapshot, canReadJobs: () => true, tab });
+        const releaseBar = store.retain();
+        const releasePage = store.retain();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(1);
+
+        releaseBar();
+        releaseBar();
+        await vi.advanceTimersByTimeAsync(REFRESH_CADENCE_MS.serverJobsIdle);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+
+        releasePage();
+        expect(vi.getTimerCount()).toBe(0);
+        expect(tab.listeners()).toBe(0);
+        await vi.advanceTimersByTimeAsync(10 * REFRESH_CADENCE_MS.serverJobsIdle);
+        expect(fetchSnapshot).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks nothing of the backend for a guest', async () => {
+        vi.useFakeTimers();
+        const fetchSnapshot = vi.fn(async () => idle);
+        const store = new ServerJobsStore({ fetchSnapshot, canReadJobs: () => false, tab: fakeTab() });
+        const release = store.retain();
+        await vi.advanceTimersByTimeAsync(5 * REFRESH_CADENCE_MS.serverJobsIdle);
+        expect(fetchSnapshot).not.toHaveBeenCalled();
+        release();
     });
 });

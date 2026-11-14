@@ -43,10 +43,6 @@ export const SHELL_READINGS: ReadonlyArray<{ reading: Reading; requests: number 
     { reading: 'mediaStorageCheck', requests: 2 }
 ];
 
-export function requestsPerIdleMinute(readings: ReadonlyArray<{ reading: Reading; requests: number }>): number {
-    return readings.reduce((total, entry) => total + (entry.requests * 60_000) / REFRESH_CADENCE_MS[entry.reading], 0);
-}
-
 /**
  * Wraps a read so it runs at most once per interval however often it is asked for. A skipped call
  * resolves to the last value read, so the caller's reasoning about it does not change.

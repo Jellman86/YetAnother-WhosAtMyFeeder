@@ -88,15 +88,6 @@ describe('content that arrives late has its space held', () => {
         expect(errorsSource).toContain("refreshedAgoText() ? '' : 'invisible'");
     });
 
-    it('draws the Explorer\'s first page once, with its Garden captures already in place', () => {
-        const hold = eventsSource.indexOf('await loadGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });');
-        const paint = eventsSource.indexOf('events = newEvents;');
-        expect(hold).toBeGreaterThan(-1);
-        expect(hold).toBeLessThan(paint);
-        // A page that replaces one already on screen does not wait for the Garden read.
-        expect(eventsSource).toContain('if (!firstPage) void loadGarden();');
-    });
-
     it('holds the Explorer day strip\'s space while the first page is read', () => {
         expect(eventsSource).toMatch(/\{:else if pane\.state === 'first-load'\}\s*<!--[^>]*-->\s*<div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>/);
     });

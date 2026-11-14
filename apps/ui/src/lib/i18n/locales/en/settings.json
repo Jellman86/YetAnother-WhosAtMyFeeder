@@ -1,6 +1,7 @@
 {
   "title": "Settings",
   "subtitle": "Configure and manage your YA-WAMF instance",
+  "load_failed": "Your settings could not be read, so nothing is shown for editing. Check that the YA-WAMF backend is running, then try again.",
   "language_selector": "Language",
   "language_desc": "Changes UI text and notification content.",
   "date_format": {

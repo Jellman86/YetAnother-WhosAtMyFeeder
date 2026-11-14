@@ -361,10 +361,24 @@
             // The first page is drawn once, with its Garden captures already in their places. Drawn
             // in two steps, the captures land between visits a moment later and every card after
             // them jumps. A page that replaces one on screen keeps its visits unblocked.
+            // The wait is bounded: a slow or unreachable Garden read must not hold back visits
+            // that are already here.
             const firstPage = events.length === 0;
             if (firstPage) {
-                await loadGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                const gardenRead = readGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                const inTime = await Promise.race([
+                    gardenRead,
+                    new Promise<null>((resolve) => setTimeout(() => resolve(null), GARDEN_FIRST_PAINT_WAIT_MS))
+                ]);
                 if (!load.isCurrent()) return;
+                if (inTime) {
+                    applyGarden(inTime);
+                } else {
+                    lateGarden = { state: 'reading' };
+                    void gardenRead.then((read) => {
+                        if (load.isCurrent() && lateGarden) holdGarden(read);
+                    });
+                }
             }
             events = newEvents;
             pageVisits = nextVisits;
@@ -1563,14 +1577,39 @@
     /** The bird page the Garden captures are read around; the page on screen unless one is given. */
     interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number }
 
-    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
-        if (gardenOnly) return;
+    type GardenTimelinePage = Awaited<ReturnType<typeof fetchGardenVisits>>;
+    /** What one Garden read found. Nothing is drawn until it is applied. */
+    type GardenRead =
+        | { kind: 'superseded' }
+        | { kind: 'off' }
+        | { kind: 'none' }
+        | { kind: 'page'; page: GardenTimelinePage }
+        | { kind: 'failed' };
+
+    /**
+     * How long the first page's visits, already read, wait for their Garden captures so both are
+     * drawn together. On the same host the Garden read answers in tens of milliseconds, so this is
+     * rarely reached; 300 ms is short enough to pass as the tail of the page's own loading state
+     * rather than as a second wait. Past it the visits are shown and the captures are offered.
+     */
+    const GARDEN_FIRST_PAINT_WAIT_MS = 300;
+
+    /**
+     * A Garden read that outlasted that wait. Its captures belong between visits already on screen,
+     * and dropping them in would move every card after them, so one row of fixed height says where
+     * the read stands and the reader chooses when the captures are shown.
+     */
+    type LateGarden =
+        | { state: 'reading' }
+        | { state: 'ready'; read: GardenRead; count: number }
+        | { state: 'none' }
+        | { state: 'failed' };
+    let lateGarden = $state.raw<LateGarden | null>(null);
+
+    async function readGarden(page: GardenAnchorPage): Promise<GardenRead> {
+        if (gardenOnly) return { kind: 'superseded' };
         const generation = ++gardenLoadGeneration;
-        if (!gardenInTimeline) {
-            gardenItems = null;
-            gardenFailed = false;
-            return;
-        }
+        if (!gardenInTimeline) return { kind: 'off' };
         const sort = sortOrder === 'oldest' ? 'oldest' : 'newest';
         const span = gardenWindow({
             visits: page.visits,
@@ -1582,13 +1621,9 @@
             rangeEnd: localDayBound(dateRange.end, true),
             now: new Date()
         });
-        if (!span) {
-            gardenItems = [];
-            gardenTotal = 0;
-            return;
-        }
+        if (!span) return { kind: 'none' };
         try {
-            const page = await fetchGardenVisits({
+            const timeline = await fetchGardenVisits({
                 start: localDayBound(dateRange.start, false)?.toISOString() ?? null,
                 end: localDayBound(dateRange.end, true)?.toISOString(),
                 pageStart: span.start?.toISOString(),
@@ -1598,21 +1633,69 @@
                 order: sort,
                 limit: GARDEN_WINDOW_LIMIT
             });
-            if (generation !== gardenLoadGeneration) return;
-            serverGardenVisits = page.visits;
-            gardenItems = page.visits.map((visit) => visit.representative);
-            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
-            gardenCaptureTotal = page.capture_total;
-            gardenAwaitingCheck = page.awaiting_check ?? 0;
-            gardenTotal = page.total;
-            gardenFailed = false;
+            return generation === gardenLoadGeneration ? { kind: 'page', page: timeline } : { kind: 'superseded' };
         } catch (e) {
-            if (generation !== gardenLoadGeneration) return;
-            if (e instanceof Error && e.name === 'AbortError') return;
+            if (generation !== gardenLoadGeneration) return { kind: 'superseded' };
+            if (e instanceof Error && e.name === 'AbortError') return { kind: 'superseded' };
+            console.error('Failed to load Garden captures', e);
+            return { kind: 'failed' };
+        }
+    }
+
+    function applyGarden(read: GardenRead): void {
+        if (read.kind === 'superseded') return;
+        if (read.kind === 'off') {
+            gardenItems = null;
+            gardenFailed = false;
+        } else if (read.kind === 'none') {
+            gardenItems = [];
+            gardenTotal = 0;
+        } else if (read.kind === 'failed') {
             gardenItems = null;
             gardenFailed = true;
-            console.error('Failed to load Garden captures', e);
+        } else {
+            serverGardenVisits = read.page.visits;
+            gardenItems = read.page.visits.map((visit) => visit.representative);
+            gardenCamerasSeen = seenGardenCameras(gardenCamerasSeen, gardenItems);
+            gardenCaptureTotal = read.page.capture_total;
+            gardenAwaitingCheck = read.page.awaiting_check ?? 0;
+            gardenTotal = read.page.total;
+            gardenFailed = false;
         }
+    }
+
+    /** Where a read stands for the held row. Only a read with nothing to draw is applied under the reader. */
+    function holdGarden(read: GardenRead): void {
+        if (read.kind === 'superseded') return;
+        if (read.kind === 'off') {
+            applyGarden(read);
+            lateGarden = null;
+        } else if (read.kind === 'failed') {
+            lateGarden = { state: 'failed' };
+        } else if (read.kind === 'page' && read.page.visits.length > 0) {
+            lateGarden = { state: 'ready', read, count: read.page.visits.length };
+        } else {
+            applyGarden(read);
+            lateGarden = { state: 'none' };
+        }
+    }
+
+    function showLateGarden(): void {
+        if (lateGarden?.state !== 'ready') return;
+        applyGarden(lateGarden.read);
+        lateGarden = null;
+    }
+
+    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
+        const read = await readGarden(page);
+        // Once the visits have been shown without their captures, later reads feed the held row too.
+        if (lateGarden) holdGarden(read);
+        else applyGarden(read);
+    }
+
+    async function retryLateGarden(): Promise<void> {
+        lateGarden = { state: 'reading' };
+        await loadGarden();
     }
 
     function gardenCaptureScope(): { start: string | null; end?: string; camera?: string; taxon?: number; status: GardenReview } {
@@ -2375,6 +2458,27 @@
                 <button type="button" class="btn btn-secondary min-h-11 whitespace-normal px-3 text-xs" onclick={undoGardenGroup}>{gardenUndo.returnToReview
                     ? $_('garden.visit_return', { default: 'Return captures to review' })
                     : $_('garden.batch_undo', { default: 'Undo group dismissal' })}</button>
+            </div>
+        {/if}
+        {#if lateGarden && gardenInTimeline}
+            <!-- One height in every state, so the read finishing moves nothing beneath it. -->
+            <div class="mb-4 flex h-16 items-center gap-x-3 rounded-xl border border-line-soft bg-surface px-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-explorer-garden-late={lateGarden.state}>
+                <span class="line-clamp-2 min-w-0 flex-1">
+                    {#if lateGarden.state === 'reading'}
+                        {$_('garden.explorer.late_reading', { default: 'Reading Garden captures…' })}
+                    {:else if lateGarden.state === 'ready'}
+                        {$_('garden.explorer.late_ready', { values: { count: lateGarden.count }, default: '{count, plural, one {# Garden capture on this page was read after the visits.} other {# Garden captures on this page were read after the visits.}}' })}
+                    {:else if lateGarden.state === 'failed'}
+                        {$_('garden.explorer.load_failed', { default: 'Could not load the Garden captures. The visits are unaffected.' })}
+                    {:else}
+                        {$_('garden.explorer.late_none', { default: 'No Garden captures on this page.' })}
+                    {/if}
+                </span>
+                {#if lateGarden.state === 'ready'}
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-3 text-xs" onclick={showLateGarden}>{$_('garden.explorer.late_show', { default: 'Show Garden captures' })}</button>
+                {:else if lateGarden.state === 'failed'}
+                    <button type="button" class="btn btn-secondary min-h-11 shrink-0 px-3 text-xs" onclick={() => void retryLateGarden()}>{$_('common.retry', { default: 'Retry' })}</button>
+                {/if}
             </div>
         {/if}
         {#if gardenInTimeline && gardenFailed}

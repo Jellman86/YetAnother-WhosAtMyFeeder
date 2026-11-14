@@ -29,7 +29,8 @@ function capture(id: string, at: string, status: 'pending' | 'confirmed', name?:
     };
 }
 
-async function openExplorer(page: Page, query = '', cropped = false, birdCameraCounts: Record<string, number> = {}) {
+/** `gardenGate` holds the Garden timeline read until it settles; a rejection answers it with a 503. */
+async function openExplorer(page: Page, query = '', cropped = false, birdCameraCounts: Record<string, number> = {}, gardenGate?: Promise<void>) {
     const errors: string[] = [];
     page.on('pageerror', error => { if (!error.message.includes('ResizeObserver loop')) errors.push(error.message); });
     const visits = [bird('morning', hoursAgo(1)), bird('night', hoursAgo(5))];
@@ -40,10 +41,17 @@ async function openExplorer(page: Page, query = '', cropped = false, birdCameraC
     const requested: string[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ contentType: 'text/css', body: '' }));
     await page.route('https://fonts.gstatic.com/**', route => route.abort());
-    await page.route(url => url.pathname.startsWith('/api/'), route => {
+    await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
         requested.push(path);
+        if (path === '/api/garden/visits' && gardenGate) {
+            try {
+                await gardenGate;
+            } catch {
+                return route.fulfill({ status: 503, json: { detail: 'Service unavailable' } });
+            }
+        }
         if (path === '/api/visits') {
             return route.fulfill({ json: { total: 2, gap_seconds: 60, visits: visits.map(record => ({
                 visit_id: record.frigate_event, start_time: record.detection_time, end_time: record.detection_time, capture_count: 1,
@@ -107,6 +115,82 @@ test('Garden captures sit between the visits they fell between, marked Garden in
     await expect(page.locator('[data-garden-row]')).toHaveCount(2);
     if (shots) await page.screenshot({ path: `${shots}/garden-explorer-list.png`, fullPage: true });
     expect(errors).toEqual([]);
+});
+
+function gate(): { held: Promise<void>; release: () => void; fail: () => void } {
+    let release!: () => void;
+    let fail!: () => void;
+    const held = new Promise<void>((resolve, reject) => { release = resolve; fail = () => reject(new Error('held read failed')); });
+    held.catch(() => {});
+    return { held, release, fail };
+}
+
+/** Sum of layout shifts not caused by the reader's own input, from now on. */
+async function watchLayoutShift(page: Page): Promise<() => Promise<number>> {
+    await page.evaluate(() => {
+        const target = window as unknown as { __shift: number };
+        target.__shift = 0;
+        new PerformanceObserver(list => {
+            for (const entry of list.getEntries() as Array<PerformanceEntry & { value: number; hadRecentInput: boolean }>) {
+                if (!entry.hadRecentInput) target.__shift += entry.value;
+            }
+        }).observe({ type: 'layout-shift' });
+    });
+    return () => page.evaluate(() => (window as unknown as { __shift: number }).__shift);
+}
+
+test('a slow Garden read does not hold the visits back, and its captures are offered rather than dropped in', async ({ page }) => {
+    const garden = gate();
+    const started = Date.now();
+    const { errors } = await openExplorer(page, '&garden=1', false, {}, garden.held);
+    // The visits were already read; they wait for Garden for a fraction of a second, not for its timeout.
+    expect(Date.now() - started).toBeLessThan(5_000);
+    const row = page.locator('[data-explorer-garden-late]');
+    await expect(row).toHaveAttribute('data-explorer-garden-late', 'reading');
+    await expect(row).toContainText('Reading Garden captures');
+    await expect(page.locator('[data-explorer-visit]')).toHaveCount(2);
+    await expect(page.locator('[data-garden-card]')).toHaveCount(0);
+
+    const shifted = await watchLayoutShift(page);
+    const before = await page.locator('[data-explorer-visit="night"]').boundingBox();
+    garden.release();
+    await expect(row).toHaveAttribute('data-explorer-garden-late', 'ready');
+    await expect(row).toContainText('2 Garden captures on this page were read after the visits.');
+    // Nothing moved under the reader: the captures are held until asked for.
+    await expect(page.locator('[data-garden-card]')).toHaveCount(0);
+    await page.waitForTimeout(600);
+    expect(await shifted()).toBe(0);
+    expect(await page.locator('[data-explorer-visit="night"]').boundingBox()).toEqual(before);
+
+    await row.getByRole('button', { name: 'Show Garden captures', exact: true }).click();
+    const order = page.locator('[data-explorer-visit], [data-garden-card]');
+    await expect(order).toHaveCount(4);
+    expect(await order.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-explorer-visit') ?? `garden:${node.getAttribute('data-garden-card')}`)))
+        .toEqual(['garden:pending', 'morning', 'garden:confirmed', 'night']);
+    await expect(row).toHaveCount(0);
+    expect(errors).toEqual([]);
+});
+
+test('a Garden read that fails after the visits are shown says so in the held row and can be retried', async ({ page }) => {
+    const garden = gate();
+    await openExplorer(page, '&garden=1', false, {}, garden.held);
+    const row = page.locator('[data-explorer-garden-late]');
+    await expect(row).toHaveAttribute('data-explorer-garden-late', 'reading');
+
+    const shifted = await watchLayoutShift(page);
+    garden.fail();
+    await expect(row).toHaveAttribute('data-explorer-garden-late', 'failed');
+    await expect(row).toContainText('Could not load the Garden captures. The visits are unaffected.');
+    await expect(row.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    await expect(page.locator('[data-explorer-visit]')).toHaveCount(2);
+    await page.waitForTimeout(600);
+    expect(await shifted()).toBe(0);
+});
+
+test('a Garden read that answers in time is drawn with the visits and leaves no held row', async ({ page }) => {
+    await openExplorer(page, '&garden=1');
+    await expect(page.locator('[data-garden-card]')).toHaveCount(2);
+    await expect(page.locator('[data-explorer-garden-late]')).toHaveCount(0);
 });
 
 test('Garden on its own lists only captures, and its record confirms an animal without bird actions', async ({ page }) => {
