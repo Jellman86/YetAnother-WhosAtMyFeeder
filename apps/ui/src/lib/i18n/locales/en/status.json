@@ -1,12 +1,21 @@
 {
   "title": "System status",
   "live_updates": "Live updates",
-  "online": "Online",
-  "offline": "Offline",
   "audio_analysis": "Audio analysis",
   "notifications": "Notifications",
   "open_health": "System health",
   "tile_live": "Live",
   "tile_audio": "Audio",
-  "tile_alerts": "Alerts"
+  "tile_alerts": "Alerts",
+  "tile_connecting": "Connecting",
+  "tile_no_events": "No events",
+  "tile_no_frigate": "No Frigate",
+  "tile_connected": "Connected",
+  "tile_offline": "Offline",
+  "feed_live": "Receiving camera events",
+  "feed_connecting": "Connecting to the MQTT broker",
+  "feed_broker_down": "Not receiving camera events, the MQTT broker is not connected",
+  "feed_frigate_down": "Frigate is not answering, so new detections cannot be saved",
+  "feed_app_only": "Connected to YA-WAMF",
+  "feed_reconnecting": "Reconnecting to YA-WAMF"
 }

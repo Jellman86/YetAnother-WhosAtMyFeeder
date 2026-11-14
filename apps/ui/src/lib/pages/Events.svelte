@@ -603,6 +603,10 @@
             return;
         }
 
+        // Whether Garden can be read is an owner setting. Reading before it arrives sent a Garden
+        // link to bird visits, then labelled them an empty Garden queue, so the first read waits.
+        if (authStore.hasOwnerAccess && settingsStore.settings === null) await settingsStore.load();
+
         const metadataTask = loadEventMetadata(false, true);
         await loadEvents();
 

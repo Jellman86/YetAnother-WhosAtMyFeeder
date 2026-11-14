@@ -5,9 +5,11 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
+from app.models.service_connections import ServiceConnectionsResponse
 from app.routers.stats import SystemTelemetryHistoryResponse, build_system_telemetry_history
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.media_probe import collect_video_sample_diagnostic
+from app.services.service_connections import collect_service_connections
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
@@ -82,6 +84,7 @@ class DiagnosticsWorkspaceResponse(BaseModel):
     backend_diagnostics: BackendDiagnosticsSnapshotResponse
     focused_diagnostics: FocusedDiagnosticsResponse
     health: dict[str, Any]
+    connections: ServiceConnectionsResponse | None = None
     classifier: dict[str, Any]
     taxonomy_repair: dict[str, Any]
     maintenance_coordinator: dict[str, Any]
@@ -270,6 +273,8 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
     from app.routers.settings import canonical_identity_repair_service
     from app.services.maintenance_coordinator import maintenance_coordinator
 
+    # Measured first, so the health verdict below already counts a Frigate that stopped answering.
+    connections = await collect_service_connections(refresh_frigate=True)
     health = build_health_payload()
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
     taxonomy_repair = canonical_identity_repair_service.get_status()
@@ -283,6 +288,7 @@ async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
             "backfill": _build_backfill_focus(backend_diagnostics),
         },
         "health": health,
+        "connections": connections.model_dump(),
         "classifier": classifier_service.get_status(),
         "taxonomy_repair": taxonomy_repair,
         "maintenance_coordinator": maintenance_status,
@@ -365,6 +371,17 @@ async def get_owner_workspace_diagnostics(
 ):
     """Return bounded diagnostics evidence for the owner incident workspace."""
     return await _collect_workspace_payload(limit)
+
+
+@router.get("/connections", response_model=ServiceConnectionsResponse)
+async def get_service_connections(
+    _auth: AuthContext = Depends(require_owner),
+) -> ServiceConnectionsResponse:
+    """Whether the MQTT broker session is up and Frigate's API answers, as last measured.
+
+    A Frigate reading older than a minute is refreshed with one short request first.
+    """
+    return await collect_service_connections(refresh_frigate=True)
 
 
 @router.get("/bundle", response_model=DiagnosticsBundleResponse)

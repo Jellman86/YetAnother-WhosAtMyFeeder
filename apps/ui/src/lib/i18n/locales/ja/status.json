@@ -1,12 +1,21 @@
 {
   "title": "システム状態",
   "live_updates": "ライブ更新",
-  "online": "オンライン",
-  "offline": "オフライン",
   "audio_analysis": "音声分析",
   "notifications": "通知",
   "open_health": "システムの状態",
   "tile_live": "ライブ",
   "tile_audio": "音声",
-  "tile_alerts": "通知"
+  "tile_alerts": "通知",
+  "tile_connecting": "接続中",
+  "tile_no_events": "イベントなし",
+  "tile_no_frigate": "Frigate不通",
+  "tile_connected": "接続済み",
+  "tile_offline": "オフライン",
+  "feed_live": "カメライベントを受信中",
+  "feed_connecting": "MQTTブローカーに接続中",
+  "feed_broker_down": "MQTTブローカーに接続していないため、カメライベントを受信できません",
+  "feed_frigate_down": "Frigateが応答しないため、新しい検出を保存できません",
+  "feed_app_only": "YA-WAMFに接続済み",
+  "feed_reconnecting": "YA-WAMFに再接続中"
 }

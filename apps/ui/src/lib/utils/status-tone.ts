@@ -29,6 +29,14 @@ const TONE_BY_STATUS: Readonly<Record<string, StatusTone>> = {
     clear: 'healthy',
     resolved: 'healthy',
     recovered: 'healthy',
+    connected: 'healthy',
+    reachable: 'healthy',
+    connecting: 'running',
+    disconnected: 'attention',
+    unreachable: 'attention',
+    not_configured: 'attention',
+    stopped: 'attention',
+    unchecked: 'unknown',
     unknown: 'unknown'
 };
 

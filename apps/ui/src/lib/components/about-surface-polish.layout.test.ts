@@ -47,8 +47,10 @@ describe('About surface polish', () => {
     it('never prints the same unknown twice, and marks unprobed steps as unchecked', () => {
         expect(pipelineSource).toContain('detail: noReading, state: unknown');
         expect(pipelineSource).not.toContain('detail: unknown, state: unknown');
-        // MQTT and the database have no health endpoint; saying so beats a blank chip.
+        // The database has no health endpoint, and the broker stays unchecked until its
+        // measured session is read; saying so beats a blank chip.
         expect(pipelineSource.match(/state: notChecked/g)?.length).toBe(2);
+        expect(pipelineSource).toContain('serviceConnectionsStore.connections?.mqtt.state');
     });
 
     it('keeps the availability footprint without calling a failed request empty history', () => {

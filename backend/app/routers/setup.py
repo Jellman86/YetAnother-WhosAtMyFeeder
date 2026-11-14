@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 from app.auth import AuthContext, require_owner
 from app.config import settings
 from app.services.model_manager import model_manager
+from app.services.service_connections import collect_service_connections
 from app.services.setup_state_service import SetupState, compute_setup_state
 
 router = APIRouter(prefix="/setup", tags=["setup"])
@@ -22,4 +23,8 @@ async def get_setup_state(_auth: AuthContext = Depends(require_owner)) -> SetupS
     Owner-gated, but open during first run (auth is not yet enabled), so the wizard can render
     before a password exists.
     """
-    return compute_setup_state(settings, active_model_id=model_manager.active_model_id)
+    return compute_setup_state(
+        settings,
+        active_model_id=model_manager.active_model_id,
+        connections=await collect_service_connections(refresh_frigate=True),
+    )

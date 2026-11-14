@@ -33,6 +33,7 @@ from app.services.media_integrity_scan import (
 )
 from app.version import compose_app_version, normalize_app_branch
 from app.services.mqtt_service import mqtt_service
+from app.services.service_connections import frigate_reachability
 from app.services.classifier_service import (
     CLASSIFIER_ACCEL_PROBE_TTL_SECONDS,
     get_classifier,
@@ -1242,6 +1243,7 @@ def build_health_payload() -> dict[str, object]:
         # fault to report, not a setting someone chose (#622).
         "media_storage": {"available": media_cache.available, "error": media_cache.unavailable_reason},
         "mqtt": mqtt_health,
+        "frigate_api": {"state": frigate_reachability.state, "last_failure": frigate_reachability.last_failure},
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,
         "notification_dispatcher": notification_dispatch_health,
@@ -1273,6 +1275,9 @@ def build_health_payload() -> dict[str, object]:
         or event_pipeline_health.get("status") != "ok"
         or db_pool_is_degraded(db_pool_health)
         or not media_cache.available
+        # No new detection can arrive without the broker, and none can be saved without Frigate.
+        or mqtt_health.get("connection_state") in {"disconnected", "not_configured"}
+        or frigate_reachability.state == "unreachable"
     ):
         health["status"] = "degraded"
 

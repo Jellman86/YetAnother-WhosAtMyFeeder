@@ -5,6 +5,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
@@ -105,7 +106,13 @@
 
     const cameraSummary = $derived.by(() => {
         if (isGuestView) return { detail: ownerOnlyDetail, state: ownerOnly, tone: 'off' as Tone };
-        if (cameraFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
+        if (cameraFailed) {
+            // The camera list failing is not a reading; Frigate measured as not answering is.
+            const frigateDown = serviceConnectionsStore.connections?.frigate.state === 'unreachable';
+            return frigateDown
+                ? { detail: noReading, state: $_('about.pipeline.offline', { default: 'offline' }), tone: 'off' as Tone }
+                : { detail: noReading, state: unknown, tone: 'unknown' as Tone };
+        }
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
         const cameras = cameraStatus.cameras ?? [];
         const online = cameras.filter((camera) => camera.status === 'online').length;
@@ -141,6 +148,18 @@
         };
     });
 
+    // The broker session as the server measured it; guests are not told, and an owner's
+    // unread state stays "not checked" rather than borrowing a neighbour's green.
+    const mqttSummary = $derived.by((): { state: string; tone: Tone } => {
+        if (isGuestView) return { state: ownerOnly, tone: 'off' };
+        const state = serviceConnectionsStore.connections?.mqtt.state;
+        if (state === 'connected') return { state: $_('about.pipeline.online', { default: 'online' }), tone: 'ok' };
+        if (state === 'disconnected' || state === 'not_configured' || state === 'stopped') {
+            return { state: $_('about.pipeline.offline', { default: 'offline' }), tone: 'off' };
+        }
+        return { state: notChecked, tone: 'unknown' };
+    });
+
     const steps = $derived<Step[]>([
         {
             key: 'frigate',
@@ -153,10 +172,8 @@
             key: 'mqtt',
             kind: 'external',
             detail: $_('about.pipeline.mqtt_detail', { default: 'frigate/events' }),
-            // No status endpoint for the broker, so this step reports that it was never probed
-            // rather than borrowing a neighbour's green.
-            state: notChecked,
-            tone: 'unknown'
+            state: mqttSummary.state,
+            tone: mqttSummary.tone
         },
         {
             key: 'classifier',

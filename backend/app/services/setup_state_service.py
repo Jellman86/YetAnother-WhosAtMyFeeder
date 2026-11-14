@@ -3,7 +3,9 @@
 The wizard is a guided editor over the normal config (`/api/settings`); this service
 answers the cheap, deterministic question "which sections look configured?" so both the
 first-run flow and the re-run section map can render ✅/⚠/optional markers without the SPA
-re-deriving readiness rules. Live connection checks stay in the per-step *test* endpoints.
+re-deriving readiness rules. The connection section also takes the broker and Frigate state
+the service last measured, so saved values that cannot be reached are not shown as ready; the
+full staged checks stay in the per-step *test* endpoints.
 
 The core is a pure function over a settings object so it is unit-testable without a live
 Frigate/MQTT/model.
@@ -15,6 +17,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from app.models.service_connections import ServiceConnectionsResponse
 from app.services.model_manager import is_retired_model, registry_artifact_kind, registry_model_name
 
 # Section ids line up with the wizard steps (welcome/language is not a config section).
@@ -28,7 +31,8 @@ class SetupSectionState(BaseModel):
 
     - ``ok``: functional (explicitly configured, or a working default).
     - ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).
-    - ``optional``: an optional feature that is simply not enabled.
+    - ``optional``: an optional feature that is simply not enabled, including running without
+      a password.
     """
 
     id: str
@@ -50,15 +54,17 @@ def _account(settings) -> SetupSectionState:
             id="account", status="ok", detail="Password protected", detail_code="account_password_protected"
         )
     if getattr(auth, "initial_setup_complete", False):
+        # A deliberate choice for a trusted network, but it protects nothing, so it is not
+        # reported the way a password is.
         return SetupSectionState(
-            id="account", status="ok", detail="Authentication disabled", detail_code="account_auth_disabled"
+            id="account", status="optional", detail="Authentication disabled", detail_code="account_auth_disabled"
         )
     return SetupSectionState(
         id="account", status="attention", detail="Not configured", detail_code="account_not_configured"
     )
 
 
-def _connection(settings) -> SetupSectionState:
+def _connection(settings, connections: ServiceConnectionsResponse | None) -> SetupSectionState:
     url = (settings.frigate.frigate_url or "").strip()
     mqtt_server = (settings.frigate.mqtt_server or "").strip()
     missing: list[str] = []
@@ -71,9 +77,7 @@ def _connection(settings) -> SetupSectionState:
     if settings.frigate.mqtt_auth and not settings.frigate.mqtt_password:
         missing.append("MQTT password")
     if not missing:
-        return SetupSectionState(
-            id="connection", status="ok", detail=url, detail_code="connection_ready", detail_values={"url": url}
-        )
+        return _measured_connection(url, connections)
     missing_codes = {
         "Frigate URL": "frigate_url",
         "MQTT broker": "mqtt_broker",
@@ -86,6 +90,35 @@ def _connection(settings) -> SetupSectionState:
         detail=f"Set {', '.join(missing)}",
         detail_code="connection_missing",
         detail_values={"items": ",".join(missing_codes[item] for item in missing)},
+    )
+
+
+def _measured_connection(url: str, connections: ServiceConnectionsResponse | None) -> SetupSectionState:
+    """Saved values say nothing about whether they work; a measurement does, when there is one."""
+    unreachable: list[str] = []
+    if connections is not None and connections.mqtt.state == "disconnected":
+        unreachable.append("mqtt")
+    if connections is not None and connections.frigate.state == "unreachable":
+        unreachable.append("frigate")
+    if unreachable:
+        return SetupSectionState(
+            id="connection",
+            status="attention",
+            detail="Could not reach "
+            + " or ".join("the MQTT broker" if i == "mqtt" else "Frigate" for i in unreachable),
+            detail_code="connection_unreachable",
+            detail_values={"items": ",".join(unreachable)},
+        )
+    if connections is not None and connections.mqtt.state == "connected" and connections.frigate.state == "reachable":
+        return SetupSectionState(
+            id="connection",
+            status="ok",
+            detail=f"Connected: {url}",
+            detail_code="connection_connected",
+            detail_values={"url": url},
+        )
+    return SetupSectionState(
+        id="connection", status="ok", detail=url, detail_code="connection_ready", detail_values={"url": url}
     )
 
 
@@ -227,13 +260,19 @@ def _integrations(settings) -> SetupSectionState:
     )
 
 
-def compute_setup_state(settings, *, active_model_id: str | None = None) -> SetupState:
-    """Derive per-section readiness from the current settings and running model (pure, no I/O)."""
+def compute_setup_state(
+    settings,
+    *,
+    active_model_id: str | None = None,
+    connections: ServiceConnectionsResponse | None = None,
+) -> SetupState:
+    """Derive per-section readiness from the current settings, running model and the measured
+    connections (pure, no I/O: the caller does the measuring)."""
     return SetupState(
         initial_setup_complete=bool(getattr(settings.auth, "initial_setup_complete", False)),
         sections=[
             _account(settings),
-            _connection(settings),
+            _connection(settings, connections),
             _cameras(settings),
             _model(settings, active_model_id),
             _quality(settings),

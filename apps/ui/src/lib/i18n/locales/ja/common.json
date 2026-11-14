@@ -64,5 +64,6 @@
   "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。",
   "undo": "元に戻す",
   "unknown": "不明",
-  "diagnostic_step_status": "ステップ {step}/{total}: {label}"
+  "diagnostic_step_status": "ステップ {step}/{total}: {label}",
+  "checks_failed": "{total} 件中 {failed} 件の確認が失敗しました: {labels}。"
 }

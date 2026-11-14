@@ -64,5 +64,6 @@
   "language_load_error": "Не удалось загрузить этот язык. Проверьте подключение и повторите попытку.",
   "undo": "Отменить",
   "unknown": "неизвестно",
-  "diagnostic_step_status": "Шаг {step} из {total}: {label}"
+  "diagnostic_step_status": "Шаг {step} из {total}: {label}",
+  "checks_failed": "Не пройдено проверок: {failed} из {total}: {labels}."
 }

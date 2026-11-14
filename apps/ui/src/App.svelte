@@ -13,6 +13,8 @@
   import ConfirmDialog from './lib/components/ConfirmDialog.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
+  import { liveFeedState } from './lib/utils/live-feed-state';
+  import { serviceConnectionsStore } from './lib/stores/service_connections.svelte';
   import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
   import LazyRoute from './lib/components/LazyRoute.svelte';
   import LazyModal from './lib/components/LazyModal.svelte';
@@ -345,7 +347,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       onConnected: () => {
           reconnectAttempts = 0;
           if (authStore.hasOwnerAccess) gardenHistory.invalidate();
+          refreshOwnerConnections();
       },
+      onServiceConnectionsChanged: () => refreshOwnerConnections(),
       onGardenHistoryChanged: () => gardenHistory.invalidate(),
       onPublicHistoryChanged: () => publicHistoryRefresh.notify(),
       // Refresh every public view and its caches when the owner changes sharing.
@@ -384,6 +388,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       return () => window.clearInterval(retryInterval);
   });
 
+  /** The live tile's broker and Frigate reading; owners only, since guests are never told it. */
+  function refreshOwnerConnections(): void {
+      if (authStore.showSettings) void serviceConnectionsStore.refresh();
+  }
+
   function startOperationalPolling(): () => void {
       void reconcileReclassificationsOnce();
       void runOwnerSystemChecksOnce();
@@ -408,6 +417,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       const ownerInterval = window.setInterval(() => {
           if (document.hidden) return;
           void runOwnerSystemChecksOnce();
+          refreshOwnerConnections();
       }, 60_000);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
@@ -600,6 +610,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           if (!appInitialized || activeAccessIdentity !== accessIdentity) {
               closeLiveConnection();
               untrack(() => detectionsStore.resetForAccessChange());
+              untrack(() => serviceConnectionsStore.clear());
               if (authStore.isAuthenticated || !authStore.authRequired) {
                   settingsStore.load();
               } else {
@@ -613,6 +624,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               if (authStore.showSettings) {
                   void syncAnalysisQueueStatusOnce();
                   void runOwnerSystemChecksOnce();
+                  refreshOwnerConnections();
               }
               activeAccessIdentity = accessIdentity;
               appInitialized = true;
@@ -623,6 +635,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
       if (!canAccess && appInitialized) {
           closeLiveConnection();
           untrack(() => detectionsStore.resetForAccessChange());
+          untrack(() => serviceConnectionsStore.clear());
           settingsStore.clear();
           activeAccessIdentity = null;
           appInitialized = false;
@@ -807,7 +820,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
-                  connected={detectionsStore.connected}
+                  feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
               />
               <div class="mt-1 flex justify-end">
                   <UpdateIndicator />

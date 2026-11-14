@@ -1,12 +1,21 @@
 {
   "title": "Состояние системы",
   "live_updates": "Обновления в реальном времени",
-  "online": "Онлайн",
-  "offline": "Офлайн",
   "audio_analysis": "Аудиоанализ",
   "notifications": "Уведомления",
   "open_health": "Состояние системы",
   "tile_live": "Онлайн",
   "tile_audio": "Звук",
-  "tile_alerts": "Оповещения"
+  "tile_alerts": "Оповещения",
+  "tile_connecting": "Подключение",
+  "tile_no_events": "Нет событий",
+  "tile_no_frigate": "Нет Frigate",
+  "tile_connected": "Подключено",
+  "tile_offline": "Нет связи",
+  "feed_live": "События камер поступают",
+  "feed_connecting": "Подключение к MQTT-брокеру",
+  "feed_broker_down": "События камер не поступают: MQTT-брокер не подключён",
+  "feed_frigate_down": "Frigate не отвечает, поэтому новые обнаружения не сохраняются",
+  "feed_app_only": "Подключено к YA-WAMF",
+  "feed_reconnecting": "Переподключение к YA-WAMF"
 }

@@ -1059,6 +1059,7 @@ export interface components {
     DiagnosticsWorkspaceResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
     classifier: Record<string, unknown>;
+    connections?: components['schemas']['ServiceConnectionsResponse'] | null;
     focused_diagnostics: components['schemas']['FocusedDiagnosticsResponse'];
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
@@ -1199,6 +1200,15 @@ export interface components {
     FocusedDiagnosticsResponse: {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
+};
+    FrigateApiStatus: {
+    availability?: "online" | "offline" | "unknown";
+    checked_at?: string | null;
+    last_failure?: "timeout" | "connection" | "unauthorized" | "server_error" | null;
+    last_failure_at?: string | null;
+    last_success_at?: string | null;
+    state: "reachable" | "unreachable" | "unchecked";
+    url: string;
 };
     FrigateCameraStatusItem: {
     camera: string;
@@ -1908,6 +1918,15 @@ export interface components {
     capture_id: string;
     event_id: string;
 };
+    MqttConnectionStatus: {
+    connected_since?: string | null;
+    last_attempt_at?: string | null;
+    last_error?: string | null;
+    last_failure_at?: string | null;
+    port: number;
+    server: string;
+    state: "connecting" | "connected" | "disconnected" | "not_configured" | "stopped";
+};
     NewSpeciesQueueResponse: {
     items: Array<components['schemas']['NewSpeciesSighting']>;
     max_sightings: number;
@@ -2144,6 +2163,11 @@ export interface components {
     status: string;
     taxon_id: number;
     total_observations: number;
+};
+    ServiceConnectionsResponse: {
+    frigate: components['schemas']['FrigateApiStatus'];
+    generated_at: string;
+    mqtt: components['schemas']['MqttConnectionStatus'];
 };
     SettingsImportResponse: {
     changed_fields: Array<string>;
@@ -3669,6 +3693,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ClearDiagnosticsWorkspaceResponse'];
+    };
+  };
+  "/api/diagnostics/connections": {
+    get: {
+      operationId: "get_service_connections_api_diagnostics_connections_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ServiceConnectionsResponse'];
     };
   };
   "/api/diagnostics/errors": {

@@ -8,7 +8,10 @@
   "status": {
     "ok": "Configured",
     "attention": "Needs attention",
-    "optional": "Optional"
+    "optional": "Optional",
+    "no_password": "No password",
+    "connected": "Connected",
+    "unreachable": "Not reachable"
   },
   "account": {
     "title": "Admin account & access",
@@ -144,7 +147,9 @@
       "integrations_needs": "Needs setup: {integrations}",
       "integrations_configured": "Configured: {integrations}",
       "integrations_birdnet_listening": "BirdNET-Go is listening over MQTT, with no URL to check it",
-      "integrations_none": "None enabled"
+      "integrations_none": "None enabled",
+      "frigate": "Frigate",
+      "connection_unreachable": "Could not reach: {items}. Check the addresses and that both are running."
     },
     "description": "Here is where each section stands. Jump into any one to change it; nothing else is affected.",
     "done": "Done",

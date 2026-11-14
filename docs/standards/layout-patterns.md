@@ -158,6 +158,13 @@ to a same-size placeholder, never a hole that shifts the row.
 The dashboard's audio-versus-camera card exists because being honest that two sensors never
 corroborate each other is more useful than hiding it.
 
+"Live" is a claim about camera events, not about the page. The sidebar's live tile and the
+Dashboard's feed line are green only while the MQTT broker session is measured up
+(`utils/live-feed-state.ts`); a broker or Frigate that is down turns them amber in words, and
+without a measurement (a guest, or before the first read) they say only that the page is connected
+to YA-WAMF. Settings → Health follows the same rule: its verdict is never healthy while the broker
+or Frigate is down, and its MQTT and Frigate cards lead with the connection state, not queue load.
+
 ### 1.6 Show the evidence at the size the decision needs
 
 When a screen asks someone to judge a machine's output, the evidence gets the larger half and the

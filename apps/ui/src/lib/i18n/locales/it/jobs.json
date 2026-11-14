@@ -214,7 +214,7 @@
     "filter_invalid_score": "Punteggio non valido",
     "filter_out_of_range": "Fuori dall'areale della tua regione"
   },
-  "errors_mqtt_ok": "Il traffico MQTT scorre normalmente.",
+  "errors_mqtt_ok": "L’elaborazione tiene il passo.",
   "errors_mqtt_pressure": "Gli handler MQTT sono sotto pressione {pressure} con {inFlight}/{capacity} in volo.",
   "errors_mqtt_reconnected": "MQTT si è ripreso correttamente dopo {count, plural, one {# riconnessione al topic} other {# riconnessioni al topic}}.",
   "errors_live_class_ok": "La capacità di classificazione in tempo reale è attualmente libera.",
@@ -255,8 +255,39 @@
     "clear": "Libero",
     "resolved": "Risolto",
     "recovered": "Ripristinato",
-    "unknown": "Sconosciuto"
+    "unknown": "Sconosciuto",
+    "connected": "Connesso",
+    "reachable": "Risponde",
+    "connecting": "Connessione",
+    "disconnected": "Non connesso",
+    "unreachable": "Non risponde",
+    "not_configured": "Non impostato",
+    "stopped": "Fermato",
+    "unchecked": "Non verificato"
   },
   "errors_no_reconnect_reason": "Nessuno registrato",
-  "errors_unknown_phase": "Fase sconosciuta"
+  "errors_unknown_phase": "Fase sconosciuta",
+  "errors_summary_mqtt_down": "Il broker MQTT su {server} non è connesso, quindi non possono arrivare nuovi rilevamenti. Controlla l’indirizzo del broker in Impostazioni, Connessione, e che il broker sia in esecuzione.",
+  "errors_summary_mqtt_not_configured": "Nessun broker MQTT impostato, quindi non possono arrivare rilevamenti. Aggiungine uno in Impostazioni, Connessione.",
+  "errors_summary_mqtt_stopped": "Il servizio MQTT non è in esecuzione, quindi non possono arrivare nuovi rilevamenti.",
+  "errors_summary_frigate_down": "Frigate su {url} non risponde, quindi i nuovi rilevamenti non possono essere salvati. Controlla l’indirizzo di Frigate in Impostazioni, Connessione, e che Frigate sia in esecuzione.",
+  "errors_summary_connections_unread": "Nulla in YA-WAMF segnala un guasto, ma non è stato possibile leggere le connessioni al broker MQTT e a Frigate.",
+  "errors_no_snapshot": "Ancora nessuna lettura dello stato.",
+  "errors_connections_unread": "Non è stato possibile leggere la connessione. Aggiorna per riprovare.",
+  "errors_mqtt_disconnected": "Non connesso a {server}. Ultimo tentativo {at}; continua a riprovare.",
+  "errors_mqtt_connecting": "Connessione a {server}.",
+  "errors_mqtt_connected": "Connesso a {server} dalle {at}.",
+  "errors_mqtt_last_error": "Il client del broker ha risposto: {error}",
+  "errors_frigate_failure": {
+    "timeout": "ha impiegato troppo a rispondere",
+    "unauthorized": "ha rifiutato il token di accesso",
+    "server_error": "ha segnalato un proprio errore",
+    "connection": "l’indirizzo non è raggiungibile"
+  },
+  "errors_frigate_unreachable": "Frigate su {url} non ha risposto alle {at}: {reason}.",
+  "errors_frigate_reachable": "Frigate su {url} ha risposto alle {at}.",
+  "errors_frigate_unchecked": "Frigate su {url} non è stato ancora interrogato dall’avvio di questa istanza.",
+  "errors_frigate_announced_online": "Frigate si annuncia in linea tramite MQTT.",
+  "errors_frigate_announced_offline": "Frigate si annuncia non in linea tramite MQTT.",
+  "errors_card_frigate": "Frigate"
 }

@@ -64,5 +64,6 @@
   "language_load_error": "That language could not be loaded. Check your connection and try again.",
   "undo": "Undo",
   "unknown": "unknown",
-  "diagnostic_step_status": "Step {step} of {total}: {label}"
+  "diagnostic_step_status": "Step {step} of {total}: {label}",
+  "checks_failed": "{failed} of {total} checks did not pass: {labels}."
 }

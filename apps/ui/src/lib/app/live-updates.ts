@@ -210,6 +210,8 @@ interface LiveUpdateDeps {
     onConnected?: () => void;
     onPublicHistoryChanged?: () => void;
     onGardenHistoryChanged?: () => void;
+    /** The broker or Frigate changed state; the server sends this to owners only. */
+    onServiceConnectionsChanged?: () => void;
     onPublicAccessChanged?: () => void;
 }
 
@@ -457,6 +459,11 @@ export class LiveUpdateCoordinator {
 
             if (payload.type === 'garden_history_changed') {
                 if (this.deps.hasOwnerAccess?.()) this.deps.onGardenHistoryChanged?.();
+                return;
+            }
+
+            if (payload.type === 'service_connections_changed') {
+                if (this.deps.hasOwnerAccess?.()) this.deps.onServiceConnectionsChanged?.();
                 return;
             }
 

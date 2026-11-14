@@ -64,5 +64,6 @@
   "language_load_error": "无法加载该语言。请检查网络连接后重试。",
   "undo": "撤销",
   "unknown": "未知",
-  "diagnostic_step_status": "第 {step} 步，共 {total} 步：{label}"
+  "diagnostic_step_status": "第 {step} 步，共 {total} 步：{label}",
+  "checks_failed": "{total} 项检查中有 {failed} 项未通过：{labels}。"
 }

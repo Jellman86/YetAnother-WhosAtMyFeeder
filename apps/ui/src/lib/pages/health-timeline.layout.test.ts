@@ -74,9 +74,10 @@ describe('the health verdict', () => {
 
     it('prints statuses in translated sentence case, keeping the raw word in a title', () => {
         expect(errorsSource).toContain('statusLabelKey(value)');
-        expect(errorsSource).toContain('{statusLabel(overallStatus())}');
-        expect(errorsSource).toContain('title={overallStatus()}');
-        expect(errorsSource).not.toMatch(/text-xs font-bold uppercase tracking-(widest|wider|\[0\.2em\])[^"`]*"?>?\s*\{(overallStatus|incident\.status|event\.severity)/);
+        // The verdict is the reported status corrected by the measured connections.
+        expect(errorsSource).toContain('{statusLabel(verdict())}');
+        expect(errorsSource).toContain('title={verdict()}');
+        expect(errorsSource).not.toMatch(/text-xs font-bold uppercase tracking-(widest|wider|\[0\.2em\])[^"`]*"?>?\s*\{(overallStatus|verdict|incident\.status|event\.severity)/);
         expect(errorsSource).not.toContain('tracking-[0.18em]');
         // English fallbacks no longer leak into other languages.
         expect(errorsSource).not.toContain("fallback = 'Unknown'");

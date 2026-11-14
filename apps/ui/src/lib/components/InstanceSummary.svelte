@@ -8,6 +8,7 @@
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { formatDate, formatTime } from '../utils/datetime';
+    import { uptimeCoverage } from '../utils/uptime-coverage';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -78,6 +79,8 @@
         const percent = ratio * 100;
         return percent >= 99.95 ? '100' : percent.toFixed(1);
     });
+
+    const coverage = $derived(uptimeWindow ? uptimeCoverage(uptimeWindow.buckets, uptimeWindow.bucket_minutes) : null);
 
     const uptime = $derived.by(() => {
         if (!startedAt) return null;
@@ -190,11 +193,19 @@
 
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
                     {#if availability}
-                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
-                            {$_('about.instance.availability', {
-                                values: { percent: availability },
-                                default: '{percent}% up'
-                            })}
+                        <!-- The percentage covers only the hours that were recorded, and says so. -->
+                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300" data-uptime-availability>
+                            {#if coverage && !coverage.complete}
+                                {$_('about.instance.availability_partial', {
+                                    values: { percent: availability, hours: coverage.recordedHours },
+                                    default: '{percent}% up over the {hours} h recorded'
+                                })}
+                            {:else}
+                                {$_('about.instance.availability', {
+                                    values: { percent: availability },
+                                    default: '{percent}% up'
+                                })}
+                            {/if}
                         </p>
                     {/if}
                     <div
@@ -237,6 +248,11 @@
                         {:else if uptimeWindow.uptime_ratio === null}
                             {$_('about.instance.no_history', {
                                 default: 'No history recorded yet for this window.'
+                            })}
+                        {:else if coverage && !coverage.complete && coverage.recordedSince}
+                            {$_('about.instance.no_gaps_since', {
+                                values: { when: formatTime(coverage.recordedSince) },
+                                default: 'No gaps since recording began at {when}.'
                             })}
                         {:else}
                             {$_('about.instance.no_gaps', { default: 'No gaps in the last 24 hours.' })}

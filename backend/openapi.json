@@ -7386,6 +7386,16 @@
             "title": "Classifier",
             "type": "object"
           },
+          "connections": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServiceConnectionsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "focused_diagnostics": {
             "$ref": "#/components/schemas/FocusedDiagnosticsResponse"
           },
@@ -8363,6 +8373,95 @@
           }
         },
         "title": "FocusedDiagnosticsResponse",
+        "type": "object"
+      },
+      "FrigateApiStatus": {
+        "description": "Frigate's HTTP API, judged by the latest request this instance made to it.",
+        "properties": {
+          "availability": {
+            "default": "unknown",
+            "description": "What Frigate last announced on its MQTT availability topic; unknown without the broker.",
+            "enum": [
+              "online",
+              "offline",
+              "unknown"
+            ],
+            "title": "Availability",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time of the latest request.",
+            "title": "Checked At"
+          },
+          "last_failure": {
+            "anyOf": [
+              {
+                "enum": [
+                  "timeout",
+                  "connection",
+                  "unauthorized",
+                  "server_error"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the latest failed request failed, when the latest request failed.",
+            "title": "Last Failure"
+          },
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "state": {
+            "description": "reachable: the latest request was answered. unreachable: it was not, or Frigate refused it or failed. unchecked: no request has been made since this instance started.",
+            "enum": [
+              "reachable",
+              "unreachable",
+              "unchecked"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "url": {
+            "description": "The Frigate address requests go to.",
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "url"
+        ],
+        "title": "FrigateApiStatus",
         "type": "object"
       },
       "FrigateCameraStatusItem": {
@@ -13538,6 +13637,87 @@
         "title": "MoveToGardenResponse",
         "type": "object"
       },
+      "MqttConnectionStatus": {
+        "description": "The broker session, as the MQTT service last saw it.",
+        "properties": {
+          "connected_since": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time the current session started.",
+            "title": "Connected Since"
+          },
+          "last_attempt_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time of the latest connection attempt.",
+            "title": "Last Attempt At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The broker client's own words for that failure.",
+            "title": "Last Error"
+          },
+          "last_failure_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UTC time the latest attempt or session failed.",
+            "title": "Last Failure At"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "server": {
+            "description": "The broker host the service connects to.",
+            "title": "Server",
+            "type": "string"
+          },
+          "state": {
+            "description": "connecting: the first attempt since start has not finished. connected: subscribed and receiving. disconnected: the last attempt failed or the session dropped; it keeps retrying. not_configured: no broker address is saved. stopped: the service is not running.",
+            "enum": [
+              "connecting",
+              "connected",
+              "disconnected",
+              "not_configured",
+              "stopped"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "server",
+          "port"
+        ],
+        "title": "MqttConnectionStatus",
+        "type": "object"
+      },
       "NewSpeciesQueueResponse": {
         "properties": {
           "items": {
@@ -15175,6 +15355,28 @@
           "total_observations"
         ],
         "title": "SeasonalityResponse",
+        "type": "object"
+      },
+      "ServiceConnectionsResponse": {
+        "description": "The two connections every detection depends on.",
+        "properties": {
+          "frigate": {
+            "$ref": "#/components/schemas/FrigateApiStatus"
+          },
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "mqtt": {
+            "$ref": "#/components/schemas/MqttConnectionStatus"
+          }
+        },
+        "required": [
+          "mqtt",
+          "frigate",
+          "generated_at"
+        ],
+        "title": "ServiceConnectionsResponse",
         "type": "object"
       },
       "SettingsImportResponse": {
@@ -19814,7 +20016,7 @@
         "type": "object"
       },
       "SetupSectionState": {
-        "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled.",
+        "description": "Readiness of one wizard section.\n\n- ``ok``: functional (explicitly configured, or a working default).\n- ``attention``: needs the user's input to work properly (e.g. no Frigate URL, no cameras).\n- ``optional``: an optional feature that is simply not enabled, including running without\n  a password.",
         "properties": {
           "detail": {
             "anyOf": [
@@ -26073,6 +26275,40 @@
           }
         ],
         "summary": "Clear Owner Workspace Diagnostics",
+        "tags": [
+          "diagnostics",
+          "diagnostics"
+        ]
+      }
+    },
+    "/api/diagnostics/connections": {
+      "get": {
+        "description": "Whether the MQTT broker session is up and Frigate's API answers, as last measured.\n\nA Frigate reading older than a minute is refreshed with one short request first.",
+        "operationId": "get_service_connections_api_diagnostics_connections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConnectionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Service Connections",
         "tags": [
           "diagnostics",
           "diagnostics"

@@ -8,7 +8,10 @@
   "status": {
     "ok": "設定済み",
     "attention": "確認が必要",
-    "optional": "任意"
+    "optional": "任意",
+    "no_password": "パスワードなし",
+    "connected": "接続済み",
+    "unreachable": "到達不可"
   },
   "account": {
     "title": "管理者アカウントとアクセス",
@@ -144,7 +147,9 @@
       "integrations_needs": "設定が必要: {integrations}",
       "integrations_configured": "設定済み: {integrations}",
       "integrations_birdnet_listening": "BirdNET-Go は MQTT で受信中ですが、確認用の URL がありません",
-      "integrations_none": "有効な連携なし"
+      "integrations_none": "有効な連携なし",
+      "frigate": "Frigate",
+      "connection_unreachable": "到達できません: {items}。アドレスと、両方が動作していることを確認してください。"
     },
     "description": "各セクションの状況です。いずれかを開いて変更できます。他のセクションには影響しません。",
     "done": "完了",

@@ -22,6 +22,8 @@
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { STATUS_PILL, STATUS_SURFACE, statusLabelKey, statusTone } from '../utils/status-tone';
+    import { connectionProblems, frigateCardStatus, healthVerdict, mqttCardStatus, type ConnectionProblem } from '../utils/connection-health';
+    import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -127,6 +129,9 @@
             ? workspacePayload.health as DiagnosticsHealth
             : null
     );
+    // Read with the workspace, so the verdict and the cards come from one measurement.
+    let connections = $derived(workspacePayload?.connections ?? null);
+    let problems = $derived(connectionProblems(connections));
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
@@ -182,6 +187,7 @@
         refreshError = '';
         try {
             await incidentWorkspaceStore.refresh();
+            if (workspacePayload?.connections) serviceConnectionsStore.ingest(workspacePayload.connections);
             const started = workspacePayload?.health?.startup_started_at;
             if (typeof started === 'string') {
                 const window = { startTime: started, endTime: new Date().toISOString() };
@@ -328,8 +334,32 @@
         return asText(health?.status, 'unknown');
     }
 
+    /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */
+    function verdict(): string {
+        return healthVerdict(overallStatus(), connections);
+    }
+
+    function problemSentence(problem: ConnectionProblem): string {
+        const server = connections ? `${connections.mqtt.server}:${connections.mqtt.port}` : '';
+        const url = connections?.frigate.url ?? '';
+        switch (problem) {
+            case 'mqtt_down':
+                return $_('jobs.errors_summary_mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new detections can arrive. Check the broker address in Settings, Connection, and that the broker is running.' });
+            case 'mqtt_not_configured':
+                return $_('jobs.errors_summary_mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive. Add one in Settings, Connection.' });
+            case 'mqtt_stopped':
+                return $_('jobs.errors_summary_mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
+            case 'frigate_down':
+                return $_('jobs.errors_summary_frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new detections cannot be saved. Check the Frigate address in Settings, Connection, and that Frigate is running.' });
+        }
+    }
+
     function overallSummary(): string {
+        if (problems.length > 0) return problems.map(problemSentence).join(' ');
         const status = overallStatus().toLowerCase();
+        if ((status === 'ok' || status === 'healthy') && connections === null) {
+            return $_('jobs.errors_summary_connections_unread', { default: 'Nothing inside YA-WAMF reports a fault, but the MQTT broker and Frigate connections could not be read.' });
+        }
         if (status === 'ok' || status === 'healthy') {
             return $_('jobs.errors_summary_healthy', { default: 'All monitored services look healthy right now.' });
         }
@@ -340,10 +370,10 @@
     }
 
     function latestHealthLine(): string {
-        if (!workspaceCapturedAt) return 'No recent workspace snapshot yet.';
+        if (!workspaceCapturedAt) return $_('jobs.errors_no_snapshot', { default: 'No health reading yet.' });
         return $_('jobs.errors_latest_health', {
             values: {
-                status: statusLabel(overallStatus()),
+                status: statusLabel(verdict()),
                 at: formatDateTime(workspaceCapturedAt)
             },
             default: 'Latest health: {status} at {at}'
@@ -392,10 +422,75 @@
     }
 
     function mqttStatus(): string {
-        return asText(health?.mqtt?.pressure_level, 'unknown');
+        return mqttCardStatus(connections, asText(health?.mqtt?.pressure_level, 'unknown'));
+    }
+
+    function at(value: string | null | undefined): string {
+        const parsed = value ? Date.parse(value) : Number.NaN;
+        return Number.isFinite(parsed) ? formatDateTime(parsed) : $_('common.unknown', { default: 'unknown' });
     }
 
     function mqttSummary(): string {
+        if (!connections) {
+            return $_('jobs.errors_connections_unread', { default: 'The connection could not be read. Refresh to try again.' });
+        }
+        const link = connections.mqtt;
+        const server = `${link.server}:${link.port}`;
+        if (link.state === 'disconnected') {
+            return $_('jobs.errors_mqtt_disconnected', { values: { server, at: at(link.last_attempt_at) }, default: 'Not connected to {server}. Last tried {at}; it keeps retrying.' });
+        }
+        if (link.state === 'connecting') {
+            return $_('jobs.errors_mqtt_connecting', { values: { server }, default: 'Connecting to {server}.' });
+        }
+        if (link.state === 'not_configured') {
+            return $_('jobs.errors_summary_mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive. Add one in Settings, Connection.' });
+        }
+        if (link.state === 'stopped') {
+            return $_('jobs.errors_summary_mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
+        }
+        const connected = $_('jobs.errors_mqtt_connected', { values: { server, at: at(link.connected_since) }, default: 'Connected to {server} since {at}.' });
+        return `${connected} ${mqttLoadSummary()}`;
+    }
+
+    function frigateStatus(): string {
+        return frigateCardStatus(connections);
+    }
+
+    function frigateFailure(kind: string | null | undefined): string {
+        switch (kind) {
+            case 'timeout':
+                return $_('jobs.errors_frigate_failure.timeout', { default: 'it took too long to answer' });
+            case 'unauthorized':
+                return $_('jobs.errors_frigate_failure.unauthorized', { default: 'it refused the access token' });
+            case 'server_error':
+                return $_('jobs.errors_frigate_failure.server_error', { default: 'it reported an error of its own' });
+            default:
+                return $_('jobs.errors_frigate_failure.connection', { default: 'the address could not be reached' });
+        }
+    }
+
+    function frigateSummary(): string {
+        if (!connections) {
+            return $_('jobs.errors_connections_unread', { default: 'The connection could not be read. Refresh to try again.' });
+        }
+        const frigate = connections.frigate;
+        if (frigate.state === 'unreachable') {
+            return $_('jobs.errors_frigate_unreachable', { values: { url: frigate.url, at: at(frigate.checked_at), reason: frigateFailure(frigate.last_failure) }, default: 'Frigate at {url} did not answer at {at}: {reason}.' });
+        }
+        if (frigate.state === 'reachable') {
+            return $_('jobs.errors_frigate_reachable', { values: { url: frigate.url, at: at(frigate.checked_at) }, default: 'Frigate at {url} answered at {at}.' });
+        }
+        return $_('jobs.errors_frigate_unchecked', { values: { url: frigate.url }, default: 'Frigate at {url} has not been asked anything since this instance started.' });
+    }
+
+    function frigateAvailability(): string | null {
+        const availability = connections?.frigate.availability;
+        if (availability === 'online') return $_('jobs.errors_frigate_announced_online', { default: 'Frigate announces itself online over MQTT.' });
+        if (availability === 'offline') return $_('jobs.errors_frigate_announced_offline', { default: 'Frigate announces itself offline over MQTT.' });
+        return null;
+    }
+
+    function mqttLoadSummary(): string {
         const mqtt = health?.mqtt ?? {};
         const pressure = asText(mqtt.pressure_level, 'unknown').toLowerCase();
         const inFlight = asNumber(mqtt.in_flight);
@@ -406,7 +501,7 @@
         const reconnects = asNumber(mqtt.topic_liveness_reconnects);
         return reconnects > 0
             ? $_('jobs.errors_mqtt_reconnected', { values: { count: reconnects }, default: 'MQTT recovered cleanly after {count, plural, one {# topic reconnect} other {# topic reconnects}}.' })
-            : $_('jobs.errors_mqtt_ok', { default: 'MQTT traffic is flowing normally.' });
+            : $_('jobs.errors_mqtt_ok', { default: 'Its handlers are keeping up.' });
     }
 
     function liveClassificationStatus(): string {
@@ -622,9 +717,9 @@
 
         {#snippet status()}
             <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(overallStatus())}">
-                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(overallStatus())}`} title={overallStatus()} data-health-status-pill>
-                        {statusLabel(overallStatus())}
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(verdict())}">
+                    <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(verdict())}`} title={verdict()} data-health-status-pill>
+                        {statusLabel(verdict())}
                     </span>
                     <div class="min-w-0 flex-1">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
@@ -737,8 +832,8 @@
                 </div>
             </article>
 
-            <!-- MQTT -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(mqttStatus())}">
+            <!-- MQTT: the connection first, then how hard its handlers are working. -->
+            <article class="rounded-2xl border p-5 shadow-sm {toneClass(mqttStatus())}" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -750,12 +845,37 @@
                             <h4 class="eyebrow text-inherit dark:text-inherit">MQTT</h4>
                             <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
                         </div>
-                        <p class="mt-2 text-sm font-semibold">{mqttSummary()}</p>
+                        <p class="mt-2 break-words text-sm font-semibold">{mqttSummary()}</p>
+                        {#if connections?.mqtt.state === 'disconnected' && connections.mqtt.last_error}
+                            <p class="mt-2 break-words text-xs font-semibold opacity-80">{$_('jobs.errors_mqtt_last_error', { values: { error: connections.mqtt.last_error }, default: 'The broker client said: {error}' })}</p>
+                        {/if}
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
                             <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
                             <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_reconnects', { default: 'Reconnects' })}</span><span>{asNumber(health?.mqtt?.topic_liveness_reconnects).toLocaleString()}</span></div>
                             <div class="col-span-2"><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_last_reconnect', { default: 'Last Reconnect Reason' })}</span><span>{asText(health?.mqtt?.last_reconnect_reason, $_('jobs.errors_no_reconnect_reason', { default: 'None recorded' }))}</span></div>
                         </div>
+                    </div>
+                </div>
+            </article>
+
+            <!-- Frigate: whether its API answered the latest request. -->
+            <article class="rounded-2xl border p-5 shadow-sm {toneClass(frigateStatus())}" data-health-card="frigate" data-health-card-status={frigateStatus()}>
+                <div class="flex items-start gap-3">
+                    <div class="mt-0.5 shrink-0 opacity-70">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex items-center justify-between gap-2">
+                            <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_frigate', { default: 'Frigate' })}</h4>
+                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={frigateStatus()}>{statusLabel(frigateStatus())}</span>
+                        </div>
+                        <p class="mt-2 break-words text-sm font-semibold">{frigateSummary()}</p>
+                        {#if frigateAvailability()}
+                            <p class="mt-2 text-xs font-semibold opacity-80">{frigateAvailability()}</p>
+                        {/if}
                     </div>
                 </div>
             </article>

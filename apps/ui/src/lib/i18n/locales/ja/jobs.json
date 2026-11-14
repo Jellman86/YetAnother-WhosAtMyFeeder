@@ -214,7 +214,7 @@
     "filter_invalid_score": "無効なスコア",
     "filter_out_of_range": "地域の分布域外"
   },
-  "errors_mqtt_ok": "MQTTトラフィックは正常に流れています。",
+  "errors_mqtt_ok": "処理は追いついています。",
   "errors_mqtt_pressure": "MQTTハンドラーは{inFlight}/{capacity}が処理中で{pressure}プレッシャー下にあります。",
   "errors_mqtt_reconnected": "{count, plural, other {MQTTは#回のトピック再接続の後、正常に回復しました。}}",
   "errors_live_class_ok": "リアルタイム分類の容量は現在空きがあります。",
@@ -255,8 +255,39 @@
     "clear": "問題なし",
     "resolved": "解決済み",
     "recovered": "回復済み",
-    "unknown": "不明"
+    "unknown": "不明",
+    "connected": "接続済み",
+    "reachable": "応答あり",
+    "connecting": "接続中",
+    "disconnected": "未接続",
+    "unreachable": "応答なし",
+    "not_configured": "未設定",
+    "stopped": "停止",
+    "unchecked": "未確認"
   },
   "errors_no_reconnect_reason": "記録なし",
-  "errors_unknown_phase": "不明なフェーズ"
+  "errors_unknown_phase": "不明なフェーズ",
+  "errors_summary_mqtt_down": "{server} のMQTTブローカーに接続していないため、新しい検出は届きません。設定の「接続」でブローカーのアドレスを確認し、ブローカーが動作していることを確認してください。",
+  "errors_summary_mqtt_not_configured": "MQTTブローカーが設定されていないため、検出は届きません。設定の「接続」で追加してください。",
+  "errors_summary_mqtt_stopped": "MQTTサービスが動作していないため、新しい検出は届きません。",
+  "errors_summary_frigate_down": "{url} のFrigateが応答しないため、新しい検出を保存できません。設定の「接続」でFrigateのアドレスを確認し、Frigateが動作していることを確認してください。",
+  "errors_summary_connections_unread": "YA-WAMF内部で障害は報告されていませんが、MQTTブローカーとFrigateへの接続状態を読み取れませんでした。",
+  "errors_no_snapshot": "まだ状態の測定がありません。",
+  "errors_connections_unread": "接続状態を読み取れませんでした。更新してもう一度お試しください。",
+  "errors_mqtt_disconnected": "{server} に接続していません。最後の試行は {at}。再試行を続けています。",
+  "errors_mqtt_connecting": "{server} に接続中です。",
+  "errors_mqtt_connected": "{at} から {server} に接続しています。",
+  "errors_mqtt_last_error": "ブローカークライアントの応答: {error}",
+  "errors_frigate_failure": {
+    "timeout": "応答に時間がかかりすぎました",
+    "unauthorized": "アクセストークンが拒否されました",
+    "server_error": "Frigate自身がエラーを返しました",
+    "connection": "アドレスに到達できませんでした"
+  },
+  "errors_frigate_unreachable": "{url} のFrigateは {at} に応答しませんでした: {reason}。",
+  "errors_frigate_reachable": "{url} のFrigateは {at} に応答しました。",
+  "errors_frigate_unchecked": "このインスタンスの起動以降、{url} のFrigateにはまだ問い合わせていません。",
+  "errors_frigate_announced_online": "FrigateはMQTTでオンラインを通知しています。",
+  "errors_frigate_announced_offline": "FrigateはMQTTでオフラインを通知しています。",
+  "errors_card_frigate": "Frigate"
 }

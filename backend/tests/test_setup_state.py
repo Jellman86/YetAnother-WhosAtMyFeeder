@@ -15,6 +15,7 @@ from app.config_models import (
     LLMSettings,
     NotificationSettings,
 )
+from app.models.service_connections import FrigateApiStatus, MqttConnectionStatus, ServiceConnectionsResponse
 from app.services.setup_state_service import SETUP_SECTION_IDS, compute_setup_state
 
 
@@ -56,12 +57,46 @@ def test_account_ok_when_password_set():
     assert _by_id(state)["account"].status == "ok"
 
 
-def test_account_ok_when_auth_explicitly_skipped():
+def test_account_without_a_password_is_a_choice_not_a_configured_protection():
+    # Running without a password is allowed on a trusted network, but it protects nothing,
+    # so it must not be shown in the colour and words of a configured safeguard.
     state = compute_setup_state(_settings(auth=AuthSettings(initial_setup_complete=True)))
     account = _by_id(state)["account"]
-    assert account.status == "ok"
+    assert account.status == "optional"
+    assert account.detail_code == "account_auth_disabled"
     assert account.detail == "Authentication disabled"
     assert state.initial_setup_complete is True
+
+
+def _connections(*, mqtt="connected", frigate="reachable"):
+    return ServiceConnectionsResponse(
+        mqtt=MqttConnectionStatus(state=mqtt, server="mqtt.invalid", port=1883),
+        frigate=FrigateApiStatus(state=frigate, url="http://frigate:5000"),
+        generated_at="2026-11-13T18:00:00Z",
+    )
+
+
+def test_connection_that_was_measured_working_says_connected():
+    state = compute_setup_state(_settings(), connections=_connections())
+    connection = _by_id(state)["connection"]
+    assert connection.status == "ok"
+    assert connection.detail_code == "connection_connected"
+    assert connection.detail_values == {"url": "http://frigate:5000"}
+
+
+def test_connection_with_saved_values_that_cannot_be_reached_needs_attention():
+    state = compute_setup_state(_settings(), connections=_connections(mqtt="disconnected", frigate="unreachable"))
+    connection = _by_id(state)["connection"]
+    assert connection.status == "attention"
+    assert connection.detail_code == "connection_unreachable"
+    assert connection.detail_values == {"items": "mqtt,frigate"}
+
+
+def test_connection_not_yet_measured_reports_only_what_is_saved():
+    state = compute_setup_state(_settings(), connections=_connections(mqtt="connecting", frigate="unchecked"))
+    connection = _by_id(state)["connection"]
+    assert connection.status == "ok"
+    assert connection.detail_code == "connection_ready"
 
 
 def test_connection_attention_when_url_missing():

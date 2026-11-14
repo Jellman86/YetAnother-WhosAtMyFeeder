@@ -104,7 +104,9 @@
     "window_start": "vor {hours} Std.",
     "window_now": "jetzt",
     "history_loading": "Verfügbarkeit wird geladen…",
-    "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden."
+    "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden.",
+    "availability_partial": "{percent}% verfügbar in den {hours} h mit Aufzeichnung",
+    "no_gaps_since": "Keine Lücken seit Beginn der Aufzeichnung um {when}."
   },
   "close": {
     "title": "Daten, Datenschutz und Danksagungen"

@@ -222,6 +222,24 @@ def restore_session_revocation_state():
 
 
 @pytest.fixture(autouse=True)
+def isolate_service_connections(monkeypatch):
+    """Health must never reach for a real Frigate from a test, nor carry one test's failed
+    request into another test's verdict."""
+    from app.services import service_connections
+    from app.services.connection_tracking import MqttConnectionTracker
+    from app.services.mqtt_service import mqtt_service
+
+    async def no_probe(_now):
+        return None
+
+    monkeypatch.setattr(service_connections, "_refresh_frigate_reading", no_probe)
+    monkeypatch.setattr(mqtt_service, "connection", MqttConnectionTracker())
+    service_connections.frigate_reachability.reset()
+    yield
+    service_connections.frigate_reachability.reset()
+
+
+@pytest.fixture(autouse=True)
 def disable_rate_limiting():
     """Disable rate limiting for all tests by default."""
     from app.ratelimit import limiter

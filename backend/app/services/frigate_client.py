@@ -12,8 +12,11 @@ import re
 import aiofiles
 import httpx
 import structlog
+from collections.abc import Awaitable
+from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
+from app.services.service_connections import frigate_reachability
 
 log = structlog.get_logger()
 
@@ -65,7 +68,7 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.get(url, params=params, headers=self._get_headers(), timeout=timeout)
+        return await self._recorded(client.get(url, params=params, headers=self._get_headers(), timeout=timeout))
 
     async def post(self, path: str, json: Optional[dict] = None, timeout: float = 30.0) -> httpx.Response:
         """Make a POST request to Frigate API.
@@ -80,7 +83,21 @@ class FrigateClient:
         """
         url = f"{self.base_url}/{path.lstrip('/')}"
         client = self._get_client()
-        return await client.post(url, json=json, headers=self._get_headers(), timeout=timeout)
+        return await self._recorded(client.post(url, json=json, headers=self._get_headers(), timeout=timeout))
+
+    @staticmethod
+    async def _recorded(request: Awaitable[httpx.Response]) -> httpx.Response:
+        """Note whether Frigate answered, so Health reports what the last request saw."""
+        try:
+            response = await request
+        except httpx.TimeoutException:
+            frigate_reachability.record_failure("timeout", datetime.now(timezone.utc))
+            raise
+        except httpx.RequestError:
+            frigate_reachability.record_failure("connection", datetime.now(timezone.utc))
+            raise
+        frigate_reachability.record_response(response.status_code, datetime.now(timezone.utc))
+        return response
 
     async def get_version(self) -> Optional[str]:
         """Get Frigate version string."""

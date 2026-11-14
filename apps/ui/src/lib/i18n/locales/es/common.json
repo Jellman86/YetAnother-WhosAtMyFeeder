@@ -64,5 +64,6 @@
   "language_load_error": "No se ha podido cargar ese idioma. Comprueba la conexión e inténtalo de nuevo.",
   "undo": "Deshacer",
   "unknown": "desconocido",
-  "diagnostic_step_status": "Paso {step} de {total}: {label}"
+  "diagnostic_step_status": "Paso {step} de {total}: {label}",
+  "checks_failed": "{failed} de {total} comprobaciones no se superaron: {labels}."
 }

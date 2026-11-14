@@ -1,12 +1,21 @@
 {
   "title": "Estado do sistema",
   "live_updates": "Atualizações em direto",
-  "online": "Conectado",
-  "offline": "Desconectado",
   "audio_analysis": "Análise de áudio",
   "notifications": "Notificações",
   "open_health": "Estado do sistema",
   "tile_live": "Ao vivo",
   "tile_audio": "Áudio",
-  "tile_alerts": "Alertas"
+  "tile_alerts": "Alertas",
+  "tile_connecting": "Conectando",
+  "tile_no_events": "Sem eventos",
+  "tile_no_frigate": "Sem Frigate",
+  "tile_connected": "Conectado",
+  "tile_offline": "Desconectado",
+  "feed_live": "Recebendo eventos da câmera",
+  "feed_connecting": "Conectando ao broker MQTT",
+  "feed_broker_down": "Nenhum evento da câmera chega, o broker MQTT não está conectado",
+  "feed_frigate_down": "O Frigate não responde, então novas detecções não podem ser salvas",
+  "feed_app_only": "Conectado ao YA-WAMF",
+  "feed_reconnecting": "Reconectando ao YA-WAMF"
 }

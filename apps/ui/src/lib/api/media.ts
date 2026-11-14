@@ -271,9 +271,13 @@ export type ReadinessResponse = paths['/ready']['get']['response'];
 
 /**
  * The readiness probe carries the process start time, which is the only uptime
- * source this application has.
+ * source this application has. It answers 503 with the same report while a startup
+ * warning stands; the process is running then, so that report is read, not discarded.
  */
 export async function fetchReadiness(signal?: AbortSignal): Promise<ReadinessResponse> {
     const response = await apiFetch('/ready', { signal, timeoutMs: 8_000 });
+    if (response.status === 503 && response.headers.get('content-type')?.includes('application/json')) {
+        return (await response.json()) as ReadinessResponse;
+    }
     return handleResponse<ReadinessResponse>(response);
 }

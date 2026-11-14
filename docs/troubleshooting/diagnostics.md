@@ -7,6 +7,13 @@ attach to a bug report.
 
 ![Settings → Health showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
 
+The **MQTT** and **Frigate** cards under **Subsystem detail** report the connections every detection
+depends on, as measured: whether the broker session is up (and, when it is not, the address, the last
+attempt and the broker client's own error), and whether Frigate answered the latest request. The page
+never reads healthy while either is down. The sidebar's live tile follows the same reading: **Live**
+only while the broker is connected, **No events** while it is not, **No Frigate** while Frigate does
+not answer, and **Connected** when it can only say the page reached YA-WAMF.
+
 ## Capture current evidence for a report
 
 1. Sign in as the owner and open **Settings → Health**. The **Health · Diagnostics export** link

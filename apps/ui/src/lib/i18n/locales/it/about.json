@@ -104,7 +104,9 @@
     "window_start": "{hours} h fa",
     "window_now": "adesso",
     "history_loading": "Caricamento disponibilità…",
-    "history_unavailable": "Impossibile leggere la disponibilità."
+    "history_unavailable": "Impossibile leggere la disponibilità.",
+    "availability_partial": "{percent}% attivo nelle {hours} h registrate",
+    "no_gaps_since": "Nessuna interruzione da quando la registrazione è iniziata alle {when}."
   },
   "close": {
     "title": "Dati, privacy e ringraziamenti"

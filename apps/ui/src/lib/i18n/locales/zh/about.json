@@ -104,7 +104,9 @@
     "window_start": "{hours} 小时前",
     "window_now": "现在",
     "history_loading": "正在加载可用性…",
-    "history_unavailable": "无法读取可用性。"
+    "history_unavailable": "无法读取可用性。",
+    "availability_partial": "已记录的 {hours} 小时内运行 {percent}%",
+    "no_gaps_since": "自 {when} 开始记录以来没有中断。"
   },
   "close": {
     "title": "数据、隐私与致谢"

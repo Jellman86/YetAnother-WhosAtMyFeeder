@@ -623,6 +623,35 @@ test('confirmation in a position group applies only to the displayed original ph
     expect(confirmed).toEqual([second]);
 });
 
+test('the Garden review link reads Garden captures even when owner settings arrive after the page', async ({ page }) => {
+    // In the app the Explorer mounts while /api/settings is still loading. The link must not read
+    // bird visits meanwhile and then label them as an empty Garden queue (UI audit, 725 bird visits
+    // shown as "Showing 1-24 of 725" under "No Garden captures need review").
+    const reads: URL[] = [];
+    await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
+    await page.route(url => url.pathname === '/api/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fulfill({ json: { total: 725, gap_seconds: 60, visits: [] } });
+    });
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fallback();
+    });
+    await page.route(url => url.pathname === '/api/settings', async route => {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return route.fulfill({ json: { enrichment_summary_provider: 'disabled', beta_garden_animals: true, garden_cameras: ['patio'] } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&settings=late&visitors=garden&review=pending');
+
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
+    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText(/of 725/)).toHaveCount(0);
+    // The first and only read is the one the link asked for.
+    expect(reads.map(url => `${url.pathname}?status=${url.searchParams.get('status')}`)).toEqual(['/api/garden/visits?status=pending']);
+    await expect.poll(() => new URL(page.url()).searchParams.get('review')).toBe('pending');
+});
+
 test('an old Garden page link with the beta off says so instead of silently showing birds', async ({ page }) => {
     await mockGarden(page, { items: () => [] });
     await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=0&visitors=garden&review=pending');

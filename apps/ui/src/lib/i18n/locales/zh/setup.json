@@ -8,7 +8,10 @@
   "status": {
     "ok": "已配置",
     "attention": "需要处理",
-    "optional": "可选"
+    "optional": "可选",
+    "no_password": "无密码",
+    "connected": "已连接",
+    "unreachable": "无法访问"
   },
   "account": {
     "title": "管理员账户与访问权限",
@@ -144,7 +147,9 @@
       "integrations_needs": "需要设置：{integrations}",
       "integrations_configured": "已配置：{integrations}",
       "integrations_birdnet_listening": "BirdNET-Go 正在通过 MQTT 监听，但没有可用于检查的 URL",
-      "integrations_none": "均未启用"
+      "integrations_none": "均未启用",
+      "frigate": "Frigate",
+      "connection_unreachable": "无法访问：{items}。请检查地址，并确认两者都在运行。"
     },
     "description": "以下是各部分的当前状态。可进入任意部分进行修改，不会影响其他部分。",
     "done": "完成",

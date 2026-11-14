@@ -36,6 +36,7 @@
     "browser-tests/map-popup.ts",
     "browser-tests/lazy-modal.ts",
     "browser-tests/score-tone.ts",
-    "browser-tests/manual-observation.ts"
+    "browser-tests/manual-observation.ts",
+    "browser-tests/status-feed.ts"
   ]
 }

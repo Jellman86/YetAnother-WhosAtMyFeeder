@@ -8,7 +8,10 @@
   "status": {
     "ok": "Configurado",
     "attention": "Requer atenção",
-    "optional": "Opcional"
+    "optional": "Opcional",
+    "no_password": "Sem senha",
+    "connected": "Conectado",
+    "unreachable": "Inacessível"
   },
   "account": {
     "title": "Conta de administrador e acesso",
@@ -144,7 +147,9 @@
       "integrations_needs": "Requer configuração: {integrations}",
       "integrations_configured": "Configurado: {integrations}",
       "integrations_birdnet_listening": "O BirdNET-Go está a ouvir via MQTT, sem URL para o verificar",
-      "integrations_none": "Nenhuma ativa"
+      "integrations_none": "Nenhuma ativa",
+      "frigate": "Frigate",
+      "connection_unreachable": "Não foi possível alcançar: {items}. Verifique os endereços e se ambos estão em execução."
     },
     "description": "Veja a situação de cada seção. Entre em qualquer uma para alterá-la; nada mais é afetado.",
     "done": "Concluído",
