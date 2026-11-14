@@ -50,7 +50,7 @@ describe('bird finder choice', () => {
         expect(modelManagerSource).toContain("cropDetectorStatus?.reason === 'fallback_default_accurate'");
         expect(en.settings.detection.bird_finder_fallback).toMatch(/not downloaded yet/);
         expect(modelManagerSource).toContain('birdFinder !== savedBirdFinder');
-        expect(en.settings.detection.bird_finder_pending).toMatch(/Apply settings/);
+        expect(en.settings.detection.bird_finder_pending).toMatch(/Save changes/);
     });
 
     it('states the cost of the wide-frame finder up front, without em dashes', () => {

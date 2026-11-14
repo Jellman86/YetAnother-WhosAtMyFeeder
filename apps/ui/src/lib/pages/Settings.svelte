@@ -55,7 +55,8 @@
         type PurgeMissingMediaResult,
         type RecordingClipCapability
     } from '../api';
-    import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
+    import { SettingsSaveRejected, type BlockedSpeciesEntry, type ClassificationImageSource, type NotificationSpeciesFilterMode, type Settings as SettingsPayload, type SettingsUpdate } from '../api/settings';
+    import { ApiRequestError } from '../api/core';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
@@ -87,7 +88,7 @@
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
-    import { locationSettingsDirty } from '../settings/location-dirty';
+    import { locationChangedFields } from '../settings/location-dirty';
     import { retentionShrinks } from '../settings/retention-change';
     import {
         inferenceProviderForSave,
@@ -104,7 +105,11 @@
     import { accessibilitySection, type AccessibilityDraft } from '../settings/accessibility-section';
     import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
-    import { sectionIsDirty } from '../settings/section-adapter';
+    import { sectionChangedFields } from '../settings/section-adapter';
+    import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
+    import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
+    import { provideSettingsFieldErrors } from '../settings/field-error-context';
+    import { unsavedChanges } from '../stores/unsaved-changes';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -115,6 +120,7 @@
         migrateLegacyBlockedLabels,
     } from '../settings/blocked-species';
     import { getRecommendedLlmModel } from '../settings/llm-models';
+    import { savedNotifyMode, savedTrustedProxyHosts, type NotifyMode } from '../settings/notification-mode';
 
     let {
         onNavigate,
@@ -383,7 +389,7 @@
     let filterSpeciesEntries = $state<BlockedSpeciesEntry[]>([]);
     let filterConfidence = $state(0.7);
     let filterAudioOnly = $state(false);
-    let notifyMode = $state<'silent' | 'final' | 'standard' | 'realtime' | 'custom'>('standard');
+    let notifyMode = $state<NotifyMode>('standard');
     let notifyOnInsert = $state(true);
     let notifyOnUpdate = $state(false);
     let notifyDelayUntilVideo = $state(false);
@@ -559,10 +565,14 @@
 
     let loading = $state(true);
     let saving = $state(false);
-    let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
+    // A refused save: the reasons on their fields, and the values they refused, so a corrected
+    // field stops being marked as soon as it holds something else.
+    let fieldErrors = $state.raw<SettingsFieldError[]>([]);
+    let refusedPayload = $state.raw<Record<string, unknown>>({});
+    let saveProblem = $state<{ key: string; values?: Record<string, string>; fallback: string } | null>(null);
     let currentTheme: Theme = $state('system');
-    let lastFeedbackKey = $state('');
-    let lastFeedbackAt = $state(0);
+    let lastFeedbackKey = '';
+    let lastFeedbackAt = 0;
     const BACKFILL_TOAST_THROTTLE_MS = 6 * 60 * 60 * 1000;
     const BACKFILL_NOTIFICATION_SYNC_THROTTLE_MS = 1200;
 
@@ -755,218 +765,215 @@
         if (!notificationPolicy.shouldEmit(key, signature, BACKFILL_TOAST_THROTTLE_MS)) {
             return false;
         }
-        message = { type, text: formatTerminalBackfillMessage(kind, status.message, fallbackText) };
+        notify(type, formatTerminalBackfillMessage(kind, status.message, fallbackText));
         return true;
     }
 
-    function handleActionFeedback(type: 'success' | 'error', text: string) {
-        message = { type, text };
-    }
-
-    $effect(() => {
-        if (!message?.text) return;
-        const key = `${message.type}:${message.text}`;
+    // Every result of an action on this page is told once, as a notification. The save's own
+    // problems are the exception: they stay in the save bar beside the fields they concern.
+    function notify(type: 'success' | 'error', text: string): void {
+        const key = `${type}:${text}`;
         const now = Date.now();
         if (key === lastFeedbackKey && (now - lastFeedbackAt) < 1200) return;
         lastFeedbackKey = key;
         lastFeedbackAt = now;
-        if (message.type === 'success') {
-            toastStore.success(message.text);
-        } else {
-            toastStore.error(message.text);
-        }
-    });
+        if (type === 'success') toastStore.success(text);
+        else toastStore.error(text);
+    }
 
-    let isDirty = $derived.by(() => {
+    function handleActionFeedback(type: 'success' | 'error', text: string) {
+        notify(type, text);
+    }
+
+    // Every saved setting the draft would change, named as the save sends it. One list drives the
+    // save bar's count and tabs, the leave warning and Discard, so they can never disagree.
+    const changedSettingFields = $derived.by((): string[] => {
         const s = settingsStore.settings;
         if (!s) {
-            return false;
+            return [];
         }
 
         const checks = [
-            { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
-            { key: 'frigateIngestLabels', val: frigateIngestLabels, store: (s.frigate_ingest_labels ?? ['bird']).join(', ') },
-            { key: 'frigateExternalUrl', val: frigateExternalUrl, store: s.frigate_external_url || '' },
-            { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
-            { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
-            { key: 'mqttAuth', val: mqttAuth, store: s.mqtt_auth },
-            { key: 'mqttUsername', val: mqttUsername, store: s.mqtt_username || '' },
-            { key: 'mqttPassword', val: mqttPassword, store: normalizeSecret(s.mqtt_password) },
-            { key: 'audioTopic', val: audioTopic, store: s.audio_topic || 'birdnet/text' },
-            { key: 'audioBufferHours', val: audioBufferHours, store: s.audio_buffer_hours ?? 24 },
-            { key: 'audioCorrelationWindowSeconds', val: audioCorrelationWindowSeconds, store: s.audio_correlation_window_seconds ?? 300 },
-            { key: 'birdnetEnabled', val: birdnetEnabled, store: s.birdnet_enabled ?? true },
-            { key: 'birdnetUrl', val: birdnetUrl, store: s.birdnet_url || '' },
-            { key: 'birdnetExternalUrl', val: birdnetExternalUrl, store: s.birdnet_external_url || '' },
-            { key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' },
-            { key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 },
-            { key: 'clipsEnabled', val: clipsEnabled, store: s.clips_enabled ?? true },
-            { key: 'recordingClipEnabled', val: recordingClipEnabled, store: s.recording_clip_enabled ?? false },
-            { key: 'recordingClipBeforeSeconds', val: recordingClipBeforeSeconds, store: s.recording_clip_before_seconds ?? 30 },
-            { key: 'recordingClipAfterSeconds', val: recordingClipAfterSeconds, store: s.recording_clip_after_seconds ?? 90 },
-            { key: 'threshold', val: threshold, store: s.classification_threshold },
-            { key: 'trustFrigateSublabel', val: trustFrigateSublabel, store: s.trust_frigate_sublabel ?? true },
-            { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
-            { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
-            { key: 'rangeFilterEnabled', val: rangeFilterEnabled, store: s.range_filter_enabled ?? false },
-            { key: 'rangeFilterRegionLevel', val: rangeFilterRegionLevel, store: s.range_filter_region_level ?? 'county' },
-            { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
-            { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
-            { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
-            { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
-            { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
-            { key: 'betaGardenAnimals', val: betaGardenAnimals, store: s.beta_garden_animals ?? false },
-            { key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' },
-            { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
-            { key: 'retentionDays', val: retentionDays, store: s.retention_days || 0 },
-            { key: 'maintenanceMaxConcurrent', val: maintenanceMaxConcurrent, store: s.maintenance_max_concurrent ?? 1 },
-            { key: 'frigateMissingBehavior', val: frigateMissingBehavior, store: normalizeFrigateMissingBehavior(s.frigate_missing_behavior) },
+            { field: 'frigate_url', draft: frigateUrl, saved: s.frigate_url },
+            { field: 'frigate_ingest_labels', draft: frigateIngestLabels, saved: (s.frigate_ingest_labels ?? ['bird']).join(', ') },
+            { field: 'frigate_external_url', draft: frigateExternalUrl, saved: s.frigate_external_url || '' },
+            { field: 'mqtt_server', draft: mqttServer, saved: s.mqtt_server },
+            { field: 'mqtt_port', draft: mqttPort, saved: s.mqtt_port },
+            { field: 'mqtt_auth', draft: mqttAuth, saved: s.mqtt_auth },
+            { field: 'mqtt_username', draft: mqttUsername, saved: s.mqtt_username || '' },
+            { field: 'mqtt_password', draft: mqttPassword, saved: normalizeSecret(s.mqtt_password) },
+            { field: 'audio_topic', draft: audioTopic, saved: s.audio_topic || 'birdnet/text' },
+            { field: 'audio_buffer_hours', draft: audioBufferHours, saved: s.audio_buffer_hours ?? 24 },
+            { field: 'audio_correlation_window_seconds', draft: audioCorrelationWindowSeconds, saved: s.audio_correlation_window_seconds ?? 300 },
+            { field: 'birdnet_enabled', draft: birdnetEnabled, saved: s.birdnet_enabled ?? true },
+            { field: 'birdnet_url', draft: birdnetUrl, saved: s.birdnet_url || '' },
+            { field: 'birdnet_external_url', draft: birdnetExternalUrl, saved: s.birdnet_external_url || '' },
+            { field: 'classification_image_source', draft: classificationImageSource, saved: s.classification_image_source ?? 'frigate_snapshot' },
+            { field: 'recording_frame_delay_seconds', draft: recordingFrameDelaySeconds, saved: s.recording_frame_delay_seconds ?? 12 },
+            { field: 'clips_enabled', draft: clipsEnabled, saved: s.clips_enabled ?? true },
+            { field: 'recording_clip_enabled', draft: recordingClipEnabled, saved: s.recording_clip_enabled ?? false },
+            { field: 'recording_clip_before_seconds', draft: recordingClipBeforeSeconds, saved: s.recording_clip_before_seconds ?? 30 },
+            { field: 'recording_clip_after_seconds', draft: recordingClipAfterSeconds, saved: s.recording_clip_after_seconds ?? 90 },
+            { field: 'classification_threshold', draft: threshold, saved: s.classification_threshold },
+            { field: 'trust_frigate_sublabel', draft: trustFrigateSublabel, saved: s.trust_frigate_sublabel ?? true },
+            { field: 'write_frigate_sublabel', draft: writeFrigateSublabel, saved: s.write_frigate_sublabel ?? true },
+            { field: 'personalized_rerank_enabled', draft: personalizedRerankEnabled, saved: s.personalized_rerank_enabled ?? false },
+            { field: 'range_filter_enabled', draft: rangeFilterEnabled, saved: s.range_filter_enabled ?? false },
+            { field: 'range_filter_region_level', draft: rangeFilterRegionLevel, saved: s.range_filter_region_level ?? 'county' },
+            { field: 'auto_video_classification', draft: autoVideoClassification, saved: s.auto_video_classification ?? false },
+            { field: 'video_classification_delay', draft: videoClassificationDelay, saved: s.video_classification_delay ?? 30 },
+            { field: 'video_classification_max_retries', draft: videoClassificationMaxRetries, saved: s.video_classification_max_retries ?? 3 },
+            { field: 'video_classification_frames', draft: videoClassificationFrames, saved: s.video_classification_frames ?? 15 },
+            { field: 'image_execution_mode', draft: imageExecutionMode, saved: s.image_execution_mode ?? 'subprocess' },
+            { field: 'strict_non_finite_output', draft: strictNonFiniteOutput, saved: s.strict_non_finite_output ?? true },
+            { field: 'beta_garden_animals', draft: betaGardenAnimals, saved: s.beta_garden_animals ?? false },
+            { field: 'inference_provider', draft: inferenceProvider, saved: parseInferenceProvider(s.inference_provider) ?? 'auto' },
+            { field: 'cameras', draft: JSON.stringify(selectedCameras), saved: JSON.stringify(s.cameras || []) },
+            { field: 'retention_days', draft: retentionDays, saved: s.retention_days || 0 },
+            { field: 'maintenance_max_concurrent', draft: maintenanceMaxConcurrent, saved: s.maintenance_max_concurrent ?? 1 },
+            { field: 'frigate_missing_behavior', draft: frigateMissingBehavior, saved: normalizeFrigateMissingBehavior(s.frigate_missing_behavior) },
             {
-                key: 'autoMediaIntegrityScan',
-                val: autoPurgeMissingClips || autoPurgeMissingSnapshots,
-                store: (s.auto_purge_missing_clips ?? false) || (s.auto_purge_missing_snapshots ?? false)
+                field: 'auto_purge_missing_clips',
+                draft: autoPurgeMissingClips || autoPurgeMissingSnapshots,
+                saved: (s.auto_purge_missing_clips ?? false) || (s.auto_purge_missing_snapshots ?? false)
             },
-            { key: 'autoAnalyzeUnknowns', val: autoAnalyzeUnknowns, store: s.auto_analyze_unknowns ?? false },
-            { key: 'blockedLabels', val: JSON.stringify(blockedLabels), store: JSON.stringify(blockedLabelsBaseline) },
-            { key: 'blockedSpecies', val: JSON.stringify(blockedSpecies), store: JSON.stringify(blockedSpeciesBaseline) },
-            { key: 'cacheClips', val: cacheClips, store: s.media_cache_clips ?? false },
-            { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
-            { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90 },
-            { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
-            { key: 'cachePerSpeciesMaximum', val: cachePerSpeciesMaximum, store: s.media_cache_per_species_maximum ?? 0 },
-            { key: 'cacheMaxSizeMb', val: cacheMaxSizeMb, store: s.media_cache_max_size_mb ?? 0 },
-            { key: 'cacheAutomaticMultiBirdScan', val: cacheAutomaticMultiBirdScan, store: s.media_cache_automatic_multi_bird_scan ?? false },
-            { key: 'cacheBirdScanMode', val: cacheBirdScanMode, store: s.media_cache_bird_scan_mode ?? 'intensive' },
-            { key: 'cachePerSpeciesMinimum', val: cachePerSpeciesMinimum, store: s.media_cache_per_species_minimum ?? 0 },
-            { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
-            { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
-            { key: 'haWeatherEnabled', val: haWeatherEnabled, store: s.ha_weather_enabled ?? false },
-            { key: 'haWeatherBaseUrl', val: haWeatherBaseUrl, store: s.ha_weather_base_url ?? '' },
-            { key: 'haWeatherAccessToken', val: haWeatherAccessToken, store: normalizeSecret(s.ha_weather_access_token) },
-            { key: 'haWeatherEntity', val: haWeatherEntity, store: s.ha_weather_entity ?? '' },
-            { key: 'haWeatherTemperatureEntity', val: haWeatherTemperatureEntity, store: s.ha_weather_temperature_entity ?? '' },
-            { key: 'haWeatherWindSpeedEntity', val: haWeatherWindSpeedEntity, store: s.ha_weather_wind_speed_entity ?? '' },
-            { key: 'haWeatherWindDirectionEntity', val: haWeatherWindDirectionEntity, store: s.ha_weather_wind_direction_entity ?? '' },
-            { key: 'haWeatherCloudCoverEntity', val: haWeatherCloudCoverEntity, store: s.ha_weather_cloud_cover_entity ?? '' },
-            { key: 'haWeatherPrecipitationEntity', val: haWeatherPrecipitationEntity, store: s.ha_weather_precipitation_entity ?? '' },
-            { key: 'haWeatherRainEntity', val: haWeatherRainEntity, store: s.ha_weather_rain_entity ?? '' },
-            { key: 'haWeatherSnowfallEntity', val: haWeatherSnowfallEntity, store: s.ha_weather_snowfall_entity ?? '' },
-            { key: 'haWeatherIlluminanceEntity', val: haWeatherIlluminanceEntity, store: s.ha_weather_illuminance_entity ?? '' },
-            { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
-            { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
-            { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
-            { key: 'ebirdDefaultDaysBack', val: ebirdDefaultDaysBack, store: s.ebird_default_days_back ?? 14 },
-            { key: 'ebirdMaxResults', val: ebirdMaxResults, store: s.ebird_max_results ?? 25 },
-            { key: 'ebirdLocale', val: ebirdLocale, store: s.ebird_locale ?? 'en' },
-            { key: 'inaturalistEnabled', val: inaturalistEnabled, store: s.inaturalist_enabled ?? false },
-            { key: 'inaturalistClientId', val: inaturalistClientId, store: normalizeSecret(s.inaturalist_client_id) },
-            { key: 'inaturalistClientSecret', val: inaturalistClientSecret, store: normalizeSecret(s.inaturalist_client_secret) },
-            { key: 'inaturalistDefaultLat', val: inaturalistDefaultLat, store: s.inaturalist_default_latitude ?? null },
-            { key: 'inaturalistDefaultLon', val: inaturalistDefaultLon, store: s.inaturalist_default_longitude ?? null },
-            { key: 'inaturalistDefaultPlace', val: inaturalistDefaultPlace, store: s.inaturalist_default_place_guess ?? '' },
-            { key: 'cameraAudioMapping', val: JSON.stringify(cameraAudioMapping), store: JSON.stringify(s.camera_audio_mapping || {}) },
-            { key: 'gardenMotionCameras', val: JSON.stringify(gardenMotionCameras), store: JSON.stringify(s.garden_motion_cameras || []) },
-            { key: 'gardenCameras', val: JSON.stringify(gardenCameras), store: JSON.stringify(s.garden_cameras || []) },
-            { key: 'gardenMotionConfidence', val: gardenMotionConfidence, store: s.garden_motion_confidence ?? 0.5 },
-            { key: 'gardenNotificationsEnabled', val: gardenNotificationsEnabled, store: s.garden_notifications_enabled ?? false },
-            { key: 'gardenNotificationChannels', val: JSON.stringify(gardenNotificationChannels), store: JSON.stringify(s.garden_notification_channels ?? []) },
-            { key: 'gardenNotificationsUseBirdChannels', val: gardenNotificationsUseBirdChannels, store: s.garden_notifications_use_bird_channels ?? true },
-            { key: 'gardenNotificationsIncludePhoto', val: gardenNotificationsIncludePhoto, store: s.garden_notifications_include_photo ?? true },
-            { key: 'gardenAutomaticNaming', val: gardenAutomaticNaming, store: s.garden_automatic_naming ?? true },
-            { key: 'gardenNamingThreshold', val: gardenNamingThreshold, store: s.garden_naming_threshold ?? 0.8 },
-            { key: 'gardenDomesticBirds', val: JSON.stringify(gardenDomesticBirds), store: JSON.stringify(s.garden_domestic_birds ?? []) },
-            { key: 'gardenLabels', val: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), store: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
-            { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
-            { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
-            { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
-            { key: 'liveWorkerCount', val: liveWorkerCount, store: s.live_worker_count ?? null },
-            { key: 'backgroundWorkerCount', val: backgroundWorkerCount, store: s.background_worker_count ?? null },
-            { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
-            { key: 'telemetryHealthEnabled', val: telemetryHealthEnabled, store: s.telemetry_health_enabled ?? false },
-            { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
-            { key: 'authUsername', val: authUsername, store: s.auth_username || 'admin' },
-            { key: 'authSessionExpiryHours', val: authSessionExpiryHours, store: s.auth_session_expiry_hours ?? 168 },
-            { key: 'trustedProxyHosts', val: JSON.stringify(effectiveTrustedProxyHosts), store: JSON.stringify(s.trusted_proxy_hosts || []) },
-            { key: 'publicAccessEnabled', val: publicAccessEnabled, store: s.public_access_enabled ?? false },
-            { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
-            { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
-            { key: 'publicAccessAllowClipDownloads', val: publicAccessAllowClipDownloads, store: s.public_access_allow_clip_downloads ?? false },
-            { key: 'publicAccessShowAudio', val: publicAccessShowAudio, store: s.public_access_show_audio ?? true },
-            { key: 'publicAccessShowSnapshots', val: publicAccessShowSnapshots, store: s.public_access_show_snapshots ?? true },
-            { key: 'publicAccessShowClips', val: publicAccessShowClips, store: s.public_access_show_clips ?? true },
-            { key: 'publicAccessLocationPrecision', val: publicAccessLocationPrecision, store: s.public_access_location_precision ?? 'approximate' },
-            { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: normalizePublicDaysMode(s.public_access_historical_days_mode) },
-            { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
-            { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: normalizePublicDaysMode(s.public_access_media_days_mode) },
-            { key: 'publicAccessMediaHistoricalDays', val: publicAccessMediaHistoricalDays, store: s.public_access_media_historical_days ?? 7 },
-            { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
-            { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
+            { field: 'auto_analyze_unknowns', draft: autoAnalyzeUnknowns, saved: s.auto_analyze_unknowns ?? false },
+            { field: 'blocked_labels', draft: JSON.stringify(blockedLabels), saved: JSON.stringify(blockedLabelsBaseline) },
+            { field: 'blocked_species', draft: JSON.stringify(blockedSpecies), saved: JSON.stringify(blockedSpeciesBaseline) },
+            { field: 'media_cache_clips', draft: cacheClips, saved: s.media_cache_clips ?? false },
+            { field: 'media_cache_high_quality_event_snapshots', draft: cacheHighQualityEventSnapshots, saved: s.media_cache_high_quality_event_snapshots ?? false },
+            { field: 'media_cache_high_quality_event_snapshot_jpeg_quality', draft: cacheHighQualityEventSnapshotJpegQuality, saved: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90 },
+            { field: 'media_cache_retention_days', draft: cacheRetentionDays, saved: s.media_cache_retention_days ?? 0 },
+            { field: 'media_cache_per_species_maximum', draft: cachePerSpeciesMaximum, saved: s.media_cache_per_species_maximum ?? 0 },
+            { field: 'media_cache_max_size_mb', draft: cacheMaxSizeMb, saved: s.media_cache_max_size_mb ?? 0 },
+            { field: 'media_cache_automatic_multi_bird_scan', draft: cacheAutomaticMultiBirdScan, saved: s.media_cache_automatic_multi_bird_scan ?? false },
+            { field: 'media_cache_bird_scan_mode', draft: cacheBirdScanMode, saved: s.media_cache_bird_scan_mode ?? 'intensive' },
+            { field: 'media_cache_per_species_minimum', draft: cachePerSpeciesMinimum, saved: s.media_cache_per_species_minimum ?? 0 },
+            { field: 'birdweather_enabled', draft: birdweatherEnabled, saved: s.birdweather_enabled ?? false },
+            { field: 'birdweather_station_token', draft: birdweatherStationToken, saved: normalizeSecret(s.birdweather_station_token) },
+            { field: 'ha_weather_enabled', draft: haWeatherEnabled, saved: s.ha_weather_enabled ?? false },
+            { field: 'ha_weather_base_url', draft: haWeatherBaseUrl, saved: s.ha_weather_base_url ?? '' },
+            { field: 'ha_weather_access_token', draft: haWeatherAccessToken, saved: normalizeSecret(s.ha_weather_access_token) },
+            { field: 'ha_weather_entity', draft: haWeatherEntity, saved: s.ha_weather_entity ?? '' },
+            { field: 'ha_weather_temperature_entity', draft: haWeatherTemperatureEntity, saved: s.ha_weather_temperature_entity ?? '' },
+            { field: 'ha_weather_wind_speed_entity', draft: haWeatherWindSpeedEntity, saved: s.ha_weather_wind_speed_entity ?? '' },
+            { field: 'ha_weather_wind_direction_entity', draft: haWeatherWindDirectionEntity, saved: s.ha_weather_wind_direction_entity ?? '' },
+            { field: 'ha_weather_cloud_cover_entity', draft: haWeatherCloudCoverEntity, saved: s.ha_weather_cloud_cover_entity ?? '' },
+            { field: 'ha_weather_precipitation_entity', draft: haWeatherPrecipitationEntity, saved: s.ha_weather_precipitation_entity ?? '' },
+            { field: 'ha_weather_rain_entity', draft: haWeatherRainEntity, saved: s.ha_weather_rain_entity ?? '' },
+            { field: 'ha_weather_snowfall_entity', draft: haWeatherSnowfallEntity, saved: s.ha_weather_snowfall_entity ?? '' },
+            { field: 'ha_weather_illuminance_entity', draft: haWeatherIlluminanceEntity, saved: s.ha_weather_illuminance_entity ?? '' },
+            { field: 'ebird_enabled', draft: ebirdEnabled, saved: s.ebird_enabled ?? false },
+            { field: 'ebird_api_key', draft: ebirdApiKey, saved: normalizeSecret(s.ebird_api_key) },
+            { field: 'ebird_default_radius_km', draft: ebirdDefaultRadiusKm, saved: s.ebird_default_radius_km ?? 25 },
+            { field: 'ebird_default_days_back', draft: ebirdDefaultDaysBack, saved: s.ebird_default_days_back ?? 14 },
+            { field: 'ebird_max_results', draft: ebirdMaxResults, saved: s.ebird_max_results ?? 25 },
+            { field: 'ebird_locale', draft: ebirdLocale, saved: s.ebird_locale ?? 'en' },
+            { field: 'inaturalist_enabled', draft: inaturalistEnabled, saved: s.inaturalist_enabled ?? false },
+            { field: 'inaturalist_client_id', draft: inaturalistClientId, saved: normalizeSecret(s.inaturalist_client_id) },
+            { field: 'inaturalist_client_secret', draft: inaturalistClientSecret, saved: normalizeSecret(s.inaturalist_client_secret) },
+            { field: 'inaturalist_default_latitude', draft: inaturalistDefaultLat, saved: s.inaturalist_default_latitude ?? null },
+            { field: 'inaturalist_default_longitude', draft: inaturalistDefaultLon, saved: s.inaturalist_default_longitude ?? null },
+            { field: 'inaturalist_default_place_guess', draft: inaturalistDefaultPlace, saved: s.inaturalist_default_place_guess ?? '' },
+            { field: 'camera_audio_mapping', draft: JSON.stringify(cameraAudioMapping), saved: JSON.stringify(s.camera_audio_mapping || {}) },
+            { field: 'garden_motion_cameras', draft: JSON.stringify(gardenMotionCameras), saved: JSON.stringify(s.garden_motion_cameras || []) },
+            { field: 'garden_cameras', draft: JSON.stringify(gardenCameras), saved: JSON.stringify(s.garden_cameras || []) },
+            { field: 'garden_motion_confidence', draft: gardenMotionConfidence, saved: s.garden_motion_confidence ?? 0.5 },
+            { field: 'garden_notifications_enabled', draft: gardenNotificationsEnabled, saved: s.garden_notifications_enabled ?? false },
+            { field: 'garden_notification_channels', draft: JSON.stringify(gardenNotificationChannels), saved: JSON.stringify(s.garden_notification_channels ?? []) },
+            { field: 'garden_notifications_use_bird_channels', draft: gardenNotificationsUseBirdChannels, saved: s.garden_notifications_use_bird_channels ?? true },
+            { field: 'garden_notifications_include_photo', draft: gardenNotificationsIncludePhoto, saved: s.garden_notifications_include_photo ?? true },
+            { field: 'garden_automatic_naming', draft: gardenAutomaticNaming, saved: s.garden_automatic_naming ?? true },
+            { field: 'garden_naming_threshold', draft: gardenNamingThreshold, saved: s.garden_naming_threshold ?? 0.8 },
+            { field: 'garden_domestic_birds', draft: JSON.stringify(gardenDomesticBirds), saved: JSON.stringify(s.garden_domestic_birds ?? []) },
+            { field: 'garden_labels', draft: JSON.stringify(gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean)), saved: JSON.stringify(s.garden_labels || ['cat', 'dog']) },
+            { field: 'camera_roles', draft: JSON.stringify(cameraRoles), saved: JSON.stringify(s.camera_roles || {}) },
+            { field: 'nest_dedupe_minutes', draft: nestDedupeMinutes, saved: s.nest_dedupe_minutes ?? 30 },
+            { field: 'classification_min_confidence', draft: minConfidence, saved: s.classification_min_confidence ?? 0.4 },
+            { field: 'live_worker_count', draft: liveWorkerCount, saved: s.live_worker_count ?? null },
+            { field: 'background_worker_count', draft: backgroundWorkerCount, saved: s.background_worker_count ?? null },
+            { field: 'telemetry_enabled', draft: telemetryEnabled, saved: s.telemetry_enabled ?? true },
+            { field: 'telemetry_health_enabled', draft: telemetryHealthEnabled, saved: s.telemetry_health_enabled ?? false },
+            { field: 'auth_enabled', draft: authEnabled, saved: s.auth_enabled ?? false },
+            { field: 'auth_username', draft: authUsername, saved: s.auth_username || 'admin' },
+            { field: 'auth_session_expiry_hours', draft: authSessionExpiryHours, saved: s.auth_session_expiry_hours ?? 168 },
+            { field: 'trusted_proxy_hosts', draft: JSON.stringify(effectiveTrustedProxyHosts), saved: JSON.stringify(savedTrustedProxyHosts(s.trusted_proxy_hosts)) },
+            { field: 'public_access_enabled', draft: publicAccessEnabled, saved: s.public_access_enabled ?? false },
+            { field: 'public_access_show_camera_names', draft: publicAccessShowCameraNames, saved: s.public_access_show_camera_names ?? true },
+            { field: 'public_access_show_ai_conversation', draft: publicAccessShowAiConversation, saved: s.public_access_show_ai_conversation ?? false },
+            { field: 'public_access_allow_clip_downloads', draft: publicAccessAllowClipDownloads, saved: s.public_access_allow_clip_downloads ?? false },
+            { field: 'public_access_show_audio', draft: publicAccessShowAudio, saved: s.public_access_show_audio ?? true },
+            { field: 'public_access_show_snapshots', draft: publicAccessShowSnapshots, saved: s.public_access_show_snapshots ?? true },
+            { field: 'public_access_show_clips', draft: publicAccessShowClips, saved: s.public_access_show_clips ?? true },
+            { field: 'public_access_location_precision', draft: publicAccessLocationPrecision, saved: s.public_access_location_precision ?? 'approximate' },
+            { field: 'public_access_historical_days_mode', draft: publicAccessHistoricalDaysMode, saved: normalizePublicDaysMode(s.public_access_historical_days_mode) },
+            { field: 'public_access_historical_days', draft: publicAccessHistoricalDays, saved: s.public_access_historical_days ?? 7 },
+            { field: 'public_access_media_days_mode', draft: publicAccessMediaDaysMode, saved: normalizePublicDaysMode(s.public_access_media_days_mode) },
+            { field: 'public_access_media_historical_days', draft: publicAccessMediaHistoricalDays, saved: s.public_access_media_historical_days ?? 7 },
+            { field: 'public_access_rate_limit_per_minute', draft: publicAccessRateLimitPerMinute, saved: s.public_access_rate_limit_per_minute ?? 30 },
+            { field: 'public_access_external_base_url', draft: publicAccessExternalBaseUrl, saved: s.public_access_external_base_url ?? '' },
 
             // Notifications
-            { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
-            { key: 'discordWebhook', val: discordWebhook, store: normalizeSecret(s.notifications_discord_webhook_url) },
-            { key: 'discordUsername', val: discordUsername, store: s.notifications_discord_username || 'YA-WAMF' },
+            { field: 'notifications_discord_enabled', draft: discordEnabled, saved: s.notifications_discord_enabled ?? false },
+            { field: 'notifications_discord_webhook_url', draft: discordWebhook, saved: normalizeSecret(s.notifications_discord_webhook_url) },
+            { field: 'notifications_discord_username', draft: discordUsername, saved: s.notifications_discord_username || 'YA-WAMF' },
 
-            { key: 'pushoverEnabled', val: pushoverEnabled, store: s.notifications_pushover_enabled ?? false },
-            { key: 'pushoverUser', val: pushoverUser, store: normalizeSecret(s.notifications_pushover_user_key) },
-            { key: 'pushoverToken', val: pushoverToken, store: normalizeSecret(s.notifications_pushover_api_token) },
-            { key: 'pushoverPriority', val: pushoverPriority, store: s.notifications_pushover_priority ?? 0 },
-            { key: 'pushoverDevice', val: pushoverDevice, store: s.notifications_pushover_device ?? '' },
+            { field: 'notifications_pushover_enabled', draft: pushoverEnabled, saved: s.notifications_pushover_enabled ?? false },
+            { field: 'notifications_pushover_user_key', draft: pushoverUser, saved: normalizeSecret(s.notifications_pushover_user_key) },
+            { field: 'notifications_pushover_api_token', draft: pushoverToken, saved: normalizeSecret(s.notifications_pushover_api_token) },
+            { field: 'notifications_pushover_priority', draft: pushoverPriority, saved: s.notifications_pushover_priority ?? 0 },
+            { field: 'notifications_pushover_device', draft: pushoverDevice, saved: s.notifications_pushover_device ?? '' },
 
-            { key: 'telegramEnabled', val: telegramEnabled, store: s.notifications_telegram_enabled ?? false },
-            { key: 'telegramToken', val: telegramToken, store: normalizeSecret(s.notifications_telegram_bot_token) },
-            { key: 'telegramChatId', val: telegramChatId, store: normalizeSecret(s.notifications_telegram_chat_id) },
+            { field: 'notifications_telegram_enabled', draft: telegramEnabled, saved: s.notifications_telegram_enabled ?? false },
+            { field: 'notifications_telegram_bot_token', draft: telegramToken, saved: normalizeSecret(s.notifications_telegram_bot_token) },
+            { field: 'notifications_telegram_chat_id', draft: telegramChatId, saved: normalizeSecret(s.notifications_telegram_chat_id) },
 
-            { key: 'emailEnabled', val: emailEnabled, store: s.notifications_email_enabled ?? false },
-            { key: 'emailUseOAuth', val: emailUseOAuth, store: s.notifications_email_use_oauth ?? false },
-            { key: 'emailOAuthProvider', val: emailOAuthProvider || '', store: s.notifications_email_oauth_provider || '' },
-            { key: 'emailOnlyOnEnd', val: emailOnlyOnEnd, store: s.notifications_email_only_on_end ?? false },
-            { key: 'emailGmailClientId', val: emailGmailClientId, store: s.notifications_email_gmail_client_id || '' },
-            { key: 'emailGmailClientSecret', val: emailGmailClientSecret, store: normalizeSecret(s.notifications_email_gmail_client_secret) },
-            { key: 'emailOutlookClientId', val: emailOutlookClientId, store: s.notifications_email_outlook_client_id || '' },
-            { key: 'emailOutlookClientSecret', val: emailOutlookClientSecret, store: normalizeSecret(s.notifications_email_outlook_client_secret) },
-            { key: 'emailSmtpHost', val: emailSmtpHost, store: s.notifications_email_smtp_host || '' },
-            { key: 'emailSmtpPort', val: emailSmtpPort, store: s.notifications_email_smtp_port ?? 587 },
-            { key: 'emailSmtpUsername', val: emailSmtpUsername, store: s.notifications_email_smtp_username || '' },
-            { key: 'emailSmtpPassword', val: emailSmtpPassword, store: normalizeSecret(s.notifications_email_smtp_password) },
-            { key: 'emailSmtpUseTls', val: emailSmtpUseTls, store: s.notifications_email_smtp_use_tls ?? true },
-            { key: 'emailFromEmail', val: emailFromEmail, store: s.notifications_email_from_email || '' },
-            { key: 'emailToEmail', val: emailToEmail, store: s.notifications_email_to_email || '' },
-            { key: 'emailIncludeSnapshot', val: emailIncludeSnapshot, store: s.notifications_email_include_snapshot ?? true },
-            { key: 'instanceUrl', val: instanceUrl, store: s.notifications_instance_url || '' },
-            { key: 'notifyLinkTarget', val: notifyLinkTarget, store: s.notifications_link_target ?? 'yawamf' },
+            { field: 'notifications_email_enabled', draft: emailEnabled, saved: s.notifications_email_enabled ?? false },
+            { field: 'notifications_email_use_oauth', draft: emailUseOAuth, saved: s.notifications_email_use_oauth ?? false },
+            { field: 'notifications_email_oauth_provider', draft: emailOAuthProvider || '', saved: s.notifications_email_oauth_provider || '' },
+            { field: 'notifications_email_only_on_end', draft: emailOnlyOnEnd, saved: s.notifications_email_only_on_end ?? false },
+            { field: 'notifications_email_gmail_client_id', draft: emailGmailClientId, saved: s.notifications_email_gmail_client_id || '' },
+            { field: 'notifications_email_gmail_client_secret', draft: emailGmailClientSecret, saved: normalizeSecret(s.notifications_email_gmail_client_secret) },
+            { field: 'notifications_email_outlook_client_id', draft: emailOutlookClientId, saved: s.notifications_email_outlook_client_id || '' },
+            { field: 'notifications_email_outlook_client_secret', draft: emailOutlookClientSecret, saved: normalizeSecret(s.notifications_email_outlook_client_secret) },
+            { field: 'notifications_email_smtp_host', draft: emailSmtpHost, saved: s.notifications_email_smtp_host || '' },
+            { field: 'notifications_email_smtp_port', draft: emailSmtpPort, saved: s.notifications_email_smtp_port ?? 587 },
+            { field: 'notifications_email_smtp_username', draft: emailSmtpUsername, saved: s.notifications_email_smtp_username || '' },
+            { field: 'notifications_email_smtp_password', draft: emailSmtpPassword, saved: normalizeSecret(s.notifications_email_smtp_password) },
+            { field: 'notifications_email_smtp_use_tls', draft: emailSmtpUseTls, saved: s.notifications_email_smtp_use_tls ?? true },
+            { field: 'notifications_email_from_email', draft: emailFromEmail, saved: s.notifications_email_from_email || '' },
+            { field: 'notifications_email_to_email', draft: emailToEmail, saved: s.notifications_email_to_email || '' },
+            { field: 'notifications_email_include_snapshot', draft: emailIncludeSnapshot, saved: s.notifications_email_include_snapshot ?? true },
+            { field: 'notifications_instance_url', draft: instanceUrl, saved: s.notifications_instance_url || '' },
+            { field: 'notifications_link_target', draft: notifyLinkTarget, saved: s.notifications_link_target ?? 'yawamf' },
 
-            { key: 'notificationLanguage', val: notificationLanguage, store: s.notification_language ?? 'en' },
+            { field: 'notification_language', draft: notificationLanguage, saved: s.notification_language ?? 'en' },
 
-            { key: 'filterSpeciesMode', val: filterSpeciesMode, store: inferNotificationSpeciesMode(s) },
-            { key: 'filterSpeciesEntries', val: JSON.stringify(filterSpeciesEntries), store: JSON.stringify(notificationSpeciesEntriesForMode(s, inferNotificationSpeciesMode(s))) },
-            { key: 'filterWhitelist', val: JSON.stringify(filterWhitelist), store: JSON.stringify(inferNotificationSpeciesMode(s) === 'whitelist' ? (s.notifications_filter_species_whitelist || []) : []) },
-            { key: 'filterConfidence', val: filterConfidence, store: s.notifications_filter_min_confidence ?? 0.7 },
-            { key: 'filterAudioOnly', val: filterAudioOnly, store: s.notifications_filter_audio_confirmed_only ?? false },
-            { key: 'notifyMode', val: notifyMode, store: s.notifications_mode ?? 'standard' },
-            { key: 'notifyOnInsert', val: notifyOnInsert, store: s.notifications_notify_on_insert ?? true },
-            { key: 'notifyOnUpdate', val: notifyOnUpdate, store: s.notifications_notify_on_update ?? false },
-            { key: 'notifyDelayUntilVideo', val: notifyDelayUntilVideo, store: s.notifications_delay_until_video ?? false },
-            { key: 'notifyVideoFallbackTimeout', val: notifyVideoFallbackTimeout, store: s.notifications_video_fallback_timeout ?? 45 },
-            { key: 'notifyCooldownMinutes', val: notifyCooldownMinutes, store: s.notifications_notification_cooldown_minutes ?? 0 },
+            { field: 'notifications_filter_species_mode', draft: filterSpeciesMode, saved: inferNotificationSpeciesMode(s) },
+            { field: 'notifications_filter_species_whitelist_structured', draft: JSON.stringify(filterSpeciesEntries), saved: JSON.stringify(notificationSpeciesEntriesForMode(s, inferNotificationSpeciesMode(s))) },
+            { field: 'notifications_filter_species_whitelist', draft: JSON.stringify(filterWhitelist), saved: JSON.stringify(inferNotificationSpeciesMode(s) === 'whitelist' ? (s.notifications_filter_species_whitelist || []) : []) },
+            { field: 'notifications_filter_min_confidence', draft: filterConfidence, saved: s.notifications_filter_min_confidence ?? 0.7 },
+            { field: 'notifications_filter_audio_confirmed_only', draft: filterAudioOnly, saved: s.notifications_filter_audio_confirmed_only ?? false },
+            { field: 'notifications_mode', draft: notifyMode, saved: savedNotifyMode(s) },
+            { field: 'notifications_notify_on_insert', draft: notifyOnInsert, saved: s.notifications_notify_on_insert ?? true },
+            { field: 'notifications_notify_on_update', draft: notifyOnUpdate, saved: s.notifications_notify_on_update ?? false },
+            { field: 'notifications_delay_until_video', draft: notifyDelayUntilVideo, saved: s.notifications_delay_until_video ?? false },
+            { field: 'notifications_video_fallback_timeout', draft: notifyVideoFallbackTimeout, saved: s.notifications_video_fallback_timeout ?? 45 },
+            { field: 'notifications_notification_cooldown_minutes', draft: notifyCooldownMinutes, saved: s.notifications_notification_cooldown_minutes ?? 0 },
 
-            { key: 'birdModelRegionOverride', val: birdModelRegionOverride, store: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
-            { key: 'birdFinderProvider', val: birdFinderProvider, store: s.bird_crop_inference_provider ?? 'auto' },
-            { key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) }
+            { field: 'bird_model_region_override', draft: birdModelRegionOverride, saved: resolveBirdModelRegionOverrideFromSettings(s.bird_model_region_override) },
+            { field: 'bird_crop_inference_provider', draft: birdFinderProvider, saved: s.bird_crop_inference_provider ?? 'auto' },
+            { field: 'bird_crop_accurate_detector', draft: birdFinder, saved: parseBirdFinder(s.bird_crop_accurate_detector) }
         ];
 
-        if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
-            return true;
-        }
-
-        return (
-            checks.some(c => c.val !== c.store) ||
-            sectionIsDirty(appearanceSection, appearanceDraft, s) ||
-            sectionIsDirty(accessibilitySection, accessibilityDraft, s) ||
-            sectionIsDirty(enrichmentSection, enrichmentDraft, s) ||
-            sectionIsDirty(aiSection, aiDraft, s) ||
-            locationSettingsDirty({
+        return [
+            ...changedFields(checks),
+            ...(authPassword.length > 0 || authPasswordConfirm.length > 0 ? ['auth_password'] : []),
+            ...sectionChangedFields(appearanceSection, appearanceDraft, s),
+            ...sectionChangedFields(accessibilitySection, accessibilityDraft, s),
+            ...sectionChangedFields(enrichmentSection, enrichmentDraft, s),
+            ...sectionChangedFields(aiSection, aiDraft, s),
+            ...locationChangedFields({
                 current: {
                     latitude: locationLat,
                     longitude: locationLon,
@@ -977,7 +984,44 @@
                 },
                 stored: s
             })
-        );
+        ];
+    });
+    const unsavedSummary = $derived(summarizeUnsaved(changedSettingFields));
+    const isDirty = $derived(unsavedSummary.count > 0);
+
+    const standingErrors = $derived(
+        fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
+    );
+    provideSettingsFieldErrors({ errorFor: (field) => standingErrors.find((error) => error.field === field) });
+
+    const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
+    const unsavedTabNames = $derived(
+        new Intl.ListFormat($locale || 'en', { type: 'conjunction' }).format(unsavedSummary.tabs.map(tabLabel))
+    );
+
+    // Leaving Settings with unsaved edits asks first; moving between its tabs keeps the draft.
+    onMount(() => unsavedChanges.hold((to) => {
+        if (!isDirty || to.startsWith('/settings')) return null;
+        return {
+            title: $_('settings.leave.title', { default: 'Leave without saving?' }),
+            message: $_('settings.leave.message', {
+                values: { count: unsavedSummary.count, tabs: unsavedTabNames },
+                default: '{count, plural, one {# change} other {# changes}} in {tabs} will be lost.'
+            }),
+            confirmLabel: $_('settings.leave.confirm', { default: 'Leave without saving' }),
+            tone: 'danger'
+        };
+    }));
+
+    // A reload or a closed tab cannot use the in-app question; the browser asks its own.
+    $effect(() => {
+        if (!isDirty) return;
+        const keepUnsavedWork = (event: BeforeUnloadEvent) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', keepUnsavedWork);
+        return () => window.removeEventListener('beforeunload', keepUnsavedWork);
     });
 
     let classifierStatus = $state<ClassifierStatus | null>(null);
@@ -1226,6 +1270,14 @@
     });
 
     onDestroy(() => {
+        // The font and colour preview live outside this page; leaving without saving takes them
+        // back to what is saved, as it does for every other unsaved edit.
+        const saved = settingsStore.settings;
+        if (saved) {
+            const { fontTheme, colorTheme } = appearanceSection.decode(saved);
+            themeStore.setFontTheme(fontTheme);
+            themeStore.setColorTheme(colorTheme);
+        }
         stopTaxonomyPolling();
         if (backfillPollInterval) clearInterval(backfillPollInterval);
     });
@@ -1310,10 +1362,10 @@
             taxonomyAwaitingStartUntil = Date.now() + TAXONOMY_START_GRACE_MS;
             startTaxonomyPolling();
             await loadTaxonomyStatus();
-            message = { type: 'success', text: $_('settings.data.taxonomy_syncing') };
+            notify('success', $_('settings.data.taxonomy_syncing'));
         } catch (e) {
             taxonomyAwaitingStartUntil = 0;
-            message = { type: 'error', text: $_('settings.data.taxonomy_sync_error', { values: { error: getErrorMessage(e) } }) };
+            notify('error', $_('settings.data.taxonomy_sync_error', { values: { error: getErrorMessage(e) } }));
         } finally {
             syncingTaxonomy = false;
         }
@@ -1324,24 +1376,18 @@
         try {
             timezoneRepairPreview = await fetchTimezoneRepairPreview();
             const count = timezoneRepairPreview.summary.repair_candidate_count;
-            message = {
-                type: 'success',
-                text: count > 0
+            notify('success', count > 0
                     ? $_('settings.data.timezone_repair_preview_found', {
                         default: '{count, plural, one {# detection can be repaired.} other {# detections can be repaired.}}',
                         values: { count }
                     })
                     : $_('settings.data.timezone_repair_preview_none', {
                         default: 'No safe timezone repairs were found.'
-                    })
-            };
+                    }));
         } catch (e) {
-            message = {
-                type: 'error',
-                text: getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
+            notify('error', getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
                     default: 'Timezone repair scan failed.'
-                })
-            };
+                }));
         } finally {
             previewingTimezoneRepair = false;
         }
@@ -1362,21 +1408,15 @@
         try {
             const result = await applyTimezoneRepair();
             timezoneRepairPreview = result.preview;
-            message = {
-                type: 'success',
-                text: $_('settings.data.timezone_repair_apply_success', {
+            notify('success', $_('settings.data.timezone_repair_apply_success', {
                     default: 'Repaired {count, plural, one {# detection} other {# detections}}.',
                     values: { count: result.repaired_count }
-                })
-            };
+                }));
             await loadMaintenanceStats();
         } catch (e) {
-            message = {
-                type: 'error',
-                text: getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
+            notify('error', getErrorMessage(e) || $_('settings.data.timezone_repair_error', {
                     default: 'Timezone repair failed.'
-                })
-            };
+                }));
         } finally {
             applyingTimezoneRepair = false;
         }
@@ -1493,17 +1533,16 @@
             if (!confirmed) return;
         }
         cleaningUp = true;
-        message = null;
         try {
             const result = await runCleanup();
             if (result.status === 'completed') {
-                message = { type: 'success', text: $_('settings.data.cleanup_success', { values: { count: result.deleted_count } }) };
+                notify('success', $_('settings.data.cleanup_success', { values: { count: result.deleted_count } }));
             } else {
-                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
+                notify('success', result.message || $_('settings.data.cleanup_none'));
             }
             await loadMaintenanceStats();
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cleanup_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.cleanup_error'));
         } finally {
             cleaningUp = false;
         }
@@ -1520,19 +1559,15 @@
         if (!confirmed) return;
 
         clearingFavorites = true;
-        message = null;
         try {
             const result = await clearAllFavorites();
             if ((result.deleted_count ?? 0) > 0) {
-                message = {
-                    type: 'success',
-                    text: $_('settings.data.clear_favorites_success', { values: { count: result.deleted_count } }),
-                };
+                notify('success', $_('settings.data.clear_favorites_success', { values: { count: result.deleted_count } }));
             } else {
-                message = { type: 'success', text: result.message || $_('settings.data.clear_favorites_none') };
+                notify('success', result.message || $_('settings.data.clear_favorites_none'));
             }
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.clear_favorites_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.clear_favorites_error'));
         } finally {
             clearingFavorites = false;
         }
@@ -1549,13 +1584,12 @@
         if (!confirmed) return;
 
         purgingMissingMedia = true;
-        message = null;
         try {
             const result = await purgeMissingMedia();
-            message = { type: 'success', text: formatMissingMediaScanResult(result) };
+            notify('success', formatMissingMediaScanResult(result));
             await loadMaintenanceStats();
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cleanup_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.cleanup_error'));
         } finally {
             purgingMissingMedia = false;
         }
@@ -1594,16 +1628,15 @@
         }
 
         resettingDatabase = true;
-        message = null;
         toastStore.show($_('settings.danger.resetting'), 'info');
         try {
             const result = await resetDatabase();
-            message = { type: 'success', text: result.message };
+            notify('success', result.message);
             toastStore.success(result.message || $_('settings.danger.reset_button'));
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
             const errorMessage = getErrorMessage(e) || $_('settings.data.reset_error');
-            message = { type: 'error', text: errorMessage };
+            notify('error', errorMessage);
             toastStore.error(errorMessage);
         } finally {
             resettingDatabase = false;
@@ -1628,14 +1661,13 @@
         }
 
         clearingFeedback = true;
-        message = null;
         try {
             const result = await clearClassificationFeedback();
-            message = { type: 'success', text: result.message };
+            notify('success', result.message);
             toastStore.success(result.message || 'Personalization data cleared');
         } catch (e) {
             const errorMessage = getErrorMessage(e) || 'Failed to clear personalization data';
-            message = { type: 'error', text: errorMessage };
+            notify('error', errorMessage);
             toastStore.error(errorMessage);
         } finally {
             clearingFeedback = false;
@@ -1670,20 +1702,19 @@
         });
         if (!confirmed) return;
         cleaningCache = true;
-        message = null;
         try {
             const result = await runCacheCleanup();
             if (result.status === 'completed') {
                 const freed = result.bytes_freed > 1024 * 1024
                     ? `${(result.bytes_freed / (1024 * 1024)).toFixed(1)} MB`
                     : `${(result.bytes_freed / 1024).toFixed(1)} KB`;
-                message = { type: 'success', text: $_('settings.data.cache_cleanup_success', { values: { snapshots: result.snapshots_deleted, clips: result.clips_deleted, freed } }) };
+                notify('success', $_('settings.data.cache_cleanup_success', { values: { snapshots: result.snapshots_deleted, clips: result.clips_deleted, freed } }));
             } else {
-                message = { type: 'success', text: result.message || $_('settings.data.cleanup_none') };
+                notify('success', result.message || $_('settings.data.cleanup_none'));
             }
             await loadCacheStats();
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.cache_cleanup_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.cache_cleanup_error'));
         } finally {
             cleaningCache = false;
         }
@@ -1691,11 +1722,10 @@
 
     async function handleBackfill() {
         if (!backfillCustomValid) {
-            message = { type: 'error', text: backfillCustomError || $_('settings.data.backfill_error') };
+            notify('error', backfillCustomError || $_('settings.data.backfill_error'));
             return;
         }
         backfilling = true;
-        message = null;
         backfillResult = null;
         backfillJob = null;
         backfillTotalJobId = null;
@@ -1712,17 +1742,16 @@
             backfillTotal = scoped.total;
             startBackfillPolling();
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.backfill_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.backfill_error'));
         }
     }
 
     async function handleWeatherBackfill() {
         if (!backfillCustomValid) {
-            message = { type: 'error', text: backfillCustomError || $_('settings.data.weather_backfill_error') };
+            notify('error', backfillCustomError || $_('settings.data.weather_backfill_error'));
             return;
         }
         weatherBackfilling = true;
-        message = null;
         weatherBackfillResult = null;
         weatherBackfillJob = null;
         weatherBackfillTotalJobId = null;
@@ -1740,7 +1769,7 @@
             weatherBackfillTotal = scoped.total;
             startBackfillPolling();
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || $_('settings.data.weather_backfill_error') };
+            notify('error', getErrorMessage(e) || $_('settings.data.weather_backfill_error'));
         }
     }
 
@@ -1756,7 +1785,6 @@
         if (!confirmed) return;
 
         exportingConfigBackup = true;
-        message = null;
         try {
             const { blob, filename } = await exportConfigBackup();
             const url = URL.createObjectURL(blob);
@@ -1767,12 +1795,9 @@
             link.click();
             link.remove();
             URL.revokeObjectURL(url);
-            message = { type: 'success', text: $_('settings.data.config_backup_exported', { default: 'Configuration backup exported.' }) };
+            notify('success', $_('settings.data.config_backup_exported', { default: 'Configuration backup exported.' }));
         } catch (e) {
-            message = {
-                type: 'error',
-                text: getErrorMessage(e) || $_('settings.data.config_backup_export_error', { default: 'Failed to export configuration backup' })
-            };
+            notify('error', getErrorMessage(e) || $_('settings.data.config_backup_export_error', { default: 'Failed to export configuration backup' }));
         } finally {
             exportingConfigBackup = false;
         }
@@ -1789,24 +1814,20 @@
         if (!confirmed) return;
 
         importingConfigBackup = true;
-        message = null;
         try {
             const payload = JSON.parse(await file.text());
             const result = await importConfigBackup(payload);
             await settingsStore.load();
             await loadSettings(true);
-            message = {
-                type: 'success',
-                text: $_('settings.data.config_backup_imported', {
+            notify('success', $_('settings.data.config_backup_imported', {
                     values: { count: result.changed_fields.length },
                     default: 'Configuration backup imported ({count, plural, one {# section changed} other {# sections changed}}). Run a backfill when you are ready.'
-                })
-            };
+                }));
         } catch (e) {
             const text = e instanceof SyntaxError
                 ? $_('settings.data.config_backup_invalid_json', { default: 'The selected file is not valid JSON.' })
                 : getErrorMessage(e) || $_('settings.data.config_backup_import_error', { default: 'Failed to import configuration backup' });
-            message = { type: 'error', text };
+            notify('error', text);
         } finally {
             importingConfigBackup = false;
         }
@@ -1921,10 +1942,9 @@
 
     async function handleAnalyzeUnknowns() {
         analyzingUnknowns = true;
-        message = null;
         try {
             const result = await analyzeUnknowns();
-            message = { type: 'success', text: result.message };
+            notify('success', result.message);
             if (result.count > 0 || (result.skipped_duplicate ?? 0) > 0 || (result.dropped_full ?? 0) > 0) {
                 await analysisQueueStatusStore.refresh();
                 const refreshedStatus = analysisQueueStatusStore.analysisStatus;
@@ -1934,7 +1954,7 @@
                 }
             }
         } catch (e) {
-            message = { type: 'error', text: getErrorMessage(e) || 'Analysis failed' };
+            notify('error', getErrorMessage(e) || 'Analysis failed');
         } finally {
             analyzingUnknowns = false;
         }
@@ -2051,9 +2071,310 @@
         }
     }
 
+    // Puts every saved value into the form. Loading uses it after a read; Discard uses it with the
+    // copy already held, so throwing changes away needs no request and cannot fail.
+    function applySavedSettings(settings: SettingsPayload): void {
+        frigateUrl = settings.frigate_url;
+        frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
+        frigateExternalUrl = settings.frigate_external_url || '';
+        mqttServer = settings.mqtt_server;
+        mqttPort = settings.mqtt_port;
+        mqttAuth = settings.mqtt_auth;
+        mqttUsername = settings.mqtt_username || '';
+        if (settings.mqtt_password === '***REDACTED***') {
+            mqttPasswordSaved = true;
+            mqttPassword = '';
+        } else {
+            mqttPasswordSaved = false;
+            mqttPassword = settings.mqtt_password || '';
+        }
+        birdnetEnabled = settings.birdnet_enabled ?? true;
+        birdnetUrl = settings.birdnet_url || '';
+        birdnetExternalUrl = settings.birdnet_external_url || '';
+        audioTopic = settings.audio_topic || 'birdnet/text';
+        cameraAudioMapping = settings.camera_audio_mapping || {};
+        if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
+            cameraAudioMapping = {};
+        }
+        cameraRoles = settings.camera_roles || {};
+        if (typeof cameraRoles !== 'object' || Array.isArray(cameraRoles)) {
+            cameraRoles = {};
+        }
+        gardenCameras = settings.garden_cameras || [];
+        gardenMotionCameras = settings.garden_motion_cameras || [];
+        gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
+        gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
+        gardenNotificationsEnabled = settings.garden_notifications_enabled ?? false;
+        gardenNotificationChannels = settings.garden_notification_channels ?? [];
+        gardenNotificationsUseBirdChannels = settings.garden_notifications_use_bird_channels ?? true;
+        gardenNotificationsIncludePhoto = settings.garden_notifications_include_photo ?? true;
+        gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
+        gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
+        gardenDomesticBirds = [...(settings.garden_domestic_birds ?? [])];
+        nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
+            ? settings.nest_dedupe_minutes
+            : 30;
+        audioBufferHours = settings.audio_buffer_hours ?? 24;
+        audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
+        classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
+        recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;
+        clipsEnabled = settings.clips_enabled ?? true;
+        recordingClipEnabled = settings.recording_clip_enabled ?? false;
+        recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
+        recordingClipAfterSeconds = settings.recording_clip_after_seconds ?? 90;
+        threshold = settings.classification_threshold;
+        minConfidence = settings.classification_min_confidence ?? 0.4;
+        liveWorkerCount = settings.live_worker_count ?? null;
+        backgroundWorkerCount = settings.background_worker_count ?? null;
+        trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
+        writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
+        const { fontTheme, colorTheme, ...savedAppearanceChoices } = appearanceSection.decode(settings);
+        appearanceChoices = savedAppearanceChoices;
+        themeStore.setFontTheme(fontTheme);
+        themeStore.setColorTheme(colorTheme);
+        personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
+        rangeFilterEnabled = settings.range_filter_enabled ?? false;
+        rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
+        autoVideoClassification = settings.auto_video_classification ?? false;
+        videoClassificationDelay = settings.video_classification_delay ?? 30;
+        videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
+        videoClassificationFrames = settings.video_classification_frames ?? 15;
+        birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
+        birdFinder = parseBirdFinder(settings.bird_crop_accurate_detector);
+        birdFinderProvider = settings.bird_crop_inference_provider ?? 'auto';
+        imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
+        strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
+        betaGardenAnimals = settings.beta_garden_animals ?? false;
+        inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
+        videoCircuitOpen = settings.video_classification_circuit_open ?? false;
+        videoCircuitUntil = settings.video_classification_circuit_until ?? null;
+        videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
+        selectedCameras = settings.cameras || [];
+        retentionDays = settings.retention_days || 0;
+        maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
+        frigateMissingBehavior = normalizeFrigateMissingBehavior(settings.frigate_missing_behavior);
+        {
+            const autoMediaIntegrityScan = (settings.auto_purge_missing_clips ?? false) || (settings.auto_purge_missing_snapshots ?? false);
+            autoPurgeMissingClips = autoMediaIntegrityScan;
+            autoPurgeMissingSnapshots = autoMediaIntegrityScan;
+        }
+        autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
+        // Media cache settings
+        cacheClips = settings.media_cache_clips ?? false;
+        cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
+        cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90;
+        cacheRetentionDays = settings.media_cache_retention_days ?? 0;
+        cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
+        cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
+        cacheAutomaticMultiBirdScan = settings.media_cache_automatic_multi_bird_scan ?? false;
+        cacheBirdScanMode = settings.media_cache_bird_scan_mode ?? 'intensive';
+        cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
+        // Location settings
+        locationLat = settings.location_latitude ?? null;
+        locationLon = settings.location_longitude ?? null;
+        locationState = settings.location_state ?? '';
+        locationCountry = settings.location_country ?? '';
+        locationAuto = settings.location_automatic ?? true;
+        locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
+        // BirdWeather settings
+        birdweatherEnabled = settings.birdweather_enabled ?? false;
+        if (settings.birdweather_station_token === '***REDACTED***') {
+            birdweatherStationTokenSaved = true;
+            birdweatherStationToken = '';
+        } else {
+            birdweatherStationTokenSaved = false;
+            birdweatherStationToken = settings.birdweather_station_token ?? '';
+        }
+        haWeatherEnabled = settings.ha_weather_enabled ?? false;
+        haWeatherBaseUrl = settings.ha_weather_base_url ?? '';
+        if (settings.ha_weather_access_token === '***REDACTED***') {
+            haWeatherAccessTokenSaved = true;
+            haWeatherAccessToken = '';
+        } else {
+            haWeatherAccessTokenSaved = false;
+            haWeatherAccessToken = settings.ha_weather_access_token ?? '';
+        }
+        haWeatherEntity = settings.ha_weather_entity ?? '';
+        haWeatherTemperatureEntity = settings.ha_weather_temperature_entity ?? '';
+        haWeatherWindSpeedEntity = settings.ha_weather_wind_speed_entity ?? '';
+        haWeatherWindDirectionEntity = settings.ha_weather_wind_direction_entity ?? '';
+        haWeatherCloudCoverEntity = settings.ha_weather_cloud_cover_entity ?? '';
+        haWeatherPrecipitationEntity = settings.ha_weather_precipitation_entity ?? '';
+        haWeatherRainEntity = settings.ha_weather_rain_entity ?? '';
+        haWeatherSnowfallEntity = settings.ha_weather_snowfall_entity ?? '';
+        haWeatherIlluminanceEntity = settings.ha_weather_illuminance_entity ?? '';
+        // eBird settings
+        ebirdEnabled = settings.ebird_enabled ?? false;
+        if (settings.ebird_api_key === '***REDACTED***') {
+            ebirdApiKeySaved = true;
+            ebirdApiKey = '';
+        } else {
+            ebirdApiKeySaved = false;
+            ebirdApiKey = settings.ebird_api_key || '';
+        }
+        ebirdDefaultRadiusKm = settings.ebird_default_radius_km ?? 25;
+        ebirdDefaultDaysBack = settings.ebird_default_days_back ?? 14;
+        ebirdMaxResults = settings.ebird_max_results ?? 25;
+        ebirdLocale = settings.ebird_locale ?? 'en';
+        // iNaturalist settings
+        inaturalistEnabled = settings.inaturalist_enabled ?? false;
+        if (settings.inaturalist_client_id === '***REDACTED***') {
+            inaturalistClientIdSaved = true;
+            inaturalistClientId = '';
+        } else {
+            inaturalistClientIdSaved = false;
+            inaturalistClientId = settings.inaturalist_client_id || '';
+        }
+        if (settings.inaturalist_client_secret === '***REDACTED***') {
+            inaturalistClientSecretSaved = true;
+            inaturalistClientSecret = '';
+        } else {
+            inaturalistClientSecretSaved = false;
+            inaturalistClientSecret = settings.inaturalist_client_secret || '';
+        }
+        inaturalistDefaultLat = settings.inaturalist_default_latitude ?? null;
+        inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
+        inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
+        inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
+        // Enrichment settings
+        enrichmentDraft = enrichmentSection.decode(settings);
+        aiDraft = aiSection.decode(settings);
+        // Telemetry
+        telemetryEnabled = settings.telemetry_enabled ?? true;
+        telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
+        telemetryInstallationId = settings.telemetry_installation_id;
+        telemetryPlatform = settings.telemetry_platform;
+        telemetryPayloadPreview = settings.telemetry_payload_preview;
+        // Authentication + Public access
+        authEnabled = settings.auth_enabled ?? false;
+        authUsername = settings.auth_username || 'admin';
+        authHasPassword = settings.auth_has_password ?? false;
+        authPassword = '';
+        authPasswordConfirm = '';
+        authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
+        const proxyHosts = savedTrustedProxyHosts(settings.trusted_proxy_hosts);
+        const proxyHostsDefault = proxyHosts.length === 1 && proxyHosts[0] === '*';
+        trustedProxyHostsSuggested = proxyHostsDefault;
+        trustedProxyHosts = proxyHostsDefault ? ['nginx-rp', 'cloudflare-tunnel'] : proxyHosts;
+        publicAccessEnabled = settings.public_access_enabled ?? false;
+        publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
+        publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
+        publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
+        publicAccessShowAudio = settings.public_access_show_audio ?? true;
+        publicAccessShowSnapshots = settings.public_access_show_snapshots ?? true;
+        publicAccessShowClips = settings.public_access_show_clips ?? true;
+        publicAccessLocationPrecision = (settings.public_access_location_precision as 'approximate' | 'exact') ?? 'approximate';
+        publicAccessHistoricalDaysMode = normalizePublicDaysMode(settings.public_access_historical_days_mode);
+        publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
+        publicAccessMediaDaysMode = normalizePublicDaysMode(settings.public_access_media_days_mode);
+        publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
+        publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
+        publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
+        debugUiEnabled = settings.debug_ui_enabled ?? false;
+
+        // Notifications
+        discordEnabled = settings.notifications_discord_enabled ?? false;
+        if (settings.notifications_discord_webhook_url === '***REDACTED***') {
+            discordWebhookSaved = true;
+            discordWebhook = '';
+        } else {
+            discordWebhookSaved = false;
+            discordWebhook = settings.notifications_discord_webhook_url || '';
+        }
+        discordUsername = settings.notifications_discord_username || 'YA-WAMF';
+
+        pushoverEnabled = settings.notifications_pushover_enabled ?? false;
+        if (settings.notifications_pushover_user_key === '***REDACTED***') {
+            pushoverUserSaved = true;
+            pushoverUser = '';
+        } else {
+            pushoverUserSaved = false;
+            pushoverUser = settings.notifications_pushover_user_key || '';
+        }
+        if (settings.notifications_pushover_api_token === '***REDACTED***') {
+            pushoverTokenSaved = true;
+            pushoverToken = '';
+        } else {
+            pushoverTokenSaved = false;
+            pushoverToken = settings.notifications_pushover_api_token || '';
+        }
+        pushoverPriority = settings.notifications_pushover_priority ?? 0;
+        pushoverDevice = settings.notifications_pushover_device ?? '';
+
+        telegramEnabled = settings.notifications_telegram_enabled ?? false;
+        if (settings.notifications_telegram_bot_token === '***REDACTED***') {
+            telegramTokenSaved = true;
+            telegramToken = '';
+        } else {
+            telegramTokenSaved = false;
+            telegramToken = settings.notifications_telegram_bot_token || '';
+        }
+        if (settings.notifications_telegram_chat_id === '***REDACTED***') {
+            telegramChatIdSaved = true;
+            telegramChatId = '';
+        } else {
+            telegramChatIdSaved = false;
+            telegramChatId = settings.notifications_telegram_chat_id || '';
+        }
+
+        emailEnabled = settings.notifications_email_enabled ?? false;
+        emailUseOAuth = settings.notifications_email_use_oauth ?? false;
+        emailOAuthProvider = settings.notifications_email_oauth_provider || null;
+        emailConnectedEmail = settings.notifications_email_connected_email || null;
+        emailOnlyOnEnd = settings.notifications_email_only_on_end ?? false;
+        emailGmailClientId = settings.notifications_email_gmail_client_id || '';
+        if (settings.notifications_email_gmail_client_secret === '***REDACTED***') {
+            emailGmailClientSecretSaved = true;
+            emailGmailClientSecret = '';
+        } else {
+            emailGmailClientSecretSaved = false;
+            emailGmailClientSecret = settings.notifications_email_gmail_client_secret || '';
+        }
+        emailOutlookClientId = settings.notifications_email_outlook_client_id || '';
+        if (settings.notifications_email_outlook_client_secret === '***REDACTED***') {
+            emailOutlookClientSecretSaved = true;
+            emailOutlookClientSecret = '';
+        } else {
+            emailOutlookClientSecretSaved = false;
+            emailOutlookClientSecret = settings.notifications_email_outlook_client_secret || '';
+        }
+        notificationLanguage = settings.notification_language ?? 'en';
+        emailSmtpHost = settings.notifications_email_smtp_host || '';
+        emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
+        emailSmtpUsername = settings.notifications_email_smtp_username || '';
+        if (settings.notifications_email_smtp_password === '***REDACTED***') {
+            emailSmtpPasswordSaved = true;
+            emailSmtpPassword = '';
+        } else {
+            emailSmtpPasswordSaved = false;
+            emailSmtpPassword = settings.notifications_email_smtp_password || '';
+        }
+        emailSmtpUseTls = settings.notifications_email_smtp_use_tls ?? true;
+        emailFromEmail = settings.notifications_email_from_email || '';
+        emailToEmail = settings.notifications_email_to_email || '';
+        emailIncludeSnapshot = settings.notifications_email_include_snapshot ?? true;
+        instanceUrl = settings.notifications_instance_url || '';
+        notifyLinkTarget = settings.notifications_link_target ?? 'yawamf';
+
+        filterSpeciesMode = inferNotificationSpeciesMode(settings);
+        filterSpeciesEntries = mergeBlockedSpeciesEntries(notificationSpeciesEntriesForMode(settings, filterSpeciesMode));
+        filterWhitelist = filterSpeciesMode === 'whitelist' ? (settings.notifications_filter_species_whitelist || []) : [];
+        filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
+        filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
+        notifyMode = savedNotifyMode(settings);
+        notifyOnInsert = settings.notifications_notify_on_insert ?? true;
+        notifyOnUpdate = settings.notifications_notify_on_update ?? false;
+        notifyDelayUntilVideo = settings.notifications_delay_until_video ?? false;
+        notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout ?? 45;
+        notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes ?? 0;
+
+        accessibilityDraft = accessibilitySection.decode(settings);
+        blockedLabels = [...blockedLabelsBaseline];
+        blockedSpecies = [...blockedSpeciesBaseline];
+    }
+
     async function loadSettings(silent = false, shareShellRead = false) {
         if (!silent) loading = true;
-        if (!silent) message = null;
         loadingBirdnetSources = true;
         birdnetSourcesError = null;
         try {
@@ -2061,46 +2382,9 @@
             loadedSetupSettings = settings;
             // A shared read is the store's own copy; handing it back would restart its age.
             if (!shareShellRead) settingsStore.update(settings);
-            frigateUrl = settings.frigate_url;
-            frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
-            frigateExternalUrl = settings.frigate_external_url || '';
-            mqttServer = settings.mqtt_server;
-            mqttPort = settings.mqtt_port;
-            mqttAuth = settings.mqtt_auth;
-            mqttUsername = settings.mqtt_username || '';
-            if (settings.mqtt_password === '***REDACTED***') {
-                mqttPasswordSaved = true;
-                mqttPassword = '';
-            } else {
-                mqttPasswordSaved = false;
-                mqttPassword = settings.mqtt_password || '';
-            }
-            birdnetEnabled = settings.birdnet_enabled ?? true;
-            birdnetUrl = settings.birdnet_url || '';
-            birdnetExternalUrl = settings.birdnet_external_url || '';
-            audioTopic = settings.audio_topic || 'birdnet/text';
-            cameraAudioMapping = settings.camera_audio_mapping || {};
-            if (typeof cameraAudioMapping !== 'object' || Array.isArray(cameraAudioMapping)) {
-                cameraAudioMapping = {};
-            }
-            cameraRoles = settings.camera_roles || {};
-            if (typeof cameraRoles !== 'object' || Array.isArray(cameraRoles)) {
-                cameraRoles = {};
-            }
-            gardenCameras = settings.garden_cameras || [];
-            gardenMotionCameras = settings.garden_motion_cameras || [];
-            gardenLabels = (settings.garden_labels || ['cat', 'dog']).join(', ');
-            gardenMotionConfidence = settings.garden_motion_confidence ?? 0.5;
-            gardenNotificationsEnabled = settings.garden_notifications_enabled ?? false;
-            gardenNotificationChannels = settings.garden_notification_channels ?? [];
-            gardenNotificationsUseBirdChannels = settings.garden_notifications_use_bird_channels ?? true;
-            gardenNotificationsIncludePhoto = settings.garden_notifications_include_photo ?? true;
-            gardenAutomaticNaming = settings.garden_automatic_naming ?? true;
-            gardenNamingThreshold = settings.garden_naming_threshold ?? 0.8;
-            gardenDomesticBirds = [...(settings.garden_domestic_birds ?? [])];
-            nestDedupeMinutes = typeof settings.nest_dedupe_minutes === 'number' && settings.nest_dedupe_minutes > 0
-                ? settings.nest_dedupe_minutes
-                : 30;
+            applySavedSettings(settings);
+            loadedInferenceProvider = settings.inference_provider;
+            settingsFormLoads += 1;
             try {
                 birdnetSourceOptions = await fetchAudioSources(20);
             } catch (e) {
@@ -2110,53 +2394,6 @@
             } finally {
                 loadingBirdnetSources = false;
             }
-            audioBufferHours = settings.audio_buffer_hours ?? 24;
-            audioCorrelationWindowSeconds = settings.audio_correlation_window_seconds ?? 300;
-            classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';
-            recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;
-            clipsEnabled = settings.clips_enabled ?? true;
-            recordingClipEnabled = settings.recording_clip_enabled ?? false;
-            recordingClipBeforeSeconds = settings.recording_clip_before_seconds ?? 30;
-            recordingClipAfterSeconds = settings.recording_clip_after_seconds ?? 90;
-            threshold = settings.classification_threshold;
-            minConfidence = settings.classification_min_confidence ?? 0.4;
-            liveWorkerCount = settings.live_worker_count ?? null;
-            backgroundWorkerCount = settings.background_worker_count ?? null;
-            trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
-            writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
-            const { fontTheme, colorTheme, ...savedAppearanceChoices } = appearanceSection.decode(settings);
-            appearanceChoices = savedAppearanceChoices;
-            themeStore.setFontTheme(fontTheme);
-            themeStore.setColorTheme(colorTheme);
-            personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
-            rangeFilterEnabled = settings.range_filter_enabled ?? false;
-            rangeFilterRegionLevel = settings.range_filter_region_level ?? 'county';
-            autoVideoClassification = settings.auto_video_classification ?? false;
-            videoClassificationDelay = settings.video_classification_delay ?? 30;
-            videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
-            videoClassificationFrames = settings.video_classification_frames ?? 15;
-            birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
-            birdFinder = parseBirdFinder(settings.bird_crop_accurate_detector);
-            birdFinderProvider = settings.bird_crop_inference_provider ?? 'auto';
-            imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
-            strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
-            betaGardenAnimals = settings.beta_garden_animals ?? false;
-            inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';
-            loadedInferenceProvider = settings.inference_provider;
-            settingsFormLoads += 1;
-            videoCircuitOpen = settings.video_classification_circuit_open ?? false;
-            videoCircuitUntil = settings.video_classification_circuit_until ?? null;
-            videoCircuitFailures = settings.video_classification_circuit_failures ?? 0;
-            selectedCameras = settings.cameras || [];
-            retentionDays = settings.retention_days || 0;
-            maintenanceMaxConcurrent = settings.maintenance_max_concurrent ?? 1;
-            frigateMissingBehavior = normalizeFrigateMissingBehavior(settings.frigate_missing_behavior);
-            {
-                const autoMediaIntegrityScan = (settings.auto_purge_missing_clips ?? false) || (settings.auto_purge_missing_snapshots ?? false);
-                autoPurgeMissingClips = autoMediaIntegrityScan;
-                autoPurgeMissingSnapshots = autoMediaIntegrityScan;
-            }
-            autoAnalyzeUnknowns = settings.auto_analyze_unknowns ?? false;
             const migratedBlockedLabels = await migrateLegacyBlockedLabels(
                 settings.blocked_labels || [],
                 (query) => searchSpecies(query, 50, true)
@@ -2168,233 +2405,13 @@
             ]);
             blockedLabelsBaseline = [...blockedLabels];
             blockedSpeciesBaseline = [...blockedSpecies];
-            // Media cache settings
-            cacheClips = settings.media_cache_clips ?? false;
-            cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
-            cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 90;
-            cacheRetentionDays = settings.media_cache_retention_days ?? 0;
-            cachePerSpeciesMaximum = settings.media_cache_per_species_maximum ?? 0;
-            cacheMaxSizeMb = settings.media_cache_max_size_mb ?? 0;
-            cacheAutomaticMultiBirdScan = settings.media_cache_automatic_multi_bird_scan ?? false;
-            cacheBirdScanMode = settings.media_cache_bird_scan_mode ?? 'intensive';
-            cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
-            // Location settings
-            locationLat = settings.location_latitude ?? null;
-            locationLon = settings.location_longitude ?? null;
-            locationState = settings.location_state ?? '';
-            locationCountry = settings.location_country ?? '';
-            locationAuto = settings.location_automatic ?? true;
-            locationWeatherUnitSystem = ((settings.location_weather_unit_system as 'metric' | 'imperial' | 'british') ?? (settings.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric'));
-            // BirdWeather settings
-            birdweatherEnabled = settings.birdweather_enabled ?? false;
-            if (settings.birdweather_station_token === '***REDACTED***') {
-                birdweatherStationTokenSaved = true;
-                birdweatherStationToken = '';
-            } else {
-                birdweatherStationTokenSaved = false;
-                birdweatherStationToken = settings.birdweather_station_token ?? '';
-            }
-            haWeatherEnabled = settings.ha_weather_enabled ?? false;
-            haWeatherBaseUrl = settings.ha_weather_base_url ?? '';
-            if (settings.ha_weather_access_token === '***REDACTED***') {
-                haWeatherAccessTokenSaved = true;
-                haWeatherAccessToken = '';
-            } else {
-                haWeatherAccessTokenSaved = false;
-                haWeatherAccessToken = settings.ha_weather_access_token ?? '';
-            }
-            haWeatherEntity = settings.ha_weather_entity ?? '';
-            haWeatherTemperatureEntity = settings.ha_weather_temperature_entity ?? '';
-            haWeatherWindSpeedEntity = settings.ha_weather_wind_speed_entity ?? '';
-            haWeatherWindDirectionEntity = settings.ha_weather_wind_direction_entity ?? '';
-            haWeatherCloudCoverEntity = settings.ha_weather_cloud_cover_entity ?? '';
-            haWeatherPrecipitationEntity = settings.ha_weather_precipitation_entity ?? '';
-            haWeatherRainEntity = settings.ha_weather_rain_entity ?? '';
-            haWeatherSnowfallEntity = settings.ha_weather_snowfall_entity ?? '';
-            haWeatherIlluminanceEntity = settings.ha_weather_illuminance_entity ?? '';
-            // eBird settings
-            ebirdEnabled = settings.ebird_enabled ?? false;
-            if (settings.ebird_api_key === '***REDACTED***') {
-                ebirdApiKeySaved = true;
-                ebirdApiKey = '';
-            } else {
-                ebirdApiKeySaved = false;
-                ebirdApiKey = settings.ebird_api_key || '';
-            }
-            ebirdDefaultRadiusKm = settings.ebird_default_radius_km ?? 25;
-            ebirdDefaultDaysBack = settings.ebird_default_days_back ?? 14;
-            ebirdMaxResults = settings.ebird_max_results ?? 25;
-            ebirdLocale = settings.ebird_locale ?? 'en';
-            // iNaturalist settings
-            inaturalistEnabled = settings.inaturalist_enabled ?? false;
-            if (settings.inaturalist_client_id === '***REDACTED***') {
-                inaturalistClientIdSaved = true;
-                inaturalistClientId = '';
-            } else {
-                inaturalistClientIdSaved = false;
-                inaturalistClientId = settings.inaturalist_client_id || '';
-            }
-            if (settings.inaturalist_client_secret === '***REDACTED***') {
-                inaturalistClientSecretSaved = true;
-                inaturalistClientSecret = '';
-            } else {
-                inaturalistClientSecretSaved = false;
-                inaturalistClientSecret = settings.inaturalist_client_secret || '';
-            }
-            inaturalistDefaultLat = settings.inaturalist_default_latitude ?? null;
-            inaturalistDefaultLon = settings.inaturalist_default_longitude ?? null;
-            inaturalistDefaultPlace = settings.inaturalist_default_place_guess ?? '';
-            inaturalistConnectedUser = settings.inaturalist_connected_user ?? null;
-            // Enrichment settings
-            enrichmentDraft = enrichmentSection.decode(settings);
-            aiDraft = aiSection.decode(settings);
-            // Telemetry
-            telemetryEnabled = settings.telemetry_enabled ?? true;
-            telemetryHealthEnabled = settings.telemetry_health_enabled ?? false;
-            telemetryInstallationId = settings.telemetry_installation_id;
-            telemetryPlatform = settings.telemetry_platform;
-            telemetryPayloadPreview = settings.telemetry_payload_preview;
-            // Authentication + Public access
-            authEnabled = settings.auth_enabled ?? false;
-            authUsername = settings.auth_username || 'admin';
-            authHasPassword = settings.auth_has_password ?? false;
-            authPassword = '';
-            authPasswordConfirm = '';
-            authSessionExpiryHours = settings.auth_session_expiry_hours ?? 168;
-            const proxyHosts = settings.trusted_proxy_hosts || [];
-            const proxyHostsDefault = proxyHosts.length === 0 || (proxyHosts.length === 1 && proxyHosts[0] === '*');
-            trustedProxyHostsSuggested = proxyHostsDefault;
-            trustedProxyHosts = proxyHostsDefault ? ['nginx-rp', 'cloudflare-tunnel'] : proxyHosts;
-            publicAccessEnabled = settings.public_access_enabled ?? false;
-            publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
-            publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
-            publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
-            publicAccessShowAudio = settings.public_access_show_audio ?? true;
-            publicAccessShowSnapshots = settings.public_access_show_snapshots ?? true;
-            publicAccessShowClips = settings.public_access_show_clips ?? true;
-            publicAccessLocationPrecision = (settings.public_access_location_precision as 'approximate' | 'exact') ?? 'approximate';
-            publicAccessHistoricalDaysMode = normalizePublicDaysMode(settings.public_access_historical_days_mode);
-            publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
-            publicAccessMediaDaysMode = normalizePublicDaysMode(settings.public_access_media_days_mode);
-            publicAccessMediaHistoricalDays = settings.public_access_media_historical_days ?? 7;
-            publicAccessRateLimitPerMinute = settings.public_access_rate_limit_per_minute ?? 30;
-            publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
-            debugUiEnabled = settings.debug_ui_enabled ?? false;
-
-            // Notifications
-            discordEnabled = settings.notifications_discord_enabled ?? false;
-            if (settings.notifications_discord_webhook_url === '***REDACTED***') {
-                discordWebhookSaved = true;
-                discordWebhook = '';
-            } else {
-                discordWebhookSaved = false;
-                discordWebhook = settings.notifications_discord_webhook_url || '';
-            }
-            discordUsername = settings.notifications_discord_username || 'YA-WAMF';
-
-            pushoverEnabled = settings.notifications_pushover_enabled ?? false;
-            if (settings.notifications_pushover_user_key === '***REDACTED***') {
-                pushoverUserSaved = true;
-                pushoverUser = '';
-            } else {
-                pushoverUserSaved = false;
-                pushoverUser = settings.notifications_pushover_user_key || '';
-            }
-            if (settings.notifications_pushover_api_token === '***REDACTED***') {
-                pushoverTokenSaved = true;
-                pushoverToken = '';
-            } else {
-                pushoverTokenSaved = false;
-                pushoverToken = settings.notifications_pushover_api_token || '';
-            }
-            pushoverPriority = settings.notifications_pushover_priority ?? 0;
-            pushoverDevice = settings.notifications_pushover_device ?? '';
-
-            telegramEnabled = settings.notifications_telegram_enabled ?? false;
-            if (settings.notifications_telegram_bot_token === '***REDACTED***') {
-                telegramTokenSaved = true;
-                telegramToken = '';
-            } else {
-                telegramTokenSaved = false;
-                telegramToken = settings.notifications_telegram_bot_token || '';
-            }
-            if (settings.notifications_telegram_chat_id === '***REDACTED***') {
-                telegramChatIdSaved = true;
-                telegramChatId = '';
-            } else {
-                telegramChatIdSaved = false;
-                telegramChatId = settings.notifications_telegram_chat_id || '';
-            }
-
-            emailEnabled = settings.notifications_email_enabled ?? false;
-            emailUseOAuth = settings.notifications_email_use_oauth ?? false;
-            emailOAuthProvider = settings.notifications_email_oauth_provider || null;
-            emailConnectedEmail = settings.notifications_email_connected_email || null;
-            emailOnlyOnEnd = settings.notifications_email_only_on_end ?? false;
-            emailGmailClientId = settings.notifications_email_gmail_client_id || '';
-            if (settings.notifications_email_gmail_client_secret === '***REDACTED***') {
-                emailGmailClientSecretSaved = true;
-                emailGmailClientSecret = '';
-            } else {
-                emailGmailClientSecretSaved = false;
-                emailGmailClientSecret = settings.notifications_email_gmail_client_secret || '';
-            }
-            emailOutlookClientId = settings.notifications_email_outlook_client_id || '';
-            if (settings.notifications_email_outlook_client_secret === '***REDACTED***') {
-                emailOutlookClientSecretSaved = true;
-                emailOutlookClientSecret = '';
-            } else {
-                emailOutlookClientSecretSaved = false;
-                emailOutlookClientSecret = settings.notifications_email_outlook_client_secret || '';
-            }
-            notificationLanguage = settings.notification_language ?? 'en';
-            emailSmtpHost = settings.notifications_email_smtp_host || '';
-            emailSmtpPort = settings.notifications_email_smtp_port ?? 587;
-            emailSmtpUsername = settings.notifications_email_smtp_username || '';
-            if (settings.notifications_email_smtp_password === '***REDACTED***') {
-                emailSmtpPasswordSaved = true;
-                emailSmtpPassword = '';
-            } else {
-                emailSmtpPasswordSaved = false;
-                emailSmtpPassword = settings.notifications_email_smtp_password || '';
-            }
-            emailSmtpUseTls = settings.notifications_email_smtp_use_tls ?? true;
-            emailFromEmail = settings.notifications_email_from_email || '';
-            emailToEmail = settings.notifications_email_to_email || '';
-            emailIncludeSnapshot = settings.notifications_email_include_snapshot ?? true;
-            instanceUrl = settings.notifications_instance_url || '';
-            notifyLinkTarget = settings.notifications_link_target ?? 'yawamf';
-
-            filterSpeciesMode = inferNotificationSpeciesMode(settings);
-            filterSpeciesEntries = mergeBlockedSpeciesEntries(notificationSpeciesEntriesForMode(settings, filterSpeciesMode));
-            filterWhitelist = filterSpeciesMode === 'whitelist' ? (settings.notifications_filter_species_whitelist || []) : [];
-            filterConfidence = settings.notifications_filter_min_confidence ?? 0.7;
-            filterAudioOnly = settings.notifications_filter_audio_confirmed_only ?? false;
-            if (settings.notifications_mode) {
-                notifyMode = settings.notifications_mode as typeof notifyMode;
-            } else if (!settings.notifications_notify_on_insert && !settings.notifications_notify_on_update) {
-                notifyMode = 'silent';
-            } else if (settings.notifications_delay_until_video) {
-                notifyMode = 'final';
-            } else if (settings.notifications_notify_on_insert && settings.notifications_notify_on_update) {
-                notifyMode = 'realtime';
-            } else {
-                notifyMode = 'standard';
-            }
-            notifyOnInsert = settings.notifications_notify_on_insert ?? true;
-            if (settings.notifications_notify_on_update !== undefined) notifyOnUpdate = settings.notifications_notify_on_update;
-            if (settings.notifications_delay_until_video !== undefined) notifyDelayUntilVideo = settings.notifications_delay_until_video;
-            if (settings.notifications_video_fallback_timeout !== undefined) notifyVideoFallbackTimeout = settings.notifications_video_fallback_timeout;
-            if (settings.notifications_notification_cooldown_minutes !== undefined) notifyCooldownMinutes = settings.notifications_notification_cooldown_minutes;
-
-            accessibilityDraft = accessibilitySection.decode(settings);
             await loadRecordingClipCapability();
             settingsLoadFailed = false;
         } catch (e) {
             loadingBirdnetSources = false;
             // A page-opening read that failed leaves nothing trustworthy to edit; the page says so
             // and offers the read again. A refresh behind a form already shown only reports itself.
-            if (silent) message = { type: 'error', text: $_('notifications.settings_load_failed') };
+            if (silent) notify('error', $_('notifications.settings_load_failed'));
             else settingsLoadFailed = true;
         } finally {
             if (!silent) loading = false;
@@ -2426,23 +2443,203 @@
         }
     }
 
-    async function saveSettings() {
-        saving = true;
-        message = null;
+    // What a save sends: every field the form edits, in the server's names.
+    function buildSettingsPayload(): SettingsUpdate {
+        return {
+            frigate_url: frigateUrl,
+            frigate_ingest_labels: frigateIngestLabels.split(',').map((l) => l.trim()).filter(Boolean),
+            frigate_external_url: frigateExternalUrl,
+            mqtt_server: mqttServer,
+            mqtt_port: mqttPort,
+            mqtt_auth: mqttAuth,
+            mqtt_username: mqttUsername,
+            mqtt_password: mqttPassword,
+            birdnet_enabled: birdnetEnabled,
+            birdnet_url: birdnetUrl,
+            birdnet_external_url: birdnetExternalUrl,
+            audio_topic: audioTopic,
+            camera_audio_mapping: cameraAudioMapping,
+            camera_roles: cameraRoles,
+            garden_cameras: gardenCameras,
+            garden_motion_cameras: gardenMotionCameras,
+            garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
+            garden_motion_confidence: gardenMotionConfidence,
+            garden_notifications_enabled: gardenNotificationsEnabled,
+            garden_notification_channels: gardenNotificationChannels,
+            garden_notifications_use_bird_channels: gardenNotificationsUseBirdChannels,
+            garden_notifications_include_photo: gardenNotificationsIncludePhoto,
+            garden_automatic_naming: gardenAutomaticNaming,
+            garden_naming_threshold: gardenNamingThreshold,
+            garden_domestic_birds: gardenDomesticBirds,
+            nest_dedupe_minutes: nestDedupeMinutes,
+            audio_buffer_hours: audioBufferHours,
+            audio_correlation_window_seconds: audioCorrelationWindowSeconds,
+            classification_image_source: classificationImageSource,
+            recording_frame_delay_seconds: recordingFrameDelaySeconds,
+            clips_enabled: clipsEnabled,
+            recording_clip_enabled: recordingClipEnabled,
+            recording_clip_before_seconds: recordingClipBeforeSeconds,
+            recording_clip_after_seconds: recordingClipAfterSeconds,
+            classification_threshold: threshold,
+            classification_min_confidence: minConfidence,
+            live_worker_count: liveWorkerCount,
+            background_worker_count: backgroundWorkerCount,
+            trust_frigate_sublabel: trustFrigateSublabel,
+            write_frigate_sublabel: writeFrigateSublabel,
+            personalized_rerank_enabled: personalizedRerankEnabled,
+            range_filter_enabled: rangeFilterEnabled,
+            range_filter_region_level: rangeFilterRegionLevel,
+            auto_video_classification: autoVideoClassification,
+            video_classification_delay: videoClassificationDelay,
+            video_classification_max_retries: videoClassificationMaxRetries,
+            video_classification_frames: videoClassificationFrames,
+            ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
+            bird_crop_accurate_detector: birdFinder,
+            bird_crop_inference_provider: birdFinderProvider,
+            image_execution_mode: imageExecutionMode,
+            strict_non_finite_output: strictNonFiniteOutput,
+            beta_garden_animals: betaGardenAnimals,
+            inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
+            cameras: selectedCameras,
+            retention_days: retentionDays,
+            maintenance_max_concurrent: maintenanceMaxConcurrent,
+            frigate_missing_behavior: frigateMissingBehavior,
+            auto_purge_missing_clips: autoPurgeMissingClips,
+            auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
+            auto_analyze_unknowns: autoAnalyzeUnknowns,
+            blocked_labels: blockedLabels,
+            blocked_species: blockedSpecies,
+            media_cache_clips: cacheClips,
+            media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
+            // Compatibility field: best-available snapshots always attempt an automatic crop.
+            media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots,
+            media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
+            media_cache_retention_days: cacheRetentionDays,
+            media_cache_per_species_maximum: cachePerSpeciesMaximum,
+            media_cache_max_size_mb: cacheMaxSizeMb,
+            media_cache_automatic_multi_bird_scan: cacheAutomaticMultiBirdScan,
+            media_cache_bird_scan_mode: cacheBirdScanMode,
+            media_cache_per_species_minimum: cachePerSpeciesMinimum,
+            location_latitude: locationLat,
+            location_longitude: locationLon,
+            location_state: locationState || null,
+            location_country: locationCountry || null,
+            location_automatic: locationAuto,
+            location_weather_unit_system: locationWeatherUnitSystem,
+            birdweather_enabled: birdweatherEnabled,
+            birdweather_station_token: birdweatherStationToken,
+            ha_weather_enabled: haWeatherEnabled,
+            ha_weather_base_url: haWeatherBaseUrl || null,
+            ha_weather_access_token: haWeatherAccessToken,
+            ha_weather_entity: haWeatherEntity || null,
+            ha_weather_temperature_entity: haWeatherTemperatureEntity || null,
+            ha_weather_wind_speed_entity: haWeatherWindSpeedEntity || null,
+            ha_weather_wind_direction_entity: haWeatherWindDirectionEntity || null,
+            ha_weather_cloud_cover_entity: haWeatherCloudCoverEntity || null,
+            ha_weather_precipitation_entity: haWeatherPrecipitationEntity || null,
+            ha_weather_rain_entity: haWeatherRainEntity || null,
+            ha_weather_snowfall_entity: haWeatherSnowfallEntity || null,
+            ha_weather_illuminance_entity: haWeatherIlluminanceEntity.trim() || null,
+            ebird_enabled: ebirdEnabled,
+            ebird_api_key: ebirdApiKey,
+            ebird_default_radius_km: ebirdDefaultRadiusKm,
+            ebird_default_days_back: ebirdDefaultDaysBack,
+            ebird_max_results: ebirdMaxResults,
+            ebird_locale: ebirdLocale,
+            inaturalist_enabled: inaturalistEnabled,
+            inaturalist_client_id: inaturalistClientId,
+            inaturalist_client_secret: inaturalistClientSecret,
+            inaturalist_default_latitude: inaturalistDefaultLat,
+            inaturalist_default_longitude: inaturalistDefaultLon,
+            inaturalist_default_place_guess: inaturalistDefaultPlace,
+            ...enrichmentSection.encodePatch(enrichmentDraft),
+            ...aiSection.encodePatch(aiDraft),
+            telemetry_enabled: telemetryEnabled,
+            telemetry_health_enabled: telemetryHealthEnabled,
+            auth_enabled: authEnabled,
+            auth_username: authUsername,
+            auth_password: authPassword || undefined,
+            auth_session_expiry_hours: authSessionExpiryHours,
+            trusted_proxy_hosts: effectiveTrustedProxyHosts,
+            public_access_enabled: publicAccessEnabled,
+            public_access_show_camera_names: publicAccessShowCameraNames,
+            public_access_show_ai_conversation: publicAccessShowAiConversation,
+            public_access_allow_clip_downloads: publicAccessAllowClipDownloads,
+            public_access_show_audio: publicAccessShowAudio,
+            public_access_show_snapshots: publicAccessShowSnapshots,
+            public_access_show_clips: publicAccessShowClips,
+            public_access_location_precision: publicAccessLocationPrecision,
+            public_access_historical_days_mode: publicAccessHistoricalDaysMode,
+            public_access_historical_days: publicAccessHistoricalDays,
+            public_access_media_days_mode: publicAccessMediaDaysMode,
+            public_access_media_historical_days: publicAccessMediaHistoricalDays,
+            public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
+            public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
+
+            // Notifications
+            notifications_discord_enabled: discordEnabled,
+            notifications_discord_webhook_url: discordWebhook,
+            notifications_discord_username: discordUsername,
+
+            notifications_pushover_enabled: pushoverEnabled,
+            notifications_pushover_user_key: pushoverUser,
+            notifications_pushover_api_token: pushoverToken,
+            notifications_pushover_priority: pushoverPriority,
+            notifications_pushover_device: pushoverDevice || null,
+
+            notifications_telegram_enabled: telegramEnabled,
+            notifications_telegram_bot_token: telegramToken,
+            notifications_telegram_chat_id: telegramChatId,
+
+            notifications_email_enabled: emailEnabled,
+            notifications_email_only_on_end: emailOnlyOnEnd,
+            notifications_email_use_oauth: emailUseOAuth,
+            notifications_email_oauth_provider: emailOAuthProvider,
+            notifications_email_gmail_client_id: emailGmailClientId || null,
+            notifications_email_gmail_client_secret: emailGmailClientSecret || undefined,
+            notifications_email_outlook_client_id: emailOutlookClientId || null,
+            notifications_email_outlook_client_secret: emailOutlookClientSecret || undefined,
+            notifications_email_smtp_host: emailSmtpHost,
+            notifications_email_smtp_port: emailSmtpPort,
+            notifications_email_smtp_username: emailSmtpUsername,
+            notifications_email_smtp_password: emailSmtpPassword,
+            notifications_email_smtp_use_tls: emailSmtpUseTls,
+            notifications_email_from_email: emailFromEmail,
+            notifications_email_to_email: emailToEmail,
+            notifications_email_include_snapshot: emailIncludeSnapshot,
+            notifications_instance_url: instanceUrl,
+            notifications_link_target: notifyLinkTarget,
+
+            notification_language: notificationLanguage,
+            notifications_filter_species_mode: filterSpeciesMode,
+            notifications_filter_species_whitelist: filterSpeciesMode === 'whitelist' ? filterWhitelist : [],
+            notifications_filter_species_whitelist_structured: filterSpeciesMode === 'whitelist' ? filterSpeciesEntries : [],
+            notifications_filter_species_blacklist_structured: filterSpeciesMode === 'blacklist' ? filterSpeciesEntries : [],
+            notifications_filter_min_confidence: filterConfidence,
+            notifications_filter_audio_confirmed_only: filterAudioOnly,
+            notifications_mode: notifyMode,
+            notifications_notify_on_insert: notifyOnInsert,
+            notifications_notify_on_update: notifyOnUpdate,
+            notifications_delay_until_video: notifyDelayUntilVideo,
+            notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
+            notifications_notification_cooldown_minutes: notifyCooldownMinutes,
+
+            ...accessibilitySection.encodePatch(accessibilityDraft),
+            ...appearanceSection.encodePatch(appearanceDraft)
+        };
+    }
+
+    // Values checked here before sending, in the same shape the server uses for a refusal.
+    function locallyRefusedFields(): SettingsFieldError[] {
+        const refused: SettingsFieldError[] = [];
         if (!Number.isFinite(recordingFrameDelaySeconds) || recordingFrameDelaySeconds < 1 || recordingFrameDelaySeconds > 120) {
-            message = { type: 'error', text: $_('settings.frigate.recording_frame_delay_invalid', { default: 'Enter a recording-frame delay between 1 and 120 seconds.' }) };
-            saving = false;
-            return;
+            refused.push(rangeFieldError('recording_frame_delay_seconds', 1, 120));
         }
         if (!Number.isFinite(gardenMotionConfidence) || gardenMotionConfidence < 0.5 || gardenMotionConfidence > 0.95) {
-            message = { type: 'error', text: $_('settings.beta.garden_motion_confidence_invalid', { default: 'Enter an animal proposal threshold between 50% and 95%.' }) };
-            saving = false;
-            return;
+            refused.push(rangeFieldError('garden_motion_confidence', 50, 95, '%'));
         }
         if (!Number.isFinite(gardenNamingThreshold) || gardenNamingThreshold < 0.7 || gardenNamingThreshold > 0.99) {
-            message = { type: 'error', text: $_('settings.beta.garden_naming_threshold_invalid', { default: 'Enter a naming threshold between 70% and 99%.' }) };
-            saving = false;
-            return;
+            refused.push(rangeFieldError('garden_naming_threshold', 70, 99, '%'));
         }
         const authSettingsError = validateAuthSettingsSave({
             authEnabled,
@@ -2452,7 +2649,27 @@
         });
         if (authSettingsError) {
             const problem = passwordProblemMessage(authSettingsError);
-            message = { type: 'error', text: $_(problem.key, { default: problem.default }) };
+            refused.push({ field: 'auth_password', key: problem.key, fallback: problem.default });
+        }
+        return refused;
+    }
+
+    function refuse(errors: SettingsFieldError[], payload: SettingsUpdate): void {
+        fieldErrors = errors;
+        refusedPayload = payload as Record<string, unknown>;
+        saveProblem = { key: 'settings.save_bar.refused', fallback: 'Nothing was saved. Correct the highlighted values, then save again.' };
+        // Focus stays on Save otherwise, and a refused field on another tab would never be seen.
+        const first = firstRefusedField(errors.map((error) => error.field), activeTab);
+        if (first) void openRefusedField(first);
+    }
+
+    async function saveSettings() {
+        saving = true;
+        saveProblem = null;
+        const payload = buildSettingsPayload();
+        const refusedHere = locallyRefusedFields();
+        if (refusedHere.length > 0) {
+            refuse(refusedHere, payload);
             saving = false;
             return;
         }
@@ -2461,202 +2678,67 @@
             return;
         }
         try {
-            await updateSettings({
-                frigate_url: frigateUrl,
-                frigate_ingest_labels: frigateIngestLabels.split(',').map((l) => l.trim()).filter(Boolean),
-                frigate_external_url: frigateExternalUrl,
-                mqtt_server: mqttServer,
-                mqtt_port: mqttPort,
-                mqtt_auth: mqttAuth,
-                mqtt_username: mqttUsername,
-                mqtt_password: mqttPassword,
-                birdnet_enabled: birdnetEnabled,
-                birdnet_url: birdnetUrl,
-                birdnet_external_url: birdnetExternalUrl,
-                audio_topic: audioTopic,
-                camera_audio_mapping: cameraAudioMapping,
-                camera_roles: cameraRoles,
-                garden_cameras: gardenCameras,
-                garden_motion_cameras: gardenMotionCameras,
-                garden_labels: gardenLabels.split(/[,;\n]+/).map(label => label.trim().toLowerCase()).filter(Boolean),
-                garden_motion_confidence: gardenMotionConfidence,
-                garden_notifications_enabled: gardenNotificationsEnabled,
-                garden_notification_channels: gardenNotificationChannels,
-                garden_notifications_use_bird_channels: gardenNotificationsUseBirdChannels,
-                garden_notifications_include_photo: gardenNotificationsIncludePhoto,
-                garden_automatic_naming: gardenAutomaticNaming,
-                garden_naming_threshold: gardenNamingThreshold,
-                garden_domestic_birds: gardenDomesticBirds,
-                nest_dedupe_minutes: nestDedupeMinutes,
-                audio_buffer_hours: audioBufferHours,
-                audio_correlation_window_seconds: audioCorrelationWindowSeconds,
-                classification_image_source: classificationImageSource,
-                recording_frame_delay_seconds: recordingFrameDelaySeconds,
-                clips_enabled: clipsEnabled,
-                recording_clip_enabled: recordingClipEnabled,
-                recording_clip_before_seconds: recordingClipBeforeSeconds,
-                recording_clip_after_seconds: recordingClipAfterSeconds,
-                classification_threshold: threshold,
-                classification_min_confidence: minConfidence,
-                live_worker_count: liveWorkerCount,
-                background_worker_count: backgroundWorkerCount,
-                trust_frigate_sublabel: trustFrigateSublabel,
-                write_frigate_sublabel: writeFrigateSublabel,
-                personalized_rerank_enabled: personalizedRerankEnabled,
-                range_filter_enabled: rangeFilterEnabled,
-                range_filter_region_level: rangeFilterRegionLevel,
-                auto_video_classification: autoVideoClassification,
-                video_classification_delay: videoClassificationDelay,
-                video_classification_max_retries: videoClassificationMaxRetries,
-                video_classification_frames: videoClassificationFrames,
-                ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
-                bird_crop_accurate_detector: birdFinder,
-                bird_crop_inference_provider: birdFinderProvider,
-                image_execution_mode: imageExecutionMode,
-                strict_non_finite_output: strictNonFiniteOutput,
-                beta_garden_animals: betaGardenAnimals,
-                inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),
-                cameras: selectedCameras,
-                retention_days: retentionDays,
-                maintenance_max_concurrent: maintenanceMaxConcurrent,
-                frigate_missing_behavior: frigateMissingBehavior,
-                auto_purge_missing_clips: autoPurgeMissingClips,
-                auto_purge_missing_snapshots: autoPurgeMissingSnapshots,
-                auto_analyze_unknowns: autoAnalyzeUnknowns,
-                blocked_labels: blockedLabels,
-                blocked_species: blockedSpecies,
-                media_cache_clips: cacheClips,
-                media_cache_high_quality_event_snapshots: cacheHighQualityEventSnapshots,
-                // Compatibility field: best-available snapshots always attempt an automatic crop.
-                media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots,
-                media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
-                media_cache_retention_days: cacheRetentionDays,
-                media_cache_per_species_maximum: cachePerSpeciesMaximum,
-                media_cache_max_size_mb: cacheMaxSizeMb,
-                media_cache_automatic_multi_bird_scan: cacheAutomaticMultiBirdScan,
-                media_cache_bird_scan_mode: cacheBirdScanMode,
-                media_cache_per_species_minimum: cachePerSpeciesMinimum,
-                location_latitude: locationLat,
-                location_longitude: locationLon,
-                location_state: locationState || null,
-                location_country: locationCountry || null,
-                location_automatic: locationAuto,
-                location_weather_unit_system: locationWeatherUnitSystem,
-                birdweather_enabled: birdweatherEnabled,
-                birdweather_station_token: birdweatherStationToken,
-                ha_weather_enabled: haWeatherEnabled,
-                ha_weather_base_url: haWeatherBaseUrl || null,
-                ha_weather_access_token: haWeatherAccessToken,
-                ha_weather_entity: haWeatherEntity || null,
-                ha_weather_temperature_entity: haWeatherTemperatureEntity || null,
-                ha_weather_wind_speed_entity: haWeatherWindSpeedEntity || null,
-                ha_weather_wind_direction_entity: haWeatherWindDirectionEntity || null,
-                ha_weather_cloud_cover_entity: haWeatherCloudCoverEntity || null,
-                ha_weather_precipitation_entity: haWeatherPrecipitationEntity || null,
-                ha_weather_rain_entity: haWeatherRainEntity || null,
-                ha_weather_snowfall_entity: haWeatherSnowfallEntity || null,
-                ha_weather_illuminance_entity: haWeatherIlluminanceEntity.trim() || null,
-                ebird_enabled: ebirdEnabled,
-                ebird_api_key: ebirdApiKey,
-                ebird_default_radius_km: ebirdDefaultRadiusKm,
-                ebird_default_days_back: ebirdDefaultDaysBack,
-                ebird_max_results: ebirdMaxResults,
-                ebird_locale: ebirdLocale,
-                inaturalist_enabled: inaturalistEnabled,
-                inaturalist_client_id: inaturalistClientId,
-                inaturalist_client_secret: inaturalistClientSecret,
-                inaturalist_default_latitude: inaturalistDefaultLat,
-                inaturalist_default_longitude: inaturalistDefaultLon,
-                inaturalist_default_place_guess: inaturalistDefaultPlace,
-                ...enrichmentSection.encodePatch(enrichmentDraft),
-                ...aiSection.encodePatch(aiDraft),
-                telemetry_enabled: telemetryEnabled,
-                telemetry_health_enabled: telemetryHealthEnabled,
-                auth_enabled: authEnabled,
-                auth_username: authUsername,
-                auth_password: authPassword || undefined,
-                auth_session_expiry_hours: authSessionExpiryHours,
-                trusted_proxy_hosts: effectiveTrustedProxyHosts,
-                public_access_enabled: publicAccessEnabled,
-                public_access_show_camera_names: publicAccessShowCameraNames,
-                public_access_show_ai_conversation: publicAccessShowAiConversation,
-                public_access_allow_clip_downloads: publicAccessAllowClipDownloads,
-                public_access_show_audio: publicAccessShowAudio,
-                public_access_show_snapshots: publicAccessShowSnapshots,
-                public_access_show_clips: publicAccessShowClips,
-                public_access_location_precision: publicAccessLocationPrecision,
-                public_access_historical_days_mode: publicAccessHistoricalDaysMode,
-                public_access_historical_days: publicAccessHistoricalDays,
-                public_access_media_days_mode: publicAccessMediaDaysMode,
-                public_access_media_historical_days: publicAccessMediaHistoricalDays,
-                public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
-                public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
-
-                // Notifications
-                notifications_discord_enabled: discordEnabled,
-                notifications_discord_webhook_url: discordWebhook,
-                notifications_discord_username: discordUsername,
-
-                notifications_pushover_enabled: pushoverEnabled,
-                notifications_pushover_user_key: pushoverUser,
-                notifications_pushover_api_token: pushoverToken,
-                notifications_pushover_priority: pushoverPriority,
-                notifications_pushover_device: pushoverDevice || null,
-
-                notifications_telegram_enabled: telegramEnabled,
-                notifications_telegram_bot_token: telegramToken,
-                notifications_telegram_chat_id: telegramChatId,
-
-                notifications_email_enabled: emailEnabled,
-                notifications_email_only_on_end: emailOnlyOnEnd,
-                notifications_email_use_oauth: emailUseOAuth,
-                notifications_email_oauth_provider: emailOAuthProvider,
-                notifications_email_gmail_client_id: emailGmailClientId || null,
-                notifications_email_gmail_client_secret: emailGmailClientSecret || undefined,
-                notifications_email_outlook_client_id: emailOutlookClientId || null,
-                notifications_email_outlook_client_secret: emailOutlookClientSecret || undefined,
-                notifications_email_smtp_host: emailSmtpHost,
-                notifications_email_smtp_port: emailSmtpPort,
-                notifications_email_smtp_username: emailSmtpUsername,
-                notifications_email_smtp_password: emailSmtpPassword,
-                notifications_email_smtp_use_tls: emailSmtpUseTls,
-                notifications_email_from_email: emailFromEmail,
-                notifications_email_to_email: emailToEmail,
-                notifications_email_include_snapshot: emailIncludeSnapshot,
-                notifications_instance_url: instanceUrl,
-                notifications_link_target: notifyLinkTarget,
-
-                notification_language: notificationLanguage,
-                notifications_filter_species_mode: filterSpeciesMode,
-                notifications_filter_species_whitelist: filterSpeciesMode === 'whitelist' ? filterWhitelist : [],
-                notifications_filter_species_whitelist_structured: filterSpeciesMode === 'whitelist' ? filterSpeciesEntries : [],
-                notifications_filter_species_blacklist_structured: filterSpeciesMode === 'blacklist' ? filterSpeciesEntries : [],
-                notifications_filter_min_confidence: filterConfidence,
-                notifications_filter_audio_confirmed_only: filterAudioOnly,
-                notifications_mode: notifyMode,
-                notifications_notify_on_insert: notifyOnInsert,
-                notifications_notify_on_update: notifyOnUpdate,
-                notifications_delay_until_video: notifyDelayUntilVideo,
-                notifications_video_fallback_timeout: notifyVideoFallbackTimeout,
-                notifications_notification_cooldown_minutes: notifyCooldownMinutes,
-
-                ...accessibilitySection.encodePatch(accessibilityDraft),
-                ...appearanceSection.encodePatch(appearanceDraft)
-            });
+            await updateSettings(payload);
+            fieldErrors = [];
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
             await loadSettings(true);
-            message = { type: 'success', text: $_('notifications.settings_saved') };
+            notify('success', $_('notifications.settings_saved'));
             // A saved provider or worker change re-plans the runtime.
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
-            message = {
-                type: 'error',
-                text: e instanceof Error && e.message ? e.message : $_('settings.common.save_error')
-            };
+            if (e instanceof SettingsSaveRejected && e.fieldErrors.length > 0) {
+                refuse(e.fieldErrors, payload);
+            } else {
+                fieldErrors = [];
+                saveProblem = saveFailure(e);
+            }
         } finally {
             saving = false;
+        }
+    }
+
+    // A failure that names no field: say nothing was saved and what to try. A server error's own
+    // text ("Internal Server Error") is not a reason a person can act on, so it is never shown.
+    function saveFailure(error: unknown): { key: string; values?: Record<string, string>; fallback: string } {
+        const status = error instanceof ApiRequestError || error instanceof SettingsSaveRejected ? error.status : null;
+        const reason = error instanceof Error ? error.message.trim() : '';
+        if (status !== null && status >= 400 && status < 500 && reason && !/^HTTP \d+$/.test(reason)) {
+            return { key: 'settings.save_bar.refused_reason', values: { reason }, fallback: 'Nothing was saved: {reason}' };
+        }
+        return {
+            key: 'settings.save_bar.failed',
+            fallback: 'Nothing was saved because YA-WAMF did not store the settings. Check that the backend is running, then try Save changes again.'
+        };
+    }
+
+    // Throws away every unsaved edit by putting the saved copy back into the form.
+    function discardChanges(): void {
+        const saved = settingsStore.settings;
+        if (!saved) return;
+        applySavedSettings(saved);
+        fieldErrors = [];
+        saveProblem = null;
+        // The save bar holding focus goes away; the content it described is where focus belongs.
+        void tick().then(() => document.querySelector<HTMLElement>('[data-settings-content]')?.focus());
+    }
+
+    // Opens the tab holding a refused field and puts focus on its input once the tab has loaded.
+    async function openRefusedField(field: string): Promise<void> {
+        const tab = settingsFieldTab(field);
+        if (tab) handleTabChange(tab);
+        const inputId = settingsFieldPlace(field)?.inputId;
+        if (!inputId) return;
+        for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
+            await tick();
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.scrollIntoView({ block: 'center' });
+                input.focus({ preventScroll: true });
+                return;
+            }
+            await new Promise((resolve) => requestAnimationFrame(resolve));
         }
     }
 
@@ -2689,12 +2771,9 @@
 
     async function setLanguage(lang: string): Promise<void> {
         if (await setAppLocale(lang)) return;
-        message = {
-            type: 'error',
-            text: $_('common.language_load_error', {
+        notify('error', $_('common.language_load_error', {
                 default: 'That language could not be loaded. Check your connection and try again.'
-            })
-        };
+            }));
     }
 
 </script>
@@ -2707,14 +2786,24 @@
     title={$_('settings.title')}
     subtitle={$_('settings.subtitle')}
     {loading}
-    {message}
     loadFailure={settingsLoadFailed
         ? $_('settings.load_failed', { default: 'Your settings could not be read, so nothing is shown for editing. Check that the YA-WAMF backend is running, then try again.' })
         : null}
     onRetryLoad={() => void loadSettings()}
-    {isDirty}
     {saving}
     onSave={saveSettings}
+    onDiscard={discardChanges}
+    unsaved={{ count: unsavedSummary.count, tabs: unsavedSummary.tabs.map((tab) => ({ id: tab, label: tabLabel(tab) })) }}
+    onOpenTab={handleTabChange}
+    {saveProblem}
+    refusedFields={standingErrors.map((error) => {
+        const place = settingsFieldPlace(error.field);
+        const tab = settingsFieldTab(error.field);
+        const label = place ? $_(place.labelKey) : $_('settings.save_bar.other_field', { default: 'Another setting' });
+        // The same label can appear on two tabs ("Port"), so the tab is named with it.
+        return { field: error.field, label: tab ? `${label} (${tabLabel(tab)})` : label };
+    })}
+    onOpenField={openRefusedField}
     tabs={pageTabs}
 >
     {#snippet children()}
@@ -2942,7 +3031,10 @@
                         await loadSettings(true);
                     }}
                     exportEbirdCsv={exportEbirdCsv}
-                    onActionFeedback={(type, text) => type === 'success' ? toastStore.success(text) : toastStore.error(text)}
+                    onActionFeedback={handleActionFeedback}
+                    savedLocation={settingsStore.settings
+                        ? { latitude: settingsStore.settings.location_latitude ?? null, longitude: settingsStore.settings.location_longitude ?? null }
+                        : null}
                 />
                 {/snippet}
                 </LazyRoute>
@@ -3117,7 +3209,7 @@
                     <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
                         <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
                         <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
-                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you apply.' })}
+                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.' })}
                         </p>
                     </header>
                     <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>

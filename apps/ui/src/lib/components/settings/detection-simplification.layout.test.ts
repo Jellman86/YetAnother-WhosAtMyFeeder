@@ -86,7 +86,7 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource).toContain('bind:birdFinder');
         expect(settingsPageSource).toContain('bind:birdFinder');
         expect(settingsPageSource).toContain(
-            "{ key: 'birdFinder', val: birdFinder, store: parseBirdFinder(s.bird_crop_accurate_detector) }"
+            "{ field: 'bird_crop_accurate_detector', draft: birdFinder, saved: parseBirdFinder(s.bird_crop_accurate_detector) }"
         );
         expect(settingsPageSource).toContain('bird_crop_accurate_detector: birdFinder,');
     });
@@ -142,7 +142,7 @@ describe('Detection settings, status first', () => {
         expect(settingsPageSource).toContain("let inferenceProvider = $state<InferenceProvider>('auto');");
         expect(settingsPageSource).toContain("inferenceProvider = parseInferenceProvider(settings.inference_provider) ?? 'auto';");
         expect(settingsPageSource).toContain(
-            "{ key: 'inferenceProvider', val: inferenceProvider, store: parseInferenceProvider(s.inference_provider) ?? 'auto' }"
+            "{ field: 'inference_provider', draft: inferenceProvider, saved: parseInferenceProvider(s.inference_provider) ?? 'auto' }"
         );
         expect(settingsPageSource).toContain(
             'inference_provider: inferenceProviderForSave(inferenceProvider, settingsStore.settings?.inference_provider),'

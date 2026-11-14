@@ -105,9 +105,9 @@
     function statusPart(part: GardenStatusPart): string {
         switch (part.kind) {
             case 'off': return $_('settings.beta.status_off', { default: 'Off' });
-            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you apply' });
+            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you save' });
             case 'on': return $_('settings.beta.status_on', { default: 'On' });
-            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you apply' });
+            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you save' });
             case 'cameras': return $_('settings.beta.garden_status_cameras', { default: '{count, plural, =0 {no camera chosen} one {# camera} other {# cameras}}', values: { count: part.count } });
             case 'device': return $_('settings.beta.garden_status_device', { default: 'automatic checks on {device}', values: { device: EXECUTION_DEVICE_LABEL[part.provider] } });
             case 'model_missing': return $_('settings.beta.garden_status_model_missing', { default: 'model not downloaded yet' });
@@ -118,7 +118,7 @@
     function stepText(step: GardenNextStep): string {
         switch (step.kind) {
             case 'choose_camera': return $_('settings.beta.garden_step_camera', { default: 'Choose a camera to watch for Garden animals.' });
-            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Apply Settings to turn Garden on. Model and country checks then appear here.' });
+            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Save changes to turn Garden on. Model and country checks then appear here.' });
             case 'download_model': return $_('settings.beta.garden_step_model', { default: 'Download the {model}.', values: { model: modelName(step.role) } });
             case 'set_location': return $_('settings.beta.garden_step_location', { default: 'Set your location, so Garden knows your country and can name animals.' });
         }
@@ -223,6 +223,7 @@
                 >
                     <SettingsInput
                         id="garden-labels"
+                        field="garden_labels"
                         value={labels}
                         ariaLabel={$_('garden.labels', { default: 'Frigate animal labels' })}
                         describedBy="garden-label-help"
@@ -241,6 +242,7 @@
                         <div class="min-w-0 flex-1">
                             <SettingsInput
                                 id="garden-motion-confidence"
+                                field="garden_motion_confidence"
                                 type="number"
                                 min={50}
                                 max={95}
@@ -282,6 +284,7 @@
                                 <div class="min-w-0 flex-1">
                                     <SettingsInput
                                         id="garden-naming-threshold"
+                                        field="garden_naming_threshold"
                                         type="number"
                                         min={70}
                                         max={99}

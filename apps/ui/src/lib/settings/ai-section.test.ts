@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Settings } from '../api/settings';
 import { aiSection, editAiDraft } from './ai-section';
 import { getRecommendedLlmModel } from './llm-models';
-import { sectionIsDirty } from './section-adapter';
+import { sectionChangedFields } from './section-adapter';
 
 function saved(fields: Partial<Settings>): Settings {
     return fields as Settings;
@@ -29,14 +29,14 @@ describe('AI section draft', () => {
         expect(draft.llmApiKey).toBe('');
         expect(draft.llmApiKeySaved).toBe(true);
         expect(aiSection.encodePatch(draft).llm_api_key).toBe('');
-        expect(sectionIsDirty(aiSection, draft, stored)).toBe(false);
+        expect(sectionChangedFields(aiSection, draft, stored)).toEqual([]);
     });
 
     it('moves a retired saved model to its current name without counting that as an edit', () => {
         const stored = saved({ llm_provider: 'openai', llm_model: 'gpt-5.2' });
         const draft = aiSection.decode(stored);
         expect(draft.llmModel).toBe('gpt-5.6');
-        expect(sectionIsDirty(aiSection, draft, stored)).toBe(false);
+        expect(sectionChangedFields(aiSection, draft, stored)).toEqual([]);
     });
 
     it('switching provider moves the model to one that provider offers', () => {
@@ -52,6 +52,6 @@ describe('AI section draft', () => {
         const typed = editAiDraft(draft, { llmApiKey: 'sk-new' });
         expect(typed.llmApiKeySaved).toBe(false);
         expect(aiSection.encodePatch(typed).llm_api_key).toBe('sk-new');
-        expect(sectionIsDirty(aiSection, typed, saved({ llm_api_key: '***REDACTED***' }))).toBe(true);
+        expect(sectionChangedFields(aiSection, typed, saved({ llm_api_key: '***REDACTED***' }))).not.toEqual([]);
     });
 });

@@ -53,7 +53,7 @@ async def reset_maintenance_coordinator():
 @pytest.mark.parametrize(
     "invalid_patch, status_code",
     [
-        ({"notifications_instance_url": "not-a-url"}, 400),
+        ({"notifications_instance_url": "not-a-url"}, 422),
         ({"notifications_link_target": "elsewhere"}, 422),
         ({"auth_enabled": True}, 422),
     ],
@@ -513,6 +513,36 @@ async def test_settings_rejects_enabling_auth_without_password(client: httpx.Asy
     post_resp = await client.post("/api/settings", json=update_payload)
     assert post_resp.status_code == 422, post_resp.text
     assert "Password is required when enabling authentication" in post_resp.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_patch, field",
+    [
+        ({"notifications_instance_url": "feeder.local:9852"}, "notifications_instance_url"),
+        ({"auth_enabled": True, "auth_username": "root"}, "auth_password"),
+        ({"mqtt_port": 70000}, "mqtt_port"),
+        ({"frigate_url": "not a url"}, "frigate_url"),
+    ],
+)
+async def test_settings_rejections_name_the_field_the_form_must_mark(
+    client: httpx.AsyncClient, invalid_patch: dict, field: str
+):
+    # The Settings form puts each rejection on its own field, so every refusal a form save can
+    # meet uses the validation shape: a list of errors, each locating its field in the body.
+    settings.auth.enabled = False
+    settings.auth.password_hash = None
+    settings.public_access.enabled = False
+
+    post_resp = await client.post("/api/settings", json=invalid_patch)
+
+    assert post_resp.status_code == 422, post_resp.text
+    detail = post_resp.json()["detail"]
+    assert isinstance(detail, list), detail
+    assert [error["loc"] for error in detail] == [["body", field]]
+    assert all(error["msg"] for error in detail)
+    # A refusal never echoes what was sent: the rejected value may be a secret.
+    assert all("input" not in error for error in detail if error["loc"][-1] == "auth_password")
 
 
 @pytest.mark.asyncio
@@ -1935,8 +1965,10 @@ async def test_settings_refuses_an_instance_address_without_a_scheme(client: htt
             "notifications_instance_url": "feeder.local:9852",
         }
         resp = await client.post("/api/settings", json=payload)
-        assert resp.status_code == 400, resp.text
-        assert "http://" in resp.json()["detail"]
+        assert resp.status_code == 422, resp.text
+        [error] = resp.json()["detail"]
+        assert error["loc"] == ["body", "notifications_instance_url"]
+        assert "http://" in error["msg"]
         assert settings.notifications.instance_url == original[0]
     finally:
         settings.notifications.instance_url, settings.notifications.email.dashboard_url = original

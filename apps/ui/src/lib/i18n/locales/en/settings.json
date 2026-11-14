@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "Applies localized defaults for your current language.",
     "llm_prompt_style_classic": "Classic",
     "llm_prompt_style_field": "Field Notes",
-    "llm_prompt_apply_style": "Apply Style",
-    "llm_prompt_reset_defaults": "Reset Defaults",
-    "llm_prompt_apply_notice": "Prompt templates updated.",
     "llm_prompt_analysis": "Detection Analysis Prompt",
     "llm_prompt_analysis_hint": "Tokens: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "Conversation Prompt",
@@ -332,7 +329,9 @@
     "test_probe_note": "This sends five representative 1280×720 JPEG frames, matching the count, dimensions, and approximate payload size of a real analysis request.",
     "test_retry": "Run test again",
     "test_network_error": "The diagnostic request could not reach YA-WAMF.",
-    "advanced_title": "Pricing & prompt templates"
+    "advanced_title": "Pricing & prompt templates",
+    "prompt_style_desc": "Choosing a style replaces the three templates below with its wording. Save changes keeps it.",
+    "prompt_style_custom": "Your own wording"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "Checks that the Frigate API answers and that the MQTT broker accepts a publish.",
     "test_title": "Frigate & MQTT connection test",
     "recording_frame_delay": "Initial identification delay (seconds)",
-    "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.",
-    "recording_frame_delay_invalid": "Enter a recording-frame delay between 1 and 120 seconds."
+    "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections."
   },
   "cameras": {
     "title": "Cameras to watch",
@@ -890,7 +888,7 @@
       "title": "Garden animals",
       "desc": "Alerts when a Garden animal is named, separate from bird alerts.",
       "enabled": "Send Garden alerts",
-      "enabled_help": "One alert per visit when an animal is named automatically or you accept its species. Apply Settings to save.",
+      "enabled_help": "One alert per visit when an animal is named automatically or you accept its species. Takes effect when you save changes.",
       "send_to": "Send Garden alerts to",
       "use_bird": "Use my bird channels",
       "use_bird_help": "The channels above that are switched on and configured.",
@@ -907,7 +905,7 @@
       "privacy": "Sends the animal name, camera, sighting time and, if chosen, the photo to these services. The link opens this capture here; a visitor can open it only while public access shares it.",
       "rules": "Sent within five minutes of the name being decided, for sightings up to two hours old, so turning alerts on never replays history. One attempt per channel per visit; failed or uncertain sends are not retried.",
       "status": "Saved delivery attempts. Accepted by channel: {sent}. Failed: {failed}. Unconfirmed: {unknown}. Skipped: {skipped}.",
-      "status_after_apply": "Delivery status appears once Apply Settings has switched Garden on.",
+      "status_after_apply": "Delivery status appears once Garden is switched on and saved.",
       "refresh": "Refresh delivery status"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "Locates each bird in the camera frame so YA-WAMF can crop and count it. It does not name the species.",
     "bird_finder_device": "Finder device",
     "bird_finder_device_auto": "Automatic (fastest validated device)",
-    "bird_finder_device_help": "Apply settings to save this device. If it becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.",
+    "bird_finder_device_help": "Takes effect when you save changes. If this device becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.",
     "bird_finder_default_badge": "Default",
     "bird_finder_optional_badge": "Optional",
     "bird_finder_ram": "{ram} RAM",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "Runs on the CPU. {devices} will be re-checked after a restart once YA-WAMF has saved bird photos.",
     "bird_finder_check_devices": "Check {devices} for {name}",
     "bird_finder_check_devices_hint": "Compares this finder on each device with the CPU on bird photos, then uses the fastest one that matches. The identification model is not changed.",
-    "bird_finder_pending": "Apply settings to switch the bird finder. The current finder keeps running until then.",
+    "bird_finder_pending": "Save changes to switch the bird finder. The current finder keeps running until then.",
     "bird_finder_download": "Download {name}",
     "bird_finder_redownload": "Re-download {name}",
     "bird_finder_backup": "If it cannot find a usable bird, YA-WAMF also tries the fast fallback finder and Frigate's tracking box, and uses the full frame only when none of them gives a reliable crop.",
@@ -1423,15 +1421,13 @@
     "garden_animals": "Garden animals",
     "garden_animals_desc": "Collects cats, foxes and other non-bird visitors from cameras you choose, for you to review.",
     "garden_motion_toggle": "Collect motion review photos on {camera}",
-    "garden_motion_confidence_invalid": "Enter an animal proposal threshold between 50% and 95%.",
-    "garden_naming_threshold_invalid": "Enter a naming threshold between 70% and 99%.",
     "garden_naming_off": "Every animal waits in Needs review for you to confirm and name it.",
     "garden_naming_threshold_help": "From 70% to 99%. Higher values automatically name fewer animals and dismiss more low-confidence photos. Person checks are unchanged.",
     "garden_naming_threshold": "Naming threshold",
     "garden_naming": "Name animals automatically",
     "garden_requirements": "Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.",
     "garden_models_help": "Garden uses its own models, separate from your bird model. A download only adds a verified file. It saves no settings and starts no checks.",
-    "garden_models_apply": "Choose Apply Settings to switch Garden on. Model status and downloads then appear here.",
+    "garden_models_apply": "Save changes to switch Garden on. Model status and downloads then appear here.",
     "garden_models_loading": "Checking Garden models…",
     "garden_model_check": "Automatic check model",
     "garden_model_suggestions": "Species suggestion model",
@@ -1480,19 +1476,19 @@
     "garden_domestic_birds_none": "None yet. Chickens and other birds you keep are treated as wild birds.",
     "garden_domestic_birds_add": "Add a domestic bird",
     "garden_domestic_birds_choose": "Choose a bird",
-    "intro": "Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you apply.",
+    "intro": "Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.",
     "learn_more": "Learn more",
     "status_off": "Off",
-    "status_off_after_apply": "Off after you apply",
+    "status_off_after_apply": "Off after you save",
     "status_on": "On",
-    "status_on_after_apply": "On after you apply",
+    "status_on_after_apply": "On after you save",
     "garden_status_cameras": "{count, plural, =0 {no camera chosen} one {# camera} other {# cameras}}",
     "garden_status_device": "automatic checks on {device}",
     "garden_status_model_missing": "model not downloaded yet",
     "garden_status_no_country": "no country set",
     "garden_next_steps": "Still to set up",
     "garden_step_camera": "Choose a camera to watch for Garden animals.",
-    "garden_step_apply": "Apply Settings to turn Garden on. Model and country checks then appear here.",
+    "garden_step_apply": "Save changes to turn Garden on. Model and country checks then appear here.",
     "garden_step_model": "Download the {model}.",
     "garden_step_model_open": "Open Models",
     "garden_step_location": "Set your location, so Garden knows your country and can name animals.",
@@ -1562,8 +1558,8 @@
     "status_unusable": "Not filtering: the stored list failed its checks. {problem}",
     "status_error": "The range filter status could not be loaded. {message}",
     "status_loading": "Loading the range filter status…",
-    "unsaved_on": "Apply settings to turn the filter on.",
-    "unsaved_off": "Apply settings to turn the filter off.",
+    "unsaved_on": "Save changes to turn the filter on.",
+    "unsaved_off": "Save changes to turn the filter off.",
     "open_location": "Set location",
     "open_ebird": "Add eBird key",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "To keep a genuine rarity, record it by hand. Frigate keeps the clip for as long as its retention allows.",
     "skips_open_log": "Open the activity log",
     "skips_add_manually": "Record a sighting by hand"
+  },
+  "save_bar": {
+    "region": "Unsaved changes",
+    "summary": "{count, plural, one {# unsaved change in} other {# unsaved changes in}}",
+    "discard": "Discard changes",
+    "save": "Save changes",
+    "refused": "Nothing was saved. Correct the highlighted values, then save again.",
+    "refused_reason": "Nothing was saved: {reason}",
+    "failed": "Nothing was saved because YA-WAMF did not store the settings. Check that the backend is running, then try Save changes again.",
+    "other_field": "Another setting"
+  },
+  "leave": {
+    "title": "Leave without saving?",
+    "message": "{count, plural, one {# change} other {# changes}} in {tabs} will be lost.",
+    "confirm": "Leave without saving"
+  },
+  "field_errors": {
+    "frigate_url": "Start the address with http:// or https://, for example http://frigate:5000.",
+    "birdnet_url": "Start the address with http:// or https://, for example http://birdnet-go:8080.",
+    "instance_url": "Start the address with http:// or https://, for example https://feeder.example.com.",
+    "auth_password_required": "Set a password before turning on sign-in.",
+    "auth_username": "Use only letters, numbers, underscores, hyphens and full stops.",
+    "too_large": "Enter {limit} or less.",
+    "too_small": "Enter {limit} or more.",
+    "whole_number": "Enter a whole number.",
+    "number": "Enter a number.",
+    "refused": "Not accepted: {reason}. Change the value and save again.",
+    "out_of_range": "Enter a value from {min} to {max}.",
+    "out_of_range_percent": "Enter a value from {min}% to {max}%."
   }
 }

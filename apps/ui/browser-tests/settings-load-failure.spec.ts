@@ -33,7 +33,7 @@ test('a failed settings read shows the reason and a retry, never an editable for
     await expect(failure).toContainText('nothing is shown for editing');
     await expect(page.locator('#mqtt-server')).toHaveCount(0);
     await expect(page.locator('main input, main select, main textarea')).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Apply Settings', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Save changes', exact: true })).toHaveCount(0);
 
     const readsBeforeRetry = settingsReads;
     await failure.getByRole('button', { name: 'Try again', exact: true }).click();

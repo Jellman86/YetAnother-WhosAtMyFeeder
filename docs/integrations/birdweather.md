@@ -13,7 +13,7 @@ same event later on does not report it again. Several events grouped into one Ex
 2. Find your **Station Token** in your station settings.
 3. In YA-WAMF, go to **Settings → Integrations → BirdWeather**.
 4. Enable **BirdWeather** and paste your token.
-5. Click **Apply Settings**.
+5. Click **Save changes**.
 
 ## Testing
 Click **Test connection** in the BirdWeather settings section. This sends a mock

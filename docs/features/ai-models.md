@@ -158,7 +158,7 @@ CPU-only, low-memory legacy option with 965 outputs. Hidden by default in Model 
 
 **Settings → Detection → Models → Bird finder** chooses which detector locates birds in full
 frames before they are identified and counted. It does not name species. The choice is saved by
-**Apply Settings** with the rest of the page. The CPU-friendly **Fast** detector remains the
+**Save changes** with the rest of the page. The CPU-friendly **Fast** detector remains the
 automatic fallback. Each option shows its download size, estimated RAM, and the device it runs on:
 a graphics or NPU device only after it passed a device check on this host, otherwise the CPU. When
 it is on the CPU, the card names the graphics or NPU devices it could use here, and the chosen

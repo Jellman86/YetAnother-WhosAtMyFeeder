@@ -61,7 +61,7 @@ function cameraFields(payload: Settings | undefined): Settings {
 }
 
 async function apply(page: Page, harness: Harness, count: number): Promise<Settings> {
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(count);
     return cameraFields(harness.writes[count - 1]);
 }

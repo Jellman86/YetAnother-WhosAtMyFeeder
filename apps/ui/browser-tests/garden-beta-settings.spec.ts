@@ -104,7 +104,7 @@ test('Garden cameras chosen in Connection save with Beta settings without touchi
     await expect(garden.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await garden.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, squirrel');
     await garden.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill('64');
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({
@@ -124,10 +124,10 @@ test('switching Garden off hides its settings and keeps them for later', async (
     await expect(page.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
-    await expect(page.locator('[data-beta-status]')).toHaveText('Off after you apply');
+    await expect(page.locator('[data-beta-status]')).toHaveText('Off after you save');
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveText('Garden stops collecting new captures. Existing captures and settings are kept and come back when you turn it on again.');
     await expect(page.locator('[data-garden-beta-off]')).toContainText('hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds');
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ beta_garden_animals: false, garden_cameras: ['patio'], garden_motion_confidence: 0.63 });
 });
@@ -155,7 +155,7 @@ for (const [calibrated, shown, up] of [[0.63, '63', '64'], [0.625, '62.5', '62.6
         await threshold.press('ArrowDown');
         await expect(threshold).toHaveValue(shown);
         await threshold.press('ArrowUp');
-        await page.getByRole('button', { name: /Apply Settings/i }).click();
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect.poll(() => writes.length).toBe(1);
         expect(writes[0].garden_motion_confidence).toBe(calibrated === 0.63 ? 0.64 : 0.626);
     });
@@ -165,9 +165,11 @@ for (const outside of ['49', '96', '']) {
     test(`a proposal threshold of "${outside}" is explained and nothing is saved`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
-        await page.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill(outside);
-        await page.getByRole('button', { name: /Apply Settings/i }).click();
-        await expect(page.getByRole('status').filter({ hasText: 'Enter an animal proposal threshold between 50% and 95%.' })).toBeVisible();
+        const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
+        await threshold.fill(outside);
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await expect(threshold).toHaveAttribute('aria-invalid', 'true');
+        await expect(page.locator('[data-field-error="garden_motion_confidence"]')).toHaveText('Enter a value from 50% to 95%.');
         expect(writes).toEqual([]);
     });
 }
@@ -181,14 +183,14 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
     await expect(naming).toHaveAttribute('aria-checked', 'true');
     await expect(threshold).toHaveValue('80');
     await threshold.fill('90');
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ garden_automatic_naming: true, garden_naming_threshold: 0.9 });
 
     await naming.click();
     await expect(threshold).toHaveCount(0);
     await expect(garden.getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(2);
     expect(writes[1]).toMatchObject({ garden_automatic_naming: false, garden_naming_threshold: 0.9 });
 });
@@ -197,9 +199,11 @@ for (const outside of ['69', '100']) {
     test(`a naming threshold of ${outside}% is explained and nothing is saved`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
-        await page.getByRole('spinbutton', { name: 'Naming threshold' }).fill(outside);
-        await page.getByRole('button', { name: /Apply Settings/i }).click();
-        await expect(page.getByRole('status').filter({ hasText: 'Enter a naming threshold between 70% and 99%.' })).toBeVisible();
+        const threshold = page.getByRole('spinbutton', { name: 'Naming threshold' });
+        await threshold.fill(outside);
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await expect(threshold).toHaveAttribute('aria-invalid', 'true');
+        await expect(page.locator('[data-field-error="garden_naming_threshold"]')).toHaveText('Enter a value from 70% to 99%.');
         expect(writes).toEqual([]);
     });
 }
@@ -213,16 +217,16 @@ test('a switched-off Garden states what it needs without asking the Garden API o
 
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await openSection(page, 'Models');
-    await expect(page.locator('[data-garden-models-apply]')).toContainText('Choose Apply Settings to switch Garden on');
+    await expect(page.locator('[data-garden-models-apply]')).toContainText('Save changes to switch Garden on');
     await expect(page.getByRole('button', { name: /^Download/ })).toHaveCount(0);
     expect(gardenRequests).toEqual([]);
 });
 
-test('model status appears once Apply Settings has switched Garden on', async ({ page }) => {
+test('model status appears once Save changes has switched Garden on', async ({ page }) => {
     const { writes } = await openSettings(page, { beta_garden_animals: false });
     await openBeta(page);
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     await expect(page.locator('[data-garden-model="automatic_check"]')).toContainText('Required · Not downloaded');
 });
@@ -526,7 +530,7 @@ test('Garden alerts follow the enabled bird channels by default, attach the phot
     await expect(garden.locator('[data-garden-delivery]')).toHaveText('Sends to Telegram.');
     await expect(page.getByRole('switch', { name: 'Include the photo' })).toHaveAttribute('aria-checked', 'true');
     await expect(garden.locator('[data-garden-notification-status]')).toContainText('Accepted by channel: 2');
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ garden_notifications_enabled: true,
         garden_notifications_use_bird_channels: true, garden_notifications_include_photo: true,
@@ -546,7 +550,7 @@ test('chosen Garden channels use saved credentials without enabling bird alerts,
     await expect(page.getByRole('button', { name: 'Garden alerts via Telegram', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(garden.locator('[data-garden-delivery]')).toContainText('No saved credentials for Telegram');
     await page.getByRole('switch', { name: 'Include the photo' }).click();
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ garden_notifications_enabled: true,
         garden_notifications_use_bird_channels: false, garden_notification_channels: ['telegram'],
@@ -600,7 +604,7 @@ test('domestic birds you keep start empty, are added as chips and save with the 
     await section.getByRole('button', { name: 'Remove Domestic ducks' }).focus();
     await page.keyboard.press('Enter');
     await expect(chips.getByRole('listitem')).toHaveText(['Chickens']);
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ garden_domestic_birds: ['chicken'] });
 });
@@ -644,11 +648,11 @@ test('switching Garden on reveals its sections and the setup it still needs', as
     await expect(expanded).toHaveCount(6);
     expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
 
-    await expect(page.locator('[data-beta-status]')).toHaveText('On after you apply · no camera chosen');
+    await expect(page.locator('[data-beta-status]')).toHaveText('On after you save · no camera chosen');
     await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'attention');
     await expect(page.locator('[data-garden-next-step]')).toHaveText([
         'Choose a camera to watch for Garden animals. Choose cameras in Connection',
-        'Apply Settings to turn Garden on. Model and country checks then appear here.'
+        'Save changes to turn Garden on. Model and country checks then appear here.'
     ]);
     // Nothing asks the Garden API before Apply: it answers only while the saved switch is on.
     expect(gardenRequests).toEqual([]);
@@ -699,9 +703,9 @@ test('the Garden switch works from the keyboard and reports its state', async ({
     await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
     await page.keyboard.press('Enter');
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    // The switch only stages the change; Apply Settings sends it with the page.
+    // The switch only stages the change; Save changes sends it with the page.
     expect(writes).toEqual([]);
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     expect(writes[0]).toMatchObject({ beta_garden_animals: true });
 });
@@ -736,7 +740,10 @@ test('the camera selector in Connection follows the staged Garden switch and kee
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await page.getByRole('link', { name: 'Connection', exact: true }).click();
     await expect(patio.locator('label')).toHaveText(['Off', 'Birds']);
-    await page.getByRole('button', { name: /Apply Settings/i }).click();
+    // Switching Garden on and off again is no change at all, so there is nothing to save.
+    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     // Off keeps the Garden cameras for when it is turned on again.
     expect(writes[0]).toMatchObject({ beta_garden_animals: false, garden_cameras: ['patio'] });

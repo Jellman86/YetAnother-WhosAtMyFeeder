@@ -25,6 +25,8 @@
     import GardenNotificationSettings from './GardenNotificationSettings.svelte';
     import type { GardenNotificationChannel } from '../../api/garden';
     import type { PolicyChannel } from '../../settings/notification-policy';
+    import FieldRefusal from './_primitives/FieldRefusal.svelte';
+    import { settingsFieldErrorLookup } from '../../settings/field-error-context';
 
     function extractErrorMessage(error: unknown, fallback: string): string {
         const message = error instanceof Error ? error.message : fallback;
@@ -193,6 +195,9 @@
         disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
+
+    const fieldErrors = settingsFieldErrorLookup();
+    const instanceUrlRefusal = $derived(fieldErrors?.errorFor('notifications_instance_url'));
 
     const linkPreview = $derived(notificationLinkPreview(linkTarget, instanceUrl, frigateExternalUrl));
     const frigateUrlMissing = $derived(linkTarget === 'frigate' && frigateExternalUrl.trim() === '');
@@ -500,9 +505,11 @@
                     type="url"
                     bind:value={instanceUrl}
                     placeholder={$_('settings.notifications.instance_url_placeholder')}
-                    aria-describedby="notification-instance-url-hint"
+                    aria-describedby={instanceUrlRefusal ? 'notification-instance-url-hint notification-instance-url-error' : 'notification-instance-url-hint'}
+                    aria-invalid={instanceUrlRefusal ? 'true' : undefined}
                     class="input-base w-full"
                 />
+                <FieldRefusal id="notification-instance-url-error" refusal={instanceUrlRefusal} />
             </div>
 
             <!-- Where the notification link opens -->

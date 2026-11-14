@@ -92,7 +92,7 @@
         <SettingsRow
             labelId="garden-notifications"
             label={$_('settings.notifications.garden.enabled', { default: 'Send Garden alerts' })}
-            description={$_('settings.notifications.garden.enabled_help', { default: 'One alert per visit when an animal is named automatically or you accept its species. Apply Settings to save.' })}
+            description={$_('settings.notifications.garden.enabled_help', { default: 'One alert per visit when an animal is named automatically or you accept its species. Takes effect when you save changes.' })}
         >
             <SettingsToggle
                 checked={enabled}
@@ -159,7 +159,7 @@
 
             <div class="space-y-2 text-xs" aria-busy={loading} data-garden-notification-status>
                 {#if !statusAvailable}
-                    <p class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.status_after_apply', { default: 'Delivery status appears once Apply Settings has switched Garden on.' })}</p>
+                    <p class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.garden.status_after_apply', { default: 'Delivery status appears once Garden is switched on and saved.' })}</p>
                 {:else}
                     {#if status}
                         <p>{$_('settings.notifications.garden.status', { default: 'Saved delivery attempts. Accepted by channel: {sent}. Failed: {failed}. Unconfirmed: {unknown}. Skipped: {skipped}.', values: {

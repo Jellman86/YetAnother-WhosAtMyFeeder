@@ -1,10 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { openDetectionSettings } from './detection-settings-mock';
 
-const unsaved = (page: Page) => page.getByText('Unsaved Changes', { exact: true });
+const unsaved = (page: Page) => page.getByRole('region', { name: 'Unsaved changes' });
 const finder = (page: Page) => page.getByRole('group', { name: 'Bird finder' });
 
-test('the bird finder choice waits for Apply Settings and saves with the rest of the form', async ({ page }) => {
+test('the bird finder choice waits for Save changes and saves with the rest of the form', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const state = await openDetectionSettings(page);
@@ -16,17 +16,17 @@ test('the bird finder choice waits for Apply Settings and saves with the rest of
     await wide.check();
     await expect(wide).toBeChecked();
     await expect(unsaved(page)).toBeVisible();
-    await expect(finder(page)).toContainText('Apply settings to switch');
+    await expect(finder(page)).toContainText('Save changes to switch');
     expect(state.saves).toEqual([]);
 
     await page.locator('#confidence-threshold-slider').fill('0.75');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].bird_crop_accurate_detector).toBe('rfdetr_nano');
     expect(state.saves[0].classification_threshold).toBe(0.75);
     await expect(unsaved(page)).toHaveCount(0);
     await expect(wide).toBeChecked();
-    await expect(finder(page)).not.toContainText('Apply settings to switch');
+    await expect(finder(page)).not.toContainText('Save changes to switch');
     expect(errors).toEqual([]);
 });
 
@@ -34,7 +34,7 @@ test('an unchanged form still sends the saved finder, so an unrelated save never
     const state = await openDetectionSettings(page, { savedFinder: 'rfdetr_nano' });
     await expect(finder(page).getByRole('radio', { name: /Wide frame/ })).toBeChecked();
     await page.locator('#confidence-threshold-slider').fill('0.65');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].bird_crop_accurate_detector).toBe('rfdetr_nano');
 });
@@ -43,8 +43,8 @@ test('a failed save keeps the staged finder and says the settings were not saved
     const state = await openDetectionSettings(page, { saveFails: true });
     const wide = finder(page).getByRole('radio', { name: /Wide frame/ });
     await wide.check();
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Settings store unavailable' }).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect(unsaved(page).locator('[data-save-problem]')).toContainText('Nothing was saved');
     await expect(wide).toBeChecked();
     await expect(unsaved(page)).toBeVisible();
     expect(state.saves).toEqual([]);
@@ -103,7 +103,7 @@ test('memory and isolation open from the keyboard and keep their values through 
     await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
     await page.locator('#live-worker-count').fill('2');
     await expect(unsaved(page)).toBeVisible();
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].live_worker_count).toBe(2);
     expect(state.saves[0].image_execution_mode).toBe('subprocess');
@@ -153,7 +153,7 @@ test('the finder keeps an explicit NPU choice even when GPU benchmarks faster', 
     await device.selectOption('intel_npu');
     await expect(unsaved(page)).toBeVisible();
     expect(state.saves).toEqual([]);
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0]).toMatchObject({ bird_crop_accurate_detector: 'rfdetr_nano', bird_crop_inference_provider: 'intel_npu' });
     await expect(unsaved(page)).toHaveCount(0);

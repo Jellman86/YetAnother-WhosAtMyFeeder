@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { promptTemplatesFor } from './llm-prompt-templates';
+import { matchingPromptStyle, promptTemplatesFor } from './llm-prompt-templates';
 
 describe('built-in prompt templates', () => {
     it('offers analysis, conversation and chart templates in the reader language', () => {
@@ -14,5 +14,18 @@ describe('built-in prompt templates', () => {
 
     it('falls back to English classic for a style it does not know', () => {
         expect(promptTemplatesFor('poetry', 'fr')).toEqual(promptTemplatesFor('classic', 'en'));
+    });
+});
+
+describe('which built-in style the saved templates are', () => {
+    it('names the style whose wording the templates hold, in the reader language', () => {
+        expect(matchingPromptStyle(promptTemplatesFor('field', 'de'), 'de-DE')).toBe('field');
+        expect(matchingPromptStyle(promptTemplatesFor('classic', 'en'), 'en-GB')).toBe('classic');
+    });
+
+    it('names none once the wording has been edited', () => {
+        const edited = { ...promptTemplatesFor('classic', 'en'), chart: 'Describe the chart.' };
+        expect(matchingPromptStyle(edited, 'en')).toBeNull();
+        expect(matchingPromptStyle({ analysis: '', conversation: '', chart: '' }, 'en')).toBeNull();
     });
 });

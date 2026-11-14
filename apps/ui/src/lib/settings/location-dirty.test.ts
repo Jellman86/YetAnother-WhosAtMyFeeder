@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { locationSettingsDirty } from './location-dirty';
+import { locationChangedFields } from './location-dirty';
 
-describe('locationSettingsDirty', () => {
+describe('locationChangedFields', () => {
     it('detects state changes', () => {
         expect(
-            locationSettingsDirty({
+            locationChangedFields({
                 current: {
                     latitude: 51.5,
                     longitude: -0.12,
@@ -23,12 +23,12 @@ describe('locationSettingsDirty', () => {
                     location_weather_unit_system: 'metric'
                 }
             })
-        ).toBe(true);
+        ).not.toEqual([]);
     });
 
     it('detects country changes', () => {
         expect(
-            locationSettingsDirty({
+            locationChangedFields({
                 current: {
                     latitude: 51.5,
                     longitude: -0.12,
@@ -46,12 +46,12 @@ describe('locationSettingsDirty', () => {
                     location_weather_unit_system: 'metric'
                 }
             })
-        ).toBe(true);
+        ).not.toEqual([]);
     });
 
     it('does not mark unchanged location settings as dirty', () => {
         expect(
-            locationSettingsDirty({
+            locationChangedFields({
                 current: {
                     latitude: 51.5,
                     longitude: -0.12,
@@ -69,6 +69,6 @@ describe('locationSettingsDirty', () => {
                     location_weather_unit_system: 'metric'
                 }
             })
-        ).toBe(false);
+        ).toEqual([]);
     });
 });

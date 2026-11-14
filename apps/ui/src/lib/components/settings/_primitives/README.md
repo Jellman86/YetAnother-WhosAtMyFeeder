@@ -21,10 +21,11 @@ keyboard focus can show.
 | A `<select>` dropdown | `SettingsSelect` |
 | A grid of mutually-exclusive option tiles or cards | `SettingsSegmented` |
 | A compact single choice inside a list row, with options that can be unavailable (camera Off / Birds / Garden animals / Both) | Native radios in a `role="radiogroup"`, as `CameraWatchRow` does: `sr-only` inputs in `min-h-11` labels with `focus-within:ring`, a check mark on the chosen option and a worded reason linked by `aria-describedby` for a disabled one |
-| A text / number / url / password / email field | `SettingsInput` |
+| A text / number / url / password / email field | `SettingsInput`; pass `field` (the saved setting's API name) so a refused save marks it and shows the reason under it |
 | A multi-line text field (mono for JSON / templates, sans otherwise) | `SettingsTextarea` |
 | Hide power-user knobs behind "Advanced" — collapsed by default, persists per-browser | `AdvancedSection` |
-| The page itself: title, refresh, status banner, sticky save bar | `SettingsPage` |
+| The page itself: load failure with retry, and the save bar (count, tabs, Discard changes, Save changes, refused fields) | `SettingsPage` |
+| A refused value's reason under a hand-built input | `FieldRefusal`, with the input's `aria-invalid` and `aria-describedby` set from the same refusal |
 
 ## Conventions baked into the primitives
 
