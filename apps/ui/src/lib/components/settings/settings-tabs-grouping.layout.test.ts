@@ -19,15 +19,17 @@ describe('Settings navigation', () => {
         expect(settingsTabsSource).toContain('href={settingsHref(tab.id)}');
         expect(settingsTabsSource).toContain('toAppPath(`/settings/${tab}`)');
         expect(settingsTabsSource).toContain('event.metaKey');
-        expect(settingsTabsSource).toContain('focus-visible:ring-2');
+        expect(settingsTabsSource).toContain('focus-ring');
         // The current section also carries a bar and heavier type, not only a tint.
         expect(settingsTabsSource).toContain('border-brand-600 bg-brand-50 font-semibold');
     });
 
-    it('is a compact rail beside the settings on wide screens, with a skip link to them', () => {
-        expect(settingsTabsSource).toContain('data-settings-navigation class="hidden lg:block"');
+    it('is a compact rail beside the settings when there is room for it in rem, with a skip link to them', () => {
+        // Measured on the page as a container in rem, so doubled text gets the stacked layout.
+        expect(settingsPageSource).toContain('<div class="@container space-y-6">');
+        expect(settingsTabsSource).toContain('data-settings-navigation class="hidden @4xl:block"');
         expect(settingsTabsSource).toContain('data-settings-skip-link');
-        expect(settingsPageSource).toContain('lg:flex lg:items-start');
+        expect(settingsPageSource).toContain('@4xl:flex @4xl:items-start');
         expect(settingsPageSource).toContain('id={contentId}');
         expect(settingsTabsSource).not.toContain('grid-cols-4');
         expect(settingsTabsSource).not.toContain('card-base');

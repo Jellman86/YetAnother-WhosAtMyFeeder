@@ -29,18 +29,27 @@ const ROUTES: { name: string; path: string; ready: (page: Page) => Promise<void>
 
 interface Finding { rule: string; impact: string; target: string; summary: string }
 
-// The one thing these scans leave out: the body of a Settings tab, drawn inside <main> on a /settings route. Delete this line and its uses to hold Settings to the same gate.
-const SETTINGS_BODY = '#main-content';
+/** Every Settings tab. Each is scanned as it opens and again with every closed section opened. */
+const SETTINGS_TABS = ['connection', 'detection', 'integrations', 'ai', 'notifications', 'health', 'security', 'data', 'beta', 'appearance', 'accessibility'];
+const settingsReady = (page: Page) => expect(page.locator('[data-settings-content]')).toBeVisible(READY);
+
+/** Opens every closed section of a Settings tab, nested ones too; popover triggers are left alone. */
+async function openEverySection(page: Page): Promise<void> {
+    for (let round = 0; round < 6; round += 1) {
+        const closed = page.locator('[data-settings-content] button[aria-expanded="false"]:visible:not([aria-haspopup])');
+        const count = await closed.count();
+        if (count === 0) return;
+        for (let index = count - 1; index >= 0; index -= 1) await closed.nth(index).click().catch(() => undefined);
+    }
+}
 
 /**
  * Every serious or critical axe finding in the whole document, one line each, so a failure names
  * the element. The whole document, not a subtree: dialogs are portalled to the body, outside the
  * page they were opened from.
  */
-async function seriousFindings(page: Page, { overSettings = false }: { overSettings?: boolean } = {}): Promise<Finding[]> {
-    const builder = new AxeBuilder({ page });
-    if (overSettings) builder.exclude(SETTINGS_BODY);
-    const results = await builder.analyze();
+async function seriousFindings(page: Page): Promise<Finding[]> {
+    const results = await new AxeBuilder({ page }).analyze();
     return results.violations
         .filter((violation) => violation.impact === 'serious' || violation.impact === 'critical')
         .flatMap((violation) => violation.nodes.map((node) => ({
@@ -57,7 +66,6 @@ const FIRST_RUN = { auth_required: false, public_access_enabled: false, is_authe
 interface DialogCase {
     name: string;
     path: string;
-    overSettings?: boolean;
     overrides?: Record<string, unknown>;
     scope: string;
     open: (page: Page) => Promise<void>;
@@ -82,7 +90,7 @@ const DIALOGS: DialogCase[] = [
     },
     {
         // A real test flow: the fixture answers no test request, so the checklist ends on its failure summary.
-        name: 'the connection test dialog', path: '/settings/connection', overSettings: true, scope: '[role="dialog"]',
+        name: 'the connection test dialog', path: '/settings/connection', scope: '[role="dialog"]',
         open: async (page) => {
             await page.getByRole('button', { name: /^test connection$/i }).first().click(READY);
             const dialog = page.getByRole('dialog');
@@ -121,7 +129,7 @@ for (const theme of THEMES) {
                 await page.goto(route.path);
                 await route.ready(page);
                 await settled(page);
-                expect(await seriousFindings(page, { overSettings: route.path.startsWith('/settings/') })).toEqual([]);
+                expect(await seriousFindings(page)).toEqual([]);
             });
         }
 
@@ -131,7 +139,7 @@ for (const theme of THEMES) {
                 await page.goto(dialog.path);
                 await dialog.open(page);
                 await settled(page);
-                expect(await seriousFindings(page, { overSettings: dialog.overSettings })).toEqual([]);
+                expect(await seriousFindings(page)).toEqual([]);
             });
         }
 
@@ -149,6 +157,25 @@ for (const theme of THEMES) {
             await expect(page.locator('#main-content')).toHaveCount(1);
         });
     });
+
+    for (const width of [1440, 390]) {
+        test.describe(`${theme} theme, Settings at ${width}px`, () => {
+            test.use({ viewport: { width, height: 900 } });
+
+            for (const tab of SETTINGS_TABS) {
+                test(`Settings ${tab} has no serious accessibility violation, closed or with every section open`, async ({ page }) => {
+                    await replayFeeder(page, theme);
+                    await page.goto(`/settings/${tab}`);
+                    await settingsReady(page);
+                    await settled(page);
+                    expect(await seriousFindings(page)).toEqual([]);
+                    await openEverySection(page);
+                    await settled(page);
+                    expect(await seriousFindings(page)).toEqual([]);
+                });
+            }
+        });
+    }
 
     test.describe(`${theme} theme on a phone`, () => {
         test.use({ viewport: { width: 390, height: 844 } });
@@ -355,6 +382,19 @@ for (const width of [390, 1440]) {
                     await settled(page);
                     expect(await textFaults(page, '#app-sidebar')).toEqual([]);
                 }
+            });
+        }
+
+        for (const tab of SETTINGS_TABS) {
+            test(`Settings ${tab} keeps every word whole, every section open`, async ({ page }) => {
+                await replayFeeder(page, 'light');
+                await page.goto(`/settings/${tab}`);
+                await settingsReady(page);
+                await openEverySection(page);
+                await settled(page);
+                await doubleTheText(page);
+                expect(await widerThanTheWindow(page)).toEqual([]);
+                expect(await textFaults(page, '#main-content')).toEqual([]);
             });
         }
 

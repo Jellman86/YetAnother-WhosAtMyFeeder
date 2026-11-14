@@ -455,7 +455,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                    <span class="block text-xs text-slate-600 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                    <span class="block text-xs text-slate-600 dark:text-slate-400 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <input
@@ -466,7 +466,7 @@
                         class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
                         aria-label={$_('settings.notifications.cooldown')}
                     />
-                    <span class="text-xs font-bold text-slate-600">{$_('settings.notifications.cooldown_unit')}</span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_unit')}</span>
                 </div>
             </div>
 
@@ -514,19 +514,19 @@
 
             <!-- Where the notification link opens -->
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h4>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h3>
                 <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_req')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_req')}</span>
                     </label>
                 </div>
                 {#if frigateUrlMissing}
@@ -537,35 +537,35 @@
                 {/if}
                 <div class="mt-4 grid gap-1 text-xs">
                     <div class="flex flex-wrap gap-x-3 gap-y-1">
-                        <span class="font-bold text-slate-600">{$_('settings.notifications.link_preview_telegram')}</span>
+                        <span class="font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_telegram')}</span>
                         {#if linkPreview}
                             <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
                         {:else}
-                            <span class="italic text-slate-600">{$_('settings.notifications.link_preview_none')}</span>
+                            <span class="italic text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_none')}</span>
                         {/if}
                     </div>
-                    <span class="text-slate-600">{$_('settings.notifications.link_preview_others')}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_others')}</span>
                 </div>
             </div>
 
             <!-- Species Filter -->
             <div id={speciesFilterSectionId} class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30 scroll-mt-24">
-                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h4>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h3>
                 <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_none_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_none_desc')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
                     </label>
                 </div>
 
@@ -580,11 +580,11 @@
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                         {#if speciesSearchLoading}
-                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('common.loading')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('common.loading')}</p>
                         {:else if speciesSearchError}
-                            <p class="mt-2 text-xs font-bold text-red-500">{speciesSearchError}</p>
+                            <p class="mt-2 text-xs font-bold text-red-700 dark:text-red-300">{speciesSearchError}</p>
                         {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
-                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('settings.notifications.species_filter_no_results')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
                         {/if}
 
                         {#if speciesSearchResults.length > 0}
@@ -598,7 +598,7 @@
                                     >
                                         <span class="block text-sm font-bold text-slate-900 dark:text-white">{names.primary}</span>
                                         {#if names.secondary}
-                                            <span class="block text-xs font-semibold italic text-slate-600">{names.secondary}</span>
+                                            <span class="block text-xs font-semibold italic text-slate-600 dark:text-slate-400">{names.secondary}</span>
                                         {/if}
                                     </button>
                                 {/each}
@@ -612,14 +612,14 @@
                                     <button
                                         onclick={() => removeSpeciesFilterEntry(entry)}
                                         aria-label={$_('settings.notifications.species_filter_remove_label', { values: { species: formatBlockedSpeciesLabel(entry) } })}
-                                        class="text-slate-600 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                     >
                                         x
                                     </button>
                                 </span>
                             {/each}
                             {#if filterSpeciesEntries.length === 0 && legacySpeciesWhitelist.length === 0}
-                                <p class="text-xs font-bold text-slate-600 italic">{$_('settings.notifications.no_species_filter')}</p>
+                                <p class="text-xs font-bold text-slate-600 dark:text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
                             {/if}
                         </div>
 
@@ -633,7 +633,7 @@
                                             <button
                                                 onclick={() => removeLegacySpeciesWhitelist(species)}
                                                 aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
-                                                class="text-slate-600 hover:text-red-500 transition-colors"
+                                                class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                             >
                                                 x
                                             </button>
@@ -651,14 +651,14 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <!-- Discord -->
         <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex items-center justify-between {discordEnabled ? 'mb-6' : ''}">
-                <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {discordEnabled ? 'mb-6' : ''}">
+                <div class="flex min-w-0 items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                         </svg>
                     </div>
-                    <h3 id="discord-channel-label" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.discord.title')}</h3>
+                    <h3 id="discord-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.discord.title')}</h3>
                 </div>
                 <SettingsToggle
                     checked={discordEnabled}
@@ -711,12 +711,12 @@
 
         <!-- Pushover -->
         <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex items-center justify-between {pushoverEnabled ? 'mb-6' : ''}">
-                <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {pushoverEnabled ? 'mb-6' : ''}">
+                <div class="flex min-w-0 items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                     </div>
-                    <h3 id="pushover-channel-label" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
+                    <h3 id="pushover-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
                 </div>
                 <SettingsToggle
                     checked={pushoverEnabled}
@@ -803,14 +803,14 @@
 
         <!-- Telegram -->
         <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex items-center justify-between {telegramEnabled ? 'mb-6' : ''}">
-                <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {telegramEnabled ? 'mb-6' : ''}">
+                <div class="flex min-w-0 items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                             <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
                         </svg>
                     </div>
-                    <h3 id="telegram-channel-label" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.telegram.title')}</h3>
+                    <h3 id="telegram-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.telegram.title')}</h3>
                 </div>
                 <SettingsToggle
                     checked={telegramEnabled}
@@ -863,14 +863,14 @@
 
         <!-- Email -->
         <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex items-center justify-between {emailEnabled ? 'mb-6' : ''}">
-                <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {emailEnabled ? 'mb-6' : ''}">
+                <div class="flex min-w-0 items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                         </svg>
                     </div>
-                    <h3 id="email-channel-label" class="text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
+                    <h3 id="email-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
                 </div>
                 <SettingsToggle
                     checked={emailEnabled}
@@ -909,8 +909,8 @@
                     <!-- OAuth App Credentials -->
                     <div class="border-t border-line-soft pt-4 space-y-3">
                         <div>
-                            <h5 class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.oauth_app_credentials')}</h5>
-                            <p class="text-xs text-slate-600">{$_('settings.email.oauth_app_credentials_desc')}</p>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.oauth_app_credentials')}</h4>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.oauth_app_credentials_desc')}</p>
                         </div>
                         <!-- Gmail credentials -->
                         <div class="grid grid-cols-1 gap-2">
@@ -1028,7 +1028,7 @@
                                     }}
                                     aria-label={$_('settings.email.disconnect')}
                                     disabled={disconnectingEmailOAuth}
-                                    class="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                    class="text-xs text-red-700 dark:text-red-400 hover:underline"
                                 >
                                     {disconnectingEmailOAuth ? $_('common.testing') : $_('settings.email.disconnect')}
                                 </button>
@@ -1146,7 +1146,7 @@
                             />
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
                         </label>
-                        <p class="mt-1 text-xs text-slate-600">{$_('settings.email.only_on_end_desc')}</p>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                 </AdvancedSection>
 

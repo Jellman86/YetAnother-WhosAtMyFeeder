@@ -165,7 +165,7 @@ describe('Detection settings, status first', () => {
         expect(advancedSectionSource).toContain('aria-controls={contentId}');
         expect(advancedSectionSource).toContain('id={contentId}');
         expect(advancedSectionSource).toContain('min-h-11');
-        expect(advancedSectionSource).toContain('focus-visible:ring-2');
+        expect(advancedSectionSource).toContain('focus-ring');
     });
 
     it('keeps device compatibility warnings and skipped checks honest', () => {

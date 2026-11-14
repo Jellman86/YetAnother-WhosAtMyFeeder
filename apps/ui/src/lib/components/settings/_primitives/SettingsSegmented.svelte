@@ -16,7 +16,8 @@
         value: T;
         options: Option[];
         onchange: (next: T) => void;
-        ariaLabelTemplate: (label: string) => string;
+        /** The id of the visible label that names this set of options; each option is named by its own words. */
+        labelledBy: string;
         // Layout: 'tile' renders compact icon-stack tiles (theme: light/dark/system);
         // 'card' renders wider rows with sub/meta/swatch (font, colour, naming).
         layout?: 'tile' | 'card';
@@ -28,7 +29,7 @@
         value,
         options,
         onchange,
-        ariaLabelTemplate,
+        labelledBy,
         layout = 'tile',
         columns = 2
     }: Props = $props();
@@ -44,15 +45,14 @@
     });
 </script>
 
-<div class={gridClass}>
+<div class={gridClass} role="group" aria-labelledby={labelledBy}>
     {#each options as opt}
         {@const active = opt.value === value}
         <button
             type="button"
             onclick={() => onchange(opt.value)}
             aria-pressed={active}
-            aria-label={ariaLabelTemplate(opt.label)}
-            class="rounded-2xl border-2 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-brand-400
+            class="rounded-2xl border-2 transition-all duration-200 focus-ring
                    {layout === 'tile'
                         ? 'flex flex-col items-center gap-2 p-4'
                         : 'flex items-center gap-4 p-4 text-left'}
@@ -76,12 +76,12 @@
                         {opt.label}
                     </div>
                     {#if opt.sub}
-                        <div class="text-xs font-medium mt-1 {active ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'} truncate">
+                        <div class="text-xs font-medium mt-1 break-words {active ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'}">
                             {opt.sub}
                         </div>
                     {/if}
                     {#if opt.meta}
-                        <div class="text-3xs font-semibold mt-1 {active ? 'text-white/70' : 'text-slate-600 dark:text-slate-400'}">
+                        <div class="text-3xs font-semibold mt-1 {active ? 'text-white/90' : 'text-slate-600 dark:text-slate-400'}">
                             {opt.meta}
                         </div>
                     {/if}

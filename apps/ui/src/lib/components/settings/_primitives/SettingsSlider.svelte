@@ -39,7 +39,7 @@
         bind:value
         aria-describedby={descriptionId}
         aria-valuetext={shown}
-        class="mt-2 h-6 w-full cursor-pointer accent-brand-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+        class="focus-ring mt-2 h-6 w-full cursor-pointer accent-brand-500"
     />
     {#if lowLabel || highLabel}
         <div class="flex justify-between gap-x-4 text-xs font-medium text-slate-600 dark:text-slate-300">

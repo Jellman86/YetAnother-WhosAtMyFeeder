@@ -57,7 +57,7 @@ describe('health page timeline', () => {
 describe('the health verdict', () => {
     it('colours the whole card, not just a pill on a neutral ground', () => {
         expect(errorsSource).toContain('heroToneClass');
-        expect(errorsSource).toMatch(/<div class="[^"]*rounded-2xl border px-5 py-4 \{heroToneClass\(/);
+        expect(errorsSource).toMatch(/<div class="[^"]*rounded-2xl border px-4 py-4 sm:px-5 \{heroToneClass\(/);
         // The verdict opens the System card rather than sitting in a second card of its own.
         expect(errorsSource.indexOf('{#snippet status()}')).toBeLessThan(errorsSource.indexOf('{heroToneClass('));
     });

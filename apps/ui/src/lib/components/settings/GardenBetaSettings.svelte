@@ -167,7 +167,7 @@
     <div class="space-y-4 wrap-break-word" data-garden-beta-settings>
         {#if summary.steps.length > 0}
             <section class="space-y-2 rounded-xl p-4 {summary.attention ? 'bg-attention-500/5' : 'bg-surface-raised/70'}" aria-labelledby="garden-next-steps" data-garden-next-steps>
-                <h5 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h5>
+                <h4 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h4>
                 <ol class="space-y-2">
                     {#each summary.steps as step (step.kind === 'download_model' ? step.role : step.kind)}
                         <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-garden-next-step={step.kind}>
@@ -308,7 +308,7 @@
 
                 <p class="text-xs text-slate-600 dark:text-slate-400">
                     {$_('settings.beta.garden_device_note', { default: 'Automatic checks use your Detection device once it agrees with CPU, and fall back to CPU if it fails. Motion scans use CPU. Garden runs one job at a time while birds and cameras are idle.' })}
-                    <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                    <a href={`${DOCS}#verify-which-device-ran-a-model`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 </p>
@@ -335,7 +335,7 @@
                     </p>
                     <p class="text-xs text-slate-600 dark:text-slate-400">
                         {$_('settings.beta.garden_domestic_birds_wild', { default: 'Nothing counts as domestic until you add it. Mallards, Greylag Geese, Wild Turkeys and Rock Doves also live wild, so on every camera they are then recorded as your birds.' })}
-                        <a href={`${DOCS}#domestic-birds`} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                        <a href={`${DOCS}#domestic-birds`} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                             {$_('settings.beta.learn_more', { default: 'Learn more' })}
                         </a>
                     </p>

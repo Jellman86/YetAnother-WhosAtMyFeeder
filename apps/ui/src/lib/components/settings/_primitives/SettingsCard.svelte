@@ -42,8 +42,10 @@
 </script>
 
 <section class="card-base overflow-hidden" {id}>
-    <header class="flex items-start justify-between gap-4 px-5 pt-5 pb-4 md:px-6 md:pt-6">
-        <div class="flex items-start gap-3 min-w-0">
+    <!-- The actions sit beside the title while it keeps at least 10rem, and wrap under it when it
+         would not, as with enlarged text on a phone. -->
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5 pb-4 md:px-6 md:pt-6">
+        <div class="flex min-w-0 flex-1 basis-40 items-start gap-3">
             {#if iconSnippet}
                 <div class="mt-0.5 shrink-0 {accent ? 'text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400'}">
                     {@render iconSnippet()}
@@ -55,13 +57,13 @@
                     {#if collapsible}
                         <button
                             type="button"
-                            class="flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+                            class="focus-ring flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left"
                             aria-expanded={open}
                             aria-controls={bodyId}
                             onclick={toggle}
                         >
                             <span class="min-w-0 wrap-break-word">{title}</span>
-                            <svg class="h-4 w-4 shrink-0 text-slate-500 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                            <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                         </button>
                     {:else}
                         {title}
@@ -75,7 +77,7 @@
             </div>
         </div>
         {#if actions}
-            <div class="shrink-0">
+            <div class="max-w-full shrink-0">
                 {@render actions()}
             </div>
         {/if}

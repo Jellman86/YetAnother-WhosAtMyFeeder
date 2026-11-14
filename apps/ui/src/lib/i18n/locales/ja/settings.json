@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, other {# 件を割り当て済み}}",
       "title": "BirdNET-Go",
       "toggle_label": "BirdNET-Go が聞いた鳴き声をカメラの訪問と照合し、音で訪問を確認できるようにします。",
       "internal_url_label": "BirdNET-Go 内部 URL",
@@ -859,6 +860,7 @@
     "link_preview_others": "Discord のタイトル、Pushover、メールも同じアドレスを使います。",
     "link_preview_none": "リンクは送信されません",
     "sentence": {
+      "chip_context": "（{setting}）",
       "lead": "通知する内容",
       "confidence_join": "・信頼度",
       "confidence_chip": "{value}%以上",

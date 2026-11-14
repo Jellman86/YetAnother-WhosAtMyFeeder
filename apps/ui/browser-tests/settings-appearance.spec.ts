@@ -26,12 +26,12 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(1);
     await expect(page.locator('#time-format-select')).toHaveValue('12h');
     await expect(page.locator('#explorer-view-select')).toHaveValue('list');
-    await expect(page.getByRole('button', { name: 'Select Scientific name first naming style' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('group', { name: /Bird naming style/ }).getByRole('button', { name: /^Scientific name first/ })).toHaveAttribute('aria-pressed', 'true');
     await expect(unsaved(page)).toHaveCount(0);
 
     await page.locator('#time-format-select').selectOption('24h');
     await page.getByRole('button', { name: /Advanced options/ }).click();
-    await page.getByRole('button', { name: 'Blue Tit', exact: true }).click();
+    await page.getByRole('group', { name: /Colou?r accent/i }).getByRole('button', { name: /^Blue Tit/ }).click();
     await expect(unsaved(page)).toBeVisible();
 
     // Leaving the tab unmounts its body; the draft is the page's, so the edit is still there.
@@ -56,8 +56,8 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
 test('switching the naming style back to the saved one leaves nothing to apply', async ({ page }) => {
     await openSettings(page, SAVED_APPEARANCE);
     await page.getByRole('link', { name: 'Appearance' }).click();
-    const scientific = page.getByRole('button', { name: 'Select Strictly Scientific naming style' });
-    const hobbyist = page.getByRole('button', { name: 'Select Scientific name first naming style' });
+    const scientific = page.getByRole('group', { name: /Bird naming style/ }).getByRole('button', { name: /^Strictly scientific/i });
+    const hobbyist = page.getByRole('group', { name: /Bird naming style/ }).getByRole('button', { name: /^Scientific name first/ });
     await expect(hobbyist).toHaveAttribute('aria-pressed', 'true');
 
     await scientific.click();

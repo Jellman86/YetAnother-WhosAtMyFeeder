@@ -35,11 +35,11 @@
 <article class="card-base min-w-0" aria-labelledby={nameId} data-beta-feature={id}>
     <header class="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div class="min-w-0 space-y-1">
-            <h4 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h4>
+            <h3 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400">
                 {description}
                 {#if learnMoreHref}
-                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 {/if}

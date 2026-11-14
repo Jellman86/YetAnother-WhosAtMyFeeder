@@ -113,7 +113,7 @@
                     </div>
                 </div>
             {/if}
-            <p class="text-xs text-slate-600 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
             <a
                 href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
                 target="_blank"

@@ -68,7 +68,7 @@
 
     function stateClass(checked: boolean, blocked: boolean): string {
         if (checked) return 'bg-brand-700 text-white';
-        if (blocked) return 'cursor-not-allowed text-slate-500 line-through decoration-slate-400 dark:text-slate-400';
+        if (blocked) return 'cursor-not-allowed text-slate-600 line-through decoration-slate-400 dark:text-slate-400';
         return 'cursor-pointer text-slate-700 hover:bg-surface-raised dark:text-slate-200';
     }
 </script>
@@ -93,7 +93,7 @@
         {#if row.presence !== 'missing'}
             <button
                 type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-white hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="focus-ring flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-white hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                 aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
                 aria-expanded={previewOpen}
                 aria-describedby={previewUnavailableId}
@@ -118,7 +118,7 @@
             {#each modeOptions as option (option.value)}
                 {@const checked = row.mode === option.value}
                 {@const blocked = !!row.blocked[option.value]}
-                <label class="{choiceClass} {stateClass(checked, blocked)} focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-1 dark:focus-within:ring-offset-slate-900">
+                <label class="{choiceClass} {stateClass(checked, blocked)} focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-1 focus-within:ring-offset-surface">
                     <input
                         class="sr-only"
                         type="radio"
@@ -155,7 +155,7 @@
             >
                 {#each roleOptions as option (option.value)}
                     {@const checked = row.role === option.value}
-                    <label class="{choiceClass} {stateClass(checked, false)} focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-1 dark:focus-within:ring-offset-slate-900">
+                    <label class="{choiceClass} {stateClass(checked, false)} focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-1 focus-within:ring-offset-surface">
                         <input
                             class="sr-only"
                             type="radio"
@@ -177,10 +177,10 @@
 
     {#if watchesGarden}
         <div class="space-y-1 border-t border-line-soft pt-3" data-camera-motion>
-            <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-1 focus-within:ring-2 focus-within:ring-brand-500">
+            <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-1 focus-within:ring-2 focus-within:ring-focus">
                 <input
                     type="checkbox"
-                    class="h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500"
+                    class="h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-focus"
                     checked={row.collectsMotion}
                     aria-label={$_('settings.beta.garden_motion_toggle', { default: 'Collect motion review photos on {camera}', values: { camera } })}
                     aria-describedby="{uid}-motion-help"

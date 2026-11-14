@@ -269,7 +269,7 @@
                 { label: $_('settings.data.due_for_deletion', { default: 'Due for deletion' }), val: fmtCount(dueForDeletion), highlight: dueForDeletion > 0 }
             ] as stat}
                 <div class="card-base rounded-2xl p-6 text-center">
-                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-500' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
+                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">{stat.label}</p>
                 </div>
             {/each}
@@ -324,7 +324,7 @@
             {#if purgeDisabledReason}
                 <p id="purge-disabled-reason" class="text-xs text-center text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
             {/if}
-            <p class="text-xs text-center text-slate-600 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
+            <p class="text-xs text-center text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.data.auto_cleanup_note')}</p>
 
             <AdvancedSection
                 id="data-retention-advanced"
@@ -461,7 +461,7 @@
                     </span>
                 </div>
                 {#if (cacheStats?.archive_failed ?? 0) > 0}
-                    <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
+                    <p class="text-xs text-rose-700 dark:text-rose-300" data-archive-failed>
                         {$_('settings.data.archive_failed_count', {
                             values: { count: cacheStats?.archive_failed ?? 0 },
                             default: '{count} could not be archived. Open the visit to try again.'
@@ -561,7 +561,7 @@
                 </SettingsRow>
                 {#if cacheHighQualityEventSnapshots}
                     <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                        <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-600'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-600 dark:text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             {#if cropDetectorReady}
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             {:else}
@@ -690,7 +690,7 @@
                 <div class="border-t border-line-soft pt-4 flex items-center gap-3">
                     {#if taxonomyStatus.error}
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
-                        <p class="text-xs font-bold text-red-500">{taxonomyStatus.error}</p>
+                        <p class="text-xs font-bold text-red-700 dark:text-red-300">{taxonomyStatus.error}</p>
                     {:else}
                         <div class="w-2 h-2 rounded-full bg-accent-500"></div>
                         <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
@@ -734,7 +734,7 @@
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
                 <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
-                    <p class="text-lg font-bold text-red-600 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
+                    <p class="text-lg font-bold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
@@ -753,7 +753,7 @@
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -854,7 +854,7 @@
                     <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
                 {#if backfillCustomError}
-                    <p class="text-xs font-bold text-red-500">{backfillCustomError}</p>
+                    <p class="text-xs font-bold text-red-700 dark:text-red-300">{backfillCustomError}</p>
                 {/if}
             </div>
         {/if}
@@ -867,11 +867,11 @@
                 </p>
             {/if}
             <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.updated)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.updated)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                 <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
@@ -879,7 +879,7 @@
                     <div class="grid grid-cols-1 gap-2">
                         {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
                             <div class="flex justify-between items-center text-xs">
-                                <span class="text-slate-600">
+                                <span class="text-slate-600 dark:text-slate-400">
                                     {$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}
                                 </span>
                                 <span class="font-bold text-slate-700 dark:text-slate-300">{count}</span>
@@ -921,10 +921,10 @@
             {#if weatherBackfillResult}
                 {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
                 <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(weatherBackfillResult.updated)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(weatherBackfillResult.updated)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
                 </dl>
                 {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
                     <div class="border-l-2 border-rose-400 py-1 pl-3">
@@ -989,9 +989,9 @@
             <div class="border-t border-line-soft pt-4 space-y-3 animate-in fade-in slide-in-from-top-2">
                 <div class="flex justify-between text-sm font-semibold">
                     <span class="text-slate-700 dark:text-slate-200">{$_('settings.data.batch_analysis_processing')}</span>
-                    <span class="text-slate-600">{processed} / {analysisTotal}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{processed} / {analysisTotal}</span>
                 </div>
-                <div class="flex justify-between text-xs font-bold text-slate-600">
+                <div class="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-400">
                     <span>{$_('settings.data.batch_analysis_pending')}: {analysisStatus.pending}</span>
                     <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
                 </div>
@@ -1001,7 +1001,7 @@
                     </div>
                 {/if}
                 {#if analysisStatus.circuit_open}
-                    <div class="text-xs font-bold text-amber-500 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                    <div class="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         {$_('settings.data.batch_analysis_circuit_open')}
                         {#if analysisStatus.open_until}
@@ -1009,7 +1009,7 @@
                         {/if}
                     </div>
                     {#if analysisStatus.failure_count !== undefined}
-                        <div class="text-xs font-bold text-amber-500/90">
+                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300">
                             {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
                         </div>
                     {/if}
@@ -1026,10 +1026,10 @@
         openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
     >
         <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
-        <ul class="divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="feedback">
+        <ul class="@container divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="feedback">
                 <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h4>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h3>
                     <p id="danger-feedback-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">
                         {$_('settings.danger.clear_feedback_desc', { default: 'Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.' })}
                         {$_('settings.danger.clear_feedback_hint', { default: 'This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.' })}
@@ -1046,9 +1046,9 @@
                     {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
                 </button>
             </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="favorites">
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="favorites">
                 <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h4>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h3>
                     <p id="danger-favorites-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.data.clear_favorites_desc')}</p>
                 </div>
                 <button
@@ -1062,9 +1062,9 @@
                     {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
                 </button>
             </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="reset">
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="reset">
                 <div class="min-w-0 space-y-1">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h4>
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h3>
                     <p id="danger-reset-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.danger.reset_desc')}</p>
                 </div>
                 <button

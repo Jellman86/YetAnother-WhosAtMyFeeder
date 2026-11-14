@@ -3290,7 +3290,7 @@
                 <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
                 <div class="space-y-4" data-beta-page>
                     <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
-                        <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
+                        <h2 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h2>
                         <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
                             {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.' })}
                         </p>
@@ -3357,7 +3357,7 @@
                             <button
                                 type="button"
                                 onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white dark:focus-visible:ring-offset-slate-950"
+                                class="focus-ring min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
                             >
                                 {$_('settings.debug.model_eval_open')}
                             </button>

@@ -222,7 +222,7 @@
                         </button>
                     {/if}
                     {#if avatarError}
-                        <p class="w-full text-xs text-red-600 dark:text-red-400" role="alert">{avatarError}</p>
+                        <p class="w-full text-xs text-red-700 dark:text-red-400" role="alert">{avatarError}</p>
                     {/if}
                 </div>
             </SettingsRow>
@@ -326,7 +326,7 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold rounded-2xl transition-all focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold rounded-2xl transition-all focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-focus disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
@@ -344,7 +344,7 @@
                                         type="button"
                                         onclick={() => removeTrustedProxyHost(host)}
                                         aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
-                                        class="text-slate-600 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                     >
                                         ✕
                                     </button>
@@ -352,7 +352,7 @@
                             </span>
                         {/each}
                         {#if trustedProxyHosts.length === 0}
-                            <p class="text-xs font-bold text-slate-600 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                            <p class="text-xs font-bold text-slate-600 dark:text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
@@ -455,7 +455,7 @@
                 value={publicAccessLocationPrecision}
                 layout="card"
                 columns={2}
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-public-location-precision"
                 onchange={(v) => (publicAccessLocationPrecision = v as 'approximate' | 'exact')}
                 options={[
                     {

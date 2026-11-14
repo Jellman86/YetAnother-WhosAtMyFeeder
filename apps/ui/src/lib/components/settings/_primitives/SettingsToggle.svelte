@@ -30,12 +30,10 @@
             toggle();
         }
     }}
-    class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 dark:focus-visible:ring-offset-slate-900
-           {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-           {checked ? 'bg-brand-600 dark:bg-brand-500' : 'bg-slate-500 dark:bg-slate-500'}"
+    class="switch-track"
 >
     <span class="sr-only">{srLabel}</span>
-    <span
-        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 {checked ? 'translate-x-5' : 'translate-x-0'}"
-    ></span>
+    <!-- The kit draws the off and on tracks, the disabled state from aria-disabled, the thumb's
+         side from aria-checked, and the focus ring. -->
+    <span class="switch-thumb"></span>
 </button>

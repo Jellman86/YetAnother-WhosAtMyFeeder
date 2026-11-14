@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, one {# сопоставлен} few {# сопоставлено} many {# сопоставлено} other {# сопоставлено}}",
       "title": "BirdNET-Go",
       "toggle_label": "Сопоставляет голоса птиц, услышанные BirdNET-Go, с визитами у камеры, чтобы визит можно было подтвердить по звуку.",
       "internal_url_label": "Внутренний URL BirdNET-Go",
@@ -859,6 +860,7 @@
     "link_preview_others": "Заголовок Discord, Pushover и письмо используют тот же адрес.",
     "link_preview_none": "ссылка не отправляется",
     "sentence": {
+      "chip_context": "({setting})",
       "lead": "Сообщай мне о",
       "confidence_join": "с уверенностью не ниже",
       "confidence_chip": "{value}%",

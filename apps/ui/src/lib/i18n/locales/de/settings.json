@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, one {# zugeordnet} other {# zugeordnet}}",
       "title": "BirdNET-Go",
       "toggle_label": "Ordnet Vogelrufe, die BirdNET-Go hört, den Kamerabesuchen zu, sodass ein Besuch per Ton bestätigt werden kann.",
       "internal_url_label": "Interne BirdNET-Go-URL",
@@ -859,6 +860,7 @@
     "link_preview_others": "Discord-Titel, Pushover und E-Mail verwenden dieselbe Adresse.",
     "link_preview_none": "es wird kein Link gesendet",
     "sentence": {
+      "chip_context": "({setting})",
       "lead": "Sag mir Bescheid über",
       "confidence_join": "mit mindestens",
       "confidence_chip": "{value} % Sicherheit",

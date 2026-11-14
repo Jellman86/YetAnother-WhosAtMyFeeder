@@ -66,7 +66,7 @@
     {value}
     oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
     onkeydown={(e) => onkeydown?.(e)}
-    class="w-full px-4 py-3 rounded-2xl border bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed
+    class="w-full px-4 py-3 rounded-2xl border bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed
            {refusal?.conflict ? 'border-amber-600 dark:border-amber-400' : refusal ? 'border-red-600 dark:border-red-400' : 'border-slate-200 dark:border-slate-700'}"
 />
 <FieldRefusal id={errorId} {refusal} />

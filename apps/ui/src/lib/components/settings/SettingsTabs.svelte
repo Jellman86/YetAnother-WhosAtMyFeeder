@@ -91,12 +91,12 @@
 <a
     href="#{contentId}"
     onclick={skipToContent}
-    class="sr-only focus:not-sr-only focus:absolute focus:z-40 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-700 focus:ring-2 focus:ring-brand-500 dark:focus:text-brand-300"
+    class="sr-only focus:not-sr-only focus:absolute focus:z-40 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-brand-700 focus:ring-2 focus:ring-focus dark:focus:text-brand-300"
     data-settings-skip-link
 >{$_('settings.tabs.skip_to_content', { default: 'Skip to the settings' })}</a>
 
-<!-- Phones and narrow windows: one select that names the current section, and the wizard beside it. -->
-<div class="flex flex-wrap items-end gap-3 lg:hidden" data-settings-compact-navigation>
+<!-- Phones, narrow windows and enlarged text: one select that names the current section, and the wizard beside it. -->
+<div class="flex flex-wrap items-end gap-3 @4xl:hidden" data-settings-compact-navigation>
     <div class="min-w-0 flex-1 basis-48">
         <label for="settings-tab-select" class="mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.tabs.section_label', { default: 'Settings section' })}</label>
         <select
@@ -123,8 +123,8 @@
      changing the link's name. -->
 <span id="settings-tab-unsaved-note" class="sr-only">{$_('settings.tabs.unsaved_note', { default: 'Has unsaved changes' })}</span>
 
-<!-- Wide screens: a compact rail beside the settings, so they start at the top of the page. -->
-<nav data-settings-navigation class="hidden lg:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
+<!-- Room for it (56rem, so it scales with the text): a compact rail beside the settings, so they start at the top of the page. -->
+<nav data-settings-navigation class="hidden @4xl:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
     <div class="space-y-5">
         {#each groups as group (group.id)}
             <div>
@@ -138,7 +138,7 @@
                                 onclick={(event) => handleLinkClick(event, tab.id)}
                                 aria-current={current ? 'page' : undefined}
                                 aria-describedby={unsavedTabs.includes(tab.id) ? 'settings-tab-unsaved-note' : undefined}
-                                class="flex min-h-10 items-center gap-2 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500
+                                class="flex min-h-10 items-center gap-2 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors focus-ring
                                        {current
                                     ? 'border-brand-600 bg-brand-50 font-semibold text-slate-900 dark:border-brand-400 dark:bg-brand-950/60 dark:text-white'
                                     : 'border-transparent font-medium text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}"

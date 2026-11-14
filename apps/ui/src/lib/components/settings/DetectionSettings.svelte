@@ -332,12 +332,12 @@
     }
 
     function compatDeviceCell(row: CompatRow | undefined, dev: string): { label: string; cls: string } {
-        if (!row || row.error) return { label: '—', cls: 'text-slate-600' };
+        if (!row || row.error) return { label: '—', cls: 'text-slate-600 dark:text-slate-400' };
         const e = compatEntry(row, dev);
-        if (!e) return { label: '—', cls: 'text-slate-600' };
-        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
-        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-600' };
+        if (!e) return { label: '—', cls: 'text-slate-600 dark:text-slate-400' };
+        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-700 dark:text-red-400' };
+        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-700 dark:text-red-400' };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-600 dark:text-slate-400' };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
         if (typeof e.detection_match_rate === 'number' && n) {
@@ -692,12 +692,12 @@
                             type="button"
                             onclick={() => addBlockedSpecies(result)}
                             disabled={alreadyBlocked}
-                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                            class="focus-ring min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
                         >
                             <span class="block">
                                 {names.primary}
                                 {#if alreadyBlocked}
-                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-red-600 dark:text-red-300">
+                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-300">
                                         {$_('common.added', { default: 'Added' })}
                                     </span>
                                 {/if}
@@ -708,7 +708,7 @@
                         </button>
                     {/each}
                     {#if blockedSpeciesSearchError}
-                        <p role="alert" class="px-4 py-4 text-sm font-medium text-red-600 dark:text-red-400">{blockedSpeciesSearchError}</p>
+                        <p role="alert" class="px-4 py-4 text-sm font-medium text-red-700 dark:text-red-400">{blockedSpeciesSearchError}</p>
                     {:else if blockedSpeciesSearchResults.length === 0}
                         <p role="status" class="px-4 py-4 text-sm italic text-slate-600 dark:text-slate-400">
                             {blockedSpeciesSearching ? $_('common.loading') : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
@@ -723,7 +723,7 @@
                             type="button"
                             onclick={() => addBlockedLabelText(blockedSpeciesSearchQuery)}
                             data-blocked-label-escape-hatch
-                            class="min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
+                            class="focus-ring min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
                         >
                             {$_('settings.detection.block_exact_label', {
                                 values: { label: blockedSpeciesSearchQuery.trim() },
@@ -746,7 +746,7 @@
                                 type="button"
                                 onclick={() => removeBlockedSpecies(entry)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-700 dark:text-red-300 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
                             >
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <path d="M6 6l12 12M18 6 6 18" />
@@ -770,7 +770,7 @@
                                 type="button"
                                 onclick={() => removeLegacyBlockedLabel(label)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                             >
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <path d="M6 6l12 12M18 6 6 18" />
@@ -783,7 +783,7 @@
         {/if}
 
         {#if blockedSpecies.length === 0 && blockedLabels.length === 0}
-            <p class="text-xs font-bold italic text-slate-600">{$_('settings.detection.no_blocked_labels')}</p>
+            <p class="text-xs font-bold italic text-slate-600 dark:text-slate-400">{$_('settings.detection.no_blocked_labels')}</p>
         {/if}
     </SettingsCard>
 
@@ -879,7 +879,7 @@
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
                     </div>
-                    {#if compatError}<p role="alert" class="text-xs font-bold text-red-600 dark:text-red-400">{compatError}</p>{/if}
+                    {#if compatError}<p role="alert" class="text-xs font-bold text-red-700 dark:text-red-400">{compatError}</p>{/if}
                     {#if runtimeRefreshFailed}
                         <p role="alert" class="text-xs font-bold text-amber-700 dark:text-amber-300">
                             {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
@@ -1145,9 +1145,9 @@
             {/if}
             {#if compatMatrix}
                 <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
-                    <h4 class="text-sm font-bold text-slate-900 dark:text-white">
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">
                         {$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}
-                    </h4>
+                    </h3>
                     <div class="mt-2 overflow-x-auto">
                         <table class="w-full text-xs">
                             <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
@@ -1157,7 +1157,7 @@
                                 {#each compatRows(compatMatrix) as [mid, row]}
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">
-                                            {mid}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-600">· crop</span>{/if}
+                                            {mid}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-600 dark:text-slate-400">· crop</span>{/if}
                                         </td>
                                         {#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}
                                             {@const c = compatDeviceCell(row, dev)}

@@ -45,7 +45,7 @@
         <p class="text-xs text-slate-600 dark:text-slate-400" role="status">{$_('settings.beta.garden_status_loading', { default: 'Checking Garden status…' })}</p>
     {:else}
         <div class="border-t border-line-soft pt-4 space-y-2 text-slate-700 dark:text-slate-300" role="group" aria-labelledby="garden-collection-status" data-garden-collection-status>
-            <h6 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h6>
+            <h4 id="garden-collection-status" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_status_title', { default: 'Collection status' })}</h4>
             <dl class="space-y-1 text-xs">
                 {#if identification}
                     <div class="flex flex-wrap gap-x-2" data-garden-fact="device">

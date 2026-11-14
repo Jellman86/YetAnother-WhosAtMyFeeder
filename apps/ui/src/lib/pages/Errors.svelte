@@ -731,11 +731,11 @@
 
         {#snippet status()}
             <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(verdict())}">
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
                     <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(verdict())}`} title={verdict()} data-health-status-pill>
                         {statusLabel(verdict())}
                     </span>
-                    <div class="min-w-0 flex-1">
+                    <div class="min-w-0 flex-1 wrap-break-word">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
                         {#if problems.length > 0}
                             <ul class="mt-1 space-y-2" data-health-problems>
@@ -786,7 +786,7 @@
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
             <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
                 <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
-                <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
@@ -1093,7 +1093,7 @@
                     })}
                 </p>
             </div>
-            <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-400">
+            <span class="min-w-0 rounded-2xl border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-400">
                 {$_('jobs.errors_activity_window', {
                     values: { started: startedAgoText() },
                     default: 'Since this instance started, {started}'
@@ -1130,7 +1130,7 @@
     <!-- ── Current Issues + Recent Diagnostics ────────────────────── -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
         <section class="panel" data-health-current-issues>
-            <div class="mb-4 flex items-start justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h2>
                     <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
@@ -1177,7 +1177,7 @@
         </section>
 
         <section class="panel" data-health-backend-diagnostics>
-            <div class="mb-4 flex items-start justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h2>
                     <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
@@ -1223,7 +1223,7 @@
     <details class="panel" data-diagnostics-export>
         <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-600 focus-ring dark:text-slate-400">
             <span class="flex items-center gap-2">
-                <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                 {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
             </span>
             <span class="font-semibold normal-case tracking-normal text-slate-600 dark:text-slate-400">
