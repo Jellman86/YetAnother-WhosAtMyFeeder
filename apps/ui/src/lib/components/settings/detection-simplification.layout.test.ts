@@ -39,19 +39,25 @@ describe('Detection settings, status first', () => {
         expect(statusBandSource).toContain('scrollIntoView');
     });
 
-    it('orders the page by decision: models, acceptance, hardware, Frigate and video, then blocking', () => {
+    it('leads with what decides an identification, and keeps models, hardware and Frigate options after it', () => {
+        // The status band already names the running model, so the everyday decisions come first;
+        // the model lineup follows, and hardware and Frigate options start closed.
         const order = [
-            'models_card_title',
             'acceptance_title',
+            "settings.detection.blocked_labels'",
+            '<RangeFilterSettings',
+            'models_card_title',
             'hardware_title',
             'frigate_video_title',
-            "settings.detection.blocked_labels'",
         ].map((key) => detectionSettingsSource.indexOf(key));
         for (const at of order) expect(at).toBeGreaterThan(-1);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(5);
         expect(detectionSettingsSource).not.toContain('tuning_column');
         expect(detectionSettingsSource).not.toContain('runtime_column');
+        expect(detectionSettingsSource).toContain("const HARDWARE_CARD_ID = 'detection-hardware';");
+        expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
+        expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(2);
     });
 
     it('keeps everyday choices visible and puts memory and isolation behind a disclosure that opens when customised', () => {
@@ -98,11 +104,13 @@ describe('Detection settings, status first', () => {
         for (const state of ['model_manager_state_repair', 'model_manager_state_installed', 'model_manager_state_available']) {
             expect(modelManagerSource).toContain(state);
         }
-        // Each card carries the honest costs: download size and a RAM meter
-        // drawn against the heaviest model in the lineup.
-        expect(modelManagerSource).toContain('model-ram-meter');
-        expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
-        expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
+        // Only the exceptions carry a chip: every card saying "Available" distinguished nothing.
+        expect(modelManagerSource).toContain("{#if cardState !== 'available'}");
+        // Each card states its costs in words: the download (or that it is already here) and its
+        // memory. A bar under the download size read as download progress, so there is none.
+        // The one memory meter left is the labelled total under the chosen model.
+        expect(modelManagerSource.match(/model-ram-meter/g)).toHaveLength(1);
+        expect(modelManagerSource).toContain("t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(modelOption.estimated_ram_mb) })");
         // Coverage is the other everyday question: birds only, or wider wildlife.
         expect(modelManagerSource).toContain('scopeLabel(modelOption.taxonomy_scope)');
         // The flat look marks the selected card with its border, a brand tint and

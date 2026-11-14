@@ -5,15 +5,16 @@ supported [environment overrides](environment-variables.md) take precedence on r
 
 ## How Settings is laid out
 
-Use the navigation grid to switch sections:
-
-![The Settings navigation grid: Feeder pipeline holds Connection and Detection; Intelligence and sharing holds Integrations, Enrichment, AI and Notifications; Operations holds Health, Security, Data and Setup wizard; Interface holds Appearance and Accessibility](../images/settings-map.png)
+On a wide screen the sections are listed in a rail beside the settings, so a section's first
+setting is at the top of the page; a **Skip to the settings** link moves keyboard focus past it.
+On a phone or a narrow window a **Settings section** list names the section you are in. A section
+holding unsaved changes is marked "unsaved" in both. **Setup wizard** is a button under the list.
 
 | Group | Sections | What lives there |
 |---|---|---|
 | **Feeder pipeline** | Connection, Detection | Where events come from, and how they are identified. |
-| **Intelligence & sharing** | Integrations, Enrichment, AI, Notifications | Other services YA-WAMF talks to, and what it sends out. |
-| **Operations** | Health, Security, Beta features, Data, Setup wizard | Running it: diagnostics, access, features still being tested, retention, and re-running setup. |
+| **Intelligence & sharing** | Integrations, AI, Notifications | Other services YA-WAMF talks to, where species pages get their information, and what it sends out. |
+| **Operations** | Health, Security, Data, Beta features | Running it: diagnostics, access, retention and telemetry, and features still being tested. |
 | **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
 
 A **Debug** section appears alongside them when debug UI is enabled (see
@@ -47,10 +48,9 @@ Where bird events come from.
 | **Cameras to watch** | One row per Frigate camera choosing what it is watched for: **Off** or **Birds**, plus **Garden animals** and **Both** while the Garden animals beta is on. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. See [Cameras to watch](#cameras-to-watch). |
 | **Role** | Shown while a camera watches for birds: **Feeder** or **Nest**. Nest cameras use their own de-duplication window. |
 | **Collect motion review photos** | Shown while a camera watches for Garden animals. See [Beta features](#beta-features). |
-| **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |
+| **MQTT broker** / **Port** / **Use authentication** | The broker Frigate publishes its events to: its hostname, its port (default `1883`), and optional user and pass. |
 | **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
 | **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
-| **Telemetry** | Optional anonymous usage metrics and health diagnostics, both off by default. See [Telemetry](../features/telemetry.md). |
 | **Test Connection** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
 
 ### Cameras to watch
@@ -82,19 +82,21 @@ migration:
 ## Detection
 
 How a snapshot becomes a species. The page opens with a status line (model, runtime, workers,
-health), then groups the settings by the decision they make:
+health), then puts the everyday decisions first and the rest after them:
 
-- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
-  which locates birds in the frame so YA-WAMF can crop and count them. Each model card shows
-  its download size, an estimated RAM figure and whether it covers birds only or wider wildlife.
 - **Accepting an identification**: the two confidence sliders, **Bird model region** and
   **Personalized re-ranking**.
-- **Hardware**: **Inference Provider**, **Check devices on this host**, and the folded
-  **Memory and isolation** and **Runtime report** sections. **Memory and isolation** opens on
-  its own when you have changed its defaults.
-- **Frigate and video**: sublabel trust, sublabel write-back and **Auto Video Analysis**.
-- **Blocked Labels**.
+- **Blocked labels**.
 - **Range filter**: optional, needs a location and an eBird key.
+- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
+  which locates birds in the frame so YA-WAMF can crop and count them. Each model card states
+  its download size (or that it is already on this host), its memory and whether it covers birds
+  only or wider wildlife. Only the active, installed or broken models carry a badge.
+- **Hardware** (starts closed, and opens on its own when the runtime has something to report,
+  when you follow the status line's health link, or when a save refuses a value inside it): **Inference provider**, **Check devices on this
+  host**, and the folded **Memory and isolation** and **Runtime report** sections.
+- **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel trust, sublabel write-back and automatic video
+  analysis.
 
 ![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
@@ -187,10 +189,13 @@ a saved credential can be re-tested without typing it again.
   Saving changed coordinates reloads the classifier workers. This is the same location
   configured in the model step of the setup wizard.
 
-## Enrichment
+## Species information sources
 
-A read-only summary of which source currently answers each question about a species. It exists
-so you can see, in one place, where the description on a species card came from.
+At the end of **Integrations**, a read-only summary of which source currently answers each
+question about a species, so you can see in one place where the description on a species card
+came from. The old `/settings/enrichment` address opens Integrations. Nearby sightings,
+seasonality and rarity need eBird: while eBird has no API key they read "Not shown: needs an eBird
+API key", with **Set up eBird** beside them.
 
 | Question | Default source |
 |---|---|
@@ -304,7 +309,8 @@ needs.
 
 ## Data
 
-Retention, caching, imports, and the destructive tools.
+Retention, caching, imports, telemetry (what leaves this installation, and only when switched
+on; see [Telemetry](../features/telemetry.md)), and the actions that cannot be undone.
 
 ![Settings → Data with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
 

@@ -12,6 +12,7 @@ describe('where a saved setting lives', () => {
         expect(settingsFieldTab('inaturalist_default_latitude')).toBe('integrations');
         expect(settingsFieldTab('llm_api_key')).toBe('ai');
         expect(settingsFieldTab('media_cache_max_size_mb')).toBe('data');
+        expect(settingsFieldTab('enrichment_sightings_source')).toBe('integrations');
     });
 
     it('has no home for a field Settings never shows', () => {

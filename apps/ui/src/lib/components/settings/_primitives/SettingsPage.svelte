@@ -26,6 +26,8 @@
         // Tab strip lives between the header and the body so it stays in
         // tab-order for keyboard users.
         tabs?: Snippet;
+        /** The id of the settings column, which the navigation's skip link focuses. */
+        contentId?: string;
         children: Snippet;
     }
 
@@ -46,6 +48,7 @@
         refusedFields = [],
         onOpenField,
         tabs,
+        contentId = 'settings-content',
         children
     }: Props = $props();
 
@@ -91,85 +94,91 @@
             {/if}
         </div>
     {:else}
-        {#if tabs}
-            {@render tabs()}
-        {/if}
-        <div class="space-y-6 focus:outline-hidden" tabindex="-1" data-settings-content>
-            {@render children()}
+        <div class="relative space-y-6 lg:flex lg:items-start lg:gap-8 lg:space-y-0">
+            {#if tabs}
+                <div class="lg:sticky lg:top-6 lg:w-56 lg:shrink-0">
+                    {@render tabs()}
+                </div>
+            {/if}
+            <div class="min-w-0 flex-1 space-y-6">
+                <div id={contentId} class="space-y-6 focus:outline-hidden" tabindex="-1" data-settings-content>
+                    {@render children()}
+                </div>
+                {#if showSaveBar}
+                    <!-- In the page's flow and stuck to the bottom of the screen: it always sits after the last
+                         setting, so it can never cover one, and it follows the column's width. -->
+                    <section
+                        class="save-bar sticky bottom-0 z-30 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
+                        aria-labelledby="settings-save-bar-title"
+                        data-settings-save-bar
+                    >
+                        <h2 id="settings-save-bar-title" class="sr-only">{$_('settings.save_bar.region', { default: 'Unsaved changes' })}</h2>
+                        <div class="save-bar-row flex items-center justify-between gap-4">
+                            <!-- Two sibling regions, each announced its own way: the running count politely, a
+                                 save problem at once. Nesting one inside the other could announce it twice. -->
+                            <div class="min-w-0 space-y-1.5">
+                                <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
+                                    <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
+                                        values: { count: unsaved.count },
+                                        default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
+                                    })}</span>
+                                    {#each unsaved.tabs as tab (tab.id)}
+                                        <button
+                                            type="button"
+                                            class="min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-100"
+                                            onclick={() => onOpenTab?.(tab.id)}
+                                        >{tab.label}</button>
+                                    {/each}
+                                </p>
+                                {#if saveProblem}
+                                    <div class="space-y-1.5 text-sm text-red-700 dark:text-red-300" role="alert" data-save-problem>
+                                        <p class="flex items-start gap-1.5 font-semibold">
+                                            <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            <span>{$_(saveProblem.key, { values: saveProblem.values, default: saveProblem.fallback })}</span>
+                                        </p>
+                                        {#if refusedFields.length > 0}
+                                            <ul class="flex flex-wrap gap-x-3 gap-y-1 pl-5">
+                                                {#each refusedFields as refused (refused.field)}
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            class="min-h-6 rounded-sm font-semibold underline decoration-1 underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
+                                                            onclick={() => onOpenField?.(refused.field)}
+                                                        >{refused.label}</button>
+                                                    </li>
+                                                {/each}
+                                            </ul>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            </div>
+                            <div class="save-bar-actions flex shrink-0 items-center gap-2">
+                                <button
+                                    type="button"
+                                    onclick={() => onDiscard?.()}
+                                    disabled={saving}
+                                    class="btn btn-secondary min-h-11 px-4"
+                                >
+                                    {$_('settings.save_bar.discard', { default: 'Discard changes' })}
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick={() => onSave?.()}
+                                    disabled={saving}
+                                    class="btn btn-primary min-h-11 px-6"
+                                >
+                                    {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
+                                </button>
+                            </div>
+                        </div>
+                    </section>
+                {/if}
+            </div>
         </div>
     {/if}
 
-    {#if showSaveBar}
-        <!-- In the page's flow and stuck to the bottom of the screen: it always sits after the last
-             setting, so it can never cover one, and it follows the column's width. -->
-        <section
-            class="save-bar sticky bottom-0 z-30 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
-            aria-labelledby="settings-save-bar-title"
-            data-settings-save-bar
-        >
-            <h2 id="settings-save-bar-title" class="sr-only">{$_('settings.save_bar.region', { default: 'Unsaved changes' })}</h2>
-            <div class="save-bar-row flex items-center justify-between gap-4">
-                <!-- Two sibling regions, each announced its own way: the running count politely, a
-                     save problem at once. Nesting one inside the other could announce it twice. -->
-                <div class="min-w-0 space-y-1.5">
-                    <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
-                        <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
-                            values: { count: unsaved.count },
-                            default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
-                        })}</span>
-                        {#each unsaved.tabs as tab (tab.id)}
-                            <button
-                                type="button"
-                                class="min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-100"
-                                onclick={() => onOpenTab?.(tab.id)}
-                            >{tab.label}</button>
-                        {/each}
-                    </p>
-                    {#if saveProblem}
-                        <div class="space-y-1.5 text-sm text-red-700 dark:text-red-300" role="alert" data-save-problem>
-                            <p class="flex items-start gap-1.5 font-semibold">
-                                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>{$_(saveProblem.key, { values: saveProblem.values, default: saveProblem.fallback })}</span>
-                            </p>
-                            {#if refusedFields.length > 0}
-                                <ul class="flex flex-wrap gap-x-3 gap-y-1 pl-5">
-                                    {#each refusedFields as refused (refused.field)}
-                                        <li>
-                                            <button
-                                                type="button"
-                                                class="min-h-6 rounded-sm font-semibold underline decoration-1 underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
-                                                onclick={() => onOpenField?.(refused.field)}
-                                            >{refused.label}</button>
-                                        </li>
-                                    {/each}
-                                </ul>
-                            {/if}
-                        </div>
-                    {/if}
-                </div>
-                <div class="save-bar-actions flex shrink-0 items-center gap-2">
-                    <button
-                        type="button"
-                        onclick={() => onDiscard?.()}
-                        disabled={saving}
-                        class="btn btn-secondary min-h-11 px-4"
-                    >
-                        {$_('settings.save_bar.discard', { default: 'Discard changes' })}
-                    </button>
-                    <button
-                        type="button"
-                        onclick={() => onSave?.()}
-                        disabled={saving}
-                        class="btn btn-primary min-h-11 px-6"
-                    >
-                        {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
-                    </button>
-                </div>
-            </div>
-        </section>
-    {/if}
 </div>
 
 <style>

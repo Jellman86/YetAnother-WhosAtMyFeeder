@@ -149,7 +149,7 @@ test('reloading with unsaved changes asks the browser to confirm, and without th
 
 test('every Settings tab opens with nothing unsaved on a sparse saved copy', async ({ page }) => {
     await openOwnerShell(page);
-    const tabs = ['Connection', 'Detection', 'Integrations', 'Enrichment', 'AI', 'Notifications', 'Security', 'Beta features', 'Data', 'Appearance', 'Accessibility'];
+    const tabs = ['Connection', 'Detection', 'Integrations', 'AI', 'Notifications', 'Security', 'Beta features', 'Data', 'Appearance', 'Accessibility'];
     for (const tab of tabs) {
         await page.locator('[data-settings-navigation]').getByRole('link', { name: tab, exact: true }).click();
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]')).toHaveText(tab);

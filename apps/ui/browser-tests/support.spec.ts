@@ -34,7 +34,7 @@ test('owners reach support from Notifications and export fresh server evidence',
     await expect.poll(() => workspaceReads).toBe(1);
     revision = 31;
     await exportPanel.getByRole('textbox', { name: 'What went wrong? Included in the bundle.' }).fill('Queue remains busy');
-    await exportPanel.getByRole('button', { name: 'Capture Bundle', exact: true }).click();
+    await exportPanel.getByRole('button', { name: 'Capture bundle', exact: true }).click();
     await expect(exportPanel.getByRole('button', { name: 'Download', exact: true })).toBeVisible();
     expect(workspaceReads).toBe(2);
     const savedDownload = page.waitForEvent('download');

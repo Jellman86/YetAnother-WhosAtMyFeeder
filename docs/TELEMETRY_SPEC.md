@@ -60,7 +60,7 @@ stopped being optional. It is still sent because earlier reports carry it, and a
 count as off. A jump to every install reporting it is that change, not installs turning it on.
 
 ## User Control (Opt-In)
-Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings → Connection → Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
+Telemetry is **disabled by default** and completely optional. Users who wish to help improve YA-WAMF can opt in at any time via the **Settings → Data → Telemetry** toggle in the UI. You can also disable it at any time if you change your mind.
 
 The opt-in banner can be dismissed. **Anonymous health diagnostics** is a separate, also opt-in report of sanitized warning/error groups. It does not upload raw support bundles, owner notes or media. See [Telemetry & Usage Metrics](features/telemetry.md) for the boundaries and public aggregate dashboard.
 

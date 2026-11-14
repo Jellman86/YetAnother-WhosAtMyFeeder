@@ -36,7 +36,7 @@
         {/each}
     </select>
     <svg
-        class="pointer-events-none absolute right-1.5 sm:right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-500 dark:text-slate-400 peer-disabled:opacity-50"
+        class="pointer-events-none absolute right-1.5 sm:right-3 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-600 dark:text-slate-400 peer-disabled:opacity-50"
         viewBox="0 0 20 20"
         fill="none"
         stroke="currentColor"

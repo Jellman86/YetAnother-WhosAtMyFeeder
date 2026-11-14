@@ -52,7 +52,9 @@ describe('Settings progressive disclosure', () => {
     });
 
     it('keeps optional, analytical, and destructive work out of the default hierarchy', () => {
-        expect(connectionSource).toContain('id="connection-telemetry"');
+        // Telemetry is what leaves the installation, so it sits with Data, not with the Frigate connection.
+        expect(connectionSource).not.toContain('settings.telemetry.title');
+        expect(settingsPageSource).toContain('<TelemetrySettings');
         expect(aiSource).toContain('id="ai-usage"');
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');
         expect(dataSource).toContain('id="data-tools"');
@@ -69,7 +71,7 @@ describe('Settings progressive disclosure', () => {
         expect(settingsCardSource).not.toContain('icon?: string');
         expect(settingsCardSource).not.toContain('{icon}');
         expect(settingsCardSource).toContain('text-sm leading-relaxed');
-        expect(enrichmentSource).toContain('divide-y divide-slate-200/70');
+        expect(enrichmentSource).toContain('divide-y divide-line-soft');
         expect(enrichmentSource).not.toContain('grid grid-cols-1 md:grid-cols-2 gap-4');
 
         for (const source of settingsSources) {

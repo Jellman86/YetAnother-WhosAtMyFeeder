@@ -119,11 +119,11 @@
                 class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === preset ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
             >
                 <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
-                <span class="mt-0.5 block text-xs font-bold text-slate-500">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
+                <span class="mt-0.5 block text-xs font-bold text-slate-600">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
             </button>
             {#if preset === 'final' && mode === 'final'}
                 <div class="flex items-center gap-2 px-3 pb-2 pt-1">
-                    <label for="policy-video-fallback" class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_timeout')}</label>
+                    <label for="policy-video-fallback" class="text-xs font-bold text-slate-600">{$_('settings.notifications.video_fallback_timeout')}</label>
                     <input
                         id="policy-video-fallback"
                         type="number"
@@ -133,12 +133,12 @@
                         oninput={(event) => onVideoFallbackChange(Number(event.currentTarget.value))}
                         class="w-20 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
                     />
-                    <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
+                    <span class="text-xs font-bold text-slate-600">{$_('settings.notifications.video_fallback_seconds')}</span>
                 </div>
             {/if}
         {/each}
         {#if mode === 'custom'}
-            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs font-bold text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
+            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs font-bold text-slate-600 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
         {/if}
     </div>
 {/snippet}
@@ -203,7 +203,7 @@
                 {#if openSlot === 'confidence'}
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.min_confidence')}>
                         <div class="mb-2 flex items-center justify-between">
-                            <label for="policy-confidence-slider" class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.min_confidence')}</label>
+                            <label for="policy-confidence-slider" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.min_confidence')}</label>
                             <output for="policy-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-0.5 text-xs font-bold text-white">{confidencePercent}%</output>
                         </div>
                         <input
@@ -221,9 +221,9 @@
                             aria-label={$_('settings.notifications.min_confidence_label', { values: { value: confidencePercent } })}
                             class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-brand-600 dark:bg-slate-700"
                         />
-                        <div class="mt-1.5 flex justify-between">
-                            <span class="text-xs font-bold uppercase tracking-tighter text-slate-400">{$_('settings.notifications.notify_all')}</span>
-                            <span class="text-xs font-bold uppercase tracking-tighter text-slate-400">{$_('settings.notifications.high_confidence_only')}</span>
+                        <div class="mt-0.5 flex justify-between gap-x-4 text-xs font-medium text-slate-600 dark:text-slate-300">
+                            <span>{$_('settings.notifications.notify_all')}</span>
+                            <span class="text-right">{$_('settings.notifications.high_confidence_only')}</span>
                         </div>
                         <label class="mt-2 flex cursor-pointer items-start gap-2 border-t border-slate-200 pt-2.5 dark:border-slate-700">
                             <input
@@ -234,7 +234,7 @@
                             />
                             <span>
                                 <span class="block text-xs font-bold text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
-                                <span class="block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.audio_only_desc')}</span>
+                                <span class="block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.audio_only_desc')}</span>
                             </span>
                         </label>
                     </div>
@@ -264,8 +264,8 @@
                 </button>
                 {#if openSlot === 'channels'}
                     <div class="{popoverClass} {alignRight ? 'left-auto right-0' : ''}" role="dialog" aria-label={$_('settings.notifications.sentence.destinations')}>
-                        <p class="mb-1 text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.sentence.destinations')}</p>
-                        <p class="mb-2 text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channels_hint')}</p>
+                        <p class="mb-1 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.sentence.destinations')}</p>
+                        <p class="mb-2 text-xs font-bold text-slate-600">{$_('settings.notifications.sentence.channels_hint')}</p>
                         {#each channels as channel (channel.id)}
                             <label class="flex cursor-pointer items-center justify-between gap-3 rounded-xl px-2 py-2 hover:bg-slate-50 dark:hover:bg-slate-800">
                                 <span class="flex items-center gap-2">
@@ -278,7 +278,7 @@
                                     <span class="text-sm font-bold text-slate-900 dark:text-white">{channel.label}</span>
                                 </span>
                                 {#if !channel.configured}
-                                    <span class="text-xs font-bold text-slate-400">{$_('settings.notifications.sentence.channel_needs_setup')}</span>
+                                    <span class="text-xs font-bold text-slate-600">{$_('settings.notifications.sentence.channel_needs_setup')}</span>
                                 {/if}
                             </label>
                         {/each}

@@ -134,17 +134,9 @@
         return formatMetadataLabel(status ?? 'stable');
     }
 
-    function tierChipClass(tier: string): string {
-        switch (tier) {
-            case 'cpu_only':
-                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
-            case 'large':
-                return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
-            case 'advanced':
-                return 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20';
-            default:
-                return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
-        }
+    // A tier describes the model; none needs a person, so none is coloured as a warning.
+    function tierChipClass(_tier: string): string {
+        return 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20';
     }
 
     function statusChipClass(status: string | undefined): string {
@@ -701,12 +693,11 @@
                         <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
-                                    <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
+                                    <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{group.info.label}</p>
                                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
                                             {@const cardSelected = selectedModelId === modelOption.id}
-                                            {@const cardRamPct = ramPercent(modelOption.estimated_ram_mb, maxLineupRam)}
                                             <button
                                                 type="button"
                                                 aria-pressed={cardSelected}
@@ -715,25 +706,18 @@
                                             >
                                                 <span class="relative flex flex-wrap items-start justify-between gap-2">
                                                     <span class="min-w-0 wrap-break-word text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
-                                                    <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
+                                                    <!-- Only the exceptions carry a badge; a model with neither is one to download. -->
+                                                    {#if cardState !== 'available'}
+                                                        <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
+                                                    {/if}
                                                 </span>
                                                 <span class="relative mt-auto flex flex-col gap-1.5">
                                                     <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{scopeLabel(modelOption.taxonomy_scope)}</span>
-                                                    <span class="flex items-baseline justify-between gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                        <span>{t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })}</span>
-                                                        {#if modelOption.estimated_ram_mb != null}
-                                                            <span>{ramShortLabel(modelOption.estimated_ram_mb)}</span>
-                                                        {/if}
+                                                    <span class="text-xs text-slate-600 dark:text-slate-300">
+                                                        {cardState === 'available'
+                                                            ? t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })
+                                                            : t('settings.detection.model_manager_card_on_disk', 'On this host')}{#if modelOption.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}{/if}
                                                     </span>
-                                                    {#if modelOption.estimated_ram_mb != null}
-                                                        <span
-                                                            class="model-ram-meter block h-1.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60"
-                                                            role="img"
-                                                            aria-label={t('settings.detection.model_manager_card_ram_label', 'Estimated memory per worker copy: {ram}', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}
-                                                        >
-                                                            <span class="block h-full rounded-full bg-brand-500" style="width: {cardRamPct}%"></span>
-                                                        </span>
-                                                    {/if}
                                                 </span>
                                             </button>
                                         {/each}
@@ -761,7 +745,7 @@
                             : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
                     </button>
                     {#if !showAdvancedModels}
-                        <p class="mt-2 px-1 text-sm text-slate-500 dark:text-slate-400">
+                        <p class="mt-2 px-1 text-sm text-slate-600 dark:text-slate-400">
                             {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
                         </p>
                     {/if}
@@ -810,7 +794,7 @@
 
                             {#if active && classifierStatus?.active_provider}
                                 <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <span class="mr-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                         {runtimePlanned
                                             ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
                                             : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
@@ -820,10 +804,10 @@
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
                                     {#if runtimePlanned}
-                                        <span class="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
+                                        <span class="ml-1 text-xs font-medium text-slate-600 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
                                     {/if}
                                     {#if runtimeProviderOrder.length > 1}
-                                        <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        <span class="mt-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                                             {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
                                             {runtimeProviderOrder.map(providerLabel).join(' → ')}
                                         </span>
@@ -838,13 +822,13 @@
                                     <div class="flex items-baseline justify-between gap-4">
                                         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.model_manager_memory_title', { default: 'Predicted RAM use' })}</span>
                                         <span class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                            {$_('settings.detection.model_manager_memory_predicted', { values: { total: ramShortLabel(predictedTotalMb) }, default: '≈ {total}' })}
+                                            {$_('settings.detection.model_manager_memory_predicted', { values: { total: ramShortLabel(predictedTotalMb).replace(/^~/, '') }, default: '≈ {total}' })}
                                         </span>
                                     </div>
                                     <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
                                         <div class="h-full rounded-full bg-brand-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
                                     </div>
-                                    <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                    <p class="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                                         {#if executionMode === 'in_process'}
                                             {$_('settings.detection.model_manager_memory_formula_in_process', {
                                                 values: { per: ramShortLabel(model.estimated_ram_mb) },
@@ -874,7 +858,7 @@
                                     </p>
                                 </div>
                             {:else}
-                                <p class="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+                                <p class="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">
                                     {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
                                 </p>
                             {/if}
@@ -934,34 +918,34 @@
 
                                 <dl class="grid gap-4 text-sm sm:grid-cols-2">
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}</dd>
                                     </div>
                                 </dl>
 
                                 {#if model.notes}
-                                    <p class="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{model.notes}</p>
+                                    <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
                                 {/if}
 
                                 <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
                                         <dd class="mt-1 font-medium uppercase text-slate-800 dark:text-slate-100">{model.runtime}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.accuracy_tier}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">
                                             {health?.ml
                                                 ? (health.ml.runtimes.tflite.installed ? 'TFLite ✓' : 'TFLite —') + ' · ' + (health.ml.runtimes.onnx.installed ? 'ONNX ✓' : 'ONNX —')
@@ -1112,7 +1096,7 @@
                                                 ? $_('settings.detection.bird_finder_wide_desc', { default: 'Reads the whole frame and four overlapping tiles, so it finds far more small and distant birds. A 103 MB download, and each frame takes longer.' })
                                                 : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
                                         </span>
-                                        <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">
                                             {t('settings.detection.model_manager_card_download', '{size} MB download', { size: option.model.file_size_mb })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}
                                         </span>
                                         <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -1201,7 +1185,7 @@
                                 <div role="status">
                                     <div class="mb-1 flex justify-between text-xs font-semibold">
                                         <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
-                                        <span class="text-slate-500">{chosenFinderDownload.progress.toFixed(0)}%</span>
+                                        <span class="text-slate-600">{chosenFinderDownload.progress.toFixed(0)}%</span>
                                     </div>
                                     <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                                         <div class="h-full bg-brand-500 transition-all duration-300" style="width: {chosenFinderDownload.progress}%"></div>
@@ -1211,12 +1195,12 @@
                                 <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{chosenFinderDownload.error}</p>
                             {/if}
                             {#if canCheckChosen}
-                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                                     {$_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares this finder on each device with the CPU on bird photos, then uses the fastest one that matches. The identification model is not changed.' })}
                                 </p>
                             {/if}
                         {/if}
-                        <p class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                        <p class="max-w-3xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                             {$_('settings.detection.bird_finder_backup', { default: 'If it cannot find a usable bird, YA-WAMF also tries the fast fallback finder and Frigate\'s tracking box, and uses the full frame only when none of them gives a reliable crop.' })}
                         </p>
                     </fieldset>

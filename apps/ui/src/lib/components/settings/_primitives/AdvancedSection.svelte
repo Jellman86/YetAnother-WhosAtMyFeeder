@@ -1,12 +1,12 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { settingsDisclosures } from '../../../settings/disclosure-context';
 
     interface Props {
-        // Stable identifier — kept for backwards compatibility with existing
-        // callsites and for aria/test hooks. Open/closed state is no longer
-        // persisted; callsites can opt into an initially open state when work is
-        // already running inside the disclosure.
+        // Stable identifier for aria and test hooks. Inside Settings the page keeps
+        // the open state by this id for the visit (it is not stored); callsites can
+        // opt into an initially open state when work is already running inside.
         id?: string;
         title?: string;
         description?: string;
@@ -16,8 +16,15 @@
 
     let { id, title, description, openByDefault = false, children }: Props = $props();
 
+    // With an id, the Settings page holds the open state, so it survives leaving the tab and the
+    // page can open the section that holds a refused field.
+    const disclosures = settingsDisclosures();
     let userOpen = $state<boolean | null>(null);
-    const open = $derived(userOpen ?? openByDefault);
+    const open = $derived((id && disclosures ? disclosures.isOpen(id) : userOpen ?? undefined) ?? openByDefault);
+    function toggle(): void {
+        if (id && disclosures) disclosures.setOpen(id, !open);
+        else userOpen = !open;
+    }
     const contentId = $derived(id ? `${id}-content` : undefined);
 </script>
 
@@ -26,11 +33,11 @@
         type="button"
         aria-expanded={open}
         aria-controls={contentId}
-        onclick={() => (userOpen = !open)}
+        onclick={toggle}
         class="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
     >
         <span class="flex min-w-0 flex-wrap items-center gap-2">
-            <span class="eyebrow rounded-md border border-line px-2 py-0.5">
+            <span class="rounded-md border border-line px-2 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
                 {$_('settings.common.advanced', { default: 'Advanced' })}
             </span>
             <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-700 dark:text-slate-200">

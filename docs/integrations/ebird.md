@@ -24,7 +24,7 @@ Map popups display externally supplied place names and observation details as
 text, preserving their content without interpreting it as HTML.
 
 ## Enrichment Behavior
-Choose enrichment sources separately under **Settings → Enrichment**. The eBird integration supplies nearby context when configured; it does not automatically override every naming, description or image source. See [Taxonomy & Naming](../features/taxonomy.md).
+The sources species pages use are summarised at the end of **Settings → Integrations**. The eBird integration supplies nearby context when configured; it does not automatically override every naming, description or image source. See [Taxonomy & Naming](../features/taxonomy.md).
 
 ## Exporting to eBird
 YA-WAMF exports a CSV for owner-reviewed import; it does not automatically submit checklists.

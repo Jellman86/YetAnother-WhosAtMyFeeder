@@ -1,36 +1,43 @@
 import { describe, expect, it } from 'vitest';
 
 import settingsTabsSource from './SettingsTabs.svelte?raw';
+import settingsPageSource from './_primitives/SettingsPage.svelte?raw';
 
-describe('Settings navigation grouping', () => {
+describe('Settings navigation', () => {
     it('groups every Settings route by the feeder workflow on desktop and mobile', () => {
         expect(settingsTabsSource).toContain('id: "pipeline"');
         expect(settingsTabsSource).toContain('id: "intelligence"');
         expect(settingsTabsSource).toContain('id: "operations"');
         expect(settingsTabsSource).toContain('id: "interface"');
         expect(settingsTabsSource).toContain('<optgroup label={group.label}>');
+        // Species information sources are summarised in Integrations, not a tab of their own.
+        expect(settingsTabsSource).not.toContain('id: "enrichment"');
     });
 
-    it('uses a stable accessible current-page state', () => {
-        expect(settingsTabsSource).toContain("aria-current={activeTab === tab.id ? 'page' : undefined}");
+    it('uses real links with a stable current-page state that is not shown by colour alone', () => {
+        expect(settingsTabsSource).toContain("aria-current={current ? 'page' : undefined}");
         expect(settingsTabsSource).toContain('href={settingsHref(tab.id)}');
         expect(settingsTabsSource).toContain('toAppPath(`/settings/${tab}`)');
         expect(settingsTabsSource).toContain('event.metaKey');
-        expect(settingsTabsSource).toContain('event.ctrlKey');
         expect(settingsTabsSource).toContain('focus-visible:ring-2');
-        expect(settingsTabsSource).toContain('min-h-11');
-        expect(settingsTabsSource).toContain('iconPath: string');
-        expect(settingsTabsSource).not.toContain('icon: "');
-        expect(settingsTabsSource).not.toContain('animate-pulse');
+        // The current section also carries a bar and heavier type, not only a tint.
+        expect(settingsTabsSource).toContain('border-brand-600 bg-brand-50 font-semibold');
     });
 
-    it('uses one quiet navigation surface instead of a grid of nested cards', () => {
-        expect(settingsTabsSource).toContain('data-settings-navigation');
-        expect(settingsTabsSource).toContain("group.id === 'operations'");
-        expect(settingsTabsSource).toContain('xl:border-t-0');
-        expect(settingsTabsSource).toContain('data-active-indicator');
+    it('is a compact rail beside the settings on wide screens, with a skip link to them', () => {
+        expect(settingsTabsSource).toContain('data-settings-navigation class="hidden lg:block"');
+        expect(settingsTabsSource).toContain('data-settings-skip-link');
+        expect(settingsPageSource).toContain('lg:flex lg:items-start');
+        expect(settingsPageSource).toContain('id={contentId}');
+        expect(settingsTabsSource).not.toContain('grid-cols-4');
         expect(settingsTabsSource).not.toContain('card-base');
-        expect(settingsTabsSource).not.toContain('<section class="min-w-0 rounded-xl border');
-        expect(settingsTabsSource).not.toContain('shadow-xs');
+        // Group headings use the one sentence-case label style, not spaced capitals.
+        expect(settingsTabsSource).not.toContain('eyebrow');
+        expect(settingsTabsSource).not.toMatch(/uppercase|tracking-/);
+    });
+
+    it('offers the setup wizard as an ordinary button, never styled as a tab', () => {
+        const wizardButtons = settingsTabsSource.match(/data-setup-wizard-action class="btn btn-secondary min-h-11/g) ?? [];
+        expect(wizardButtons).toHaveLength(2);
     });
 });

@@ -93,7 +93,7 @@
         {#if row.presence !== 'missing'}
             <button
                 type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-600 transition hover:bg-white hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                 aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
                 aria-expanded={previewOpen}
                 aria-describedby={previewUnavailableId}
@@ -108,7 +108,7 @@
     </div>
 
     <div class="space-y-1.5">
-        <p class="eyebrow" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</p>
+        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</p>
         <div
             role="radiogroup"
             aria-label={$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })}
@@ -146,7 +146,7 @@
 
     {#if watchesBirds}
         <div class="space-y-1.5 border-t border-line-soft pt-3" data-camera-role>
-            <p class="eyebrow" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</p>
+            <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</p>
             <div
                 role="radiogroup"
                 aria-label={$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })}

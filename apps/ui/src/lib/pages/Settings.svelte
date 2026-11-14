@@ -109,6 +109,7 @@
     import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
+    import { provideSettingsDisclosures } from '../settings/disclosure-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -143,6 +144,7 @@
     const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
     const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
     const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
+    const loadTelemetrySettings = lazyComponent(() => import('../components/settings/TelemetrySettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -993,6 +995,13 @@
         fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
     );
     provideSettingsFieldErrors({ errorFor: (field) => standingErrors.find((error) => error.field === field) });
+
+    // Closed cards and Advanced sections keep their state here for the visit (see disclosure-context).
+    const openDisclosures = $state<Record<string, boolean>>({});
+    provideSettingsDisclosures({
+        isOpen: (id) => openDisclosures[id],
+        setOpen: (id, open) => (openDisclosures[id] = open)
+    });
 
     const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
     const unsavedTabNames = $derived(
@@ -2727,8 +2736,11 @@
     // Opens the tab holding a refused field and puts focus on its input once the tab has loaded.
     async function openRefusedField(field: string): Promise<void> {
         const tab = settingsFieldTab(field);
-        if (tab) handleTabChange(tab);
-        const inputId = settingsFieldPlace(field)?.inputId;
+        if (tab && tab !== activeTab) handleTabChange(tab);
+        const place = settingsFieldPlace(field);
+        // A closed card or Advanced section does not render its inputs; open every one that holds it.
+        for (const disclosure of place?.disclosures ?? []) openDisclosures[disclosure] = true;
+        const inputId = place?.inputId;
         if (!inputId) return;
         for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
             await tick();
@@ -2779,7 +2791,7 @@
 </script>
 
 {#snippet pageTabs()}
-    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} />
+    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -2833,17 +2845,11 @@
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
                     bind:recordingClipAfterSeconds
-                    bind:telemetryEnabled
-                    bind:telemetryHealthEnabled
                     {frigateCameras}
                     {frigateCamerasFailed}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
-                    {telemetryInstallationId}
-                    {telemetryPlatform}
-                    {telemetryPayloadPreview}
-                    {versionInfo}
                     {loadCameras}
                 />
                 {/snippet}
@@ -3038,11 +3044,15 @@
                 />
                 {/snippet}
                 </LazyRoute>
-            {/if}
-
-            <!-- Enrichment Tab -->
-            {#if activeTab === 'enrichment'}
-                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
+                <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
+                <LazyRoute
+                    loader={loadEnrichmentTab}
+                    label={$_('settings.enrichment.title')}
+                    props={{
+                        ...enrichmentDraft,
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')
+                    }}
+                />
             {/if}
 
             <!-- AI Tab -->
@@ -3170,6 +3180,18 @@
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
+                />
+                {/snippet}
+                </LazyRoute>
+                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
+                {#snippet content(TelemetrySettings)}
+                <TelemetrySettings
+                    bind:telemetryEnabled
+                    bind:telemetryHealthEnabled
+                    {telemetryInstallationId}
+                    {telemetryPlatform}
+                    {telemetryPayloadPreview}
+                    {versionInfo}
                 />
                 {/snippet}
                 </LazyRoute>
