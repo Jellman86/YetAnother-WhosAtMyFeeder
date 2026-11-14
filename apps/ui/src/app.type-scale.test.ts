@@ -12,7 +12,8 @@ describe('the type scale on large displays', () => {
     const root = appCss.match(/\nhtml \{([^}]*)\}/)?.[1] ?? '';
 
     it('grows the root size with the window, from the reader’s own size to a cap', () => {
-        expect(root.replace(/\s+/g, '')).toContain('font-size:calc(clamp(100%,calc(100%+(100vw-1280px)/256),125%)*var(--text-scale,1))');
+        // A share of the reader's size, never a pixel term, so it doubles with the browser text size.
+        expect(root.replace(/\s+/g, '')).toContain('font-size:calc(100%*clamp(1,1+tan(atan2(100vw-1280px,4096px)),1.25)*var(--text-scale,1))');
     });
 
     it('starts from a percentage, so the browser text-size setting still applies', () => {

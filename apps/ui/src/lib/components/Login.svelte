@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { tick } from 'svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
     import { APP_ICON_192_URL } from '../assets';
@@ -10,6 +11,8 @@
     // Asked for once the form has been submitted, then kept honest as the fields are typed in.
     let submitted = $state(false);
     let isLoading = $state(false);
+    // What the live region says after a submit that could not move focus. Empty between submits.
+    let validationSummary = $state('');
     let usernameInput = $state<HTMLInputElement | null>(null);
     let passwordInput = $state<HTMLInputElement | null>(null);
 
@@ -38,18 +41,37 @@
         return credentialsRefused ? 'login-error' : undefined;
     }
 
+    /**
+     * Say what is missing exactly once. Moving focus to the field at fault makes a screen reader
+     * read that field with its message, so that is the announcement whenever focus can move. When
+     * the field already has focus nothing would be spoken, and only then the live region speaks.
+     */
+    async function announceMissing(field: HTMLInputElement | null, messages: string[]): Promise<void> {
+        // Emptied first, so the same words after a second submit are a new announcement.
+        validationSummary = '';
+        // The messages and their aria-describedby are in the page before focus lands on the field.
+        await tick();
+        if (!field) return;
+        if (document.activeElement === field) {
+            validationSummary = messages.join(' ');
+            return;
+        }
+        field.focus();
+    }
+
     async function handleSubmit(e: Event) {
         e.preventDefault();
         submitted = true;
         failure = null;
-        if (!username.trim()) {
-            usernameInput?.focus();
+        const missing = [
+            ...(!username.trim() ? [$_('auth.username_required', { default: 'Enter your username.' })] : []),
+            ...(!password ? [$_('auth.password_required', { default: 'Enter your password.' })] : [])
+        ];
+        if (missing.length > 0) {
+            await announceMissing(!username.trim() ? usernameInput : passwordInput, missing);
             return;
         }
-        if (!password) {
-            passwordInput?.focus();
-            return;
-        }
+        validationSummary = '';
 
         isLoading = true;
 
@@ -122,6 +144,10 @@
                 />
                 {#if passwordMissing}{@render fieldError('password-error', $_('auth.password_required', { default: 'Enter your password.' }))}{/if}
             </div>
+
+            <!-- The one announcement for a submit that left focus where it was. Always present and
+                 empty, so words landing in it are announced; never filled when focus moved. -->
+            <p class="sr-only" role="status" data-login-validation-summary>{validationSummary}</p>
 
             <!-- Always present, so the alert is announced the moment a message lands in it. -->
             <div id="login-error" role="alert" data-login-error>

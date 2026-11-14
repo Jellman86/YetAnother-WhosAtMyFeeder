@@ -15,6 +15,11 @@
   says "That username or password is not right. Check both and try again. Passwords are case
   sensitive." in place of "Invalid credentials", and too many attempts, a server fault and an
   unreachable feeder each say their own cause and next step.
+  If you press Enter with the cursor already in the empty field, a screen reader is told what is
+  missing; when the cursor moves to the field at fault, its message is read with the field, once.
+- **Doubling the browser's text size doubles the text on a large display too.** Above 1280px wide
+  the extra size a large display gets was a fixed number of pixels, so text grew by 1.85 to 1.96
+  times; it is now a share of your own text size and grows by exactly two.
 - **Notifications no longer jumps as it loads.** The history is drawn once the background jobs
   have been read, so job rows arriving a moment later do not push the list and its page controls
   down a phone screen.

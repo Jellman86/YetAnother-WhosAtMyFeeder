@@ -93,3 +93,79 @@ for (const [name, login, message] of [
         await expect(page.getByLabel('Password')).not.toHaveAttribute('aria-invalid', 'true');
     });
 }
+
+const BOTH_MISSING = 'Enter your username. Enter your password.';
+
+/** Record, at each moment a screen reader would speak, what it would have to speak from. */
+async function recordAnnouncements(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const log: string[] = [];
+        (window as unknown as { announcements: string[] }).announcements = log;
+        const summary = document.querySelector('[data-login-validation-summary]');
+        if (!summary) throw new Error('No validation summary region');
+        new MutationObserver(() => log.push(`summary:${summary.textContent?.trim() ?? ''}`)).observe(summary, { childList: true, characterData: true, subtree: true });
+        document.addEventListener('focusin', (event) => {
+            const field = event.target as HTMLElement;
+            if (field.tagName !== 'INPUT') return;
+            const described = field.getAttribute('aria-describedby');
+            const description = described ? document.getElementById(described)?.textContent?.trim() ?? 'MISSING' : 'none';
+            log.push(`focus:${field.id}:${field.getAttribute('aria-invalid') ?? 'valid'}:${description}:summary=${summary.textContent?.trim() ?? ''}`);
+        });
+    });
+}
+const announcements = (page: Page): Promise<string[]> => page.evaluate(() => (window as unknown as { announcements: string[] }).announcements.splice(0));
+
+test('a missing field is announced once per submit: by its field when focus moves, by a live region when it cannot', async ({ page }) => {
+    const fixture = await openSignIn(page, { status: 401, json: { detail: 'Invalid credentials' } });
+    const username = page.getByLabel('Username');
+    const password = page.getByLabel('Password');
+    const summary = page.locator('[data-login-validation-summary]');
+    // One polite live region, in the page from the start so that text landing in it is announced,
+    // and empty until there is something to say.
+    await expect(summary).toHaveCount(1);
+    await expect(summary).toHaveAttribute('role', 'status');
+    await expect(summary).toHaveText('');
+    // The form has this region for validation and the alert for a refused sign-in, and no third.
+    await expect(page.locator('form').locator('[aria-live], [role="status"], [role="alert"]')).toHaveCount(2);
+    await recordAnnouncements(page);
+
+    // Focus is already in the empty username: nothing moves, so the summary speaks.
+    await username.focus();
+    await announcements(page);
+    await page.keyboard.press('Enter');
+    await expect(summary).toHaveText(BOTH_MISSING);
+    await expect(username).toBeFocused();
+    await expect(username).toHaveAccessibleDescription('Enter your username.');
+    expect(await announcements(page)).toEqual([`summary:${BOTH_MISSING}`]);
+
+    // The same submit again is a new announcement: the region is emptied, then filled.
+    await page.keyboard.press('Enter');
+    await expect(summary).toHaveText(BOTH_MISSING);
+    expect(await announcements(page)).toEqual(['summary:', `summary:${BOTH_MISSING}`]);
+
+    // Focus moves to the field at fault: its message is already tied to it when focus lands,
+    // and the summary stays silent so the message is not heard twice.
+    await username.fill('owner');
+    await announcements(page);
+    await page.keyboard.press('Enter');
+    await expect(password).toBeFocused();
+    await expect(summary).toHaveText('');
+    expect(await announcements(page)).toEqual(['summary:', 'focus:password:true:Enter your password.:summary=']);
+
+    // From the button, focus moves to the first field at fault, described before it is focused.
+    await username.fill('');
+    await page.getByRole('button', { name: 'Sign in', exact: true }).focus();
+    await announcements(page);
+    await page.keyboard.press('Enter');
+    await expect(username).toBeFocused();
+    expect(await announcements(page)).toEqual(['focus:username:true:Enter your username.:summary=']);
+
+    // A refused sign-in is the alert's to announce, not the summary's.
+    await username.fill('owner');
+    await password.fill('wrong');
+    await announcements(page);
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('alert').filter({ hasText: WRONG_CREDENTIALS })).toBeVisible();
+    await expect(summary).toHaveText('');
+    expect(fixture.attempts()).toBe(1);
+});

@@ -102,6 +102,9 @@ describe('the sign-in screen', () => {
         expect(loginSource).toContain('novalidate>');
         expect(loginSource).not.toMatch(/\n\s+required\n/);
         expect(loginSource.match(/aria-required="true"/g) ?? []).toHaveLength(2);
+        // Messages are rendered before focus moves, and one live region speaks when it cannot.
+        expect(loginSource.indexOf('await tick();')).toBeLessThan(loginSource.indexOf('field.focus();'));
+        expect(loginSource.match(/role="status"/g) ?? []).toHaveLength(1);
         expect(loginSource).toContain("$_('auth.username_required'");
         expect(loginSource).toContain("$_('auth.password_required'");
     });

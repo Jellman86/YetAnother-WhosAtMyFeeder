@@ -19,7 +19,8 @@ const SMALLEST_LEGIBLE_PX = 12;
 /** A step up has to be seen, not only computed. */
 const VISIBLE_STEP_PX = 0.3;
 
-// The window is 1280px wide, where the root size is the browser's own with no large-display bump.
+// 1280px is where the root size is the browser's own; from there to 2304px a large display adds
+// up to a quarter to it, and that share has to double with the browser's text size as well.
 test.use({ viewport: { width: 1280, height: 800 } });
 test.skip(({ browserName }) => browserName !== 'chromium', 'The browser text size is set through Chromium.');
 
@@ -126,3 +127,19 @@ test('every kit step grows with each Appearance text size, so no setting leaves 
         }
     }
 });
+
+for (const width of [1440, 1920, 2560]) {
+    test(`on a ${width}px display the root size and every kit step still double with the browser text size`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 });
+        const rootSize = (): Promise<number> => page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize));
+        await openAt(page, 'large', BROWSER_DEFAULT_PX);
+        const normalRoot = await rootSize();
+        const normal = await drawnSizes(page);
+        // The large-display share itself: a sixteenth of the browser's size per 256px over 1280px, to a quarter at most.
+        expect(normalRoot).toBeCloseTo(BROWSER_DEFAULT_PX * Math.min(1.25, 1 + (width - 1280) / 4096), 1);
+        await openAt(page, 'large', BROWSER_DEFAULT_PX * 2);
+        expect(await rootSize() / normalRoot).toBeCloseTo(2, 3);
+        const doubled = await drawnSizes(page);
+        for (const kitStep of KIT_STEPS) expect(doubled[kitStep] / normal[kitStep], kitStep).toBeCloseTo(2, 2);
+    });
+}

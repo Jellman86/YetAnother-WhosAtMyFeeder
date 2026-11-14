@@ -529,3 +529,46 @@ for (const width of [390, 1440]) {
         expect(shift).toBeLessThan(0.02);
     });
 }
+
+for (const enlarge of ['the browser text size', 'the root size'] as const) {
+    test(`at 200% by ${enlarge} in a 1440x900 window every sidebar link is reached by Tab with its focus ring on show`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await replayFeeder(page, 'light');
+        if (enlarge === 'the browser text size') {
+            const session = await page.context().newCDPSession(page);
+            await session.send('Page.setFontSizes', { fontSizes: { standard: 32 } });
+        }
+        await page.goto('/about');
+        const links = page.locator('#app-sidebar nav button');
+        await expect(links.first()).toBeVisible(READY);
+        await settled(page);
+        if (enlarge === 'the root size') await doubleTheText(page);
+        const total = await links.count();
+        expect(total).toBeGreaterThanOrEqual(5);
+        const reached: string[] = [];
+        // Tab from the top of the page, as a keyboard user arrives.
+        for (let presses = 0; presses < 40 && reached.length < total; presses += 1) {
+            await page.keyboard.press('Tab');
+            const focused = await page.evaluate(() => {
+                const element = document.activeElement as HTMLElement | null;
+                if (!element?.matches('#app-sidebar nav button')) return null;
+                const box = element.getBoundingClientRect();
+                const frame = (element.closest('nav') as HTMLElement).getBoundingClientRect();
+                const style = getComputedStyle(element);
+                const middle = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+                return {
+                    name: (element.textContent ?? '').trim(),
+                    // Scrolled wholly into the part of the sidebar that shows, and into the window.
+                    inView: box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1 && box.top >= 0 && box.bottom <= innerHeight,
+                    onTop: middle !== null && element.contains(middle),
+                    ring: style.boxShadow !== 'none' && element.matches(':focus-visible')
+                };
+            });
+            if (!focused) continue;
+            expect(focused, focused.name).toMatchObject({ inView: true, onTop: true, ring: true });
+            reached.push(focused.name);
+        }
+        expect(reached).toHaveLength(total);
+        expect(new Set(reached).size).toBe(total);
+    });
+}
