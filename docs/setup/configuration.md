@@ -24,7 +24,12 @@ at the bottom of the page counts the changes and names their tabs, with **Discar
 (puts every saved value back) and **Save changes**. Choosing another page, reloading or closing
 the tab with unsaved changes asks first; moving between tabs keeps them. Back and Forward are not
 held up: the unsaved changes are kept in memory and put back when you return to Settings, with a
-line saying so. Passwords and keys are never kept; that line names any you need to type again. When a save is refused, nothing
+line saying so. Passwords and keys are never kept; that line names any you need to type again.
+Kept changes belong to the session that made them: signing out, an expired session or another
+sign-in drops them. On return Settings reads the saved values afresh. A setting changed elsewhere
+that you had not touched shows its new value; one you had also changed is not overwritten either
+way. It is marked, the bar names it with **Use the saved value** and **Use my change**, and Save
+waits until each is decided. When a save is refused, nothing
 is stored: each refused field is marked with the reason in plain words, and the bar lists them
 with a link to each. Model activation, configuration import
 and setup-wizard steps save immediately. Wizard saves refresh untouched fields in an

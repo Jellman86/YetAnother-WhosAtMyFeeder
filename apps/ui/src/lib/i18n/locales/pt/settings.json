@@ -1635,7 +1635,11 @@
     "failed": "Nada foi salvo porque o YA-WAMF não conseguiu armazenar as configurações. Verifique se o backend está em execução e escolha Salvar alterações novamente.",
     "other_field": "Outra configuração",
     "restored": "Você saiu com alterações não salvas. Elas continuam aqui.",
-    "retype_secrets": "Digite {fields} novamente: segredos não são mantidos quando você sai das configurações."
+    "retype_secrets": "Digite {fields} novamente: segredos não são mantidos quando você sai das configurações.",
+    "conflicts": "{count, plural, one {Uma configuração que você alterou também foi alterada em outro lugar. Escolha qual valor manter antes de salvar:} other {# configurações que você alterou também foram alteradas em outro lugar. Escolha qual valor manter antes de salvar:}}",
+    "use_saved": "Usar o valor salvo",
+    "use_mine": "Usar minha alteração",
+    "conflict_field": "O valor salvo mudou em outro lugar desde que você editou isto. Escolha qual manter na barra abaixo."
   },
   "leave": {
     "title": "Sair sem salvar?",

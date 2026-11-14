@@ -1635,7 +1635,11 @@
     "failed": "Nichts wurde gespeichert, weil YA-WAMF die Einstellungen nicht ablegen konnte. Prüfen Sie, ob das Backend läuft, und wählen Sie dann erneut „Änderungen speichern“.",
     "other_field": "Eine weitere Einstellung",
     "restored": "Sie haben ungespeicherte Änderungen hinterlassen. Sie sind noch da.",
-    "retype_secrets": "Geben Sie {fields} erneut ein: Geheimnisse werden beim Verlassen der Einstellungen nicht aufbewahrt."
+    "retype_secrets": "Geben Sie {fields} erneut ein: Geheimnisse werden beim Verlassen der Einstellungen nicht aufbewahrt.",
+    "conflicts": "{count, plural, one {Eine Einstellung, die Sie geändert haben, wurde auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:} other {# Einstellungen, die Sie geändert haben, wurden auch anderswo geändert. Wählen Sie vor dem Speichern, welcher Wert gilt:}}",
+    "use_saved": "Gespeicherten Wert verwenden",
+    "use_mine": "Meine Änderung verwenden",
+    "conflict_field": "Der gespeicherte Wert wurde anderswo geändert, seit Sie dies bearbeitet haben. Wählen Sie unten in der Leiste, welcher Wert gilt."
   },
   "leave": {
     "title": "Ohne Speichern verlassen?",

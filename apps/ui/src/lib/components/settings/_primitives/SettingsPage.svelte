@@ -27,6 +27,10 @@
         restoredNotice?: string | null;
         /** Which secrets must be typed again, since they are never kept. */
         retypeSecrets?: string | null;
+        /** Restored edits whose saved value changed elsewhere meanwhile. Save waits on each. */
+        conflicts?: Array<{ field: string; label: string }>;
+        onUseSaved?: (field: string) => void;
+        onUseMine?: (field: string) => void;
         // Tab strip lives between the header and the body so it stays in
         // tab-order for keyboard users.
         tabs?: Snippet;
@@ -51,11 +55,14 @@
         onOpenField,
         restoredNotice = null,
         retypeSecrets = null,
+        conflicts = [],
+        onUseSaved,
+        onUseMine,
         tabs,
         children
     }: Props = $props();
 
-    const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice)) && !loading && !loadFailure);
+    const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
 </script>
 
 <!-- The shell sets the width; a narrower column here sat inside the full-width header. -->
@@ -124,7 +131,7 @@
                             <p class="text-sm text-slate-700 dark:text-slate-200" data-restored-secrets>{retypeSecrets}</p>
                         {/if}
                     {/if}
-                                        {#if unsaved.count > 0}
+                    {#if unsaved.count > 0}
                     <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
                         <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
                             values: { count: unsaved.count },
@@ -138,6 +145,29 @@
                             >{tab.label}</button>
                         {/each}
                     </p>
+                    {/if}
+                    {#if conflicts.length > 0}
+                        <div class="space-y-1.5 text-sm text-slate-700 dark:text-slate-200" data-draft-conflicts>
+                            <p class="font-semibold text-amber-800 dark:text-amber-200" id="settings-conflicts-note">{$_('settings.save_bar.conflicts', {
+                                values: { count: conflicts.length },
+                                default: '{count, plural, one {A setting you changed was also changed elsewhere. Choose which value to keep before saving:} other {# settings you changed were also changed elsewhere. Choose which value to keep before saving:}}'
+                            })}</p>
+                            <ul class="space-y-1.5">
+                                {#each conflicts as conflict (conflict.field)}
+                                    <li class="flex flex-wrap items-center gap-x-3 gap-y-1.5" data-draft-conflict={conflict.field}>
+                                        <span class="min-w-0 font-semibold text-slate-900 dark:text-white">{conflict.label}</span>
+                                        <span class="flex flex-wrap gap-2">
+                                            <button type="button" class="btn btn-secondary min-h-9 px-3 text-sm" onclick={() => onUseSaved?.(conflict.field)}>
+                                                {$_('settings.save_bar.use_saved', { default: 'Use the saved value' })}
+                                            </button>
+                                            <button type="button" class="btn btn-secondary min-h-9 px-3 text-sm" onclick={() => onUseMine?.(conflict.field)}>
+                                                {$_('settings.save_bar.use_mine', { default: 'Use my change' })}
+                                            </button>
+                                        </span>
+                                    </li>
+                                {/each}
+                            </ul>
+                        </div>
                     {/if}
                     {#if saveProblem}
                         <div class="space-y-1.5 text-sm text-red-700 dark:text-red-300" role="alert" data-save-problem>
@@ -172,11 +202,13 @@
                     >
                         {$_('settings.save_bar.discard', { default: 'Discard changes' })}
                     </button>
-{#if unsaved.count > 0}
+                    <!-- While a conflict waits, Save shows disabled with the reason beside it. -->
+                    {#if unsaved.count > 0 || conflicts.length > 0}
                     <button
                         type="button"
                         onclick={() => onSave?.()}
-                        disabled={saving}
+                        disabled={saving || conflicts.length > 0}
+                        aria-describedby={conflicts.length > 0 ? 'settings-conflicts-note' : undefined}
                         class="btn btn-primary min-h-11 px-6"
                     >
                         {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}

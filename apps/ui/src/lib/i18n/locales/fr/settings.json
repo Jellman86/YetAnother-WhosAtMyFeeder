@@ -1635,7 +1635,11 @@
     "failed": "Rien n’a été enregistré, car YA-WAMF n’a pas pu stocker les paramètres. Vérifiez que le backend fonctionne, puis choisissez à nouveau Enregistrer les modifications.",
     "other_field": "Un autre paramètre",
     "restored": "Vous êtes parti avec des modifications non enregistrées. Elles sont toujours là.",
-    "retype_secrets": "Saisissez à nouveau {fields} : les secrets ne sont pas conservés quand vous quittez les paramètres."
+    "retype_secrets": "Saisissez à nouveau {fields} : les secrets ne sont pas conservés quand vous quittez les paramètres.",
+    "conflicts": "{count, plural, one {Un paramètre que vous avez modifié a aussi été modifié ailleurs. Choisissez la valeur à garder avant d'enregistrer :} other {# paramètres que vous avez modifiés ont aussi été modifiés ailleurs. Choisissez la valeur à garder avant d'enregistrer :}}",
+    "use_saved": "Utiliser la valeur enregistrée",
+    "use_mine": "Utiliser ma modification",
+    "conflict_field": "La valeur enregistrée a changé ailleurs depuis votre modification. Choisissez laquelle garder dans la barre ci-dessous."
   },
   "leave": {
     "title": "Quitter sans enregistrer ?",

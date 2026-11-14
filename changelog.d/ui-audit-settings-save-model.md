@@ -12,6 +12,12 @@
   changes. They're still here." Passwords and keys are never kept outside the form, so the line
   names any you need to type again. Save or Discard clears them. Moving between Settings tabs still
   keeps your edits without asking.
+- Kept Settings changes never outlive your session: signing out, an expired session or signing in
+  again drops them, even when you sign out from Settings itself. Coming back reads the saved values
+  afresh, so a setting someone changed elsewhere meanwhile shows its new value. If you had changed
+  the same setting, neither value wins silently: the field says the saved value changed elsewhere,
+  the bar names it with **Use the saved value** and **Use my change**, and Save waits until you
+  choose.
 - A refused save now says so where it matters. Nothing is stored, each refused field is marked
   with the reason in plain words (for example "Enter 65535 or less."), the first one is opened and
   focused even on another tab, and the bar lists the fields with a link to each. A server failure says nothing was saved and what to try, instead of

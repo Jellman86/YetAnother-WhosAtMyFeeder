@@ -111,7 +111,7 @@
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
-    import { draftFromForm, unsavedDraft } from '../settings/unsaved-draft';
+    import { accessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -934,7 +934,12 @@
     const standingErrors = $derived(
         fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
     );
-    provideSettingsFieldErrors({ errorFor: (field) => standingErrors.find((error) => error.field === field) });
+    provideSettingsFieldErrors({
+        errorFor: (field) => standingErrors.find((error) => error.field === field)
+            ?? (draftConflicts.some((conflict) => conflict.field === field)
+                ? { field, key: 'settings.save_bar.conflict_field', fallback: 'The saved value changed elsewhere since you edited this. Choose which to keep in the bar below.', conflict: true }
+                : undefined)
+    });
 
     // Closable sections keep their open state here for the visit (see disclosures.svelte.ts).
     const disclosures = new SettingsDisclosures();
@@ -976,20 +981,77 @@
             : null
     );
 
+    // The session a kept draft belongs to: another sign-in, a sign-out or a guest gets none of it.
+    const currentAccessIdentity = (): string | null => accessIdentity({
+        authRequired: authStore.authRequired,
+        isAuthenticated: authStore.isAuthenticated,
+        username: authStore.username,
+        hasOwnerAccess: authStore.hasOwnerAccess,
+        token: authStore.token
+    });
+
+    // Drafted values whose saved value changed elsewhere while Settings was away. They are not
+    // applied; each waits for the owner to keep the saved value or their own change.
+    let draftConflicts = $state.raw<Array<DraftConflict & { baseline: unknown }>>([]);
+
     function restoreKeptDraft(): void {
         const saved = settingsStore.settings;
         // A form that could not be loaded shows nothing to edit; the draft waits for a later visit.
         if (!saved || settingsLoadFailed) return;
-        const draft = unsavedDraft.take();
+        const draft = unsavedDraft.take(currentAccessIdentity());
         if (!draft) return;
-        applySavedSettings({ ...saved, ...draft.values } as SettingsPayload);
-        if (Array.isArray(draft.values.blocked_labels)) blockedLabels = [...(draft.values.blocked_labels as string[])];
-        if (Array.isArray(draft.values.blocked_species)) blockedSpecies = [...(draft.values.blocked_species as BlockedSpeciesEntry[])];
+        const { restore, conflicts } = mergeDraft(draft, saved as unknown as Record<string, unknown>);
+        applyFormValues(restore);
+        draftConflicts = conflicts.map((conflict) => ({ ...conflict, baseline: draft.baselines[conflict.field] }));
         restoredDraft = { editedSecrets: draft.editedSecrets };
+    }
+
+    // Puts values (named as the save sends them) into the form over the saved copy. Values already
+    // edited on the form, and any secret typed into it, are kept.
+    function applyFormValues(values: Record<string, unknown>): void {
+        const saved = settingsStore.settings;
+        if (!saved) return;
+        const edited = draftFromForm(buildSettingsPayload() as Record<string, unknown>, saved as unknown as Record<string, unknown>, [], 'form')?.values ?? {};
+        const merged = { ...edited, ...values };
+        const typed = {
+            mqttPassword, birdweatherStationToken, haWeatherAccessToken, ebirdApiKey, inaturalistClientId,
+            inaturalistClientSecret, discordWebhook, pushoverUser, pushoverToken, telegramToken, telegramChatId,
+            emailGmailClientSecret, emailOutlookClientSecret, emailSmtpPassword, authPassword, authPasswordConfirm,
+            llmApiKey: aiDraft.llmApiKey
+        };
+        applySavedSettings({ ...saved, ...merged } as SettingsPayload);
+        if (Array.isArray(merged.blocked_labels)) blockedLabels = [...(merged.blocked_labels as string[])];
+        if (Array.isArray(merged.blocked_species)) blockedSpecies = [...(merged.blocked_species as BlockedSpeciesEntry[])];
+        ({
+            mqttPassword, birdweatherStationToken, haWeatherAccessToken, ebirdApiKey, inaturalistClientId,
+            inaturalistClientSecret, discordWebhook, pushoverUser, pushoverToken, telegramToken, telegramChatId,
+            emailGmailClientSecret, emailOutlookClientSecret, emailSmtpPassword, authPassword, authPasswordConfirm
+        } = typed);
+        if (typed.llmApiKey) aiDraft = editAiDraft(aiDraft, { llmApiKey: typed.llmApiKey });
+    }
+
+    function fieldLabelWithTab(field: string): string {
+        const place = settingsFieldPlace(field);
+        const tab = settingsFieldTab(field);
+        const label = place ? $_(place.labelKey) : $_('settings.save_bar.other_field', { default: 'Another setting' });
+        // The same label can appear on two tabs ("Port"), so the tab is named with it.
+        return tab ? `${label} (${tabLabel(tab)})` : label;
+    }
+
+    function keepSavedValue(field: string): void {
+        draftConflicts = draftConflicts.filter((conflict) => conflict.field !== field);
+    }
+
+    function keepMyChange(field: string): void {
+        const conflict = draftConflicts.find((entry) => entry.field === field);
+        if (!conflict) return;
+        applyFormValues({ [field]: conflict.mine });
+        draftConflicts = draftConflicts.filter((entry) => entry.field !== field);
     }
 
     function forgetKeptDraft(): void {
         restoredDraft = null;
+        draftConflicts = [];
         unsavedDraft.clear();
     }
 
@@ -1132,8 +1194,9 @@
         // also self-heals after popstate / back-button to non-canonical URLs.
 
             await Promise.all([
-                // The shell has usually just read the settings; opening this page joins that read.
-                loadSettings(false, true),
+                // The shell has usually just read the settings; opening this page joins that read,
+                // unless a kept draft waits: that is compared with a fresh read, never an older copy.
+                loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity())),
                 loadCameras(),
                 loadClassifierStatus(),
                 loadMaintenanceStats(),
@@ -1255,11 +1318,22 @@
         destroyed = true;
         const saved = settingsStore.settings;
         if (!leftOnPurpose && saved && (isDirty || restoredDraft)) {
-            unsavedDraft.keep(draftFromForm(
+            const identity = currentAccessIdentity();
+            const draft = draftFromForm(
                 buildSettingsPayload() as Record<string, unknown>,
                 saved as unknown as Record<string, unknown>,
-                [...changedSettingFields, ...(restoredDraft?.editedSecrets ?? [])]
-            ));
+                [...changedSettingFields, ...(restoredDraft?.editedSecrets ?? [])],
+                identity
+            ) ?? (identity !== null && draftConflicts.length > 0 ? { identity, values: {}, baselines: {}, editedSecrets: [] } : null);
+            // An undecided conflict leaves with its own change and the value it was edited from,
+            // so the same question is asked again on return rather than settled silently.
+            if (draft) {
+                for (const conflict of draftConflicts) {
+                    draft.values[conflict.field] = conflict.mine;
+                    draft.baselines[conflict.field] = conflict.baseline;
+                }
+            }
+            unsavedDraft.keep(draft);
         }
         // The font and colour preview live outside this page; leaving without saving takes them
         // back to what is saved, as it does for every other unsaved edit.
@@ -2654,6 +2728,7 @@
     }
 
     async function saveSettings() {
+        if (draftConflicts.length > 0) return;
         saving = true;
         saveProblem = null;
         const payload = buildSettingsPayload();
@@ -2792,14 +2867,11 @@
     unsaved={{ count: unsavedSummary.count, tabs: unsavedSummary.tabs.map((tab) => ({ id: tab, label: tabLabel(tab) })) }}
     onOpenTab={handleTabChange}
     {saveProblem}
-    refusedFields={standingErrors.map((error) => {
-        const place = settingsFieldPlace(error.field);
-        const tab = settingsFieldTab(error.field);
-        const label = place ? $_(place.labelKey) : $_('settings.save_bar.other_field', { default: 'Another setting' });
-        // The same label can appear on two tabs ("Port"), so the tab is named with it.
-        return { field: error.field, label: tab ? `${label} (${tabLabel(tab)})` : label };
-    })}
+    refusedFields={standingErrors.map((error) => ({ field: error.field, label: fieldLabelWithTab(error.field) }))}
     onOpenField={openRefusedField}
+    conflicts={draftConflicts.map((conflict) => ({ field: conflict.field, label: fieldLabelWithTab(conflict.field) }))}
+    onUseSaved={keepSavedValue}
+    onUseMine={keepMyChange}
     restoredNotice={restoredDraft ? $_('settings.save_bar.restored', { default: "You left with unsaved changes. They're still here." }) : null}
     retypeSecrets={restoredSecretNames
         ? $_('settings.save_bar.retype_secrets', { values: { fields: restoredSecretNames }, default: 'Type {fields} again: secrets are not kept when you leave Settings.' })

@@ -1635,7 +1635,11 @@
     "failed": "Non è stato salvato nulla perché YA-WAMF non ha memorizzato le impostazioni. Verifica che il backend sia in esecuzione, poi scegli di nuovo Salva modifiche.",
     "other_field": "Un’altra impostazione",
     "restored": "Sei uscito con modifiche non salvate. Sono ancora qui.",
-    "retype_secrets": "Inserisci di nuovo {fields}: i segreti non vengono conservati quando esci dalle impostazioni."
+    "retype_secrets": "Inserisci di nuovo {fields}: i segreti non vengono conservati quando esci dalle impostazioni.",
+    "conflicts": "{count, plural, one {Un'impostazione che hai modificato è stata cambiata anche altrove. Scegli quale valore tenere prima di salvare:} other {# impostazioni che hai modificato sono state cambiate anche altrove. Scegli quale valore tenere prima di salvare:}}",
+    "use_saved": "Usa il valore salvato",
+    "use_mine": "Usa la mia modifica",
+    "conflict_field": "Il valore salvato è cambiato altrove da quando hai modificato questo campo. Scegli quale tenere nella barra qui sotto."
   },
   "leave": {
     "title": "Uscire senza salvare?",

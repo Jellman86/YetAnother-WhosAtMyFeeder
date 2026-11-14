@@ -506,7 +506,7 @@
                     bind:value={instanceUrl}
                     placeholder={$_('settings.notifications.instance_url_placeholder')}
                     aria-describedby={instanceUrlRefusal ? 'notification-instance-url-hint notification-instance-url-error' : 'notification-instance-url-hint'}
-                    aria-invalid={instanceUrlRefusal ? 'true' : undefined}
+                    aria-invalid={instanceUrlRefusal && !instanceUrlRefusal.conflict ? 'true' : undefined}
                     class="input-base w-full"
                 />
                 <FieldRefusal id="notification-instance-url-error" refusal={instanceUrlRefusal} />

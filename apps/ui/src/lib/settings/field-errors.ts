@@ -9,6 +9,8 @@ export interface SettingsFieldError {
     key: string;
     values?: Record<string, string | number>;
     fallback: string;
+    /** Not a refusal: the saved value changed elsewhere while this edit was away, so it waits on a choice. */
+    conflict?: boolean;
 }
 
 interface ValidationDetail {

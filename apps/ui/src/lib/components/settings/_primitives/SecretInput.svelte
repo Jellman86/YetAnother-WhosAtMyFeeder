@@ -52,7 +52,7 @@
         {type}
         {autocomplete}
         aria-label={ariaLabel}
-        aria-invalid={refusal ? 'true' : undefined}
+        aria-invalid={refusal && !refusal.conflict ? 'true' : undefined}
         aria-describedby={refusal ? `${id}-error` : undefined}
         {value}
         placeholder={effectivelySaved ? '***REDACTED***' : emptyPlaceholder}
