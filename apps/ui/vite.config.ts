@@ -45,7 +45,8 @@ function enforceInitialJavaScriptBudget(maxBytes: number): Plugin {
 }
 
 // Production stylesheets lose the fallbacks that only browsers below the supported floor read.
-// The build fails if Tailwind's output changes shape and one survives, instead of shipping it.
+// A fallback the step cannot prove safe to remove is left in place, and the build stops, so a
+// change in Tailwind's output is looked at instead of shipped.
 function dropUnsupportedBrowserCssFallbacks(): Plugin {
     return {
         name: 'yawamf-supported-browser-css',
@@ -55,11 +56,16 @@ function dropUnsupportedBrowserCssFallbacks(): Plugin {
             for (const asset of Object.values(bundle)) {
                 if (asset.type !== 'asset' || !asset.fileName.endsWith('.css')) continue;
                 const built = typeof asset.source === 'string' ? asset.source : new TextDecoder().decode(asset.source);
-                const trimmed = dropUnsupportedBrowserFallbacks(built);
-                if (hasUnsupportedBrowserFallbacks(trimmed)) {
-                    this.error(`${asset.fileName} still carries a fallback for a browser below the supported floor.`);
+                const { css, kept } = dropUnsupportedBrowserFallbacks(built);
+                if (kept.length > 0 || hasUnsupportedBrowserFallbacks(css)) {
+                    const reasons = kept.map(entry => `  ${entry.selector}: ${entry.reason}`).join('\n');
+                    this.error(
+                        `${asset.fileName} keeps ${kept.length} fallback(s) for browsers below the supported floor ` +
+                        `that could not be proved safe to remove:\n${reasons}\n` +
+                        'See apps/ui/src/lib/app/supported-browser-css.ts.'
+                    );
                 }
-                asset.source = trimmed;
+                asset.source = css;
             }
         }
     };

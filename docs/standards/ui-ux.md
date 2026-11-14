@@ -144,6 +144,9 @@ The production build drops the fallbacks Tailwind writes for browsers below the 
 (the plain colour beside every `color-mix()` and the `@property` fallback block); see
 `apps/ui/src/lib/app/supported-browser-css.ts`. The fixed palette is an `@theme inline` block, so
 those colours are written as literals. Raising or lowering the browser floor means revisiting both.
+`tailwindcss` and `@tailwindcss/vite` are pinned to an exact version, because that build step is
+tested against the output of that version: an upgrade changes the pin, the version in
+`supported-browser-css.ts` and the test fixtures together.
 
 Supported browsers follow from the toolchain: Chrome and Edge 111, Firefox 128 and Safari 16.4 or
 newer ([setup guide](../setup/getting-started.md#supported-browsers)).
