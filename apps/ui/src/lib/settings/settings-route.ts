@@ -16,6 +16,10 @@ export const SETTINGS_TAB_ORDER: readonly SettingsTab[] = [
     'accessibility'
 ];
 
+// Tabs that no longer exist, and the tab that now shows what they held. Species information
+// sources were their own tab; they are summarised at the end of Integrations.
+const RETIRED_TABS: Readonly<Record<string, SettingsTab>> = { enrichment: 'integrations' };
+
 function isSettingsTab(value: string): value is SettingsTab {
     return (SETTINGS_TAB_ORDER as readonly string[]).includes(value);
 }
@@ -31,9 +35,8 @@ export function settingsTabFromRoute(route: string | undefined): SettingsTab {
     if (!match) return 'connection';
     const slug = match[1];
     if (slug === 'errors') return 'health';
-    // Species information sources used to be their own tab; they are summarised in Integrations.
-    if (slug === 'enrichment') return 'integrations';
-    return isSettingsTab(slug) ? slug : 'connection';
+    const tab = RETIRED_TABS[slug] ?? slug;
+    return isSettingsTab(tab) ? tab : 'connection';
 }
 
 /**
@@ -47,15 +50,15 @@ export function canonicalSettingsPath(pathname: string, hash: string): string | 
     if (!pathname.startsWith('/settings')) return null;
 
     if (pathname === '/settings/' || pathname === '/settings') {
-        return isSettingsTab(hash) ? settingsTabPath(hash) : settingsTabPath('connection');
+        const tab = RETIRED_TABS[hash] ?? hash;
+        return isSettingsTab(tab) ? settingsTabPath(tab) : settingsTabPath('connection');
     }
 
     if (pathname === '/settings/errors' || pathname.startsWith('/settings/errors/')) {
         return settingsTabPath('health');
     }
-    if (pathname === '/settings/enrichment' || pathname === '/settings/enrichment/') {
-        return settingsTabPath('integrations');
-    }
+    const retired = /^\/settings\/([^/]+)\/?$/.exec(pathname)?.[1];
+    if (retired && RETIRED_TABS[retired]) return settingsTabPath(RETIRED_TABS[retired]);
 
     const match = /^\/settings\/([^/]+)\/?$/.exec(pathname);
     // A deeper sub-path such as /settings/data/foo is left alone.

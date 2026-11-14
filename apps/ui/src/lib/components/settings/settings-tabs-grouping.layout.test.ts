@@ -31,6 +31,9 @@ describe('Settings navigation', () => {
         expect(settingsPageSource).toContain('id={contentId}');
         expect(settingsTabsSource).not.toContain('grid-cols-4');
         expect(settingsTabsSource).not.toContain('card-base');
+        // Group headings use the one sentence-case label style, not spaced capitals.
+        expect(settingsTabsSource).not.toContain('eyebrow');
+        expect(settingsTabsSource).not.toMatch(/uppercase|tracking-/);
     });
 
     it('offers the setup wizard as an ordinary button, never styled as a tab', () => {

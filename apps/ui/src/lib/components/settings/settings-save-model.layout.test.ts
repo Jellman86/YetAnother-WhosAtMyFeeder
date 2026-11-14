@@ -51,3 +51,17 @@ describe('stored-secret flags', () => {
         expect(integrationsSource).not.toMatch(resetting);
     });
 });
+
+describe('Settings sliders', () => {
+    it('use one slider row: the value beside the label, the slider and end labels close beneath', async () => {
+        const { default: sliderSource } = await import('./_primitives/SettingsSlider.svelte?raw');
+        const { default: detectionSource } = await import('./DetectionSettings.svelte?raw');
+        const { default: dataSource } = await import('./DataSettings.svelte?raw');
+        expect(sliderSource).toMatch(/<label for=\{id\}[^>]*>\{label\}<\/label>\s*<output for=\{id\}/);
+        expect(sliderSource).not.toContain('h-11');
+        expect(detectionSource.match(/<SettingsSlider/g)).toHaveLength(2);
+        expect(detectionSource).not.toContain('type="range"');
+        expect(dataSource).toContain('<SettingsSlider');
+        expect(dataSource).not.toContain('type="range"');
+    });
+});

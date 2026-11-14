@@ -314,7 +314,7 @@
     "table_calls": "Calls",
     "table_tokens": "Tokens",
     "table_cost": "Cost",
-    "view_reference_pricing": "View reference Pricing →",
+    "view_reference_pricing": "View reference pricing →",
     "usage_load_error": "Failed to load AI usage.",
     "test_title": "AI model diagnostic",
     "test_subtitle": "Checking the same multi-frame vision format used for detection analysis.",
@@ -444,7 +444,7 @@
       "token_label": "BirdWeather station token",
       "token_placeholder": "Your BirdWeather token",
       "token_desc": "Available in your station settings under \"BirdWeather Token\".",
-      "test_button": "Test Connection",
+      "test_button": "Test connection",
       "test_loading": "Verifying…",
       "test_success": "BirdWeather connection verified!",
       "test_error": "BirdWeather connection failed",
@@ -588,7 +588,7 @@
   "frigate": {
     "title": "Frigate NVR",
     "url": "Server URL",
-    "test_connection": "Test Connection",
+    "test_connection": "Test connection",
     "sync_cameras": "Sync cameras",
     "test_mqtt": "Test MQTT pipeline",
     "mqtt_broker": "MQTT broker",
@@ -677,8 +677,8 @@
     "watch_every_camera": "Watch every camera for birds",
     "garden_beta_hint": "To watch for Garden animals as well, turn on Garden animals in Settings → Beta features.",
     "list_loading": "Reading the camera list from Frigate…",
-    "list_unread": "The camera list could not be read from Frigate. Saved cameras are shown; choose Sync Cameras to try again.",
-    "none_found_help": "Frigate reported no cameras. Check the Frigate URL above, then choose Sync Cameras.",
+    "list_unread": "The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.",
+    "none_found_help": "Frigate reported no cameras. Check the Frigate URL above, then choose Sync cameras.",
     "not_found": "Not found in Frigate",
     "not_found_help": "Frigate does not list this camera now. Its choices are kept until you change them; choose Off to remove it.",
     "watch_for_label": "Watch for",
@@ -732,7 +732,7 @@
     "appreciation_tooltip": "If you can, please enable telemetry. It helps me understand how YA-WAMF is used and guides improvements."
   },
   "email": {
-    "title": "Email Notifications",
+    "title": "Email notifications",
     "desc": "Send email alerts for bird detections",
     "enable": "Enable email Notifications",
     "auth_mode": "Authentication mode",
@@ -918,7 +918,7 @@
     }
   },
   "discord": {
-    "title": "Discord Notifications",
+    "title": "Discord notifications",
     "webhook_url": "Webhook URL",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "Bot username",
@@ -928,7 +928,7 @@
     "test_needs": "Enter the webhook URL to send a test."
   },
   "pushover": {
-    "title": "Pushover Notifications",
+    "title": "Pushover notifications",
     "user_key": "User key",
     "user_key_placeholder": "Your Pushover user key",
     "api_token": "API token",
@@ -948,7 +948,7 @@
     "test_needs": "Enter the user key and API token to send a test."
   },
   "telegram": {
-    "title": "Telegram Notifications",
+    "title": "Telegram notifications",
     "bot_token": "Bot token",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "Chat ID",
@@ -998,7 +998,7 @@
     "reset_button": "Reset database & cache",
     "resetting": "Resetting…",
     "confirm": "DANGER: This will delete ALL detections, clear the media cache and remove every archived favourite. This action cannot be undone. Are you sure?",
-    "clear_feedback_button": "Clear personalization Data",
+    "clear_feedback_button": "Clear personalization data",
     "clear_feedback_desc": "Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.",
     "clear_feedback_hint": "This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.",
     "clearing_feedback": "Clearing…",
@@ -1353,7 +1353,7 @@
     "test_hint": "Runs a quick prompt to verify your API key and model.",
     "model_hint": "Choose a model that supports image input (vision). Text-only models will fail analysis.",
     "enabled": "AI insights",
-    "test_connection": "Test AI Connection",
+    "test_connection": "Test AI connection",
     "recommended_model": "Recommended: {model}",
     "get_gemini_key": "Get Google Gemini key →",
     "get_openai_key": "Get OpenAI key →",

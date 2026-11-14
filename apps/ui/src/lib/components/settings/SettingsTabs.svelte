@@ -128,7 +128,7 @@
     <div class="space-y-5">
         {#each groups as group (group.id)}
             <div>
-                <h2 id="settings-group-{group.id}" class="eyebrow px-3 pb-1.5">{group.label}</h2>
+                <h2 id="settings-group-{group.id}" class="px-3 pb-1 text-sm font-semibold text-slate-900 dark:text-white">{group.label}</h2>
                 <ul class="space-y-0.5" aria-labelledby="settings-group-{group.id}">
                     {#each group.tabs as tab (tab.id)}
                         {@const current = activeTab === tab.id}

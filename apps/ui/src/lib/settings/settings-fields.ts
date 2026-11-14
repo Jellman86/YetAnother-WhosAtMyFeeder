@@ -139,9 +139,9 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     recording_frame_delay_seconds: { labelKey: 'settings.frigate.recording_frame_delay', inputId: 'recording-frame-delay' },
     recording_clip_before_seconds: { labelKey: 'settings.frigate.full_visit_before', inputId: 'recording-clip-before', disclosures: ['connection-full-visit'] },
     recording_clip_after_seconds: { labelKey: 'settings.frigate.full_visit_after', inputId: 'recording-clip-after', disclosures: ['connection-full-visit'] },
-    video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay' },
-    video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries' },
-    video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames' },
+    video_classification_delay: { labelKey: 'settings.detection.video_delay', inputId: 'video-delay', disclosures: ['detection-frigate-video'] },
+    video_classification_max_retries: { labelKey: 'settings.detection.video_retries', inputId: 'video-retries', disclosures: ['detection-frigate-video'] },
+    video_classification_frames: { labelKey: 'settings.detection.video_frames', inputId: 'video-frames', disclosures: ['detection-frigate-video'] },
     maintenance_max_concurrent: { labelKey: 'settings.data.maintenance_max_concurrent', inputId: 'maintenance-max-concurrent', disclosures: ['data-retention-advanced'] },
     garden_labels: { labelKey: 'garden.labels', inputId: 'garden-labels', disclosures: ['garden-section-cameras'] },
     garden_motion_confidence: { labelKey: 'garden.confidence', inputId: 'garden-motion-confidence', disclosures: ['garden-section-cameras'] },
@@ -169,10 +169,10 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
     public_access_rate_limit_per_minute: { labelKey: 'settings.public_access.rate_limit', inputId: 'public-rate', disclosures: ['public-access-windows'] },
     public_access_external_base_url: { labelKey: 'settings.public_access.share_base_url', inputId: 'public-share-base-url', disclosures: ['public-access-windows'] },
     notifications_instance_url: { labelKey: 'settings.notifications.instance_url', inputId: 'notification-instance-url' },
-    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider' },
-    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: ['detection-memory-advanced'] },
-    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-memory-advanced'] },
-    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-memory-advanced'] }
+    inference_provider: { labelKey: 'settings.detection.inference_provider', inputId: 'inference-provider', disclosures: ['detection-hardware'] },
+    image_execution_mode: { labelKey: 'settings.detection.execution_mode', inputId: 'image-execution-mode', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
+    live_worker_count: { labelKey: 'settings.detection.worker_counts_live', inputId: 'live-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] },
+    background_worker_count: { labelKey: 'settings.detection.worker_counts_background', inputId: 'background-worker-count', disclosures: ['detection-hardware', 'detection-memory-advanced'] }
 };
 
 /** Where a field is shown, or null for one without its own input (the tab is then the pointer). */

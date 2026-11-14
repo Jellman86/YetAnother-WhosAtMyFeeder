@@ -677,7 +677,7 @@
             {#if frigateCameras === null}
                 <p class="text-xs text-slate-600 dark:text-slate-400" role="status" data-camera-list-state>
                     {frigateCamerasFailed
-                        ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync Cameras to try again.' })
+                        ? $_('settings.cameras.list_unread', { default: 'The camera list could not be read from Frigate. Saved cameras are shown; choose Sync cameras to try again.' })
                         : $_('settings.cameras.list_loading', { default: 'Reading the camera list from Frigate…' })}
                 </p>
             {/if}
@@ -688,7 +688,7 @@
                 {#if frigateCameras !== null}
                     <div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/30">
                         <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.none_found')}</p>
-                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync Cameras.' })}</p>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync cameras.' })}</p>
                     </div>
                 {/if}
             {:else}

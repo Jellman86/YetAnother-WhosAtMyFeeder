@@ -1,5 +1,6 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
+    import { useDisclosure } from '../../../settings/disclosures.svelte';
 
     interface Props {
         title: string;
@@ -21,14 +22,21 @@
          * The id names the body for aria-controls.
          */
         collapsible?: boolean;
-        /** Whether a collapsible card is open; bind it to open the card from elsewhere. */
-        open?: boolean;
+        /** Whether a collapsible card starts open, until someone opens or closes it. */
+        openByDefault?: boolean;
         id?: string;
         children: Snippet;
     }
 
-    let { title, description, iconSnippet, actions, accent = false, collapsible = false, open = $bindable(false), id, children }: Props = $props();
+    let { title, description, iconSnippet, actions, accent = false, collapsible = false, openByDefault = false, id, children }: Props = $props();
 
+    // With an id, the Settings page holds the open state, so it survives leaving the tab and the
+    // page can open the card that holds a refused field.
+    const disclosure = useDisclosure(() => ({ id, openByDefault }));
+    const open = $derived(disclosure.open);
+    function toggle(): void {
+        disclosure.toggle();
+    }
     const bodyId = $derived(id ? `${id}-body` : undefined);
     const showBody = $derived(!collapsible || open);
 </script>
@@ -50,7 +58,7 @@
                             class="flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                             aria-expanded={open}
                             aria-controls={bodyId}
-                            onclick={() => (open = !open)}
+                            onclick={toggle}
                         >
                             <span class="min-w-0 wrap-break-word">{title}</span>
                             <svg class="h-4 w-4 shrink-0 text-slate-500 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>

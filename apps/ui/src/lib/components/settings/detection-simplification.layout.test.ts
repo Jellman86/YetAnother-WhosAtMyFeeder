@@ -55,7 +55,7 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(5);
         expect(detectionSettingsSource).not.toContain('tuning_column');
         expect(detectionSettingsSource).not.toContain('runtime_column');
-        expect(detectionSettingsSource).toContain('id="detection-hardware"');
+        expect(detectionSettingsSource).toContain("const HARDWARE_CARD_ID = 'detection-hardware';");
         expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
         expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(2);
     });

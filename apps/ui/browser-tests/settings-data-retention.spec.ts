@@ -115,7 +115,7 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
 test('the irreversible actions put each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
     await page.getByRole('button', { name: /Actions that cannot be undone/ }).click();
-    await expect(page.getByRole('button', { name: 'Clear personalization Data' })).toHaveAccessibleDescription(/does not delete detections or media/);
+    await expect(page.getByRole('button', { name: 'Clear personalization data' })).toHaveAccessibleDescription(/does not delete detections or media/);
     await expect(page.getByRole('button', { name: 'Delete all favorites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
     await expect(page.getByRole('button', { name: 'Reset database & cache' })).toHaveAccessibleDescription(/permanently delete ALL detections/);
     await page.locator('[data-danger-actions]').screenshot({ path: testInfo.outputPath('danger-zone.png') });

@@ -57,7 +57,9 @@ describe('canonicalSettingsPath', () => {
     it('sends the retired Enrichment address to Integrations, where its summary now lives', () => {
         expect(canonicalSettingsPath('/settings/enrichment', '')).toBe('/settings/integrations');
         expect(settingsTabFromRoute('/settings/enrichment')).toBe('integrations');
-        expect(canonicalSettingsPath('/settings', 'enrichment')).toBe('/settings/connection');
+        expect(canonicalSettingsPath('/settings', 'enrichment')).toBe('/settings/integrations');
+        expect(canonicalSettingsPath('/settings/', 'enrichment')).toBe('/settings/integrations');
+        expect(canonicalSettingsPath('/settings/enrichment/', '')).toBe('/settings/integrations');
     });
 
     it('settles every rewrite in one step', () => {

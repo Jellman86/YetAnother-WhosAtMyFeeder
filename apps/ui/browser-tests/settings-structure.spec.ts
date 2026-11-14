@@ -93,3 +93,41 @@ test.describe('on a phone', () => {
         expect(overflow).toBeLessThanOrEqual(1);
     });
 });
+
+test.describe('a refused value inside a closed card', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test('opens the cards that hold it and focuses it, after visiting the tab and leaving it', async ({ page }) => {
+        await openSettings(page, { auto_video_classification: true, video_classification_delay: 30 }, {
+            refuseWrite: () => ({
+                status: 422,
+                json: { detail: [{ type: 'less_than_equal', loc: ['body', 'video_classification_delay'], msg: 'Input should be less than or equal to 3600', ctx: { le: 3600 } }] }
+            })
+        });
+        await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Frigate and video', exact: true })).toHaveAttribute('aria-expanded', 'false');
+        await rail(page).getByRole('link', { name: 'Connection', exact: true }).click();
+        await page.locator('#mqtt-server').fill('broker.lan');
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+
+        await expect(rail(page).getByRole('link', { name: 'Detection', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(page.getByRole('button', { name: 'Frigate and video', exact: true })).toHaveAttribute('aria-expanded', 'true');
+        const delay = page.locator('#video-delay');
+        await expect(delay).toBeFocused();
+        await expect(delay).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    test('opens Hardware and its memory section for a refused worker count', async ({ page }) => {
+        await openSettings(page, {}, {
+            refuseWrite: () => ({
+                status: 422,
+                json: { detail: [{ type: 'less_than_equal', loc: ['body', 'live_worker_count'], msg: 'Input should be less than or equal to 8', ctx: { le: 8 } }] }
+            })
+        });
+        await page.locator('#mqtt-server').fill('broker.lan');
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.getByRole('button', { name: /Memory and isolation/ })).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#live-worker-count')).toBeFocused();
+    });
+});
