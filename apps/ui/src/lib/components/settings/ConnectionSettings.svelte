@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import type { VersionInfo } from '../../api';
     import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
     import { testMQTTPublish } from '../../api/maintenance';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
@@ -53,17 +52,11 @@
         betaGardenAnimals = false,
         cameraRoles = $bindable<Record<string, CameraRole>>({}),
         nestDedupeMinutes = $bindable(30),
-        telemetryEnabled = $bindable(false),
-        telemetryHealthEnabled = $bindable(false),
         frigateCameras = null,
         frigateCamerasFailed = false,
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
-        telemetryInstallationId,
-        telemetryPlatform,
-        telemetryPayloadPreview,
-        versionInfo,
         loadCameras
     }: {
         frigateUrl: string;
@@ -87,18 +80,12 @@
         betaGardenAnimals?: boolean;
         cameraRoles: Record<string, CameraRole>;
         nestDedupeMinutes: number;
-        telemetryEnabled: boolean;
-        telemetryHealthEnabled: boolean;
         /** Cameras read from Frigate, or null until the list has been read. */
         frigateCameras: string[] | null;
         frigateCamerasFailed: boolean;
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
-        telemetryInstallationId: string | undefined;
-        telemetryPlatform: string | undefined;
-        telemetryPayloadPreview: Record<string, unknown> | undefined;
-        versionInfo: VersionInfo;
         loadCameras: () => Promise<void>;
     } = $props();
 
@@ -224,39 +211,6 @@
         }
     }
 
-    function nestedValue(source: Record<string, unknown> | undefined, path: string): unknown {
-        return path.split('.').reduce<unknown>((current, key) => {
-            if (!current || typeof current !== 'object') return undefined;
-            return (current as Record<string, unknown>)[key];
-        }, source);
-    }
-
-    function formatTelemetryValue(value: unknown): string {
-        if (typeof value === 'boolean') return value ? $_('common.yes', { default: 'Yes' }) : $_('common.no', { default: 'No' });
-        if (value === null || value === undefined || value === '') return '...';
-        return String(value);
-    }
-
-    const telemetryRuntimeRows = $derived([
-        ['settings.telemetry.payload_model_runtime', 'runtime.model_runtime'],
-        ['settings.telemetry.payload_provider_configured', 'runtime.inference_provider_configured'],
-        ['settings.telemetry.payload_provider_active', 'runtime.inference_provider_active'],
-        ['settings.telemetry.payload_backend_active', 'runtime.inference_backend_active'],
-        ['settings.telemetry.payload_execution_mode', 'runtime.image_execution_mode'],
-        ['settings.telemetry.payload_crop_tier', 'runtime.bird_crop_detector_tier'],
-        ['settings.telemetry.payload_cuda_available', 'hardware.cuda_available'],
-        ['settings.telemetry.payload_nvidia_gpu_detected', 'hardware.nvidia_gpu_detected'],
-        ['settings.telemetry.payload_openvino_available', 'hardware.openvino_available'],
-        ['settings.telemetry.payload_intel_gpu_available', 'hardware.intel_gpu_available'],
-        ['settings.telemetry.payload_intel_npu_available', 'hardware.intel_npu_available'],
-        ['settings.telemetry.payload_openvino_compile', 'hardware.openvino_gpu_compile_ok'],
-        ['settings.telemetry.payload_openvino_device', 'hardware.openvino_gpu_compile_device'],
-        ['settings.telemetry.payload_gpu_fallback', 'hardware.openvino_gpu_fallback_active'],
-        ['settings.telemetry.payload_deployment_mode', 'deployment.mode'],
-        ['settings.telemetry.payload_image_flavor', 'deployment.image_flavor'],
-        ['settings.telemetry.payload_image_arch', 'deployment.image_arch']
-    ]);
-
     let canToggleRecordingClips = $derived(
         recordingClipEnabled || (clipsEnabled && !!recordingClipCapability?.supported)
     );
@@ -361,12 +315,12 @@
     {#snippet cameraPreview(camera: string)}
         <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 dark:border-slate-700/60 dark:bg-slate-900/95 dark:shadow-black/30">
             <div class="flex items-center justify-between gap-2 px-4 py-2">
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                 <div class="flex items-center gap-2">
                     <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                     <button
                         type="button"
-                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                         aria-label={$_('settings.cameras.preview_close')}
                         onclick={() => stopPreview(camera)}
                     >
@@ -382,7 +336,7 @@
                         <img class="absolute inset-0 h-full w-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
                     {/if}
                     {#if previewLoading}
-                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-500 dark:bg-slate-900/70">
+                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-600 dark:bg-slate-900/70">
                             {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
                         </div>
                     {/if}
@@ -514,7 +468,7 @@
         </SettingsRow>
 
         {#if mqttAuth}
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in zoom-in-95">
+            <div class="space-y-4">
                 <SettingsRow
                     labelId="setting-mqtt-username"
                     label={$_('settings.frigate.mqtt_user')}
@@ -589,7 +543,7 @@
                        {recordingClipCapability?.supported
                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                            : recordingClipCapabilityLoading || !recordingClipCapability
-                             ? 'bg-slate-500/10 text-slate-500 dark:text-slate-400'
+                             ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
                              : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}"
                 aria-hidden="true"
             >
@@ -761,7 +715,7 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                        <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <input
@@ -772,87 +726,13 @@
                             class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-hidden text-right"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
-                        <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
                     </div>
                 </div>
             {/if}
         </div>
     </SettingsCard>
 
-    <div class="md:col-span-2">
-        <AdvancedSection
-            id="connection-telemetry"
-            title={$_('settings.telemetry.title')}
-            description={$_('settings.telemetry.desc')}
-        >
-            <SettingsRow
-                labelId="setting-telemetry"
-                label={$_('settings.telemetry.title')}
-                description={$_('settings.telemetry.appreciation_tooltip')}
-            >
-                <SettingsToggle
-                    checked={telemetryEnabled}
-                    labelledBy="setting-telemetry"
-                    srLabel={$_('settings.telemetry.title')}
-                    onchange={(v) => (telemetryEnabled = v)}
-                />
-            </SettingsRow>
-
-            <SettingsRow
-                labelId="setting-telemetry-health"
-                label={$_('settings.telemetry.health_title')}
-                description={$_('settings.telemetry.health_desc')}
-            >
-                <SettingsToggle
-                    checked={telemetryHealthEnabled}
-                    labelledBy="setting-telemetry-health"
-                    srLabel={$_('settings.telemetry.health_title')}
-                    onchange={(v) => (telemetryHealthEnabled = v)}
-                />
-            </SettingsRow>
-
-            {#if telemetryEnabled || telemetryHealthEnabled}
-                <div class="p-4 rounded-xl bg-surface-raised/70 animate-in fade-in slide-in-from-top-2">
-                    <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
-                    <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
-                        {#if telemetryEnabled}
-                            <div class="flex justify-between"><span>{$_('settings.telemetry.includes')}:</span><span>{$_('settings.telemetry.includes_value')}</span></div>
-                        {/if}
-                        {#if telemetryHealthEnabled}
-                            <div class="flex justify-between"><span>{$_('settings.telemetry.health_includes')}:</span><span>{$_('settings.telemetry.health_includes_value')}</span></div>
-                        {/if}
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.geography')}:</span><span>{$_('settings.telemetry.geography_value')}</span></div>
-                        <div class="flex justify-between"><span>{$_('settings.telemetry.frequency')}:</span><span>{$_('settings.telemetry.frequency_value')}</span></div>
-                    </div>
-                    {#if telemetryEnabled}
-                        <div class="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-700/70">
-                            <p class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
-                                {#each telemetryRuntimeRows as [labelKey, valuePath]}
-                                    <div class="flex justify-between gap-3 min-w-0">
-                                        <span class="truncate">{$_(labelKey)}:</span>
-                                        <span class="text-right text-slate-900 dark:text-white break-all">{formatTelemetryValue(nestedValue(telemetryPayloadPreview, valuePath))}</span>
-                                    </div>
-                                {/each}
-                            </div>
-                        </div>
-                    {/if}
-                    <p class="text-xs text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
-                    <a
-                        href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-1 mt-3 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
-                    >
-                        {$_('settings.telemetry.dashboard_link', { default: 'View the public telemetry dashboard' })} →
-                    </a>
-                </div>
-            {/if}
-        </AdvancedSection>
-    </div>
 </div>
 
 {#if fcTestOpen}

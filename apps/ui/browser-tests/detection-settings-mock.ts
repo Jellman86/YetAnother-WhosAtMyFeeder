@@ -207,9 +207,12 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    const mobileNavigation = page.getByRole('combobox', { name: 'Settings', exact: true });
+    const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
     await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
     if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('detection');
     else await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    // Hardware starts closed; these tests exercise what is inside it.
+    const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
+    if ((await hardware.getAttribute('aria-expanded')) === 'false') await hardware.click();
     return state;
 }

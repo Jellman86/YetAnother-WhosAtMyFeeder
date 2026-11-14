@@ -51,7 +51,7 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
 const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
-    ['telemetry_', 'connection'],
+    ['telemetry_', 'data'],
     ['video_classification_', 'detection'],
     ['range_filter_', 'detection'],
     ['bird_model_region_', 'detection'],
@@ -66,7 +66,7 @@ const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['ebird_', 'integrations'],
     ['inaturalist_', 'integrations'],
     ['location_', 'integrations'],
-    ['enrichment_', 'enrichment'],
+    ['enrichment_', 'integrations'],
     ['llm_', 'ai'],
     ['ai_', 'ai'],
     ['auth_', 'security'],

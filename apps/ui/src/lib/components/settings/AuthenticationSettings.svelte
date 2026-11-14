@@ -326,14 +326,14 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold uppercase tracking-widest rounded-2xl transition-all focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold rounded-2xl transition-all focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         {#each trustedProxyHosts as host}
-                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
+                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-600 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
                                     <span class="px-2 py-0.5 rounded-full text-xs font-bold uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -344,7 +344,7 @@
                                         type="button"
                                         onclick={() => removeTrustedProxyHost(host)}
                                         aria-label={$_('settings.auth.trusted_proxies_remove', { default: 'Remove trusted proxy host' })}
-                                        class="text-slate-400 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 hover:text-red-500 transition-colors"
                                     >
                                         ✕
                                     </button>
@@ -352,16 +352,16 @@
                             </span>
                         {/each}
                         {#if trustedProxyHosts.length === 0}
-                            <p class="text-xs font-bold text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                            <p class="text-xs font-bold text-slate-600 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
-                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
+                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
                             <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-700 text-white text-xs font-bold uppercase tracking-widest"
+                                class="self-start px-3 py-1.5 rounded-xl bg-brand-700 text-white text-sm font-semibold"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>
@@ -502,7 +502,7 @@
             id="public-access-windows"
             title={$_('settings.public_access.advanced_title', { default: 'History windows & rate limits' })}
         >
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="space-y-4">
                 <SettingsRow
                     labelId="setting-public-history-days"
                     label={$_('settings.public_access.history_days')}

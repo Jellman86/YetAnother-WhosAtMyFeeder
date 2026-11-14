@@ -46,12 +46,18 @@ describe('canonicalSettingsPath', () => {
     });
 
     it('treats every canonical tab address as already canonical and showing that tab', () => {
-        const tabs = ['connection', 'detection', 'notifications', 'health', 'integrations', 'enrichment', 'ai', 'security', 'data', 'appearance', 'accessibility', 'beta', 'debug'] as const;
+        const tabs = ['connection', 'detection', 'notifications', 'health', 'integrations', 'ai', 'security', 'data', 'appearance', 'accessibility', 'beta', 'debug'] as const;
         for (const tab of tabs) {
             const path = settingsTabPath(tab);
             expect(canonicalSettingsPath(path, '')).toBeNull();
             expect(settingsTabFromRoute(path)).toBe(tab);
         }
+    });
+
+    it('sends the retired Enrichment address to Integrations, where its summary now lives', () => {
+        expect(canonicalSettingsPath('/settings/enrichment', '')).toBe('/settings/integrations');
+        expect(settingsTabFromRoute('/settings/enrichment')).toBe('integrations');
+        expect(canonicalSettingsPath('/settings', 'enrichment')).toBe('/settings/connection');
     });
 
     it('settles every rewrite in one step', () => {

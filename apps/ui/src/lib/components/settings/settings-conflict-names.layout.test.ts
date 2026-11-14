@@ -18,7 +18,7 @@ import zhSettings from '../../i18n/locales/zh/settings.json';
 // (WCAG 2.5.3), so speech users can say what they see.
 
 const conflicts = [
-    { field: 'mqtt_server', label: 'MQTT Broker (Connection)' },
+    { field: 'mqtt_server', label: 'MQTT broker (Connection)' },
     { field: 'mqtt_port', label: 'Port (Connection)' }
 ];
 
@@ -48,8 +48,8 @@ beforeAll(() => {
 describe('the buttons that settle a conflict', () => {
     it('name the setting each one decides, starting with the words on screen', () => {
         const names = buttonNames(renderConflicts());
-        expect(names).toContain('Use the saved value for MQTT Broker (Connection)');
-        expect(names).toContain('Use my change for MQTT Broker (Connection)');
+        expect(names).toContain('Use the saved value for MQTT broker (Connection)');
+        expect(names).toContain('Use my change for MQTT broker (Connection)');
         expect(names).toContain('Use the saved value for Port (Connection)');
         expect(names).toContain('Use my change for Port (Connection)');
         // Four buttons, and no two of them sound the same.

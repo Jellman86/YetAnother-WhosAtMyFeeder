@@ -51,7 +51,7 @@ describe('settings health tab', () => {
         expect(en.settings.system_health.cpu_unmeasured).toContain('cannot be measured');
         // Dense resource headers remain separated at phone widths without introducing
         // a nested horizontal scroller.
-        expect(panelSource).toContain('tracking-normal text-slate-500 sm:tracking-[0.14em]');
+        expect(panelSource).toContain('<thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">');
         expect(panelSource).not.toContain('data-system-health-table-container');
         // The keyboard's crosshair is a real range control, not a focusable picture, and it
         // stays out of sight until focused so it is not a handle attached to nothing.

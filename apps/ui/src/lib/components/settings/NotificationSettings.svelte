@@ -455,7 +455,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                    <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                    <span class="block text-xs text-slate-600 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <input
@@ -466,7 +466,7 @@
                         class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
                         aria-label={$_('settings.notifications.cooldown')}
                     />
-                    <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
+                    <span class="text-xs font-bold text-slate-600">{$_('settings.notifications.cooldown_unit')}</span>
                 </div>
             </div>
 
@@ -474,14 +474,14 @@
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
                 <div class="flex items-start justify-between gap-4">
                     <div>
-                        <label for="notification-language" class="block text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">{$_('settings.notifications.notification_language')}</label>
-                        <p class="text-xs text-slate-500 font-medium">{$_('settings.notifications.notification_language_desc')}</p>
+                        <label for="notification-language" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.notifications.notification_language')}</label>
+                        <p id="notification-language-desc" class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.notifications.notification_language_desc')}</p>
                     </div>
                     <select
                         id="notification-language"
                         bind:value={notificationLanguage}
-                        aria-label={$_('settings.notifications.notification_language')}
-                        class="min-w-36 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-sm font-bold focus:outline-hidden focus:ring-2 focus:ring-brand-400"
+                        aria-describedby="notification-language-desc"
+                        class="select-base min-w-36"
                     >
                         <option value="en">English</option>
                         <option value="es">Español</option>
@@ -498,8 +498,8 @@
 
             <!-- Instance address: where notifications link back to -->
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <label for="notification-instance-url" class="block text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-1">{$_('settings.notifications.instance_url')}</label>
-                <p id="notification-instance-url-hint" class="text-xs text-slate-500 font-medium mb-2">{$_('settings.notifications.instance_url_desc')}</p>
+                <label for="notification-instance-url" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.notifications.instance_url')}</label>
+                <p id="notification-instance-url-hint" class="mb-2 text-sm text-slate-600 dark:text-slate-300">{$_('settings.notifications.instance_url_desc')}</p>
                 <input
                     id="notification-instance-url"
                     type="url"
@@ -514,19 +514,19 @@
 
             <!-- Where the notification link opens -->
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.link_opens')}</h4>
+                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h4>
                 <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
-                        <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_req')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
-                        <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_frigate_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-500">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_req')}</span>
                     </label>
                 </div>
                 {#if frigateUrlMissing}
@@ -537,41 +537,41 @@
                 {/if}
                 <div class="mt-4 grid gap-1 text-xs">
                     <div class="flex flex-wrap gap-x-3 gap-y-1">
-                        <span class="font-bold text-slate-500">{$_('settings.notifications.link_preview_telegram')}</span>
+                        <span class="font-bold text-slate-600">{$_('settings.notifications.link_preview_telegram')}</span>
                         {#if linkPreview}
                             <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
                         {:else}
-                            <span class="italic text-slate-500">{$_('settings.notifications.link_preview_none')}</span>
+                            <span class="italic text-slate-600">{$_('settings.notifications.link_preview_none')}</span>
                         {/if}
                     </div>
-                    <span class="text-slate-500">{$_('settings.notifications.link_preview_others')}</span>
+                    <span class="text-slate-600">{$_('settings.notifications.link_preview_others')}</span>
                 </div>
             </div>
 
             <!-- Species Filter -->
             <div id={speciesFilterSectionId} class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30 scroll-mt-24">
-                <h4 class="text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.species_filter')}</h4>
+                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h4>
                 <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
-                        <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_none_desc')}</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_none_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
-                        <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
-                        <span class="block text-xs font-bold uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
                     </label>
                 </div>
 
                 {#if filterSpeciesMode !== 'none'}
                     <div class="mt-5 rounded-2xl border border-brand-200/60 bg-white/60 p-4 dark:border-brand-700/30 dark:bg-slate-900/30">
-                        <label for="notification-species-search" class="block text-xs font-bold uppercase tracking-[0.2em] text-slate-500 mb-2">{speciesFilterListTitle}</label>
+                        <label for="notification-species-search" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{speciesFilterListTitle}</label>
                         <input
                             id="notification-species-search"
                             bind:value={speciesSearchQuery}
@@ -580,11 +580,11 @@
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                         {#if speciesSearchLoading}
-                            <p class="mt-2 text-xs font-bold text-slate-400">{$_('common.loading')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('common.loading')}</p>
                         {:else if speciesSearchError}
                             <p class="mt-2 text-xs font-bold text-red-500">{speciesSearchError}</p>
                         {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
-                            <p class="mt-2 text-xs font-bold text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('settings.notifications.species_filter_no_results')}</p>
                         {/if}
 
                         {#if speciesSearchResults.length > 0}
@@ -598,7 +598,7 @@
                                     >
                                         <span class="block text-sm font-bold text-slate-900 dark:text-white">{names.primary}</span>
                                         {#if names.secondary}
-                                            <span class="block text-xs font-semibold italic text-slate-500">{names.secondary}</span>
+                                            <span class="block text-xs font-semibold italic text-slate-600">{names.secondary}</span>
                                         {/if}
                                     </button>
                                 {/each}
@@ -612,20 +612,20 @@
                                     <button
                                         onclick={() => removeSpeciesFilterEntry(entry)}
                                         aria-label={$_('settings.notifications.species_filter_remove_label', { values: { species: formatBlockedSpeciesLabel(entry) } })}
-                                        class="text-slate-400 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 hover:text-red-500 transition-colors"
                                     >
                                         x
                                     </button>
                                 </span>
                             {/each}
                             {#if filterSpeciesEntries.length === 0 && legacySpeciesWhitelist.length === 0}
-                                <p class="text-xs font-bold text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
+                                <p class="text-xs font-bold text-slate-600 italic">{$_('settings.notifications.no_species_filter')}</p>
                             {/if}
                         </div>
 
                         {#if filterSpeciesMode === 'whitelist' && legacySpeciesWhitelist.length > 0}
                             <div class="mt-4 border-t border-brand-200/60 pt-3 dark:border-brand-700/30">
-                                <p class="mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">{$_('settings.notifications.species_filter_legacy')}</p>
+                                <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.species_filter_legacy')}</p>
                                 <div class="flex flex-wrap gap-2">
                                     {#each legacySpeciesWhitelist as species}
                                         <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -633,7 +633,7 @@
                                             <button
                                                 onclick={() => removeLegacySpeciesWhitelist(species)}
                                                 aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
-                                                class="text-slate-400 hover:text-red-500 transition-colors"
+                                                class="text-slate-600 hover:text-red-500 transition-colors"
                                             >
                                                 x
                                             </button>
@@ -671,7 +671,7 @@
             {#if discordEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="discord-webhook" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.webhook_url')}</label>
+                    <label for="discord-webhook" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.discord.webhook_url')}</label>
                     <SecretInput
                         id="discord-webhook"
                         type="text"
@@ -683,7 +683,7 @@
                     />
                 </div>
                 <div>
-                    <label for="discord-botname" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.bot_username')}</label>
+                    <label for="discord-botname" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.discord.bot_username')}</label>
                     <input
                         id="discord-botname"
                         type="text"
@@ -729,7 +729,7 @@
             {#if pushoverEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="pushover-userkey" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.user_key')}</label>
+                    <label for="pushover-userkey" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.user_key')}</label>
                     <SecretInput
                         id="pushover-userkey"
                         type="text"
@@ -741,7 +741,7 @@
                     />
                 </div>
                 <div>
-                    <label for="pushover-apitoken" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.api_token')}</label>
+                    <label for="pushover-apitoken" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.api_token')}</label>
                     <SecretInput
                         id="pushover-apitoken"
                         type="text"
@@ -770,7 +770,7 @@
                     title={$_('settings.pushover.advanced_title', { default: 'Priority & device targeting' })}
                 >
                     <div>
-                        <label for="pushover-priority" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.priority')}</label>
+                        <label for="pushover-priority" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.priority')}</label>
                         <select
                             id="pushover-priority"
                             bind:value={pushoverPriority}
@@ -785,7 +785,7 @@
                         </select>
                     </div>
                     <div>
-                        <label for="pushover-device" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
+                        <label for="pushover-device" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.device')}</label>
                         <input
                             id="pushover-device"
                             type="text"
@@ -794,7 +794,7 @@
                             aria-label={$_('settings.pushover.device')}
                             class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-hidden transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
-                        <p class="mt-1.5 text-xs text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
+                        <p class="mt-1.5 text-xs text-slate-600 dark:text-slate-400 ml-1">{$_('settings.pushover.device_hint')}</p>
                     </div>
                 </AdvancedSection>
             </div>
@@ -823,7 +823,7 @@
             {#if telegramEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="telegram-bottoken" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.bot_token')}</label>
+                    <label for="telegram-bottoken" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.telegram.bot_token')}</label>
                     <SecretInput
                         id="telegram-bottoken"
                         value={telegramBotToken}
@@ -834,7 +834,7 @@
                     />
                 </div>
                 <div>
-                    <label for="telegram-chatid" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.chat_id')}</label>
+                    <label for="telegram-chatid" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.telegram.chat_id')}</label>
                     <SecretInput
                         id="telegram-chatid"
                         type="text"
@@ -884,7 +884,7 @@
             <div class="space-y-4 flex-1">
                 <!-- Auth Mode Selector -->
                 <div>
-                    <div id="email-auth-mode-label" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</div>
+                    <div id="email-auth-mode-label" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.auth_mode')}</div>
                     <div class="flex gap-2" role="group" aria-labelledby="email-auth-mode-label">
                         <button
                             onclick={() => emailUseOAuth = true}
@@ -907,15 +907,15 @@
 
                 {#if emailUseOAuth}
                     <!-- OAuth App Credentials -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
+                    <div class="border-t border-line-soft pt-4 space-y-3">
                         <div>
-                            <h5 class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.oauth_app_credentials')}</h5>
-                            <p class="text-xs text-slate-500">{$_('settings.email.oauth_app_credentials_desc')}</p>
+                            <h5 class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.oauth_app_credentials')}</h5>
+                            <p class="text-xs text-slate-600">{$_('settings.email.oauth_app_credentials_desc')}</p>
                         </div>
                         <!-- Gmail credentials -->
                         <div class="grid grid-cols-1 gap-2">
                             <div>
-                                <label for="gmail-client-id" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_id')}</label>
+                                <label for="gmail-client-id" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.gmail_client_id')}</label>
                                 <input
                                     id="gmail-client-id"
                                     type="text"
@@ -927,7 +927,7 @@
                                 />
                             </div>
                             <div>
-                                <label for="gmail-client-secret" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_secret')}</label>
+                                <label for="gmail-client-secret" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.gmail_client_secret')}</label>
                                 <SecretInput
                                     id="gmail-client-secret"
                                     value={emailGmailClientSecret}
@@ -941,7 +941,7 @@
                         <!-- Outlook credentials -->
                         <div class="grid grid-cols-1 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                             <div>
-                                <label for="outlook-client-id" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_id')}</label>
+                                <label for="outlook-client-id" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.outlook_client_id')}</label>
                                 <input
                                     id="outlook-client-id"
                                     type="text"
@@ -953,7 +953,7 @@
                                 />
                             </div>
                             <div>
-                                <label for="outlook-client-secret" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_secret')}</label>
+                                <label for="outlook-client-secret" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.outlook_client_secret')}</label>
                                 <SecretInput
                                     id="outlook-client-secret"
                                     value={emailOutlookClientSecret}
@@ -967,7 +967,7 @@
                     </div>
 
                     <!-- OAuth Section -->
-                    <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
+                    <div class="border-t border-line-soft pt-4 space-y-3">
                         <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.oauth_desc')}</p>
                         <div class="flex gap-2">
                             <button
@@ -1039,7 +1039,7 @@
                     <!-- SMTP Section -->
                     <div class="space-y-3">
                         <div>
-                            <label for="smtp-host" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_host')}</label>
+                            <label for="smtp-host" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_host')}</label>
                             <input
                                 id="smtp-host"
                                 type="text"
@@ -1051,7 +1051,7 @@
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label for="smtp-port" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_port')}</label>
+                                <label for="smtp-port" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_port')}</label>
                                 <input
                                     id="smtp-port"
                                     type="number"
@@ -1073,7 +1073,7 @@
                             </div>
                         </div>
                         <div>
-                            <label for="smtp-username" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_username')}</label>
+                            <label for="smtp-username" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_username')}</label>
                             <input
                                 id="smtp-username"
                                 type="text"
@@ -1083,7 +1083,7 @@
                             />
                         </div>
                         <div>
-                            <label for="smtp-password" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
+                            <label for="smtp-password" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_password')}</label>
                             <SecretInput
                                 id="smtp-password"
                                 value={emailSmtpPassword}
@@ -1098,7 +1098,7 @@
                 <!-- Common Email Settings -->
                 <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
                     <div>
-                        <label for="email-from" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.from_email')}</label>
+                        <label for="email-from" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.from_email')}</label>
                         <input
                             id="email-from"
                             type="email"
@@ -1109,7 +1109,7 @@
                         />
                     </div>
                     <div>
-                        <label for="email-to" class="block text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.to_email')}</label>
+                        <label for="email-to" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.to_email')}</label>
                         <input
                             id="email-to"
                             type="email"
@@ -1146,7 +1146,7 @@
                             />
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
                         </label>
-                        <p class="mt-1 text-xs text-slate-500">{$_('settings.email.only_on_end_desc')}</p>
+                        <p class="mt-1 text-xs text-slate-600">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                 </AdvancedSection>
 
@@ -1192,7 +1192,7 @@
         onRetry={retryNotificationTest}
     >
         {#snippet summary()}
-            <span class="text-xs font-bold uppercase tracking-widest text-slate-400">{$_('settings.notifications.test_channel', { default: 'Channel' })}</span>
+            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.test_channel', { default: 'Channel' })}</span>
             <span class="font-bold text-slate-800 dark:text-slate-100">{ntChannelLabel}</span>
         {/snippet}
     </DiagnosticDialog>

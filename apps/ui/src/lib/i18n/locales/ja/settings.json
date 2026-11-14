@@ -3,7 +3,7 @@
   "subtitle": "YA-WAMFインスタンスの構成と管理",
   "load_failed": "設定を読み込めなかったため、編集用の内容は表示していません。YA-WAMF のバックエンドが動作していることを確認して、もう一度お試しください。",
   "language_selector": "言語",
-  "language_desc": "UIテキストと通知の内容を変更します。",
+  "language_desc": "この端末でのこの画面の言語です。通知メッセージは「通知」で設定した言語を使います。",
   "date_format": {
     "label": "日付形式",
     "desc": "日付の表示形式を選択します。",
@@ -230,7 +230,7 @@
     "frigate_success": "Frigate v{version} に {url} で接続しました",
     "frigate_unexpected": "Frigate が予期しないステータスを返しました",
     "frigate_error": "Frigate に接続できませんでした",
-    "mqtt_title": "MQTT 設定 (Frigate イベント)",
+    "mqtt_title": "Frigate がイベントを送るブローカーです。YA-WAMF はここで新しい検出を受け取ります。",
     "simulating": "シミュレーション中…",
     "advanced_title": "調整",
     "full_visit_advanced_title": "フル訪問クリップ（録画から）"
@@ -259,7 +259,12 @@
       "operations": "運用",
       "interface": "インターフェース"
     },
-    "beta": "ベータ機能"
+    "beta": "ベータ機能",
+    "unsaved": "未保存",
+    "skip_to_content": "設定へ移動",
+    "section_label": "設定の項目",
+    "navigation_label": "設定の項目一覧",
+    "unsaved_note": "未保存の変更があります"
   },
   "debug": {
     "title": "デバッグツール",
@@ -281,7 +286,7 @@
     "llm_prompt_chart": "グラフ解析プロンプト",
     "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
     "strict_non_finite_output": "非有限出力の厳格処理",
-    "strict_non_finite_output_desc": "有効にすると、すべて非有限値の分類器出力は拒否され、ランタイム回復が発生します。制御されたデバッグ以外では無効にしないでください。"
+    "strict_non_finite_output_desc": "モデルが計算できなかった結果を破棄してモデルを再起動するため、その結果からは何も保存されません。オフにするのはモデルのデバッグ中だけにしてください。"
   },
   "ai": {
     "usage_title": "AI使用状況",
@@ -289,13 +294,13 @@
     "total_calls": "APIリクエスト数",
     "total_tokens": "消費トークン数",
     "estimated_cost": "推定コスト",
-    "pricing_not_configured": "精度向上のため、下で料金設定を構成してください",
+    "pricing_not_configured": "正確な費用を出すには、「料金とプロンプトテンプレート」で料金を設定してください。",
     "no_usage_data": "AI使用履歴はまだありません。",
     "clear_usage": "履歴を消去",
     "clear_usage_confirm": "AI使用履歴を消去しますか？この操作は元に戻せません。",
     "clear_usage_success": "AI使用履歴を消去しました。",
     "clear_usage_error": "使用履歴の消去に失敗しました。",
-    "connection_title": "モデル設定",
+    "connection_title": "AI プロバイダー",
     "provider_info_title": "クラウドAIプロバイダー",
     "provider_info_desc": "YA-WAMFは行動分析と自然言語インタラクションのためにクラウドLLMを使用します。各プロバイダーのAPIキーが必要です。",
     "prompts_title": "プロンプトテンプレート",
@@ -336,7 +341,7 @@
   "integrations": {
     "birdnet": {
       "title": "BirdNET-Go",
-      "toggle_label": "BirdNET-Go 連携の切り替え",
+      "toggle_label": "BirdNET-Go が聞いた鳴き声をカメラの訪問と照合し、音で訪問を確認できるようにします。",
       "internal_url_label": "BirdNET-Go 内部 URL",
       "internal_url_help": "スペクトログラム背景の取得にバックエンドだけが使う URL です。Docker ネットワーク上のアドレスなどを指定します。",
       "external_url_label": "BirdNET-Go ブラウザ URL",
@@ -378,7 +383,7 @@
     },
     "inaturalist": {
       "title": "iNaturalist",
-      "toggle_label": "iNaturalist 送信を切り替える",
+      "toggle_label": "検出の記録から、観察として iNaturalist に送れるようにします。",
       "client_id": "クライアントID",
       "client_id_label": "iNaturalist クライアントID",
       "client_id_placeholder": "iNaturalist クライアントID",
@@ -407,7 +412,7 @@
     },
     "ebird": {
       "title": "eBird",
-      "toggle_label": "eBird エンリッチメントを切り替える",
+      "toggle_label": "種のページに eBird の近くの目撃情報、季節性、希少性を表示します。",
       "api_key": "API キー",
       "api_key_label": "eBird API キー",
       "api_key_placeholder": "eBird API キー",
@@ -428,13 +433,13 @@
       "export_range_help": "両方を空欄のままにするとすべての検出をエクスポートできます。期間を指定する場合は開始日と終了日を含む範囲になります。",
       "export_range_error": "開始日は終了日以前である必要があります。",
       "export_everything": "すべてエクスポート",
-      "export_everything_label": "eBird CSV の全エクスポートを切り替え",
+      "export_everything_label": "日付範囲だけでなく、すべての検出を書き出す",
       "export_everything_help": "これを有効にすると、すべての検出をエクスポートし、日付範囲を無効にします。",
       "advanced_title": "ホットスポット検索の既定値"
     },
     "birdweather": {
       "title": "BirdWeather",
-      "toggle_label": "BirdWeather 統合を切り替える",
+      "toggle_label": "識別された検出を BirdWeather ステーションに送ります。",
       "token": "ステーション・トークン",
       "token_label": "BirdWeather ステーション・トークン",
       "token_placeholder": "BirdWeather トークン",
@@ -498,7 +503,10 @@
     "seasonality_title": "季節性",
     "rarity_title": "希少度指標",
     "links_title": "外部リンク",
-    "disabled": "無効"
+    "disabled": "無効",
+    "needs_ebird": "表示なし: eBird の API キーが必要です",
+    "ebird_hint": "eBird を API キー付きでオンにすると、種のページに近くの目撃情報、季節性、希少性が表示されます。",
+    "open_ebird": "eBird を設定"
   },
   "auth": {
     "title": "認証",
@@ -573,7 +581,7 @@
     "dyslexia_font": "ディスレクシア対応フォント",
     "dyslexia_font_desc": "可読性の高いOpenDyslexicフォントを使用",
     "reduced_motion": "動きを減らす",
-    "reduced_motion_desc": "アニメーションと遷移を無効化",
+    "reduced_motion_desc": "アニメーションと切り替え効果を止めます。端末の「視差効果を減らす」設定も常に反映されます。",
     "live_announcements": "ライブアナウンス",
     "live_announcements_desc": "新しい検出をスクリーンリーダーで通知します。"
   },
@@ -984,7 +992,7 @@
     "resolving": "検索中…"
   },
   "danger": {
-    "title": "危険ゾーン",
+    "title": "元に戻せない操作",
     "subtitle": "破壊的な操作",
     "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュが消去され、保管済みのお気に入りがすべて削除されます。元に戻せません。",
     "reset_button": "DBとキャッシュをリセット",
@@ -1027,7 +1035,7 @@
     "naming_title": "鳥の命名スタイル",
     "naming_standard": "標準",
     "naming_standard_sub": "一般名を主表示、学名をサブ表示。",
-    "naming_hobbyist": "愛好家向け",
+    "naming_hobbyist": "学名を先に",
     "naming_hobbyist_sub": "学名を主表示、一般名をサブ表示。",
     "naming_scientific": "厳密な学名",
     "naming_scientific_sub": "学名のみ表示。一般名は非表示。",
@@ -1322,7 +1330,8 @@
     "bird_finder_recommended_failed": "最近の鳥の写真で{devices}の結果がCPUと一致しませんでした。CPUは利用可能です。",
     "bird_finder_recommended_running": "{devices}のデバイスチェック中です。チェック中もCPUは利用可能です。",
     "bird_finder_recommended_unchecked": "{devices}がこのホストでチェックに合格するまではCPUです。アクセラレーターの推奨はまだありません。",
-    "bird_finder_recommended_waiting": "{devices}の再チェック用に保存された鳥の写真を待っています。CPUは利用可能です。"
+    "bird_finder_recommended_waiting": "{devices}の再チェック用に保存された鳥の写真を待っています。CPUは利用可能です。",
+    "model_manager_card_on_disk": "このホストにあり"
   },
   "llm": {
     "title": "AI インサイト",
@@ -1343,14 +1352,15 @@
     "test_label": "AI 接続をテスト",
     "test_hint": "API キーとモデルを確認するための簡単なプロンプトを実行します。",
     "model_hint": "画像入力（ビジョン）をサポートするモデルを選択してください。テキストのみのモデルは解析に失敗します。",
-    "enabled": "AI インサイトを切り替える",
+    "enabled": "AI インサイト",
     "test_connection": "AI 接続をテスト",
     "recommended_model": "推奨: {model}",
     "get_gemini_key": "Google Gemini キーを取得 →",
     "get_openai_key": "OpenAI キーを取得 →",
     "get_claude_key": "Anthropic Claude キーを取得 →",
     "get_openrouter_key": "OpenRouter キーを取得 →",
-    "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-3.1-flash-lite)。モデル一覧は openrouter.ai/models で確認できます。"
+    "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-3.1-flash-lite)。モデル一覧は openrouter.ai/models で確認できます。",
+    "enabled_desc": "検出の記録から AI プロバイダーに説明を依頼できます。プロバイダーの API キーが必要で、リクエストごとに料金がかかります。"
   },
   "explorer_view": {
     "label": "エクスプローラーの表示",

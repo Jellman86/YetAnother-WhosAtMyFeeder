@@ -26,7 +26,7 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     expect(harness.moduleRequests('AppearanceSettings.svelte')).toBe(1);
     await expect(page.locator('#time-format-select')).toHaveValue('12h');
     await expect(page.locator('#explorer-view-select')).toHaveValue('list');
-    await expect(page.getByRole('button', { name: 'Select Hobbyist naming style' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Select Scientific name first naming style' })).toHaveAttribute('aria-pressed', 'true');
     await expect(unsaved(page)).toHaveCount(0);
 
     await page.locator('#time-format-select').selectOption('24h');
@@ -57,7 +57,7 @@ test('switching the naming style back to the saved one leaves nothing to apply',
     await openSettings(page, SAVED_APPEARANCE);
     await page.getByRole('link', { name: 'Appearance' }).click();
     const scientific = page.getByRole('button', { name: 'Select Strictly Scientific naming style' });
-    const hobbyist = page.getByRole('button', { name: 'Select Hobbyist naming style' });
+    const hobbyist = page.getByRole('button', { name: 'Select Scientific name first naming style' });
     await expect(hobbyist).toHaveAttribute('aria-pressed', 'true');
 
     await scientific.click();

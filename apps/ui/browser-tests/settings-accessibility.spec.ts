@@ -14,8 +14,8 @@ test('Accessibility loads on first open, keeps an edit across tabs and saves it 
     expect(harness.moduleRequests('AccessibilitySettings.svelte')).toBe(0);
 
     await page.getByRole('link', { name: 'Accessibility' }).click();
-    const highContrast = page.getByRole('switch', { name: 'High Contrast' });
-    const reducedMotion = page.getByRole('switch', { name: 'Reduced Motion' });
+    const highContrast = page.getByRole('switch', { name: 'High contrast' });
+    const reducedMotion = page.getByRole('switch', { name: 'Reduced motion' });
     const announcements = page.getByRole('switch', { name: 'Live announcements' });
     await expect(highContrast).toHaveAttribute('aria-checked', 'true');
     expect(harness.moduleRequests('AccessibilitySettings.svelte')).toBe(1);

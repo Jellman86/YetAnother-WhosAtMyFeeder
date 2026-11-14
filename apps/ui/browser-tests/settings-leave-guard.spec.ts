@@ -207,13 +207,13 @@ test.describe('a kept draft meets a newer saved copy', () => {
         await expect.poll(() => pathname(page)).toBe('/');
         await page.goForward();
         await expect(conflictRow(page)).toBeVisible();
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT Broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
     });
 
     test('Use the saved value keeps the value saved elsewhere and leaves nothing to save', async ({ page }) => {
         await leaveEditAndReturn(page, {}, { mqtt_server: 'mqtt.elsewhere' });
-        await conflictRow(page).getByRole('button', { name: 'Use the saved value for MQTT Broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use the saved value for MQTT broker (Connection)', exact: true }).click();
         await expect(page.locator('[data-draft-conflicts]')).toHaveCount(0);
         await expect(page.locator('[data-field-conflict]')).toHaveCount(0);
         await expect(page.locator('#mqtt-server')).toHaveValue('mqtt.elsewhere');
@@ -222,7 +222,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
 
     test('Use my change puts the edit back and Save can send it', async ({ page }) => {
         await leaveEditAndReturn(page, {}, { mqtt_server: 'mqtt.elsewhere' });
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT Broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
         await expect(page.locator('[data-draft-conflicts]')).toHaveCount(0);
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
         await expect(saveButton(page)).toBeEnabled();
@@ -246,7 +246,7 @@ test.describe('a kept draft meets a newer saved copy', () => {
         const saved: Record<string, unknown> = { mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***' };
         await leaveEditAndReturn(page, saved, { mqtt_server: 'mqtt.elsewhere' });
         await page.locator('#mqtt-password').fill('typed-again');
-        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT Broker (Connection)', exact: true }).click();
+        await conflictRow(page).getByRole('button', { name: 'Use my change for MQTT broker (Connection)', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
         await expect(page.locator('#mqtt-password')).toHaveValue('typed-again');
     });
@@ -273,7 +273,7 @@ test('reloading with unsaved changes asks the browser to confirm, and without th
 
 test('every Settings tab opens with nothing unsaved on a sparse saved copy', async ({ page }) => {
     await openOwnerShell(page);
-    const tabs = ['Connection', 'Detection', 'Integrations', 'Enrichment', 'AI', 'Notifications', 'Security', 'Beta features', 'Data', 'Appearance', 'Accessibility'];
+    const tabs = ['Connection', 'Detection', 'Integrations', 'AI', 'Notifications', 'Security', 'Beta features', 'Data', 'Appearance', 'Accessibility'];
     for (const tab of tabs) {
         await page.locator('[data-settings-navigation]').getByRole('link', { name: tab, exact: true }).click();
         await expect(page.locator('[data-settings-navigation] [aria-current="page"]')).toHaveText(tab);

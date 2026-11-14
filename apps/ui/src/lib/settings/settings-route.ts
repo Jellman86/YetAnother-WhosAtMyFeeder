@@ -1,17 +1,16 @@
-export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
+export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
 
 /** Every Settings tab, in the order the navigation lists them. */
 export const SETTINGS_TAB_ORDER: readonly SettingsTab[] = [
     'connection',
     'detection',
     'integrations',
-    'enrichment',
     'ai',
     'notifications',
     'health',
     'security',
-    'beta',
     'data',
+    'beta',
     'debug',
     'appearance',
     'accessibility'
@@ -32,6 +31,8 @@ export function settingsTabFromRoute(route: string | undefined): SettingsTab {
     if (!match) return 'connection';
     const slug = match[1];
     if (slug === 'errors') return 'health';
+    // Species information sources used to be their own tab; they are summarised in Integrations.
+    if (slug === 'enrichment') return 'integrations';
     return isSettingsTab(slug) ? slug : 'connection';
 }
 
@@ -51,6 +52,9 @@ export function canonicalSettingsPath(pathname: string, hash: string): string | 
 
     if (pathname === '/settings/errors' || pathname.startsWith('/settings/errors/')) {
         return settingsTabPath('health');
+    }
+    if (pathname === '/settings/enrichment' || pathname === '/settings/enrichment/') {
+        return settingsTabPath('integrations');
     }
 
     const match = /^\/settings\/([^/]+)\/?$/.exec(pathname);

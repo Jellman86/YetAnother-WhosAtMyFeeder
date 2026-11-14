@@ -30,9 +30,9 @@
             toggle();
         }
     }}
-    class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900
+    class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-500 dark:focus-visible:ring-offset-slate-900
            {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-           {checked ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
+           {checked ? 'bg-brand-600 dark:bg-brand-500' : 'bg-slate-500 dark:bg-slate-500'}"
 >
     <span class="sr-only">{srLabel}</span>
     <span
