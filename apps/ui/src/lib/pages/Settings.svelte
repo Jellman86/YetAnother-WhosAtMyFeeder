@@ -143,6 +143,7 @@
     const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
     const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
     const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
+    const loadTelemetrySettings = lazyComponent(() => import('../components/settings/TelemetrySettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -2779,7 +2780,7 @@
 </script>
 
 {#snippet pageTabs()}
-    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} />
+    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -2833,17 +2834,11 @@
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
                     bind:recordingClipAfterSeconds
-                    bind:telemetryEnabled
-                    bind:telemetryHealthEnabled
                     {frigateCameras}
                     {frigateCamerasFailed}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
-                    {telemetryInstallationId}
-                    {telemetryPlatform}
-                    {telemetryPayloadPreview}
-                    {versionInfo}
                     {loadCameras}
                 />
                 {/snippet}
@@ -3038,11 +3033,15 @@
                 />
                 {/snippet}
                 </LazyRoute>
-            {/if}
-
-            <!-- Enrichment Tab -->
-            {#if activeTab === 'enrichment'}
-                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
+                <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
+                <LazyRoute
+                    loader={loadEnrichmentTab}
+                    label={$_('settings.enrichment.title')}
+                    props={{
+                        ...enrichmentDraft,
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')
+                    }}
+                />
             {/if}
 
             <!-- AI Tab -->
@@ -3170,6 +3169,18 @@
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
+                />
+                {/snippet}
+                </LazyRoute>
+                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
+                {#snippet content(TelemetrySettings)}
+                <TelemetrySettings
+                    bind:telemetryEnabled
+                    bind:telemetryHealthEnabled
+                    {telemetryInstallationId}
+                    {telemetryPlatform}
+                    {telemetryPayloadPreview}
+                    {versionInfo}
                 />
                 {/snippet}
                 </LazyRoute>

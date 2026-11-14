@@ -33,13 +33,17 @@ const matrix = {
 };
 
 async function selectSettingsSection(page: Page, name: 'Connection' | 'Detection') {
-    const mobileNavigation = page.getByRole('combobox', { name: 'Settings', exact: true });
+    const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
     await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
     if (await mobileNavigation.isVisible()) {
         await mobileNavigation.selectOption({ label: name });
     } else {
         await page.getByRole('link', { name, exact: true }).click();
     }
+    if (name !== 'Detection') return;
+    // Hardware starts closed; these tests read the provider and runtime report inside it.
+    const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
+    if ((await hardware.getAttribute('aria-expanded')) === 'false') await hardware.click();
 }
 
 async function openDetectionWithCompatibilityRun(

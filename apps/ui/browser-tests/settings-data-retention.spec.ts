@@ -96,7 +96,7 @@ test('a longer window asks nothing and shows no deletion note', async ({ page })
 
 test('Purge Old Records says why it is unavailable while history is kept forever', async ({ page }) => {
     await openDataSettings(page, 0);
-    const purge = page.getByRole('button', { name: 'Purge Old Records' });
+    const purge = page.getByRole('button', { name: 'Purge old records' });
     await expect(purge).toBeDisabled();
     await expect(purge).toHaveAccessibleDescription('Nothing to purge: history is kept forever.');
 
@@ -112,11 +112,11 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 
-test('the Danger Zone puts each consequence beside its own button', async ({ page }, testInfo) => {
+test('the irreversible actions put each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
-    await page.getByRole('button', { name: /Danger Zone/ }).click();
-    await expect(page.getByRole('button', { name: 'Clear Personalization Data' })).toHaveAccessibleDescription(/does not delete detections or media/);
-    await expect(page.getByRole('button', { name: 'Delete All Favorites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
-    await expect(page.getByRole('button', { name: 'Reset Database & Cache' })).toHaveAccessibleDescription(/permanently delete ALL detections/);
+    await page.getByRole('button', { name: /Actions that cannot be undone/ }).click();
+    await expect(page.getByRole('button', { name: 'Clear personalization Data' })).toHaveAccessibleDescription(/does not delete detections or media/);
+    await expect(page.getByRole('button', { name: 'Delete all favorites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
+    await expect(page.getByRole('button', { name: 'Reset database & cache' })).toHaveAccessibleDescription(/permanently delete ALL detections/);
     await page.locator('[data-danger-actions]').screenshot({ path: testInfo.outputPath('danger-zone.png') });
 });

@@ -59,7 +59,7 @@
         oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
         class="w-full px-4 py-3 pr-24 rounded-2xl border font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-hidden transition-all
                {effectivelySaved
-                 ? 'border-slate-200 dark:border-slate-700/60 bg-slate-100/70 dark:bg-slate-800/60 text-slate-500 dark:text-slate-400 placeholder-slate-400 dark:placeholder-slate-500'
+                 ? 'border-slate-200 dark:border-slate-700/60 bg-slate-100/70 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 placeholder-slate-400 dark:placeholder-slate-500'
                  : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white placeholder-slate-400'}"
     />
     {#if effectivelySaved}

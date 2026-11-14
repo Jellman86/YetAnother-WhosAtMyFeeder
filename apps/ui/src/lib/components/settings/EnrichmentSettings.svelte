@@ -2,6 +2,8 @@
     import { _ } from 'svelte-i18n';
     import SettingsCard from './_primitives/SettingsCard.svelte';
 
+    // A read-only summary: the sources follow from the integrations above it, so it has no
+    // controls of its own. A save still sends the stored choice so it is never dropped.
     let {
         enrichmentMode = 'per_enrichment',
         enrichmentSingleProvider = 'wikipedia',
@@ -11,6 +13,7 @@
         enrichmentSeasonalitySource = 'disabled',
         enrichmentRaritySource = 'disabled',
         enrichmentLinksSources = ['wikipedia', 'inaturalist'],
+        onOpenEbird
     }: {
         enrichmentMode: 'single' | 'per_enrichment';
         enrichmentSingleProvider: string;
@@ -20,66 +23,62 @@
         enrichmentSeasonalitySource: string;
         enrichmentRaritySource: string;
         enrichmentLinksSources: string[];
+        /** Moves to the eBird settings, which turn on the sources that need eBird. */
+        onOpenEbird?: () => void;
     } = $props();
 
     const formatProvider = (value: string) => {
         const normalized = (value || '').toLowerCase();
-        if (normalized === 'disabled') return $_('settings.enrichment.disabled');
         if (normalized === 'ebird') return 'eBird';
         if (normalized === 'inaturalist') return 'iNaturalist';
         if (normalized === 'wikipedia') return 'Wikipedia';
         return value;
     };
 
-    const tiles: { titleKey: string; value: string }[] = $derived([
-        { titleKey: 'settings.enrichment.summary_title', value: enrichmentSummarySource },
-        { titleKey: 'settings.enrichment.taxonomy_title', value: enrichmentTaxonomySource },
-        { titleKey: 'settings.enrichment.sightings_title', value: enrichmentSightingsSource },
-        { titleKey: 'settings.enrichment.seasonality_title', value: enrichmentSeasonalitySource },
-        { titleKey: 'settings.enrichment.rarity_title', value: enrichmentRaritySource }
+    // Nearby sightings, seasonality and rarity come from eBird; without it they have no source.
+    const rows: { titleKey: string; value: string; needsEbird: boolean }[] = $derived([
+        { titleKey: 'settings.enrichment.summary_title', value: enrichmentMode === 'single' ? enrichmentSingleProvider : enrichmentSummarySource, needsEbird: false },
+        { titleKey: 'settings.enrichment.taxonomy_title', value: enrichmentTaxonomySource, needsEbird: false },
+        { titleKey: 'settings.enrichment.sightings_title', value: enrichmentSightingsSource, needsEbird: true },
+        { titleKey: 'settings.enrichment.seasonality_title', value: enrichmentSeasonalitySource, needsEbird: true },
+        { titleKey: 'settings.enrichment.rarity_title', value: enrichmentRaritySource, needsEbird: true }
     ]);
+    const missingEbird = $derived(rows.some((row) => row.needsEbird && row.value.toLowerCase() === 'disabled'));
 </script>
 
-{#snippet enrichmentIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.4 4.1 4.1 1.4-4.1 1.4L12 14l-1.4-4.1-4.1-1.4 4.1-1.4L12 3Zm6.5 11 .7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1Z" /></svg>
-{/snippet}
-
 <SettingsCard
-    accent
-    iconSnippet={enrichmentIcon}
     title={$_('settings.enrichment.title')}
     description={$_('settings.enrichment.desc')}
 >
-    <div class="divide-y divide-slate-200/70 dark:divide-slate-700/60">
-        {#each tiles as tile}
-            <div class="flex items-center justify-between gap-4 py-3 first:pt-0">
-                <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
-                    {$_(tile.titleKey)}
-                </p>
-                <p class="text-sm font-bold text-slate-900 dark:text-white">{formatProvider(tile.value)}</p>
+    <dl class="divide-y divide-line-soft" data-enrichment-summary>
+        {#each rows as row (row.titleKey)}
+            {@const off = row.value.toLowerCase() === 'disabled'}
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3 first:pt-0">
+                <dt class="text-sm font-semibold text-slate-900 dark:text-white">{$_(row.titleKey)}</dt>
+                <dd class="text-sm text-slate-700 dark:text-slate-200">
+                    {#if off && row.needsEbird}
+                        {$_('settings.enrichment.needs_ebird', { default: 'Not shown: needs an eBird API key' })}
+                    {:else if off}
+                        {$_('settings.enrichment.disabled')}
+                    {:else}
+                        {formatProvider(row.value)}
+                    {/if}
+                </dd>
             </div>
         {/each}
-        <div class="flex items-center justify-between gap-4 py-3">
-            <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
-                {$_('settings.enrichment.links_title')}
-            </p>
-            <div class="flex flex-wrap justify-end gap-2 text-xs font-semibold text-slate-700 dark:text-slate-200">
-                {#each enrichmentLinksSources as source}
-                    <span class="rounded-full border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-800">
-                        {formatProvider(source)}
-                    </span>
-                {/each}
-            </div>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
+            <dt class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.enrichment.links_title')}</dt>
+            <dd class="text-sm text-slate-700 dark:text-slate-200">{enrichmentLinksSources.map(formatProvider).join(', ')}</dd>
         </div>
-    </div>
-
-    <div class="border-t border-slate-200/70 pt-4 text-sm text-slate-600 dark:border-slate-700/60 dark:text-slate-300">
-        {#if enrichmentMode === 'single'}
-            <strong class="text-slate-700 dark:text-slate-100">{$_('settings.enrichment.mode_single')}:</strong>
-            <span class="ml-2">{formatProvider(enrichmentSingleProvider)}</span>
-        {:else}
-            <strong class="text-slate-700 dark:text-slate-100">{$_('settings.enrichment.mode_per')}:</strong>
-            <span class="ml-2">{$_('settings.enrichment.desc')}</span>
-        {/if}
-    </div>
+    </dl>
+    {#if missingEbird && onOpenEbird}
+        <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line-soft pt-4">
+            <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-300">
+                {$_('settings.enrichment.ebird_hint', { default: 'Nearby sightings, seasonality and rarity appear on species pages once eBird is on with an API key.' })}
+            </p>
+            <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={onOpenEbird}>
+                {$_('settings.enrichment.open_ebird', { default: 'Set up eBird' })}
+            </button>
+        </div>
+    {/if}
 </SettingsCard>

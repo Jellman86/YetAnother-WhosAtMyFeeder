@@ -35,12 +35,12 @@ for (const width of [1280, 390]) {
             return route.fulfill({ json: {} });
         });
         await page.goto('/browser-tests/settings-backfill.html');
-        if (width < 768) await page.getByRole('combobox', { name: 'Settings', exact: true }).selectOption('detection');
+        if (width < 1024) await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption('detection');
         else await page.getByRole('link', { name: 'Detection', exact: true }).click();
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toHaveValue('0.6');
         await slider.fill('0.75');
-        const location = page.getByRole('link', { name: 'Open Location settings', exact: true });
+        const location = page.getByRole('link', { name: 'Open location settings', exact: true });
         await expect(location).toBeVisible();
         await expect(location).toHaveAttribute('href', '/settings/integrations');
         await expect(page.getByText('Uses your feeder location', { exact: true })).toBeVisible();
@@ -50,8 +50,8 @@ for (const width of [1280, 390]) {
         const readsBeforeLink = settingsReads;
         await location.click();
         if (width < 768) {
-            await expect(page.getByRole('combobox', { name: 'Settings', exact: true })).toHaveValue('integrations');
-            await page.getByRole('combobox', { name: 'Settings', exact: true }).selectOption('detection');
+            await expect(page.getByRole('combobox', { name: 'Settings section', exact: true })).toHaveValue('integrations');
+            await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption('detection');
         } else {
             await expect(page.getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('aria-current', 'page');
             await page.getByRole('link', { name: 'Detection', exact: true }).click();
