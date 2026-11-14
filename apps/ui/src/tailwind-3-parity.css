@@ -8,12 +8,12 @@
   *,
   ::after,
   ::before {
-    border-color: var(--color-gray-200);
+    border-color: #e5e7eb;
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: var(--color-gray-400);
+    color: #9ca3af;
   }
 
   button,
@@ -174,7 +174,7 @@
   }
 
   :where(& > :not(:last-child)):not(_) {
-    border-color: var(--color-gray-200);
+    border-color: #e5e7eb;
   }
 }
 

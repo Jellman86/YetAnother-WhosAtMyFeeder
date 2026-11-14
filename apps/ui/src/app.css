@@ -1,9 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
 
-/* Classes are read from the app source only, never from tests, fixtures or documentation. */
+/* Classes are read from the app source only, never from tests, fixtures or documentation.
+   Unit tests quote class names in their assertions, retired ones included, so they are left out. */
 @import 'tailwindcss' source(none);
 @import './tailwind-3-parity.css';
 @source './**/*.{html,js,svelte,ts}';
+@source not './**/*.test.ts';
 
 /* Dark mode is the `dark` class on <html>, set before first paint in index.html. The selector is
    the one this app has always shipped, so a dark utility keeps the weight it had against a hover
@@ -68,11 +70,8 @@
     100% { background-position: 200% 0; }
   }
 
-  /* The palette is closed: only the families below exist, in the sRGB values the app was drawn
-     with, so a colour reads the same on every display. */
+  /* The palette is closed: only the colours named here and in the fixed palette below exist. */
   --color-*: initial;
-  --color-black: #000;
-  --color-white: #fff;
 
   /* Primary accent, driven by the active colour theme through the variables further down
      (classic = teal, bluetit = blue). */
@@ -103,15 +102,25 @@
   --color-attention-600: rgb(var(--attention-600)); --color-attention-700: rgb(var(--attention-700)); --color-attention-800: rgb(var(--attention-800));
   --color-attention-900: rgb(var(--attention-900)); --color-attention-950: rgb(var(--attention-950));
 
-  /* Page ground for full-screen states (the setup wizard, the backend status screen). */
-  --color-surface-light: #f8fafc;
-  --color-surface-dark: #030712;
   /* Panels and the fills inside them; set per mode and theme below. */
   --color-surface: rgb(var(--surface));
   --color-surface-raised: rgb(var(--surface-raised));
   /* Rules: `line` edges controls, `line-soft` separates rows and panels. */
   --color-line: rgb(var(--line));
   --color-line-soft: rgb(var(--line-soft));
+}
+
+/* The fixed palette, in the sRGB values the app was drawn with, so a colour reads the same on
+   every display. These never change at run time, so they are written into each utility as
+   literals (`inline`) instead of being read through a variable: a utility with an opacity then
+   needs one declaration, not a fallback and a `color-mix()` pair. */
+@theme inline {
+  --color-black: #000;
+  --color-white: #fff;
+
+  /* Page ground for full-screen states (the setup wizard, the backend status screen). */
+  --color-surface-light: #f8fafc;
+  --color-surface-dark: #030712;
 
   --color-slate-50: #f8fafc; --color-slate-100: #f1f5f9; --color-slate-200: #e2e8f0; --color-slate-300: #cbd5e1;
   --color-slate-400: #94a3b8; --color-slate-500: #64748b; --color-slate-600: #475569; --color-slate-700: #334155;
