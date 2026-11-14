@@ -1633,7 +1633,9 @@
     "refused": "Rien n’a été enregistré. Corrigez les valeurs signalées, puis enregistrez à nouveau.",
     "refused_reason": "Rien n’a été enregistré : {reason}",
     "failed": "Rien n’a été enregistré, car YA-WAMF n’a pas pu stocker les paramètres. Vérifiez que le backend fonctionne, puis choisissez à nouveau Enregistrer les modifications.",
-    "other_field": "Un autre paramètre"
+    "other_field": "Un autre paramètre",
+    "restored": "Vous êtes parti avec des modifications non enregistrées. Elles sont toujours là.",
+    "retype_secrets": "Saisissez à nouveau {fields} : les secrets ne sont pas conservés quand vous quittez les paramètres."
   },
   "leave": {
     "title": "Quitter sans enregistrer ?",
@@ -1653,5 +1655,23 @@
     "refused": "Non accepté : {reason}. Modifiez la valeur et enregistrez à nouveau.",
     "out_of_range": "Saisissez une valeur de {min} à {max}.",
     "out_of_range_percent": "Saisissez une valeur de {min} % à {max} %."
+  },
+  "secret_fields": {
+    "mqtt_password": "Mot de passe MQTT",
+    "auth_password": "Mot de passe de connexion",
+    "birdweather_station_token": "Jeton de station BirdWeather",
+    "ha_weather_access_token": "Jeton d’accès Home Assistant",
+    "ebird_api_key": "Clé d’API eBird",
+    "inaturalist_client_id": "ID client iNaturalist",
+    "inaturalist_client_secret": "Secret client iNaturalist",
+    "llm_api_key": "Clé d’API du fournisseur d’IA",
+    "notifications_discord_webhook_url": "URL du webhook Discord",
+    "notifications_pushover_user_key": "Clé utilisateur Pushover",
+    "notifications_pushover_api_token": "Jeton d’API Pushover",
+    "notifications_telegram_bot_token": "Jeton du bot Telegram",
+    "notifications_telegram_chat_id": "ID du chat Telegram",
+    "notifications_email_gmail_client_secret": "Secret client Gmail",
+    "notifications_email_outlook_client_secret": "Secret client Outlook",
+    "notifications_email_smtp_password": "Mot de passe SMTP"
   }
 }

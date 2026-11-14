@@ -1633,7 +1633,9 @@
     "refused": "No se ha guardado nada. Corrija los valores marcados y vuelva a guardar.",
     "refused_reason": "No se ha guardado nada: {reason}",
     "failed": "No se ha guardado nada porque YA-WAMF no pudo almacenar los ajustes. Compruebe que el backend está en marcha y vuelva a pulsar Guardar cambios.",
-    "other_field": "Otro ajuste"
+    "other_field": "Otro ajuste",
+    "restored": "Salió con cambios sin guardar. Siguen aquí.",
+    "retype_secrets": "Vuelva a escribir {fields}: los secretos no se conservan al salir de Ajustes."
   },
   "leave": {
     "title": "¿Salir sin guardar?",
@@ -1653,5 +1655,23 @@
     "refused": "No aceptado: {reason}. Cambie el valor y vuelva a guardar.",
     "out_of_range": "Introduzca un valor entre {min} y {max}.",
     "out_of_range_percent": "Introduzca un valor entre {min} % y {max} %."
+  },
+  "secret_fields": {
+    "mqtt_password": "Contraseña de MQTT",
+    "auth_password": "Contraseña de inicio de sesión",
+    "birdweather_station_token": "Token de estación de BirdWeather",
+    "ha_weather_access_token": "Token de acceso de Home Assistant",
+    "ebird_api_key": "Clave de API de eBird",
+    "inaturalist_client_id": "ID de cliente de iNaturalist",
+    "inaturalist_client_secret": "Secreto de cliente de iNaturalist",
+    "llm_api_key": "Clave de API del proveedor de IA",
+    "notifications_discord_webhook_url": "URL del webhook de Discord",
+    "notifications_pushover_user_key": "Clave de usuario de Pushover",
+    "notifications_pushover_api_token": "Token de API de Pushover",
+    "notifications_telegram_bot_token": "Token del bot de Telegram",
+    "notifications_telegram_chat_id": "ID del chat de Telegram",
+    "notifications_email_gmail_client_secret": "Secreto de cliente de Gmail",
+    "notifications_email_outlook_client_secret": "Secreto de cliente de Outlook",
+    "notifications_email_smtp_password": "Contraseña SMTP"
   }
 }

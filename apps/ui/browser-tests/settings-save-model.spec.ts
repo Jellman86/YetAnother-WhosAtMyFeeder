@@ -212,3 +212,39 @@ test('a stored secret still shows as stored after its field is typed in and clea
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0].mqtt_password).toBe('');
 });
+
+test('a refused value inside a collapsed section opens that section and focuses the value', async ({ page }) => {
+    const harness = await openSettings(page);
+    await tabLink(page, 'Beta features').click();
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    const naming = page.getByRole('spinbutton', { name: 'Naming threshold' });
+    await naming.fill('100');
+    const section = page.getByRole('button', { name: 'Automatic checks and naming' });
+    await expect(section).toHaveAttribute('aria-expanded', 'true');
+    await section.click();
+    await expect(section).toHaveAttribute('aria-expanded', 'false');
+    await expect(naming).toBeHidden();
+
+    await saveButton(page).click();
+    await expect(section).toHaveAttribute('aria-expanded', 'true');
+    await expect(naming).toBeVisible();
+    await expect(naming).toBeFocused();
+    expect(harness.writes).toEqual([]);
+});
+
+test('a refused value inside a collapsed Advanced section on another tab opens it and focuses the value', async ({ page }) => {
+    await openSettings(page, { recording_clip_enabled: true }, {
+        respond: (path) => path.endsWith('/frigate/recording-clip-capability')
+            ? { json: { supported: true, recordings_enabled: true, retention_days: 7, eligible_cameras: ['patio'], ineligible_cameras: {} } }
+            : undefined,
+        refuseWrite: () => ({
+            status: 422,
+            json: { detail: [{ type: 'less_than_equal', loc: ['body', 'recording_clip_before_seconds'], msg: 'Input should be less than or equal to 3600', ctx: { le: 3600 } }] }
+        })
+    });
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await tabLink(page, 'Security').click();
+    await saveButton(page).click();
+    await expect(tabLink(page, 'Connection')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#recording-clip-before')).toBeFocused();
+});

@@ -10,6 +10,7 @@
     import { _, locale } from 'svelte-i18n';
     import BetaFeatureCard from './BetaFeatureCard.svelte';
     import BetaSection from './BetaSection.svelte';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -82,7 +83,7 @@
     });
 
     // Cameras and naming are what most visits change; the rest is set once and stays closed.
-    let sections = $state({ cameras: true, checks: true, models: false, domestic: false, alerts: false, outcomes: false });
+    const modelsSection = useDisclosure(() => ({ id: 'garden-section-models' }));
 
     const collectingMotion = $derived(gardenMotionWithinGarden(cameras, motionCameras));
     const listLocale = $derived($locale ?? 'en');
@@ -125,7 +126,7 @@
     }
 
     async function openModels(): Promise<void> {
-        sections.models = true;
+        modelsSection.open = true;
         await tick();
         const toggle = document.getElementById('garden-section-models-toggle');
         toggle?.scrollIntoView({ block: 'start' });
@@ -194,7 +195,7 @@
         {/if}
 
         <div class="divide-y divide-line-soft">
-            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} bind:open={sections.cameras}>
+            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} openByDefault>
                 <div class="flex flex-wrap items-center justify-between gap-3" data-garden-camera-summary>
                     <div class="min-w-0 flex-1 basis-56 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                         <p>
@@ -258,7 +259,7 @@
                 </SettingsRow>
             </BetaSection>
 
-            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} bind:open={sections.checks}>
+            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
                 <div class="space-y-3" data-garden-naming>
                     <SettingsRow
                         labelId="setting-garden-naming"
@@ -319,7 +320,7 @@
                 {/if}
             </BetaSection>
 
-            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })} bind:open={sections.models}>
+            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })}>
                 <GardenModelSetup motionCameras={collectingMotion} {service} />
             </BetaSection>
 
@@ -327,7 +328,6 @@
                 id="garden-section-domestic"
                 title={$_('settings.beta.garden_domestic_birds', { default: 'Domestic birds you keep' })}
                 hint={$_('settings.beta.garden_domestic_birds_count', { default: '{count, plural, =0 {None} one {# bird} other {# birds}}', values: { count: domesticBirds.length } })}
-                bind:open={sections.domestic}
             >
                 <div class="space-y-3" data-garden-domestic-birds>
                     <p id="garden-domestic-birds-help" class="text-sm text-slate-600 dark:text-slate-400">
@@ -378,7 +378,6 @@
                 id="garden-section-alerts"
                 title={$_('settings.beta.garden_section_alerts', { default: 'Alerts' })}
                 hint={notificationsEnabled ? $_('settings.beta.status_on', { default: 'On' }) : $_('settings.beta.status_off', { default: 'Off' })}
-                bind:open={sections.alerts}
             >
                 <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-summary>
                     <p class="min-w-0 flex-1 basis-56 text-sm text-slate-700 dark:text-slate-300">
@@ -394,7 +393,7 @@
                 </div>
             </BetaSection>
 
-            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })} bind:open={sections.outcomes}>
+            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}>
                 <div class="space-y-3" data-garden-outcomes>
                     <dl class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                         <div>

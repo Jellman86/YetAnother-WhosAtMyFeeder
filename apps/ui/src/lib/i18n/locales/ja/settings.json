@@ -1633,7 +1633,9 @@
     "refused": "何も保存されていません。強調表示された値を直してから、もう一度保存してください。",
     "refused_reason": "何も保存されていません: {reason}",
     "failed": "YA-WAMF が設定を保存できなかったため、何も保存されていません。バックエンドが動作していることを確認してから、もう一度「変更を保存」を選んでください。",
-    "other_field": "その他の設定"
+    "other_field": "その他の設定",
+    "restored": "未保存の変更を残したまま移動しました。変更はそのまま残っています。",
+    "retype_secrets": "{fields} をもう一度入力してください。設定を離れると、秘密の値は保持されません。"
   },
   "leave": {
     "title": "保存せずに移動しますか?",
@@ -1653,5 +1655,23 @@
     "refused": "受け付けられませんでした: {reason}。値を変えてもう一度保存してください。",
     "out_of_range": "{min} から {max} までの値を入力してください。",
     "out_of_range_percent": "{min}% から {max}% までの値を入力してください。"
+  },
+  "secret_fields": {
+    "mqtt_password": "MQTT パスワード",
+    "auth_password": "サインインのパスワード",
+    "birdweather_station_token": "BirdWeather ステーショントークン",
+    "ha_weather_access_token": "Home Assistant アクセストークン",
+    "ebird_api_key": "eBird API キー",
+    "inaturalist_client_id": "iNaturalist クライアント ID",
+    "inaturalist_client_secret": "iNaturalist クライアントシークレット",
+    "llm_api_key": "AI プロバイダーの API キー",
+    "notifications_discord_webhook_url": "Discord Webhook URL",
+    "notifications_pushover_user_key": "Pushover ユーザーキー",
+    "notifications_pushover_api_token": "Pushover API トークン",
+    "notifications_telegram_bot_token": "Telegram ボットトークン",
+    "notifications_telegram_chat_id": "Telegram チャット ID",
+    "notifications_email_gmail_client_secret": "Gmail クライアントシークレット",
+    "notifications_email_outlook_client_secret": "Outlook クライアントシークレット",
+    "notifications_email_smtp_password": "SMTP パスワード"
   }
 }

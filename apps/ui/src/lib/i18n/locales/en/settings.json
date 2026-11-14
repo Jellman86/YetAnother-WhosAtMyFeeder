@@ -1633,7 +1633,9 @@
     "refused": "Nothing was saved. Correct the highlighted values, then save again.",
     "refused_reason": "Nothing was saved: {reason}",
     "failed": "Nothing was saved because YA-WAMF did not store the settings. Check that the backend is running, then try Save changes again.",
-    "other_field": "Another setting"
+    "other_field": "Another setting",
+    "restored": "You left with unsaved changes. They're still here.",
+    "retype_secrets": "Type {fields} again: secrets are not kept when you leave Settings."
   },
   "leave": {
     "title": "Leave without saving?",
@@ -1653,5 +1655,23 @@
     "refused": "Not accepted: {reason}. Change the value and save again.",
     "out_of_range": "Enter a value from {min} to {max}.",
     "out_of_range_percent": "Enter a value from {min}% to {max}%."
+  },
+  "secret_fields": {
+    "mqtt_password": "MQTT password",
+    "auth_password": "Sign-in password",
+    "birdweather_station_token": "BirdWeather station token",
+    "ha_weather_access_token": "Home Assistant access token",
+    "ebird_api_key": "eBird API key",
+    "inaturalist_client_id": "iNaturalist client ID",
+    "inaturalist_client_secret": "iNaturalist client secret",
+    "llm_api_key": "AI provider API key",
+    "notifications_discord_webhook_url": "Discord webhook URL",
+    "notifications_pushover_user_key": "Pushover user key",
+    "notifications_pushover_api_token": "Pushover API token",
+    "notifications_telegram_bot_token": "Telegram bot token",
+    "notifications_telegram_chat_id": "Telegram chat ID",
+    "notifications_email_gmail_client_secret": "Gmail client secret",
+    "notifications_email_outlook_client_secret": "Outlook client secret",
+    "notifications_email_smtp_password": "SMTP password"
   }
 }

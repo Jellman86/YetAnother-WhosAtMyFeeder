@@ -23,6 +23,10 @@
         /** Fields the last save refused, each a button that opens it. */
         refusedFields?: Array<{ field: string; label: string }>;
         onOpenField?: (field: string) => void;
+        /** Shown when unsaved work left with the page (Back or Forward) and was put back. */
+        restoredNotice?: string | null;
+        /** Which secrets must be typed again, since they are never kept. */
+        retypeSecrets?: string | null;
         // Tab strip lives between the header and the body so it stays in
         // tab-order for keyboard users.
         tabs?: Snippet;
@@ -45,11 +49,13 @@
         saveProblem = null,
         refusedFields = [],
         onOpenField,
+        restoredNotice = null,
+        retypeSecrets = null,
         tabs,
         children
     }: Props = $props();
 
-    const showSaveBar = $derived(unsaved.count > 0 && !loading && !loadFailure);
+    const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice)) && !loading && !loadFailure);
 </script>
 
 <!-- The shell sets the width; a narrower column here sat inside the full-width header. -->
@@ -112,6 +118,13 @@
                 <!-- Two sibling regions, each announced its own way: the running count politely, a
                      save problem at once. Nesting one inside the other could announce it twice. -->
                 <div class="min-w-0 space-y-1.5">
+                    {#if restoredNotice}
+                        <p class="text-sm font-semibold text-slate-900 dark:text-white" data-restored-draft>{restoredNotice}</p>
+                        {#if retypeSecrets}
+                            <p class="text-sm text-slate-700 dark:text-slate-200" data-restored-secrets>{retypeSecrets}</p>
+                        {/if}
+                    {/if}
+                                        {#if unsaved.count > 0}
                     <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
                         <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
                             values: { count: unsaved.count },
@@ -125,6 +138,7 @@
                             >{tab.label}</button>
                         {/each}
                     </p>
+                    {/if}
                     {#if saveProblem}
                         <div class="space-y-1.5 text-sm text-red-700 dark:text-red-300" role="alert" data-save-problem>
                             <p class="flex items-start gap-1.5 font-semibold">
@@ -158,6 +172,7 @@
                     >
                         {$_('settings.save_bar.discard', { default: 'Discard changes' })}
                     </button>
+{#if unsaved.count > 0}
                     <button
                         type="button"
                         onclick={() => onSave?.()}
@@ -166,6 +181,7 @@
                     >
                         {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
                     </button>
+                    {/if}
                 </div>
             </div>
         </section>

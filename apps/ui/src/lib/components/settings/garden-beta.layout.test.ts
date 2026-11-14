@@ -49,7 +49,9 @@ describe('Garden animals is a beta feature', () => {
             .map(marker => gardenBetaSource.indexOf(marker));
         expect(order.every(index => index >= 0)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
-        expect(gardenBetaSource).toContain('let sections = $state({ cameras: true, checks: true, models: false, domestic: false, alerts: false, outcomes: false });');
+        // Cameras and checks start open; the page remembers each section's state by id for the visit.
+        expect(gardenBetaSource.match(/<BetaSection id="garden-section-(cameras|checks)"[^>]*openByDefault>/g)).toHaveLength(2);
+        expect(betaSectionSource).toContain('useDisclosure(() => ({ id, openByDefault }))');
         // A heading that is the disclosure button, hidden rather than unmounted when closed.
         expect(betaSectionSource).toMatch(/<h5>\s*<button/);
         expect(betaSectionSource).toContain('aria-expanded={open}');

@@ -1633,7 +1633,9 @@
     "refused": "Ничего не сохранено. Исправьте отмеченные значения и сохраните снова.",
     "refused_reason": "Ничего не сохранено: {reason}",
     "failed": "Ничего не сохранено: YA-WAMF не смог записать настройки. Проверьте, что бэкенд запущен, и снова нажмите «Сохранить изменения».",
-    "other_field": "Другая настройка"
+    "other_field": "Другая настройка",
+    "restored": "Вы ушли, не сохранив изменения. Они остались здесь.",
+    "retype_secrets": "Введите {fields} ещё раз: секреты не сохраняются, когда вы уходите из настроек."
   },
   "leave": {
     "title": "Уйти без сохранения?",
@@ -1653,5 +1655,23 @@
     "refused": "Не принято: {reason}. Измените значение и сохраните снова.",
     "out_of_range": "Введите значение от {min} до {max}.",
     "out_of_range_percent": "Введите значение от {min}% до {max}%."
+  },
+  "secret_fields": {
+    "mqtt_password": "Пароль MQTT",
+    "auth_password": "Пароль для входа",
+    "birdweather_station_token": "Токен станции BirdWeather",
+    "ha_weather_access_token": "Токен доступа Home Assistant",
+    "ebird_api_key": "API-ключ eBird",
+    "inaturalist_client_id": "ID клиента iNaturalist",
+    "inaturalist_client_secret": "Секрет клиента iNaturalist",
+    "llm_api_key": "API-ключ ИИ-провайдера",
+    "notifications_discord_webhook_url": "URL вебхука Discord",
+    "notifications_pushover_user_key": "Ключ пользователя Pushover",
+    "notifications_pushover_api_token": "API-токен Pushover",
+    "notifications_telegram_bot_token": "Токен бота Telegram",
+    "notifications_telegram_chat_id": "ID чата Telegram",
+    "notifications_email_gmail_client_secret": "Секрет клиента Gmail",
+    "notifications_email_outlook_client_secret": "Секрет клиента Outlook",
+    "notifications_email_smtp_password": "Пароль SMTP"
   }
 }

@@ -1,12 +1,12 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import { useDisclosure } from '../../../settings/disclosures.svelte';
 
     interface Props {
-        // Stable identifier — kept for backwards compatibility with existing
-        // callsites and for aria/test hooks. Open/closed state is no longer
-        // persisted; callsites can opt into an initially open state when work is
-        // already running inside the disclosure.
+        // Stable identifier for aria and test hooks. Inside Settings the page keeps
+        // the open state by this id for the visit (it is not stored); callsites can
+        // opt into an initially open state when work is already running inside.
         id?: string;
         title?: string;
         description?: string;
@@ -16,8 +16,8 @@
 
     let { id, title, description, openByDefault = false, children }: Props = $props();
 
-    let userOpen = $state<boolean | null>(null);
-    const open = $derived(userOpen ?? openByDefault);
+    const disclosure = useDisclosure(() => ({ id, openByDefault }));
+    const open = $derived(disclosure.open);
     const contentId = $derived(id ? `${id}-content` : undefined);
 </script>
 
@@ -26,7 +26,7 @@
         type="button"
         aria-expanded={open}
         aria-controls={contentId}
-        onclick={() => (userOpen = !open)}
+        onclick={() => disclosure.toggle()}
         class="flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
     >
         <span class="flex min-w-0 flex-wrap items-center gap-2">

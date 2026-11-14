@@ -31,6 +31,19 @@ describe('the unsaved-changes guard', () => {
         await expect(leave).resolves.toBe(true);
     });
 
+    it('tells the page when the person chose to leave, so it can drop its draft', async () => {
+        let left = 0;
+        release = unsavedChanges.hold(() => warning, () => (left += 1));
+        const stay = unsavedChanges.allowLeaving('/');
+        confirmDialog.answer(false);
+        await stay;
+        expect(left).toBe(0);
+        const leave = unsavedChanges.allowLeaving('/');
+        confirmDialog.answer(true);
+        await leave;
+        expect(left).toBe(1);
+    });
+
     it('stops asking once the page releases the guard', async () => {
         unsavedChanges.hold(() => warning)();
         await expect(unsavedChanges.allowLeaving('/')).resolves.toBe(true);

@@ -21,8 +21,10 @@ A **Debug** section appears alongside them when debug UI is enabled (see
 
 Edits wait in one draft across every tab. While anything differs from what is saved, a bar
 at the bottom of the page counts the changes and names their tabs, with **Discard changes**
-(puts every saved value back) and **Save changes**. Leaving Settings, going Back or reloading
-with unsaved changes asks first; moving between tabs keeps them. When a save is refused, nothing
+(puts every saved value back) and **Save changes**. Choosing another page, reloading or closing
+the tab with unsaved changes asks first; moving between tabs keeps them. Back and Forward are not
+held up: the unsaved changes are kept in memory and put back when you return to Settings, with a
+line saying so. Passwords and keys are never kept; that line names any you need to type again. When a save is refused, nothing
 is stored: each refused field is marked with the reason in plain words, and the bar lists them
 with a link to each. Model activation, configuration import
 and setup-wizard steps save immediately. Wizard saves refresh untouched fields in an

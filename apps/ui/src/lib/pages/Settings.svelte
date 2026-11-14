@@ -110,6 +110,8 @@
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
+    import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
+    import { draftFromForm, unsavedDraft } from '../settings/unsaved-draft';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -934,6 +936,10 @@
     );
     provideSettingsFieldErrors({ errorFor: (field) => standingErrors.find((error) => error.field === field) });
 
+    // Closable sections keep their open state here for the visit (see disclosures.svelte.ts).
+    const disclosures = new SettingsDisclosures();
+    provideSettingsDisclosures(disclosures);
+
     const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
     const unsavedTabNames = $derived(
         new Intl.ListFormat($locale || 'en', { type: 'conjunction' }).format(unsavedSummary.tabs.map(tabLabel))
@@ -951,7 +957,41 @@
             confirmLabel: $_('settings.leave.confirm', { default: 'Leave without saving' }),
             tone: 'danger'
         };
+    }, () => {
+        // Leaving was chosen over the unsaved work, so it is not kept for a return.
+        leftOnPurpose = true;
+        unsavedDraft.clear();
     }));
+
+    // Back and Forward are never held, so unsaved work leaves with the page and is kept here, in
+    // memory, for the return (see unsaved-draft.ts). Secrets are never kept: only which were edited.
+    let leftOnPurpose = false;
+    let destroyed = false;
+    let restoredDraft = $state<{ editedSecrets: string[] } | null>(null);
+    const restoredSecretNames = $derived(
+        restoredDraft && restoredDraft.editedSecrets.length > 0
+            ? new Intl.ListFormat($locale || 'en', { type: 'conjunction' }).format(
+                restoredDraft.editedSecrets.map((field) => $_(`settings.secret_fields.${field}`))
+            )
+            : null
+    );
+
+    function restoreKeptDraft(): void {
+        const saved = settingsStore.settings;
+        // A form that could not be loaded shows nothing to edit; the draft waits for a later visit.
+        if (!saved || settingsLoadFailed) return;
+        const draft = unsavedDraft.take();
+        if (!draft) return;
+        applySavedSettings({ ...saved, ...draft.values } as SettingsPayload);
+        if (Array.isArray(draft.values.blocked_labels)) blockedLabels = [...(draft.values.blocked_labels as string[])];
+        if (Array.isArray(draft.values.blocked_species)) blockedSpecies = [...(draft.values.blocked_species as BlockedSpeciesEntry[])];
+        restoredDraft = { editedSecrets: draft.editedSecrets };
+    }
+
+    function forgetKeptDraft(): void {
+        restoredDraft = null;
+        unsavedDraft.clear();
+    }
 
     // A reload or a closed tab cannot use the in-app question; the browser asks its own.
     $effect(() => {
@@ -1102,6 +1142,8 @@
                 loadVersion(),
                 loadBackfillStatus()
             ]);
+        // A quick Back can leave before the read returns; a page already gone must not take the draft.
+        if (!destroyed) restoreKeptDraft();
 
         // Taxonomy polling lifecycle for the data tab is handled by the activeTab
         // $effect below, so no need to start it explicitly here.
@@ -1210,9 +1252,17 @@
     });
 
     onDestroy(() => {
+        destroyed = true;
+        const saved = settingsStore.settings;
+        if (!leftOnPurpose && saved && (isDirty || restoredDraft)) {
+            unsavedDraft.keep(draftFromForm(
+                buildSettingsPayload() as Record<string, unknown>,
+                saved as unknown as Record<string, unknown>,
+                [...changedSettingFields, ...(restoredDraft?.editedSecrets ?? [])]
+            ));
+        }
         // The font and colour preview live outside this page; leaving without saving takes them
         // back to what is saved, as it does for every other unsaved edit.
-        const saved = settingsStore.settings;
         if (saved) {
             const { fontTheme, colorTheme } = appearanceSection.decode(saved);
             themeStore.setFontTheme(fontTheme);
@@ -2620,6 +2670,7 @@
         try {
             await updateSettings(payload);
             fieldErrors = [];
+            forgetKeptDraft();
             // Public access flags are also used outside Settings (guest gating, etc.)
             await authStore.loadStatus();
             // Sync local state to handle server-side normalization (e.g. stripped slashes)
@@ -2660,6 +2711,7 @@
         applySavedSettings(saved);
         fieldErrors = [];
         saveProblem = null;
+        forgetKeptDraft();
         // The save bar holding focus goes away; the content it described is where focus belongs.
         void tick().then(() => document.querySelector<HTMLElement>('[data-settings-content]')?.focus());
     }
@@ -2667,13 +2719,17 @@
     // Opens the tab holding a refused field and puts focus on its input once the tab has loaded.
     async function openRefusedField(field: string): Promise<void> {
         const tab = settingsFieldTab(field);
-        if (tab) handleTabChange(tab);
-        const inputId = settingsFieldPlace(field)?.inputId;
+        if (tab && tab !== activeTab) handleTabChange(tab);
+        const place = settingsFieldPlace(field);
+        // A closed section either does not render its inputs or keeps them hidden; open every
+        // section that holds this one, then wait until the input can actually take focus.
+        disclosures.reveal(place?.disclosures ?? []);
+        const inputId = place?.inputId;
         if (!inputId) return;
         for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
             await tick();
             const input = document.getElementById(inputId);
-            if (input) {
+            if (input && input.checkVisibility()) {
                 input.scrollIntoView({ block: 'center' });
                 input.focus({ preventScroll: true });
                 return;
@@ -2744,6 +2800,10 @@
         return { field: error.field, label: tab ? `${label} (${tabLabel(tab)})` : label };
     })}
     onOpenField={openRefusedField}
+    restoredNotice={restoredDraft ? $_('settings.save_bar.restored', { default: "You left with unsaved changes. They're still here." }) : null}
+    retypeSecrets={restoredSecretNames
+        ? $_('settings.save_bar.retype_secrets', { values: { fields: restoredSecretNames }, default: 'Type {fields} again: secrets are not kept when you leave Settings.' })
+        : null}
     tabs={pageTabs}
 >
     {#snippet children()}

@@ -6,10 +6,12 @@
   again if you type in it and clear it, since saving an empty field keeps it. The button is now **Save changes**
   everywhere, and the AI tab's separate **Apply style** is gone: choosing a prompt style fills the
   templates and the one Save keeps them.
-- Leaving Settings, going Back or Forward, or reloading with unsaved changes now asks first,
-  naming what would be lost. Cancelling a Back or Forward step returns to Settings without adding
-  or losing history entries, even onto an entry the app did not write; where the browser cannot
-  say which way the step went, the history is left alone and Settings stays open with your edits. Moving between Settings tabs still keeps your edits without asking.
+- Choosing another page with unsaved Settings changes now asks first, naming what would be lost,
+  and reloading or closing the tab asks too. Back and Forward are never held up: your unsaved
+  changes wait for you, and coming back to Settings puts them back with "You left with unsaved
+  changes. They're still here." Passwords and keys are never kept outside the form, so the line
+  names any you need to type again. Save or Discard clears them. Moving between Settings tabs still
+  keeps your edits without asking.
 - A refused save now says so where it matters. Nothing is stored, each refused field is marked
   with the reason in plain words (for example "Enter 65535 or less."), the first one is opened and
   focused even on another tab, and the bar lists the fields with a link to each. A server failure says nothing was saved and what to try, instead of

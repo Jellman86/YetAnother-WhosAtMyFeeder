@@ -1633,7 +1633,9 @@
     "refused": "没有保存任何内容。请更正标出的值，然后再次保存。",
     "refused_reason": "没有保存任何内容：{reason}",
     "failed": "没有保存任何内容，因为 YA-WAMF 未能存储设置。请确认后端正在运行，然后再次选择“保存更改”。",
-    "other_field": "其他设置"
+    "other_field": "其他设置",
+    "restored": "你离开时有未保存的更改，它们仍在这里。",
+    "retype_secrets": "请重新输入{fields}：离开设置时不会保留密钥。"
   },
   "leave": {
     "title": "不保存就离开？",
@@ -1653,5 +1655,23 @@
     "refused": "未被接受：{reason}。请修改该值后再次保存。",
     "out_of_range": "请输入 {min} 到 {max} 之间的值。",
     "out_of_range_percent": "请输入 {min}% 到 {max}% 之间的值。"
+  },
+  "secret_fields": {
+    "mqtt_password": "MQTT 密码",
+    "auth_password": "登录密码",
+    "birdweather_station_token": "BirdWeather 站点令牌",
+    "ha_weather_access_token": "Home Assistant 访问令牌",
+    "ebird_api_key": "eBird API 密钥",
+    "inaturalist_client_id": "iNaturalist 客户端 ID",
+    "inaturalist_client_secret": "iNaturalist 客户端密钥",
+    "llm_api_key": "AI 服务商 API 密钥",
+    "notifications_discord_webhook_url": "Discord Webhook URL",
+    "notifications_pushover_user_key": "Pushover 用户密钥",
+    "notifications_pushover_api_token": "Pushover API 令牌",
+    "notifications_telegram_bot_token": "Telegram 机器人令牌",
+    "notifications_telegram_chat_id": "Telegram 聊天 ID",
+    "notifications_email_gmail_client_secret": "Gmail 客户端密钥",
+    "notifications_email_outlook_client_secret": "Outlook 客户端密钥",
+    "notifications_email_smtp_password": "SMTP 密码"
   }
 }

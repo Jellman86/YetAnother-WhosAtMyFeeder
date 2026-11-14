@@ -1633,7 +1633,9 @@
     "refused": "Nichts wurde gespeichert. Korrigieren Sie die markierten Werte und speichern Sie erneut.",
     "refused_reason": "Nichts wurde gespeichert: {reason}",
     "failed": "Nichts wurde gespeichert, weil YA-WAMF die Einstellungen nicht ablegen konnte. Prüfen Sie, ob das Backend läuft, und wählen Sie dann erneut „Änderungen speichern“.",
-    "other_field": "Eine weitere Einstellung"
+    "other_field": "Eine weitere Einstellung",
+    "restored": "Sie haben ungespeicherte Änderungen hinterlassen. Sie sind noch da.",
+    "retype_secrets": "Geben Sie {fields} erneut ein: Geheimnisse werden beim Verlassen der Einstellungen nicht aufbewahrt."
   },
   "leave": {
     "title": "Ohne Speichern verlassen?",
@@ -1653,5 +1655,23 @@
     "refused": "Nicht angenommen: {reason}. Ändern Sie den Wert und speichern Sie erneut.",
     "out_of_range": "Geben Sie einen Wert von {min} bis {max} ein.",
     "out_of_range_percent": "Geben Sie einen Wert von {min} % bis {max} % ein."
+  },
+  "secret_fields": {
+    "mqtt_password": "MQTT-Passwort",
+    "auth_password": "Anmeldepasswort",
+    "birdweather_station_token": "BirdWeather-Stationstoken",
+    "ha_weather_access_token": "Home-Assistant-Zugriffstoken",
+    "ebird_api_key": "eBird-API-Schlüssel",
+    "inaturalist_client_id": "iNaturalist-Client-ID",
+    "inaturalist_client_secret": "iNaturalist-Client-Secret",
+    "llm_api_key": "API-Schlüssel des KI-Anbieters",
+    "notifications_discord_webhook_url": "Discord-Webhook-URL",
+    "notifications_pushover_user_key": "Pushover-Benutzerschlüssel",
+    "notifications_pushover_api_token": "Pushover-API-Token",
+    "notifications_telegram_bot_token": "Telegram-Bot-Token",
+    "notifications_telegram_chat_id": "Telegram-Chat-ID",
+    "notifications_email_gmail_client_secret": "Gmail-Client-Secret",
+    "notifications_email_outlook_client_secret": "Outlook-Client-Secret",
+    "notifications_email_smtp_password": "SMTP-Passwort"
   }
 }
