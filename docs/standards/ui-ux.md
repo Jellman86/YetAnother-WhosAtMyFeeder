@@ -128,6 +128,21 @@ History views are working records first and analytics dashboards second:
 - [W3C — Web Content Accessibility Guidelines (WCAG) 2.2](https://www.w3.org/TR/WCAG22/) · [WCAG 2 Overview](https://www.w3.org/WAI/standards-guidelines/wcag/)
 - [Refactoring UI](https://www.refactoringui.com/) (Adam Wathan & Steve Schoger)
 
+### Styling toolchain
+
+The UI is built with Tailwind CSS 4 through `@tailwindcss/vite`; there is no `tailwind.config.js`
+or PostCSS configuration. Design tokens (breakpoints, the closed colour palette, the type scale,
+the 44px touch target) live in the `@theme` block of `apps/ui/src/app.css`, beside the kit. Classes
+are read from `apps/ui/src` only.
+
+`apps/ui/src/tailwind-3-parity.css` keeps the Tailwind 3 defaults the screens were drawn against
+(border colour, form-control resets, the sibling selectors behind `space-y-*` and `divide-*`), so
+the upgrade changed nothing on screen. Remove a block from it only together with a check of the
+screens that depend on it.
+
+Supported browsers follow from the toolchain: Chrome and Edge 111, Firefox 128 and Safari 16.4 or
+newer ([setup guide](../setup/getting-started.md#supported-browsers)).
+
 ### Dialog focus lifecycle
 
 The shared `trapFocus` utility returns focus to the connected, visible opener when a dialog

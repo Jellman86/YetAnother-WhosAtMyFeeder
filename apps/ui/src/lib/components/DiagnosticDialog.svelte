@@ -135,7 +135,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-[80] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-80 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-xs"
     role="presentation"
 >
     <div

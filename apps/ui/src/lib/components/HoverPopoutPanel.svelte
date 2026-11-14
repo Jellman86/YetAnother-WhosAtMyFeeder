@@ -28,7 +28,7 @@
         id={popout.panelId(index)}
         use:portal={popout.root?.closest<HTMLElement>('[popover]') ?? document.body}
         style="left: {popout.anchor.x}px; top: {popout.anchor.y}px;"
-        class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {popout.anchor.above
+        class="fixed z-70 w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-surface shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 {popout.anchor.above
             ? '-translate-x-1/2 -translate-y-full'
             : '-translate-x-1/2'}"
         role="tooltip"

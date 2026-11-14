@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from 'vite'
 import { composeAppVersion } from './src/lib/app/app-version.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
+import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
 import { readFileSync } from 'fs'
 import { join } from 'path'
@@ -93,7 +94,7 @@ const appVersion = composeAppVersion(baseVersion, appBranch, gitHash);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-    plugins: [svelte(), enforceInitialJavaScriptBudget(INITIAL_JAVASCRIPT_BUDGET_BYTES)],
+    plugins: [tailwindcss(), svelte(), enforceInitialJavaScriptBudget(INITIAL_JAVASCRIPT_BUDGET_BYTES)],
     define: {
         __APP_VERSION__: JSON.stringify(appVersion),
         __GIT_HASH__: JSON.stringify(gitHash),

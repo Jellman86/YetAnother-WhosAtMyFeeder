@@ -252,7 +252,7 @@
                 <span class="pipeline-flow pointer-events-none absolute inset-0" aria-hidden="true"></span>
                 {#if index > 0}
                     <span
-                        class="pipeline-arrow absolute -left-[9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-600"
+                        class="pipeline-arrow absolute left-[-9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-600"
                         aria-hidden="true"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -278,15 +278,15 @@
 
     <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-500 dark:text-slate-400">
         <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
+            <i class="h-2.5 w-2.5 rounded-xs border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
             {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}
         </span>
         <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-dashed border-slate-400 dark:border-slate-500" aria-hidden="true"></i>
+            <i class="h-2.5 w-2.5 rounded-xs border border-dashed border-slate-400 dark:border-slate-500" aria-hidden="true"></i>
             {$_('about.pipeline.legend_optional', { default: 'optional' })}
         </span>
         <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-sm border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
+            <i class="h-2.5 w-2.5 rounded-xs border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
             {$_('about.pipeline.legend_external', { default: 'your broker and browser' })}
         </span>
         <span class="sm:ml-auto">

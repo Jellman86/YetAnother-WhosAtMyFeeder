@@ -88,7 +88,7 @@
     title={$_('settings.notifications.garden.title', { default: 'Garden animals' })}
     description={$_('settings.notifications.garden.desc', { default: 'Alerts when a Garden animal is named, separate from bird alerts.' })}
 >
-    <div class="space-y-4 break-words" data-garden-notifications>
+    <div class="space-y-4 wrap-break-word" data-garden-notifications>
         <SettingsRow
             labelId="garden-notifications"
             label={$_('settings.notifications.garden.enabled', { default: 'Send Garden alerts' })}
@@ -109,7 +109,7 @@
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {#each modes as option (option.value)}
                         <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {useBirdChannels === option.value ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-900/40'}">
-                            <input class="mt-0.5 h-4 w-4 flex-shrink-0 accent-brand-600" type="radio" name="garden-notification-channel-mode"
+                            <input class="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="garden-notification-channel-mode"
                                 checked={useBirdChannels === option.value} onchange={() => (useBirdChannels = option.value)} />
                             <span class="min-w-0">
                                 <span class="block text-sm font-semibold text-slate-900 dark:text-white">{option.label}</span>

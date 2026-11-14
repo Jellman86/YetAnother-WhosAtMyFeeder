@@ -135,7 +135,7 @@ describe('filtered frame preview', () => {
     it('portals the panel out of the clipped timeline card and keeps it on screen', () => {
         expect(filteredPreviewSource).toContain("import { portal } from '../utils/portal'");
         expect(filteredPreviewSource).toContain('use:portal');
-        expect(filteredPreviewSource).toContain("class=\"fixed z-[70]");
+        expect(filteredPreviewSource).toContain("class=\"fixed z-70");
         expect(filteredPreviewSource).toContain('getBoundingClientRect()');
         expect(filteredPreviewSource).toContain("window.addEventListener('scroll', follow, true)");
         expect(filteredPreviewSource).toContain('max-w-[calc(100vw-16px)]');

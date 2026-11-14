@@ -380,7 +380,7 @@
             <div class="min-w-0">
                 <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{eyebrow}</p>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl">{leader.displayName}</h2>
+                    <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl sm:leading-10">{leader.displayName}</h2>
                     <p class="text-sm tabular-nums text-slate-600 dark:text-slate-300">
                         <span class="font-semibold text-slate-900 dark:text-white">{leader.count.toLocaleString()}</span>
                         {countLabel(leader.count)}
@@ -521,7 +521,7 @@
         id={popoutId}
         use:portal
         role="tooltip"
-        class="wall-popout fixed z-[70] rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
+        class="wall-popout fixed z-70 rounded-2xl border border-slate-200 bg-surface p-2.5 shadow-2xl dark:border-slate-700 {place.side}"
         style:left="{place.left}px"
         style:top="{place.top}px"
         style:width="{POPOUT_WIDTH}px"
@@ -539,12 +539,12 @@
                 >
                     <VisitFilm frigateEvent={open.frigateEvent} poster={getReelImageUrl(open.frigateEvent)} film={open.film} class="h-full w-full" />
                     {#if open.rank !== null}
-                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-bold tabular-nums text-white backdrop-blur-sm">
+                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-bold tabular-nums text-white backdrop-blur-xs">
                             {$_('leaderboard.wall_rank', { values: { rank: open.rank }, default: 'Rank {rank}' })}
                         </span>
                     {/if}
                     {#if open.film || open.hasClip}
-                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-semibold text-white backdrop-blur-sm">
+                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-semibold text-white backdrop-blur-xs">
                             <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" /></svg>
                             {$_('leaderboard.wall_clip', { default: 'Clip' })}
                         </span>

@@ -116,12 +116,12 @@
                     <li class="space-y-2 p-3" data-garden-model={row.role} aria-labelledby={`garden-model-${row.role}`}>
                         <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
                             <div class="min-w-0 flex-1">
-                                <p id={`garden-model-${row.role}`} class="break-words text-sm font-semibold text-slate-800 dark:text-slate-100">{modelName(row.role)}</p>
-                                <p class="break-words text-xs text-slate-600 dark:text-slate-400">{modelSource(row.role)}{#if row.sizeBytes !== null}{' · '}{formatModelSize(row.sizeBytes)}{/if}</p>
+                                <p id={`garden-model-${row.role}`} class="wrap-break-word text-sm font-semibold text-slate-800 dark:text-slate-100">{modelName(row.role)}</p>
+                                <p class="wrap-break-word text-xs text-slate-600 dark:text-slate-400">{modelSource(row.role)}{#if row.sizeBytes !== null}{' · '}{formatModelSize(row.sizeBytes)}{/if}</p>
                             </div>
                             <p class="flex max-w-full items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200" data-garden-model-state>
                                 {#if row.state === 'missing' && row.requirement === 'required'}<span class="attention-dot" aria-hidden="true"></span>{/if}
-                                <span class="min-w-0 break-words">
+                                <span class="min-w-0 wrap-break-word">
                                     {row.requirement === 'required'
                                         ? $_('settings.beta.garden_model_required', { default: 'Required' })
                                         : $_('settings.beta.garden_model_optional', { default: 'Optional' })}

@@ -119,7 +119,7 @@
 
 {#snippet ownerConfirmation()}
     <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 10 4 4 8-8" /></svg>
-    <span class="min-w-0 break-words font-medium">{$_('visits.owner_confirmed')}</span>
+    <span class="min-w-0 wrap-break-word font-medium">{$_('visits.owner_confirmed')}</span>
 {/snippet}
 
 <!-- A stretch of the thread. Captures tint it so the visit they belong to is visible at a glance. -->
@@ -147,7 +147,7 @@
         <!-- The time is the visit's handle: it opens the captures that make the visit. -->
         <button
             type="button"
-            class="-mx-1 min-h-11 self-stretch rounded-lg px-1 text-left text-xs font-medium tabular-nums {cell.time} text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 dark:hover:bg-slate-800/60 dark:hover:text-white"
+            class="-mx-1 min-h-11 self-stretch rounded-lg px-1 text-left text-xs font-medium tabular-nums {cell.time} text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 dark:hover:bg-slate-800/60 dark:hover:text-white"
             aria-expanded={expanded}
             aria-controls={listId}
             aria-label="{span}, {capturesText}"
@@ -185,14 +185,14 @@
     </span>
 
     <div class="min-w-0 {cell.body}">
-        <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {naming.primary}
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
         <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</span>
             {#if showCamera}
-                <span class="break-words" data-field-log-camera>{visit.camera}</span>
+                <span class="wrap-break-word" data-field-log-camera>{visit.camera}</span>
             {/if}
             {#if visit.needsReview}
                 <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-attention-reason>
@@ -209,7 +209,7 @@
                          target around a small pill, the negative margin keeping the line's height. -->
                     <button
                         type="button"
-                        class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-none log-wide:hidden"
+                        class="group/captures -my-3.5 inline-flex min-h-11 min-w-11 items-center rounded-full focus-visible:outline-hidden log-wide:hidden"
                         aria-expanded={expanded}
                         aria-controls={listId}
                         onclick={() => (open = !open)}
@@ -250,7 +250,7 @@
     </div>
 
     <span class="hidden flex-col items-end gap-1 log-wide:flex">
-        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
+        <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(score) } })} class="rounded-sm text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</BadgeHint>
         <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
             <span class="block h-full rounded-full {SCORE_FILL[scoreBand(score)]}" style="width: {percent(score)}%"></span>
         </span>
@@ -266,7 +266,7 @@
                  height. Its label says what it does; the count says how much it holds. -->
             <button
                 type="button"
-                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {expanded
+                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {expanded
                     ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-brand-300'}"
                 aria-expanded={expanded}
@@ -315,7 +315,7 @@
         <div class="col-[3/-1] -mt-1 min-w-0 log-wide:col-[4/-1] log-narrow:col-[2/-1]" data-field-log-footer>
             <button
                 type="button"
-                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-brand-300"
+                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-brand-300"
                 aria-label={$_('dashboard.field_log.birds_open', { values: { summary: text }, default: '{summary}, open that capture' })}
                 onclick={() => onselect?.(birds.detection)}
                 data-field-log-birds={birds.summary.counted}
@@ -369,8 +369,8 @@
                     <div class="min-w-0 py-1 {cell.body}">
                         <!-- Quieter than the visit above it: a capture is a moment of the visit. -->
                         <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
-                            <span class="block break-words text-[0.8125rem] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block break-words text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            <span class="block wrap-break-word text-[0.8125rem] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
+                            {#if captureNaming.secondary}<span class="block wrap-break-word text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
                         </button>
                         <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
                             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(captureScore)]}" data-visit-capture-score>{percent(captureScore)}%</span>
@@ -379,14 +379,14 @@
                             {/each}
                         </p>
                     </div>
-                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded text-xs font-bold tabular-nums log-wide:flex {SCORE_TEXT[scoreBand(captureScore)]}">
+                    <BadgeHint text={$_('detection.confidence_hint', { values: { score: percent(captureScore) } })} data-visit-capture-score class="hidden justify-end rounded-sm text-xs font-bold tabular-nums log-wide:flex {SCORE_TEXT[scoreBand(captureScore)]}">
                         {percent(captureScore)}%
                     </BadgeHint>
                     <span class="flex justify-end {cell.action}">
                         {#if onplay && capture.has_clip}
                             <button
                                 type="button"
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                 aria-label={$_('detection.play_video', { values: { species: `${captureNaming.primary}, ${time}` } })}
                                 onclick={() => onplay?.(capture)}
                             >
@@ -400,7 +400,7 @@
             {#if list.loading && list.captures.length === 0}
                 {#each [0, 1] as placeholder (placeholder)}
                     <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" aria-hidden="true">
-                        <span class="h-2.5 w-10 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
+                        <span class="h-2.5 w-10 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
                         {@render branch('capture')}
                         <span class="grid min-h-11 min-w-11 place-items-center {cell.photo}">
                             <span class="h-9 w-9 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>

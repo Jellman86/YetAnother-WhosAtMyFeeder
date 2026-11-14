@@ -32,7 +32,7 @@
 {#snippet toastCard(toast: Toast)}
     <!-- Pointing at or focusing a toast holds its countdown, so it never vanishes while being read. -->
     <div
-        class="toast-card pointer-events-auto w-full max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-sm"
+        class="toast-card pointer-events-auto w-full max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-xs"
         transition:fly={{ x: 300, duration: 300 }}
         role="group"
         aria-atomic="true"
@@ -46,14 +46,14 @@
     >
         <div class="toast-row flex items-center gap-3 p-4">
             <!-- Icon -->
-            <div class="flex-shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center" data-toast-icon={toast.type}>
+            <div class="shrink-0 w-6 h-6 rounded-full bg-white/20 flex items-center justify-center" data-toast-icon={toast.type}>
                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d={ICON_PATH[toast.type]} />
                 </svg>
             </div>
 
             <!-- Message -->
-            <div class="toast-message min-w-0 flex-1 break-words text-sm font-medium">
+            <div class="toast-message min-w-0 flex-1 wrap-break-word text-sm font-medium">
                 {toast.message}
             </div>
 
@@ -61,7 +61,7 @@
                 <button
                     type="button"
                     onclick={() => toastStore.runAction(toast.id)}
-                    class="inline-flex min-h-11 flex-shrink-0 items-center rounded-lg border border-white/60 px-3 text-sm font-semibold transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                    class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-white/60 px-3 text-sm font-semibold transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                     data-toast-action
                 >
                     {toast.action.label}
@@ -71,7 +71,7 @@
             <!-- Close Button -->
             <button
                 onclick={() => toastStore.remove(toast.id)}
-                class="-mr-2 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                class="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                 aria-label={$_('notifications.close_toast', { default: 'Close notification' })}
             >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -87,7 +87,7 @@
      reader is already listening when the first toast arrives. -->
 <div
     data-toast-container
-    class="toast-container z-[100] flex flex-col items-end gap-2 pointer-events-none"
+    class="toast-container z-100 flex flex-col items-end gap-2 pointer-events-none"
 >
     <div class="flex w-full flex-col items-end gap-2" role="alert" data-toast-region="errors">
         {#each errorToasts as toast (toast.id)}

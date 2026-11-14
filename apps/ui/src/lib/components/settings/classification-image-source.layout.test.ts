@@ -264,7 +264,7 @@ describe('initial classification image copy', () => {
     it('wraps long setting names in the recording note instead of clipping them', () => {
         const note = renderSetting('recording_snapshot').match(/<div\b[^>]*data-recording-frame-note[^>]*>/)?.[0] ?? '';
 
-        expect(attribute(note, 'class')?.split(/\s+/)).toContain('break-words');
+        expect(attribute(note, 'class')?.split(/\s+/)).toContain('wrap-break-word');
     });
 
     // Recording reads have a bounded retry grace after the configurable initial delay.

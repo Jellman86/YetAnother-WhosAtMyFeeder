@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import tailwindConfigSource from '../../tailwind.config.js?raw';
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
+import { readFileSync } from 'node:fs';
 import diagnosticDialogSource from './components/DiagnosticDialog.svelte?raw';
 import connectionStepSource from './components/setup/ConnectionStep.svelte?raw';
 import modelStepSource from './components/setup/ModelStep.svelte?raw';
 import reviewStepSource from './components/setup/ReviewStep.svelte?raw';
 import cameraThumbnailSource from './components/setup/CameraThumbnail.svelte?raw';
+
+const appCss = readFileSync(new URL('../app.css', import.meta.url), 'utf8');
 
 /**
  * `layout-patterns.md` §1.3 reserves amber for "this needs a person" and gives
@@ -17,9 +20,8 @@ import cameraThumbnailSource from './components/setup/CameraThumbnail.svelte?raw
  */
 describe('success is a semantic colour, not the brand accent', () => {
     it('exposes success as its own colour scale, not an alias of the brand accent', () => {
-        expect(tailwindConfigSource).toContain('success: {');
         for (const shade of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950]) {
-            expect(tailwindConfigSource).toContain(`${shade}: 'rgb(var(--success-${shade}) / <alpha-value>)'`);
+            expect(appCss).toContain(`--color-success-${shade}: rgb(var(--success-${shade}));`);
         }
     });
 

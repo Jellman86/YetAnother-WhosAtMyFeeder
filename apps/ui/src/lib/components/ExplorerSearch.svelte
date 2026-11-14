@@ -283,7 +283,7 @@
         {#if text}
             <button
                 type="button"
-                class="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:text-slate-100"
+                class="absolute right-0 top-0 inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:text-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:text-slate-100"
                 onmousedown={(event) => event.preventDefault()}
                 onclick={() => { clear(); input?.focus(); }}
                 data-explorer-search-clear
@@ -292,7 +292,7 @@
                 <span class="sr-only">{$_('events.search.clear', { default: 'Clear search' })}</span>
             </button>
         {:else}
-            <kbd class="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border border-line-soft px-1.5 text-2xs text-slate-500 sm:block dark:text-slate-400" aria-hidden="true">/</kbd>
+            <kbd class="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-sm border border-line-soft px-1.5 text-2xs text-slate-500 sm:block dark:text-slate-400" aria-hidden="true">/</kbd>
         {/if}
     </div>
 
@@ -327,14 +327,14 @@
                                 {#if option.kind === 'taxon'}
                                     {@const names = taxonNames(option.taxon)}
                                     {@const note = taxonNote(option.taxon)}
-                                    <span class="text-sm [overflow-wrap:anywhere]">{names.primary}</span>
-                                    {#if names.secondary}<span class="text-xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
+                                    <span class="text-sm wrap-anywhere">{names.primary}</span>
+                                    {#if names.secondary}<span class="text-xs italic text-slate-500 wrap-anywhere dark:text-slate-400">{names.secondary}</span>{/if}
                                     <span class="taxon-rank">{$_(`taxonomy.rank.${option.taxon.rank}`, { default: option.taxon.rank })}</span>
                                     {#if note}<span class="text-2xs text-slate-500 dark:text-slate-400">{note}</span>{/if}
                                 {:else if option.kind === 'species'}
                                     {@const names = speciesNames(option.species)}
-                                    <span class="text-sm [overflow-wrap:anywhere]">{names.primary}</span>
-                                    {#if names.secondary}<span class="text-xs italic text-slate-500 [overflow-wrap:anywhere] dark:text-slate-400">{names.secondary}</span>{/if}
+                                    <span class="text-sm wrap-anywhere">{names.primary}</span>
+                                    {#if names.secondary}<span class="text-xs italic text-slate-500 wrap-anywhere dark:text-slate-400">{names.secondary}</span>{/if}
                                     <span class="taxon-rank">{$_('taxonomy.rank.species', { default: 'Species' })}</span>
                                 {:else if option.kind === 'camera'}
                                     <span class="min-w-0 truncate text-sm">{option.camera}</span>
@@ -343,7 +343,7 @@
                                         {$_('events.search.show_day', { values: { day: formatCalendarDay(option.day) }, default: 'Show {day}' })}
                                     </span>
                                 {:else}
-                                    <span class="text-sm [overflow-wrap:anywhere]">{recordTitle(option.record)}</span>
+                                    <span class="text-sm wrap-anywhere">{recordTitle(option.record)}</span>
                                     <span class="text-xs text-slate-500 dark:text-slate-400">{recordDetail(option.record)}</span>
                                 {/if}
                             </span>

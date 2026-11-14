@@ -54,7 +54,7 @@
         <p class="text-sm">{capture.camera} · {new Date(capture.observed_at).toLocaleString()}</p>
         {#if assessment}
             <p class="text-xs">{assessment.variant} · {assessment.devices.join(', ')}</p>
-            {#if scores}<p class="text-xs break-words">{scores}</p>{/if}
+            {#if scores}<p class="text-xs wrap-break-word">{scores}</p>{/if}
         {/if}
     </div>
 {/snippet}

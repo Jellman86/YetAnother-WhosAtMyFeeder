@@ -462,7 +462,7 @@
     });
 </script>
 
-<section class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/55">
+<section class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/80 shadow-xs dark:border-slate-700/60 dark:bg-slate-900/55">
     <!-- Slim bar: the media gets the room, the flow keeps its status. -->
     <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200/80 px-5 py-3 dark:border-slate-700/60 sm:px-6" data-manual-observation-bar>
         <div class="min-w-0">
@@ -504,7 +504,7 @@
         {/if}
     </div>
 
-        <div class="min-h-[34rem] px-5 py-6 sm:px-7 sm:py-8">
+        <div class="min-h-136 px-5 py-6 sm:px-7 sm:py-8">
             {#if errorMessage}
                 <div role="alert" class="mb-5 flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
                     <svg class="mt-0.5 h-5 w-5 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 7v3m0 3h.01M8.6 3.4 2.8 14a2 2 0 0 0 1.8 3h10.8a2 2 0 0 0 1.8-3L11.4 3.4a1.6 1.6 0 0 0-2.8 0Z" /></svg>
@@ -548,7 +548,7 @@
             {:else if stage === 2}
                 <div class="mx-auto max-w-3xl">
                     <div class="grid gap-6 md:grid-cols-[minmax(0,1.1fr)_minmax(16rem,.9fr)] md:items-center">
-                        <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-video"><img src={previewUrl ?? ''} alt={$_('manual_observation.analysis.preview_alt', { default: 'Uploaded observation preview' })} class="h-full w-full object-contain" /><div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent px-4 pb-3 pt-10 text-xs font-semibold text-white/90">{draft?.original_filename}</div></div>
+                        <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-video"><img src={previewUrl ?? ''} alt={$_('manual_observation.analysis.preview_alt', { default: 'Uploaded observation preview' })} class="h-full w-full object-contain" /><div class="absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-black/75 to-transparent px-4 pb-3 pt-10 text-xs font-semibold text-white/90">{draft?.original_filename}</div></div>
                         <div>
                             <p class="text-xs font-bold uppercase tracking-[0.16em] text-brand-700 dark:text-brand-300">{draft?.media_type === 'video' ? $_('manual_observation.analysis.video', { default: 'Temporal analysis' }) : $_('manual_observation.analysis.image', { default: 'Image analysis' })}</p>
                             <h3 class="mt-2 text-xl font-bold text-slate-900 dark:text-white">{draft?.status === 'failed' ? $_('manual_observation.analysis.failed_title', { default: 'Analysis needs another try' }) : $_('manual_observation.analysis.title', { default: 'Finding the strongest evidence' })}</h3>
@@ -571,7 +571,7 @@
                 <div class="grid gap-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.85fr)]">
                     <!-- The photo stays in view while the form beside it is filled in. -->
                     <div class="xl:sticky xl:top-6 xl:self-start" data-manual-observation-evidence>
-                        <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] xl:aspect-[3/2]">
+                        <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-4/3 xl:aspect-3/2">
                             <img
                                 src={evidenceImageUrl ?? ''}
                                 alt={speciesPhotoUrl
@@ -582,7 +582,7 @@
                             />
                             {#if speciesPhotoUrl && speciesSceneUrl && selectedPrediction}
                                 {@const speciesLabel = selectedPrediction.label}
-                                <div class="absolute right-3 top-3 flex gap-1 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur" role="group" aria-label={$_('manual_observation.evidence.compare', { default: 'Compare evidence' })}>
+                                <div class="absolute right-3 top-3 flex gap-1 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur-sm" role="group" aria-label={$_('manual_observation.evidence.compare', { default: 'Compare evidence' })}>
                                     <button
                                         type="button"
                                         class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'bird' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
@@ -597,7 +597,7 @@
                                     >{$_('manual_observation.evidence.whole_frame', { default: 'Whole frame' })}</button>
                                 </div>
                             {:else}
-                                <div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">{evidenceBadge}</div>
+                                <div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">{evidenceBadge}</div>
                             {/if}
                         </div>
                         <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400" aria-live="polite">{evidenceCaption}</p>
@@ -676,7 +676,7 @@
                     </div>
                 </div>
             {:else}
-                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p>{#if speciesPhotoUrl ?? previewUrl}<figure class="mt-6 w-full max-w-xs" data-manual-observation-saved-photo><div class="aspect-[4/3] overflow-hidden rounded-xl bg-slate-950"><img src={speciesPhotoUrl ?? previewUrl ?? ''} alt="" class="h-full w-full object-contain" /></div><figcaption class="mt-2 text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.saved.photo', { values: { species: selectedSpeciesName }, default: 'The photo saved with {species}' })}</figcaption></figure>{/if}<div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
+                <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-success-100 text-success-700 ring-8 ring-success-50 dark:bg-success-900/50 dark:text-success-300 dark:ring-success-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-success-700 dark:text-success-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p>{#if speciesPhotoUrl ?? previewUrl}<figure class="mt-6 w-full max-w-xs" data-manual-observation-saved-photo><div class="aspect-4/3 overflow-hidden rounded-xl bg-slate-950"><img src={speciesPhotoUrl ?? previewUrl ?? ''} alt="" class="h-full w-full object-contain" /></div><figcaption class="mt-2 text-xs text-slate-500 dark:text-slate-400">{$_('manual_observation.saved.photo', { values: { species: selectedSpeciesName }, default: 'The photo saved with {species}' })}</figcaption></figure>{/if}<div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
             {/if}
         </div>
 </section>

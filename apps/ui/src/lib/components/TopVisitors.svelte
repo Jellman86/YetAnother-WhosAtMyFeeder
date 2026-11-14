@@ -105,7 +105,7 @@
                     <button
                         type="button"
                         onclick={() => onSpeciesClick?.(item.taxa_id ? `taxa:${item.taxa_id}` : item.species)}
-                        class="group flex min-h-12 w-full flex-wrap items-center gap-x-3 gap-y-1 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                        class="group flex min-h-12 w-full flex-wrap items-center gap-x-3 gap-y-1 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
                         aria-label={`${item.displayName}, ${$_('dashboard.top_visitors_count', { values: { count: item.visit_count ?? item.count } })}`}
                     >
                         <span class="w-4 shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" aria-hidden="true">{index + 1}</span>

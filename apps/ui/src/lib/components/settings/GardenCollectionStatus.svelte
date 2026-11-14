@@ -50,23 +50,23 @@
                 {#if identification}
                     <div class="flex flex-wrap gap-x-2" data-garden-fact="device">
                         <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_device', { default: 'Device' })}</dt>
-                        <dd class="min-w-0 break-words">{deviceText(facts.device)}</dd>
+                        <dd class="min-w-0 wrap-break-word">{deviceText(facts.device)}</dd>
                     </div>
                     <div class="flex flex-wrap gap-x-2" data-garden-fact="last_check">
                         <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_last_check', { default: 'Last check' })}</dt>
-                        <dd class="min-w-0 break-words">{facts.lastCheck ? lastCheckText(facts.lastCheck) : $_('settings.beta.garden_fact_none_yet', { default: 'None yet' })}</dd>
+                        <dd class="min-w-0 wrap-break-word">{facts.lastCheck ? lastCheckText(facts.lastCheck) : $_('settings.beta.garden_fact_none_yet', { default: 'None yet' })}</dd>
                     </div>
                     {#if identification.automatic_message}
                         <!-- The service words this itself and reports no count, so it is shown as sent. -->
                         <div class="flex flex-wrap gap-x-2" data-garden-fact="automatic">
                             <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_checks', { default: 'Automatic checks' })}</dt>
-                            <dd class="min-w-0 break-words" data-garden-automatic-status>{identification.automatic_message}</dd>
+                            <dd class="min-w-0 wrap-break-word" data-garden-automatic-status>{identification.automatic_message}</dd>
                         </div>
                     {/if}
                 {/if}
                 <div class="flex flex-wrap gap-x-2" data-garden-fact="motion">
                     <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_motion', { default: 'Motion photos' })}</dt>
-                    <dd class="min-w-0 break-words">
+                    <dd class="min-w-0 wrap-break-word">
                         {facts.motionCameras === null
                             ? $_('settings.beta.garden_fact_unreadable', { default: 'Could not be read. Refresh to try again.' })
                             : facts.motionCameras.length > 0
@@ -77,7 +77,7 @@
                 {#if identification?.saved_crops}
                     <div class="flex flex-wrap gap-x-2" data-garden-crop-storage>
                         <dt class="font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_fact_saved_crops', { default: 'Saved crops' })}</dt>
-                        <dd class="min-w-0 break-words">{$_('settings.beta.garden_fact_saved_crops_value', { default: '{count, plural, one {# crop} other {# crops}} of {limit, number}', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</dd>
+                        <dd class="min-w-0 wrap-break-word">{$_('settings.beta.garden_fact_saved_crops_value', { default: '{count, plural, one {# crop} other {# crops}} of {limit, number}', values: { count: identification.saved_crops.count, limit: identification.saved_crops.limit } })}</dd>
                     </div>
                 {/if}
             </dl>
@@ -91,10 +91,10 @@
                         <p>{$_('garden.motion_coverage', { default: 'Up to {limit} short windows queued per camera from the last {minutes} minutes. Birds and camera pressure pause collection; brief visits can be missed.', values: { limit: motion.queue_limit, minutes: motion.catchup_seconds / 60 } })}</p>
                     {/if}
                     {#if motion.queue_camera && motion.queue_checked_at}
-                        <p class="break-words">{$_('garden.motion_queue', { default: '{camera}: {count, plural, one {# window waiting} other {# windows waiting}} when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: formatDateTime(motion.queue_checked_at) } })}</p>
+                        <p class="wrap-break-word">{$_('garden.motion_queue', { default: '{camera}: {count, plural, one {# window waiting} other {# windows waiting}} when checked at {time}. More may be available at the queue limit.', values: { camera: motion.queue_camera, count: motion.queued_windows ?? 0, time: formatDateTime(motion.queue_checked_at) } })}</p>
                     {/if}
                     {#each motion.unreadable_recordings ?? [] as skipped (skipped.camera)}
-                        <p class="break-words" data-garden-motion-unreadable={skipped.camera}>{$_('garden.motion_unreadable', { default: '{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept.', values: { count: skipped.count, camera: skipped.camera } })}</p>
+                        <p class="wrap-break-word" data-garden-motion-unreadable={skipped.camera}>{$_('garden.motion_unreadable', { default: '{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept.', values: { count: skipped.count, camera: skipped.camera } })}</p>
                     {/each}
                     {#if motion.last_scan_at}<p>{$_('garden.motion_last_scan', { default: 'Last scan: {time}', values: { time: formatDateTime(motion.last_scan_at) } })}</p>{/if}
                 </div>

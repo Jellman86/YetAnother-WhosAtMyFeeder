@@ -424,7 +424,7 @@
 <svelte:window {onkeydown} />
 
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-xs sm:p-4"
     role="presentation"
     onclick={(event) => { if (event.target === event.currentTarget && !saving) onclose(); }}
 >
@@ -432,7 +432,7 @@
          the decisions on the right, and the close control floating over both. -->
     <div
         bind:this={dialog}
-        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
+        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="garden-capture-title"
@@ -442,7 +442,7 @@
     >
         <button
             type="button"
-            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/60"
             onclick={onclose}
             disabled={saving}
             aria-label={$_('common.close', { default: 'Close' })}
@@ -452,7 +452,7 @@
 
         <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
             <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
-                <div bind:clientWidth={mediaWidth} bind:clientHeight={mediaHeight} class="relative aspect-[4/3] min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
+                <div bind:clientWidth={mediaWidth} bind:clientHeight={mediaHeight} class="relative aspect-4/3 min-h-72 min-w-0 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1">
                     {#if photoUrl && !photoFailed}
                         {#key `${capture.id}:${photoUrl}`}
                             <img src={withAuthParams(photoUrl)} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
@@ -468,7 +468,7 @@
                             />
                         {/key}
                         {#if showingSavedCrop && (!capture.snapshot_url || originalFailed)}
-                            <p class="absolute bottom-3 left-3 right-3 rounded bg-black/70 p-2 text-xs text-white" data-garden-saved-crop>
+                            <p class="absolute bottom-3 left-3 right-3 rounded-sm bg-black/70 p-2 text-xs text-white" data-garden-saved-crop>
                                 {$_('garden.saved_crop_only', { default: 'Saved animal crop. The original photo is unavailable.' })}
                             </p>
                         {/if}
@@ -481,11 +481,11 @@
                             </svg>
                         {/if}
                         {#if canPeek}
-                            <button type="button" class="absolute inset-0 z-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
+                            <button type="button" class="absolute inset-0 z-20 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
                                 aria-label={$_('garden.explorer.show_whole_photo', { default: 'Show whole photo' })} aria-pressed={peek.pinned && showingWhole}
                                 onmouseenter={() => peekPhoto('enter')} onmouseleave={peek.leave}
                                 onfocus={() => peekPhoto('show')} onblur={peek.leave} onclick={() => peekPhoto('toggle')}>
-                                <span class="absolute bottom-3 left-3 right-3 rounded bg-black/70 p-2 text-xs text-white">
+                                <span class="absolute bottom-3 left-3 right-3 rounded-sm bg-black/70 p-2 text-xs text-white">
                                     {showingWhole
                                         ? $_('garden.explorer.whole_photo_hint', { default: 'Whole photo. Select again to return to the crop.' })
                                         : $_('garden.explorer.crop_photo_hint', { default: 'Animal crop. Open the whole photo for context.' })}
@@ -536,7 +536,7 @@
                             </p>
                             <div class="flex gap-2 overflow-x-auto pb-2" role="group" aria-label={$_('garden.explorer.visit_photos', { default: 'Photos in this group' })} aria-busy={groupLoading}>
                                 {#each group as item, choiceIndex (item.id)}
-                                    <button type="button" class="shrink-0 rounded border-2 p-1 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white {item.id === capture.id ? 'border-white' : 'border-transparent hover:border-white/50'}"
+                                    <button type="button" class="shrink-0 rounded-sm border-2 p-1 text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white {item.id === capture.id ? 'border-white' : 'border-transparent hover:border-white/50'}"
                                         disabled={saving || groupLoading} aria-pressed={item.id === capture.id}
                                         aria-label={$_('garden.explorer.show_photo', { default: 'Show photo {index} of {count}, {time}', values: { index: groupOffset + choiceIndex + 1, count: groupTotal, time: formatDateTime(item.observed_at) } })}
                                         data-garden-capture-choice={item.id} onclick={() => select(item)}>
@@ -655,7 +655,7 @@
                     </div>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
                         <dt class="text-slate-500 dark:text-slate-400">{$_('garden.explorer.fact_source', { default: 'Proposed by' })}</dt>
-                        <dd class="min-w-0 max-w-full break-words text-right font-medium text-slate-800 dark:text-slate-100">
+                        <dd class="min-w-0 max-w-full wrap-break-word text-right font-medium text-slate-800 dark:text-slate-100">
                             {capture.source_kind === 'motion'
                                 ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' })
                                 : $_('garden.frigate_suggested', { default: 'Frigate suggested: {label}', values: { label: capture.frigate_label } })}
@@ -695,8 +695,8 @@
                         </h4>
                         {#if speciesInfoLoading}
                             <div class="flex flex-col gap-2" aria-hidden="true">
-                                <div class="h-3 w-3/4 animate-pulse rounded bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
-                                <div class="h-3 w-full animate-pulse rounded bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
+                                <div class="h-3 w-3/4 animate-pulse rounded-sm bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
+                                <div class="h-3 w-full animate-pulse rounded-sm bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
                             </div>
                         {:else if speciesInfoError}
                             <p class="text-xs text-slate-500 dark:text-slate-400">{speciesInfoError}</p>
@@ -720,7 +720,7 @@
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
                         {#if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
-                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
                                     <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
                                     <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                 </summary>
@@ -744,12 +744,12 @@
                         {:else if capture.status === 'confirmed'}
                             {#if view.nameState === 'suggested' && view.name && !capture.owner_identification}
                                 <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-primary sm:flex-1" disabled={saving || !photoReady} onclick={() => reviewName('accept')}>
-                                    <span class="min-w-0 [overflow-wrap:anywhere]">{$_('garden.explorer.confirm_name', { default: 'Confirm {name}', values: { name: view.name } })}</span>
+                                    <span class="min-w-0 wrap-anywhere">{$_('garden.explorer.confirm_name', { default: 'Confirm {name}', values: { name: view.name } })}</span>
                                 </button>
                             {/if}
                             {#if capture.review_token}
                                 <button type="button" class="btn min-h-11 min-w-0 w-full whitespace-normal px-4 text-sm sm:w-auto btn-secondary sm:flex-1" disabled={saving} aria-expanded={editCapture === capture.id} onclick={() => { editCapture = editCapture === capture.id ? null : capture.id; }} data-garden-pick-species>
-                                    <span class="min-w-0 [overflow-wrap:anywhere]">{view.name
+                                    <span class="min-w-0 wrap-anywhere">{view.name
                                         ? $_('actions.pick_species', { default: 'Pick a different species' })
                                         : $_('garden.rename.pick', { default: 'Pick a species' })}</span>
                                 </button>
@@ -807,7 +807,7 @@
                             data-garden-entry-dismiss={entryKind}
                         >
                             <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-                            <span class="min-w-0 [overflow-wrap:anywhere]">{entryDismissLabel}</span>
+                            <span class="min-w-0 wrap-anywhere">{entryDismissLabel}</span>
                         </button>
                     </div>
                     {#if entryBlocked}

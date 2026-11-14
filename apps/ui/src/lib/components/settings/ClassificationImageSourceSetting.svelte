@@ -38,13 +38,13 @@
     {#if recordingSelected}
         <div class="mt-3 min-w-0 space-y-2">
             <label id="recording-frame-delay-label" for="recording-frame-delay" class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.frigate.recording_frame_delay', { default: 'Initial identification delay (seconds)' })}</label>
-            <p id="recording-frame-delay-desc" class="break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('settings.frigate.recording_frame_delay_desc', { default: 'Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.' })}</p>
+            <p id="recording-frame-delay-desc" class="wrap-break-word text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('settings.frigate.recording_frame_delay_desc', { default: 'Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.' })}</p>
             <input id="recording-frame-delay" class="input-base min-w-0" type="number" min="1" max="120" step="any" required bind:value={delay} aria-labelledby="recording-frame-delay-label" aria-describedby="recording-frame-delay-desc" />
         </div>
         <div
             id={recordingNoteId}
             data-recording-frame-note
-            class="mt-3 space-y-1.5 break-words text-xs leading-relaxed text-slate-600 dark:text-slate-400"
+            class="mt-3 space-y-1.5 wrap-break-word text-xs leading-relaxed text-slate-600 dark:text-slate-400"
         >
             <p>{$_('settings.frigate.classification_image_recording_cost', { default: 'Frigate decodes one recording frame for each detection, and YA-WAMF downloads and processes it.' })}</p>
             <p>{$_('settings.frigate.classification_image_recording_fallback', { default: 'Needs retained recordings and the clean snapshot copy in Frigate ({setting}). Recording frames usually become available 10 to 15 seconds later. After the selected delay, unavailable frames are normally retried for up to 18 seconds before using the detection snapshot. Smaller or differently shaped recording frames also use the snapshot.', values: { setting: CLEAN_COPY_SETTING } })}</p>

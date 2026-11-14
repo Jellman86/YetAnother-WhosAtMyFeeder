@@ -25,12 +25,12 @@
         </span>
     {:else if shown.length === 1}
         <span class="block h-full w-full overflow-hidden rounded-lg bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700">
-            <img src={shown[0]} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] [transform-origin:50%_64%]' : ''}" onerror={() => (failed = { ...failed, [shown[0]]: true })} />
+            <img src={shown[0]} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] origin-[50%_64%]' : ''}" onerror={() => (failed = { ...failed, [shown[0]]: true })} />
         </span>
     {:else}
         {#each shown as source, index (source)}
-            <span class="absolute {tile} overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700 {index === 0 ? 'left-0 top-0' : 'bottom-0 right-0 outline outline-2 outline-white dark:outline-slate-950'}">
-                <img src={source} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] [transform-origin:50%_64%]' : ''}" onerror={() => (failed = { ...failed, [source]: true })} />
+            <span class="absolute {tile} overflow-hidden rounded-md bg-slate-100 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700 {index === 0 ? 'left-0 top-0' : 'bottom-0 right-0 outline-solid outline-2 outline-white dark:outline-slate-950'}">
+                <img src={source} alt="" loading="lazy" class="h-full w-full object-cover {spectrogram ? 'scale-[1.6] origin-[50%_64%]' : ''}" onerror={() => (failed = { ...failed, [source]: true })} />
             </span>
         {/each}
     {/if}

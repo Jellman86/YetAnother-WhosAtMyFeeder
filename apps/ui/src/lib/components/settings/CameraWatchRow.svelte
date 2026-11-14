@@ -74,7 +74,7 @@
 </script>
 
 <li
-    class="space-y-3 break-words rounded-xl border p-3 {row.presence === 'missing' ? 'border-attention-500/50 bg-attention-500/10' : 'border-line-soft bg-surface-raised/40'}"
+    class="space-y-3 wrap-break-word rounded-xl border p-3 {row.presence === 'missing' ? 'border-attention-500/50 bg-attention-500/10' : 'border-line-soft bg-surface-raised/40'}"
     data-camera-watch={camera}
 >
     <div class="flex flex-wrap items-start justify-between gap-2">
@@ -93,7 +93,7 @@
         {#if row.presence !== 'missing'}
             <button
                 type="button"
-                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                 aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
                 aria-expanded={previewOpen}
                 aria-describedby={previewUnavailableId}
@@ -131,7 +131,7 @@
                     {#if checked}
                         <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg>
                     {/if}
-                    <span class="min-w-0 break-words">{option.label}</span>
+                    <span class="min-w-0 wrap-break-word">{option.label}</span>
                 </label>
             {/each}
         </div>
@@ -167,7 +167,7 @@
                         {#if checked}
                             <svg class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg>
                         {/if}
-                        <span class="min-w-0 break-words">{option.label}</span>
+                        <span class="min-w-0 wrap-break-word">{option.label}</span>
                     </label>
                 {/each}
             </div>
@@ -180,13 +180,13 @@
             <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-1 focus-within:ring-2 focus-within:ring-brand-500">
                 <input
                     type="checkbox"
-                    class="h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                    class="h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500"
                     checked={row.collectsMotion}
                     aria-label={$_('settings.beta.garden_motion_toggle', { default: 'Collect motion review photos on {camera}', values: { camera } })}
                     aria-describedby="{uid}-motion-help"
                     onchange={(event) => onmotion(event.currentTarget.checked)}
                 />
-                <span class="min-w-0 break-words text-sm font-semibold text-slate-900 dark:text-white">{$_('garden.motion_toggle', { default: 'Collect motion review photos' })}</span>
+                <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{$_('garden.motion_toggle', { default: 'Collect motion review photos' })}</span>
             </label>
             <p id="{uid}-motion-help" class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.motion_camera_help', { default: 'Optional CPU scans of retained motion footage. Needs the motion detector under Garden models; bird detection keeps its current settings.' })}</p>
         </div>

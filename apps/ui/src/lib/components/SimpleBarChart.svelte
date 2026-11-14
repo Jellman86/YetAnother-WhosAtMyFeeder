@@ -40,7 +40,7 @@
     {/if}
 
     <div
-        class="w-full rounded-sm transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-brand-400 ring-offset-1' : ''}"
+        class="w-full rounded-xs transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-brand-400 ring-offset-1' : ''}"
         class:bg-brand-500={value > 0 && hoveredIndex !== i}
         class:bg-brand-400={value > 0 && hoveredIndex === i}
         class:bg-slate-200={value === 0}

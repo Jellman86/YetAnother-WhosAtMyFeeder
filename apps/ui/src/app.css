@@ -1,8 +1,174 @@
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=Source+Serif+4:wght@400;600;700&family=Sora:wght@500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Classes are read from the app source only, never from tests, fixtures or documentation. */
+@import 'tailwindcss' source(none);
+@import './tailwind-3-parity.css';
+@source './**/*.{html,js,svelte,ts}';
+
+/* Dark mode is the `dark` class on <html>, set before first paint in index.html. The selector is
+   the one this app has always shipped, so a dark utility keeps the weight it had against a hover
+   or a breakpoint utility on the same element. */
+@custom-variant dark (&:is(.dark *));
+
+/* A hover style applies wherever the browser reports :hover, touch screens included: a tap on a
+   card still reveals what a pointer would, as it always has here. */
+@custom-variant hover (&:hover);
+
+/* The field log lays its rows out by its own width in rem, not the screen's, so a larger text
+   size on a phone, or a narrow dashboard column, gets the layout that fits. The `.field-log`
+   section in FieldLog.svelte declares the container these query. */
+@custom-variant log-wide (@container field-log (width >= 32rem));
+@custom-variant log-narrow (@container field-log (width < 16rem));
+
+@theme {
+  /* Breakpoints stay in px, so a reader's larger text size never moves a layout to its phone
+     form. 3xl is for wide desktop monitors: room for the dashboard's third column without
+     squeezing the field log. */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px;
+
+  /* The 44px touch target (h-11, min-h-11, w-11, min-w-11) grows with a larger text size
+     but never shrinks below 44px when a reader picks a smaller one. */
+  --spacing-11: max(2.75rem, 44px);
+
+  /* Small print in rem, so it follows the reader's text size and display scale
+     instead of staying fixed in pixels. Never below 11px at the default size: 10px
+     labels read as noise rather than words, above all on a large, distant display. */
+  --text-2xs: 0.75rem;
+  --text-3xs: 0.6875rem;
+
+  /* Leading in rem rather than as a ratio of the size: at a fractional root size a ratio rounds
+     a line a sixty-fourth of a pixel short, and the error adds up down a page. */
+  --text-xs--line-height: 1rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg--line-height: 1.75rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+
+  --shadow-card: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-card-dark: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+
+  --animate-fade-in: fadeIn 0.3s ease-out;
+  --animate-shimmer: shimmer 1.5s infinite;
+
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  /* The palette is closed: only the families below exist, in the sRGB values the app was drawn
+     with, so a colour reads the same on every display. */
+  --color-*: initial;
+  --color-black: #000;
+  --color-white: #fff;
+
+  /* Primary accent, driven by the active colour theme through the variables further down
+     (classic = teal, bluetit = blue). */
+  --color-brand-50: rgb(var(--brand-50)); --color-brand-100: rgb(var(--brand-100)); --color-brand-200: rgb(var(--brand-200));
+  --color-brand-300: rgb(var(--brand-300)); --color-brand-400: rgb(var(--brand-400)); --color-brand-500: rgb(var(--brand-500));
+  --color-brand-600: rgb(var(--brand-600)); --color-brand-700: rgb(var(--brand-700)); --color-brand-800: rgb(var(--brand-800));
+  --color-brand-900: rgb(var(--brand-900)); --color-brand-950: rgb(var(--brand-950));
+
+  /* Secondary accent, theme-driven (classic = emerald, bluetit = amber). */
+  --color-accent-50: rgb(var(--accent-50)); --color-accent-100: rgb(var(--accent-100)); --color-accent-200: rgb(var(--accent-200));
+  --color-accent-300: rgb(var(--accent-300)); --color-accent-400: rgb(var(--accent-400)); --color-accent-500: rgb(var(--accent-500));
+  --color-accent-600: rgb(var(--accent-600)); --color-accent-700: rgb(var(--accent-700)); --color-accent-800: rgb(var(--accent-800));
+  --color-accent-900: rgb(var(--accent-900)); --color-accent-950: rgb(var(--accent-950));
+
+  /* Semantic success, deliberately NOT theme-driven. `accent` is a brand colour and the
+     bluetit theme paints it amber, which is reserved for "needs a person"
+     (layout-patterns.md §1.3). */
+  --color-success-50: rgb(var(--success-50)); --color-success-100: rgb(var(--success-100)); --color-success-200: rgb(var(--success-200));
+  --color-success-300: rgb(var(--success-300)); --color-success-400: rgb(var(--success-400)); --color-success-500: rgb(var(--success-500));
+  --color-success-600: rgb(var(--success-600)); --color-success-700: rgb(var(--success-700)); --color-success-800: rgb(var(--success-800));
+  --color-success-900: rgb(var(--success-900)); --color-success-950: rgb(var(--success-950));
+
+  /* Semantic attention: amber for "this needs a person", in every theme. Not theme-driven for
+     the same reason as success: classic paints `accent` emerald, which read waiting work as
+     healthy (layout-patterns.md §1.3). */
+  --color-attention-50: rgb(var(--attention-50)); --color-attention-100: rgb(var(--attention-100)); --color-attention-200: rgb(var(--attention-200));
+  --color-attention-300: rgb(var(--attention-300)); --color-attention-400: rgb(var(--attention-400)); --color-attention-500: rgb(var(--attention-500));
+  --color-attention-600: rgb(var(--attention-600)); --color-attention-700: rgb(var(--attention-700)); --color-attention-800: rgb(var(--attention-800));
+  --color-attention-900: rgb(var(--attention-900)); --color-attention-950: rgb(var(--attention-950));
+
+  /* Page ground for full-screen states (the setup wizard, the backend status screen). */
+  --color-surface-light: #f8fafc;
+  --color-surface-dark: #030712;
+  /* Panels and the fills inside them; set per mode and theme below. */
+  --color-surface: rgb(var(--surface));
+  --color-surface-raised: rgb(var(--surface-raised));
+  /* Rules: `line` edges controls, `line-soft` separates rows and panels. */
+  --color-line: rgb(var(--line));
+  --color-line-soft: rgb(var(--line-soft));
+
+  --color-slate-50: #f8fafc; --color-slate-100: #f1f5f9; --color-slate-200: #e2e8f0; --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8; --color-slate-500: #64748b; --color-slate-600: #475569; --color-slate-700: #334155;
+  --color-slate-800: #1e293b; --color-slate-900: #0f172a; --color-slate-950: #020617;
+
+  --color-gray-50: #f9fafb; --color-gray-100: #f3f4f6; --color-gray-200: #e5e7eb; --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af; --color-gray-500: #6b7280; --color-gray-600: #4b5563; --color-gray-700: #374151;
+  --color-gray-800: #1f2937; --color-gray-900: #111827; --color-gray-950: #030712;
+
+  --color-red-50: #fef2f2; --color-red-100: #fee2e2; --color-red-200: #fecaca; --color-red-300: #fca5a5;
+  --color-red-400: #f87171; --color-red-500: #ef4444; --color-red-600: #dc2626; --color-red-700: #b91c1c;
+  --color-red-800: #991b1b; --color-red-900: #7f1d1d; --color-red-950: #450a0a;
+
+  --color-orange-50: #fff7ed; --color-orange-100: #ffedd5; --color-orange-200: #fed7aa; --color-orange-300: #fdba74;
+  --color-orange-400: #fb923c; --color-orange-500: #f97316; --color-orange-600: #ea580c; --color-orange-700: #c2410c;
+  --color-orange-800: #9a3412; --color-orange-900: #7c2d12; --color-orange-950: #431407;
+
+  --color-amber-50: #fffbeb; --color-amber-100: #fef3c7; --color-amber-200: #fde68a; --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24; --color-amber-500: #f59e0b; --color-amber-600: #d97706; --color-amber-700: #b45309;
+  --color-amber-800: #92400e; --color-amber-900: #78350f; --color-amber-950: #451a03;
+
+  --color-green-50: #f0fdf4; --color-green-100: #dcfce7; --color-green-200: #bbf7d0; --color-green-300: #86efac;
+  --color-green-400: #4ade80; --color-green-500: #22c55e; --color-green-600: #16a34a; --color-green-700: #15803d;
+  --color-green-800: #166534; --color-green-900: #14532d; --color-green-950: #052e16;
+
+  --color-emerald-50: #ecfdf5; --color-emerald-100: #d1fae5; --color-emerald-200: #a7f3d0; --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399; --color-emerald-500: #10b981; --color-emerald-600: #059669; --color-emerald-700: #047857;
+  --color-emerald-800: #065f46; --color-emerald-900: #064e3b; --color-emerald-950: #022c22;
+
+  --color-teal-50: #f0fdfa; --color-teal-100: #ccfbf1; --color-teal-200: #99f6e4; --color-teal-300: #5eead4;
+  --color-teal-400: #2dd4bf; --color-teal-500: #14b8a6; --color-teal-600: #0d9488; --color-teal-700: #0f766e;
+  --color-teal-800: #115e59; --color-teal-900: #134e4a; --color-teal-950: #042f2e;
+
+  --color-cyan-50: #ecfeff; --color-cyan-100: #cffafe; --color-cyan-200: #a5f3fc; --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee; --color-cyan-500: #06b6d4; --color-cyan-600: #0891b2; --color-cyan-700: #0e7490;
+  --color-cyan-800: #155e75; --color-cyan-900: #164e63; --color-cyan-950: #083344;
+
+  --color-sky-50: #f0f9ff; --color-sky-100: #e0f2fe; --color-sky-200: #bae6fd; --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8; --color-sky-500: #0ea5e9; --color-sky-600: #0284c7; --color-sky-700: #0369a1;
+  --color-sky-800: #075985; --color-sky-900: #0c4a6e; --color-sky-950: #082f49;
+
+  --color-blue-50: #eff6ff; --color-blue-100: #dbeafe; --color-blue-200: #bfdbfe; --color-blue-300: #93c5fd;
+  --color-blue-400: #60a5fa; --color-blue-500: #3b82f6; --color-blue-600: #2563eb; --color-blue-700: #1d4ed8;
+  --color-blue-800: #1e40af; --color-blue-900: #1e3a8a; --color-blue-950: #172554;
+
+  --color-indigo-50: #eef2ff; --color-indigo-100: #e0e7ff; --color-indigo-200: #c7d2fe; --color-indigo-300: #a5b4fc;
+  --color-indigo-400: #818cf8; --color-indigo-500: #6366f1; --color-indigo-600: #4f46e5; --color-indigo-700: #4338ca;
+  --color-indigo-800: #3730a3; --color-indigo-900: #312e81; --color-indigo-950: #1e1b4b;
+
+  --color-violet-50: #f5f3ff; --color-violet-100: #ede9fe; --color-violet-200: #ddd6fe; --color-violet-300: #c4b5fd;
+  --color-violet-400: #a78bfa; --color-violet-500: #8b5cf6; --color-violet-600: #7c3aed; --color-violet-700: #6d28d9;
+  --color-violet-800: #5b21b6; --color-violet-900: #4c1d95; --color-violet-950: #2e1065;
+
+  --color-rose-50: #fff1f2; --color-rose-100: #ffe4e6; --color-rose-200: #fecdd3; --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185; --color-rose-500: #f43f5e; --color-rose-600: #e11d48; --color-rose-700: #be123c;
+  --color-rose-800: #9f1239; --color-rose-900: #881337; --color-rose-950: #4c0519;
+}
 
 :root {
   --font-body: 'Instrument Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -149,178 +315,152 @@ html[data-theme='dark'] {
 }
 
 /* Focus ring styling */
-@layer utilities {
-  .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
+@utility focus-ring {
+  @apply focus:outline-hidden focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
+}
+
+/* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
+   Hierarchy comes from type and spacing, so every block need not float. */
+@utility card-base {
+  @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
+}
+
+/* A dashboard or page section: the card chrome with the section's own padding. */
+@utility panel {
+  @apply card-base p-5;
+}
+
+/* The kit. Each class is a utility, so it takes variants (sm:panel) and sits in the same layer
+   as the utilities written beside it: a later utility of equal weight overrides it, while its own
+   dark and hover styles keep the extra weight they have always had. */
+/* A small uppercase label above a heading or a group: names the window, the camera, the section. */
+@utility eyebrow {
+  @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+}
+
+/* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
+   appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
+@utility taxon-rank {
+  @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+}
+
+/* A figure set in the display face with lining, tabular digits so columns of numbers align. */
+@utility figure {
+  font-family: var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  /* Plain declarations: a text-size utility on the same element still sets its own leading. */
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Tab button styling */
+@utility tab-button {
+  @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
+  @apply transition-colors duration-200;
+}
+
+@utility tab-button-active {
+  @apply bg-surface text-brand-700 shadow-xs ring-1 ring-inset ring-line-soft dark:text-brand-300;
+}
+
+@utility tab-button-inactive {
+  @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-surface-raised;
+}
+
+/* Unified buttons */
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* A solid fill, dark enough under white text to pass AA in every theme. */
+@utility btn-primary {
+  @apply bg-brand-700 text-white hover:bg-brand-800;
+}
+
+@utility btn-secondary {
+  @apply bg-surface text-slate-700 dark:text-slate-200 border border-line;
+  @apply hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
+}
+
+@utility btn-ghost {
+  @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
+}
+
+@utility btn-danger {
+  @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
+}
+
+/* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
+@utility btn-danger-solid {
+  @apply bg-red-700 text-white hover:bg-red-800;
+}
+
+@utility btn-icon {
+  @apply min-h-11 min-w-11 p-2.5 rounded-xl;
+}
+
+/* Unified fields */
+@utility input-base {
+  @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
+  @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
+  @apply outline-hidden transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
+}
+
+/* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
+   inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+@utility input-focus-inset {
+  @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
+}
+
+@utility select-base {
+  @apply input-base pr-9 appearance-none;
+  /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 12px 12px;
+
+  .dark & {
+    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 }
 
-/* Smooth card transitions */
-@layer components {
-  /* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
-     Hierarchy comes from type and spacing, so every block need not float. */
-  .card-base {
-    @apply rounded-2xl border border-line-soft bg-surface transition-colors duration-200;
-  }
+@utility sidebar-nav {
+  @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200 focus-ring;
+}
 
-  /* A dashboard or page section: the card chrome with the section's own padding. */
-  .panel {
-    @apply card-base p-5;
-  }
+@utility sidebar-nav-active {
+  @apply bg-brand-50 font-semibold text-slate-900 dark:bg-brand-950/60 dark:text-white;
 
-  /* A small uppercase label above a heading or a group: names the window, the camera, the section. */
-  .eyebrow {
-    @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
-  }
-
-  /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
-     appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
-  .taxon-rank {
-    @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
-  }
-
-  /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
-  .figure {
-    font-family: var(--font-display);
-    font-variant-numeric: lining-nums tabular-nums;
-    @apply font-bold leading-none;
-  }
-
-  /* Tab button styling */
-  .tab-button {
-    @apply flex min-h-11 items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium focus-ring;
-    @apply transition-colors duration-200;
-  }
-
-  .tab-button-active {
-    @apply bg-surface text-brand-700 shadow-sm ring-1 ring-inset ring-line-soft dark:text-brand-300;
-  }
-
-  .tab-button-inactive {
-    @apply text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-surface-raised;
-  }
-
-  /* Unified buttons */
-  .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
-  }
-
-  /* A solid fill, dark enough under white text to pass AA in every theme. */
-  .btn-primary {
-    @apply bg-brand-700 text-white hover:bg-brand-800;
-  }
-
-  .btn-secondary {
-    @apply bg-surface text-slate-700 dark:text-slate-200 border border-line;
-    @apply hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
-
-  .btn-ghost {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
-
-  .btn-danger {
-    @apply text-red-700 dark:text-red-300 border border-red-200/70 dark:border-red-900/50 hover:bg-red-50/80 dark:hover:bg-red-950/40;
-  }
-
-  /* The widest-reaching destructive action on a screen: a solid fill that passes AA under white text. */
-  .btn-danger-solid {
-    @apply bg-red-700 text-white hover:bg-red-800;
-  }
-
-  .btn-icon {
-    @apply min-h-11 min-w-11 p-2.5 rounded-xl;
-  }
-
-  /* Unified fields */
-  .input-base {
-    @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
-    @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
-    @apply outline-none transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
-  }
-
-  /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
-     inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
-  .input-focus-inset {
-    @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
-  }
-
-  .select-base {
-    @apply input-base pr-9 appearance-none;
-    /* An image cannot inherit the text colour, so each mode names its chevron colour (slate-500, slate-400). */
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 0.75rem center;
-    background-size: 12px 12px;
-  }
-
-  .dark .select-base {
-    background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5 7l5 6 5-6' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  }
-
-  /* Navigation buttons */
-  .nav-button {
-    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring;
-  }
-
-  /* The selected route is a recessed key with a lit icon; no bar, no glow. */
-  .nav-button-active {
-    @apply bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
-
-  .nav-button-active svg {
+  & svg {
     @apply text-brand-600 dark:text-brand-400;
   }
+}
 
-  .nav-button-inactive {
-    @apply text-slate-600 dark:text-slate-300 hover:bg-surface-raised hover:text-slate-900 dark:hover:text-white;
-  }
+@utility sidebar-nav-inactive {
+  @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
+}
 
-  .sidebar-nav {
-    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200 focus-ring;
-  }
+/* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
+   recessed brand key as the selected route, with a lit check so it never reads by tint alone.
+   Never a coloured bar on one edge. */
+@utility choice-active {
+  @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
 
-  .sidebar-nav-active {
-    @apply bg-brand-50 font-semibold text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
-
-  .sidebar-nav-active svg {
+  & svg {
     @apply text-brand-600 dark:text-brand-400;
   }
+}
 
-  .sidebar-nav-inactive {
-    @apply text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white;
-  }
+/* Work that needs a person: a small amber dot set beside the reason in words. The words carry
+   the meaning; the dot lets the eye find the row. */
+@utility attention-dot {
+  @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
+}
 
-  /* A chosen row in a list of choices (the Explorer rail, the search's active result): the same
-     recessed brand key as the selected route, with a lit check so it never reads by tint alone.
-     Never a coloured bar on one edge. */
-  .choice-active {
-    @apply bg-brand-50 font-medium text-slate-900 dark:bg-brand-950/60 dark:text-white;
-  }
-
-  .choice-active svg {
-    @apply text-brand-600 dark:text-brand-400;
-  }
-
-  /* Work that needs a person: a small amber dot set beside the reason in words. The words carry
-     the meaning; the dot lets the eye find the row. */
-  .attention-dot {
-    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-attention-500;
-  }
-
-  /* Badges */
-  .badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
-  }
-
-  .badge-info {
-    @apply bg-indigo-100/80 dark:bg-indigo-900/30 border-indigo-200/70 dark:border-indigo-700/40 text-indigo-700 dark:text-indigo-300;
-  }
-
-  .badge-success {
-    @apply bg-success-100/80 dark:bg-success-900/30 border-success-200/70 dark:border-success-700/40 text-success-700 dark:text-success-300;
-  }
+/* Badges */
+@utility badge {
+  @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;
 }
 
 /* Controls speak in sentence case. Small capitals with wide tracking are for labels that name a
@@ -360,14 +500,11 @@ label.uppercase.cursor-pointer {
   animation: slideUpFade 0.5s cubic-bezier(0.215, 0.61, 0.355, 1) both;
 }
 
-@layer utilities {
+/* Pulsing status indicator */
+@utility status-pulse {
+  @apply relative;
 
-  /* Pulsing status indicator */
-  .status-pulse {
-    @apply relative;
-  }
-
-  .status-pulse::after {
+  &::after {
     content: '';
     @apply absolute inset-0 rounded-full;
     animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
@@ -629,26 +766,17 @@ html.high-contrast.high-contrast.high-contrast {
   animation: none !important;
 }
 
-/* Screen reader only - hides visually but keeps for assistive tech */
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border-width: 0;
-}
-
-.sr-only:focus {
-  position: static;
-  width: auto;
-  height: auto;
-  padding: inherit;
-  margin: inherit;
-  overflow: visible;
-  clip: auto;
-  white-space: normal;
+/* Screen reader only: Tailwind hides the element; this brings it back while it has focus, as a
+   skip link needs. A focus variant on the element (focus:not-sr-only) still overrides it. */
+@utility sr-only {
+  &:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
 }

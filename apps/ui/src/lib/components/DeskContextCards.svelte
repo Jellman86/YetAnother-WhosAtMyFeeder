@@ -114,8 +114,8 @@
             {#each ['w-20', 'w-16'] as width (width)}
                 <li class="flex h-9 items-center gap-2.5 py-2">
                     <span class="h-2 w-2 shrink-0 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                    <span class="h-3 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
-                    <span class="ml-auto h-3 w-12 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                    <span class="h-3 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                    <span class="ml-auto h-3 w-12 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
                 </li>
             {/each}
         </ul>
@@ -152,7 +152,7 @@
                     {/if}
                     <span class="ml-auto min-w-20 shrink-0 text-right tabular-nums text-slate-900 dark:text-white">
                         {#if camera.visits === null && loading}
-                            <span class="ml-auto inline-block h-3 w-12 translate-y-0.5 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                            <span class="ml-auto inline-block h-3 w-12 translate-y-0.5 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
                         {:else if camera.visits === null}
                             <span aria-hidden="true">–</span>
                             <span class="sr-only">{$_('dashboard.day_bar.unavailable', { default: 'not available' })}</span>

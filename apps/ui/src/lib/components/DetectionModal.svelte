@@ -2289,7 +2289,7 @@
 
 <div
     data-detection-detail-modal
-    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 backdrop-blur-sm sm:p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/60 p-0 backdrop-blur-xs sm:p-4"
     data-theme={isDarkMode ? 'dark' : 'light'}
     onclick={(e) => {
         if (e.target === e.currentTarget) {
@@ -2314,7 +2314,7 @@
     <div
         bind:this={modalElement}
         data-theme={isDarkMode ? 'dark' : 'light'}
-        class="relative flex max-h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
+        class="relative flex max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         role="document"
         tabindex="-1"
     >
@@ -2327,7 +2327,7 @@
         <button
             data-detection-modal-close
             onclick={onClose}
-            class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/60"
             aria-label={$_('common.close')}
         >
             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2337,7 +2337,7 @@
 
         <div class="flex-1 overflow-y-auto flex flex-col lg:overflow-hidden lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
                 <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
-                    <div class="relative min-w-0 aspect-[4/3] min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
+                    <div class="relative min-w-0 aspect-4/3 min-h-72 shrink-0 overflow-hidden bg-slate-950 sm:aspect-video lg:flex-1" data-detection-photograph>
                         {#if photographDrawnUrl}
                             <img data-detection-media-ambient src={photographDrawnUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         {/if}
@@ -2373,7 +2373,7 @@
                                  same-frame crops outlined; a click pins it and offers the one rescue that needs it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
                                 data-detection-whole-scene-peek
                                 aria-pressed={wholeScene.pinned}
                                 aria-label={wholeScene.pinned
@@ -2387,14 +2387,14 @@
                             ></button>
                             {#if wholeSceneReady && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-20 rounded-sm border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute left-0 top-0 rounded-sm bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
-                                        class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/90"
+                                        class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-white/90"
                                         style="left: {outline.left}px; top: {outline.top}px; width: {outline.width}px; height: {outline.height}px;"
                                         data-detection-other-bird-outline
                                         aria-hidden="true"
@@ -2403,7 +2403,7 @@
                             {/if}
                             {#if wholeSceneReady}
                                 <span
-                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-sm"
+                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-2xs font-semibold text-white backdrop-blur-xs"
                                     data-detection-whole-scene-chip
                                 >
                                     {wholeScene.otherOutlines.length > 0
@@ -2425,7 +2425,7 @@
                                 <div class="hidden sm:block" data-detection-media-title>
                                     <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
                                     {#if subName && subName !== primaryName}
-                                        <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
+                                        <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow-sm">{subName}</p>
                                     {/if}
                                     <p class="mt-2 text-3xs font-semibold text-white/50">
                                         {formatDateTime(detection.detection_time)}
@@ -2436,7 +2436,7 @@
                                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-2xs font-semibold text-white shadow-xl backdrop-blur-xs transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                                             disabled={snapshotApplyPending || snapshotGeneratePending}
                                             onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
                                         >
@@ -2447,7 +2447,7 @@
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-2xs font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-2xs font-semibold text-white/85 shadow-xl backdrop-blur-xs transition-colors hover:bg-black/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                                             onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
                                         >
                                             {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
@@ -2462,7 +2462,7 @@
                                                 type="button"
                                                 onclick={handleFavoriteToggle}
                                                 disabled={favoritePending}
-                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'border-amber-300 bg-amber-500/90 text-white hover:bg-amber-500' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
+                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-xs transition-colors disabled:opacity-60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'border-amber-300 bg-amber-500/90 text-white hover:bg-amber-500' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
                                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                             >
@@ -2476,7 +2476,7 @@
                                             </button>
                                             {#if detection.is_favorite && archiveLabel}
                                                 <span
-                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-2xs font-semibold text-white/90 backdrop-blur-sm"
+                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-2xs font-semibold text-white/90 backdrop-blur-xs"
                                                     data-detection-archive-state={archiveState}
                                                     aria-live="polite"
                                                 >
@@ -2487,7 +2487,7 @@
                                                     {#if archiveState === 'failed' && hasOwnerDetectionActions}
                                                         <button
                                                             type="button"
-                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-2xs font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-2xs font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                                                             disabled={archiveRetrying}
                                                             onclick={(e) => { e.stopPropagation(); void handleArchiveRetry(); }}
                                                         >
@@ -2515,7 +2515,7 @@
                                                 }}
                                                 title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
                                                 aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
-                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95 px-3 hover:bg-brand-700' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-700/90'}"
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-xs transition-colors duration-150 focus:outline-hidden focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-700/95 px-3 hover:bg-brand-700' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-700/90'}"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                                                     <path d="M8 5v14l11-7z"/>
@@ -2526,7 +2526,7 @@
                                             </button>
                                         {/if}
                                         {#if isManualObservation}
-                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
+                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-xs">
                                                 <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
                                                 {$_('detection.uploaded', { default: 'Uploaded' })}
                                             </div>
@@ -2545,7 +2545,7 @@
                                                 }}
                                                 disabled={fullVisitFetchState === 'fetching'}
                                                 aria-label={fullVisitFetchLabel}
-                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-700/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-2xs font-semibold text-white shadow-xl backdrop-blur-xs transition-colors duration-150 hover:bg-brand-700/90 disabled:cursor-wait disabled:opacity-75 focus:outline-hidden focus:ring-2 focus:ring-brand-400/70"
                                             >
                                                 {#if fullVisitFetchState === 'fetching'}
                                                     <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -2561,7 +2561,7 @@
                                         {/if}
                                         {#if frigateIssueBadgeVisible}
                                             <div
-                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-xs dark:border-rose-300/20 dark:text-rose-200"
                                                 title={videoFailureInsight.summary}
                                                 aria-label={videoFailureInsight.summary}
                                                 role="img"
@@ -2608,7 +2608,7 @@
                         </div>
                 </div>
 
-            <div class="flex min-w-0 flex-1 flex-col gap-5 break-words lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
+            <div class="flex min-w-0 flex-1 flex-col gap-5 wrap-break-word lg:overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-xs pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
             <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
                  Dark in both themes on purpose, because that is what a terminal is. -->
@@ -2619,7 +2619,7 @@
                                 href={frigateEventUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="text-slate-400 underline decoration-dotted underline-offset-2 transition-colors hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                                class="text-slate-400 underline decoration-dotted underline-offset-2 transition-colors hover:text-slate-200 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                                 data-frigate-event-link
                             >
                                 {$_('detection.open_in_frigate', { default: 'Open in Frigate' })} &nearr;
@@ -2702,7 +2702,7 @@
                             <ClassificationSource evidence={detection.classification_input} />
                             {#if detection.initial_classification_input && JSON.stringify(detection.initial_classification_input) !== JSON.stringify(detection.classification_input)}
                                 <details class="group/original mt-1 text-xs text-slate-500 dark:text-slate-400" data-initial-classification-source>
-                                    <summary class="cursor-pointer min-h-11 flex items-center gap-2 rounded focus-visible:ring-2 focus-visible:ring-brand-500"><svg class="h-3 w-3 group-open/original:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>{$_('detection.named_from.original', { default: 'Original identification' })}</summary>
+                                    <summary class="cursor-pointer min-h-11 flex items-center gap-2 rounded-sm focus-visible:ring-2 focus-visible:ring-brand-500"><svg class="h-3 w-3 group-open/original:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>{$_('detection.named_from.original', { default: 'Original identification' })}</summary>
                                     <ClassificationSource evidence={detection.initial_classification_input} />
                                 </details>
                             {/if}
@@ -2780,7 +2780,7 @@
                             <button
                                 type="button"
                                 onclick={handleReclassifyClick}
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-3xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-3xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
                             >
                                 <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -2804,7 +2804,7 @@
                             {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-3xs font-bold rounded uppercase">
+                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-3xs font-bold rounded-sm uppercase">
                                 {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
                             </span>
                         {/if}
@@ -2824,12 +2824,12 @@
                             {completedClassificationDescription}
                         </p>
                         {#if classificationInputLabel}
-                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-3xs font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
+                            <span class="rounded-sm border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-3xs font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
                                 {classificationInputLabel}
                             </span>
                         {/if}
                         {#if completedVideoInferenceBadge.kind}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
                                 {#if completedVideoInferenceBadge.kind === 'gpu'}
                                     <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                         <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
@@ -2849,7 +2849,7 @@
                             </div>
                         {/if}
                         {#if detection.video_classification_model_name}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
                                 <svg class="h-3 w-3 text-slate-500 dark:text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                                     <path d="M4.5 5.75 10 2.75l5.5 3v8.5L10 17.25l-5.5-3v-8.5Z" />
                                     <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
@@ -3168,7 +3168,7 @@
                                         {/if}
                                     </button>
                                     {#if audioDuration > 0}
-                                        <div class="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-sm text-3xs font-bold text-white/90 tabular-nums pointer-events-none">
+                                        <div class="absolute bottom-1.5 right-2 px-1.5 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-xs text-3xs font-bold text-white/90 tabular-nums pointer-events-none">
                                             {formatAudioClipTime(audioCurrentTime)} / {formatAudioClipTime(audioDuration)}
                                         </div>
                                     {/if}
@@ -3191,9 +3191,9 @@
                                 ></audio>
                             {/if}
                             {#if matchedAudioEntry}
-                                <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-3xs font-bold text-slate-200 bg-slate-900/60 backdrop-blur-sm">
+                                <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-3xs font-bold text-slate-200 bg-slate-900/60 backdrop-blur-xs">
                                     <span class="truncate">{matchedAudioEntry.species}</span>
-                                    <span class="flex items-center gap-2 flex-shrink-0">
+                                    <span class="flex items-center gap-2 shrink-0">
                                         <span class="opacity-70">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
                                         <span class="opacity-60">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
                                     </span>
@@ -3282,7 +3282,7 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
-                                    <p class="min-w-0 break-words text-3xs font-semibold text-slate-500">{$_('actions.species_info')}</p>
+                                    <p class="min-w-0 wrap-break-word text-3xs font-semibold text-slate-500">{$_('actions.species_info')}</p>
                                 </div>
                                 {#if speciesInfo}
                                     {@const summaryLabel = speciesInfo.summary_source || speciesInfo.source || 'Source'}
@@ -3309,9 +3309,9 @@
                             <div class="relative">
                                 {#if speciesInfoLoading}
                                     <div class="flex flex-col gap-2">
-                                        <div class="h-3 w-3/4 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                                        <div class="h-3 w-full bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
-                                        <div class="h-3 w-5/6 bg-slate-200 dark:bg-slate-700 rounded animate-pulse"></div>
+                                        <div class="h-3 w-3/4 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
+                                        <div class="h-3 w-full bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
+                                        <div class="h-3 w-5/6 bg-slate-200 dark:bg-slate-700 rounded-sm animate-pulse"></div>
                                     </div>
                                 {:else if speciesInfoError}
                                     <div class="flex items-center gap-2 p-3 rounded-xl bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400">
@@ -3384,8 +3384,8 @@
                                 <div class="space-y-3">
                                     {#each [1, 2, 3] as _}
                                         <div class="flex justify-between gap-4">
-                                            <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
-                                            <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
+                                            <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
+                                            <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
                                         </div>
                                     {/each}
                                 </div>
@@ -3401,7 +3401,7 @@
                                 </div>
                             {:else if ebirdNearby}
                                 {#if ebirdNearby.results.some(r => r.lat && r.lng)}
-                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
+                                    <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-xs relative z-0">
                                         <Map
                                             markers={ebirdNearby.results
                                                 .filter(r => r.lat && r.lng)
@@ -3437,7 +3437,7 @@
                                                 </div>
                                             </div>
                                             {#if obs.how_many}
-                                                <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-3xs font-bold text-sky-700 dark:text-sky-300">
+                                                <span class="shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-3xs font-bold text-sky-700 dark:text-sky-300">
                                                     x{obs.how_many}
                                                 </span>
                                             {/if}
@@ -3678,7 +3678,7 @@
                                 commonNameEditorOpen = !commonNameEditorOpen;
                             }}
                             aria-expanded={commonNameEditorOpen}
-                            class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-600 shadow-sm focus-ring dark:bg-slate-700 dark:text-brand-300"
+                            class="inline-flex min-h-11 shrink-0 items-center rounded-lg bg-white px-3 py-2 text-xs font-semibold text-brand-600 shadow-xs focus-ring dark:bg-slate-700 dark:text-brand-300"
                         >
                             {$_('detection.common_name_override_edit', { default: 'Edit name' })}
                         </button>
@@ -3733,7 +3733,7 @@
                             class="btn btn-primary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
-                            <span class="min-w-0 [overflow-wrap:anywhere]">
+                            <span class="min-w-0 wrap-anywhere">
                                 {updatingTag
                                     ? $_('common.saving')
                                     : $_('actions.confirm_species', {
@@ -3750,7 +3750,7 @@
                         disabled={updatingTag}
                         class="btn btn-secondary min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto sm:flex-1"
                     >
-                        <span class="min-w-0 [overflow-wrap:anywhere]">
+                        <span class="min-w-0 wrap-anywhere">
                             {updatingTag
                                 ? $_('common.saving')
                                 : $_('actions.pick_species', { default: 'Pick a different species' })}
@@ -3764,7 +3764,7 @@
                             class="btn btn-ghost min-h-11 min-w-0 w-full px-4 text-sm sm:w-auto"
                             title={$_('actions.reclassify')}
                         >
-                            <span class="min-w-0 [overflow-wrap:anywhere]">{$_('detection.score_again', { default: 'Score again' })}</span>
+                            <span class="min-w-0 wrap-anywhere">{$_('detection.score_again', { default: 'Score again' })}</span>
                         </button>
                     {/if}
                 </div>
@@ -3820,7 +3820,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20 min-h-11 min-w-11 break-words"
+                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20 min-h-11 min-w-11 wrap-break-word"
                 >
                     {$_('actions.species_info')}
                 </button>
@@ -3831,7 +3831,7 @@
         {#if hasOwnerDetectionActions && showTagDropdown}
             <div
                 data-manual-tag-dialog
-                class="absolute left-0 right-0 top-0 z-50 flex h-full items-center justify-center overscroll-contain bg-black/40 p-4 backdrop-blur-sm"
+                class="absolute left-0 right-0 top-0 z-50 flex h-full items-center justify-center overscroll-contain bg-black/40 p-4 backdrop-blur-xs"
                 style={manualTagViewportStyle}
                 onclick={(e) => {
                     if (e.target === e.currentTarget && !updatingTag) {

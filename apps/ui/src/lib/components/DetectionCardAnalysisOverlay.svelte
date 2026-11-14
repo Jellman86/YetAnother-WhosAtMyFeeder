@@ -54,9 +54,9 @@
     let closeIndicatorLabel = $derived($_('detection.card_analysis.closing_soon'));
 </script>
 
-<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-2xl border border-indigo-300/45 bg-white/88 p-4 text-slate-950 shadow-2xl backdrop-blur-md dark:border-indigo-300/35 dark:bg-slate-950/82 dark:text-white">
-    <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-200/30 via-white/15 to-indigo-300/28 dark:from-indigo-500/20 dark:via-slate-950/20 dark:to-cyan-500/20"></div>
-    <div class="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white/45 to-transparent dark:from-white/10"></div>
+<div class="detection-card-analysis-overlay absolute inset-0 z-20 flex flex-col justify-between rounded-2xl border border-indigo-300/45 p-4 text-slate-950 shadow-2xl backdrop-blur-md dark:border-indigo-300/35 dark:text-white">
+    <div class="absolute inset-0 rounded-2xl bg-linear-to-br/srgb from-cyan-200/30 via-white/15 dark:from-indigo-500/20 dark:via-slate-950/20 dark:to-cyan-500/20"></div>
+    <div class="absolute inset-x-0 top-0 h-16 bg-linear-to-b/srgb from-white/45 to-transparent dark:from-white/10"></div>
 
     <div class="relative flex items-start justify-between gap-3">
         <div class="min-w-0">
@@ -74,7 +74,7 @@
         <div class="flex shrink-0 items-center gap-2">
             {#if isComplete}
                 <div
-                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-accent-500/25 bg-accent-500/10 text-accent-700 shadow-sm dark:border-accent-300/30 dark:bg-accent-300/10 dark:text-accent-200"
+                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-accent-500/25 bg-accent-500/10 text-accent-700 shadow-xs dark:border-accent-300/30 dark:bg-accent-300/10 dark:text-accent-200"
                     role="img"
                     aria-label={closeIndicatorLabel}
                     title={closeIndicatorLabel}
@@ -86,7 +86,7 @@
                     </svg>
                 </div>
             {/if}
-            <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-sm dark:border-white/15 dark:bg-white/10">
+            <div class="rounded-xl border border-slate-950/10 bg-white/45 px-2 py-1.5 text-right shadow-xs dark:border-white/15 dark:bg-white/10">
                 <p class="text-base font-bold leading-none text-slate-950 dark:text-white">{progressPercent}%</p>
                 <p class="mt-0.5 text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                     {$_('detection.reclassification.analysis', { default: 'Analysis' })}
@@ -97,7 +97,7 @@
 
     <div class="relative space-y-3">
         {#if hasFallenBackToSnapshot}
-            <div class="overflow-hidden rounded-full bg-slate-950/12 dark:bg-white/12">
+            <div class="overflow-hidden rounded-full">
                 <div
                     class="h-2 rounded-full bg-brand-400 transition-all duration-500"
                     style={`width: ${progressPercent}%`}
@@ -107,7 +107,7 @@
             <FrameScanRibbon {progress} variant="card" />
         {/if}
 
-        <div class="rounded-xl border border-white/10 bg-black/18 p-2.5 dark:border-white/10 dark:bg-black/18">
+        <div class="rounded-xl border border-white/10 p-2.5 dark:border-white/10">
             <div class="flex items-center justify-between gap-3 text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">
                 <span>{$_('detection.reclassification.frame_progress', { values: { current: displayFrameIndex, total: displayClipTotal } })}</span>
                 {#if isAutoVideoReclassification}

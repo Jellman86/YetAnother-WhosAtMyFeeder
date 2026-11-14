@@ -149,7 +149,7 @@
                 <div class="min-w-0">
                     <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{sectionLabel(section.id)}</p>
                     {#if sectionDetail(section)}
-                        <p class="break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">{sectionDetail(section)}</p>
+                        <p class="wrap-break-word text-xs leading-relaxed text-slate-500 dark:text-slate-400">{sectionDetail(section)}</p>
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">

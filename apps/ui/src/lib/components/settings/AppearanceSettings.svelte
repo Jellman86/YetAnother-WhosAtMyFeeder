@@ -89,13 +89,13 @@
                     type="button"
                     aria-pressed={active}
                     onclick={() => themeStore.setTextSize(size.value)}
-                    class="flex min-h-16 min-w-0 flex-col items-center justify-end gap-1.5 rounded-2xl border-2 px-1 pb-2.5 pt-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-400 {active
+                    class="flex min-h-16 min-w-0 flex-col items-center justify-end gap-1.5 rounded-2xl border-2 px-1 pb-2.5 pt-2 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-brand-400 {active
                         ? 'border-brand-700 bg-brand-700 text-white shadow-lg shadow-brand-700/20'
                         : 'border-slate-100 bg-white text-slate-700 hover:border-brand-500/30 dark:border-slate-700/50 dark:bg-slate-900/50 dark:text-slate-200'}"
                     data-text-size={size.value}
                 >
                     <span class="font-display font-bold leading-none {size.sample}" aria-hidden="true">Aa</span>
-                    <span class="max-w-full break-words text-center text-xs font-semibold leading-tight">{name}</span>
+                    <span class="max-w-full wrap-break-word text-center text-xs font-semibold leading-tight">{name}</span>
                 </button>
             {/each}
         </div>
@@ -240,7 +240,7 @@
                 onchange={(v) => onchange({ colorTheme: v as ColorTheme })}
                 options={[
                     { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-brand-500' },
-                    { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-gradient-to-br from-blue-500 to-amber-400' }
+                    { value: 'bluetit', label: $_('theme.color_bluetit'), sub: $_('theme.color_bluetit_desc'), swatch: 'bg-linear-to-br/srgb from-blue-500 to-amber-400' }
                 ]}
             />
         </SettingsRow>

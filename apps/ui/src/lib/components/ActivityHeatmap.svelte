@@ -166,7 +166,7 @@
      growing on a wide screen, so an hour never stretches into a bar. -->
 <div class="relative w-full max-w-fit" bind:this={root} data-activity-heatmap>
     <div
-        class="grid gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+        class="grid gap-1 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
         style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
@@ -184,7 +184,7 @@
         {#each HOURS as hour}
             <span class="flex items-end" aria-hidden="true">
                 <span
-                    class="block w-full rounded-t-sm {active?.hour === hour ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
+                    class="block w-full rounded-t-xs {active?.hour === hour ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
                     style="height: {Math.round((hourTotals[hour] / busiestHourTotal) * 100)}%"
                     data-heatmap-hour-bar={hour}
                 ></span>
@@ -211,7 +211,7 @@
                 {@const count = counts.get(`${dayOfWeek}-${hour}`) ?? 0}
                 {@const current = active?.row === row && active?.hour === hour}
                 <span
-                    class="aspect-square min-h-6 w-full rounded-sm {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
+                    class="aspect-square min-h-6 w-full rounded-xs {current ? 'ring-2 ring-brand-500 ring-offset-1 ring-offset-white dark:ring-brand-300 dark:ring-offset-slate-950' : isPeak({ row, hour }) ? 'ring-2 ring-slate-900 ring-offset-1 ring-offset-white dark:ring-white dark:ring-offset-slate-950' : ''}"
                     style="background-color: {heatmapFill(count, maxCellCount, dark)}"
                     id={cellId(row, hour)}
                     role="gridcell"
@@ -249,7 +249,7 @@
         </span>
         {#if peak}
             <span class="inline-flex items-center gap-1.5">
-                <span class="inline-block h-2.5 w-2.5 rounded-sm ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
+                <span class="inline-block h-2.5 w-2.5 rounded-xs ring-2 ring-slate-900 dark:ring-white" aria-hidden="true"></span>
                 {$_('leaderboard.heatmap_peak', { values: { day: dayLabel(peak.day_of_week), time: hourLabel(peak.hour), count: peak.count.toLocaleString() }, default: 'Busiest: {day} {time}, {count}' })}
             </span>
         {/if}

@@ -119,7 +119,7 @@
                     aria-hidden="true"
                     data-field-log-placeholder
                 >
-                    <span class="h-3 w-10 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
+                    <span class="h-3 w-10 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {cell.time}" data-loading-placeholder></span>
                     <span class="relative flex h-full justify-center {cell.node}">
                         <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
                         <span class="relative my-auto h-2 w-2 rounded-full bg-slate-300 ring-2 ring-white dark:bg-slate-600 dark:ring-slate-900"></span>
@@ -128,11 +128,11 @@
                         <span class="h-9 w-9 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
                     </span>
                     <span class="min-w-0 space-y-1.5 {cell.body}">
-                        <span class="block h-3.5 max-w-full rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {nameWidth}" data-loading-placeholder></span>
-                        <span class="block h-2.5 w-20 max-w-full rounded bg-slate-200/60 animate-pulse motion-reduce:animate-none dark:bg-slate-700/40" data-loading-placeholder></span>
+                        <span class="block h-3.5 max-w-full rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {nameWidth}" data-loading-placeholder></span>
+                        <span class="block h-2.5 w-20 max-w-full rounded-sm bg-slate-200/60 animate-pulse motion-reduce:animate-none dark:bg-slate-700/40" data-loading-placeholder></span>
                     </span>
                     <span class="hidden flex-col items-end gap-1 log-wide:flex {cell.score}">
-                        <span class="h-3 w-8 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
+                        <span class="h-3 w-8 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
                         <span class="h-[3px] w-16 rounded-full bg-slate-200 dark:bg-slate-700"></span>
                     </span>
                     <span class="flex justify-end {cell.action}">

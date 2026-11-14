@@ -101,7 +101,7 @@
     });
 
     const chipClass =
-        'inline-flex items-baseline gap-1.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-1 font-bold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-brand-700/70 dark:bg-brand-950/60 dark:text-brand-200 dark:hover:bg-brand-900/60';
+        'inline-flex items-baseline gap-1.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-1 font-bold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-brand-700/70 dark:bg-brand-950/60 dark:text-brand-200 dark:hover:bg-brand-900/60';
     const popoverClass =
         'absolute left-0 top-full z-20 mt-2 w-72 rounded-2xl border border-line-soft bg-surface p-3 text-left shadow-xl';
 </script>
@@ -230,7 +230,7 @@
                                 type="checkbox"
                                 checked={audioOnly}
                                 onchange={(event) => onAudioOnlyChange(event.currentTarget.checked)}
-                                class="mt-0.5 h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
+                                class="mt-0.5 h-4 w-4 rounded-sm border-slate-300 accent-brand-600 dark:border-slate-600"
                             />
                             <span>
                                 <span class="block text-xs font-bold text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
@@ -273,7 +273,7 @@
                                         type="checkbox"
                                         checked={channel.enabled}
                                         onchange={(event) => onChannelToggle(channel.id, event.currentTarget.checked)}
-                                        class="h-4 w-4 rounded border-slate-300 accent-brand-600 dark:border-slate-600"
+                                        class="h-4 w-4 rounded-sm border-slate-300 accent-brand-600 dark:border-slate-600"
                                     />
                                     <span class="text-sm font-bold text-slate-900 dark:text-white">{channel.label}</span>
                                 </span>

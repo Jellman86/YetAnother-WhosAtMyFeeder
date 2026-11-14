@@ -175,7 +175,7 @@
                 <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('about.instance.acceleration', { default: 'Acceleration' })}
                 </p>
-                <p class="break-words font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
+                <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
                 {#if classifier?.fallback_reason}
                     <p class="mt-1 text-2xs leading-snug text-slate-500 dark:text-slate-400">
                         {classifier.fallback_reason}

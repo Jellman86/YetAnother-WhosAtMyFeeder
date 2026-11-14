@@ -74,7 +74,7 @@
     </span>
 
     <div class="min-w-0 {cell.body}">
-        <p class="hyphens-auto break-words text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
+        <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {text.title}
         </p>
         <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
@@ -83,7 +83,7 @@
                 <span class="font-bold tabular-nums log-wide:hidden {scoreTone}">{score}%</span>
             {/if}
             {#if showCamera}
-                <span class="break-words" data-field-log-camera>{capture.camera}</span>
+                <span class="wrap-break-word" data-field-log-camera>{capture.camera}</span>
             {/if}
             {#if view.review}
                 <span class="inline-flex items-center gap-1.5 font-medium text-attention-800 dark:text-attention-300" data-field-log-garden-state data-attention-reason><span class="attention-dot" aria-hidden="true"></span>{text.state}</span>

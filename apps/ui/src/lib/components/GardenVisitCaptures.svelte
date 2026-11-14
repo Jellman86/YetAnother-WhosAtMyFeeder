@@ -98,8 +98,8 @@
             bind:this={trigger}
             popovertarget={floating ? panelId : undefined}
             class={inline
-                ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
-                : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
+                ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
+                : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
             aria-expanded={open}
             aria-controls={panelId}
             onclick={() => { if (!floating) open = !open; }}
@@ -156,7 +156,7 @@
                             <!-- The whole line opens the exact capture, so a thumb lands anywhere along it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50"
+                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50"
                                 aria-label={$_('visits.open_capture_at', { values: { species: text.title, time }, default: 'Open {species} capture at {time}' })}
                                 onclick={() => select(capture, index)}
                             ></button>
@@ -164,8 +164,8 @@
                                 <GardenCapturePreview {capture} onopen={() => select(capture, index)} />
                             </div>
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
-                                <p class="break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{text.title}</p>
-                                {#if capture.scientific_name && capture.scientific_name !== text.title}<p class="break-words text-xs italic text-slate-500 dark:text-slate-400">{capture.scientific_name}</p>{/if}
+                                <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{text.title}</p>
+                                {#if capture.scientific_name && capture.scientific_name !== text.title}<p class="wrap-break-word text-xs italic text-slate-500 dark:text-slate-400">{capture.scientific_name}</p>{/if}
                                 <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.observed_at}>{time}</time>
                                 <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400" data-garden-visit-capture-notes>
                                     {#if facts.shown}

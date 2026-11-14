@@ -20,7 +20,7 @@
     <div class="border-b border-brand-200/60 bg-brand-50 dark:border-brand-900/40 dark:bg-brand-950/40">
         <div class="px-4 py-3 sm:px-6 lg:px-8 2xl:px-12">
             <div class="flex items-start gap-3">
-                <div class="mt-0.5 flex-shrink-0">
+                <div class="mt-0.5 shrink-0">
                     <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" transform="rotate(90 12 12)" />
                     </svg>

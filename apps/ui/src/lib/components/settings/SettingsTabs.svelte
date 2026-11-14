@@ -142,7 +142,7 @@
                             href={settingsHref(tab.id)}
                             onclick={(event) => handleLinkClick(event, tab.id)}
                             aria-current={activeTab === tab.id ? 'page' : undefined}
-                            class="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
+                            class="group flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950
                                    {activeTab === tab.id
                                 ? 'bg-brand-50 text-slate-900 dark:bg-brand-950/60 dark:text-white'
                                 : 'text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'}"
@@ -159,7 +159,7 @@
                             <button
                                 type="button"
                                 data-setup-wizard-action
-                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-surface-raised hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
+                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-surface-raised hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
                                 onclick={openSetupWizard}
                                 aria-haspopup="dialog"
                             >

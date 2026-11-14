@@ -58,13 +58,13 @@
                     {#if oncheck}{' '}{$_('leaderboard.check.entry_action', { default: 'See what was photographed and say what it was.' })}{/if}
                 </p>
             </div>
-            <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 [scrollbar-width:thin]">
+            <ul class="flex min-w-0 flex-1 gap-3 overflow-x-auto pb-1 scrollbar-thin">
                 {#each checks as row, index (`${row.key}|${index}`)}
                     {@const thumb = pictureFor(row)}
                     <li class="shrink-0">
                         <button
                             type="button"
-                            class="group block w-28 text-left focus-visible:outline-none"
+                            class="group block w-28 text-left focus-visible:outline-hidden"
                             aria-label={oncheck
                                 ? $_('leaderboard.check.open_one', { values: { species: row.displayName }, default: 'Check {species}' })
                                 : `${$_('leaderboard.spotlight_review', { default: 'Review' })} ${row.displayName}`}

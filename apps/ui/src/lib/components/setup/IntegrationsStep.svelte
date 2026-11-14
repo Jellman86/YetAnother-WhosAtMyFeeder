@@ -139,7 +139,7 @@
                             <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{item.name}</span>
                             <span class="block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{item.note}</span>
                         </span>
-                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
                     </label>
 
                     {#if item.id === 'birdnet' && birdnetEnabled}

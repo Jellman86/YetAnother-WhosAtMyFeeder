@@ -1,0 +1,200 @@
+/* Tailwind 3 behaviour the screens were drawn against, kept so the move to Tailwind 4 changed
+   nothing on screen. Every rule here restores one default that Tailwind 4 altered; deleting a
+   block adopts the Tailwind 4 default for it, so check the screens that rely on it first. */
+
+/* Browser and Preflight defaults. In the base layer, so any utility still overrides them. */
+@layer base {
+  /* A border with no colour utility is a quiet grey rule, not the text colour. */
+  *,
+  ::after,
+  ::before {
+    border-color: var(--color-gray-200);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--color-gray-400);
+  }
+
+  button,
+  [role='button'] {
+    cursor: pointer;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+
+  /* Preflight now zeroes padding and margin on every element and flattens every form control.
+     `revert-layer` hands these back to the browser, as before: table cells and options keep
+     their padding (as does a popover), a disabled select stays dimmed, and a field with no fill utility keeps the
+     browser's field colour in each colour scheme. */
+  td,
+  th,
+  option,
+  [popover] {
+    padding: revert-layer;
+  }
+
+  dialog {
+    margin: revert-layer;
+  }
+
+  button,
+  input,
+  select,
+  optgroup,
+  textarea {
+    border-radius: revert-layer;
+    opacity: revert-layer;
+  }
+
+  input:where(:not([type='button'], [type='reset'], [type='submit'])),
+  select,
+  optgroup,
+  textarea {
+    background-color: revert-layer;
+  }
+
+  [type='search'] {
+    -webkit-appearance: textfield;
+    outline-offset: -2px;
+  }
+
+  /* The browser's own "Choose file" button, not a bare text label. */
+  ::file-selector-button {
+    box-sizing: revert-layer;
+    margin: revert-layer;
+    padding: revert-layer;
+    border: revert-layer;
+    border-radius: revert-layer;
+    background-color: revert-layer;
+    color: revert-layer;
+    letter-spacing: revert-layer;
+    opacity: revert-layer;
+  }
+
+  /* Date and time fields keep the browser's inner padding, so their height is unchanged. */
+  ::-webkit-date-and-time-value {
+    min-height: revert-layer;
+    text-align: revert-layer;
+  }
+
+  ::-webkit-datetime-edit {
+    display: revert-layer;
+  }
+
+  ::-webkit-datetime-edit-fields-wrapper {
+    padding: revert-layer;
+  }
+
+  ::-webkit-datetime-edit,
+  ::-webkit-datetime-edit-year-field,
+  ::-webkit-datetime-edit-month-field,
+  ::-webkit-datetime-edit-day-field,
+  ::-webkit-datetime-edit-hour-field,
+  ::-webkit-datetime-edit-minute-field,
+  ::-webkit-datetime-edit-second-field,
+  ::-webkit-datetime-edit-millisecond-field,
+  ::-webkit-datetime-edit-meridiem-field {
+    padding-block: revert-layer;
+  }
+
+  ::-webkit-calendar-picker-indicator {
+    line-height: revert-layer;
+  }
+}
+
+/* Spacing and rules between siblings keep the selectors the layouts were built on: the gap or
+   rule sits before every child after the first, a child with the `hidden` attribute is skipped,
+   and the container outranks a margin or border utility on the child. Tailwind 4 puts them after
+   every child but the last instead, which moves the space whenever the first or last child is
+   visually hidden or carries its own margin. Its own rule is still emitted beside these, at zero
+   specificity; `:not(_)` adds just enough weight to cancel it on the first child without
+   outranking a utility set on that child. */
+@utility space-y-* {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: --spacing(--value(number));
+    margin-bottom: 0;
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    margin-block-end: 0;
+  }
+}
+
+@utility space-y-px {
+  & > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1px;
+    margin-bottom: 0;
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    margin-block-end: 0;
+  }
+}
+
+@utility divide-y {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 1px;
+    border-bottom-width: 0;
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    border-bottom-width: 0;
+  }
+}
+
+@utility divide-y-0 {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-top-width: 0;
+    border-bottom-width: 0;
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    border-bottom-width: 0;
+  }
+}
+
+@utility divide-x {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-left-width: 1px;
+    border-right-width: 0;
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    border-inline-end-width: 0;
+  }
+}
+
+@utility divide-* {
+  & > :not([hidden]) ~ :not([hidden]) {
+    border-color: --value(--color-*);
+    border-color: --alpha(--value(--color-*) / calc(--modifier(integer) * 1%));
+  }
+
+  :where(& > :not(:last-child)):not(_) {
+    border-color: var(--color-gray-200);
+  }
+}
+
+/* Drop shadows keep their two soft layers. Tailwind 4 ships one harder layer for each size, and a
+   theme value cannot hold two, so the layers are set here; `:not(_)` puts them ahead of the
+   built-in value without outranking a variant on the element. */
+@utility drop-shadow-sm {
+  &:not(_) {
+    --tw-drop-shadow: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow(0 1px 1px rgb(0 0 0 / 0.06));
+  }
+}
+
+@utility drop-shadow-md {
+  &:not(_) {
+    --tw-drop-shadow: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07)) drop-shadow(0 2px 2px rgb(0 0 0 / 0.06));
+  }
+}
+
+@utility drop-shadow-lg {
+  &:not(_) {
+    --tw-drop-shadow: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
+  }
+}

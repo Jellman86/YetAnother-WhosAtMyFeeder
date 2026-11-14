@@ -32,7 +32,7 @@
             </span>
         {/if}
     </div>
-    <div class="{layout === 'inline' ? 'flex-shrink-0' : 'w-full'}">
+    <div class="{layout === 'inline' ? 'shrink-0' : 'w-full'}">
         {@render children()}
     </div>
 </div>

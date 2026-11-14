@@ -384,7 +384,7 @@
 
 <div
     use:portal
-    class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/70 p-0 sm:p-4"
+    class="fixed inset-0 z-80 flex items-center justify-center bg-slate-950/70 p-0 sm:p-4"
     role="presentation"
     onclick={(event) => {
         if (event.target === event.currentTarget) onclose();
@@ -392,7 +392,7 @@
 >
     <div
         bind:this={dialog}
-        class="flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden bg-surface sm:h-[90dvh] sm:rounded-2xl sm:border sm:border-line"
+        class="flex h-dvh w-full max-w-6xl flex-col overflow-hidden bg-surface sm:h-[90dvh] sm:rounded-2xl sm:border sm:border-line"
         role="dialog"
         aria-modal="true"
         aria-labelledby="family-tree-title"
@@ -461,13 +461,13 @@
             {#if !layout}
                 <p class="p-6 text-sm text-slate-500 dark:text-slate-400">{$_('taxonomy.loading', { default: 'Loading the family tree' })}</p>
             {:else if mode === 'outline'}
-                <div class="py-2" role="tree" aria-label={$_('taxonomy.outline_label', { default: 'Family tree outline' })} data-family-tree-outline>
+                <div class="py-2" role="tree" aria-label={$_('taxonomy.outline_label', { default: 'Family tree outline-solid' })} data-family-tree-outline>
                     {#each nodes as node (node.id)}
                         {@const item = node.data}
                         {@const names = item.kind === 'taxon' ? taxonNames(item.taxon, style) : null}
                         {@const counts = item.kind === 'taxon' ? countText(item.taxon) : null}
                         <div
-                            class="flex min-h-11 cursor-pointer items-stretch rounded-lg pr-2 hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                            class="flex min-h-11 cursor-pointer items-stretch rounded-lg pr-2 hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
                             role="treeitem"
                             tabindex={tabStop === node.id ? 0 : -1}
                             aria-level={node.depth + 1}
@@ -585,7 +585,7 @@
                                 aria-current={item.kind === 'taxon' && item.current ? 'true' : undefined}
                                 aria-selected={item.kind === 'taxon' && item.current}
                                 aria-label={ariaFor(item)}
-                                class="tree-node cursor-pointer focus:outline-none"
+                                class="tree-node cursor-pointer focus:outline-hidden"
                                 onclick={(event) => activate(node, event.currentTarget, false)}
                                 onkeydown={(event) => onNodeKey(event, node)}
                                 onpointerenter={(event) => peekHover(event, item)}

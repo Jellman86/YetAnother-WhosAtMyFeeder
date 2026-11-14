@@ -298,7 +298,7 @@
     const count = $derived(selected.length);
 </script>
 
-<div class="fixed inset-0 z-[60] flex items-end justify-center bg-slate-950/70 sm:items-start sm:overflow-y-auto sm:p-6 lg:p-10" use:portal role="presentation" onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
+<div class="fixed inset-0 z-60 flex items-end justify-center bg-slate-950/70 sm:items-start sm:overflow-y-auto sm:p-6 lg:p-10" use:portal role="presentation" onclick={(event) => { if (event.target === event.currentTarget) onclose(); }}>
     <div
         bind:this={dialog}
         class="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-slate-900 shadow-2xl sm:max-h-none sm:max-w-5xl sm:rounded-3xl dark:text-slate-100"
@@ -323,7 +323,7 @@
                         <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
                         {$_('leaderboard.check.position', { values: { at: handled + 1, total }, default: 'Needs a check · {at} of {total}' })}
                     </p>
-                    <h2 id="species-check-title" class="mt-1 font-display text-2xl font-bold leading-tight sm:text-4xl">{current.displayName}</h2>
+                    <h2 id="species-check-title" class="mt-1 font-display text-2xl font-bold leading-tight sm:text-4xl sm:leading-10">{current.displayName}</h2>
                     {#if current.scientificName && current.scientificName !== current.displayName}
                         <p class="mt-1 text-base italic text-slate-500 dark:text-slate-400">{current.scientificName}</p>
                     {/if}
@@ -368,7 +368,7 @@
                                 <li class="w-36 shrink-0 snap-start sm:w-auto">
                                     <button
                                         type="button"
-                                        class="group block w-full text-left focus-visible:outline-none"
+                                        class="group block w-full text-left focus-visible:outline-hidden"
                                         aria-pressed={on}
                                         aria-label={$_('leaderboard.check.visit_label', { values: { when: when(entry.visit) }, default: 'Visit on {when}' })}
                                         onclick={() => toggle(entry.visit.visit_id)}
@@ -434,7 +434,7 @@
                                 {#if suggestion.kind === 'rename'}{$_('leaderboard.check.rename_count', { values: { count }, default: 'Rename {count} visits' })}
                                 {:else if suggestion.kind === 'confirm'}{$_('leaderboard.check.confirm_short', { default: 'Confirm' })}
                                 {:else}{$_('leaderboard.check.hide_short', { default: 'Hide' })}{/if}
-                                <kbd class="ml-1.5 hidden rounded border border-white/40 px-1.5 font-mono text-xs sm:inline">1</kbd>
+                                <kbd class="ml-1.5 hidden rounded-sm border border-white/40 px-1.5 font-mono text-xs sm:inline">1</kbd>
                             </span>
                         </button>
                     {/if}

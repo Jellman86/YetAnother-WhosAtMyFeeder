@@ -31,6 +31,6 @@ describe('Settings navigation grouping', () => {
         expect(settingsTabsSource).toContain('data-active-indicator');
         expect(settingsTabsSource).not.toContain('card-base');
         expect(settingsTabsSource).not.toContain('<section class="min-w-0 rounded-xl border');
-        expect(settingsTabsSource).not.toContain('shadow-sm');
+        expect(settingsTabsSource).not.toContain('shadow-xs');
     });
 });

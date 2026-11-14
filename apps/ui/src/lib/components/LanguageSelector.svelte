@@ -61,7 +61,7 @@
 
     {#if showDropdown}
         <div 
-            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-[60] overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
+            class="absolute {compact ? 'left-0' : 'right-0'} w-48 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 z-60 overflow-hidden animate-in fade-in zoom-in-95 {dropUp ? 'bottom-full mb-2' : 'mt-2'}"
             onclick={(e) => e.stopPropagation()}
             onkeydown={(e) => {
                 if (e.key === 'Escape') showDropdown = false;
@@ -94,7 +94,7 @@
         </div>
         <!-- Backdrop to close dropdown -->
         <button 
-            class="fixed inset-0 z-[55] cursor-default bg-transparent w-full h-full border-none" 
+            class="fixed inset-0 z-55 cursor-default bg-transparent w-full h-full border-none" 
             onclick={() => showDropdown = false}
             aria-label={$_('nav.close_language_selector', { default: 'Close language selector' })}
         ></button>

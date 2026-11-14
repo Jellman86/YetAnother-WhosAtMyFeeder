@@ -552,7 +552,7 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
                                 ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
                                 : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
@@ -576,7 +576,7 @@
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
-                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-brand-500 px-1 text-3xs font-bold leading-4 text-slate-950">
+                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded-sm bg-brand-500 px-1 text-3xs font-bold leading-4 text-slate-950">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
                             {/if}
@@ -586,11 +586,11 @@
                             {@const read = readLine(moment)}
                             {@const applying = applyingKey === moment.key}
                             {#if anchor.sheet}
-                                <!-- Needs your call is itself a z-[70] layer. Portalled after it and
+                                <!-- Needs your call is itself a z-70 layer. Portalled after it and
                                      before the sheet, the backdrop shares that layer and covers it. -->
                                 <div
                                     use:portal
-                                    class="fixed inset-0 z-[70] bg-slate-950/50"
+                                    class="fixed inset-0 z-70 bg-slate-950/50"
                                     data-frame-strip-backdrop
                                     onclick={() => hide(true)}
                                     role="presentation"
@@ -600,7 +600,7 @@
                                 bind:this={panelEl}
                                 use:portal
                                 style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px;`}
-                                class="fixed z-[70] overflow-hidden border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl shadow-slate-950/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
+                                class="fixed z-70 overflow-hidden border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl shadow-slate-950/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
                                     ? 'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'
                                     : anchor.above
                                       ? 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-full rounded-2xl motion-safe:zoom-in-95'
@@ -620,7 +620,7 @@
                               >
                                 <button
                                     type="button"
-                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                                     aria-label={$_('common.close', { default: 'Close' })}
                                     onclick={(event) => { event.stopPropagation(); const current = openIndex; if (current !== null) triggers[current]?.focus(); hide(true); }}
                                 >
@@ -707,7 +707,7 @@
                 <!-- The fade says the strip runs on; the control takes it there. Keyboard users
                      move along the strip itself, so the control stays out of the Tab order. -->
                 <div
-                    class="pointer-events-none absolute inset-y-2 w-14 from-transparent to-slate-950/90 transition-opacity duration-150 motion-reduce:transition-none {end.forward ? 'right-0 bg-gradient-to-r' : 'left-0 bg-gradient-to-l'} {end.shown ? 'opacity-100' : 'opacity-0'}"
+                    class="pointer-events-none absolute inset-y-2 w-14 from-transparent to-slate-950/90 transition-opacity duration-150 motion-reduce:transition-none {end.forward ? 'right-0 bg-linear-to-r/srgb' : 'left-0 bg-linear-to-l/srgb'} {end.shown ? 'opacity-100' : 'opacity-0'}"
                     data-snapshot-strip-fade
                     aria-hidden="true"
                 ></div>
@@ -721,7 +721,7 @@
                     data-frame-strip-forward={end.forward ? '' : undefined}
                     onclick={(event) => { event.stopPropagation(); scrollAlong(end.forward ? 1 : -1); }}
                 >
-                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white/80 shadow-md shadow-black/40 backdrop-blur-sm transition-colors group-hover:border-white/40 group-hover:text-white group-active:bg-slate-900">
+                    <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-slate-950/75 text-white/80 shadow-md shadow-black/40 backdrop-blur-xs transition-colors group-hover:border-white/40 group-hover:text-white group-active:bg-slate-900">
                         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path d={end.forward ? 'm9 6 6 6-6 6' : 'm15 6-6 6 6 6'} stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
@@ -732,7 +732,7 @@
         {#if canRegenerate && onregenerate}
             <button
                 type="button"
-                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                 disabled={regeneratePending || busy}
                 title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
                 aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}

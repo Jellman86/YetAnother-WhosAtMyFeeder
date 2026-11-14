@@ -39,7 +39,7 @@
             <HeardBandHeading {band} />
             <button
                 type="button"
-                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
                 aria-expanded={open}
                 aria-controls="{uid}-calls"
                 onclick={() => (open = !open)}

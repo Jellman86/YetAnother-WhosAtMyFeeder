@@ -344,7 +344,7 @@
                                             ? formatDateTime(item.timestamp)
                                             : formatTime(item.timestamp)}</span>
                                         {#if isOwnerOnlyItem(item)}
-                                            <span class="inline-flex items-center gap-1 rounded border border-slate-200 px-1.5 py-px uppercase tracking-wider dark:border-slate-700">
+                                            <span class="inline-flex items-center gap-1 rounded-sm border border-slate-200 px-1.5 py-px uppercase tracking-wider dark:border-slate-700">
                                                 <svg class="h-2 w-2" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                                     <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
                                                     <path d="M5.8 7V5.2a2.2 2.2 0 014.4 0V7" />

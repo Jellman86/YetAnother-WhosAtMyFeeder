@@ -132,8 +132,8 @@
                 bind:this={trigger}
                 popovertarget={floating ? panelId : undefined}
                 class={inline
-                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
-                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
+                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
+                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
                 aria-expanded={open}
                 aria-controls={panelId}
                 onclick={() => { if (!floating) open = !open; }}
@@ -202,7 +202,7 @@
                             <!-- The whole line opens the exact capture, so a thumb lands anywhere along it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50"
+                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50"
                                 aria-label={$_('visits.open_capture_at', {
                                     values: { species: naming.primary, time },
                                     default: 'Open {species} capture at {time}'
@@ -231,8 +231,8 @@
                             </div>
 
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
-                                <p class="break-words text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
-                                {#if naming.secondary}<p class="break-words text-xs italic text-slate-500 dark:text-slate-400">{naming.secondary}</p>{/if}
+                                <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
+                                {#if naming.secondary}<p class="wrap-break-word text-xs italic text-slate-500 dark:text-slate-400">{naming.secondary}</p>{/if}
                                 <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
                                     {time}
                                 </time>
@@ -250,7 +250,7 @@
                                 {#if onplay && capture.has_clip}
                                     <button
                                         type="button"
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                         aria-label={$_('detection.play_video', { values: { species: `${naming.primary}, ${time}` } })}
                                         onclick={() => selectCapture(capture, true)}
                                     >
@@ -259,7 +259,7 @@
                                         </svg>
                                     </button>
                                 {/if}
-                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded text-right text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">
+                                <BadgeHint target text={$_('detection.confidence_hint', { values: { score: Math.round(score * 100) } })} class="min-w-10 rounded-sm text-right text-xs font-bold tabular-nums {SCORE_TEXT[scoreBand(score)]}">
                                     {Math.round(score * 100)}%
                                 </BadgeHint>
                             </div>

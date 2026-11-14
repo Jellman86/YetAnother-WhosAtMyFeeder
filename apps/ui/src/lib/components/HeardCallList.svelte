@@ -49,7 +49,7 @@
         <li data-heard-call={key}>
             <button
                 type="button"
-                class="grid min-h-12 w-full grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
+                class="grid min-h-12 w-full grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
                 aria-expanded={open}
                 aria-controls="{uid}-{key}"
                 onclick={() => (openKey = open ? null : key)}
@@ -66,7 +66,7 @@
                             src={spectrogram(picture, 200)}
                             alt=""
                             loading="lazy"
-                            class="h-full w-full scale-[1.6] object-cover [transform-origin:50%_64%]"
+                            class="h-full w-full scale-[1.6] object-cover origin-[50%_64%]"
                             onerror={() => (failed = { ...failed, [picture]: true })}
                         />
                     {:else}

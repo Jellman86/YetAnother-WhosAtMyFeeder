@@ -66,7 +66,7 @@
 
 <div class="space-y-6">
     <div class="space-y-1">
-        <h2 bind:this={heading} tabindex="-1" class="text-2xl font-bold text-slate-900 outline-none dark:text-white">{title}</h2>
+        <h2 bind:this={heading} tabindex="-1" class="text-2xl font-bold text-slate-900 outline-hidden dark:text-white">{title}</h2>
         {#if description}
             <p class="text-sm text-slate-600 dark:text-slate-300">{description}</p>
         {/if}

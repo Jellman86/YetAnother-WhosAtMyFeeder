@@ -27,7 +27,7 @@
         <div class="flex items-start gap-3 min-w-0">
             {#if iconSnippet}
                 <div
-                    class="flex items-center justify-center w-10 h-10 rounded-2xl flex-shrink-0
+                    class="flex items-center justify-center w-10 h-10 rounded-2xl shrink-0
                            {accent
                                ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/15 dark:text-brand-300'
                                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}"
@@ -47,7 +47,7 @@
             </div>
         </div>
         {#if actions}
-            <div class="flex-shrink-0">
+            <div class="shrink-0">
                 {@render actions()}
             </div>
         {/if}

@@ -11,7 +11,7 @@
     const src = $derived(cropped ? capture.crop_url : capture.snapshot_url);
 </script>
 
-<div class="h-16 w-20 overflow-hidden rounded bg-slate-800">
+<div class="h-16 w-20 overflow-hidden rounded-sm bg-slate-800">
     {#if src && src !== failedOriginal}
         <GardenPhotoPreview {capture} src={withAuthParams(src)} {cropped} aspect={5 / 4}
             onerror={() => { if (cropped) failedCrop = capture.crop_url ?? null; else failedOriginal = src ?? null; }} />

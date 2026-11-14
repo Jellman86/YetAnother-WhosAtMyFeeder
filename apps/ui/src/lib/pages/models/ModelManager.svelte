@@ -711,10 +711,10 @@
                                                 type="button"
                                                 aria-pressed={cardSelected}
                                                 onclick={() => (selectedModelId = modelOption.id)}
-                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
+                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
                                                 <span class="relative flex flex-wrap items-start justify-between gap-2">
-                                                    <span class="min-w-0 break-words text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
+                                                    <span class="min-w-0 wrap-break-word text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
                                                 </span>
                                                 <span class="relative mt-auto flex flex-col gap-1.5">
@@ -754,7 +754,7 @@
                                 }
                             }
                         }}
-                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
+                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
                     >
                         {showAdvancedModels
                             ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
@@ -897,7 +897,7 @@
                                     <a
                                         href={toAppPath('/settings/integrations')}
                                         onclick={handleLocationSettingsClick}
-                                        class="inline-flex min-h-11 items-center rounded font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
+                                        class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
                                     >
                                         {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
                                     </a>
@@ -916,7 +916,7 @@
                         </div>
 
                         <details class="group mt-5 border-t border-slate-200 dark:border-slate-700">
-                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
+                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
                                 <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
                                 <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
@@ -1085,7 +1085,7 @@
                                 {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
                                 {@const devices = deviceList(device.accelerators)}
                                 {@const optionChosen = birdFinder === option.choice}
-                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-500 {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
+                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-focus-visible:ring-2 has-focus-visible:ring-brand-500 {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
                                     <input
                                         type="radio"
                                         name="bird-finder"
@@ -1094,7 +1094,7 @@
                                         checked={optionChosen}
                                         onchange={() => (birdFinder = option.choice)}
                                     />
-                                    <span class="min-w-0 flex-1 space-y-1.5 break-words">
+                                    <span class="min-w-0 flex-1 space-y-1.5 wrap-break-word">
                                         <span class="flex flex-wrap items-center gap-2">
                                             <span class="font-semibold text-slate-900 dark:text-white">
                                                 {option.choice === 'rfdetr_nano'

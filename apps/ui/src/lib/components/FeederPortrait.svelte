@@ -53,7 +53,7 @@
     {#if latest}
         <button
             type="button"
-            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none dark:border-slate-700/60 dark:shadow-card-dark"
+            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none dark:border-slate-700/60 dark:shadow-card-dark"
             aria-label={$_('about.portrait.open_visit', {
                 values: { name: latest.display_name, time: formatDateTime(latest.detection_time) },
                 default: 'Open the {name} visit from {time}'
@@ -70,7 +70,7 @@
                 height={360}
                 class="h-full w-full"
             />
-            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 to-transparent px-4 pb-3 pt-10" aria-hidden="true">
+            <span class="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t/srgb from-slate-950/80 to-transparent px-4 pb-3 pt-10" aria-hidden="true">
                 <span class="block text-xs font-semibold text-white/75">{$_('about.portrait.latest', { default: 'Latest visit' })}</span>
                 <span class="block truncate text-base font-semibold text-white">{latest.display_name}</span>
                 <span class="block text-xs text-white/75">{formatDateTime(latest.detection_time)}</span>

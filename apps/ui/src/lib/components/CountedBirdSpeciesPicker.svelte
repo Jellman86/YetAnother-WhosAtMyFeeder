@@ -55,8 +55,8 @@
         <ul class="max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-700 dark:bg-slate-900" aria-label={$_('detection.counted_birds.suggestions', { default: 'Matching species' })}>
             {#each matches as match (match.id)}
                 <li><button type="button" class="btn btn-ghost min-h-11 min-w-11 w-full flex-col items-start justify-center rounded-md px-2 text-left text-xs focus-ring" disabled={busy} onclick={() => { input = match.primary; choice = { id: match.id, input: match.primary }; }}>
-                    <span class="break-words">{match.primary}</span>
-                    {#if match.secondary}<span class="break-words font-normal italic text-slate-500 dark:text-slate-400">{match.secondary}</span>{/if}
+                    <span class="wrap-break-word">{match.primary}</span>
+                    {#if match.secondary}<span class="wrap-break-word font-normal italic text-slate-500 dark:text-slate-400">{match.secondary}</span>{/if}
                 </button></li>
             {/each}
         </ul>

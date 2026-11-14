@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';
-import tailwindConfigSource from '../../tailwind.config.js?raw';
 
 const appCss = readFileSync(new URL('../app.css', import.meta.url), 'utf8');
 
@@ -15,9 +14,8 @@ describe('attention is a semantic colour, not the brand accent', () => {
     const shades = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 
     it('exposes attention as its own colour scale', () => {
-        expect(tailwindConfigSource).toContain('attention: {');
         for (const shade of shades) {
-            expect(tailwindConfigSource).toContain(`${shade}: 'rgb(var(--attention-${shade}) / <alpha-value>)'`);
+            expect(appCss).toContain(`--color-attention-${shade}: rgb(var(--attention-${shade}));`);
         }
     });
 

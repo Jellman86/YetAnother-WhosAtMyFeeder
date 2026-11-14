@@ -27,7 +27,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('id="detection-modal-title"');
         expect(detectionModalSource).toContain('data-detection-media-ambient');
         expect(detectionModalSource).toContain('object-contain');
-        expect(detectionModalSource).toContain('max-h-[100dvh]');
+        expect(detectionModalSource).toContain('max-h-dvh');
         expect(detectionModalSource).toContain('data-detection-photograph');
         expect(detectionModalSource).not.toContain('from-black/80 via-black/25');
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col');
@@ -117,7 +117,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-whole-scene-peek');
         expect(detectionModalSource).toContain('data-detection-media-title');
         expect(detectionModalSource).toContain('flex flex-wrap items-center gap-2');
-        expect(detectionModalSource).toContain('aspect-[4/3] min-h-72');
+        expect(detectionModalSource).toContain('aspect-4/3 min-h-72');
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
         // Peeking stays non-mutating. Only a named action changes the photograph.

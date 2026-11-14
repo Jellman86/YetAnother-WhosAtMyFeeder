@@ -119,7 +119,7 @@
             {/if}
             <button
                 type="button"
-                class="absolute inset-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 disabled:cursor-default"
+                class="absolute inset-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 disabled:cursor-default"
                 aria-label={$_('events.heard.seek', { default: 'Play from a point in the call. Arrow keys move one second.' })}
                 disabled={clipFailed}
                 onclick={seekFromPointer}
@@ -130,7 +130,7 @@
     <figcaption class="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2.5">
         <button
             type="button"
-            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white transition-colors hover:bg-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:bg-slate-400 dark:disabled:bg-slate-700"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-700 text-white transition-colors hover:bg-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:bg-slate-400 dark:disabled:bg-slate-700"
             aria-label={paused
                 ? $_('events.heard.play_call', { values: { species }, default: 'Play the {species} call' })
                 : $_('events.heard.pause_call', { values: { species }, default: 'Pause the {species} call' })}
@@ -163,7 +163,7 @@
                 href={birdnetUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300"
             >
                 {$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 4H4v12h12v-4M11 3h6v6M17 3l-8 8" /></svg>

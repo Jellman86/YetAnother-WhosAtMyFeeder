@@ -106,7 +106,7 @@
             {#each ['w-28', 'w-20'] as width (width)}
                 <div class="flex items-center gap-2.5 px-1.5">
                     <span class="h-8 w-8 shrink-0 rounded-lg bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" data-loading-placeholder></span>
-                    <span class="h-3 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
+                    <span class="h-3 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60 {width}" data-loading-placeholder></span>
                 </div>
             {/each}
         </div>
@@ -193,7 +193,7 @@
                 <p role="status" class="sr-only">
                     {$_('dashboard.review_queue.checks_loading', { default: 'Checking for species that may be misnamed…' })}
                 </p>
-                <span class="block h-3 w-40 rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                <span class="block h-3 w-40 rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
             {:else if call.checks === 'unavailable'}
                 <p class="text-xs text-slate-600 dark:text-slate-300">
                     {$_('dashboard.review_queue.checks_unavailable', {
