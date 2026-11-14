@@ -8,4 +8,5 @@
 - **Logs keep integration credentials out of error lines.** Frigate, Home Assistant, BirdNET-Go
   audio and spectrogram, email snapshot, media-probe
   and unexpected-error log lines reduce any address in an HTTP error to `scheme://host:port`
-  and hide `token=`-style values, including in the logged traceback.
+  and hide `token=`-style values, including in the logged traceback. Verbose HTTP client logs do
+  the same for every request, and mark a shortened address with `/***REDACTED***`.

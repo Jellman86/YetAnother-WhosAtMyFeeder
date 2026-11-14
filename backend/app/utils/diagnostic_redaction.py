@@ -157,18 +157,23 @@ def redact_address(address: str, secrets: Sequence[str] = ()) -> str:
     return redact_text(shown, secrets)
 
 
-def redact_connection_error(text: str, secrets: Sequence[str] = ()) -> str:
+def redact_connection_error(text: str, secrets: Sequence[str] = (), *, mark_dropped: bool = False) -> str:
     """Make a connection error safe to show or log, keeping its wording.
 
     Public for reuse wherever a client's error text is surfaced. Every address inside it is
     reduced with :func:`redact_address`, ``name=value`` credentials (token, key, password, secret,
     auth and similar) are replaced, and so are known ``secrets`` and recognisable credential forms.
+    With ``mark_dropped``, an address that lost a path, query or userinfo ends in
+    ``/***REDACTED***``, so a log line never reads as a request to the bare host.
     """
 
     def reduce(match: re.Match[str]) -> str:
         found = match.group(0)
         address = found.rstrip(_TRAILING_PUNCTUATION)
-        return redact_address(address, secrets) + found[len(address) :]
+        reduced = redact_address(address, secrets)
+        if mark_dropped and reduced != address.rstrip("/"):
+            reduced += "/" + REDACTED_VALUE
+        return reduced + found[len(address) :]
 
     cleaned = _ADDRESS_IN_TEXT.sub(reduce, text)
     cleaned = re.sub(

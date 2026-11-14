@@ -289,3 +289,25 @@ async def test_email_snapshot_fetch_failure_log_keeps_url_credentials_out(monkey
     (record,) = [record for record in records if record["event"] == "Failed to fetch snapshot for email"]
     _assert_clean(json.dumps(records), secrets)
     assert REDUCED_HOST in record["error"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url_shape", sorted(SECRET_URLS))
+async def test_http_client_request_log_keeps_integration_url_credentials_out(caplog, url_shape):
+    import logging
+
+    import app.services.notifications.transports.http_logging  # noqa: F401  (installs the filter)
+
+    url, secrets = SECRET_URLS[url_shape]
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, request=request)
+
+    caplog.set_level(logging.INFO, logger="httpx")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
+        await client.get(f"{url}/api/version")
+
+    (line,) = [record.getMessage() for record in caplog.records if record.name == "httpx"]
+    _assert_clean(line, secrets)
+    # The shortened address says so, rather than reading as a request to the bare host.
+    assert f"{REDUCED_HOST}/***REDACTED***" in line
