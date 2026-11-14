@@ -43,6 +43,7 @@ function buildCoordinator(options?: {
     hasOwnerAccess?: boolean;
     refreshOwnerHistory?: () => Promise<void>;
     onGardenHistoryChanged?: () => void;
+    onServiceConnectionsChanged?: () => void;
 }) {
     const calls = {
         upsertRunning: [] as any[],
@@ -80,6 +81,7 @@ function buildCoordinator(options?: {
         hasOwnerAccess: () => options?.hasOwnerAccess ?? true,
         refreshOwnerHistory: options?.refreshOwnerHistory,
         onGardenHistoryChanged: options?.onGardenHistoryChanged,
+        onServiceConnectionsChanged: options?.onServiceConnectionsChanged,
         applyNotificationPolicy: () => true,
         notificationCenter: {
             items: notificationItems,
@@ -794,6 +796,14 @@ describe('private Garden live updates', () => {
         coordinator.handlePayload({ type: 'garden_history_changed' });
         expect(onGardenHistoryChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.addDetection).toEqual([]);
+        expect(calls.notificationUpserts).toEqual([]);
+    });
+
+    it.each([true, false])('rereads the broker and Frigate connections only with owner access (%s)', (owner) => {
+        const onServiceConnectionsChanged = vi.fn();
+        const { coordinator, calls } = buildCoordinator({ hasOwnerAccess: owner, shouldNotify: false, onServiceConnectionsChanged });
+        coordinator.handlePayload({ type: 'service_connections_changed' });
+        expect(onServiceConnectionsChanged).toHaveBeenCalledTimes(owner ? 1 : 0);
         expect(calls.notificationUpserts).toEqual([]);
     });
 });

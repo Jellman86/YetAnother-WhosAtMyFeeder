@@ -84,6 +84,8 @@ class FakeBackend {
     activationError: string | null = null;
     settingsError: string | null = null;
     downloadError: string | null = null;
+    /** What the server last measured of the saved broker and Frigate: null when not yet measured. */
+    connectionReading: 'connected' | 'unreachable' | null = null;
 
     constructor(options: FakeOptions = {}) {
         this.needsInitialSetup = options.firstRun ?? false;
@@ -173,10 +175,18 @@ class FakeBackend {
         return {
             initial_setup_complete: !this.needsInitialSetup,
             sections: [
-                { id: 'account', status: this.needsInitialSetup ? 'attention' : 'ok', detail_code: this.authEnabled ? 'account_password_protected' : 'account_auth_disabled' },
-                s.frigate_url && s.mqtt_server
-                    ? { id: 'connection', status: 'ok', detail_code: 'connection_ready', detail_values: { url: String(s.frigate_url) } }
-                    : { id: 'connection', status: 'attention', detail_code: 'connection_missing', detail_values: { items: 'frigate_url,mqtt_broker' } },
+                this.needsInitialSetup
+                    ? { id: 'account', status: 'attention', detail_code: 'account_not_configured' }
+                    : this.authEnabled
+                      ? { id: 'account', status: 'ok', detail_code: 'account_password_protected' }
+                      : { id: 'account', status: 'optional', detail_code: 'account_auth_disabled' },
+                !(s.frigate_url && s.mqtt_server)
+                    ? { id: 'connection', status: 'attention', detail_code: 'connection_missing', detail_values: { items: 'frigate_url,mqtt_broker' } }
+                    : this.connectionReading === 'unreachable'
+                      ? { id: 'connection', status: 'attention', detail_code: 'connection_unreachable', detail_values: { items: 'mqtt,frigate' } }
+                      : this.connectionReading === 'connected'
+                        ? { id: 'connection', status: 'ok', detail_code: 'connection_connected', detail_values: { url: String(s.frigate_url) } }
+                        : { id: 'connection', status: 'ok', detail_code: 'connection_ready', detail_values: { url: String(s.frigate_url) } },
                 cameras.length
                     ? { id: 'cameras', status: 'ok', detail_code: 'cameras_count', detail_values: { count: cameras.length } }
                     : { id: 'cameras', status: 'ok', detail_code: 'cameras_all' },
@@ -949,4 +959,26 @@ test('a saved country names the species list, and a model that is not regional a
     await modelSelect(page).selectOption('small_birds');
     await wizard(page).getByLabel('Bird model region').selectOption('auto');
     await expect(wizard(page).locator('[data-setup-model-region]').getByRole('status')).toContainText('Your saved country selects the species list');
+});
+
+test('the review names what it measured: no password is a choice, and a saved connection that fails is not ready', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt' } });
+    fake.connectionReading = 'unreachable';
+    const errors = await openRerun(page, fake);
+    const account = wizard(page).getByRole('listitem').filter({ hasText: 'Admin account & access' });
+    await expect(account.locator('[data-setup-status]')).toHaveText('No password');
+    await expect(account).toContainText('Authentication disabled');
+    await expect(account).not.toContainText('Configured');
+    const connection = wizard(page).getByRole('listitem').filter({ hasText: 'Frigate & MQTT connection' });
+    await expect(connection.locator('[data-setup-status]')).toHaveText('Not reachable');
+    await expect(connection).toContainText('Could not reach: MQTT broker, Frigate.');
+    expect(errors).toEqual([]);
+});
+
+test('the review says connected only once the connection was measured working', async ({ page }) => {
+    const fake = new FakeBackend({ settings: { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt' } });
+    fake.connectionReading = 'connected';
+    await openRerun(page, fake);
+    const connection = wizard(page).getByRole('listitem').filter({ hasText: 'Frigate & MQTT connection' });
+    await expect(connection.locator('[data-setup-status]')).toHaveText('Connected');
 });

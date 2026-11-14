@@ -138,5 +138,6 @@
   "try_again": "Tentar novamente",
   "count_unavailable": "Contagem indisponível",
   "results_loading": "Carregando resultados…",
-  "selection_count": "{count, plural, =0 {Nenhuma captura selecionada} one {# captura selecionada} other {# capturas selecionadas}}"
+  "selection_count": "{count, plural, =0 {Nenhuma captura selecionada} one {# captura selecionada} other {# capturas selecionadas}}",
+  "settings_unavailable": "Não foi possível carregar suas configurações, então Explorar não sabe quais visitantes mostrar. Nada foi alterado. Tente novamente em instantes."
 }

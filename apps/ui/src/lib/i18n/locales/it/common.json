@@ -64,5 +64,6 @@
   "language_load_error": "Impossibile caricare la lingua. Controlla la connessione e riprova.",
   "undo": "Annulla",
   "unknown": "sconosciuto",
-  "diagnostic_step_status": "Passaggio {step} di {total}: {label}"
+  "diagnostic_step_status": "Passaggio {step} di {total}: {label}",
+  "checks_failed": "{failed} controlli su {total} non superati: {labels}."
 }

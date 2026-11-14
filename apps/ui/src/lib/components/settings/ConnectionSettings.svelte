@@ -164,7 +164,8 @@
                     })
                 }
             ],
-            (stages) => (fcStages = stages)
+            (stages) => (fcStages = stages),
+            { independent: true }
         );
         fcRunning = false;
     }

@@ -104,7 +104,9 @@
     "window_start": "{hours} ч назад",
     "window_now": "сейчас",
     "history_loading": "Загрузка данных о доступности…",
-    "history_unavailable": "Не удалось получить данные о доступности."
+    "history_unavailable": "Не удалось получить данные о доступности.",
+    "availability_partial": "{percent}% доступности за {hours} ч записи",
+    "no_gaps_since": "Пропусков нет с начала записи в {when}."
   },
   "close": {
     "title": "Данные, приватность и благодарности"

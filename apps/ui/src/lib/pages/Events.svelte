@@ -256,9 +256,22 @@
 
     async function loadEvents() {
         const load = eventsLoad.begin();
-        writeAddress();
         loading = true;
         error = null;
+        // Whether Garden can be read is an owner setting. Reading before it is known sent a Garden
+        // link to bird visits, then labelled them an empty Garden queue, so an owner's read waits
+        // for a successful settings read and stops, saying why, when there is none. Visitors read
+        // the public projection and never load owner settings.
+        if (authStore.hasOwnerAccess && settingsStore.settings === null) {
+            await settingsStore.load();
+            if (!load.isCurrent()) return;
+            if (settingsStore.settings === null) {
+                error = $_('events.settings_unavailable', { default: 'Your settings could not be loaded, so the Explorer cannot tell which visitors to show. Nothing was changed. Try again in a moment.' });
+                loading = false;
+                return;
+            }
+        }
+        writeAddress();
         try {
             const range = dateRange;
             let newEvents: Detection[];

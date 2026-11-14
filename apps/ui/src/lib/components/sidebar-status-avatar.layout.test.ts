@@ -18,8 +18,10 @@ describe('the sidebar status tiles', () => {
     });
 
     it('never says on or off by colour alone', () => {
-        // Off is a slash through the icon as well as a muted colour.
-        expect(statusSource).toContain('{#if !tile.on}<path d="M4 4l16 16" />{/if}');
+        // Off or down is a slash through the icon and its own word, as well as a colour.
+        expect(statusSource).toContain('{#if tile.slashed}<path d="M4 4l16 16" />{/if}');
+        expect(en.status.tile_no_events).toBe('No events');
+        expect(en.status.tile_connected).toBe('Connected');
         // The full sentence is the tooltip and the screen-reader text.
         expect(statusSource).toContain('title={`${tile.name}: ${tile.state}`}');
         expect(statusSource).toContain('<span class="sr-only">{tile.name}: {tile.state}</span>');

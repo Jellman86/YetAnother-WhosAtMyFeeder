@@ -51,6 +51,13 @@ describe('event pipeline verdict', () => {
         expect(eventPipelineVerdict({ status: 'degraded', fault_drops: 0 }, 'ok')).toBe('degraded');
     });
 
+    it('calls a pipeline that has had nothing to process idle, not healthy', () => {
+        // "Processing detections normally" with nothing processed claims work that was not seen.
+        expect(eventPipelineVerdict({ status: 'ok', started_events: 0, fault_drops: 0 }, 'ok')).toBe('idle');
+        expect(eventPipelineVerdict({ status: 'ok', started_events: 3, fault_drops: 0 }, 'ok')).toBe('ok');
+        expect(eventPipelineVerdict({ status: 'degraded', started_events: 0, fault_drops: 0 }, 'ok')).toBe('degraded');
+    });
+
     it('falls back only when the backend sent no status', () => {
         expect(eventPipelineVerdict({}, 'unknown')).toBe('unknown');
         expect(eventPipelineVerdict(null, 'unknown')).toBe('unknown');

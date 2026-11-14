@@ -23,7 +23,10 @@
     // garden=0: switched off, as a saved setting says it.
     const gardenCameras = params.get('gardencams')?.split(',').filter(Boolean) ?? ['patio'];
     const garden = params.get('garden') === '1' ? { beta_garden_animals: true, garden_cameras: gardenCameras } : params.get('garden') === '0' ? { beta_garden_animals: false } : {};
-    if (!guest) settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
+    // settings=late: the owner's settings arrive from /api/settings after the page mounts, as they
+    // do in the app, rather than being in place before it.
+    if (!guest && params.get('settings') === 'late') void settingsStore.load();
+    else if (!guest) settingsStore.settings = { enrichment_summary_provider: 'disabled', ...garden } as unknown as NonNullable<typeof settingsStore.settings>;
     const surface = params.get('surface');
     // The app's global Escape handler must not consume native capture-panel dismissal.
     onMount(() => {

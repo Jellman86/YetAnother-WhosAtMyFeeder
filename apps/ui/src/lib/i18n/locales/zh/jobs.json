@@ -214,7 +214,7 @@
     "filter_invalid_score": "无效分数",
     "filter_out_of_range": "超出你所在地区的分布范围"
   },
-  "errors_mqtt_ok": "MQTT流量正常。",
+  "errors_mqtt_ok": "处理能够跟上。",
   "errors_mqtt_pressure": "MQTT处理器处于{pressure}压力，{inFlight}/{capacity}进行中。",
   "errors_mqtt_reconnected": "{count, plural, other {MQTT在#次主题重连后已完全恢复。}}",
   "errors_live_class_ok": "实时分类容量当前空闲。",
@@ -255,8 +255,46 @@
     "clear": "畅通",
     "resolved": "已解决",
     "recovered": "已恢复",
-    "unknown": "未知"
+    "unknown": "未知",
+    "connected": "已连接",
+    "reachable": "有响应",
+    "connecting": "连接中",
+    "disconnected": "未连接",
+    "unreachable": "无响应",
+    "not_configured": "未设置",
+    "stopped": "已停止",
+    "unchecked": "未检查"
   },
   "errors_no_reconnect_reason": "无记录",
-  "errors_unknown_phase": "未知阶段"
+  "errors_unknown_phase": "未知阶段",
+  "errors_summary_connections_unread": "YA-WAMF内部未报告故障，但无法读取MQTT代理和Frigate的连接状态。",
+  "errors_no_snapshot": "尚无健康读数。",
+  "errors_connections_unread": "无法读取连接状态。请刷新重试。",
+  "errors_mqtt_disconnected": "未连接到 {server}。上次尝试于 {at}，仍在重试。",
+  "errors_mqtt_connecting": "正在连接 {server}。",
+  "errors_mqtt_connected": "自 {at} 起已连接到 {server}。",
+  "errors_mqtt_last_error": "代理客户端返回：{error}",
+  "errors_frigate_failure": {
+    "timeout": "响应时间过长",
+    "unauthorized": "拒绝了访问令牌",
+    "server_error": "其自身报告了错误",
+    "connection": "无法访问该地址"
+  },
+  "errors_frigate_unreachable": "位于 {url} 的Frigate在 {at} 未响应：{reason}。",
+  "errors_frigate_reachable": "位于 {url} 的Frigate在 {at} 已响应。",
+  "errors_frigate_unchecked": "自本实例启动以来尚未向位于 {url} 的Frigate发出任何请求。",
+  "errors_frigate_announced_online": "Frigate通过MQTT报告自身在线。",
+  "errors_frigate_announced_offline": "Frigate通过MQTT报告自身离线。",
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "自本实例启动以来，没有检测进入处理流程。",
+  "errors_problem": {
+    "mqtt_down": "位于 {server} 的MQTT代理未连接，因此不会有新的检测到达。",
+    "mqtt_down_next": "请在 设置 → 连接 中检查地址，并确认代理正在运行。",
+    "mqtt_not_configured": "未设置MQTT代理，因此不会有检测到达。",
+    "mqtt_not_configured_next": "请在 设置 → 连接 中添加一个。",
+    "mqtt_stopped": "MQTT服务未运行，因此不会有新的检测到达。",
+    "mqtt_stopped_next": "重启YA-WAMF即可重新启动它。",
+    "frigate_down": "位于 {url} 的Frigate无响应，因此新的检测无法保存。",
+    "frigate_down_next": "请在 设置 → 连接 中检查地址，并确认Frigate正在运行。"
+  }
 }

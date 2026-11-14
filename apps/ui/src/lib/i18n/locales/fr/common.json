@@ -64,5 +64,6 @@
   "language_load_error": "Cette langue n’a pas pu être chargée. Vérifiez votre connexion et réessayez.",
   "undo": "Annuler",
   "unknown": "inconnu",
-  "diagnostic_step_status": "Étape {step} sur {total} : {label}"
+  "diagnostic_step_status": "Étape {step} sur {total} : {label}",
+  "checks_failed": "Vérifications non réussies, {failed} sur {total} : {labels}."
 }

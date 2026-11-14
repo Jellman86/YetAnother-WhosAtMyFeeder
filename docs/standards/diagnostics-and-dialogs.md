@@ -49,7 +49,10 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   reveal controls *when* a resolved step appears, never *whether* it passed. This
   is [`CLAUDE.md`](../../CLAUDE.md) §1/§5: never imply state that did not happen.
 - **Every state is legible:** pending, running, passed, warning, failed, skipped. A
-  failure stops the run, colours its row, and states the cause and next step in
+  failure stops the run when later steps depend on it; checks that do not depend on each other
+  (Frigate's API and the MQTT broker) all run with `{ independent: true }`, because marking one
+  "not run because an earlier step failed" would claim a dependency that is not there. A failure
+  colours its row, and states the cause and next step in
   plain language (Nielsen #9) — not an error code. Warning and skipped outcomes
   remain terminal but must not be promoted to a pass or produce a green summary.
 - **Keyboard & focus:** `Escape` closes, focus is trapped while open, and body

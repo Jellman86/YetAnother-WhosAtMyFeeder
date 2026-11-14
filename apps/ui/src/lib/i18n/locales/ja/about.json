@@ -104,7 +104,9 @@
     "window_start": "{hours} 時間前",
     "window_now": "現在",
     "history_loading": "稼働状況を読み込んでいます…",
-    "history_unavailable": "稼働状況を取得できませんでした。"
+    "history_unavailable": "稼働状況を取得できませんでした。",
+    "availability_partial": "記録された {hours} 時間のうち {percent}% 稼働",
+    "no_gaps_since": "{when} の記録開始以降、途切れはありません。"
   },
   "close": {
     "title": "データ、プライバシー、クレジット"

@@ -138,5 +138,6 @@
   "try_again": "重试",
   "count_unavailable": "数量不可用",
   "results_loading": "正在加载结果…",
-  "selection_count": "{count, plural, =0 {未选择拍摄} other {已选择 # 次拍摄}}"
+  "selection_count": "{count, plural, =0 {未选择拍摄} other {已选择 # 次拍摄}}",
+  "settings_unavailable": "无法加载您的设置，因此“探索”无法确定要显示哪些访客。未做任何更改。请稍后重试。"
 }

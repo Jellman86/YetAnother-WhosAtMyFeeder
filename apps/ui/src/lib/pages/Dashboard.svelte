@@ -46,6 +46,8 @@
     import { fromServerVisit, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue, EMPTY_REVIEW_QUEUE_READING, readingFromResponse, visibleUnresolvedCount, withoutEvent, type ReviewQueueReading } from '../utils/review-queue';
     import { dayBarSlots } from '../utils/day-bar';
+    import { liveFeedState } from '../utils/live-feed-state';
+    import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { applyManualTagResult } from '../utils/manual-tag';
 
     interface Props {
@@ -653,7 +655,7 @@
         slots={daySlots}
         loading={summaryPending || queueStatus === 'loading'}
         audioLoading={audioSummaryLoading}
-        connected={detectionsStore.connected}
+        feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
     />
 
     <ProviderWarning {onnavigate} />

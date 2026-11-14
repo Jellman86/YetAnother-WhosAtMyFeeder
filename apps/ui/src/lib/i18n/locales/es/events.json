@@ -138,5 +138,6 @@
   "try_again": "Volver a intentar",
   "count_unavailable": "Recuento no disponible",
   "results_loading": "Cargando resultados…",
-  "selection_count": "{count, plural, =0 {Ninguna captura seleccionada} one {# captura seleccionada} other {# capturas seleccionadas}}"
+  "selection_count": "{count, plural, =0 {Ninguna captura seleccionada} one {# captura seleccionada} other {# capturas seleccionadas}}",
+  "settings_unavailable": "No se pudieron cargar tus ajustes, así que el Explorador no sabe qué visitantes mostrar. No se ha cambiado nada. Vuelve a intentarlo en un momento."
 }

@@ -28,8 +28,10 @@ describe('Sidebar hybrid refresh', () => {
         expect(connectionStatusSource).toContain("$_('status.live_updates')");
         expect(connectionStatusSource).toContain("$_('status.audio_analysis')");
         expect(connectionStatusSource).toContain("$_('status.notifications')");
-        expect(connectionStatusSource).toContain("$_('status.online')");
-        expect(connectionStatusSource).toContain("$_('status.offline')");
+        // The live tile says what was measured: the broker session, not only the page's stream.
+        expect(connectionStatusSource).toContain("$_('status.feed_live'");
+        expect(connectionStatusSource).toContain("$_('status.feed_broker_down'");
+        expect(connectionStatusSource).toContain("$_('status.feed_app_only'");
     });
 
     it('uses an account card when expanded while preserving compact auth actions', () => {

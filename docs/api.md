@@ -151,8 +151,14 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   A finish can include failure or cancellation. These are scheduler observations, not exact
   accelerator utilization or live-request latency; short bursts between checks can be missed.
   Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
-- `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
-  through both monolithic and split frontend deployments and is not cacheable.
+  `mqtt.connection_state` is the broker session as measured (`connecting`, `connected`,
+  `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`
+  (`reachable`, `unreachable` or `unchecked`) and `last_failure` from the latest request made to
+  Frigate. `status` is `degraded` while the broker is `disconnected` or `not_configured`, or while
+  Frigate's latest request went unanswered: no new detection can arrive or be saved then.
+- `GET /ready`: startup readiness (returns `503` until ready, and while a startup warning stands).
+  The `503` body is the same report, so `startup_started_at` is still readable from it. This exact
+  public path is proxied through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
 - `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
@@ -196,9 +202,14 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 ### Guided setup
 
 - `GET /api/setup/state` (owner; also reachable before auth is enabled) — returns
-  deterministic `ok`, `attention`, or `optional` states for account, connection,
-  cameras, classifier, snapshot quality, and integrations. This is saved
-  configuration/credential readiness, not a live external-service health check.
+  `ok`, `attention`, or `optional` states for account, connection,
+  cameras, classifier, snapshot quality, and integrations. These are saved
+  configuration/credential readiness, with two exceptions: running without a password is
+  `optional` (`account_auth_disabled`), never `ok`, and the connection section reads the
+  measured broker and Frigate state from [`GET /api/diagnostics/connections`](#debug-owner).
+  Saved values that could not be reached are `attention` with `detail_code`
+  `connection_unreachable` and `detail_values.items` (`mqtt`, `frigate`); values measured working
+  are `ok` with `connection_connected`; values not measured yet keep `connection_ready`.
 
 ### Events
 
@@ -1465,6 +1476,24 @@ The callback exception grants no owner role and does not expand cookie authentic
   include current/previous busy and total values, units and measurement-state codes;
   arbitrary driver/engine text, raw procfs, client IDs and exception messages are excluded.
   It reads the existing bounded history without sampling or inference; unmeasured accelerator values remain null.
+  The workspace also carries `connections`, in the shape of `GET /api/diagnostics/connections`,
+  measured before `health` so the two agree.
+- `GET /api/diagnostics/connections` — the broker session and Frigate's API as last measured, for
+  Settings → Health and the sidebar's live tile. `mqtt` has `state` (`connecting`, `connected`,
+  `disconnected`, `not_configured`, `stopped`), `server`, `port`, `connected_since`,
+  `last_attempt_at`, `last_failure_at` and `last_error` (the broker client's own words). `frigate`
+  has `state` (`reachable`, `unreachable`, `unchecked`), `url`, `checked_at`, `last_success_at`,
+  `last_failure_at`, `last_failure` (`timeout`, `connection`, `unauthorized`, `server_error`) and
+  `availability` (what Frigate last announced on its MQTT availability topic, `unknown` without the
+  broker). `server` and `url` are reduced to `scheme://host[:port]`: userinfo, path, query and
+  fragment are never returned, since any of them can carry a credential (a reverse-proxy token in
+  the path, for example). `last_error` keeps the client's wording with every address in it reduced
+  the same way and `name=value` credentials replaced by `***REDACTED***`. The same applies to the
+  workspace, the diagnostics bundle and the log lines for these connections.
+  Every Frigate request the app makes updates the reading; one older than a minute is
+  refreshed with a single `api/version` request (5 s timeout) before it is returned. A state change
+  is pushed to owners over `GET /api/sse` as `{"type": "service_connections_changed"}` with no
+  payload; guests never receive it.
 - `POST /api/diagnostics/clear`
 
 ### Model evaluation (owner)

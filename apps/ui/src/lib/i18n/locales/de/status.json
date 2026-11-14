@@ -1,12 +1,21 @@
 {
   "title": "Systemstatus",
   "live_updates": "Live-Aktualisierungen",
-  "online": "Verbunden",
-  "offline": "Getrennt",
   "audio_analysis": "Audioanalyse",
   "notifications": "Benachrichtigungen",
   "open_health": "Systemzustand",
   "tile_live": "Live-Daten",
   "tile_audio": "Audio",
-  "tile_alerts": "Hinweise"
+  "tile_alerts": "Hinweise",
+  "tile_connecting": "Verbinde",
+  "tile_no_events": "Keine Ereignisse",
+  "tile_no_frigate": "Kein Frigate",
+  "tile_connected": "Verbunden",
+  "tile_offline": "Getrennt",
+  "feed_live": "Kameraereignisse kommen an",
+  "feed_connecting": "Verbindung zum MQTT-Broker wird aufgebaut",
+  "feed_broker_down": "Keine Kameraereignisse. Der MQTT-Broker ist nicht verbunden.",
+  "feed_frigate_down": "Frigate antwortet nicht, neue Erkennungen können nicht gespeichert werden",
+  "feed_app_only": "Mit YA-WAMF verbunden",
+  "feed_reconnecting": "Verbindung zu YA-WAMF wird wiederhergestellt"
 }

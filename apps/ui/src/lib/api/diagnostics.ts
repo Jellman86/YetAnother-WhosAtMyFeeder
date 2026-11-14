@@ -21,3 +21,15 @@ export async function clearDiagnosticsWorkspace(): Promise<ClearDiagnosticsWorks
     });
     return handleResponse<ClearDiagnosticsWorkspaceResponse>(response);
 }
+
+/** The broker session and Frigate's API as the server last measured them (owner only). */
+export type ServiceConnections = paths['/api/diagnostics/connections']['get']['response'];
+
+export async function fetchServiceConnections(signal?: AbortSignal): Promise<ServiceConnections> {
+    const response = await apiFetch(`${API_BASE}/diagnostics/connections`, {
+        cache: 'no-store',
+        timeoutMs: 10_000,
+        signal
+    });
+    return handleResponse<ServiceConnections>(response);
+}

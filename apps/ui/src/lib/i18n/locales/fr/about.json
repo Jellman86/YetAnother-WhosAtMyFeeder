@@ -104,7 +104,9 @@
     "window_start": "il y a {hours} h",
     "window_now": "maintenant",
     "history_loading": "Chargement de la disponibilité…",
-    "history_unavailable": "La disponibilité n’a pas pu être lue."
+    "history_unavailable": "La disponibilité n’a pas pu être lue.",
+    "availability_partial": "{percent} % disponible sur les {hours} h enregistrées",
+    "no_gaps_since": "Aucune interruption depuis le début de l’enregistrement à {when}."
   },
   "close": {
     "title": "Données, confidentialité et remerciements"

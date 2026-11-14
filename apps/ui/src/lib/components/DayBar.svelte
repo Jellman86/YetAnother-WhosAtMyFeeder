@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { DayBarSlots } from '../utils/day-bar';
+    import type { LiveFeedState } from '../utils/live-feed-state';
 
     /** A null figure has not been measured: it is never shown as zero. */
     interface Props {
@@ -15,7 +16,8 @@
         audioConfirmations: number | null;
         /** The optional figures, decided from configuration so loading never adds a cell. */
         slots: DayBarSlots;
-        connected: boolean;
+        /** Only a measured broker session is called live; see live-feed-state.ts. */
+        feed: LiveFeedState;
         /** Unmeasured figures are still being read, rather than unavailable. */
         loading?: boolean;
         /** The same for the microphone's reading, which arrives on its own. */
@@ -32,10 +34,28 @@
         audioCalls,
         audioConfirmations,
         slots,
-        connected,
+        feed,
         loading = false,
         audioLoading = false
     }: Props = $props();
+
+    const feedTone = $derived(feed === 'live' ? 'live' : feed === 'broker_down' || feed === 'frigate_down' ? 'attention' : 'neutral');
+    const feedLabel = $derived.by(() => {
+        switch (feed) {
+            case 'live':
+                return $_('dashboard.live_feed');
+            case 'connecting':
+                return $_('status.feed_connecting', { default: 'Connecting to the MQTT broker' });
+            case 'broker_down':
+                return $_('status.feed_broker_down', { default: 'Not receiving camera events. The MQTT broker is not connected.' });
+            case 'frigate_down':
+                return $_('status.feed_frigate_down', { default: 'Frigate is not answering, so new detections cannot be saved' });
+            case 'app_only':
+                return $_('status.feed_app_only', { default: 'Connected to YA-WAMF' });
+            default:
+                return $_('dashboard.day_bar.reconnecting', { default: 'Reconnecting…' });
+        }
+    });
 </script>
 
 {#snippet unmeasured(pending: boolean)}
@@ -61,17 +81,21 @@
             </h1>
         </div>
 
-        <p class="flex items-center gap-2 text-sm font-semibold">
+        <p class="flex max-w-full items-center gap-2 text-sm font-semibold" data-day-bar-feed={feed}>
             <span
-                class="h-2 w-2 rounded-full {connected
+                class="h-2 w-2 shrink-0 rounded-full {feedTone === 'live'
                     ? 'bg-success-500 ring-4 ring-success-500/20'
-                    : 'bg-slate-400 dark:bg-slate-500'}"
+                    : feedTone === 'attention'
+                      ? 'bg-attention-500 ring-4 ring-attention-500/20'
+                      : 'bg-slate-400 dark:bg-slate-500'}"
                 aria-hidden="true"
             ></span>
-            <span class={connected ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}>
-                {connected
-                    ? $_('dashboard.live_feed')
-                    : $_('dashboard.day_bar.reconnecting', { default: 'Reconnecting…' })}
+            <span class={feedTone === 'live'
+                ? 'text-success-700 dark:text-success-300'
+                : feedTone === 'attention'
+                  ? 'text-attention-800 dark:text-attention-200'
+                  : 'text-slate-600 dark:text-slate-400'}>
+                {feedLabel}
             </span>
         </p>
     </div>

@@ -104,7 +104,9 @@
     "window_start": "hace {hours} h",
     "window_now": "ahora",
     "history_loading": "Cargando disponibilidad…",
-    "history_unavailable": "No se pudo consultar la disponibilidad."
+    "history_unavailable": "No se pudo consultar la disponibilidad.",
+    "availability_partial": "{percent}% activo en las {hours} h registradas",
+    "no_gaps_since": "Sin interrupciones desde que empezó el registro a las {when}."
   },
   "close": {
     "title": "Datos, privacidad y créditos"

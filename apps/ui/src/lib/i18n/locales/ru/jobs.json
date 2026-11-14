@@ -214,7 +214,7 @@
     "filter_invalid_score": "Недопустимая оценка",
     "filter_out_of_range": "Вне ареала вашего региона"
   },
-  "errors_mqtt_ok": "MQTT-трафик работает нормально.",
+  "errors_mqtt_ok": "Обработка успевает.",
   "errors_mqtt_pressure": "MQTT-обработчики под нагрузкой {pressure} при {inFlight}/{capacity} в обработке.",
   "errors_mqtt_reconnected": "MQTT восстановился после {count, plural, one {# переподключения темы} few {# переподключений темы} many {# переподключений темы} other {# переподключений темы}}.",
   "errors_live_class_ok": "Мощность классификации в реальном времени свободна.",
@@ -255,8 +255,46 @@
     "clear": "Свободно",
     "resolved": "Устранено",
     "recovered": "Восстановлено",
-    "unknown": "Неизвестно"
+    "unknown": "Неизвестно",
+    "connected": "Подключено",
+    "reachable": "Отвечает",
+    "connecting": "Подключение",
+    "disconnected": "Нет подключения",
+    "unreachable": "Не отвечает",
+    "not_configured": "Не задано",
+    "stopped": "Остановлено",
+    "unchecked": "Не проверено"
   },
   "errors_no_reconnect_reason": "Не зафиксировано",
-  "errors_unknown_phase": "Неизвестный этап"
+  "errors_unknown_phase": "Неизвестный этап",
+  "errors_summary_connections_unread": "Внутри YA-WAMF сбоев нет, но состояние подключений к MQTT-брокеру и Frigate прочитать не удалось.",
+  "errors_no_snapshot": "Данных о состоянии пока нет.",
+  "errors_connections_unread": "Не удалось прочитать состояние подключения. Обновите, чтобы повторить.",
+  "errors_mqtt_disconnected": "Нет подключения к {server}. Последняя попытка {at}; попытки продолжаются.",
+  "errors_mqtt_connecting": "Подключение к {server}.",
+  "errors_mqtt_connected": "Подключено к {server} с {at}.",
+  "errors_mqtt_last_error": "Клиент брокера сообщил: {error}",
+  "errors_frigate_failure": {
+    "timeout": "ответ занял слишком много времени",
+    "unauthorized": "он отклонил токен доступа",
+    "server_error": "он сообщил о собственной ошибке",
+    "connection": "адрес недоступен"
+  },
+  "errors_frigate_unreachable": "Frigate по адресу {url} не ответил в {at}: {reason}.",
+  "errors_frigate_reachable": "Frigate по адресу {url} ответил в {at}.",
+  "errors_frigate_unchecked": "К Frigate по адресу {url} с момента запуска этого экземпляра ещё не обращались.",
+  "errors_frigate_announced_online": "Frigate сообщает по MQTT, что он в сети.",
+  "errors_frigate_announced_offline": "Frigate сообщает по MQTT, что он не в сети.",
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "С момента запуска этого экземпляра ни одно обнаружение не поступило в обработку.",
+  "errors_problem": {
+    "mqtt_down": "MQTT-брокер {server} не подключён, поэтому новые обнаружения не поступают.",
+    "mqtt_down_next": "Проверьте адрес в разделе Настройки → Подключение и что брокер запущен.",
+    "mqtt_not_configured": "MQTT-брокер не задан, поэтому обнаружения не поступают.",
+    "mqtt_not_configured_next": "Укажите его в разделе Настройки → Подключение.",
+    "mqtt_stopped": "Служба MQTT не запущена, поэтому новые обнаружения не поступают.",
+    "mqtt_stopped_next": "Перезапустите YA-WAMF, чтобы снова запустить её.",
+    "frigate_down": "Frigate по адресу {url} не отвечает, поэтому новые обнаружения не сохраняются.",
+    "frigate_down_next": "Проверьте адрес в разделе Настройки → Подключение и что Frigate запущен."
+  }
 }

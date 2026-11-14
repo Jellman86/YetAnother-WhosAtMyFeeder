@@ -6,10 +6,15 @@ import structlog
 import uuid
 import random
 import time
+from datetime import datetime, timezone
+from typing import Literal
 from aiomqtt import Client, MqttError
 from app.config import settings
 from app.utils.frigate import is_ingest_label
+from app.services.connection_tracking import MqttConnectionTracker
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.service_connections import announce_service_connections_changed
+from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -44,6 +49,7 @@ class MQTTService:
         self.client = None
         self.running = False
         self.paused = False
+        self.connection = MqttConnectionTracker(on_change=announce_service_connections_changed)
         self.reconnect_delay = INITIAL_BACKOFF
         self._handler_semaphore = asyncio.Semaphore(MQTT_HANDLER_CONCURRENCY)
         # Audio events are distinct observations, not mutable event state. A
@@ -146,6 +152,7 @@ class MQTTService:
             "running": self.running,
             "paused": self.paused,
             "connected": self.client is not None,
+            "connection_state": self.connection.state,
             "in_flight": in_flight,
             "in_flight_by_topic": in_flight_by_topic,
             "in_flight_capacity": MQTT_MAX_IN_FLIGHT_MESSAGES,
@@ -196,6 +203,14 @@ class MQTTService:
                 ),
             },
         }
+
+    def frigate_availability(self) -> Literal["online", "offline", "unknown"]:
+        """What Frigate last announced on its availability topic, while the broker is connected."""
+        if self.connection.state != "connected":
+            return "unknown"
+        if self._frigate_availability in ("online", "offline"):
+            return self._frigate_availability
+        return "unknown"
 
     def is_under_pressure(self, min_level: str = "high") -> bool:
         order = {"normal": 0, "elevated": 1, "high": 2, "critical": 3}
@@ -267,6 +282,8 @@ class MQTTService:
         previous = self._frigate_availability
         self._frigate_availability = value
         self._frigate_availability_monotonic = now
+        if value != previous:
+            announce_service_connections_changed()
 
         if value == "online":
             if self._stall_recovery_consecutive_no_frigate_reconnects > 0:
@@ -802,6 +819,7 @@ class MQTTService:
         # Validate MQTT settings
         if not settings.frigate.mqtt_server:
             log.error("MQTT server not configured. Set FRIGATE__MQTT_SERVER environment variable.")
+            self.connection.not_configured()
             return
 
         log.info("Starting MQTT Service", client_id=self.client_id)
@@ -818,6 +836,7 @@ class MQTTService:
                     client_kwargs["username"] = settings.frigate.mqtt_username
                     client_kwargs["password"] = settings.frigate.mqtt_password
 
+                self.connection.attempting(datetime.now(timezone.utc))
                 async with Client(**client_kwargs) as client:
                     self.client = client
 
@@ -852,6 +871,7 @@ class MQTTService:
                     if birdnet_topic:
                         subscribed_topics.append(birdnet_topic)
                     log.info("Connected to MQTT", topics=subscribed_topics, birdnet_enabled=birdnet_enabled)
+                    self.connection.connected(datetime.now(timezone.utc))
 
                     # Reset backoff on successful connection
                     self._reset_backoff()
@@ -974,10 +994,12 @@ class MQTTService:
                     self._intentional_reconnect = False
                     log.info("MQTT session ended by stall-recovery watchdog; reconnecting immediately")
                     continue
+                error = redact_connection_error(str(e), configured_secrets())
+                self.connection.failed(datetime.now(timezone.utc), error)
                 delay = self._calculate_backoff()
                 log.error(
                     "MQTT connection lost, retrying...",
-                    error=str(e),
+                    error=error,
                     retry_delay=f"{delay:.1f}s",
                     backoff_level=self.reconnect_delay,
                 )
@@ -986,10 +1008,12 @@ class MQTTService:
             except Exception as e:
                 self.client = None
                 self._intentional_reconnect = False
+                error = redact_connection_error(str(e), configured_secrets())
+                self.connection.failed(datetime.now(timezone.utc), error)
                 delay = self._calculate_backoff()
                 log.error(
                     "Unexpected error in MQTT service, retrying...",
-                    error=str(e),
+                    error=error,
                     retry_delay=f"{delay:.1f}s",
                     backoff_level=self.reconnect_delay,
                 )
@@ -1065,6 +1089,7 @@ class MQTTService:
         self.running = False
         await self._drain_in_flight_tasks()
         self.client = None
+        self.connection.stopped()
         self._connection_started_monotonic = None
         self._topic_last_message_monotonic = {}
         self._topic_message_counts = {}

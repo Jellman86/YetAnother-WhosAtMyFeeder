@@ -138,5 +138,6 @@
   "try_again": "Réessayer",
   "count_unavailable": "Nombre indisponible",
   "results_loading": "Chargement des résultats…",
-  "selection_count": "{count, plural, =0 {Aucune capture sélectionnée} one {# capture sélectionnée} other {# captures sélectionnées}}"
+  "selection_count": "{count, plural, =0 {Aucune capture sélectionnée} one {# capture sélectionnée} other {# captures sélectionnées}}",
+  "settings_unavailable": "Vos paramètres n’ont pas pu être chargés, l’Explorateur ne sait donc pas quels visiteurs afficher. Rien n’a été modifié. Réessayez dans un instant."
 }

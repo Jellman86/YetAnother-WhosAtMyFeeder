@@ -623,6 +623,83 @@ test('confirmation in a position group applies only to the displayed original ph
     expect(confirmed).toEqual([second]);
 });
 
+test('the Garden review link reads Garden captures even when owner settings arrive after the page', async ({ page }) => {
+    // In the app the Explorer mounts while /api/settings is still loading. The link must not read
+    // bird visits meanwhile and then label them as an empty Garden queue (UI audit, 725 bird visits
+    // shown as "Showing 1-24 of 725" under "No Garden captures need review").
+    const reads: URL[] = [];
+    await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
+    await page.route(url => url.pathname === '/api/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fulfill({ json: { total: 725, gap_seconds: 60, visits: [] } });
+    });
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        reads.push(new URL(route.request().url()));
+        return route.fallback();
+    });
+    await page.route(url => url.pathname === '/api/settings', async route => {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        return route.fulfill({ json: { enrichment_summary_provider: 'disabled', beta_garden_animals: true, garden_cameras: ['patio'] } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&settings=late&visitors=garden&review=pending');
+
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-explorer-count]')).toContainText('1 Garden visit · 1 capture');
+    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+    await expect(page.getByText(/of 725/)).toHaveCount(0);
+    // The first and only read is the one the link asked for.
+    expect(reads.map(url => `${url.pathname}?status=${url.searchParams.get('status')}`)).toEqual(['/api/garden/visits?status=pending']);
+    await expect.poll(() => new URL(page.url()).searchParams.get('review')).toBe('pending');
+});
+
+test('the Garden review link reads nothing until owner settings load, says so, and recovers on retry', async ({ page }) => {
+    const reads: string[] = [];
+    let settingsAnswers = 0;
+    await mockGarden(page, { items: requested => (requested === 'pending' ? [row] : []) });
+    await page.route(url => ['/api/visits', '/api/events', '/api/garden/visits'].includes(url.pathname), route => {
+        reads.push(new URL(route.request().url()).pathname);
+        return route.fallback();
+    });
+    await page.route(url => url.pathname === '/api/settings', route => {
+        settingsAnswers += 1;
+        return settingsAnswers === 1
+            ? route.fulfill({ status: 500, json: { detail: 'Internal Server Error' } })
+            : route.fulfill({ json: { enrichment_summary_provider: 'disabled', beta_garden_animals: true, garden_cameras: ['patio'] } });
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&settings=late&visitors=garden&review=pending');
+
+    const failure = page.locator('[data-explorer-error]');
+    await expect(failure).toContainText('Your settings could not be loaded, so the Explorer cannot tell which visitors to show.');
+    // Neither the old bug's bird read nor any other history read happened with unknown settings.
+    expect(reads).toEqual([]);
+    await expect(page.getByText('No Garden captures need review')).toHaveCount(0);
+
+    await failure.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.locator('[data-garden-card]')).toHaveCount(1);
+    await expect(page.locator('[data-explorer-error]')).toHaveCount(0);
+    expect(reads).toEqual(['/api/garden/visits']);
+});
+
+test('a visitor following a Garden link never waits on owner settings', async ({ page }) => {
+    let settingsReads = 0;
+    await mockGarden(page, { items: () => [] });
+    await page.route(url => url.pathname === '/api/settings', route => {
+        settingsReads += 1;
+        return route.fulfill({ status: 500, json: { detail: 'Owner privileges required' } });
+    });
+    const reads: string[] = [];
+    await page.route(url => url.pathname === '/api/garden/visits', route => {
+        reads.push(new URL(route.request().url()).pathname);
+        return route.fallback();
+    });
+    await page.goto('/browser-tests/owner-history.html?surface=explorer&guest=1&settings=late&visitors=garden&review=pending');
+    // The owner shares Garden in this fixture, so the visitor reads it straight away.
+    await expect(page.locator('[data-explorer-count]')).toContainText('0 Garden visits');
+    await expect(page.locator('[data-explorer-error]')).toHaveCount(0);
+    expect(reads).toEqual(['/api/garden/visits']);
+    expect(settingsReads).toBe(0);
+});
+
 test('an old Garden page link with the beta off says so instead of silently showing birds', async ({ page }) => {
     await mockGarden(page, { items: () => [] });
     await page.goto('/browser-tests/owner-history.html?surface=explorer&garden=0&visitors=garden&review=pending');

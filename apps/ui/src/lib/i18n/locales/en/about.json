@@ -104,7 +104,9 @@
     "window_start": "{hours} h ago",
     "window_now": "now",
     "history_loading": "Loading availability…",
-    "history_unavailable": "Availability could not be read."
+    "history_unavailable": "Availability could not be read.",
+    "availability_partial": "{percent}% up over the {hours} h recorded",
+    "no_gaps_since": "No gaps since recording began at {when}."
   },
   "close": {
     "title": "Data, privacy and credits"

@@ -214,7 +214,7 @@
     "filter_invalid_score": "Pontuação inválida",
     "filter_out_of_range": "Fora da área da sua região"
   },
-  "errors_mqtt_ok": "O tráfego MQTT está fluindo normalmente.",
+  "errors_mqtt_ok": "O processamento está em dia.",
   "errors_mqtt_pressure": "Os handlers MQTT estão sob pressão {pressure} com {inFlight}/{capacity} em andamento.",
   "errors_mqtt_reconnected": "MQTT se recuperou limpo após {count, plural, one {# reconexão de tópico} other {# reconexões de tópico}}.",
   "errors_live_class_ok": "A capacidade de classificação em tempo real está livre no momento.",
@@ -255,8 +255,46 @@
     "clear": "Livre",
     "resolved": "Resolvido",
     "recovered": "Recuperado",
-    "unknown": "Desconhecido"
+    "unknown": "Desconhecido",
+    "connected": "Conectado",
+    "reachable": "Respondendo",
+    "connecting": "Conectando",
+    "disconnected": "Desconectado",
+    "unreachable": "Sem resposta",
+    "not_configured": "Não definido",
+    "stopped": "Parado",
+    "unchecked": "Não verificado"
   },
   "errors_no_reconnect_reason": "Nenhum registrado",
-  "errors_unknown_phase": "Fase desconhecida"
+  "errors_unknown_phase": "Fase desconhecida",
+  "errors_summary_connections_unread": "Nada dentro do YA-WAMF relata falha, mas não foi possível ler as conexões com o broker MQTT e com o Frigate.",
+  "errors_no_snapshot": "Ainda não há leitura de estado.",
+  "errors_connections_unread": "Não foi possível ler a conexão. Atualize para tentar novamente.",
+  "errors_mqtt_disconnected": "Sem conexão com {server}. Última tentativa {at}; continua tentando.",
+  "errors_mqtt_connecting": "Conectando a {server}.",
+  "errors_mqtt_connected": "Conectado a {server} desde {at}.",
+  "errors_mqtt_last_error": "O cliente do broker informou: {error}",
+  "errors_frigate_failure": {
+    "timeout": "demorou demais para responder",
+    "unauthorized": "recusou o token de acesso",
+    "server_error": "relatou um erro próprio",
+    "connection": "o endereço não pôde ser alcançado"
+  },
+  "errors_frigate_unreachable": "O Frigate em {url} não respondeu às {at}: {reason}.",
+  "errors_frigate_reachable": "O Frigate em {url} respondeu às {at}.",
+  "errors_frigate_unchecked": "O Frigate em {url} ainda não foi consultado desde que esta instância iniciou.",
+  "errors_frigate_announced_online": "O Frigate se anuncia online pelo MQTT.",
+  "errors_frigate_announced_offline": "O Frigate se anuncia offline pelo MQTT.",
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "Nenhuma detecção chegou ao processamento desde que esta instância iniciou.",
+  "errors_problem": {
+    "mqtt_down": "O broker MQTT em {server} não está conectado, então nenhuma nova detecção pode chegar.",
+    "mqtt_down_next": "Verifique o endereço em Configurações → Conexão e se o broker está em execução.",
+    "mqtt_not_configured": "Nenhum broker MQTT está definido, então nenhuma detecção pode chegar.",
+    "mqtt_not_configured_next": "Adicione um em Configurações → Conexão.",
+    "mqtt_stopped": "O serviço MQTT não está em execução, então nenhuma nova detecção pode chegar.",
+    "mqtt_stopped_next": "Reinicie o YA-WAMF para iniciá-lo novamente.",
+    "frigate_down": "O Frigate em {url} não responde, então novas detecções não podem ser salvas.",
+    "frigate_down_next": "Verifique o endereço em Configurações → Conexão e se o Frigate está em execução."
+  }
 }

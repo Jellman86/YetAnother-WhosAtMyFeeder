@@ -22,7 +22,12 @@
         if (step) setupWizardStore.openFromReview(step.id);
     }
 
-    function statusLabel(status: SetupSectionStatus): string {
+    /** The badge names what was found where a section has a measured or chosen state. */
+    function statusLabel(section: SetupSectionState): string {
+        if (section.detail_code === 'account_auth_disabled') return $_('setup.status.no_password', { default: 'No password' });
+        if (section.detail_code === 'connection_connected') return $_('setup.status.connected', { default: 'Connected' });
+        if (section.detail_code === 'connection_unreachable') return $_('setup.status.unreachable', { default: 'Not reachable' });
+        const status: SetupSectionStatus = section.status;
         if (status === 'ok') return $_('setup.status.ok', { default: 'Configured' });
         if (status === 'attention') return $_('setup.status.attention', { default: 'Needs attention' });
         return $_('setup.status.optional', { default: 'Optional' });
@@ -51,7 +56,16 @@
             case 'account_not_configured':
                 return $_('setup.review.detail.account_not_configured', { default: 'Not configured' });
             case 'connection_ready':
+            case 'connection_connected':
                 return text('url');
+            case 'connection_unreachable': {
+                const unreachableLabels: Record<string, string> = {
+                    mqtt: $_('setup.review.detail.mqtt_broker', { default: 'MQTT broker' }),
+                    frigate: $_('setup.review.detail.frigate', { default: 'Frigate' })
+                };
+                const items = text('items').split(',').filter(Boolean).map((item) => unreachableLabels[item] ?? item);
+                return $_('setup.review.detail.connection_unreachable', { values: { items: items.join(', ') }, default: `Could not reach: ${items.join(', ')}. Check the addresses and that both are running.` });
+            }
             case 'connection_missing': {
                 const itemLabels: Record<string, string> = {
                     frigate_url: $_('setup.review.detail.frigate_url', { default: 'Frigate URL' }),
@@ -139,7 +153,7 @@
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">
-                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[section.status]}">{statusLabel(section.status)}</span>
+                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold {STATUS_BADGE[section.status]}" data-setup-status={section.detail_code ?? section.status}>{statusLabel(section)}</span>
                     <button type="button" class="btn btn-ghost px-3 py-1.5 text-xs" onclick={() => openSection(section.id)}>
                         {$_('setup.review.edit', { default: 'Review' })}
                     </button>

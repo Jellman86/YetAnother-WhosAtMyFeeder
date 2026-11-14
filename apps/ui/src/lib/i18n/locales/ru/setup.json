@@ -8,7 +8,10 @@
   "status": {
     "ok": "Настроено",
     "attention": "Требует внимания",
-    "optional": "Необязательно"
+    "optional": "Необязательно",
+    "no_password": "Без пароля",
+    "connected": "Подключено",
+    "unreachable": "Недоступно"
   },
   "account": {
     "title": "Учётная запись администратора и доступ",
@@ -144,7 +147,9 @@
       "integrations_needs": "Требуют настройки: {integrations}",
       "integrations_configured": "Настроено: {integrations}",
       "integrations_birdnet_listening": "BirdNET-Go слушает через MQTT, URL для проверки не указан",
-      "integrations_none": "Нет включённых"
+      "integrations_none": "Нет включённых",
+      "frigate": "Frigate",
+      "connection_unreachable": "Недоступно: {items}. Проверьте адреса и что оба сервиса запущены."
     },
     "description": "Здесь показано состояние каждого раздела. Откройте любой, чтобы изменить его; остальные не затрагиваются.",
     "done": "Готово",

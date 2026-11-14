@@ -64,5 +64,6 @@
   "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
   "undo": "Rückgängig",
   "unknown": "unbekannt",
-  "diagnostic_step_status": "Schritt {step} von {total}: {label}"
+  "diagnostic_step_status": "Schritt {step} von {total}: {label}",
+  "checks_failed": "{failed} von {total} Prüfungen nicht bestanden: {labels}."
 }

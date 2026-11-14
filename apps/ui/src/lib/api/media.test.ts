@@ -217,3 +217,27 @@ describe('manual bird scan API', () => {
         expect(fetcher).toHaveBeenCalledTimes(2);
     });
 });
+
+describe('fetchReadiness', () => {
+    beforeEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    const body = { ready: false, db_pool_initialized: true, startup_warnings: [{ phase: 'telemetry_start', error: 'boom' }], startup_instance_id: 'abc', startup_started_at: '2026-11-13T17:00:00Z' };
+
+    it('keeps the start time when the instance is running but not ready', async () => {
+        // A startup warning makes the probe answer 503, but the process is still up and its
+        // start time is still known; discarding it left About saying "Running for: unknown".
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(body), { status: 503, headers: { 'Content-Type': 'application/json' } }));
+        const { fetchReadiness } = await import('./media');
+        const readiness = await fetchReadiness();
+        expect(readiness.ready).toBe(false);
+        expect(readiness.startup_started_at).toBe('2026-11-13T17:00:00Z');
+    });
+
+    it('still fails when the answer is not a readiness report', async () => {
+        vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502, headers: { 'Content-Type': 'text/html' } }));
+        const { fetchReadiness } = await import('./media');
+        await expect(fetchReadiness()).rejects.toThrow();
+    });
+});
