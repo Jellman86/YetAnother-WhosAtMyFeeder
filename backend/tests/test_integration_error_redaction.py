@@ -222,3 +222,70 @@ async def test_full_visit_fetch_failure_log_keeps_frigate_url_credentials_out(mo
     assert outcome == "unavailable"
     assert records
     _assert_clean(json.dumps(records), secrets)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url_shape", sorted(SECRET_URLS))
+@pytest.mark.parametrize("media", ["spectrogram", "clip"])
+async def test_birdnet_media_proxy_failure_log_keeps_url_credentials_out(monkeypatch, url_shape, media):
+    from app.routers.audio import require_public_audio
+
+    url, secrets = SECRET_URLS[url_shape]
+    monkeypatch.setattr(settings.frigate, "birdnet_url", url)
+    _refusing_transport(monkeypatch)
+    app.dependency_overrides[require_public_audio] = lambda: AuthContext(auth_level=AuthLevel.OWNER)
+    try:
+        with capture_logs() as records:
+            response = await _request("GET", f"/api/audio/{media}/7")
+    finally:
+        app.dependency_overrides.pop(require_public_audio, None)
+
+    assert response.status_code == 502
+    (record,) = [record for record in records if record["event"] == f"birdnet_{media}_proxy_failed"]
+    _assert_clean(json.dumps(records) + response.text, secrets)
+    assert REDUCED_HOST in record["error"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("url_shape", sorted(SECRET_URLS))
+async def test_email_snapshot_fetch_failure_log_keeps_url_credentials_out(monkeypatch, url_shape):
+    from datetime import datetime, timezone
+    from unittest.mock import patch
+
+    from app.services.notification_service import NotificationService
+
+    url, secrets = SECRET_URLS[url_shape]
+    email = settings.notifications.email
+    for field, value in {
+        "to_email": "to@example.com",
+        "use_oauth": False,
+        "oauth_provider": None,
+        "smtp_host": "smtp.example.com",
+        "from_email": "from@example.com",
+        "include_snapshot": True,
+    }.items():
+        monkeypatch.setattr(email, field, value)
+    service = NotificationService()
+    snapshot_url = f"{url}/api/events/abc/snapshot.jpg"
+    refused = httpx.ConnectError(f"cannot connect to {snapshot_url}")
+
+    with (
+        patch.object(service.client, "get", new_callable=AsyncMock, side_effect=refused),
+        patch("app.services.smtp_service.smtp_service.send_email_password", new_callable=AsyncMock, return_value=True),
+        capture_logs() as records,
+    ):
+        await service._send_email(
+            species="Robin",
+            scientific_name="Erithacus rubecula",
+            confidence=0.92,
+            camera="front",
+            timestamp=datetime.now(timezone.utc),
+            snapshot_url=snapshot_url,
+            snapshot_data=None,
+            audio_confirmed=False,
+            lang="en",
+        )
+
+    (record,) = [record for record in records if record["event"] == "Failed to fetch snapshot for email"]
+    _assert_clean(json.dumps(records), secrets)
+    assert REDUCED_HOST in record["error"]
