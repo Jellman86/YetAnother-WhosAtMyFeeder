@@ -40,7 +40,7 @@
     </button>
 </form>
 {#if !selected}
-    <p class="text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+    <p class="text-xs text-slate-600 dark:text-slate-400" aria-live="polite">
         {#if !current}
             {$_('common.loading', { default: 'Loading…' })}
         {:else if current.failed}
@@ -56,7 +56,7 @@
             {#each matches as match (match.id)}
                 <li><button type="button" class="btn btn-ghost min-h-11 min-w-11 w-full flex-col items-start justify-center rounded-md px-2 text-left text-xs focus-ring" disabled={busy} onclick={() => { input = match.primary; choice = { id: match.id, input: match.primary }; }}>
                     <span class="wrap-break-word">{match.primary}</span>
-                    {#if match.secondary}<span class="wrap-break-word font-normal italic text-slate-500 dark:text-slate-400">{match.secondary}</span>{/if}
+                    {#if match.secondary}<span class="wrap-break-word font-normal italic text-slate-600 dark:text-slate-400">{match.secondary}</span>{/if}
                 </button></li>
             {/each}
         </ul>

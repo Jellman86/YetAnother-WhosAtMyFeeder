@@ -26,7 +26,8 @@ describe('detection card overlay badges', () => {
         // `text-[10px]` was an arbitrary value, which the visual standard rules
         // out, and it made the two chips visibly different weights.
         expect(detectionCardSource).not.toContain('text-[10px]');
-        const chips = detectionCardSource.match(/class="[^"]*bg-black\/60[^"]*"/g) ?? [];
+        // Both wear the kit's photo chip: an opaque enough fill that white text passes on a pale frame.
+        const chips = detectionCardSource.match(/class="[^"]*\bphoto-chip\b[^"]*"/g) ?? [];
         expect(chips.length, 'expected the time and score chips').toBeGreaterThanOrEqual(2);
         for (const chip of chips) {
             expect(chip).toContain('text-xs');

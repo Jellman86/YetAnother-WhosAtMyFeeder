@@ -65,5 +65,9 @@
   "undo": "Undo",
   "unknown": "unknown",
   "diagnostic_step_status": "Step {step} of {total}: {label}",
-  "checks_failed": "{failed} of {total} checks did not pass: {labels}."
+  "checks_failed": "{failed} of {total} checks did not pass: {labels}.",
+  "checks_passed": "All {total} checks passed.",
+  "check_passed": "The check passed.",
+  "map_your_location": "Your location",
+  "map_sighting": "Sighting location"
 }

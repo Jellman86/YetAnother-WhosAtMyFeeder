@@ -399,7 +399,7 @@
         tabindex="-1"
         data-family-tree
     >
-        <header class="flex flex-wrap items-start justify-between gap-3 border-b border-line-soft px-4 py-3 sm:px-6">
+        <div class="flex flex-wrap items-start justify-between gap-3 border-b border-line-soft px-4 py-3 sm:px-6">
             <div class="min-w-0 space-y-1">
                 <h2 id="family-tree-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">
                     {$_('taxonomy.title', { values: { name: currentNames?.primary.text ?? '' }, default: 'Family tree of {name}' })}
@@ -411,7 +411,7 @@
                     <ol class="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-slate-600 dark:text-slate-300" aria-label={$_('taxonomy.breadcrumb_label', { default: 'Ranks above the class' })} data-family-tree-breadcrumb>
                         {#each above as taxon, index (taxon.taxon_id)}
                             <li class="flex items-baseline gap-1.5">
-                                {#if index > 0}<span class="text-slate-400 dark:text-slate-500" aria-hidden="true">›</span>{/if}
+                                {#if index > 0}<span class="text-slate-600 dark:text-slate-400" aria-hidden="true">›</span>{/if}
                                 <span class="taxon-rank">{rankLabel(taxon.rank)}</span>
                                 <span>{formatScientificName(taxon.rank, taxon.scientific_name).map((part) => part.text).join('')}</span>
                             </li>
@@ -435,7 +435,7 @@
                     {$_('common.close', { default: 'Close' })}
                 </button>
             </div>
-        </header>
+        </div>
 
         <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-2xs text-slate-600 dark:text-slate-300 sm:px-6" data-family-tree-legend>
             <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.current)}{subject === 'animal'
@@ -448,10 +448,10 @@
                 ? $_('taxonomy.legend_seen_animal', { default: 'Seen here' })
                 : $_('taxonomy.legend_seen', { default: 'Seen at this feeder' })}</span>
             <span class="inline-flex items-center gap-1.5">{@render htmlMarker(LEGEND_MARKERS.closed)}{$_('taxonomy.legend_closed', { default: 'Closed group, select to open' })}</span>
-            <span class="text-slate-500 dark:text-slate-400">{$_('taxonomy.legend_open', { default: 'Select a group to open or close it' })}</span>
-            <span class="hidden text-slate-500 dark:text-slate-400 sm:inline">{$_('taxonomy.legend_keys', { default: 'Arrow keys move through the tree.' })}</span>
+            <span class="text-slate-600 dark:text-slate-400">{$_('taxonomy.legend_open', { default: 'Select a group to open or close it' })}</span>
+            <span class="hidden text-slate-600 dark:text-slate-400 sm:inline">{$_('taxonomy.legend_keys', { default: 'Arrow keys move through the tree.' })}</span>
             {#if facts.scope}
-                <span class="text-slate-500 dark:text-slate-400" data-family-tree-scope>{facts.scope.scope === 'all'
+                <span class="text-slate-600 dark:text-slate-400" data-family-tree-scope>{facts.scope.scope === 'all'
                     ? $_('taxonomy.facts.scope_all', { default: 'Counts cover all history' })
                     : $_('taxonomy.facts.scope_shared', { values: { days: facts.scope.shared_days ?? 0 }, default: '{days, plural, =0 {Counts cover today, as shared with visitors} one {Counts cover the last day shared with visitors} other {Counts cover the last # days shared with visitors}}' })}</span>
             {/if}
@@ -459,7 +459,7 @@
 
         <div bind:this={scroller} class="relative min-h-0 flex-1 overflow-auto px-2 py-2 sm:px-4" data-family-tree-canvas>
             {#if !layout}
-                <p class="p-6 text-sm text-slate-500 dark:text-slate-400">{$_('taxonomy.loading', { default: 'Loading the family tree' })}</p>
+                <p class="p-6 text-sm text-slate-600 dark:text-slate-400">{$_('taxonomy.loading', { default: 'Loading the family tree' })}</p>
             {:else if mode === 'outline'}
                 <div class="py-2" role="tree" aria-label={$_('taxonomy.outline_label', { default: 'Family tree outline-solid' })} data-family-tree-outline>
                     {#each nodes as node (node.id)}
@@ -467,7 +467,7 @@
                         {@const names = item.kind === 'taxon' ? taxonNames(item.taxon, style) : null}
                         {@const counts = item.kind === 'taxon' ? countText(item.taxon) : null}
                         <div
-                            class="flex min-h-11 cursor-pointer items-stretch rounded-lg pr-2 hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                            class="flex min-h-11 cursor-pointer items-stretch rounded-lg pr-2 hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
                             role="treeitem"
                             tabindex={tabStop === node.id ? 0 : -1}
                             aria-level={node.depth + 1}
@@ -506,7 +506,7 @@
                                 <span class="relative">{@render htmlMarker(markerFor(item))}</span>
                             </span>
                             {#if item.kind === 'more'}
-                                <span class="flex items-center pl-2 text-sm text-slate-500 dark:text-slate-400">{moreLabel(item.hidden)}</span>
+                                <span class="flex items-center pl-2 text-sm text-slate-600 dark:text-slate-400">{moreLabel(item.hidden)}</span>
                             {:else if names}
                                 {@const photo = photoFor(item.taxon)}
                                 {#if photo}
@@ -521,7 +521,7 @@
                                         <span class="taxon-rank shrink-0">{rankLabel(item.taxon.rank)}</span>
                                     </span>
                                     {#if names.secondary || counts || heardHere(item.taxon)}
-                                        <span class="truncate text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                                        <span class="truncate text-2xs leading-4 text-slate-600 dark:text-slate-400">
                                             {#if names.secondary}<TaxonNameText name={names.secondary} />{/if}{#if names.secondary && counts}<span aria-hidden="true">{' · '}</span>{/if}{#if counts}<span class="tabular-nums" data-family-tree-counts>{counts}</span>{/if}{#if heardHere(item.taxon)}{#if names.secondary || counts}<span aria-hidden="true">{' · '}</span>{/if}<span data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</span>{/if}
                                         </span>
                                     {/if}
@@ -643,14 +643,14 @@
             {/if}
         </div>
 
-        <footer class="border-t border-line-soft px-4 py-2 text-2xs text-slate-500 dark:text-slate-400 sm:px-6">
+        <div class="border-t border-line-soft px-4 py-2 text-2xs text-slate-600 dark:text-slate-400 sm:px-6" data-family-tree-source>
             {#if failed}
                 <span class="mr-2 font-semibold text-amber-700 dark:text-amber-300">{$_('taxonomy.branch_failed', { default: 'Part of the tree could not load. Open it again to retry.' })}</span>
             {/if}
             {subject === 'animal'
                 ? $_('taxonomy.source_note_animal', { default: 'Classification from the SpeciesNet taxonomy for Garden animals. It shows how species are grouped, not when they diverged.' })
                 : $_('taxonomy.source_note', { default: 'Classification from the IOC World Bird List for birds and the Catalogue of Life above them. It shows how species are grouped, not when they diverged.' })}
-        </footer>
+        </div>
     </div>
 </div>
 

@@ -159,7 +159,7 @@
                         {$_('about.instance.up_to_date', { default: 'Up to date' })}
                     {/if}
                     {#if updateStatus.checked_at}
-                        <span class="font-normal text-slate-500 dark:text-slate-400">
+                        <span class="font-normal text-slate-600 dark:text-slate-400">
                             {$_('about.instance.checked', {
                                 values: { when: formatTime(updateStatus.checked_at) },
                                 default: 'checked {when}'
@@ -172,19 +172,19 @@
 
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
             <div class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                     {$_('about.instance.acceleration', { default: 'Acceleration' })}
                 </p>
                 <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
                 {#if classifier?.fallback_reason}
-                    <p class="mt-1 text-2xs leading-snug text-slate-500 dark:text-slate-400">
+                    <p class="mt-1 text-2xs leading-snug text-slate-600 dark:text-slate-400">
                         {classifier.fallback_reason}
                     </p>
                 {/if}
             </div>
 
             <div data-instance-uptime class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
                 <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
@@ -230,13 +230,13 @@
                     </div>
                     <!-- A 24 bar strip with no scale leaves the reader guessing which end is now. -->
                     <div
-                        class="mt-1 flex justify-between text-3xs tabular-nums text-slate-400 dark:text-slate-500"
+                        class="mt-1 flex justify-between text-3xs tabular-nums text-slate-600 dark:text-slate-400"
                         aria-hidden="true"
                     >
                         <span>{$_('about.instance.window_start', { values: { hours: 24 }, default: '{hours} h ago' })}</span>
                         <span>{$_('about.instance.window_now', { default: 'now' })}</span>
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
                         {#if uptimeWindow.longest_gap_minutes > 0 && uptimeWindow.longest_gap_start}
                             {$_('about.instance.gap', {
                                 values: {
@@ -264,7 +264,7 @@
                             <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
                         {/each}
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
                         {$_('about.instance.history_loading', { default: 'Loading availability…' })}
                     </p>
                 {:else if uptimeLoadState === 'error'}
@@ -273,14 +273,14 @@
                             <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
                         {/each}
                     </div>
-                    <p class="mt-1.5 text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
                         {$_('about.instance.history_unavailable', {
                             default: 'Availability could not be read.'
                         })}
                     </p>
                 {/if}
                 {#if startedAt}
-                    <p class="mt-1 text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="mt-1 text-2xs text-slate-600 dark:text-slate-400">
                         {$_('about.instance.since', {
                             values: { when: `${formatDate(startedAt)} ${formatTime(startedAt)}` },
                             default: 'since {when}'
@@ -290,7 +290,7 @@
             </div>
 
             <div class="min-w-0" data-instance-report>
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
@@ -303,7 +303,7 @@
                             : $_('about.instance.copy', { default: 'Copy' })}
                     </button>
                 </div>
-                <p class="mt-1.5 text-2xs text-slate-500 dark:text-slate-400">
+                <p class="mt-1.5 text-2xs text-slate-600 dark:text-slate-400">
                     {copyFailed
                         ? $_('about.instance.copy_failed', {
                               default: 'Copying was refused, select the text instead.'

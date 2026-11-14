@@ -183,6 +183,7 @@
   "working": "Trabajando…",
   "skip_step": "Omitir paso",
   "step_list": "Pasos de configuración",
+  "progress": "Progreso de la configuración",
   "step_names": {
     "welcome": "Bienvenida",
     "account": "Cuenta",

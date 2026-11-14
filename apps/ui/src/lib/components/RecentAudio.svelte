@@ -113,13 +113,13 @@
             </svg>
             {$_('dashboard.desk.heard_title', { default: 'Heard' })}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if (loading || summaryLoading) && !summary}
         <div class="h-24 animate-pulse rounded-lg bg-slate-100/70 dark:bg-slate-800/40"></div>
     {:else if !summary || summary.total === 0}
-        <p class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('dashboard.desk.heard_empty', { default: 'No calls heard in the last 24 hours.' })}</p>
     {:else}
         <!-- The day bar already carries calls heard and cross-confirmed; this card says what was heard. -->
         <p class="font-display text-lg font-bold text-slate-900 dark:text-white" data-dashboard-species-heard>
@@ -137,7 +137,7 @@
                         <li class="space-y-1">
                             <div class="flex items-baseline justify-between gap-3 text-sm">
                                 <span class="min-w-0 truncate text-slate-800 dark:text-slate-100">{item.species}</span>
-                                <span class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">{item.count.toLocaleString()}</span>
+                                <span class="shrink-0 tabular-nums text-slate-600 dark:text-slate-400">{item.count.toLocaleString()}</span>
                             </div>
                             <div class="h-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" aria-hidden="true">
                                 <div class="h-full rounded-full bg-brand-500/70 dark:bg-brand-400/70" style:width="{Math.max(2, (item.count / mostHeardMax) * 100)}%"></div>
@@ -149,7 +149,7 @@
         {/if}
 
         {#if latestCall}
-            <p class="text-xs text-slate-500 dark:text-slate-400" data-dashboard-latest-call>
+            <p class="text-xs text-slate-600 dark:text-slate-400" data-dashboard-latest-call>
                 {$_('dashboard.desk.latest_call', {
                     values: { species: latestCall.species, time: formatTime(latestCall.timestamp) },
                     default: 'Latest call: {species} at {time}'
@@ -158,7 +158,7 @@
         {/if}
 
         {#if matchedCalls === 0}
-            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400" data-dashboard-no-match>
+            <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400" data-dashboard-no-match>
                 {$_('dashboard.desk.no_cross_confirmation', {
                     values: { count: summary.total },
                     default:
@@ -182,7 +182,7 @@
                 href={birdnetExternalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                 title={$_('dashboard.audio_feed.open_birdnet')}
             >
                 BirdNET-Go

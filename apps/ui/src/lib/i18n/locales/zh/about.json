@@ -118,6 +118,7 @@
     "shared_today": "今天在这个喂食器。",
     "shared_days": "这个喂食器最近 {days} 天。",
     "empty": "还没有到访记录。鸟儿到来后，这里就会有内容。",
+    "no_latest": "暂无最近到访的图片。",
     "visits": "次到访",
     "species": "种",
     "busiest_day": "最热闹的一天",

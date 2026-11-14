@@ -132,23 +132,23 @@
                 bind:this={trigger}
                 popovertarget={floating ? panelId : undefined}
                 class={inline
-                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
-                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/50'}
+                    ? '-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-white'
+                    : 'flex min-h-11 w-full items-center gap-2 px-4 py-2 text-left text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/50'}
                 aria-expanded={open}
                 aria-controls={panelId}
                 onclick={() => { if (!floating) open = !open; }}
                 data-visit-captures-toggle
             >
-                <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <rect x="3" y="7" width="13" height="13" rx="2" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 4h11a2 2 0 0 1 2 2v11" />
                 </svg>
                 <span class="min-w-0 {inline ? '' : 'flex-1'}">
                     <span>{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}</span>
                     {#if !inline}
-                        <span class="font-normal tabular-nums text-slate-500 dark:text-slate-400">&middot; {span}</span>
+                        <span class="font-normal tabular-nums text-slate-600 dark:text-slate-400">&middot; {span}</span>
                         {#if peak !== null && peak >= 2}
-                            <span class="block font-medium text-slate-500 dark:text-slate-400">
+                            <span class="block font-medium text-slate-600 dark:text-slate-400">
                                 {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
                             </span>
                         {/if}
@@ -177,11 +177,11 @@
         >
             {#if floating}
                 <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-1 dark:border-slate-700 dark:bg-slate-900">
-                    <p class="text-sm font-semibold">{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-500 dark:text-slate-400">{span}</span></p>
+                    <p class="text-sm font-semibold">{$_('visits.captures', { values: { count: visit.capture_count }, default: '{count} captures' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-600 dark:text-slate-400">{span}</span></p>
                     <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
                 </div>
             {/if}
-            <p class="py-1 text-2xs text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'}">
+            <p class="py-1 text-2xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'}">
                 {$_('visits.capture_actions', { default: 'Open a capture to review its identification or play its clip.' })}
             </p>
 
@@ -202,7 +202,7 @@
                             <!-- The whole line opens the exact capture, so a thumb lands anywhere along it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/50"
+                                class="absolute inset-0 z-0 rounded-lg transition-colors hover:bg-slate-100/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/50"
                                 aria-label={$_('visits.open_capture_at', {
                                     values: { species: naming.primary, time },
                                     default: 'Open {species} capture at {time}'
@@ -232,12 +232,12 @@
 
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
                                 <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
-                                {#if naming.secondary}<p class="wrap-break-word text-xs italic text-slate-500 dark:text-slate-400">{naming.secondary}</p>{/if}
+                                {#if naming.secondary}<p class="wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{naming.secondary}</p>{/if}
                                 <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
                                     {time}
                                 </time>
                                 {#if captureNotes.length > 0}
-                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                                    <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
                                         {#each captureNotes as note, index (note.text)}
                                             {#if index > 0}<span aria-hidden="true">&middot;</span>{/if}
                                             <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
@@ -250,7 +250,7 @@
                                 {#if onplay && capture.has_clip}
                                     <button
                                         type="button"
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                         aria-label={$_('detection.play_video', { values: { species: `${naming.primary}, ${time}` } })}
                                         onclick={() => selectCapture(capture, true)}
                                     >
@@ -273,13 +273,13 @@
                     {/each}
                 </div>
             {:else if loaded && !error}
-                <p class="py-2 text-xs text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'}">
+                <p class="py-2 text-xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'}">
                     {$_('visits.captures_empty', { default: 'No captures from this visit are visible in this view.' })}
                 </p>
             {/if}
 
             {#if loading}
-                <p role="status" class="py-2 text-xs text-slate-500 dark:text-slate-400 {inline ? '' : 'px-4'} {captures.length === 0 ? 'sr-only' : ''}">
+                <p role="status" class="py-2 text-xs text-slate-600 dark:text-slate-400 {inline ? '' : 'px-4'} {captures.length === 0 ? 'sr-only' : ''}">
                     {$_('common.loading')}
                 </p>
             {/if}
@@ -293,7 +293,7 @@
                     <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                         {$_('visits.load_more', { default: 'Load more captures' })}
                     </button>
-                    <p class="text-2xs tabular-nums text-slate-500 dark:text-slate-400">
+                    <p class="text-2xs tabular-nums text-slate-600 dark:text-slate-400">
                         {$_('visits.loaded_of_total', { values: { shown: captures.length, total }, default: '{shown} of {total} captures shown' })}
                     </p>
                 </div>
@@ -303,7 +303,7 @@
 {:else if aside}
     {@render aside()}
 {:else if !inline && peak !== null && peak >= 2}
-    <p class="border-t border-slate-200/80 px-4 py-3 text-xs font-medium text-slate-500 dark:border-slate-700/60 dark:text-slate-400" data-visit-captures-peak>
+    <p class="border-t border-slate-200/80 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-700/60 dark:text-slate-400" data-visit-captures-peak>
         {$_('visits.peak_birds', { values: { count: peak }, default: '{count, plural, one {# bird in one capture} other {# birds in one capture}}' })}
     </p>
 {/if}

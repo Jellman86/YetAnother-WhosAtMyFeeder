@@ -7,7 +7,7 @@
         showLabel = false,
         label = '',
         collapsed = false,
-        buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring',
+        buttonClass = 'relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all duration-200 focus-ring',
         current = false,
         onNavigate,
     }: {

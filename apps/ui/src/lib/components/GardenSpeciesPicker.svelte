@@ -30,7 +30,7 @@
         {$_('garden.rename.search', { default: 'Search animal species' })}
         <input class="input-base mt-1 min-h-11 w-full" maxlength="120" bind:value={input} oninput={() => { choice = null; }} disabled={busy} autocomplete="off" />
     </label>
-    <p class="text-xs text-slate-500 dark:text-slate-400" aria-live="polite">
+    <p class="text-xs text-slate-600 dark:text-slate-400" aria-live="polite">
         {#if !choice}
             {#if term.length < 2}{$_('garden.rename.help', { default: 'Type at least two letters of a common or scientific name, then choose a species.' })}
             {:else if !current}{$_('common.loading', { default: 'Loading…' })}
@@ -47,7 +47,7 @@
             {/each}
         </ul>
     {/if}
-    <p class="text-xs text-slate-500 dark:text-slate-400">{$_('garden.rename.scope', { default: 'Changes this capture only. The original model result is kept in Details.' })}</p>
+    <p class="text-xs text-slate-600 dark:text-slate-400">{$_('garden.rename.scope', { default: 'Changes this capture only. The original model result is kept in Details.' })}</p>
     <div class="flex flex-wrap gap-2">
         <button type="submit" class="btn btn-primary min-h-11 px-3 text-xs" disabled={busy || !choice}>{$_('garden.rename.save', { default: 'Save species' })}</button>
         <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" disabled={busy} onclick={oncancel}>{$_('common.cancel', { default: 'Cancel' })}</button>

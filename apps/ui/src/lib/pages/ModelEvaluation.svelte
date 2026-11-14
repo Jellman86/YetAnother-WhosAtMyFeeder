@@ -67,29 +67,29 @@
     }
 
     function deviceCell(row: MatrixRow | undefined, dev: string): { label: string; cls: string } {
-        if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
+        if (!row || row.error) return { label: '—', cls: 'text-slate-600 dark:text-slate-400' };
         const e = row.providers?.[dev] ?? row.devices?.[dev];
-        if (!e) return { label: '—', cls: 'text-slate-400' };
-        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
-        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
+        if (!e) return { label: '—', cls: 'text-slate-600 dark:text-slate-400' };
+        if (!e.compiles) return { label: '✗ fails', cls: 'text-red-700 dark:text-red-400' };
+        if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-700 dark:text-red-400' };
         if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-slate-600 dark:text-slate-400' };
         const n = e.images_compared;
         if (row.comparison_kind === 'crop_box' && e.matches_cpu && n) {
             const iou = e.mean_box_iou;
-            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-accent-600 dark:text-accent-400' };
+            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-accent-700 dark:text-accent-400' };
         }
-        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-700 dark:text-accent-400' };
         if (typeof e.detection_match_rate === 'number' && n) {
             const hits = Math.round(e.detection_match_rate * n);
             const iou = e.mean_box_iou;
-            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
+            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-amber-700 dark:text-amber-400' };
         }
         if (typeof e.top1_match_rate === 'number' && n) {
             const hits = Math.round(e.top1_match_rate * n);
             const ov = e.mean_top5_overlap;
-            return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
+            return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-amber-700 dark:text-amber-400' };
         }
-        return { label: '✓ runs', cls: 'text-accent-600 dark:text-accent-400' };
+        return { label: '✓ runs', cls: 'text-accent-700 dark:text-accent-400' };
     }
 
     function providerName(provider: string | null | undefined): string {
@@ -124,9 +124,9 @@
         return `${value.toFixed(2)}×`;
     }
     function severityColor(severity: ModelEvalWarning['severity']): string {
-        if (severity === 'critical') return 'text-red-600 dark:text-red-400';
-        if (severity === 'warning') return 'text-amber-600 dark:text-amber-400';
-        return 'text-brand-600 dark:text-brand-400';
+        if (severity === 'critical') return 'text-red-700 dark:text-red-400';
+        if (severity === 'warning') return 'text-amber-700 dark:text-amber-400';
+        return 'text-brand-700 dark:text-brand-400';
     }
 
     // Only the newest selection may land: a slow reply for a run the owner has
@@ -291,7 +291,7 @@
                 <button
                     type="button"
                     onclick={cancelRun}
-                    class="btn btn-secondary min-h-11 px-4 py-2 text-sm text-red-600 dark:text-red-400"
+                    class="btn btn-secondary min-h-11 px-4 py-2 text-sm text-red-700 dark:text-red-400"
                 >
                     Cancel
                 </button>
@@ -318,7 +318,7 @@
                     <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
                         Run {selectedRun.run_id}
                     </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
+                    <p class="text-xs text-slate-600 dark:text-slate-400">
                         {#if selectedRun.test_set}
                             {selectedRun.test_set.total_species} species · {selectedRun.test_set.total_images} images · region {selectedRun.test_set.region ?? '—'}
                         {/if}
@@ -361,7 +361,7 @@
                 </div>
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                        <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                             <tr>
                                 <th class="text-left py-2 pr-4">{$_('model_eval.col_model', { default: 'Model' })}</th>
                                 <th class="text-left px-2">{$_('model_eval.col_best_provider', { default: 'Best validated provider' })}</th>
@@ -398,7 +398,7 @@
             {:else if selectedRun.models && selectedRun.models.length > 0}
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                        <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                             <tr>
                                 <th class="text-left py-2 pr-4">Model</th>
                                 <th class="text-right px-2">Top-1</th>
@@ -450,7 +450,7 @@
                     </table>
                 </div>
                 {#if selectedRun.models.some((model) => model.vocabulary_known)}
-                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
                         Accuracy counts only the test species each model can name, shown under Can name. A regional model is not marked down for birds outside its region.
                     </p>
                 {/if}
@@ -484,7 +484,7 @@
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                    <thead class="text-xs uppercase text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                         <tr>
                             <th class="text-left py-2 pr-4">Model</th>
                             {#each matrixProviders(deviceMatrix) as dev}
@@ -496,7 +496,7 @@
                         {#each matrixRows(deviceMatrix) as [modelId, row]}
                             <tr class="border-b border-slate-100 dark:border-slate-800">
                                 <td class="py-2 pr-4 font-medium text-slate-800 dark:text-slate-200">
-                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-400">· crop detector</span>{/if}
+                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-600 dark:text-slate-400">· crop detector</span>{/if}
                                 </td>
                                 {#each matrixProviders(deviceMatrix) as dev}
                                     {@const c = deviceCell(row, dev)}
@@ -513,7 +513,7 @@
     <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
         <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Run history</h3>
         {#if runs.length === 0}
-            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">No runs yet.</p>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">No runs yet.</p>
         {:else}
             <ul class="mt-2 divide-y divide-slate-200 dark:divide-slate-700">
                 {#each runs as row (row.run_id)}
@@ -521,20 +521,20 @@
                         <button
                             type="button"
                             onclick={() => selectRun(row.run_id)}
-                            class="btn btn-ghost min-h-11 flex-1 justify-start px-2 py-1 text-left hover:text-brand-600 dark:hover:text-brand-400"
+                            class="btn btn-ghost min-h-11 flex-1 justify-start px-2 py-1 text-left hover:text-brand-700 dark:hover:text-brand-400"
                         >
                             <span class="font-mono">{row.run_id}</span>
-                            <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">
+                            <span class="ml-2 text-xs text-slate-600 dark:text-slate-400">
                                 {#if row.duration_seconds}{Math.round(row.duration_seconds / 60)} min · {/if}
                                 {row.model_count ?? 0} models · {row.total_species ?? 0} species
                                 {#if row.region} · {row.region}{/if}
-                                {#if row.error} · <span class="text-red-600 dark:text-red-400">error</span>{/if}
+                                {#if row.error} · <span class="text-red-700 dark:text-red-400">error</span>{/if}
                             </span>
                         </button>
                         <button
                             type="button"
                             onclick={() => deleteRun(row.run_id)}
-                            class="btn btn-ghost ml-4 min-h-11 px-2 py-1 text-xs text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400"
+                            class="btn btn-ghost ml-4 min-h-11 px-2 py-1 text-xs text-slate-600 hover:text-red-700 dark:text-slate-400 dark:hover:text-red-400"
                             disabled={row.run_id === active?.run_id}
                         >
                             Delete

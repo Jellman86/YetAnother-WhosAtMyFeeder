@@ -137,9 +137,9 @@
                         <span class="mt-0.5 h-5 w-5 shrink-0 text-brand-600 dark:text-brand-300">{@render integrationIcon(item.id)}</span>
                         <span class="min-w-0 flex-1">
                             <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{item.name}</span>
-                            <span class="block text-xs leading-relaxed text-slate-500 dark:text-slate-400">{item.note}</span>
+                            <span class="block text-xs leading-relaxed text-slate-600 dark:text-slate-400">{item.note}</span>
                         </span>
-                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
+                        <input type="checkbox" checked={item.get()} onchange={(event) => item.set(event.currentTarget.checked)} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-focus" />
                     </label>
 
                     {#if item.id === 'birdnet' && birdnetEnabled}
@@ -148,7 +148,7 @@
                                 {$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
                             </label>
                             <input id="setup-birdnet-url" type="url" placeholder="http://birdnet-go:8080" bind:value={birdnetUrl} class="input-base" />
-                            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                            <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                                 {$_('setup.integrations.birdnet_test_subtitle', { default: 'The staged test uses this URL, then verifies the saved MQTT broker and local detection storage.' })}
                             </p>
                             <button type="button" class="btn btn-secondary px-4 py-2.5" onclick={testBirdnet} disabled={diagnosticRunning}>
@@ -160,7 +160,7 @@
             {/each}
         </div>
 
-        <p class="flex items-start gap-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+        <p class="flex items-start gap-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.7 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
             <span>{$_('setup.integrations.notifications_note', { default: 'Notification channels are configured under Settings → Notifications. Home Assistant is installed and configured externally; see the integration guide.' })}</span>
         </p>

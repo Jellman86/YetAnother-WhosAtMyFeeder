@@ -95,7 +95,7 @@
             <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
             {$_('dashboard.top_visitors_title')}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if processedSpecies.length > 0}
@@ -105,13 +105,12 @@
                     <button
                         type="button"
                         onclick={() => onSpeciesClick?.(item.taxa_id ? `taxa:${item.taxa_id}` : item.species)}
-                        class="group flex min-h-12 w-full flex-wrap items-center gap-x-3 gap-y-1 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
-                        aria-label={`${item.displayName}, ${$_('dashboard.top_visitors_count', { values: { count: item.visit_count ?? item.count } })}`}
+                        class="group flex min-h-12 w-full flex-wrap items-center gap-x-3 gap-y-1 py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
                     >
-                        <span class="w-4 shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" aria-hidden="true">{index + 1}</span>
+                        <span class="w-4 shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-400" aria-hidden="true">{index + 1}</span>
                         <span
                             data-dashboard-species-portrait
-                            class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800"
+                            class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-slate-500 dark:text-slate-400 dark:bg-slate-800"
                         >
                             {#if cachedSpeciesThumb(item.species)}
                                 <img src={cachedSpeciesThumb(item.species) ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
@@ -122,7 +121,7 @@
                         <span class="min-w-0 flex-1">
                             <span class="block truncate text-sm font-semibold text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>
                             {#if item.subName}
-                                <span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>
+                                <span class="block truncate text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>
                             {/if}
                         </span>
                         <span class="ml-auto shrink-0 text-sm tabular-nums text-slate-700 dark:text-slate-200">{$_('dashboard.top_visitors_count', { values: { count: item.visit_count ?? item.count } })}</span>
@@ -131,6 +130,6 @@
             {/each}
         </ol>
     {:else}
-        <p class="text-xs text-slate-500 dark:text-slate-400">{$_('dashboard.top_visitors_empty_window', { default: 'No visits in the last 24 hours.' })}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400">{$_('dashboard.top_visitors_empty_window', { default: 'No visits in the last 24 hours.' })}</p>
     {/if}
 </section>

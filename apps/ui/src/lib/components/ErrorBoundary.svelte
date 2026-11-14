@@ -103,7 +103,7 @@
                     <div class="mt-4 space-y-2">
                         <div class="text-sm">
                             <strong class="text-slate-700 dark:text-slate-300">Error:</strong>
-                            <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded-sm text-xs overflow-x-auto text-red-600 dark:text-red-400">{error.message}</pre>
+                            <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded-sm text-xs overflow-x-auto text-red-700 dark:text-red-400">{error.message}</pre>
                         </div>
                         {#if error.stack}
                             <div class="text-sm">

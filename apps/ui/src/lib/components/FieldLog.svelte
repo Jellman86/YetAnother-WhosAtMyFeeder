@@ -91,7 +91,7 @@
             <h2 class="font-display text-2xl font-bold text-slate-950 dark:text-white">
                 {$_('dashboard.field_log.title', { default: 'Field log' })}
             </h2>
-            <p class="hidden text-sm text-slate-500 log-wide:block dark:text-slate-400">
+            <p class="hidden text-sm text-slate-600 log-wide:block dark:text-slate-400">
                 {$_('dashboard.field_log.subtitle', {
                     default: 'Repeat frames of the same bird are folded into one visit'
                 })}
@@ -156,12 +156,12 @@
         </div>
     {:else if renderRows.length === 0}
         <div class="flex flex-col items-center justify-center border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700/50">
-            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
+            <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
                 <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" />
                 </svg>
             </div>
-            <p class="font-medium text-slate-500 dark:text-slate-400">
+            <p class="font-medium text-slate-600 dark:text-slate-400">
                 {emptyMessage ?? $_('dashboard.waiting_first_visitor', { default: 'No visits in the last 24 hours. New visits appear here as they arrive.' })}
             </p>
         </div>
@@ -176,7 +176,7 @@
                         data-row-kind="filtered"
                         data-needs-review="false"
                     >
-                        <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400 {cell.time}">
+                        <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400 {cell.time}">
                             {drop.timestamp ? formatTime(drop.timestamp) : ''}
                         </span>
 
@@ -192,7 +192,7 @@
                             <p class="truncate text-sm font-semibold italic text-slate-700 dark:text-slate-200">
                                 {drop.label ?? $_('common.unknown_species', { default: 'Unknown species' })}
                             </p>
-                            <p class="truncate text-2xs font-medium text-slate-500 dark:text-slate-400">
+                            <p class="truncate text-2xs font-medium text-slate-600 dark:text-slate-400">
                                 {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
                                     default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
                                         default: 'Not recorded, below your naming threshold'
@@ -202,7 +202,7 @@
                         </div>
 
                         <span class="hidden flex-col items-end gap-1 log-wide:flex">
-                            <span class="text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">
+                            <span class="text-xs font-bold tabular-nums text-slate-600 dark:text-slate-400">
                                 {quietScore(drop.score)}
                             </span>
                             <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -225,7 +225,7 @@
 
         {#if hiddenCount > 0}
             <button
-                class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 focus-ring dark:text-slate-400 dark:hover:bg-slate-800/60"
+                class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 focus-ring dark:text-slate-400 dark:hover:bg-slate-800/60"
                 onclick={() => onseeall?.()}
                 data-field-log-more
             >
@@ -245,7 +245,7 @@
     {/if}
 
     {#if gardenUnavailable && !loading}
-        <p class="px-2 text-xs text-slate-500 dark:text-slate-400" data-field-log-garden-unavailable>
+        <p class="px-2 text-xs text-slate-600 dark:text-slate-400" data-field-log-garden-unavailable>
             {$_('dashboard.field_log.garden_unavailable', {
                 default: 'Garden visits could not be loaded, so only birds are shown. The dashboard tries again every minute.'
             })}

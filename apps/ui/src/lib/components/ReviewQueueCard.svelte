@@ -70,7 +70,7 @@
         <svg
             class="h-4 w-4 {call.total > 0
                 ? 'text-attention-700 dark:text-attention-300'
-                : 'text-slate-400 dark:text-slate-500'}"
+                : 'text-slate-600 dark:text-slate-400'}"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -93,7 +93,7 @@
     </header>
 
     {#if call.nothingWaiting}
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
             {$_('dashboard.review_queue.empty', {
                 default: 'Every visit in the last 24 hours has a species. Nothing waiting on you.'
             })}
@@ -122,7 +122,7 @@
             </button>
         {/if}
     {:else if call.visits === 'clear'}
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400" data-review-queue-visits-clear>
+        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400" data-review-queue-visits-clear>
             {$_('dashboard.review_queue.visits_clear', { default: 'Every visit in the last 24 hours has a species.' })}
         </p>
     {:else}
@@ -160,7 +160,7 @@
                                 {detection.display_name}
                             </span>
                             <!-- Why it waits comes first; a phone drops the camera to keep it whole. -->
-                            <span class="block truncate text-2xs text-slate-500 dark:text-slate-400">
+                            <span class="block truncate text-2xs text-slate-600 dark:text-slate-400">
                                 <span class="font-semibold text-attention-800 dark:text-attention-300" data-review-queue-reason>{reason(detection)}</span>
                                 · {when(detection)}<span class="hidden sm:inline" data-review-queue-camera> · {detection.camera_name}</span>
                             </span>
@@ -174,7 +174,7 @@
         </ul>
 
         {#if queue.remaining > 0}
-            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
                 {$_('dashboard.review_queue.remaining', {
                     values: { count: queue.remaining },
                     default: '{count} more waiting'

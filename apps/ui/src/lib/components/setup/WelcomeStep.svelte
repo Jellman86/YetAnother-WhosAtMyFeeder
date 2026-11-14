@@ -66,7 +66,7 @@
                 <option value={opt.value}>{opt.label}</option>
             {/each}
         </select>
-        <p class="text-xs text-slate-500 dark:text-slate-400">
+        <p class="text-xs text-slate-600 dark:text-slate-400">
             {$_('first_run.language_desc', { default: 'You can change this later in Settings.' })}
         </p>
         {#if languageError}

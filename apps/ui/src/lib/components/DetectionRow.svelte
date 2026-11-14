@@ -159,7 +159,7 @@
     <button
         type="button"
         {onclick}
-        class="absolute inset-0 z-0 cursor-pointer rounded-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        class="absolute inset-0 z-0 cursor-pointer rounded-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
         aria-label={selectionMode ? selectLabel : openLabel}
         aria-pressed={selectionMode ? selected : undefined}
     ></button>
@@ -169,7 +169,7 @@
             {formatTime(detection.detection_time)}
         </div>
         {#if dayLabel}
-            <div class="text-3xs font-semibold text-slate-500 dark:text-slate-400">
+            <div class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                 {dayLabel}
             </div>
         {/if}
@@ -199,7 +199,7 @@
             {/if}
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold {scan ? 'text-slate-600 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}">
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold {scan ? 'text-slate-600 dark:text-slate-300' : 'text-slate-600 dark:text-slate-400'}">
             {#if scan}
                 <span class="shrink-0 text-brand-800 dark:text-brand-200">{scanStatus}</span>
             {:else if needsAttention}
@@ -215,7 +215,7 @@
                 </BadgeHint>
             {/if}
             {#if hasAudioConfirmed}
-                <BadgeHint text={$_('detection.audio_evidence_hint')} class="shrink-0 text-brand-600 dark:text-brand-400">
+                <BadgeHint text={$_('detection.audio_evidence_hint')} class="shrink-0 text-brand-700 dark:text-brand-400">
                     {matchedCalls > 0
                         ? $_('events.heard.matching_calls', { values: { count: matchedCalls }, default: 'matching call, {count} calls' })
                         : $_('detection.fact_heard_yes', { default: 'matching call' })}
@@ -249,7 +249,7 @@
                 }}
                 use:explanation={$_('detection.play_video', { values: { species: primaryName } })}
                 aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                     <path d="M8 5v14l11-7z" />
@@ -279,7 +279,7 @@
             <!-- One score cannot speak for several species, so the row offers the species instead. -->
             <button
                 type="button"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:bg-brand-500/10"
                 aria-expanded={speciesOpen}
                 aria-controls="{uid}-species"
                 onclick={(event) => {
@@ -328,7 +328,7 @@
                 {#each speciesMix as entry (entry.species)}
                     <li class="flex min-h-10 items-center justify-between gap-3 text-sm">
                         <span class="font-semibold text-slate-800 dark:text-slate-100">{getBirdNames(entry, showCommon, preferSci).primary}</span>
-                        <span class="text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
+                        <span class="text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400">{$_('events.birds_count', { values: { count: entry.count }, default: '{count} birds' })}</span>
                     </li>
                 {/each}
             </ul>

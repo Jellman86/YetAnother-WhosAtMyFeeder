@@ -30,7 +30,7 @@
     }
 </script>
 
-<div class="flex min-h-screen items-center justify-center px-4 py-10">
+<main id="main-content" tabindex="-1" class="flex min-h-screen items-center justify-center px-4 py-10 focus:outline-hidden">
     <div class="card-base w-full max-w-sm p-8">
         <div class="mb-8 text-center">
             <img src={APP_ICON_192_URL} alt="" width="56" height="56" class="mx-auto mb-4 h-14 w-14 object-contain" />
@@ -99,4 +99,4 @@
             {/if}
         </form>
     </div>
-</div>
+</main>

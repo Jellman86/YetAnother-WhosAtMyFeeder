@@ -36,7 +36,7 @@
                             {@const label = $_('detection.bird_scan.region_label', { values: { number: index + 1 }, default: 'Area {number}, not counted' })}
                             <li class="flex min-w-0 items-center gap-3 py-2" data-bird-scan-region={group.key}>
                                 {#if imageUrl}<BirdCountRegionPreview src={imageUrl} box={region.box} {label} reason={reason(region.reason)} />{/if}
-                                <div class="min-w-0"><p>{label}</p><p class="text-slate-500 dark:text-slate-400">{reason(region.reason)}</p></div>
+                                <div class="min-w-0"><p>{label}</p><p class="text-slate-600 dark:text-slate-400">{reason(region.reason)}</p></div>
                             </li>
                         {/each}
                     </ol>

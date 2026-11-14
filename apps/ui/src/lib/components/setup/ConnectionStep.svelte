@@ -135,11 +135,11 @@
                     <span class="block text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {$_('setup.connection.mqtt_auth', { default: 'MQTT authentication' })}
                     </span>
-                    <span class="block text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                    <span class="block text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                         {$_('setup.connection.mqtt_auth_hint', { default: 'Enable this only when your broker requires a username and password.' })}
                     </span>
                 </span>
-                <input type="checkbox" bind:checked={mqttAuth} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
+                <input type="checkbox" bind:checked={mqttAuth} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-focus" />
             </label>
 
             {#if mqttAuth}
@@ -203,14 +203,14 @@
         {/each}
 
         {#if frigateResult && !frigateResult.ok}
-            <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400" data-setup-frigate-auth-hint>
+            <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400" data-setup-frigate-auth-hint>
                 {$_('setup.connection.frigate_auth_hint', { default: 'If your Frigate requires a sign-in, set FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then test again.' })}
-                <a href={TOKEN_DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-600 underline dark:text-brand-400">{$_('setup.connection.frigate_auth_link', { default: 'Environment variables' })}</a>
+                <a href={TOKEN_DOCS_URL} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline dark:text-brand-400">{$_('setup.connection.frigate_auth_link', { default: 'Environment variables' })}</a>
             </p>
         {/if}
 
         {#if savedOnce && !frigateResult?.ok}
-            <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('setup.connection.continue_hint', { default: "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable." })}</p>
         {/if}
     </WizardLoadState>
 </WizardStepLayout>

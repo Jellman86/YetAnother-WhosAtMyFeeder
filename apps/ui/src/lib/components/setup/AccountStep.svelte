@@ -71,7 +71,7 @@
             <div>
                 <label for="setup-password" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('first_run.password', { default: 'Password' })}</label>
                 <input id="setup-password" type="password" minlength="8" autocomplete="new-password" aria-describedby="setup-password-rules" bind:value={password} class="input-base mt-1" />
-                <p id="setup-password-rules" class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                <p id="setup-password-rules" class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                     {$_(AUTH_PASSWORD_REQUIREMENTS.key, { default: AUTH_PASSWORD_REQUIREMENTS.default })}
                 </p>
             </div>
@@ -86,7 +86,7 @@
         {/if}
 
         <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={skipAuth} class="rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
+            <input type="checkbox" bind:checked={skipAuth} class="rounded-sm border-slate-300 text-brand-600 focus:ring-focus" />
             {$_('first_run.skip_auth', { default: 'Run without a password (trusted network only)' })}
         </label>
     {/if}

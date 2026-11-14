@@ -118,6 +118,7 @@
     "shared_today": "Heute an diesem Futterhaus.",
     "shared_days": "Die letzten {days} Tage an diesem Futterhaus.",
     "empty": "Noch keine Besuche erfasst. Das füllt sich, sobald Vögel kommen.",
+    "no_latest": "Noch kein Bild eines aktuellen Besuchs vorhanden.",
     "visits": "Besuche",
     "species": "Arten",
     "busiest_day": "Aktivster Tag",

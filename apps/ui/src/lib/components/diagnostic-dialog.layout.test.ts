@@ -20,8 +20,18 @@ describe('the shared diagnostic dialog', () => {
         expect(dialogSource).not.toContain('aria-describedby="diagnostic-description"');
     });
 
+    it('names its progress bar after the dialog', () => {
+        expect(dialogSource).toMatch(/role="progressbar" aria-labelledby="diagnostic-title"/);
+    });
+
+    it('states each outcome once: the summary never repeats a row', () => {
+        expect(dialogSource).toContain('{diagnosticHeadline(result, displayStages)}');
+        expect(dialogSource).not.toContain('<p class="font-bold">{result.message}</p>');
+    });
+
     it('gives both footer buttons a 44px target', () => {
-        const footer = dialogSource.slice(dialogSource.indexOf('<footer'));
+        const footer = dialogSource.slice(dialogSource.indexOf('data-diagnostic-actions'));
+        expect(dialogSource).not.toMatch(/<(?:header|footer)\b/);
         expect(footer.match(/class="btn [^"]*min-h-11/g)).toHaveLength(2);
     });
 

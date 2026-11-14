@@ -1418,8 +1418,8 @@
     function trendTone(row: LeaderboardTableRow): string {
         const delta = deltaForMode(row, sourceMode) ?? 0;
         if (delta > 0) return 'text-success-700 dark:text-success-400';
-        if (delta < 0) return 'text-rose-600 dark:text-rose-400';
-        return 'text-slate-400';
+        if (delta < 0) return 'text-rose-700 dark:text-rose-400';
+        return 'text-slate-600 dark:text-slate-400';
     }
     function trendGlyph(row: LeaderboardTableRow): string {
         const delta = deltaForMode(row, sourceMode) ?? 0;
@@ -1597,7 +1597,7 @@
     {:else if evidence === 'seen_and_heard' || evidence === 'heard_only'}
         <svg class="h-3.5 w-3.5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
     {:else}
-        <svg class="h-3.5 w-3.5 shrink-0 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
+        <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8z" /><circle cx="12" cy="13" r="3.5" /></svg>
     {/if}
 {/snippet}
 
@@ -1661,7 +1661,7 @@
                         type="button"
                         aria-pressed={sourceMode === 'seen'}
                         onclick={() => sourceMode = 'seen'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {sourceMode === 'seen' ? 'bg-white dark:bg-slate-700 text-accent-600 dark:text-accent-300 shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'seen' ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.5 12S5.5 5.5 12 5.5 21.5 12 21.5 12 18.5 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.5"/></svg>
                         {$_('leaderboard.source_seen', { default: 'Seen' })}
@@ -1670,7 +1670,7 @@
                         type="button"
                         aria-pressed={sourceMode === 'heard'}
                         onclick={() => sourceMode = 'heard'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {sourceMode === 'heard' ? 'bg-white dark:bg-slate-700 text-brand-600 dark:text-brand-300 shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'heard' ? 'bg-white dark:bg-slate-700 text-brand-700 dark:text-brand-300 shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
                         {$_('leaderboard.source_heard', { default: 'Heard' })}
@@ -1679,7 +1679,7 @@
                         type="button"
                         aria-pressed={sourceMode === 'both'}
                         onclick={() => sourceMode = 'both'}
-                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {sourceMode === 'both' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-xs' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
+                        class="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {sourceMode === 'both' ? 'bg-white dark:bg-slate-700 text-slate-800 dark:text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}"
                     >
                         {$_('leaderboard.source_both', { default: 'Both' })}
                     </button>
@@ -1689,7 +1689,7 @@
             <label class="inline-flex min-h-11 items-center gap-2 text-sm text-slate-600 dark:text-slate-300 select-none">
                 <input
                     type="checkbox"
-                    class="rounded-sm border-slate-300 dark:border-slate-600 text-accent-600 focus:ring-accent-500"
+                    class="h-4 w-4 rounded-sm accent-brand-700 focus-ring dark:accent-brand-400"
                     bind:checked={includeUnknownBird}
                 />
                 {$_('leaderboard.include_unknown')}
@@ -1728,7 +1728,7 @@
                 </svg>
             </span>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
-            <p class="text-slate-500 dark:text-slate-400">
+            <p class="text-slate-600 dark:text-slate-400">
                 {sourceMode === 'heard'
                     ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
                     : species.length > 0 && !includeUnknownBird
@@ -1767,11 +1767,11 @@
 
         <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-slate-200 py-5 dark:border-slate-700 md:grid-cols-3 xl:grid-cols-6" data-leaderboard-standing>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{leaderboardRows.length.toLocaleString()}</dd>
             </div>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                     {sourceMode === 'heard'
                         ? $_('leaderboard.standing_calls', { default: 'Calls heard' })
                         : sourceMode === 'both'
@@ -1785,22 +1785,22 @@
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{sourceTotal.toLocaleString()}</dd>
             </div>
             <div class="min-w-0">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour', { default: 'Busiest hour' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{busiestHour ? hourLabel(busiestHour.hour) : '—'}</dd>
-                {#if busiestHour}<dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
+                {#if busiestHour}<dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_busiest_hour_count', { values: { count: busiestHour.count }, default: '{count, plural, one {# detection} other {# detections}} on camera' })}</dd>{/if}
             </div>
             <div class="min-w-0" data-leaderboard-corroboration>
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{audioKnown ? $_('leaderboard.standing_corroborated', { default: 'Heard or confirmed' }) : $_('leaderboard.standing_confirmed', { default: 'Confirmed by you' })}</dt>
                 {#if evidenceKnown}
-                    <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{corroboratedCount}<span class="text-base font-semibold text-slate-400"> / {leaderboardRows.length}</span></dd>
-                    <dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_corroborated_hint', { default: 'species, the rest are the camera alone' })}</dd>
+                    <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{corroboratedCount}<span class="text-base font-semibold text-slate-600 dark:text-slate-400"> / {leaderboardRows.length}</span></dd>
+                    <dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_corroborated_hint', { default: 'species, the rest are the camera alone' })}</dd>
                 {:else}
-                    <dd class="mt-1 font-display text-2xl font-bold text-slate-400">—</dd>
-                    <dd class="text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.standing_corroborated_unknown', { default: 'Counted for the day, week and month' })}</dd>
+                    <dd class="mt-1 font-display text-2xl font-bold text-slate-600 dark:text-slate-400">—</dd>
+                    <dd class="text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_corroborated_unknown', { default: 'Counted for the day, week and month' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
-                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
                     <svg class="h-3.5 w-3.5 text-success-600 dark:text-success-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
                     {$_('leaderboard.rising')}
                 </dt>
@@ -1808,20 +1808,20 @@
                     <dd class="mt-1 truncate text-base font-semibold text-slate-900 dark:text-white">{topByTrend.displayName}</dd>
                     <dd class="text-xs tabular-nums text-success-700 dark:text-success-400">{trendForMode(topByTrend, sourceMode)}</dd>
                 {:else}
-                    <dd class="mt-1 text-base font-semibold text-slate-400">—</dd>
-                    <dd class="text-xs text-slate-500 dark:text-slate-400">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
+                    <dd class="mt-1 text-base font-semibold text-slate-600 dark:text-slate-400">—</dd>
+                    <dd class="text-xs text-slate-600 dark:text-slate-400">{span === 'all' ? $_('leaderboard.rising_all_time', { default: 'No earlier window for all time' }) : !trendAvailable ? $_('leaderboard.rising_no_history', { default: 'Needs a full earlier window' }) : $_('leaderboard.rising_none', { default: 'Nothing up on the window before' })}</dd>
                 {/if}
             </div>
             <div class="min-w-0">
-                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <dt class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400">
                     <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
                     {$_('leaderboard.most_recent')}
                 </dt>
                 {#if mostRecent}
                     <dd class="mt-1 truncate text-base font-semibold text-slate-900 dark:text-white">{mostRecent.displayName}</dd>
-                    <dd class="text-xs text-slate-500 dark:text-slate-400" title={formatDate(activityTimestampForMode(mostRecent, sourceMode))}>{formatRelative(activityTimestampForMode(mostRecent, sourceMode))}</dd>
+                    <dd class="text-xs text-slate-600 dark:text-slate-400" title={formatDate(activityTimestampForMode(mostRecent, sourceMode))}>{formatRelative(activityTimestampForMode(mostRecent, sourceMode))}</dd>
                 {:else}
-                    <dd class="mt-1 text-base font-semibold text-slate-400">—</dd>
+                    <dd class="mt-1 text-base font-semibold text-slate-600 dark:text-slate-400">—</dd>
                 {/if}
             </div>
         </dl>
@@ -1833,12 +1833,12 @@
                     </svg>
                     <div>
                         <h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.full_rankings', { default: 'Full rankings' })}</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {span === 'all' ? $_('leaderboard.all_species') : formatRangeCompact(leaderboardWindow?.start, leaderboardWindow?.end)}</p>
                     </div>
                 </div>
             </div>
             {#if span !== 'all' && !trendAvailable && trendHistoryStart}
-                <p class="text-sm text-slate-500 dark:text-slate-400" data-leaderboard-trend-note>
+                <p class="text-sm text-slate-600 dark:text-slate-400" data-leaderboard-trend-note>
                     {$_('leaderboard.trend_needs_history', { values: { date: formatShortDate(trendHistoryStart) }, default: 'No trend yet. Records start {date}, so there is no complete earlier window to compare with.' })}
                 </p>
             {/if}
@@ -1861,25 +1861,24 @@
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
-                        aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
-                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
+                        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
                         <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                 <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
                             {:else}
-                                <span class="flex h-full w-full items-center justify-center text-slate-400"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>
+                                <span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>
                             {/if}
                         </span>
                         <span class="min-w-0 flex-1">
                             <span class="flex items-center gap-2">
                                 <span class="truncate font-semibold text-slate-900 dark:text-white">{item.displayName}</span>
                             </span>
-                            {#if item.subName}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}
+                            {#if item.subName}<span class="mt-0.5 block truncate text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}
                             {#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}
-                            <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 dark:text-slate-400">
+                            <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-400">
                                 {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span aria-hidden="true">·</span>{/if}
                                 <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
                             </span>
@@ -1888,14 +1887,14 @@
                             <span class="block text-base font-bold tabular-nums text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
                             {#if trendAvailable}<span class="block text-xs font-semibold tabular-nums {trendTone(item)}">{trendGlyph(item)} {trendForMode(item, sourceMode)}</span>{/if}
                         </span>
-                        <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/each}
                 </div>
 
                 <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 md:block" data-leaderboard-desktop-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
-                    <thead class="border-b border-slate-200 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                         <tr>
                             <th scope="col" class="w-14 px-3 py-3 text-center">{$_('leaderboard.rank')}</th>
                             <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
@@ -1914,22 +1913,22 @@
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             {@const evidence = evidenceOf(item)}
                             <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}" data-leaderboard-unlikely={unlikelyHere(item) ? 'true' : undefined}>
-                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
+                                <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
-                                    <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
+                                    <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus">
                                         <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
-                                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>{/if}
+                                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>{/if}
                                         </span>
-                                        <span class="min-w-0"><span class="block truncate font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>
+                                        <span class="min-w-0"><span class="block truncate font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}</span>
                                     </button>
                                 </td>
-                                <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowCountPct}%"></span></span>{/if}</td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-slate-400/80 dark:bg-slate-400/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-500 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
+                                <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowCountPct}%"></span></span>{/if}</td>
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-slate-400/80 dark:bg-slate-400/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-600 dark:text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
+                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-600 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
                                 {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums lg:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
                                 {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
                                 <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
-                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-slate-500 dark:text-slate-400 lg:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
+                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-slate-600 dark:text-slate-400 lg:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
                     </tbody>
@@ -1942,7 +1941,7 @@
         <section class="space-y-6 border-t border-slate-200 pt-8 dark:border-slate-700" data-leaderboard-analytics>
             <div class="flex items-center gap-3">
                 <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-brand-50 p-1.5 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" d="M4 19V9m5 10V5m5 14v-7m5 7V3" /></svg>
-                <div><h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h3><p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p></div>
+                <div><h3 class="text-xl font-bold text-slate-950 dark:text-white">{$_('leaderboard.analytics_section', { default: 'Analytics' })}</h3><p class="text-sm text-slate-600 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)}</p></div>
             </div>
 
         <div class="border-y border-slate-200 py-6 dark:border-slate-700 md:py-8">
@@ -1951,7 +1950,7 @@
                     <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                         <div>
                             <h4 class="text-lg font-bold text-slate-900 dark:text-white md:text-xl">{$_('leaderboard.detections_over_time')}</h4>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                                 {spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {bucketLabel(timeline?.bucket)} · {(timeline?.total_count ?? 0).toLocaleString()} {metricLabel().toLowerCase()}{#if unidentifiedCount > 0 && !includeUnknownBird}, {$_('leaderboard.includes_unidentified', { values: { count: unidentifiedCount.toLocaleString() }, default: 'including {count} not identified to species' })}{/if}
                             </p>
                         </div>
@@ -1959,7 +1958,7 @@
                             {#if canUseLeaderboardAnalysis}
                                 <button
                                     type="button"
-                                    class="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/50"
+                                    class="inline-flex min-h-11 items-center rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 dark:border-brand-800 dark:bg-brand-950/30 dark:text-brand-300 dark:hover:bg-brand-950/50"
                                     disabled={!timeline?.points?.length || leaderboardAnalysisLoading}
                                     onclick={() => runLeaderboardAnalysis(!!leaderboardAnalysis)}
                                 >
@@ -1989,7 +1988,7 @@
                 </div>
                 {#each weatherPanels() as panel (panel.key)}
                     <div class="mt-3" data-leaderboard-weather-panel={panel.key}>
-                        <p class="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{panel.title}</p>
+                        <p class="mb-1 text-xs font-semibold text-slate-600 dark:text-slate-400">{panel.title}</p>
                         <div class="h-24 w-full">
                             {#key `${span}-${timeline?.total_count}-${timeline?.bucket}-${isDark()}-${panel.key}`}
                                 <canvas use:chartjsWhenNear={panel.config} aria-label={panel.title}></canvas>
@@ -2001,7 +2000,7 @@
                     <div class="mt-3 flex flex-wrap gap-1" role="group" aria-label={$_('leaderboard.chart_legend', { default: 'Series in this chart' })} data-leaderboard-timeline-legend>
                         {#each timelineLegend() as entry (entry.label)}
                             {@const hidden = hiddenTimelineSeries.includes(entry.label)}
-                            <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hidden ? 'opacity-45 line-through' : ''}"
+                            <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hidden ? 'opacity-45 line-through' : ''}"
                                 aria-pressed={!hidden} aria-label="{hidden ? $_('common.show') : $_('common.hide')} {entry.label}" onclick={() => toggleTimelineSeries(entry.label)}>
                                 {#if entry.line}
                                     <span class="inline-block h-0.5 w-4 rounded-full {entry.dashed ? 'border-t-2 border-dashed bg-transparent' : ''}" style={entry.dashed ? `border-color: ${entry.color}` : `background-color: ${entry.color}`}></span>
@@ -2014,28 +2013,28 @@
                     </div>
                 {/if}
 
-                <p class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <p class="mt-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
                     {$_('leaderboard.total', { default: 'Total' })}: {timeline?.total_count?.toLocaleString() || '0'}
                     · {$_('leaderboard.metric_peak', { default: 'Peak' })}: {formatMetricValue(metricPeak())}
                     · {$_('leaderboard.metric_avg', { default: 'Avg' })}: {formatMetricValue(metricAvg())}
                 </p>
                 {#if canUseLeaderboardAnalysis && (leaderboardAnalysisLoading || leaderboardAnalysisError || leaderboardAnalysis)}
                     <div class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-800/40 dark:text-slate-300">
-                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
                             <span>{$_('leaderboard.ai_summary', { default: 'AI insight' })}</span>
                             {#if leaderboardAnalysisTimestamp}
                                 <span class="font-semibold normal-case tracking-normal">{formatDateTime(leaderboardAnalysisTimestamp)}</span>
                             {/if}
                         </div>
                         {#if leaderboardAnalysisLoading}
-                            <p class="mt-2 text-xs text-slate-500">{$_('leaderboard.ai_analyzing', { default: 'Analyzing…' })}</p>
+                            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('leaderboard.ai_analyzing', { default: 'Analyzing…' })}</p>
                         {:else if leaderboardAnalysisError}
                             <p class="mt-2 text-xs text-rose-500">{leaderboardAnalysisError}</p>
                         {:else if leaderboardAnalysis}
                             <div class="mt-2 space-y-2">
                                 {#each leaderboardAiBlocks() as block}
                                     {#if block.type === 'heading'}
-                                        <p class="text-xs font-semibold text-accent-600 dark:text-accent-300">{block.text}</p>
+                                        <p class="text-xs font-semibold text-accent-700 dark:text-accent-300">{block.text}</p>
                                     {:else}
                                         <p class="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{block.text}</p>
                                     {/if}
@@ -2046,7 +2045,7 @@
                 {/if}
                 <!-- Weather overlays -->
                 <details class="mt-3 group/weather">
-                    <summary class="inline-flex min-h-11 cursor-pointer list-none select-none items-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
+                    <summary class="inline-flex min-h-11 cursor-pointer list-none select-none items-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
                             <path d="M7 14.5v2M10 14.5v2M13 14.5v2"></path>
@@ -2056,10 +2055,10 @@
                             <path d="M6 8l4 4 4-4"></path>
                         </svg>
                         {#if timeline?.sunrise_range}
-                            <span class="font-semibold normal-case tracking-normal text-amber-600 dark:text-amber-400">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-amber-700 dark:text-amber-400">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
                         {/if}
                         {#if timeline?.sunset_range}
-                            <span class="font-semibold normal-case tracking-normal text-orange-600 dark:text-orange-400">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-orange-700 dark:text-orange-400">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
                         {/if}
                     </summary>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -2068,8 +2067,8 @@
                             aria-pressed={showTemperature}
                             onclick={() => showTemperature = !showTemperature}
                             disabled={!hasWeather()}
-                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45
-                                {showTemperature ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
+                                {showTemperature ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M10 4a2 2 0 0 0-4 0v6.4a3.5 3.5 0 1 0 4 0V4z"></path>
@@ -2082,8 +2081,8 @@
                             aria-pressed={showWind}
                             onclick={() => showWind = !showWind}
                             disabled={!hasWeather()}
-                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45
-                                {showWind ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
+                                {showWind ? 'border-brand-300 dark:border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M3 8h9a2 2 0 1 0-2-2"></path>
@@ -2096,8 +2095,8 @@
                             aria-pressed={showPrecip}
                             onclick={() => showPrecip = !showPrecip}
                             disabled={!hasWeather()}
-                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-45
-                                {showPrecip ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-500 dark:text-slate-400'}"
+                            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-45
+                                {showPrecip ? 'border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'border-slate-200/70 dark:border-slate-700/60 text-slate-600 dark:text-slate-400'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
@@ -2106,14 +2105,14 @@
                             {$_('leaderboard.show_precip', { default: 'Precipitation' })}
                         </button>
                         {#if showPrecip && hasWeather()}
-                            <span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            <span class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
                                 <span class="h-2 w-2 rounded-xs bg-sky-300/45 border border-sky-300/60"></span>{$_('leaderboard.band_low', { default: 'Low' })}
                                 <span class="h-2 w-2 rounded-xs bg-sky-300/65 border border-sky-300/75"></span>{$_('leaderboard.band_medium', { default: 'Med' })}
                                 <span class="h-2 w-2 rounded-xs bg-sky-300/85 border border-sky-300/90"></span>{$_('leaderboard.band_high', { default: 'High' })}
                             </span>
                         {/if}
                         {#if !hasWeather()}
-                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                            <span class="text-xs text-slate-600 dark:text-slate-400">
                                 {weatherOverlayEligible()
                                     ? $_('leaderboard.weather_overlay_no_data', { default: 'No weather data in this range yet.' })
                                     : $_('leaderboard.weather_overlay_range_limited', { default: 'Weather overlays available on Day/Week/Month ranges.' })}
@@ -2136,7 +2135,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold text-brand-600 dark:text-brand-300">
+                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
                                     {$_('leaderboard.activity_heatmap_title', { default: 'Activity Heatmap' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
@@ -2146,7 +2145,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <rect x="3" y="4" width="14" height="13" rx="2"></rect>
@@ -2188,15 +2187,15 @@
                                 />
                             </div>
                         {:else if heatmapSpecies && speciesHeatmapFailed}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400" role="status">
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-600 dark:text-slate-400" role="status">
                                 {$_('leaderboard.heatmap_species_failed', { default: 'That species\u2019 activity could not be loaded. Choose it again to retry.' })}
                             </div>
                         {:else if heatmapSpecies && shownHeatmap}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-500 dark:text-slate-400">
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center px-6 text-center text-sm text-slate-600 dark:text-slate-400">
                                 {$_('leaderboard.heatmap_species_empty', { values: { species: heatmapSubject ?? '' }, default: 'No {species} detections in this window.' })}
                             </div>
                         {:else if activityHeatmap && !heatmapSpecies}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-600 dark:text-slate-400">
                                 {$_('leaderboard.no_activity_data', { default: 'No activity captured in this window yet.' })}
                             </div>
                         {:else}
@@ -2217,7 +2216,7 @@
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-xs font-semibold text-brand-600 dark:text-brand-300">
+                                <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">
                                     {$_('leaderboard.detection_breakdown_title', { default: 'Detection Breakdown' })}
                                 </p>
                                 <h4 class="mt-1 text-lg font-bold text-slate-900 dark:text-white md:text-xl">
@@ -2227,7 +2226,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-300">
+                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
                         <span class="inline-flex items-center gap-1 rounded-full border border-slate-200/80 dark:border-slate-700/70 bg-white/80 dark:bg-slate-900/40 px-2 py-1">
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <path d="M4 10h12M4 6h12M4 14h7"></path>
@@ -2248,7 +2247,7 @@
                                 <div class="relative chart-h w-full"><canvas use:chartjsWhenNear={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
-                                        <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                        <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                             aria-pressed={!hiddenDonutSpecies.includes(index)} aria-label="{hiddenDonutSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {label}" onclick={() => toggleDonutSlice(index)}>
                                             <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {donutColor(index)}"></span>{label}
                                         </button>
@@ -2256,7 +2255,7 @@
                                 </div>
                             {/key}
                         {:else}
-                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                            <div class="h-[260px] w-full rounded-2xl border border-dashed border-slate-300/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/35 flex items-center justify-center text-sm text-slate-600 dark:text-slate-400">
                                 {$_('leaderboard.no_compare_data', { default: 'Not enough data for comparison yet.' })}
                             </div>
                         {/if}

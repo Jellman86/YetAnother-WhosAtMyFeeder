@@ -20,7 +20,7 @@
         href={updateStatusStore.status?.release_url}
         target="_blank"
         rel="noopener noreferrer"
-        class="relative flex items-center justify-center rounded-lg p-1 text-brand-600 transition-all duration-200 hover:bg-brand-50 focus-ring dark:text-brand-400 dark:hover:bg-brand-950/40"
+        class="relative flex items-center justify-center rounded-lg p-1 text-brand-700 transition-all duration-200 hover:bg-brand-50 focus-ring dark:text-brand-400 dark:hover:bg-brand-950/40"
         title={label}
         aria-label={label}
     >

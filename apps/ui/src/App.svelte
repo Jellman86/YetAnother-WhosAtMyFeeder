@@ -259,6 +259,11 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let appInitialized = $state(false);
   let activeAccessIdentity: string | null = null;
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
+  // The first-run wizard replaces the whole app until it is finished.
+  let showsFirstRunWizard = $derived(
+      authStore.statusLoaded
+      && (authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run'))
+  );
   let requiresLogin = $derived(
       authStore.statusHealthy && (
           (authStore.authRequired && !authStore.publicAccessEnabled && !authStore.isAuthenticated && !authStore.needsInitialSetup) ||
@@ -778,14 +783,16 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 <ErrorBoundary>
   {#snippet children()}
   <div class="min-h-screen flex flex-col bg-surface-light dark:bg-surface-dark text-slate-900 dark:text-white font-sans transition-colors duration-300">
-  <!-- Skip to content for accessibility -->
+  <!-- Skip to content. The first-run wizard is a modal with nothing behind it to skip to, so it has no skip link. -->
+  {#if !showsFirstRunWizard}
   <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-100 focus:bg-brand-700 focus:text-white focus:px-4 focus:py-2 focus:rounded-b-lg focus:left-4 focus:top-0 focus:font-bold">
     {$_('common.skip_to_content', { default: 'Skip to content' })}
   </a>
+  {/if}
 
   {#if !authStore.statusLoaded}
       <BackendStatusScreen mode="loading" />
-  {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
+  {:else if showsFirstRunWizard}
       <LazyRoute
           loader={loadFirstRunWizard}
           props={{}}

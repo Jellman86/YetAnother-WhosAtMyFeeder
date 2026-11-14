@@ -90,7 +90,7 @@
             <div class="grid grid-cols-1 gap-4 mb-6">
                 {#each shortcutGroups as group}
                     <section class="rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-slate-50/70 dark:bg-slate-900/45 p-4">
-                        <h3 class="text-2xs font-bold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-300 mb-3">
+                        <h3 class="text-2xs font-bold uppercase tracking-[0.2em] text-slate-600 dark:text-slate-300 mb-3">
                             {group.title}
                         </h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -7,7 +7,7 @@ const appCss = readFileSync(new URL('./app.css', import.meta.url), 'utf8');
 /**
  * Every size in the kit is rem, so one root size scales the app. On a large display the page
  * used to stay at laptop size, with the field log and Explorer read at 10-14px across 2560px.
- * The smallest print is 11px at the default size for the same reason.
+ * The smallest print never falls under 12px, at any text size.
  */
 describe('the type scale on large displays', () => {
     const root = appCss.match(/\nhtml \{([^}]*)\}/)?.[1] ?? '';
@@ -24,8 +24,11 @@ describe('the type scale on large displays', () => {
         expect(appCss).toContain('--spacing-11: max(2.75rem, 44px);');
     });
 
-    it('keeps the smallest print at 11px or more at the default size', () => {
-        expect(appCss).toContain('--text-2xs: 0.75rem;');
-        expect(appCss).toContain('--text-3xs: 0.6875rem;');
+    it('keeps the smallest print in rem with a 12px floor, so the Standard size never sets it under 12px', () => {
+        // Standard puts the root at 14px, where 0.6875rem alone is 9.6px.
+        expect(appCss).toContain('--text-3xs: max(0.6875rem, 12px);');
+        expect(appCss).toContain('--text-2xs: max(0.75rem, 12px);');
+        expect(appCss).toContain('--text-xs: max(0.75rem, 12px);');
+        expect(appCss).toContain('--text-sm: max(0.875rem, 12px);');
     });
 });

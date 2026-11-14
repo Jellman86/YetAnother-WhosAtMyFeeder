@@ -65,5 +65,9 @@
   "undo": "Deshacer",
   "unknown": "desconocido",
   "diagnostic_step_status": "Paso {step} de {total}: {label}",
-  "checks_failed": "{failed} de {total} comprobaciones no se superaron: {labels}."
+  "checks_failed": "{failed} de {total} comprobaciones no se superaron: {labels}.",
+  "checks_passed": "Las {total} comprobaciones se superaron.",
+  "check_passed": "La comprobación se superó.",
+  "map_your_location": "Tu ubicación",
+  "map_sighting": "Lugar del avistamiento"
 }

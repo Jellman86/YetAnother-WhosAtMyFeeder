@@ -22,7 +22,7 @@
     {...attributes}
     type="button"
     aria-label={label ?? text}
-    class="pointer-events-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {target ? 'inline-flex min-h-11 min-w-11 -my-3.5 items-center justify-center' : ''} {className}"
+    class="pointer-events-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {target ? 'inline-flex min-h-11 min-w-11 -my-3.5 items-center justify-center' : ''} {className}"
     use:explanation={{ text, toggle: true }}
     data-badge-hint
 >

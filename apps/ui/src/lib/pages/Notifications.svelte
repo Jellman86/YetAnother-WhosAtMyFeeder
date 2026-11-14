@@ -146,7 +146,7 @@
         attention: 'text-attention-800 bg-attention-50 border-attention-200 dark:text-attention-300 dark:bg-attention-950/40 dark:border-attention-900',
         running: 'text-brand-700 bg-brand-50 border-brand-200 dark:text-brand-300 dark:bg-brand-950/40 dark:border-brand-900',
         done: 'text-success-700 bg-success-50 border-success-200 dark:text-success-300 dark:bg-success-950/40 dark:border-success-900',
-        info: 'text-slate-500 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700'
+        info: 'text-slate-600 bg-slate-50 border-slate-200 dark:text-slate-400 dark:bg-slate-800/60 dark:border-slate-700'
     };
 </script>
 
@@ -194,9 +194,9 @@
                 onclick={() => selectFilter(name)}
             >
                 {$_(`notifications.filter_${name}`)}
-                <span class="tabular-nums text-3xs text-slate-400 dark:text-slate-500">{counts[name]}</span>
+                <span class="tabular-nums text-3xs text-slate-600 dark:text-slate-400">{counts[name]}</span>
                 {#if isOwnerOnlyFilter(name)}
-                    <svg class="h-2.5 w-2.5 text-slate-400 dark:text-slate-500" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-2.5 w-2.5 text-slate-500 dark:text-slate-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
                         <path d="M5.8 7V5.2a2.2 2.2 0 014.4 0V7" />
                     </svg>
@@ -208,14 +208,14 @@
     {#if groups.length === 0}
         <div class="card-base px-6 py-10 text-center">
             {#if items.length > 0}
-                <p class="text-sm text-slate-500 dark:text-slate-400">
+                <p class="text-sm text-slate-600 dark:text-slate-400">
                     {$_('notifications.empty_filtered', { default: 'Nothing matches this filter.' })}
                 </p>
             {:else}
                 <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">
                     {$_('notifications.empty_title', { default: 'Nothing has happened yet' })}
                 </h3>
-                <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
+                <p class="mx-auto mt-1 max-w-sm text-sm text-slate-600 dark:text-slate-400">
                     {$_('notifications.empty_body', {
                         default:
                             'Visits appear here as the classifier names them, and background work as it runs. Newest first.'
@@ -229,7 +229,7 @@
     {:else}
         <div class="card-base p-4 sm:p-5">
             {#each groups as group (group.key)}
-                <h3 class="mb-1 mt-5 text-3xs font-bold uppercase tracking-[0.14em] text-slate-400 first:mt-0 dark:text-slate-500">
+                <h3 class="mb-1 mt-5 text-3xs font-bold uppercase tracking-[0.14em] text-slate-600 first:mt-0 dark:text-slate-400">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
                 <ol class="ml-1">
@@ -332,12 +332,12 @@
                                             <!-- Brand, not the amber gradient this used to run: a job in flight needs nobody. -->
                                             <div class="h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-slate-400 dark:bg-slate-500' : 'bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></div>
                                         </div>
-                                        <p class="mt-1 flex justify-between font-mono text-3xs text-slate-400 dark:text-slate-500">
+                                        <p class="mt-1 flex justify-between font-mono text-3xs text-slate-600 dark:text-slate-400">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
                                             <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
                                         </p>
                                     {/if}
-                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-3xs text-slate-400 dark:text-slate-500">
+                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-3xs text-slate-600 dark:text-slate-400">
                                         <!-- The group heading already carries the day, so repeating
                                              the full date on every row is noise. -->
                                         <span>{group.key === 'older' || group.key === 'yesterday'
