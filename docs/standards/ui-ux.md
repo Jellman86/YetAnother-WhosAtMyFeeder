@@ -140,14 +140,9 @@ are read from `apps/ui/src` only.
 the upgrade changed nothing on screen. Remove a block from it only together with a check of the
 screens that depend on it.
 
-The production build drops the fallbacks Tailwind writes for browsers below the supported floor
-(the plain colour beside every `color-mix()` and the `@property` fallback block); see
-`apps/ui/src/lib/app/supported-browser-css.ts`. The fixed palette is an `@theme inline` block, so
-those colours are written as literals. Raising or lowering the browser floor means revisiting both.
-The step removes only what it can match exactly and leaves the rest as written, so it cannot break
-a build or a page; its unit test compiles the real stylesheet and fails if Tailwind's output
-changes shape. The Tailwind packages are pinned to an exact version for that reason: an upgrade
-changes the pins, the version in `supported-browser-css.ts` and the test fixtures together.
+The fixed palette is an `@theme inline` block, so those colours are written into each utility as
+literals; the theme-driven tokens (`brand`, `accent`, `success`, `attention`, `surface`, `line`)
+stay variables, because a colour theme repaints them. Unit tests are left out of the class scan.
 
 Supported browsers follow from the toolchain: Chrome and Edge 111, Firefox 128 and Safari 16.4 or
 newer ([setup guide](../setup/getting-started.md#supported-browsers)).
