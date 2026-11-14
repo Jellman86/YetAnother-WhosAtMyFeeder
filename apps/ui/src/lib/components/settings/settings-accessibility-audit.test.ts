@@ -24,8 +24,12 @@ function settingsSources(dir = SETTINGS_DIR): string[] {
 function quotedStrings(): { where: string; text: string }[] {
     const found: { where: string; text: string }[] = [];
     for (const file of settingsSources()) {
-        const source = readFileSync(file, 'utf8').replace(/<style[\s\S]*?<\/style>/g, '');
+        const source = readFileSync(file, 'utf8');
+        // Stylesheet text is CSS, not markup classes: strings inside a <style> block are skipped.
+        const styleBlocks = [...source.matchAll(/<style\b[\s\S]*?<\/style>/g)].map((block) => [block.index, block.index + block[0].length]);
+        const inStyle = (index: number): boolean => styleBlocks.some(([start, end]) => index >= start && index < end);
         for (const match of source.matchAll(/"[^"\n]*"|'[^'\n]*'|`[^`]*`/g)) {
+            if (inStyle(match.index)) continue;
             const line = source.slice(0, match.index).split('\n').length;
             const where = `${relative(SETTINGS_DIR, file)}:${line}`;
             found.push({ where, text: match[0] });
