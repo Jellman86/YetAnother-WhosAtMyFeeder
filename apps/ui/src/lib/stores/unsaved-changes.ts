@@ -4,7 +4,7 @@ import { confirmAction, type ConfirmRequest } from './confirm_dialog.svelte';
  * Says what leaving for `to` would lose, as the question to ask, or null when nothing would be.
  * A page holding unsaved work answers for its own routes: moving between them keeps the work.
  */
-export type LeaveWarning = (to: string) => ConfirmRequest | null;
+type LeaveWarning = (to: string) => ConfirmRequest | null;
 
 /**
  * One place the app asks before a navigation that would throw away unsaved work. A page holds

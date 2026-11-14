@@ -294,6 +294,7 @@ test('an empty recording delay is explained without sending a settings write', a
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     await page.locator('#recording-frame-delay').fill('');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Enter a recording-frame delay between 1 and 120 seconds.' })).toBeVisible();
+    await expect(page.locator('#recording-frame-delay')).toHaveAttribute('aria-invalid', 'true');
+    await expect(page.locator('[data-field-error="recording_frame_delay_seconds"]')).toHaveText('Enter a value from 1 to 120.');
     expect(counters.saves).toEqual([]);
 });

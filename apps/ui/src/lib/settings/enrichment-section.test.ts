@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Settings } from '../api/settings';
 import { enrichmentSection } from './enrichment-section';
-import { sectionIsDirty } from './section-adapter';
+import { sectionChangedFields } from './section-adapter';
 
 function saved(fields: Partial<Settings>): Settings {
     return fields as Settings;
@@ -42,19 +42,19 @@ describe('Enrichment section draft', () => {
             enrichment_rarity_source: 'ebird',
             enrichment_links_sources: ['ebird']
         });
-        expect(sectionIsDirty(enrichmentSection, enrichmentSection.decode(stored), stored)).toBe(false);
+        expect(sectionChangedFields(enrichmentSection, enrichmentSection.decode(stored), stored)).toEqual([]);
     });
 
     it('keeps an empty link list as saved rather than restoring the defaults', () => {
         const stored = saved({ enrichment_links_sources: [] });
         expect(enrichmentSection.decode(stored).enrichmentLinksSources).toEqual([]);
-        expect(sectionIsDirty(enrichmentSection, enrichmentSection.decode(stored), stored)).toBe(false);
+        expect(sectionChangedFields(enrichmentSection, enrichmentSection.decode(stored), stored)).toEqual([]);
     });
 
     it('compares the link list by content', () => {
         const stored = saved({ enrichment_links_sources: ['wikipedia'] });
         const draft = enrichmentSection.decode(stored);
-        expect(sectionIsDirty(enrichmentSection, { ...draft, enrichmentLinksSources: ['wikipedia'] }, stored)).toBe(false);
-        expect(sectionIsDirty(enrichmentSection, { ...draft, enrichmentLinksSources: ['ebird'] }, stored)).toBe(true);
+        expect(sectionChangedFields(enrichmentSection, { ...draft, enrichmentLinksSources: ['wikipedia'] }, stored)).toEqual([]);
+        expect(sectionChangedFields(enrichmentSection, { ...draft, enrichmentLinksSources: ['ebird'] }, stored)).not.toEqual([]);
     });
 });

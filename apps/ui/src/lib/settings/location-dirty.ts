@@ -23,13 +23,6 @@ function normalizeText(value?: string | null): string {
     return value ?? '';
 }
 
-export function locationSettingsDirty(input: {
-    current: CurrentLocationSettings;
-    stored: StoredLocationSettings;
-}): boolean {
-    return locationChangedFields(input).length > 0;
-}
-
 /** The saved location fields the draft would change, named as the save sends them. */
 export function locationChangedFields(input: {
     current: CurrentLocationSettings;

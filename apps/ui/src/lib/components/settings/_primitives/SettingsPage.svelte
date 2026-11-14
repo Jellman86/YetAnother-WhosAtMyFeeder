@@ -103,7 +103,7 @@
         <!-- In the page's flow and stuck to the bottom of the screen: it always sits after the last
              setting, so it can never cover one, and it follows the column's width. -->
         <section
-            class="save-bar sticky bottom-0 z-30 -mx-1 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
+            class="save-bar sticky bottom-0 z-30 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
             aria-labelledby="settings-save-bar-title"
             data-settings-save-bar
         >
@@ -184,9 +184,14 @@
             gap: 0.75rem;
         }
 
+        /* Side by side while both fit; with enlarged text each takes its own line. */
         .save-bar-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
+            flex-wrap: wrap;
+        }
+
+        .save-bar-actions > :global(button) {
+            flex: 1 1 auto;
+            white-space: normal;
         }
     }
 </style>
