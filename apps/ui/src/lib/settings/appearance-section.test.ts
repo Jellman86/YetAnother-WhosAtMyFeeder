@@ -5,7 +5,7 @@ vi.mock('../stores/settings.svelte', () => ({ settingsStore: { settings: null } 
 vi.mock('../stores/auth.svelte', () => ({ authStore: {} }));
 
 const { appearanceSection } = await import('./appearance-section');
-const { sectionIsDirty } = await import('./section-adapter');
+const { sectionChangedFields } = await import('./section-adapter');
 
 function saved(fields: Partial<Settings>): Settings {
     return fields as Settings;
@@ -68,15 +68,15 @@ describe('Appearance section draft', () => {
     it('is unsaved only after a choice changes', () => {
         const stored = saved({ date_format: 'dmy', appearance_color_theme: 'default' });
         const draft = appearanceSection.decode(stored);
-        expect(sectionIsDirty(appearanceSection, draft, stored)).toBe(false);
-        expect(sectionIsDirty(appearanceSection, { ...draft, timeFormat: '12h' }, stored)).toBe(true);
-        expect(sectionIsDirty(appearanceSection, { ...draft, colorTheme: 'bluetit' }, stored)).toBe(true);
-        expect(sectionIsDirty(appearanceSection, { ...draft, explorerView: 'list' }, stored)).toBe(true);
+        expect(sectionChangedFields(appearanceSection, draft, stored)).toEqual([]);
+        expect(sectionChangedFields(appearanceSection, { ...draft, timeFormat: '12h' }, stored)).not.toEqual([]);
+        expect(sectionChangedFields(appearanceSection, { ...draft, colorTheme: 'bluetit' }, stored)).not.toEqual([]);
+        expect(sectionChangedFields(appearanceSection, { ...draft, explorerView: 'list' }, stored)).not.toEqual([]);
     });
 
     it('does not count a saved value the form normalises as an edit', () => {
         // A legacy or unknown saved value loads as the default; leaving it alone is not a change.
         const stored = saved({ date_format: 'weekday', appearance_font_theme: undefined });
-        expect(sectionIsDirty(appearanceSection, appearanceSection.decode(stored), stored)).toBe(false);
+        expect(sectionChangedFields(appearanceSection, appearanceSection.decode(stored), stored)).toEqual([]);
     });
 });

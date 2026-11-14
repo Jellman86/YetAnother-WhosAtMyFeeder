@@ -105,9 +105,9 @@
     function statusPart(part: GardenStatusPart): string {
         switch (part.kind) {
             case 'off': return $_('settings.beta.status_off', { default: 'Off' });
-            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you apply' });
+            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you save' });
             case 'on': return $_('settings.beta.status_on', { default: 'On' });
-            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you apply' });
+            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you save' });
             case 'cameras': return $_('settings.beta.garden_status_cameras', { default: '{count, plural, =0 {no camera chosen} one {# camera} other {# cameras}}', values: { count: part.count } });
             case 'device': return $_('settings.beta.garden_status_device', { default: 'automatic checks on {device}', values: { device: EXECUTION_DEVICE_LABEL[part.provider] } });
             case 'model_missing': return $_('settings.beta.garden_status_model_missing', { default: 'model not downloaded yet' });

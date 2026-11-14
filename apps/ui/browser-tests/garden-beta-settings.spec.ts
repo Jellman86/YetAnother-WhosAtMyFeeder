@@ -124,7 +124,7 @@ test('switching Garden off hides its settings and keeps them for later', async (
     await expect(page.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await expect(page.locator('[data-garden-beta-settings]')).toHaveCount(0);
-    await expect(page.locator('[data-beta-status]')).toHaveText('Off after you apply');
+    await expect(page.locator('[data-beta-status]')).toHaveText('Off after you save');
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveText('Garden stops collecting new captures. Existing captures and settings are kept and come back when you turn it on again.');
     await expect(page.locator('[data-garden-beta-off]')).toContainText('hidden in the Explorer, its alerts stop, and birds you keep are recorded as wild birds');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -648,7 +648,7 @@ test('switching Garden on reveals its sections and the setup it still needs', as
     await expect(expanded).toHaveCount(6);
     expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
 
-    await expect(page.locator('[data-beta-status]')).toHaveText('On after you apply · no camera chosen');
+    await expect(page.locator('[data-beta-status]')).toHaveText('On after you save · no camera chosen');
     await expect(page.locator('[data-beta-status]')).toHaveAttribute('data-beta-status', 'attention');
     await expect(page.locator('[data-garden-next-step]')).toHaveText([
         'Choose a camera to watch for Garden animals. Choose cameras in Connection',
@@ -740,6 +740,9 @@ test('the camera selector in Connection follows the staged Garden switch and kee
     await page.getByRole('switch', { name: 'Garden animals' }).click();
     await page.getByRole('link', { name: 'Connection', exact: true }).click();
     await expect(patio.locator('label')).toHaveText(['Off', 'Birds']);
+    // Switching Garden on and off again is no change at all, so there is nothing to save.
+    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
+    await page.locator('#mqtt-server').fill('broker.lan');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
     // Off keeps the Garden cameras for when it is turned on again.

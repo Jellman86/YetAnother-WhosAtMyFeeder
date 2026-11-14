@@ -13,19 +13,10 @@ export interface SettingsSectionAdapter<Draft, Patch extends SettingsUpdate> {
 }
 
 /**
- * A section is unsaved when what it would send differs from what its saved values would send.
- * Comparing encoded patches gives the dirty check the same defaults and normalisation as loading,
- * so an unedited section can never look changed.
+ * The saved fields an edited section would change, named as the save sends them. Comparing encoded
+ * patches gives the check the same defaults and normalisation as loading, so an unedited section
+ * can never look changed.
  */
-export function sectionIsDirty<Draft, Patch extends SettingsUpdate>(
-    adapter: SettingsSectionAdapter<Draft, Patch>,
-    draft: Draft,
-    saved: Settings
-): boolean {
-    return sectionChangedFields(adapter, draft, saved).length > 0;
-}
-
-/** The saved fields an edited section would change, named as the save sends them. */
 export function sectionChangedFields<Draft, Patch extends SettingsUpdate>(
     adapter: SettingsSectionAdapter<Draft, Patch>,
     draft: Draft,
