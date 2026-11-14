@@ -92,10 +92,10 @@ health), then puts the everyday decisions first and the rest after them:
   which locates birds in the frame so YA-WAMF can crop and count them. Each model card states
   its download size (or that it is already on this host), its memory and whether it covers birds
   only or wider wildlife. Only the active, installed or broken models carry a badge.
-- **Hardware** (starts closed, and opens on its own when the runtime has something to report, or
-  when you follow the status line's health link): **Inference provider**, **Check devices on this
+- **Hardware** (starts closed, and opens on its own when the runtime has something to report,
+  when you follow the status line's health link, or when a save refuses a value inside it): **Inference provider**, **Check devices on this
   host**, and the folded **Memory and isolation** and **Runtime report** sections.
-- **Frigate and video** (starts closed): sublabel trust, sublabel write-back and automatic video
+- **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel trust, sublabel write-back and automatic video
   analysis.
 
 ![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)

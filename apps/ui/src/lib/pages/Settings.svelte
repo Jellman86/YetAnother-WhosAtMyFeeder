@@ -109,6 +109,7 @@
     import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
+    import { provideSettingsDisclosures } from '../settings/disclosure-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -994,6 +995,13 @@
         fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
     );
     provideSettingsFieldErrors({ errorFor: (field) => standingErrors.find((error) => error.field === field) });
+
+    // Closed cards and Advanced sections keep their state here for the visit (see disclosure-context).
+    const openDisclosures = $state<Record<string, boolean>>({});
+    provideSettingsDisclosures({
+        isOpen: (id) => openDisclosures[id],
+        setOpen: (id, open) => (openDisclosures[id] = open)
+    });
 
     const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
     const unsavedTabNames = $derived(
@@ -2728,8 +2736,11 @@
     // Opens the tab holding a refused field and puts focus on its input once the tab has loaded.
     async function openRefusedField(field: string): Promise<void> {
         const tab = settingsFieldTab(field);
-        if (tab) handleTabChange(tab);
-        const inputId = settingsFieldPlace(field)?.inputId;
+        if (tab && tab !== activeTab) handleTabChange(tab);
+        const place = settingsFieldPlace(field);
+        // A closed card or Advanced section does not render its inputs; open every one that holds it.
+        for (const disclosure of place?.disclosures ?? []) openDisclosures[disclosure] = true;
+        const inputId = place?.inputId;
         if (!inputId) return;
         for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
             await tick();

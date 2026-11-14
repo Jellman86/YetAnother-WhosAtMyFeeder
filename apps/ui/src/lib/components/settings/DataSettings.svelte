@@ -5,6 +5,7 @@
     import type { ClassifierStatus } from '../../api/classifier';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -581,31 +582,18 @@
                         </div>
                     </div>
 
-                    <SettingsRow
-                        labelId="setting-cache-hq-jpeg-quality"
-                        label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
+                    <SettingsSlider
+                        id="cache-hq-jpeg-quality"
+                        label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ snapshot JPEG quality' })}
                         description={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality_help', { default: 'Higher values keep more detail but create larger derived snapshot files.' })}
-                        layout="stacked"
-                    >
-                        <div class="space-y-2">
-                            <div class="flex justify-end">
-                                <span class="text-sm font-bold text-slate-900 dark:text-white">{cacheHighQualityEventSnapshotJpegQuality}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="70"
-                                max="100"
-                                step="1"
-                                bind:value={cacheHighQualityEventSnapshotJpegQuality}
-                                aria-label={$_('settings.data.cache_high_quality_event_snapshot_jpeg_quality', { default: 'HQ Snapshot JPEG Quality' })}
-                                class="w-full accent-brand-500"
-                            />
-                            <div class="flex items-center justify-between text-sm font-semibold text-slate-700 dark:text-slate-200">
-                                <span>70</span>
-                                <span>100</span>
-                            </div>
-                        </div>
-                    </SettingsRow>
+                        bind:value={cacheHighQualityEventSnapshotJpegQuality}
+                        min={70}
+                        max={100}
+                        step={1}
+                        display={(value) => String(value)}
+                        lowLabel="70"
+                        highLabel="100"
+                    />
                 {/if}
             </AdvancedSection>
         </SettingsCard>

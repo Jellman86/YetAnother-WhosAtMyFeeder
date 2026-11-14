@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onDestroy, tick } from 'svelte';
+    import { settingsDisclosures } from '../../settings/disclosure-context';
     import { _ } from 'svelte-i18n';
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
@@ -23,6 +24,7 @@
     import DetectionStatusBand from './DetectionStatusBand.svelte';
     import RangeFilterSettings from './RangeFilterSettings.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -108,6 +110,7 @@
     // health cell to the runtime report.
     const MODELS_CARD_ID = 'detection-models-card';
     const RUNTIME_REPORT_ID = 'detection-runtime-report';
+    const HARDWARE_CARD_ID = 'detection-hardware';
 
 
     const healthIssueCount = $derived(
@@ -119,12 +122,11 @@
             (autoVideoClassification && videoCircuitOpen ? 1 : 0)
     );
 
-    // Hardware is advanced and starts closed, unless the runtime has something to report.
-    let hardwareUserOpen = $state<boolean | null>(null);
-    const hardwareOpen = $derived(hardwareUserOpen ?? healthIssueCount > 0);
-
+    // Hardware is advanced and starts closed, unless the runtime has something to report; the
+    // status line's health link opens it before scrolling to the report inside it.
+    const disclosures = settingsDisclosures();
     async function revealAnchor(anchorId: string): Promise<void> {
-        if (anchorId === RUNTIME_REPORT_ID) hardwareUserOpen = true;
+        if (anchorId === RUNTIME_REPORT_ID) disclosures?.setOpen(HARDWARE_CARD_ID, true);
         await tick();
     }
 
@@ -595,66 +597,30 @@
         description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
     >
         <div class="space-y-4">
-            <SettingsRow
-                labelId="setting-confidence-threshold"
+            <SettingsSlider
+                id="confidence-threshold-slider"
                 label={$_('settings.detection.confidence_threshold')}
-                layout="stacked"
-            >
-                <div class="space-y-2">
-                    <div class="flex justify-end">
-                        <output for="confidence-threshold-slider" class="rounded-lg bg-brand-700 px-2 py-1 text-xs font-bold text-white">{(threshold * 100).toFixed(0)}%</output>
-                    </div>
-                    <input
-                        id="confidence-threshold-slider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        bind:value={threshold}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        aria-valuenow={Math.round(threshold * 100)}
-                        aria-valuetext="{(threshold * 100).toFixed(0)} percent"
-                        aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
-                        class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-                    />
-                    <div class="flex flex-wrap justify-between gap-x-4">
-                        <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
-                        <span class="text-right text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.detection.threshold_strict')}</span>
-                    </div>
-                </div>
-            </SettingsRow>
+                bind:value={threshold}
+                min={0}
+                max={1}
+                step={0.05}
+                display={(value) => `${Math.round(value * 100)}%`}
+                lowLabel={$_('settings.detection.threshold_loose')}
+                highLabel={$_('settings.detection.threshold_strict')}
+            />
 
-            <SettingsRow
-                labelId="setting-min-confidence"
+            <SettingsSlider
+                id="min-confidence-slider"
                 label={$_('settings.detection.min_confidence_floor')}
                 description={$_('settings.detection.floor_help')}
-                layout="stacked"
-            >
-                <div class="space-y-2">
-                    <div class="flex justify-end">
-                        <output for="min-confidence-slider" class="rounded-lg bg-brand-700 px-2 py-1 text-xs font-bold text-white">{(minConfidence * 100).toFixed(0)}%</output>
-                    </div>
-                    <input
-                        id="min-confidence-slider"
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        bind:value={minConfidence}
-                        aria-valuemin="0"
-                        aria-valuemax="100"
-                        aria-valuenow={Math.round(minConfidence * 100)}
-                        aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
-                        aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
-                        class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
-                    />
-                    <div class="flex flex-wrap justify-between gap-x-4">
-                        <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.detection.floor_capture_all')}</span>
-                        <span class="text-right text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.detection.floor_reject_unsure')}</span>
-                    </div>
-                </div>
-            </SettingsRow>
+                bind:value={minConfidence}
+                min={0}
+                max={1}
+                step={0.05}
+                display={(value) => `${Math.round(value * 100)}%`}
+                lowLabel={$_('settings.detection.floor_capture_all')}
+                highLabel={$_('settings.detection.floor_reject_unsure')}
+            />
         </div>
         <div class="space-y-4">
             <SettingsRow
@@ -845,8 +811,8 @@
 
     <SettingsCard
         collapsible
-        id="detection-hardware"
-        bind:open={() => hardwareOpen, (next) => (hardwareUserOpen = next)}
+        id={HARDWARE_CARD_ID}
+        openByDefault={healthIssueCount > 0}
         iconSnippet={engineIcon}
         title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
         description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}

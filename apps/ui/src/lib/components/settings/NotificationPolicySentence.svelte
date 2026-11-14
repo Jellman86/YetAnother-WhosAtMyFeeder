@@ -221,9 +221,9 @@
                             aria-label={$_('settings.notifications.min_confidence_label', { values: { value: confidencePercent } })}
                             class="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-brand-600 dark:bg-slate-700"
                         />
-                        <div class="mt-1.5 flex justify-between">
-                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.notify_all')}</span>
-                            <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.notifications.high_confidence_only')}</span>
+                        <div class="mt-0.5 flex justify-between gap-x-4 text-xs font-medium text-slate-600 dark:text-slate-300">
+                            <span>{$_('settings.notifications.notify_all')}</span>
+                            <span class="text-right">{$_('settings.notifications.high_confidence_only')}</span>
                         </div>
                         <label class="mt-2 flex cursor-pointer items-start gap-2 border-t border-slate-200 pt-2.5 dark:border-slate-700">
                             <input
