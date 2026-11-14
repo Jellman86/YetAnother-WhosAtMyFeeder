@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "Frigate unter {url} wurde seit dem Start dieser Instanz noch nicht abgefragt.",
   "errors_frigate_announced_online": "Frigate meldet sich über MQTT als online.",
   "errors_frigate_announced_offline": "Frigate meldet sich über MQTT als offline.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "Seit dem Start dieser Instanz hat keine Erkennung die Verarbeitung erreicht."
 }

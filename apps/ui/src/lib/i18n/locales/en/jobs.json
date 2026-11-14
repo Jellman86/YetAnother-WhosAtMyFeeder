@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "Frigate at {url} has not been asked anything since this instance started.",
   "errors_frigate_announced_online": "Frigate announces itself online over MQTT.",
   "errors_frigate_announced_offline": "Frigate announces itself offline over MQTT.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "No detections have reached the pipeline since this instance started."
 }

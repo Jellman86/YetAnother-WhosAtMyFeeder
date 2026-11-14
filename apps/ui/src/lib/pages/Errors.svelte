@@ -392,6 +392,7 @@
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures }, default: '{count, plural, one {# critical failure recorded.} other {# critical failures recorded.}}' });
         if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures }, default: '{count, plural, one {# historical failure recorded; pipeline has since recovered.} other {# historical failures recorded; pipeline has since recovered.}}' });
         if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults }, default: '{count, plural, one {# event was dropped by a fault.} other {# events were dropped by a fault.}}' });
+        if (asNumber(pipeline.started_events) === 0) return $_('jobs.errors_pipeline_idle', { default: 'No detections have reached the pipeline since this instance started.' });
         return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
     }
 

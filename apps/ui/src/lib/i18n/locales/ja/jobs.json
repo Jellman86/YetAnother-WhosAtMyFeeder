@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "このインスタンスの起動以降、{url} のFrigateにはまだ問い合わせていません。",
   "errors_frigate_announced_online": "FrigateはMQTTでオンラインを通知しています。",
   "errors_frigate_announced_offline": "FrigateはMQTTでオフラインを通知しています。",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "このインスタンスの起動以降、処理に届いた検出はありません。"
 }

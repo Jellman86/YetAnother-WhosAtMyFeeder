@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "自本实例启动以来尚未向位于 {url} 的Frigate发出任何请求。",
   "errors_frigate_announced_online": "Frigate通过MQTT报告自身在线。",
   "errors_frigate_announced_offline": "Frigate通过MQTT报告自身离线。",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "自本实例启动以来，没有检测进入处理流程。"
 }

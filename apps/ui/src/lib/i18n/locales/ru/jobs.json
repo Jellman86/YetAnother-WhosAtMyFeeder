@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "К Frigate по адресу {url} с момента запуска этого экземпляра ещё не обращались.",
   "errors_frigate_announced_online": "Frigate сообщает по MQTT, что он в сети.",
   "errors_frigate_announced_offline": "Frigate сообщает по MQTT, что он не в сети.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "С момента запуска этого экземпляра ни одно обнаружение не поступило в обработку."
 }

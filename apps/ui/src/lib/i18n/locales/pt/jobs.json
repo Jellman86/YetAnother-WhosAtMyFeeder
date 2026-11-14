@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "O Frigate em {url} ainda não foi consultado desde que esta instância iniciou.",
   "errors_frigate_announced_online": "O Frigate se anuncia online pelo MQTT.",
   "errors_frigate_announced_offline": "O Frigate se anuncia offline pelo MQTT.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "Nenhuma detecção chegou ao processamento desde que esta instância iniciou."
 }

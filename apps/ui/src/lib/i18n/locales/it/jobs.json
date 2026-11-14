@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "Frigate su {url} non è stato ancora interrogato dall’avvio di questa istanza.",
   "errors_frigate_announced_online": "Frigate si annuncia in linea tramite MQTT.",
   "errors_frigate_announced_offline": "Frigate si annuncia non in linea tramite MQTT.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "Nessun rilevamento è arrivato all’elaborazione dall’avvio di questa istanza."
 }

@@ -9,6 +9,7 @@
 
 export interface EventPipelineHealth {
     status?: unknown;
+    started_events?: unknown;
     recent_outcomes?: unknown;
     critical_failure_active?: unknown;
     critical_failures?: unknown;
@@ -65,8 +66,10 @@ export function eventPipelineVerdict(
     if (pipeline?.critical_failure_active === true) return 'critical';
     if (faultDropCount(pipeline) > 0) return 'degraded';
     const reported = pipeline?.status;
-    if (typeof reported === 'string' && reported.trim().length > 0) return reported.trim();
-    return fallback;
+    const verdict = typeof reported === 'string' && reported.trim().length > 0 ? reported.trim() : fallback;
+    // Nothing has reached the pipeline yet, so there is no work to call healthy.
+    if (pipeline?.started_events === 0 && ['ok', 'healthy'].includes(verdict.toLowerCase())) return 'idle';
+    return verdict;
 }
 
 /** Whether anything was filtered out by configuration rather than by failure. */

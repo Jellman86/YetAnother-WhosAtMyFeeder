@@ -289,5 +289,6 @@
   "errors_frigate_unchecked": "Frigate en {url} no ha recibido ninguna consulta desde que se inició esta instancia.",
   "errors_frigate_announced_online": "Frigate se anuncia en línea por MQTT.",
   "errors_frigate_announced_offline": "Frigate se anuncia sin conexión por MQTT.",
-  "errors_card_frigate": "Frigate"
+  "errors_card_frigate": "Frigate",
+  "errors_pipeline_idle": "Ninguna detección ha llegado al proceso desde que se inició esta instancia."
 }
