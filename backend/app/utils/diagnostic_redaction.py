@@ -5,7 +5,7 @@ import json
 import math
 import re
 from typing import Any
-from urllib.parse import quote, quote_plus, unquote, urlsplit, urlunsplit
+from urllib.parse import quote, quote_plus, urlsplit
 
 REDACTED_VALUE = "***REDACTED***"
 SENSITIVE_CONFIG_KEYS = frozenset(
@@ -121,48 +121,56 @@ def redact_text(text: str, secrets: Sequence[str] = ()) -> str:
     return _redact_text(text, _known_pattern(secrets))
 
 
-# A query parameter whose name says it carries a credential. Broader than the settings keys,
-# because an address is typed by a person and can carry any provider's token parameter.
-_SENSITIVE_PARAMETER = re.compile(r"token|key|pass|secret|auth|sig|credential|session|cookie", re.I)
+_SCHEME = re.compile(r"[a-z][a-z0-9+.-]*", re.I)
 _ADDRESS_IN_TEXT = re.compile(r"[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.I)
-
-
-def _redact_query(query: str) -> str:
-    pieces = []
-    for piece in query.split("&"):
-        name, separator, _value = piece.partition("=")
-        if separator and _SENSITIVE_PARAMETER.search(unquote(name)):
-            pieces.append(f"{name}={REDACTED_VALUE}")
-        else:
-            pieces.append(piece)
-    return "&".join(pieces)
+# Sentence punctuation that follows an address in an error message rather than belonging to it.
+_TRAILING_PUNCTUATION = ".,;:!?)'\""
 
 
 def redact_address(address: str, secrets: Sequence[str] = ()) -> str:
-    """An address safe to show or log: no user:password, no secret-shaped query value, no known secret.
+    """Reduce a server address to ``scheme://host[:port]`` (or ``host[:port]`` without a scheme).
 
-    Frigate and broker addresses are typed by the owner and may carry credentials in any of those
-    places; the host, port and path are what a person needs to recognise and fix them.
+    Public on purpose: use it for every Frigate, broker or other server address that is shown,
+    exported or logged. Userinfo, path, query and fragment are dropped whole, not filtered,
+    because each can carry a credential that no setting names as a secret (a reverse-proxy token
+    in the path, say); scheme, host and port are all a person needs to recognise the server.
+    IPv6 hosts keep their brackets, and percent-encoded or unencoded "@" in userinfo is handled.
+    An address that does not parse shows only its scheme and ``***REDACTED***``. ``secrets``
+    additionally replaces known secret values that happen to appear in the host.
     """
     text = address.strip()
+    if not text:
+        return ""
     has_scheme = "://" in text
     try:
         parts = urlsplit(text if has_scheme else f"//{text}")
-        host = parts.netloc.rpartition("@")[2]
-        rebuilt = urlunsplit((parts.scheme, host, parts.path, _redact_query(parts.query), parts.fragment))
+        host = parts.hostname
+        port = parts.port
     except ValueError:
-        # Unparseable: drop anything before an "@" and fall back to pattern redaction.
-        rebuilt = re.sub(r"[^/\s@]+@", "", text)
-        rebuilt = re.sub(r"\?.*$", lambda match: "?" + _redact_query(match.group(0)[1:]), rebuilt)
-    if not has_scheme and rebuilt.startswith("//"):
-        rebuilt = rebuilt[2:]
-    return redact_text(rebuilt, secrets)
+        host, port = None, None
+    if not host:
+        scheme = text.split("://", 1)[0] if has_scheme else ""
+        return f"{scheme}://{REDACTED_VALUE}" if _SCHEME.fullmatch(scheme) else REDACTED_VALUE
+    shown_host = f"[{host}]" if ":" in host else host
+    netloc = f"{shown_host}:{port}" if port is not None else shown_host
+    shown = f"{parts.scheme}://{netloc}" if has_scheme else netloc
+    return redact_text(shown, secrets)
 
 
 def redact_connection_error(text: str, secrets: Sequence[str] = ()) -> str:
-    """A connection error safe to show or log: every address in it redacted as an address."""
-    cleaned = _ADDRESS_IN_TEXT.sub(lambda match: redact_address(match.group(0), secrets), text)
-    # Credentials written as name=value outside an address ("auth=..." included).
+    """Make a connection error safe to show or log, keeping its wording.
+
+    Public for reuse wherever a client's error text is surfaced. Every address inside it is
+    reduced with :func:`redact_address`, ``name=value`` credentials (token, key, password, secret,
+    auth and similar) are replaced, and so are known ``secrets`` and recognisable credential forms.
+    """
+
+    def reduce(match: re.Match[str]) -> str:
+        found = match.group(0)
+        address = found.rstrip(_TRAILING_PUNCTUATION)
+        return redact_address(address, secrets) + found[len(address) :]
+
+    cleaned = _ADDRESS_IN_TEXT.sub(reduce, text)
     cleaned = re.sub(
         r"(\b[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*[:=]\s*)[^\s&,;'\"<>]+",
         lambda match: match.group(1) + REDACTED_VALUE,

@@ -195,22 +195,29 @@ async def test_mqtt_service_without_a_broker_address_says_so(monkeypatch):
     assert service.connection.state == "not_configured"
 
 
-SECRETS = ("hunter2", "s3cr3t-token", "mqttpass", "apikey99")
+# Every one of these lives only inside an address: no setting names it as a secret, so only
+# reducing the address itself can keep it out.
+SECRETS = ("hunter2", "path-access-token", "query-token-77", "fragment-key", "brokerpw", "broker-path-token")
 
 
 @pytest.mark.asyncio
 async def test_credentials_in_addresses_never_reach_the_page_the_export_or_the_logs(client, monkeypatch):
     from structlog.testing import capture_logs
 
+    from app.utils.diagnostic_redaction import configured_secrets
+
     monkeypatch.setattr(service_connections, "_refresh_frigate_reading", REAL_REFRESH)
     monkeypatch.setattr(
         "app.routers.diagnostics.collect_video_sample_diagnostic", AsyncMock(return_value={"available": False})
     )
     monkeypatch.setattr(
-        settings.frigate, "frigate_url", "http://admin:hunter2@frigate:5000/?token=s3cr3t-token&api_key=apikey99"
+        settings.frigate,
+        "frigate_url",
+        "https://admin:hunter2@gateway:8443/path-access-token/frigate?token=query-token-77#fragment-key",
     )
-    monkeypatch.setattr(settings.frigate, "mqtt_server", "bob:mqttpass@broker.local")
-    monkeypatch.setattr(settings.frigate, "mqtt_password", "mqttpass")
+    monkeypatch.setattr(settings.frigate, "mqtt_server", "bob:brokerpw@broker.local")
+    monkeypatch.setattr(settings.frigate, "mqtt_password", "")
+    assert not any(secret in value for value in configured_secrets() for secret in SECRETS)
 
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError(f"Could not connect to {request.url}", request=request)
@@ -222,7 +229,7 @@ async def test_credentials_in_addresses_never_reach_the_page_the_export_or_the_l
             pass
 
         async def __aenter__(self):
-            raise MqttError("mqtt://bob:mqttpass@broker.local refused: password=mqttpass")
+            raise MqttError("mqtt://bob:brokerpw@broker.local:1883/broker-path-token refused")
 
         async def __aexit__(self, *_exc):
             return False
@@ -233,21 +240,23 @@ async def test_credentials_in_addresses_never_reach_the_page_the_export_or_the_l
     monkeypatch.setattr(mqtt_module, "Client", RefusingBroker)
     monkeypatch.setattr(mqtt_module.asyncio, "sleep", stop_after_first_failure)
     monkeypatch.setattr(mqtt_module, "mqtt_service", service)
-    monkeypatch.setattr(mqtt_service, "connection", service.connection)
 
     mock_client = _frigate_answering(monkeypatch, refuse)
     try:
         with capture_logs() as logs:
             await service.start(event_processor=None)
-            connections = (await client.get("/api/diagnostics/connections")).text
+            response = await client.get("/api/diagnostics/connections")
             workspace = (await client.get("/api/diagnostics/workspace")).text
             bundle = (await client.get("/api/diagnostics/bundle")).text
     finally:
         await mock_client.aclose()
 
-    assert '"state":"disconnected"' in connections.replace(" ", "")
-    assert "frigate:5000" in connections and "broker.local" in connections
-    for text in (connections, workspace, bundle, json.dumps(logs, default=str)):
+    body = response.json()
+    assert body["frigate"]["url"] == "https://gateway:8443"
+    assert body["mqtt"]["server"] == "broker.local"
+    assert body["mqtt"]["state"] == "disconnected"
+    assert "mqtt://broker.local:1883" in body["mqtt"]["last_error"]
+    for text in (response.text, workspace, bundle, json.dumps(logs, default=str)):
         for secret in SECRETS:
             assert secret not in text
 
