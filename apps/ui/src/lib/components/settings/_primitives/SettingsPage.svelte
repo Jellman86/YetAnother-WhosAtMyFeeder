@@ -1,5 +1,4 @@
-<script lang="ts">
-    import { layoutStore } from '../../../stores/layout.svelte';
+<script lang="ts" generics="TabId extends string">
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
 
@@ -7,18 +6,23 @@
         title: string;
         subtitle?: string;
         loading?: boolean;
-        // Inline status message (e.g. save success / save error).
-        message?: { type: 'success' | 'error'; text: string } | null;
         onRefresh?: () => void;
         refreshing?: boolean;
         // Why the settings could not be read. While set, the reason and a retry take the place of
         // the form: a form of defaults or of an older copy would look current and could be applied.
         loadFailure?: string | null;
         onRetryLoad?: () => void;
-        // Dirty/save bar — when isDirty is true the sticky footer renders.
-        isDirty?: boolean;
+        /** What the draft would change. The save bar shows while `count` is above zero. */
+        unsaved?: { count: number; tabs: Array<{ id: TabId; label: string }> };
         saving?: boolean;
         onSave?: () => void;
+        onDiscard?: () => void;
+        onOpenTab?: (tab: TabId) => void;
+        /** Why the last save stored nothing, shown in the save bar until the next save or Discard. */
+        saveProblem?: { key: string; values?: Record<string, string>; fallback: string } | null;
+        /** Fields the last save refused, each a button that opens it. */
+        refusedFields?: Array<{ field: string; label: string }>;
+        onOpenField?: (field: string) => void;
         // Tab strip lives between the header and the body so it stays in
         // tab-order for keyboard users.
         tabs?: Snippet;
@@ -29,21 +33,27 @@
         title,
         subtitle,
         loading = false,
-        message = null,
         onRefresh,
         refreshing = false,
         loadFailure = null,
         onRetryLoad,
-        isDirty = false,
+        unsaved = { count: 0, tabs: [] },
         saving = false,
         onSave,
+        onDiscard,
+        onOpenTab,
+        saveProblem = null,
+        refusedFields = [],
+        onOpenField,
         tabs,
         children
     }: Props = $props();
+
+    const showSaveBar = $derived(unsaved.count > 0 && !loading && !loadFailure);
 </script>
 
 <!-- The shell sets the width; a narrower column here sat inside the full-width header. -->
-<div class="space-y-6 pb-20">
+<div class="space-y-6">
     {#if onRefresh}
         <div class="flex items-center justify-end gap-3 -mt-2">
             <button
@@ -58,28 +68,6 @@
                 </svg>
                 {$_('common.refresh')}
             </button>
-        </div>
-    {/if}
-
-    {#if message}
-        <div
-            role="status"
-            class="p-4 rounded-2xl animate-in slide-in-from-top-2 {message.type === 'success'
-                ? 'bg-accent-500/10 text-accent-700 dark:text-accent-400 border border-accent-500/20'
-                : 'bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20'}"
-        >
-            <div class="flex items-center gap-3">
-                {#if message.type === 'success'}
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                    </svg>
-                {:else}
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                {/if}
-                <span class="min-w-0 wrap-break-word font-bold text-sm">{message.text}</span>
-            </div>
         </div>
     {/if}
 
@@ -106,50 +94,99 @@
         {#if tabs}
             {@render tabs()}
         {/if}
-        <div class="space-y-6">
+        <div class="space-y-6 focus:outline-hidden" tabindex="-1" data-settings-content>
             {@render children()}
         </div>
     {/if}
+
+    {#if showSaveBar}
+        <!-- In the page's flow and stuck to the bottom of the screen: it always sits after the last
+             setting, so it can never cover one, and it follows the column's width. -->
+        <section
+            class="save-bar sticky bottom-0 z-30 -mx-1 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
+            aria-labelledby="settings-save-bar-title"
+            data-settings-save-bar
+        >
+            <h2 id="settings-save-bar-title" class="sr-only">{$_('settings.save_bar.region', { default: 'Unsaved changes' })}</h2>
+            <div class="save-bar-row flex items-center justify-between gap-4">
+                <div class="min-w-0 space-y-1.5" aria-live="polite">
+                    <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200">
+                        <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
+                            values: { count: unsaved.count },
+                            default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'
+                        })}</span>
+                        {#each unsaved.tabs as tab (tab.id)}
+                            <button
+                                type="button"
+                                class="min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-100"
+                                onclick={() => onOpenTab?.(tab.id)}
+                            >{tab.label}</button>
+                        {/each}
+                    </p>
+                    {#if saveProblem}
+                        <div class="space-y-1.5 text-sm text-red-700 dark:text-red-300" role="alert" data-save-problem>
+                            <p class="flex items-start gap-1.5 font-semibold">
+                                <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{$_(saveProblem.key, { values: saveProblem.values, default: saveProblem.fallback })}</span>
+                            </p>
+                            {#if refusedFields.length > 0}
+                                <ul class="flex flex-wrap gap-x-3 gap-y-1 pl-5">
+                                    {#each refusedFields as refused (refused.field)}
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="min-h-6 rounded-sm font-semibold underline decoration-1 underline-offset-2 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500"
+                                                onclick={() => onOpenField?.(refused.field)}
+                                            >{refused.label}</button>
+                                        </li>
+                                    {/each}
+                                </ul>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+                <div class="save-bar-actions flex shrink-0 items-center gap-2">
+                    <button
+                        type="button"
+                        onclick={() => onDiscard?.()}
+                        disabled={saving}
+                        class="btn btn-secondary min-h-11 px-4"
+                    >
+                        {$_('settings.save_bar.discard', { default: 'Discard changes' })}
+                    </button>
+                    <button
+                        type="button"
+                        onclick={() => onSave?.()}
+                        disabled={saving}
+                        class="btn btn-primary min-h-11 px-6"
+                    >
+                        {saving ? $_('common.saving') : $_('settings.save_bar.save', { default: 'Save changes' })}
+                    </button>
+                </div>
+            </div>
+        </section>
+    {/if}
 </div>
 
-{#if isDirty && !loading && !loadFailure}
-    <div class="save-footer fixed bottom-0 left-0 right-0 z-40 border-t border-line-soft bg-surface/95 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-4 {layoutStore.sidebarCollapsed ? 'md:left-20' : 'md:left-64'}">
-        <div class="save-footer-row px-4 py-4 sm:px-6 lg:px-8 2xl:px-12 flex items-center justify-between gap-4">
-            <div class="flex min-w-0 items-center gap-3 text-slate-600 dark:text-slate-400">
-                <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <span class="text-sm font-bold">{$_('common.unsaved_changes')}</span>
-            </div>
-            <button
-                type="button"
-                onclick={() => onSave?.()}
-                disabled={saving}
-                class="save-footer-apply btn btn-primary min-h-11 shrink-0 px-8 py-3 text-center"
-            >
-                {saving ? $_('common.saving') : $_('common.apply_settings')}
-            </button>
-        </div>
-    </div>
-{/if}
-
 <style>
-    /* Measured against the footer's own width in rem, so the row also stacks when
-       the reader's text size grows on a phone, not only when the screen narrows. */
-    .save-footer {
+    /* Measured against the bar's own width in rem, so the row also stacks when the reader's
+       text size grows on a phone, not only when the screen narrows. */
+    .save-bar {
         container-type: inline-size;
     }
 
-    @container (max-width: 24rem) {
-        .save-footer-row {
+    @container (max-width: 34rem) {
+        .save-bar-row {
             flex-direction: column;
             align-items: stretch;
             gap: 0.75rem;
         }
 
-        .save-footer-apply {
-            width: 100%;
-            padding-inline: 1rem;
+        .save-bar-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
         }
     }
 </style>

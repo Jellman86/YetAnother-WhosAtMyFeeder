@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "Wendet lokalisierte Standardwerte für Ihre aktuelle Sprache an.",
     "llm_prompt_style_classic": "Klassisch",
     "llm_prompt_style_field": "Feldnotizen",
-    "llm_prompt_apply_style": "Stil anwenden",
-    "llm_prompt_reset_defaults": "Standardwerte zurücksetzen",
-    "llm_prompt_apply_notice": "Promptvorlagen aktualisiert.",
     "llm_prompt_analysis": "Prompt für Erkennungsanalyse",
     "llm_prompt_analysis_hint": "Platzhalter: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "Prompt für Unterhaltung",
@@ -332,7 +329,9 @@
     "test_probe_note": "Der Test sendet fünf repräsentative JPEG-Bilder mit 1280 × 720 Pixeln und entspricht damit Anzahl, Abmessungen und ungefährer Nutzlast einer echten Analyse.",
     "test_retry": "Test erneut ausführen",
     "test_network_error": "Die Diagnoseanfrage konnte YA-WAMF nicht erreichen.",
-    "advanced_title": "Preise & Prompt-Vorlagen"
+    "advanced_title": "Preise & Prompt-Vorlagen",
+    "prompt_style_desc": "Ein Stil ersetzt die drei Vorlagen unten durch seinen Wortlaut. „Änderungen speichern“ behält ihn.",
+    "prompt_style_custom": "Eigener Wortlaut"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "Prüft, ob die Frigate-API antwortet und der MQTT-Broker eine Veröffentlichung annimmt.",
     "test_title": "Verbindungstest Frigate & MQTT",
     "recording_frame_delay": "Verzögerung der ersten Bestimmung (Sekunden)",
-    "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu.",
-    "recording_frame_delay_invalid": "Gib eine Aufnahmebild-Verzögerung zwischen 1 und 120 Sekunden ein."
+    "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu."
   },
   "cameras": {
     "title": "Beobachtete Kameras",
@@ -890,7 +888,7 @@
       "title": "Gartentiere",
       "desc": "Meldungen, wenn ein Gartentier benannt wird, getrennt von Vogelmeldungen.",
       "enabled": "Gartenmeldungen senden",
-      "enabled_help": "Eine Meldung je Besuch, wenn ein Tier automatisch benannt wird oder du seine Art bestätigst. Mit Einstellungen anwenden speichern.",
+      "enabled_help": "Eine Meldung pro Besuch, wenn ein Tier automatisch benannt wird oder Sie seine Art bestätigen. Wirkt, sobald Sie die Änderungen speichern.",
       "send_to": "Gartenmeldungen senden an",
       "use_bird": "Meine Vogelkanäle verwenden",
       "use_bird_help": "Die Kanäle oben, die eingeschaltet und eingerichtet sind.",
@@ -907,7 +905,7 @@
       "privacy": "Sendet Tiername, Kamera, Sichtungszeit und, falls gewählt, das Foto an diese Dienste. Der Link öffnet diese Aufnahme hier; Besucher können sie nur öffnen, solange der öffentliche Zugang sie teilt.",
       "rules": "Gesendet innerhalb von fünf Minuten nach der Benennung, für Sichtungen bis zu zwei Stunden alt, daher spielt das Einschalten keinen Verlauf erneut ab. Ein Versuch je Kanal und Besuch; fehlgeschlagene oder unklare Sendungen werden nicht wiederholt.",
       "status": "Gespeicherte Zustellversuche. Vom Kanal angenommen: {sent}. Fehlgeschlagen: {failed}. Unbestätigt: {unknown}. Übersprungen: {skipped}.",
-      "status_after_apply": "Der Zustellstatus erscheint, sobald Einstellungen anwenden den Garten eingeschaltet hat.",
+      "status_after_apply": "Der Zustellstatus erscheint, sobald der Garten eingeschaltet und gespeichert ist.",
       "refresh": "Zustellstatus aktualisieren"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "Findet jeden Vogel im Kamerabild, damit YA-WAMF ihn zuschneiden und zählen kann. Die Art benennt sie nicht.",
     "bird_finder_device": "Gerät für die Vogelsuche",
     "bird_finder_device_auto": "Automatisch (schnellstes geprüftes Gerät)",
-    "bird_finder_device_help": "Mit „Einstellungen übernehmen“ speichern. Ist das Gerät nicht verfügbar, verwendet die Vogelsuche die CPU statt eines anderen Beschleunigers. Die schnelle Ersatzsuche wählt ihr Gerät automatisch.",
+    "bird_finder_device_help": "Wirkt, sobald Sie die Änderungen speichern. Ist dieses Gerät nicht verfügbar, nutzt die Vogelsuche die CPU statt eines anderen Beschleunigers. Die schnelle Ersatzsuche wählt ihr Gerät selbst.",
     "bird_finder_default_badge": "Standard",
     "bird_finder_optional_badge": "Optional",
     "bird_finder_ram": "{ram} Arbeitsspeicher",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "Läuft auf der CPU. {devices} werden nach einem Neustart erneut geprüft, sobald YA-WAMF Vogelfotos gespeichert hat.",
     "bird_finder_check_devices": "{devices} für {name} prüfen",
     "bird_finder_check_devices_hint": "Vergleicht diese Vogelsuche auf jedem Gerät anhand von Vogelfotos mit der CPU und nutzt dann das schnellste übereinstimmende Gerät. Das Bestimmungsmodell bleibt unverändert.",
-    "bird_finder_pending": "Einstellungen übernehmen, um die Vogelsuche zu wechseln. Bis dahin läuft die bisherige weiter.",
+    "bird_finder_pending": "Speichern Sie die Änderungen, um die Vogelsuche zu wechseln. Bis dahin läuft die bisherige weiter.",
     "bird_finder_download": "{name} herunterladen",
     "bird_finder_redownload": "{name} erneut herunterladen",
     "bird_finder_backup": "Findet sie keinen brauchbaren Vogel, versucht YA-WAMF auch die schnelle Ersatzsuche und den Verfolgungsrahmen von Frigate und nutzt das ganze Bild nur, wenn keines davon einen verlässlichen Ausschnitt liefert.",
@@ -1423,15 +1421,13 @@
     "garden_animals": "Gartentiere",
     "garden_animals_desc": "Sammelt Katzen, Füchse und andere Besucher, die keine Vögel sind, von Kameras Ihrer Wahl zur Durchsicht.",
     "garden_motion_toggle": "Bewegungsfotos zur Prüfung sammeln auf {camera}",
-    "garden_motion_confidence_invalid": "Gib eine Schwelle für Tiervorschläge zwischen 50 % und 95 % ein.",
-    "garden_naming_threshold_invalid": "Gib eine Benennungsschwelle zwischen 70 % und 99 % ein.",
     "garden_naming_off": "Jedes Tier wartet unter Zu prüfen, bis du es bestätigst und benennst.",
     "garden_naming_threshold_help": "Von 70 % bis 99 %. Höhere Werte benennen weniger Tiere automatisch und verwerfen mehr unsichere Fotos. Personenprüfungen bleiben unverändert.",
     "garden_naming_threshold": "Benennungsschwelle",
     "garden_naming": "Tiere automatisch benennen",
     "garden_requirements": "Benötigt Frigate-Kameras, die Tiere verfolgen oder Bewegungsaufnahmen behalten. Der Garten lädt eigene Modelle nur auf Ihren Wunsch herunter: 224 MB für automatische Prüfungen sowie optionale Modelle mit 224 MB und 101 MB. Ihr Vogelmodell bleibt unverändert.",
     "garden_models_help": "Der Garten nutzt eigene Modelle, getrennt von Ihrem Vogelmodell. Ein Download fügt nur eine geprüfte Datei hinzu. Er speichert keine Einstellungen und startet keine Prüfungen.",
-    "garden_models_apply": "Wähle Einstellungen übernehmen, um Gartentiere einzuschalten. Danach erscheinen hier Modellstatus und Downloads.",
+    "garden_models_apply": "Speichern Sie die Änderungen, um den Garten einzuschalten. Modellstatus und Downloads erscheinen dann hier.",
     "garden_models_loading": "Gartenmodelle werden geprüft…",
     "garden_model_check": "Modell für automatische Prüfungen",
     "garden_model_suggestions": "Modell für Artvorschläge",
@@ -1480,7 +1476,7 @@
     "garden_domestic_birds_none": "Noch keine. Hühner und andere gehaltene Vögel werden als Wildvögel behandelt.",
     "garden_domestic_birds_add": "Hausvogel hinzufügen",
     "garden_domestic_birds_choose": "Vogel auswählen",
-    "intro": "Funktionen, die noch getestet werden. Jede bleibt aus, bis Sie sie einschalten, und kann sich ändern oder entfernt werden. Wenn Sie eine Funktion ausschalten, bleibt erhalten, was sie bereits aufgezeichnet hat. Schalter hier wirken, sobald Sie übernehmen.",
+    "intro": "Funktionen, die noch getestet werden. Jede ist aus, bis Sie sie einschalten, und kann sich ändern oder entfallen. Wenn Sie eine Funktion ausschalten, bleibt erhalten, was sie bereits aufgezeichnet hat. Schalter hier wirken, sobald Sie die Änderungen speichern.",
     "learn_more": "Mehr erfahren",
     "status_off": "Aus",
     "status_off_after_apply": "Aus nach dem Übernehmen",
@@ -1492,7 +1488,7 @@
     "garden_status_no_country": "kein Land festgelegt",
     "garden_next_steps": "Noch einzurichten",
     "garden_step_camera": "Wählen Sie eine Kamera, die nach Gartentieren Ausschau hält.",
-    "garden_step_apply": "Übernehmen Sie die Einstellungen, um den Garten einzuschalten. Modell- und Landprüfungen erscheinen dann hier.",
+    "garden_step_apply": "Speichern Sie die Änderungen, um den Garten einzuschalten. Modell- und Landprüfungen erscheinen dann hier.",
     "garden_step_model": "Laden Sie das {model} herunter.",
     "garden_step_model_open": "Modelle öffnen",
     "garden_step_location": "Legen Sie Ihren Standort fest, damit der Garten Ihr Land kennt und Tiere benennen kann.",
@@ -1562,8 +1558,8 @@
     "status_unusable": "Filtert nicht: Die gespeicherte Liste hat ihre Prüfungen nicht bestanden. {problem}",
     "status_error": "Der Status des Verbreitungsfilters konnte nicht geladen werden. {message}",
     "status_loading": "Status des Verbreitungsfilters wird geladen…",
-    "unsaved_on": "Übernehmen Sie die Einstellungen, um den Filter einzuschalten.",
-    "unsaved_off": "Übernehmen Sie die Einstellungen, um den Filter auszuschalten.",
+    "unsaved_on": "Speichern Sie die Änderungen, um den Filter einzuschalten.",
+    "unsaved_off": "Speichern Sie die Änderungen, um den Filter auszuschalten.",
     "open_location": "Standort festlegen",
     "open_ebird": "eBird-Schlüssel hinzufügen",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "Um eine echte Seltenheit zu behalten, erfassen Sie sie von Hand. Frigate behält den Clip, solange seine Aufbewahrung es erlaubt.",
     "skips_open_log": "Aktivitätsprotokoll öffnen",
     "skips_add_manually": "Sichtung von Hand erfassen"
+  },
+  "save_bar": {
+    "region": "Ungespeicherte Änderungen",
+    "summary": "{count, plural, one {# ungespeicherte Änderung in} other {# ungespeicherte Änderungen in}}",
+    "discard": "Änderungen verwerfen",
+    "save": "Änderungen speichern",
+    "refused": "Nichts wurde gespeichert. Korrigieren Sie die markierten Werte und speichern Sie erneut.",
+    "refused_reason": "Nichts wurde gespeichert: {reason}",
+    "failed": "Nichts wurde gespeichert, weil YA-WAMF die Einstellungen nicht ablegen konnte. Prüfen Sie, ob das Backend läuft, und wählen Sie dann erneut „Änderungen speichern“.",
+    "other_field": "Eine weitere Einstellung"
+  },
+  "leave": {
+    "title": "Ohne Speichern verlassen?",
+    "message": "{count, plural, one {# Änderung} other {# Änderungen}} in {tabs} gehen verloren.",
+    "confirm": "Ohne Speichern verlassen"
+  },
+  "field_errors": {
+    "frigate_url": "Beginnen Sie die Adresse mit http:// oder https://, zum Beispiel http://frigate:5000.",
+    "birdnet_url": "Beginnen Sie die Adresse mit http:// oder https://, zum Beispiel http://birdnet-go:8080.",
+    "instance_url": "Beginnen Sie die Adresse mit http:// oder https://, zum Beispiel https://feeder.example.com.",
+    "auth_password_required": "Legen Sie ein Passwort fest, bevor Sie die Anmeldung einschalten.",
+    "auth_username": "Verwenden Sie nur Buchstaben, Ziffern, Unterstriche, Bindestriche und Punkte.",
+    "too_large": "Geben Sie höchstens {limit} ein.",
+    "too_small": "Geben Sie mindestens {limit} ein.",
+    "whole_number": "Geben Sie eine ganze Zahl ein.",
+    "number": "Geben Sie eine Zahl ein.",
+    "refused": "Nicht angenommen: {reason}. Ändern Sie den Wert und speichern Sie erneut.",
+    "out_of_range": "Geben Sie einen Wert von {min} bis {max} ein.",
+    "out_of_range_percent": "Geben Sie einen Wert von {min} % bis {max} % ein."
   }
 }

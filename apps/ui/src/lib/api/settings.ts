@@ -1,4 +1,6 @@
 import { API_BASE, apiFetch, handleResponse } from './core';
+import { extractApiErrorMessage } from './error-message';
+import { settingsFieldErrors, type SettingsFieldError } from '../settings/field-errors';
 import type { paths, components } from './generated/openapi';
 import type { BirdModelRegionOverride } from '../settings/bird-model-region-override';
 import type { CropModelOverride, CropSourceOverride } from '../settings/crop-overrides';
@@ -252,12 +254,29 @@ export function subscribeSettingsUpdates(listener: SettingsUpdateListener): () =
     return () => { settingsUpdateListeners.delete(listener); };
 }
 
+/** A save the server refused because of the values sent; nothing was written. */
+export class SettingsSaveRejected extends Error {
+    readonly status = 422;
+    readonly fieldErrors: SettingsFieldError[];
+
+    constructor(message: string, fieldErrors: SettingsFieldError[]) {
+        super(message);
+        this.name = 'SettingsSaveRejected';
+        this.fieldErrors = fieldErrors;
+    }
+}
+
 export async function updateSettings(settings: SettingsUpdate): Promise<{ status: string }> {
     const response = await apiFetch(`${API_BASE}/settings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
     });
+    if (response.status === 422) {
+        const payload: unknown = await response.json().catch(() => null);
+        const detail = payload && typeof payload === 'object' ? (payload as { detail?: unknown }).detail : undefined;
+        throw new SettingsSaveRejected(extractApiErrorMessage(payload, 'HTTP 422'), settingsFieldErrors(detail));
+    }
     const result = await handleResponse<{ status: string }>(response);
     for (const listener of settingsUpdateListeners) {
         try { listener(settings); }

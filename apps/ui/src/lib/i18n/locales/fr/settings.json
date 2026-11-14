@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "Applique les valeurs par défaut localisées pour votre langue actuelle.",
     "llm_prompt_style_classic": "Classique",
     "llm_prompt_style_field": "Notes de terrain",
-    "llm_prompt_apply_style": "Appliquer le style",
-    "llm_prompt_reset_defaults": "Rétablir les valeurs par défaut",
-    "llm_prompt_apply_notice": "Modèles de prompt mis à jour.",
     "llm_prompt_analysis": "Prompt d'analyse de détection",
     "llm_prompt_analysis_hint": "Jetons : {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "Prompt de conversation",
@@ -332,7 +329,9 @@
     "test_probe_note": "Le test envoie cinq images JPEG représentatives de 1280 × 720, reproduisant le nombre, les dimensions et la taille approximative d’une véritable requête d’analyse.",
     "test_retry": "Relancer le test",
     "test_network_error": "La requête de diagnostic n’a pas pu joindre YA-WAMF.",
-    "advanced_title": "Tarification et modèles de prompt"
+    "advanced_title": "Tarification et modèles de prompt",
+    "prompt_style_desc": "Choisir un style remplace les trois modèles ci-dessous par sa formulation. Enregistrer les modifications la conserve.",
+    "prompt_style_custom": "Votre propre formulation"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "Vérifie que l’API Frigate répond et que le courtier MQTT accepte une publication.",
     "test_title": "Test de connexion Frigate et MQTT",
     "recording_frame_delay": "Délai de première identification (secondes)",
-    "recording_frame_delay_desc": "Attend de 1 à 120 secondes après la première image. Utilise les dernières métadonnées de suivi reçues pendant ce délai. Identification et notifications arrivent plus tard. Cela ne fait pas attendre la fin de chaque événement et ne reclasse pas les détections enregistrées.",
-    "recording_frame_delay_invalid": "Saisissez un délai de 1 à 120 secondes pour l’image enregistrée."
+    "recording_frame_delay_desc": "Attend de 1 à 120 secondes après la première image. Utilise les dernières métadonnées de suivi reçues pendant ce délai. Identification et notifications arrivent plus tard. Cela ne fait pas attendre la fin de chaque événement et ne reclasse pas les détections enregistrées."
   },
   "cameras": {
     "title": "Caméras à surveiller",
@@ -890,7 +888,7 @@
       "title": "Animaux du jardin",
       "desc": "Alertes quand un animal du jardin est nommé, séparées des alertes oiseaux.",
       "enabled": "Envoyer les alertes du jardin",
-      "enabled_help": "Une alerte par visite quand un animal est nommé automatiquement ou que vous acceptez son espèce. Enregistrez avec Appliquer les paramètres.",
+      "enabled_help": "Une alerte par visite lorsqu’un animal est nommé automatiquement ou que vous acceptez son espèce. Prend effet lorsque vous enregistrez les modifications.",
       "send_to": "Envoyer les alertes du jardin vers",
       "use_bird": "Utiliser mes canaux oiseaux",
       "use_bird_help": "Les canaux ci-dessus qui sont activés et configurés.",
@@ -907,7 +905,7 @@
       "privacy": "Envoie le nom de l’animal, la caméra, l’heure de l’observation et, si vous le choisissez, la photo à ces services. Le lien ouvre cette capture ici ; un visiteur ne peut l’ouvrir que tant que l’accès public la partage.",
       "rules": "Envoyée dans les cinq minutes qui suivent le choix du nom, pour des observations de deux heures au plus, donc activer les alertes ne rejoue jamais l’historique. Un essai par canal et par visite ; les envois échoués ou incertains ne sont pas relancés.",
       "status": "Essais enregistrés. Acceptés par le canal : {sent}. Échecs : {failed}. Non confirmés : {unknown}. Ignorés : {skipped}.",
-      "status_after_apply": "L’état de livraison apparaît une fois que Appliquer les paramètres a activé le jardin.",
+      "status_after_apply": "L’état d’envoi apparaît une fois le jardin activé et enregistré.",
       "refresh": "Actualiser l’état de livraison"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "Repère chaque oiseau dans l'image de la caméra pour que YA-WAMF puisse le recadrer et le compter. Il ne nomme pas l'espèce.",
     "bird_finder_device": "Appareil du localisateur",
     "bird_finder_device_auto": "Automatique (appareil validé le plus rapide)",
-    "bird_finder_device_help": "Enregistrez avec Appliquer les paramètres. Si cet appareil devient indisponible, le localisateur utilise le CPU plutôt qu’un autre accélérateur. Le localisateur rapide de secours choisit automatiquement son appareil.",
+    "bird_finder_device_help": "Prend effet lorsque vous enregistrez les modifications. Si cet appareil devient indisponible, le détecteur utilise le processeur plutôt qu’un autre accélérateur. Le détecteur rapide de secours choisit son appareil automatiquement.",
     "bird_finder_default_badge": "Par défaut",
     "bird_finder_optional_badge": "Facultatif",
     "bird_finder_ram": "{ram} de RAM",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "Fonctionne sur le CPU. {devices} seront revérifiés après un redémarrage, dès que YA-WAMF aura enregistré des photos d'oiseaux.",
     "bird_finder_check_devices": "Vérifier {devices} pour {name}",
     "bird_finder_check_devices_hint": "Compare ce détecteur sur chaque appareil avec le CPU à partir de photos d'oiseaux, puis utilise le plus rapide qui concorde. Le modèle d'identification n'est pas modifié.",
-    "bird_finder_pending": "Appliquez les paramètres pour changer de détecteur. Le détecteur actuel continue de fonctionner d'ici là.",
+    "bird_finder_pending": "Enregistrez les modifications pour changer de détecteur. Le détecteur actuel continue de fonctionner d’ici là.",
     "bird_finder_download": "Télécharger {name}",
     "bird_finder_redownload": "Retélécharger {name}",
     "bird_finder_backup": "S'il ne trouve pas d'oiseau exploitable, YA-WAMF essaie aussi le détecteur rapide de secours et le cadre de suivi de Frigate, et n'utilise l'image entière que si aucun ne donne un recadrage fiable.",
@@ -1423,15 +1421,13 @@
     "garden_animals": "Animaux du jardin",
     "garden_animals_desc": "Collecte chats, renards et autres visiteurs qui ne sont pas des oiseaux depuis les caméras choisies, pour que vous les examiniez.",
     "garden_motion_toggle": "Collecter des photos de mouvement à vérifier sur {camera}",
-    "garden_motion_confidence_invalid": "Saisissez un seuil des propositions animales compris entre 50 % et 95 %.",
-    "garden_naming_threshold_invalid": "Saisissez un seuil de nommage compris entre 70 % et 99 %.",
     "garden_naming_off": "Chaque animal attend dans À vérifier que vous le confirmiez et le nommiez.",
     "garden_naming_threshold_help": "De 70 % à 99 %. Une valeur plus élevée nomme automatiquement moins d’animaux et rejette davantage de photos peu sûres. Les vérifications de personnes restent inchangées.",
     "garden_naming_threshold": "Seuil de nommage",
     "garden_naming": "Nommer les animaux automatiquement",
     "garden_requirements": "Nécessite des caméras Frigate qui suivent les animaux ou conservent des enregistrements de mouvement. Le jardin télécharge ses propres modèles uniquement à votre demande : 224 Mo pour les vérifications automatiques, plus des modèles facultatifs de 224 Mo et 101 Mo. Votre modèle d’oiseaux ne change pas.",
     "garden_models_help": "Le jardin utilise ses propres modèles, distincts de votre modèle d’oiseaux. Un téléchargement ajoute seulement un fichier vérifié. Il n’enregistre aucun réglage et ne lance aucune vérification.",
-    "garden_models_apply": "Choisissez Appliquer les paramètres pour activer Animaux du jardin. L’état des modèles et les téléchargements apparaîtront ensuite ici.",
+    "garden_models_apply": "Enregistrez les modifications pour activer le jardin. L’état des modèles et les téléchargements apparaîtront alors ici.",
     "garden_models_loading": "Vérification des modèles du jardin…",
     "garden_model_check": "Modèle de vérification automatique",
     "garden_model_suggestions": "Modèle de suggestions d’espèces",
@@ -1480,7 +1476,7 @@
     "garden_domestic_birds_none": "Aucun pour l’instant. Les poules et les autres oiseaux que vous élevez sont traités comme des oiseaux sauvages.",
     "garden_domestic_birds_add": "Ajouter un oiseau domestique",
     "garden_domestic_birds_choose": "Choisir un oiseau",
-    "intro": "Fonctions encore en test. Chacune reste désactivée jusqu’à ce que vous l’activiez, et peut changer ou disparaître. Désactiver une fonction conserve ce qu’elle a déjà enregistré. Les interrupteurs ici prennent effet quand vous appliquez.",
+    "intro": "Fonctions encore en test. Chacune reste désactivée tant que vous ne l’activez pas, et peut changer ou disparaître. Désactiver une fonction conserve ce qu’elle a déjà enregistré. Les interrupteurs ici prennent effet lorsque vous enregistrez les modifications.",
     "learn_more": "En savoir plus",
     "status_off": "Désactivé",
     "status_off_after_apply": "Désactivé après application",
@@ -1492,7 +1488,7 @@
     "garden_status_no_country": "aucun pays défini",
     "garden_next_steps": "Reste à configurer",
     "garden_step_camera": "Choisissez une caméra qui surveille les animaux du jardin.",
-    "garden_step_apply": "Appliquez les réglages pour activer le jardin. Les vérifications du modèle et du pays apparaîtront ici.",
+    "garden_step_apply": "Enregistrez les modifications pour activer le jardin. Les vérifications du modèle et du pays apparaîtront alors ici.",
     "garden_step_model": "Téléchargez le {model}.",
     "garden_step_model_open": "Ouvrir Modèles",
     "garden_step_location": "Définissez votre position pour que le jardin connaisse votre pays et puisse nommer les animaux.",
@@ -1562,8 +1558,8 @@
     "status_unusable": "Pas de filtrage : la liste enregistrée n'a pas passé ses contrôles. {problem}",
     "status_error": "L'état du filtre d'aire de répartition n'a pas pu être chargé. {message}",
     "status_loading": "Chargement de l'état du filtre d'aire de répartition…",
-    "unsaved_on": "Appliquez les réglages pour activer le filtre.",
-    "unsaved_off": "Appliquez les réglages pour désactiver le filtre.",
+    "unsaved_on": "Enregistrez les modifications pour activer le filtre.",
+    "unsaved_off": "Enregistrez les modifications pour désactiver le filtre.",
     "open_location": "Indiquer l'emplacement",
     "open_ebird": "Ajouter une clé eBird",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "Pour garder une vraie rareté, enregistrez-la à la main. Frigate conserve le clip tant que sa rétention le permet.",
     "skips_open_log": "Ouvrir le journal d'activité",
     "skips_add_manually": "Enregistrer une observation à la main"
+  },
+  "save_bar": {
+    "region": "Modifications non enregistrées",
+    "summary": "{count, plural, one {# modification non enregistrée dans} other {# modifications non enregistrées dans}}",
+    "discard": "Annuler les modifications",
+    "save": "Enregistrer les modifications",
+    "refused": "Rien n’a été enregistré. Corrigez les valeurs signalées, puis enregistrez à nouveau.",
+    "refused_reason": "Rien n’a été enregistré : {reason}",
+    "failed": "Rien n’a été enregistré, car YA-WAMF n’a pas pu stocker les paramètres. Vérifiez que le backend fonctionne, puis choisissez à nouveau Enregistrer les modifications.",
+    "other_field": "Un autre paramètre"
+  },
+  "leave": {
+    "title": "Quitter sans enregistrer ?",
+    "message": "{count, plural, one {# modification} other {# modifications}} dans {tabs} seront perdues.",
+    "confirm": "Quitter sans enregistrer"
+  },
+  "field_errors": {
+    "frigate_url": "Commencez l’adresse par http:// ou https://, par exemple http://frigate:5000.",
+    "birdnet_url": "Commencez l’adresse par http:// ou https://, par exemple http://birdnet-go:8080.",
+    "instance_url": "Commencez l’adresse par http:// ou https://, par exemple https://feeder.example.com.",
+    "auth_password_required": "Définissez un mot de passe avant d’activer la connexion.",
+    "auth_username": "Utilisez uniquement des lettres, des chiffres, des traits de soulignement, des tirets et des points.",
+    "too_large": "Saisissez {limit} ou moins.",
+    "too_small": "Saisissez {limit} ou plus.",
+    "whole_number": "Saisissez un nombre entier.",
+    "number": "Saisissez un nombre.",
+    "refused": "Non accepté : {reason}. Modifiez la valeur et enregistrez à nouveau.",
+    "out_of_range": "Saisissez une valeur de {min} à {max}.",
+    "out_of_range_percent": "Saisissez une valeur de {min} % à {max} %."
   }
 }

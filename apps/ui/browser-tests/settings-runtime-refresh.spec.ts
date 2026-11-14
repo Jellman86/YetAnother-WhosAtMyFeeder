@@ -198,7 +198,7 @@ async function refreshRuntimeFromModels(
 }
 
 async function applySettings(page: Page, counters: { saves: Record<string, unknown>[] }) {
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => counters.saves.length).toBe(1);
     return counters.saves[0];
 }
@@ -293,7 +293,7 @@ test('an empty recording delay is explained without sending a settings write', a
     await selectSettingsSection(page, 'Connection');
     await page.locator('#classification-image-source').selectOption('recording_snapshot');
     await page.locator('#recording-frame-delay').fill('');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Enter a recording-frame delay between 1 and 120 seconds.' })).toBeVisible();
     expect(counters.saves).toEqual([]);
 });

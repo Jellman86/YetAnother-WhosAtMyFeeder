@@ -236,6 +236,7 @@
         >
             <SettingsInput
                 id="auth-username"
+                field="auth_username"
                 type="text"
                 value={authUsername}
                 ariaLabel={$_('settings.auth.username')}
@@ -251,6 +252,7 @@
         >
             <SecretInput
                 id="auth-password"
+                field="auth_password"
                 value={authPassword}
                 saved={authHasPassword}
                 autocomplete="new-password"
@@ -287,6 +289,7 @@
             >
                 <SettingsInput
                     id="auth-expiry"
+                    field="auth_session_expiry_hours"
                     type="number"
                     min={1}
                     max={720}
@@ -537,6 +540,7 @@
                 >
                     <SettingsInput
                         id="public-rate"
+                        field="public_access_rate_limit_per_minute"
                         type="number"
                         min={1}
                         max={100}
@@ -555,6 +559,7 @@
                     >
                         <SettingsInput
                             id="public-share-base-url"
+                            field="public_access_external_base_url"
                             type="url"
                             value={publicAccessExternalBaseUrl}
                             placeholder={$_('settings.public_access.share_base_url_placeholder', { default: 'https://your-public-domain.example' })}

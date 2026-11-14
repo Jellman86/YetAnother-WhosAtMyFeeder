@@ -78,7 +78,8 @@
         refreshInaturalistStatus,
         exportEbirdCsv,
         birdweatherStationTokenSaved = $bindable(false),
-        onActionFeedback = (_type: 'success' | 'error', _text: string) => {}
+        onActionFeedback = (_type: 'success' | 'error', _text: string) => {},
+        savedLocation = null
     }: {
         birdnetEnabled: boolean;
         birdnetUrl: string;
@@ -142,6 +143,8 @@
         exportEbirdCsv: (range?: { from?: string; to?: string }) => Promise<void>;
         birdweatherStationTokenSaved: boolean;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
+        /** The saved coordinates. A place looked up for them is shown, never written into the draft. */
+        savedLocation?: { latitude: number | null; longitude: number | null } | null;
     } = $props();
 
     // The radius is stored in kilometres because that is what eBird's API accepts.
@@ -179,7 +182,6 @@
         ebirdDefaultRadiusKm = storedKm;
     }
 
-    let inatDefaultsTouched = $state(false);
     let inatConnecting = $state(false);
     let inatRefreshing = $state(false);
     let inatDisconnecting = $state(false);
@@ -354,15 +356,10 @@
         }
     }
 
-    $effect(() => {
-        if (inatDefaultsTouched) return;
-        if (inaturalistDefaultLat === null && locationLat !== null && locationLat !== undefined) {
-            inaturalistDefaultLat = locationLat;
-        }
-        if (inaturalistDefaultLon === null && locationLon !== null && locationLon !== undefined) {
-            inaturalistDefaultLon = locationLon;
-        }
-    });
+    // An empty iNaturalist default follows the feeder location when an observation is sent, so the
+    // fields show that location as their placeholder rather than copying it into the draft.
+    const inatLatPlaceholder = $derived(typeof locationLat === 'number' ? String(locationLat) : undefined);
+    const inatLonPlaceholder = $derived(typeof locationLon === 'number' ? String(locationLon) : undefined);
 
     $effect(() => {
         if (ebirdApiKeySaved && ebirdApiKey) ebirdApiKeySaved = false;
@@ -415,6 +412,8 @@
         }
         const [lat, lon] = mapPoint;
         const key = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+        // The region of the saved point is already saved; only a moved pin brings a new one.
+        const pinMoved = !savedLocation || savedLocation.latitude !== lat || savedLocation.longitude !== lon;
         if (key === geocodeKey) return;
         geocodeKey = key;
         geocodeLoading = true;
@@ -425,11 +424,9 @@
                 geocodePlace = result.place_guess
                     || [result.state, result.country].filter(Boolean).join(', ')
                     || null;
+                if (!pinMoved) return;
                 if (result.state) locationState = result.state;
                 if (result.country) locationCountry = result.country;
-                if (!inaturalistDefaultPlace && result.place_guess) {
-                    inaturalistDefaultPlace = result.place_guess;
-                }
             })
             .catch((error) => {
                 if (geocodeKey !== key) return;
@@ -548,6 +545,7 @@
         >
             <SettingsInput
                 id="birdnet-url"
+                field="birdnet_url"
                 type="text"
                 value={birdnetUrl}
                 placeholder="http://birdnet-go:8080"
@@ -564,6 +562,7 @@
         >
             <SettingsInput
                 id="birdnet-external-url"
+                field="birdnet_external_url"
                 type="text"
                 value={birdnetExternalUrl}
                 placeholder="https://birdnet.example.com"
@@ -579,6 +578,7 @@
         >
             <SettingsInput
                 id="audio-topic"
+                field="audio_topic"
                 type="text"
                 value={audioTopic}
                 placeholder={$_('settings.integrations.birdnet.mqtt_topic_placeholder')}
@@ -610,6 +610,7 @@
                 >
                     <SettingsInput
                         id="audio-buffer"
+                        field="audio_buffer_hours"
                         type="number"
                         min={1}
                         max={168}
@@ -626,6 +627,7 @@
                 >
                     <SettingsInput
                         id="correlation-window"
+                        field="audio_correlation_window_seconds"
                         type="number"
                         min={5}
                         max={3600}
@@ -876,11 +878,13 @@
                 >
                     <SettingsInput
                         id="inat-lat"
+                        field="inaturalist_default_latitude"
                         type="number"
                         step={0.0001}
                         value={inaturalistDefaultLat ?? ''}
                         ariaLabel={$_('settings.integrations.inaturalist.default_latitude_label')}
-                        oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultLat = v === '' ? null : Number(v); }}
+                        placeholder={inatLatPlaceholder}
+                        oninput={(v) => { inaturalistDefaultLat = v === '' ? null : Number(v); }}
                     />
                 </SettingsRow>
                 <SettingsRow
@@ -890,11 +894,13 @@
                 >
                     <SettingsInput
                         id="inat-lon"
+                        field="inaturalist_default_longitude"
                         type="number"
                         step={0.0001}
                         value={inaturalistDefaultLon ?? ''}
                         ariaLabel={$_('settings.integrations.inaturalist.default_longitude_label')}
-                        oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultLon = v === '' ? null : Number(v); }}
+                        placeholder={inatLonPlaceholder}
+                        oninput={(v) => { inaturalistDefaultLon = v === '' ? null : Number(v); }}
                     />
                 </SettingsRow>
             </div>
@@ -905,11 +911,12 @@
             >
                 <SettingsInput
                     id="inat-place"
+                    field="inaturalist_default_place_guess"
                     type="text"
                     value={inaturalistDefaultPlace}
                     placeholder={$_('settings.integrations.inaturalist.default_place_guess_placeholder')}
                     ariaLabel={$_('settings.integrations.inaturalist.default_place_guess_label')}
-                    oninput={(v) => { inatDefaultsTouched = true; inaturalistDefaultPlace = v; }}
+                    oninput={(v) => { inaturalistDefaultPlace = v; }}
                 />
             </SettingsRow>
         </AdvancedSection>
@@ -1032,6 +1039,7 @@
                 >
                     <SettingsInput
                         id="ebird-radius"
+                        field="ebird_default_radius_km"
                         type="number"
                         min={ebirdRadiusBounds.min}
                         max={ebirdRadiusBounds.max}
@@ -1049,6 +1057,7 @@
                 >
                     <SettingsInput
                         id="ebird-days"
+                        field="ebird_default_days_back"
                         type="number"
                         min={1}
                         max={30}
@@ -1064,6 +1073,7 @@
                 >
                     <SettingsInput
                         id="ebird-max-results"
+                        field="ebird_max_results"
                         type="number"
                         min={1}
                         max={200}
@@ -1079,6 +1089,7 @@
                 >
                     <SettingsInput
                         id="ebird-locale"
+                        field="ebird_locale"
                         type="text"
                         value={ebirdLocale}
                         ariaLabel={$_('settings.integrations.ebird.locale')}
@@ -1156,6 +1167,7 @@
         >
             <SettingsInput
                 id="ha-weather-url"
+                field="ha_weather_base_url"
                 type="text"
                 value={haWeatherBaseUrl}
                 ariaLabel={$_('settings.integrations.ha_weather.base_url', { default: 'Home Assistant URL' })}
@@ -1185,6 +1197,7 @@
         >
             <SettingsInput
                 id="ha-weather-entity"
+                field="ha_weather_entity"
                 type="text"
                 value={haWeatherEntity}
                 ariaLabel={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
@@ -1201,6 +1214,7 @@
         >
             <SettingsInput
                 id="ha-weather-illuminance"
+                field="ha_weather_illuminance_entity"
                 type="text"
                 value={haWeatherIlluminanceEntity}
                 ariaLabel={$_('settings.integrations.ha_weather.illuminance', { default: 'Illuminance entity' })}
@@ -1297,6 +1311,7 @@
                     >
                         <SettingsInput
                             id="location-lat"
+                            field="location_latitude"
                             type="number"
                             value={locationLat ?? ''}
                             ariaLabel={$_('settings.location.latitude')}
@@ -1310,6 +1325,7 @@
                     >
                         <SettingsInput
                             id="location-lon"
+                            field="location_longitude"
                             type="number"
                             value={locationLon ?? ''}
                             ariaLabel={$_('settings.location.longitude')}

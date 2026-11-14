@@ -3,6 +3,8 @@
     import type { ClassificationImageSource } from '../../api/settings';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import FieldRefusal from './_primitives/FieldRefusal.svelte';
+    import { settingsFieldErrorLookup } from '../../settings/field-error-context';
 
     let { value = $bindable('frigate_snapshot'), delay = $bindable(12) }: { value?: ClassificationImageSource; delay?: number } = $props();
 
@@ -14,6 +16,8 @@
     // The recording frame costs Frigate work and can silently fall back, so its
     // terms are only shown, and announced with the select, once it is chosen.
     let recordingSelected = $derived(value === 'recording_snapshot');
+    const fieldErrors = settingsFieldErrorLookup();
+    const delayRefusal = $derived(fieldErrors?.errorFor('recording_frame_delay_seconds'));
 </script>
 
 <SettingsRow
@@ -39,7 +43,8 @@
         <div class="mt-3 min-w-0 space-y-2">
             <label id="recording-frame-delay-label" for="recording-frame-delay" class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.frigate.recording_frame_delay', { default: 'Initial identification delay (seconds)' })}</label>
             <p id="recording-frame-delay-desc" class="wrap-break-word text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('settings.frigate.recording_frame_delay_desc', { default: 'Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.' })}</p>
-            <input id="recording-frame-delay" class="input-base min-w-0" type="number" min="1" max="120" step="any" required bind:value={delay} aria-labelledby="recording-frame-delay-label" aria-describedby="recording-frame-delay-desc" />
+            <input id="recording-frame-delay" class="input-base min-w-0" type="number" min="1" max="120" step="any" required bind:value={delay} aria-labelledby="recording-frame-delay-label" aria-describedby={delayRefusal ? 'recording-frame-delay-desc recording-frame-delay-error' : 'recording-frame-delay-desc'} aria-invalid={delayRefusal ? 'true' : undefined} />
+            <FieldRefusal id="recording-frame-delay-error" refusal={delayRefusal} />
         </div>
         <div
             id={recordingNoteId}

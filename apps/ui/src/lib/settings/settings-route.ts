@@ -1,23 +1,24 @@
 export type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment' | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations' | 'beta';
 
-const SETTINGS_TABS: readonly string[] = [
+/** Every Settings tab, in the order the navigation lists them. */
+export const SETTINGS_TAB_ORDER: readonly SettingsTab[] = [
     'connection',
     'detection',
-    'notifications',
-    'health',
     'integrations',
     'enrichment',
     'ai',
+    'notifications',
+    'health',
     'security',
-    'data',
-    'appearance',
-    'accessibility',
     'beta',
-    'debug'
-] satisfies readonly SettingsTab[];
+    'data',
+    'debug',
+    'appearance',
+    'accessibility'
+];
 
 function isSettingsTab(value: string): value is SettingsTab {
-    return SETTINGS_TABS.includes(value);
+    return (SETTINGS_TAB_ORDER as readonly string[]).includes(value);
 }
 
 export function settingsTabPath(tab: SettingsTab): string {

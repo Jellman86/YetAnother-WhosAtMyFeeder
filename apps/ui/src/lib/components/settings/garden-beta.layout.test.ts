@@ -25,7 +25,7 @@ describe('Garden animals is a beta feature', () => {
         expect(betaCardSource).toContain('<SettingsToggle checked={enabled} labelledBy={nameId} srLabel={name} onchange={ontoggle} />');
         expect(gardenBetaSource).toContain('ontoggle={(next) => (enabled = next)}');
         expect(settingsSource).toContain('beta_garden_animals: betaGardenAnimals,');
-        expect(settingsSource).toContain("store: s.beta_garden_animals ?? false");
+        expect(settingsSource).toContain("saved: s.beta_garden_animals ?? false");
     });
 
     it('lists beta features as cards under one plain-language intro', () => {

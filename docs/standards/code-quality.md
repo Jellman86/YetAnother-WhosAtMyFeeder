@@ -81,8 +81,9 @@ shares one import and lets a failed chunk be retried. Dialogs open through `Lazy
 when they are still opening and offers a worded retry if their code does not arrive. Settings tab
 bodies load through `LazyRoute` the same way; their values stay in the page's one draft, built from
 per-section adapters in `apps/ui/src/lib/settings/` (`decode` saved settings, `encodePatch` for
-Apply, and `sectionIsDirty` comparing the two), so a tab's edits survive leaving it and one Apply
-still saves every tab. Do not import a
+the save, and `sectionChangedFields` comparing the two), so a tab's edits survive leaving it and one
+Save changes still saves every tab. Every changed field is named as the save sends it, and
+`settings-fields.ts` maps it to its tab, so the save bar, Discard and the leave warning agree. Do not import a
 dialog statically into a page. Large reads that only some viewers need, such as the classifier label
 list, are read on first need and shared through a store rather than added to a page's refresh.
 

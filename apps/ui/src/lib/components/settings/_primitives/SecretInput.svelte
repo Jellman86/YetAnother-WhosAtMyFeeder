@@ -1,6 +1,8 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import type { HTMLInputAttributes } from 'svelte/elements';
+    import { settingsFieldErrorLookup } from '../../../settings/field-error-context';
+    import FieldRefusal from './FieldRefusal.svelte';
 
     interface Props {
         id: string;
@@ -15,6 +17,8 @@
         // Placeholder shown when no value is saved; defaults to a generic
         // 'Enter value' string.
         emptyPlaceholder?: string;
+        /** The saved setting this edits; a save that refuses it shows the reason under it. */
+        field?: string;
         oninput?: (next: string) => void;
     }
 
@@ -26,8 +30,12 @@
         autocomplete = 'off',
         type = 'password',
         emptyPlaceholder,
+        field,
         oninput,
     }: Props = $props();
+
+    const fieldErrors = settingsFieldErrorLookup();
+    const refusal = $derived(field ? fieldErrors?.errorFor(field) : undefined);
 
     // When a secret is saved we visually gray the input out, show the shared
     // 'Saved' tick badge inside the field, and use the redaction placeholder
@@ -44,6 +52,8 @@
         {type}
         {autocomplete}
         aria-label={ariaLabel}
+        aria-invalid={refusal ? 'true' : undefined}
+        aria-describedby={refusal ? `${id}-error` : undefined}
         {value}
         placeholder={effectivelySaved ? '***REDACTED***' : emptyPlaceholder}
         oninput={(e) => oninput?.((e.currentTarget as HTMLInputElement).value)}
@@ -68,3 +78,4 @@
         </span>
     {/if}
 </div>
+<FieldRefusal id={`${id}-error`} {refusal} />

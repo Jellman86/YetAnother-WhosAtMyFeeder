@@ -22,9 +22,18 @@ export function sectionIsDirty<Draft, Patch extends SettingsUpdate>(
     draft: Draft,
     saved: Settings
 ): boolean {
+    return sectionChangedFields(adapter, draft, saved).length > 0;
+}
+
+/** The saved fields an edited section would change, named as the save sends them. */
+export function sectionChangedFields<Draft, Patch extends SettingsUpdate>(
+    adapter: SettingsSectionAdapter<Draft, Patch>,
+    draft: Draft,
+    saved: Settings
+): string[] {
     const current = adapter.encodePatch(draft);
     const baseline = adapter.encodePatch(adapter.decode(saved));
-    return (Object.keys(current) as (keyof Patch)[]).some(
+    return (Object.keys(current) as (keyof Patch & string)[]).filter(
         (key) => JSON.stringify(current[key]) !== JSON.stringify(baseline[key])
     );
 }

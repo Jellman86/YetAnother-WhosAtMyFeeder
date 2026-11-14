@@ -404,6 +404,7 @@
         >
             <SettingsInput
                 id="frigate-url"
+                field="frigate_url"
                 type="url"
                 value={frigateUrl}
                 placeholder={$_('settings.frigate.url_placeholder')}
@@ -420,6 +421,7 @@
         >
             <SettingsInput
                 id="frigate-ingest-labels"
+                field="frigate_ingest_labels"
                 type="text"
                 value={frigateIngestLabels}
                 placeholder="bird"
@@ -436,6 +438,7 @@
         >
             <SettingsInput
                 id="frigate-external-url"
+                field="frigate_external_url"
                 type="url"
                 value={frigateExternalUrl}
                 placeholder={$_('settings.frigate.external_url_placeholder')}
@@ -474,6 +477,7 @@
             >
                 <SettingsInput
                     id="mqtt-server"
+                    field="mqtt_server"
                     type="text"
                     value={mqttServer}
                     placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
@@ -488,6 +492,7 @@
             >
                 <SettingsInput
                     id="mqtt-port"
+                    field="mqtt_port"
                     type="number"
                     value={mqttPort}
                     ariaLabel={$_('settings.frigate.mqtt_port')}
@@ -517,6 +522,7 @@
                 >
                     <SettingsInput
                         id="mqtt-username"
+                        field="mqtt_username"
                         type="text"
                         value={mqttUsername}
                         ariaLabel={$_('settings.frigate.mqtt_user')}
@@ -648,6 +654,7 @@
                     >
                         <SettingsInput
                             id="recording-clip-before"
+                            field="recording_clip_before_seconds"
                             type="number"
                             min={0}
                             max={3600}
@@ -663,6 +670,7 @@
                     >
                         <SettingsInput
                             id="recording-clip-after"
+                            field="recording_clip_after_seconds"
                             type="number"
                             min={0}
                             max={3600}

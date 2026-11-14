@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, unsavedChanges } from './settings-page-mock';
+import { openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
 // Settings → AI keeps its fields in the one Settings draft and loads its tab body, with the
-// built-in prompt templates, only when opened. Apply saves it with the rest of the form.
+// built-in prompt templates, only when opened. Save changes saves it with the rest of the form.
 
-test('AI loads on first open, follows a provider switch and saves with Apply', async ({ page }) => {
+test('AI loads on first open, follows a provider switch and saves with Save changes', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const harness = await openSettings(page, {
@@ -28,15 +28,18 @@ test('AI loads on first open, follows a provider switch and saves with Apply', a
     await expect(unsavedChanges(page)).toBeVisible();
 
     await page.getByRole('button', { name: /Pricing & prompt templates/ }).click();
-    await page.getByRole('button', { name: 'Apply Style', exact: true }).click();
+    // Choosing a style is an edit like any other: there is no second apply button to forget.
+    await expect(page.getByRole('button', { name: /Apply style|Reset defaults/i })).toHaveCount(0);
+    await page.locator('#llm-prompt-style').selectOption('classic');
     await expect(page.locator('#llm-prompt-analysis')).toHaveValue(/ornithologist/);
+    await expect(page.locator('#llm-prompt-style')).toHaveValue('classic');
 
     await page.getByRole('link', { name: 'Connection' }).click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
     await page.getByRole('link', { name: 'AI', exact: true }).click();
     await expect(model).toHaveValue('claude-opus-4-8');
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({
         llm_enabled: true,

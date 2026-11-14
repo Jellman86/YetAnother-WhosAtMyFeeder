@@ -28,6 +28,18 @@ settings_update_lock = asyncio.Lock()
 _Result = TypeVar("_Result")
 
 
+def field_rejected(field: str, message: str) -> HTTPException:
+    """A refusal located on one request field, in the shape FastAPI gives a validation error.
+
+    The Settings form marks the named field with the message. The rejected value is never echoed
+    back, because it may be a secret.
+    """
+    return HTTPException(
+        status_code=422,
+        detail=[{"type": "value_error", "loc": ["body", field], "msg": message}],
+    )
+
+
 async def run_settings_writer(operation: Callable[[], Awaitable[_Result]]) -> _Result:
     """Serialize the full transaction, including publication and follow-up scheduling.
 
@@ -71,7 +83,7 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
     )
 
     if auth_enabled_after_update and not auth_password_will_exist:
-        raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
+        raise field_rejected("auth_password", AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
 
     if (
         "inference_provider" in fields_set
@@ -128,9 +140,9 @@ def prepare_update(current: Settings, update: "SettingsUpdate", username: str) -
     if "notifications_instance_url" in fields_set and update.notifications_instance_url is not None:
         instance_url = update.notifications_instance_url.strip().rstrip("/") or None
         if instance_url and not public_base(instance_url):
-            raise HTTPException(
-                status_code=400,
-                detail="Instance address must start with http:// or https://, for example https://feeder.example.com",
+            raise field_rejected(
+                "notifications_instance_url",
+                "Instance address must start with http:// or https://, for example https://feeder.example.com",
             )
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
