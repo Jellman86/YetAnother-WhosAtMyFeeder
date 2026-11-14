@@ -1,6 +1,6 @@
 - An open page now asks the backend for far less while nothing is happening. A quiet owner page
   used to make 37 to 64 requests a minute (the sidebar's CPU line alone read 24 times a minute);
-  it now makes about 10, and the Dashboard about 20. Each background reading is taken at the
+  it now makes 7 to 13, and the Dashboard 20. Each background reading is taken at the
   rate its source changes: the sidebar CPU line and the Heard card every 15 seconds, camera
   reachability and idle job and analysis status once a minute, backend health every two
   minutes, and the media-folder check every ten. Running work is still followed every five
