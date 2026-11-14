@@ -110,19 +110,52 @@ describe('startVisiblePoll', () => {
 
     it('never overlaps a read that is still in flight, and counts the cadence from when it ends', async () => {
         let finish!: () => void;
-        const tab = fakeTab();
         const read = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
-        const stop = startVisiblePoll({ read, delayMs: () => 15_000, tab });
+        const stop = startVisiblePoll({ read, delayMs: () => 15_000, tab: fakeTab() });
 
         await vi.advanceTimersByTimeAsync(60_000);
-        tab.hide();
-        tab.show();
         expect(read).toHaveBeenCalledTimes(1);
 
         finish();
         await vi.advanceTimersByTimeAsync(14_999);
         expect(read).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
+        expect(read).toHaveBeenCalledTimes(2);
+        stop();
+    });
+
+    it('reads again as soon as a read that was in flight while the tab was hidden ends', async () => {
+        // A reader may abort its request when the tab is hidden, so that read's answer can be lost.
+        let finish!: () => void;
+        const tab = fakeTab();
+        const read = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+        const stop = startVisiblePoll({ read, delayMs: () => 15_000, tab });
+
+        tab.hide();
+        tab.show();
+        expect(read).toHaveBeenCalledTimes(1);
+
+        finish();
+        await vi.advanceTimersByTimeAsync(0);
+        expect(read).toHaveBeenCalledTimes(2);
+        finish();
+        await vi.advanceTimersByTimeAsync(15_000);
+        expect(read).toHaveBeenCalledTimes(3);
+        stop();
+    });
+
+    it('waits for the tab to be shown when a read in flight ends while it is still hidden', async () => {
+        let finish!: () => void;
+        const tab = fakeTab();
+        const read = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+        const stop = startVisiblePoll({ read, delayMs: () => 15_000, tab });
+
+        tab.hide();
+        finish();
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(read).toHaveBeenCalledTimes(1);
+        expect(vi.getTimerCount()).toBe(0);
+        tab.show();
         expect(read).toHaveBeenCalledTimes(2);
         stop();
     });

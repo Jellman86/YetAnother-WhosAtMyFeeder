@@ -33,6 +33,12 @@ describe('Camera status health and viewer behavior', () => {
         expect(cameraStatusSource).not.toContain('setInterval');
     });
 
+    it('starts no poll once destroyed, even when the mount bootstrap ends afterwards', () => {
+        expect(cameraStatusSource).toMatch(/onDestroy\(\(\) => \{\s*destroyed = true;/);
+        expect(cameraStatusSource).toMatch(/function startHealthRefresh\(refreshNow = true\): void \{\s*if \(destroyed\) return;/);
+        expect(cameraStatusSource).toMatch(/function startFrameRefresh\(\): void \{\s*if \(destroyed\) return;/);
+    });
+
     it('uses the shared API client instead of an inline fetch', () => {
         expect(cameraStatusSource).toContain('fetchLatestCameraSnapshot');
         expect(cameraStatusSource).toContain('fetchCameraStatuses');

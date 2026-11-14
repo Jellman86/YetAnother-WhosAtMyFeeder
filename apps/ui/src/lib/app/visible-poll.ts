@@ -18,11 +18,14 @@ interface VisiblePollOptions {
 /**
  * Keeps one reading current while someone can see it: reads, waits the cadence, reads again. While
  * the tab is hidden it reads nothing and holds no timer; when the tab is shown it reads once
- * straight away and resumes. Reads never overlap. Returns the function that stops it for good.
+ * straight away and resumes. Reads never overlap: a read still in flight when the tab is shown
+ * again is followed by a fresh one as soon as it ends, because the reader may have abandoned it
+ * when the tab was hidden. Returns the function that stops it for good.
  */
 export function startVisiblePoll({ read, delayMs, readAtStart = true, tab = document }: VisiblePollOptions): () => void {
     let stopped = false;
     let reading = false;
+    let readAgainWhenDone = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     function cancelTimer(): void {
@@ -46,13 +49,24 @@ export function startVisiblePoll({ read, delayMs, readAtStart = true, tab = docu
             // The reader reports its own failures; a failed reading must not end the poll.
         } finally {
             reading = false;
-            scheduleNext();
+            if (readAgainWhenDone && !stopped && !tab.hidden) {
+                readAgainWhenDone = false;
+                void readNow();
+            } else {
+                scheduleNext();
+            }
         }
     }
 
     function followVisibility(): void {
-        if (tab.hidden) cancelTimer();
-        else void readNow();
+        if (tab.hidden) {
+            cancelTimer();
+            readAgainWhenDone = false;
+        } else if (reading) {
+            readAgainWhenDone = true;
+        } else {
+            void readNow();
+        }
     }
 
     tab.addEventListener('visibilitychange', followVisibility);

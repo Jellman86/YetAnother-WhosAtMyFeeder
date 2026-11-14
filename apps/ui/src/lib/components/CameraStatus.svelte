@@ -34,6 +34,8 @@
     let viewerEl: HTMLDivElement | null = $state(null);
     // Each poll holds no timer while the tab is hidden and reads again once it is shown.
     let stopHealthPoll: (() => void) | null = null;
+    // The mount bootstrap awaits several reads; a poll started after destroy would never stop.
+    let destroyed = false;
     let stopFramePoll: (() => void) | null = null;
     let healthController: AbortController | null = null;
     let frameController: AbortController | null = null;
@@ -187,6 +189,7 @@
     }
 
     function startHealthRefresh(refreshNow = true): void {
+        if (destroyed) return;
         stopHealthPoll ??= startVisiblePoll({
             read: refreshHealth,
             delayMs: () => HEALTH_REFRESH_MS,
@@ -202,6 +205,7 @@
     }
 
     function startFrameRefresh(): void {
+        if (destroyed) return;
         stopFramePoll ??= startVisiblePoll({ read: refreshSelectedFrame, delayMs: () => FRAME_REFRESH_MS });
     }
 
@@ -281,6 +285,7 @@
     });
 
     onDestroy(() => {
+        destroyed = true;
         stopHealthRefresh();
         stopFrameRefresh();
         for (const entry of Object.values(frames)) {
