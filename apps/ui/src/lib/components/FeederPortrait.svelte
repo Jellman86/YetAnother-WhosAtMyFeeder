@@ -53,7 +53,7 @@
     {#if latest}
         <button
             type="button"
-            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[transform,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none dark:border-slate-700/60 dark:shadow-card-dark"
+            class="group relative block aspect-video w-full overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-900 text-left shadow-card transition-[translate,box-shadow] duration-200 ease-out hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:translate-none dark:border-slate-700/60 dark:shadow-card-dark"
             aria-label={$_('about.portrait.open_visit', {
                 values: { name: latest.display_name, time: formatDateTime(latest.detection_time) },
                 default: 'Open the {name} visit from {time}'

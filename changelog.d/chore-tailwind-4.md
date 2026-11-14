@@ -4,4 +4,4 @@
   and focus rings wrongly; see [supported browsers](docs/setup/getting-started.md#supported-browsers).
   The cause is the move of the UI's styling to Tailwind CSS 4, which builds through Vite with
   its settings in `apps/ui/src/app.css` instead of `tailwind.config.js` and PostCSS. The stylesheet
-  is larger as a result, 301 kB against 186 kB before (38 kB against 29 kB compressed).
+  is larger as a result, 302 kB against 186 kB before (38 kB against 29 kB compressed).

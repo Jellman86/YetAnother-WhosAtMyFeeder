@@ -198,3 +198,14 @@
     --tw-drop-shadow: drop-shadow(0 10px 8px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 3px rgb(0 0 0 / 0.1));
   }
 }
+
+/* A hidden outline is still a transparent one, two pixels out. It paints nothing, but Chromium
+   counts it as drawn over a focused field's caret and moves what follows to its own layer, where
+   text is anti-aliased in grey rather than per sub-pixel. Without it, text on a page with a
+   focused field renders differently. `:not(_)` puts it ahead of the built-in rule. */
+@utility outline-hidden {
+  &:not(_) {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}

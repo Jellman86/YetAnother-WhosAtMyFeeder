@@ -552,7 +552,7 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:translate-none motion-reduce:scale-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
                                 ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
                                 : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
