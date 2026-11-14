@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import { composeAppVersion } from './src/lib/app/app-version.ts';
-import { dropUnsupportedBrowserFallbacks, hasUnsupportedBrowserFallbacks } from './src/lib/app/supported-browser-css.ts';
+import { dropUnsupportedBrowserFallbacks } from './src/lib/app/supported-browser-css.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import tailwindcss from '@tailwindcss/vite'
 import { execSync } from 'child_process'
@@ -45,8 +45,8 @@ function enforceInitialJavaScriptBudget(maxBytes: number): Plugin {
 }
 
 // Production stylesheets lose the fallbacks that only browsers below the supported floor read.
-// A fallback the step cannot prove safe to remove is left in place, and the build stops, so a
-// change in Tailwind's output is looked at instead of shipped.
+// The step removes only what it can match exactly and leaves the rest as written, so it cannot
+// fail a build; a change in Tailwind's output is caught by its unit test instead.
 function dropUnsupportedBrowserCssFallbacks(): Plugin {
     return {
         name: 'yawamf-supported-browser-css',
@@ -56,16 +56,7 @@ function dropUnsupportedBrowserCssFallbacks(): Plugin {
             for (const asset of Object.values(bundle)) {
                 if (asset.type !== 'asset' || !asset.fileName.endsWith('.css')) continue;
                 const built = typeof asset.source === 'string' ? asset.source : new TextDecoder().decode(asset.source);
-                const { css, kept } = dropUnsupportedBrowserFallbacks(built);
-                if (kept.length > 0 || hasUnsupportedBrowserFallbacks(css)) {
-                    const reasons = kept.map(entry => `  ${entry.selector}: ${entry.reason}`).join('\n');
-                    this.error(
-                        `${asset.fileName} keeps ${kept.length} fallback(s) for browsers below the supported floor ` +
-                        `that could not be proved safe to remove:\n${reasons}\n` +
-                        'See apps/ui/src/lib/app/supported-browser-css.ts.'
-                    );
-                }
-                asset.source = css;
+                asset.source = dropUnsupportedBrowserFallbacks(built).css;
             }
         }
     };

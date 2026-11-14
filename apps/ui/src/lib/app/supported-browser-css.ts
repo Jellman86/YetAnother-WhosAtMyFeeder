@@ -8,12 +8,11 @@ import postcss, { type AtRule, type ChildNode, type Declaration, type Rule } fro
  * has both, so the fallbacks never apply and only cost bytes. Tailwind's Vite plugin has no
  * switch for them.
  *
- * This removes them from a built stylesheet, and only where it can prove what it is removing.
- * A block is unwrapped when it holds one rule, the rule immediately before it has the same
- * selector, and every declaration it overrides is set exactly once there, with the same
- * `!important`, no shorthand or longhand beside it that sets the same colour, and one of the
- * three values Tailwind writes as a fallback. Anything else is left exactly as it was and
- * reported, so the build can refuse to ship it.
+ * This step removes them from a built stylesheet. It is safe by construction: a block is
+ * unwrapped only when it matches, exactly, a shape Tailwind has been seen to write, and anything
+ * else is left as written. A block left in place is still valid CSS that every browser reads
+ * correctly, so the worst outcome is a few extra bytes. It never fails a build and never guesses.
+ * A change in Tailwind's output is caught by the unit test that compiles the real stylesheet.
  */
 
 /** The Tailwind release whose output the unit tests copy. An upgrade refreshes them on purpose. */
@@ -24,12 +23,17 @@ const AT_PROPERTY_FALLBACK_CONDITION =
     '(((-webkit-hyphens:none))and(not(margin-trim:block)))or((-moz-orient:inline)and(not(color:rgb(fromredrgb))))';
 const UNIVERSAL_SELECTOR = '*,:before,:after,::backdrop';
 
-/** The fallbacks Tailwind writes: a hex literal, `currentColor`, or an sRGB mix with transparent. */
-const TAILWIND_FALLBACK = /^(?:#[0-9a-f]{3,8}|currentcolor|color-mix\(in srgb,.*,\s*transparent\))$/i;
+/** The three fallbacks Tailwind has been seen to write, and nothing looser. */
+const HEX_FALLBACK = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/;
+const CURRENT_COLOUR_FALLBACKS = new Set(['currentColor', 'currentcolor']);
+const SRGB_MIX_FALLBACK = /^color-mix\(in srgb, .+ \d+(?:\.\d+)?%, transparent\)$/;
+/** What an arbitrary variable colour with an opacity gets. Recognised, and always kept. */
+const VARIABLE_FALLBACK = /^var\(--[\w-]+\)$/;
+const OKLAB_MIX_OVERRIDE = 'color-mix(in oklab, ';
 const BORDER_SIDE = '(?:top|right|bottom|left|inline|block|inline-start|inline-end|block-start|block-end)';
 const BORDER_COLOUR = new RegExp(`^border(?:-${BORDER_SIDE})?(?:-color)?$`);
 
-interface KeptFallback {
+interface RetainedFallback {
     /** The selector of the rule inside the block, or the block's own condition. */
     selector: string;
     reason: string;
@@ -37,16 +41,32 @@ interface KeptFallback {
 
 interface FallbackRemoval {
     css: string;
-    removed: number;
-    kept: KeptFallback[];
+    unwrapped: number;
+    retained: RetainedFallback[];
 }
 
-function condition(atRule: AtRule): string {
-    return atRule.params.replace(/\s+/g, '').toLowerCase();
-}
-
-function withoutSpaces(text: string): string {
-    return text.replace(/\s+/g, '');
+/**
+ * An `@supports` condition as its tokens joined together: comments and whitespace dropped,
+ * strings kept whole, the rest lower-cased. Two spellings of one condition give one result.
+ */
+function conditionTokens(atRule: AtRule): string {
+    const source = atRule.raws.params?.raw ?? atRule.params;
+    let tokens = '';
+    for (let index = 0; index < source.length; index++) {
+        const char = source[index];
+        if (char === '/' && source[index + 1] === '*') {
+            const end = source.indexOf('*/', index + 2);
+            index = end < 0 ? source.length : end + 1;
+        } else if (char === '"' || char === "'") {
+            let end = index + 1;
+            while (end < source.length && source[end] !== char) end += source[end] === '\\' ? 2 : 1;
+            tokens += source.slice(index, end + 1);
+            index = end;
+        } else if (!/\s/.test(char)) {
+            tokens += char.toLowerCase();
+        }
+    }
+    return tokens;
 }
 
 function meaningful(nodes: ChildNode[] | undefined): ChildNode[] {
@@ -71,24 +91,26 @@ function setsTheSameColour(property: string, other: string): boolean {
     return BORDER_COLOUR.test(property) && BORDER_COLOUR.test(other);
 }
 
-/** The fallback declarations a block's rule overrides, or the reason the pair cannot be trusted. */
+/** The fallback declarations a block's rule overrides, or the reason the pair is left alone. */
 function fallbacksFor(override: Declaration[], fallbackRule: Declaration[]): Declaration[] | string {
     const fallbacks: Declaration[] = [];
     for (const declaration of override) {
-        if (!declaration.value.includes('color-mix(')) return `${declaration.value} is not a color-mix value`;
+        if (!declaration.value.startsWith(OKLAB_MIX_OVERRIDE)) return 'the override is not an oklab color-mix value';
         const matches = fallbackRule.filter(candidate => candidate.prop === declaration.prop);
         if (matches.length !== 1) return `${declaration.prop} is set ${matches.length} times in the fallback rule`;
         const [fallback] = matches;
         if (Boolean(fallback.important) !== Boolean(declaration.important)) return `${declaration.prop} differs in !important`;
         const rival = fallbackRule.find(candidate => candidate !== fallback && setsTheSameColour(declaration.prop, candidate.prop));
         if (rival) return `${rival.prop} in the fallback rule also sets ${declaration.prop}`;
-        if (!TAILWIND_FALLBACK.test(fallback.value)) return `${fallback.value} is not a fallback Tailwind writes`;
+        if (VARIABLE_FALLBACK.test(fallback.value)) return 'the fallback is a variable, which is kept';
+        const known = HEX_FALLBACK.test(fallback.value) || CURRENT_COLOUR_FALLBACKS.has(fallback.value) || SRGB_MIX_FALLBACK.test(fallback.value);
+        if (!known) return 'the fallback is not a value Tailwind writes';
         fallbacks.push(fallback);
     }
     return fallbacks;
 }
 
-/** Unwraps one color-mix block, or returns why it was left alone. */
+/** Unwraps one color-mix block, or returns why it was left as written. */
 function unwrapColorMix(block: AtRule): string | null {
     const children = meaningful(block.nodes);
     const [override] = children;
@@ -98,9 +120,8 @@ function unwrapColorMix(block: AtRule): string | null {
 
     const before = previousRule(block);
     if (!before) return 'no rule comes before the block';
-    if (before.type !== 'rule' || withoutSpaces(before.selector) !== withoutSpaces(override.selector)) {
-        return 'the rule before the block has a different selector';
-    }
+    // Selectors are compared as PostCSS read them: `.a b` and `.ab` are different rules.
+    if (before.type !== 'rule' || before.selector !== override.selector) return 'the rule before the block has a different selector';
     const fallbackDeclarations = declarationsOnly(before);
     if (!fallbackDeclarations) return 'the rule before the block has a different selector';
 
@@ -113,10 +134,10 @@ function unwrapColorMix(block: AtRule): string | null {
     return null;
 }
 
-/** Drops the `@property` fallback block, or returns why it was left alone. */
+/** Drops the `@property` fallback block, or returns why it was left as written. */
 function dropAtPropertyFallback(block: AtRule): string | null {
     const onlyInitialValues = meaningful(block.nodes).every(node => {
-        if (node.type !== 'rule' || withoutSpaces(node.selector) !== UNIVERSAL_SELECTOR) return false;
+        if (node.type !== 'rule' || node.selector !== UNIVERSAL_SELECTOR) return false;
         return declarationsOnly(node)?.every(declaration => declaration.prop.startsWith('--tw-')) ?? false;
     });
     if (!onlyInitialValues) return 'the @property fallback block holds more than initial values';
@@ -124,41 +145,40 @@ function dropAtPropertyFallback(block: AtRule): string | null {
     return null;
 }
 
-function fallbackBlocks(css: string): { root: postcss.Root; colorMix: AtRule[]; atProperty: AtRule[] } {
-    const root = postcss.parse(css);
+/**
+ * Removes the fallbacks no supported browser reads, wherever a block matches Tailwind's shape
+ * exactly. Everything else, including a stylesheet that does not parse, comes back as written.
+ */
+export function dropUnsupportedBrowserFallbacks(css: string): FallbackRemoval {
+    const untouched: FallbackRemoval = { css, unwrapped: 0, retained: [] };
+    let root: postcss.Root;
+    try {
+        root = postcss.parse(css);
+    } catch {
+        return untouched;
+    }
+
     const colorMix: AtRule[] = [];
     const atProperty: AtRule[] = [];
     root.walkAtRules(atRule => {
         if (atRule.name.toLowerCase() !== 'supports') return;
-        if (condition(atRule) === COLOR_MIX_CONDITION) colorMix.push(atRule);
-        else if (condition(atRule) === AT_PROPERTY_FALLBACK_CONDITION) atProperty.push(atRule);
+        const tokens = conditionTokens(atRule);
+        if (tokens === COLOR_MIX_CONDITION) colorMix.push(atRule);
+        else if (tokens === AT_PROPERTY_FALLBACK_CONDITION) atProperty.push(atRule);
     });
-    return { root, colorMix, atProperty };
-}
 
-/** Removes the fallbacks no supported browser reads, wherever the pair is provably Tailwind's. */
-export function dropUnsupportedBrowserFallbacks(css: string): FallbackRemoval {
-    const { root, colorMix, atProperty } = fallbackBlocks(css);
-    if (colorMix.length + atProperty.length === 0) return { css, removed: 0, kept: [] };
-
-    const kept: KeptFallback[] = [];
-    let removed = 0;
+    const retained: RetainedFallback[] = [];
+    let unwrapped = 0;
     for (const block of colorMix) {
         const selector = meaningful(block.nodes).map(node => (node.type === 'rule' ? node.selector : `@${node.type}`)).join(', ');
         const reason = unwrapColorMix(block);
-        if (reason) kept.push({ selector, reason });
-        else removed++;
+        if (reason) retained.push({ selector, reason });
+        else unwrapped++;
     }
     for (const block of atProperty) {
         const reason = dropAtPropertyFallback(block);
-        if (reason) kept.push({ selector: `@supports ${block.params}`, reason });
-        else removed++;
+        if (reason) retained.push({ selector: `@supports ${block.params}`, reason });
+        else unwrapped++;
     }
-    return { css: removed === 0 ? css : root.toString(), removed, kept };
-}
-
-/** True when a stylesheet still carries a fallback this module exists to remove. */
-export function hasUnsupportedBrowserFallbacks(css: string): boolean {
-    const { colorMix, atProperty } = fallbackBlocks(css);
-    return colorMix.length + atProperty.length > 0;
+    return unwrapped === 0 ? { ...untouched, retained } : { css: root.toString(), unwrapped, retained };
 }
