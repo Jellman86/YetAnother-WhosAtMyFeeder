@@ -40,7 +40,7 @@ describe('the Explorer list row', () => {
 
     it('keeps the whole row a control, and the touch floor', () => {
         expect(detectionRowSource).toMatch(/absolute inset-0[^"]*z-0/);
-        expect(detectionRowSource).toContain('focus-visible:ring-brand-500');
+        expect(detectionRowSource).toContain('focus-visible:ring-focus');
         expect(detectionRowSource).toMatch(/h-11 w-11/);
     });
 
@@ -55,7 +55,7 @@ describe('the Explorer list row', () => {
         // On a narrow row something has to go. The status words are why a row
         // is worth reading; the camera is the least of it.
         expect(detectionRowSource).toMatch(/shrink-0 text-attention-800/);
-        expect(detectionRowSource).toMatch(/shrink-0 text-brand-600/);
+        expect(detectionRowSource).toMatch(/shrink-0 text-brand-700/);
         expect(detectionRowSource).toContain('min-w-0 truncate">{detection.camera_name}');
     });
 

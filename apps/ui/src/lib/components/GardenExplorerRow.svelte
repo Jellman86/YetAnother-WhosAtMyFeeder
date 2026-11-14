@@ -48,14 +48,14 @@
     <!-- The whole row opens the record, where the photograph is shown at the size the decision needs. -->
     <button
         type="button"
-        class="absolute inset-0 z-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        class="absolute inset-0 z-0 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
         aria-label={openLabel}
         onclick={() => onopen(capture)}
     ></button>
 
     <div class="pointer-events-none relative z-10 py-2">
         <time class="block font-display text-sm font-bold tabular-nums leading-tight text-slate-900 dark:text-white" datetime={capture.observed_at}>{formatTime(capture.observed_at)}</time>
-        {#if day}<span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{day}</span>{/if}
+        {#if day}<span class="block text-3xs font-semibold text-slate-600 dark:text-slate-400">{day}</span>{/if}
     </div>
 
     <!-- A bird row's pop-out, above the row's open control as a bird row's is. -->
@@ -68,7 +68,7 @@
         <div class="flex min-w-0 items-center gap-1.5">
             <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{text.title}</span>
         </div>
-        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-500 dark:text-slate-400">
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-2xs font-semibold text-slate-600 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if detail.showState}
                 {#if view.review}
@@ -90,7 +90,7 @@
                 type="button"
                 onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
                 aria-label={$_('detection.play_video', { values: { species: text.title } })}
-                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
                 data-garden-row-play
             >
                 <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>

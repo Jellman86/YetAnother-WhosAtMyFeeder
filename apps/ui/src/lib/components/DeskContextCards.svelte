@@ -103,7 +103,7 @@
             </svg>
             {$_('dashboard.desk.feeder_now', { default: 'At the feeder now' })}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}</p>
     </div>
 
     {#if loading}
@@ -124,7 +124,7 @@
             {$_('dashboard.desk.camera_visits_unavailable', { default: 'Visit counts could not be loaded.' })}
         </p>
     {:else if cameraRows.length === 0}
-        <p class="text-xs text-slate-500 dark:text-slate-400">
+        <p class="text-xs text-slate-600 dark:text-slate-400">
             {$_('dashboard.desk.cameras_empty', {
                 default: 'No cameras reporting yet. Add them in Settings → Connection.'
             })}
@@ -141,14 +141,14 @@
                               : 'bg-slate-300 dark:bg-slate-600'}"
                         aria-hidden="true"
                     ></span>
-                    <span class="min-w-0 flex-1 truncate text-slate-800 dark:text-slate-100">
+                    <span class="min-w-0 flex-1 wrap-break-word text-slate-800 dark:text-slate-100">
                         {camera.name}
                         {#if camera.status === 'offline'}
                             <span class="text-xs text-rose-700 dark:text-rose-300">· {$_('dashboard.desk.camera_offline', { default: 'offline' })}</span>
                         {/if}
                     </span>
                     {#if camera.lastSeen}
-                        <span class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400">{formatTime(camera.lastSeen)}</span>
+                        <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-400">{formatTime(camera.lastSeen)}</span>
                     {/if}
                     <span class="ml-auto min-w-20 shrink-0 text-right tabular-nums text-slate-900 dark:text-white">
                         {#if camera.visits === null && loading}
@@ -158,7 +158,7 @@
                             <span class="sr-only">{$_('dashboard.day_bar.unavailable', { default: 'not available' })}</span>
                         {:else}
                             {camera.visits}
-                            <span class="text-xs font-normal text-slate-500 dark:text-slate-400">
+                            <span class="text-xs font-normal text-slate-600 dark:text-slate-400">
                                 {camera.visits === 0
                                     ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
                                     : $_('dashboard.desk.camera_visits_unit', {
@@ -179,7 +179,7 @@
     {/if}
 
     {#if conditions}
-        <p class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-slate-200/70 pt-2.5 text-xs text-slate-500 dark:border-slate-700/50 dark:text-slate-400" data-desk-conditions>
+        <p class="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 border-t border-slate-200/70 pt-2.5 text-xs text-slate-600 dark:border-slate-700/50 dark:text-slate-400" data-desk-conditions>
             <span class="font-display text-base font-bold text-slate-900 dark:text-white">
                 {formatTemperature(conditions.latest.temperature, temperatureUnit)}
             </span>

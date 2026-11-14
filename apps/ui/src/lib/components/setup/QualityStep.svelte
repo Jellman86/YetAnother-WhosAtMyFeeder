@@ -53,12 +53,12 @@
 >
     <WizardLoadState state={loadState} onRetry={load}>
         <label class="flex min-h-12 items-start gap-3 rounded-xl border border-slate-200/80 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={hqSnapshots} class="mt-0.5 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
+            <input type="checkbox" bind:checked={hqSnapshots} class="mt-0.5 rounded-sm border-slate-300 text-brand-600 focus:ring-focus" />
             <span>
                 <span class="block font-semibold text-slate-900 dark:text-white">
                     {$_('settings.data.cache_high_quality_event_snapshots', { default: 'Best available event snapshots' })}
                 </span>
-                <span class="mt-1 block leading-relaxed text-slate-500 dark:text-slate-400">
+                <span class="mt-1 block leading-relaxed text-slate-600 dark:text-slate-400">
                     {$_('settings.data.cache_high_quality_event_snapshots_help', { default: 'After an event ends, choose the clearest main-stream frame and best crop available. The full frame is kept when a reliable crop cannot be made.' })}
                 </span>
             </span>

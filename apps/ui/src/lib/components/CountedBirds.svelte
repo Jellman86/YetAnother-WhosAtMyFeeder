@@ -234,7 +234,7 @@
 {#if error || regenerating || birds.length > 0 || (countingAvailable && !loading)}
     <section bind:this={sectionEl} class="space-y-3 wrap-break-word border-t border-slate-200 pt-5 dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
         <div class="flex items-baseline justify-between gap-3">
-            <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+            <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                 {$_('detection.counted_birds.title', { default: 'Birds found in this capture' })}
             </h4>
             {#if birds.length > 0}
@@ -263,7 +263,7 @@
                 {/if}
             </div>
         {:else if birds.length === 0 && !regenerating}
-            <p class="text-xs leading-5 text-slate-500 dark:text-slate-400" data-counted-birds-state="not-counted">
+            <p class="text-xs leading-5 text-slate-600 dark:text-slate-400" data-counted-birds-state="not-counted">
                 {$_('detection.counted_birds.not_counted', { default: 'No birds are counted for this capture. That is not the same as none being there.' })}
             </p>
         {/if}
@@ -276,7 +276,7 @@
                     <span>{$_('detection.counted_birds.summary_excluded', { values: { count: counts.excluded }, default: 'Excluded: {count}' })}</span>
                 {/if}
             </p>
-            <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">
+            <p class="text-xs leading-5 text-slate-600 dark:text-slate-400">
                 {hintOnly
                     ? $_('detection.counted_birds.hint_only', { default: 'Only Frigate’s tracked bird was located; other birds may be visible.' })
                     : $_('detection.counted_birds.note', { default: 'Counted on one analysed frame. The detector can miss birds or mark other objects, and a bird here is not followed across frames.' })}
@@ -345,7 +345,7 @@
                             {/each}
                         {/if}
                     </div>
-                    <figcaption class="text-xs leading-5 text-slate-500 dark:text-slate-400" data-counted-birds-provenance>
+                    <figcaption class="text-xs leading-5 text-slate-600 dark:text-slate-400" data-counted-birds-provenance>
                         {$_('detection.counted_birds.scene_caption', {
                             values: {
                                 frame: scene.frameIndex,
@@ -376,7 +376,7 @@
                     {@const unknown = isUnknownBird(bird)}
                     {@const position = positionText(bird)}
                     {#if bird.id === firstExcludedId}
-                        <li class="pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400" data-counted-birds-excluded-heading>
+                        <li class="pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400" data-counted-birds-excluded-heading>
                             {$_('detection.counted_birds.excluded_heading', { default: 'Excluded, not counted' })}
                         </li>
                     {/if}
@@ -400,15 +400,15 @@
                                 data-counted-bird-crop={outlined ? 'scene' : 'placeholder'}
                             >
                                 {#if !outlined}
-                                    <svg class="absolute inset-0 m-auto h-5 w-5 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" /><path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3M14 17.75V21" /></svg>
+                                    <svg class="absolute inset-0 m-auto h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" /><path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3M14 17.75V21" /></svg>
                                 {/if}
                             </span>
                             <span class="min-w-0 flex-1">
-                                <span class="block wrap-break-word text-sm font-semibold {bird.is_hidden ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}">{speciesName(bird)}</span>
+                                <span class="block wrap-break-word text-sm font-semibold {bird.is_hidden ? 'text-slate-600 dark:text-slate-400' : 'text-slate-900 dark:text-white'}">{speciesName(bird)}</span>
                                 {#if bird.tracked && bird.identity_source !== 'visit'}
                                     <span class="block text-xs font-semibold text-slate-700 dark:text-slate-200" data-counted-bird-tracked>{$_('detection.counted_birds.being_named', { default: 'The bird being named' })}</span>
                                 {/if}
-                                <span class="flex flex-wrap gap-x-1 text-xs text-slate-500 dark:text-slate-400">
+                                <span class="flex flex-wrap gap-x-1 text-xs text-slate-600 dark:text-slate-400">
                                     {#if position}<span>{position}</span>{/if}
                                     {#if bird.manual_species}
                                         <span>{$_('detection.counted_birds.corrected', { default: 'Your correction' })}</span>
@@ -430,7 +430,7 @@
                                     <span class="sr-only sm:hidden">{percent(identityScore(bird))}</span>
                                 </span>
                             {/if}
-                            <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
+                            <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" /></svg>
                         </button>
 
                         {#if open}

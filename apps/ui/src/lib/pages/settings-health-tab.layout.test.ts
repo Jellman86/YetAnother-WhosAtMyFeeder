@@ -65,8 +65,9 @@ describe('settings health tab', () => {
         expect(panelSource).toContain("other_host: 'system-health-hatched'");
         expect(en.settings.system_health.role_other_host_note).toContain('Cannot be named');
         expect(sidebarSource).toContain("navigateAndClose('/settings/health')");
-        expect(sidebarSource).toContain('{#if authStore.showSettings}\n                <a');
-        expect(sidebarSource).toContain('{#snippet statusCard(linked: boolean)}');
+        // Only the owner gets the link; its name is the words it shows, not a label over the whole card.
+        expect(sidebarSource).toMatch(/\{#if authStore\.showSettings\}\s*<a\s+href="\/settings\/health"/);
+        expect(sidebarSource).not.toMatch(/data-sidebar-status-link[\s\S]{0,200}aria-label|aria-label[^\n]*\n\s*data-sidebar-status-link/);
         expect(en.status.open_health).toBe('System health');
     });
 });

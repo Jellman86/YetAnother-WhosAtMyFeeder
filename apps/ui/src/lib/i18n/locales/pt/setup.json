@@ -183,6 +183,7 @@
   "working": "Processando…",
   "skip_step": "Ignorar passo",
   "step_list": "Etapas de configuração",
+  "progress": "Progresso da configuração",
   "step_names": {
     "welcome": "Boas-vindas",
     "account": "Conta",

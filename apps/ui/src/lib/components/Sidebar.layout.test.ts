@@ -71,11 +71,16 @@ describe('Sidebar hybrid refresh', () => {
 
     it('layers a lightweight live telemetry graph behind the status content', () => {
         expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
-        expect(sidebarSource).toContain('<SystemTelemetryGraph readoutClass=');
-        // The readout has a row of its own, above the System health link when there is one.
-        expect(sidebarSource).toContain('<span class="mt-1 block h-4" aria-hidden="true"></span>');
+        expect(sidebarSource).toContain('<SystemTelemetryGraph readoutHost={readoutRow} />');
+        // The readout is drawn inside a row of the card's own flow, never positioned over it, so the
+        // tiles above and the System health link below can grow or wrap without running under it.
+        expect(sidebarSource).toContain('<div class="mt-1 min-h-4" aria-hidden="true" bind:this={readoutRow}></div>');
+        expect(telemetryGraphSource).toContain('use:portal={readoutHost}');
+        expect(telemetryGraphSource).not.toMatch(/class="absolute \{readoutClass\}/);
         expect(sidebarSource).toContain('relative overflow-hidden');
-        expect(sidebarSource).toContain('relative z-10');
+        // The tiles sit above the stretched System health link, so each keeps its own tooltip.
+        expect(sidebarSource).toContain('<div class="relative z-20">');
+        expect(sidebarSource).toContain('after:absolute after:-inset-3 after:z-10');
     });
 
     it('samples telemetry only while the status card is actually visible', () => {

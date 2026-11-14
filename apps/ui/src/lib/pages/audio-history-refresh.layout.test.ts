@@ -33,7 +33,7 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource.match(/data-audio-section-icon/g) ?? []).toHaveLength(2);
         expect(audioHistorySource.match(/data-audio-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
         expect(audioHistorySource).toContain('min-h-11');
-        expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
+        expect(audioHistorySource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus');
         expect(audioHistorySource).toContain('role="alert"');
         expect(audioHistorySource).toContain("$_('common.retry')");
         expect(audioHistorySource).toContain('animation: reduceMotion ? false');
@@ -49,7 +49,8 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource).toContain("import { loadSpeciesDetailModal } from '../components/lazy-dialogs'");
         expect(audioHistorySource).toContain('data-audio-top-species-button');
         expect(audioHistorySource).toContain('onclick={() => selectedSpecies = item.species}');
-        expect(audioHistorySource).toContain("$_('leaderboard.view_species'");
+        // The row is named by what it shows (rank, species, last heard, count), not by a label that hides it.
+        expect(audioHistorySource).not.toContain("$_('leaderboard.view_species'");
         expect(audioHistorySource).toContain('<SpeciesDetailModal');
         expect(audioHistorySource).toContain('onclose={() => (selectedSpecies = null)}');
     });

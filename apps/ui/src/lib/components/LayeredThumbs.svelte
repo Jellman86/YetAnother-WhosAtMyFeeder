@@ -20,7 +20,7 @@
      so a long day label in the column beside it never runs under the picture. -->
 <span class="relative mx-auto block shrink-0 {size === 'card' ? 'h-16 w-16' : 'h-10 w-10'}" aria-hidden="true" data-layered-thumbs={shown.length}>
     {#if shown.length === 0}
-        <span class="flex h-full w-full items-center justify-center rounded-lg bg-slate-100 text-slate-400 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:ring-slate-700">
+        <span class="flex h-full w-full items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
         </span>
     {:else if shown.length === 1}

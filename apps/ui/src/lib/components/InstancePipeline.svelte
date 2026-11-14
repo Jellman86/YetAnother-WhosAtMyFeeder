@@ -229,8 +229,8 @@
 
     function toneClass(tone: Tone): string {
         if (tone === 'ok') return 'text-emerald-700 dark:text-emerald-300';
-        if (tone === 'off') return 'text-slate-500 dark:text-slate-400';
-        return 'text-slate-400 dark:text-slate-500';
+        if (tone === 'off') return 'text-slate-600 dark:text-slate-400';
+        return 'text-slate-600 dark:text-slate-400';
     }
 
     function kindClass(kind: Step['kind']): string {
@@ -252,7 +252,7 @@
                 <span class="pipeline-flow pointer-events-none absolute inset-0" aria-hidden="true"></span>
                 {#if index > 0}
                     <span
-                        class="pipeline-arrow absolute left-[-9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-600"
+                        class="pipeline-arrow absolute left-[-9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-500"
                         aria-hidden="true"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -261,22 +261,23 @@
                     </span>
                 {/if}
                 {#if step.state}
-                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] {toneClass(step.tone)}">
+                    <!-- Seven narrow cards at a large text size: a word breaks rather than being cut by the card. -->
+                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] wrap-anywhere {toneClass(step.tone)}">
                         {step.state}
                     </span>
                 {/if}
-                <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 dark:text-white">
+                <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 wrap-anywhere dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
                 <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-500 dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
                     {step.detail}
                 </span>
             </li>
         {/each}
     </ol>
 
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-500 dark:text-slate-400">
+    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-600 dark:text-slate-400">
         <span class="flex items-center gap-1.5">
             <i class="h-2.5 w-2.5 rounded-xs border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
             {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}

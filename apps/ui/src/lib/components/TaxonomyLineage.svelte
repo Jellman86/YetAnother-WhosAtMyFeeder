@@ -104,7 +104,7 @@
                         </span>
                         <button
                             type="button"
-                            class="ml-2 flex min-h-11 min-w-0 flex-col justify-center rounded-lg px-2 text-left hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+                            class="ml-2 flex min-h-11 min-w-0 flex-col justify-center rounded-lg px-2 text-left hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus"
                             aria-expanded={peek.isOpen(taxon.taxon_id)}
                             onpointerenter={(event) => {
                                 if (!isHoverPointer(event)) return;
@@ -129,7 +129,7 @@
                                 class="truncate text-sm leading-5 {last ? 'font-bold text-slate-900 dark:text-white' : 'font-medium text-slate-700 dark:text-slate-200'}"
                             />
                             {#if names.secondary}
-                                <TaxonNameText name={names.secondary} class="truncate text-2xs leading-4 text-slate-500 dark:text-slate-400" />
+                                <TaxonNameText name={names.secondary} class="truncate text-2xs leading-4 text-slate-600 dark:text-slate-400" />
                             {/if}
                         </button>
                     </span>
@@ -137,7 +137,7 @@
             {/each}
         </ol>
         {#if subject === 'bird' && family && family.species_count}
-            <p class="text-xs tabular-nums text-slate-500 dark:text-slate-400" data-taxonomy-lineage-context>
+            <p class="text-xs tabular-nums text-slate-600 dark:text-slate-400" data-taxonomy-lineage-context>
                 {$_('taxonomy.context', {
                     values: { group: taxonNames(family, style).primary.text, total: family.species_count, seen: family.seen_species ?? 0 },
                     default: '{group}: {total, plural, one {# species} other {# species}} worldwide, {seen} seen at this feeder.'

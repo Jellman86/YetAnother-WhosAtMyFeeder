@@ -61,7 +61,7 @@
                 <button
                     type="button"
                     onclick={() => toastStore.runAction(toast.id)}
-                    class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-white/60 px-3 text-sm font-semibold transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
+                    class="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-white/60 px-3 text-sm font-semibold transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                     data-toast-action
                 >
                     {toast.action.label}
@@ -71,7 +71,7 @@
             <!-- Close Button -->
             <button
                 onclick={() => toastStore.remove(toast.id)}
-                class="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
+                class="-mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                 aria-label={$_('notifications.close_toast', { default: 'Close notification' })}
             >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">

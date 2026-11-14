@@ -498,9 +498,9 @@
                 {/each}
             </select>
             {#if selectedModel}
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
+                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{modelHardwareNote(selectedModel)}</p>
                 {#if selectedModelSummary}
-                    <p class="mt-1 text-2xs font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
+                    <p class="mt-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
                 {/if}
                 {#if selectedInstalledModel?.ready === false}
                     <p role="status" class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.incomplete_install', { default: 'This model install is incomplete. Download and verify it again before continuing.' })}</p>
@@ -532,7 +532,7 @@
                 <p
                     id="setup-model-region-status"
                     role="status"
-                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'}"
+                    class="mt-1 text-xs leading-relaxed {regionNotice.kind === 'no_country' ? 'font-semibold text-amber-700 dark:text-amber-300' : 'text-slate-600 dark:text-slate-400'}"
                 >
                     {#if regionNotice.kind === 'no_country'}
                         {$_('setup.model.region_no_country', { default: 'No country is saved, so Auto uses the North American species list. Choose Europe if your feeder is in Europe.' })}
@@ -556,9 +556,9 @@
                     </option>
                 {/each}
             </select>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
             {#if providerPreferenceLabel}
-                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-600 dark:text-slate-400">
                     {$_('settings.detection.provider_runtime_order', {
                         values: { order: providerPreferenceLabel },
                         default: `Current runtime order: ${providerPreferenceLabel}`
@@ -578,7 +578,7 @@
         {#if usesLocation}
             <fieldset disabled={validating || downloading || saving} class="space-y-2 border-l-2 border-brand-100 pl-4 dark:border-brand-900/60">
                 <legend class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.location_title', { default: 'Feeder location' })}</legend>
-                <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
+                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.location_hint', { default: 'Validating or continuing saves these coordinates first, using the same feeder location as Settings → Integrations → Location. This model does not use the date or a location accuracy radius.' })}</p>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <label for="setup-model-latitude" class="text-sm text-slate-700 dark:text-slate-300">
                         {$_('manual_observation.location.latitude', { default: 'Latitude' })}
@@ -589,7 +589,7 @@
                         <input id="setup-model-longitude" type="number" min="-180" max="180" step="any" value={longitudeText} oninput={(event) => (longitudeText = event.currentTarget.value)} class="input-base mt-1" aria-invalid={coordinates.error !== null} aria-describedby="setup-model-location-status" />
                     </label>
                 </div>
-                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                <p id="setup-model-location-status" role={coordinates.error ? 'alert' : 'status'} class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                     {#if coordinates.error === 'incomplete'}
                         {$_('setup.model.location_incomplete', { default: 'Enter both latitude and longitude, or leave both empty.' })}
                     {:else if coordinates.error === 'range'}
@@ -632,7 +632,7 @@
             >
                 <div class="flex items-center justify-between text-sm">
                     <span class="font-medium text-brand-800 dark:text-brand-200">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
-                    <span class="text-xs tabular-nums text-brand-600 dark:text-brand-400">{downloadPct}%</span>
+                    <span class="text-xs tabular-nums text-brand-700 dark:text-brand-400">{downloadPct}%</span>
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
                     <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {downloadPct}%"></div>
@@ -654,7 +654,7 @@
             >
                 <div class="flex items-center justify-between text-sm">
                     <span class="font-medium text-brand-800 dark:text-brand-200">{phaseLabel(progress.phase)}</span>
-                    {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
+                    {#if progress.total > 0}<span class="text-xs text-brand-700 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
                 </div>
                 <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
                     <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {progress.total > 0 ? progressPct : 15}%"></div>
@@ -667,7 +667,7 @@
         {/if}
 
         {#if validating}
-            <p role="status" class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
+            <p role="status" class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('setup.model.check_running', { default: 'Continue is available when the check finishes. Leaving this step does not stop the check. Return later to read the saved results.' })}</p>
         {/if}
         {#if providerMessage}
             <p role="status" class="text-xs font-semibold text-amber-700 dark:text-amber-300">{providerMessage}</p>
@@ -681,7 +681,7 @@
 
         {#if results}
             {#if results.length === 0}
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('setup.model.no_results', { default: 'No installed models were evaluated.' })}</p>
             {:else}
                 <ul class="divide-y divide-slate-200 overflow-hidden rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
                     {#each results as m (m.model_id)}
@@ -689,7 +689,7 @@
                         <li class="flex items-center justify-between gap-3 p-2.5">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{availableModels.find((model) => model.id === m.model_id)?.name ?? m.model_id}</p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                <p class="text-xs text-slate-600 dark:text-slate-400">
                                     {#if outcome.provider && outcome.medianMs !== null}
                                         {$_('setup.model.best_provider', { values: { provider: providerLabel(outcome.provider), ms: outcome.medianMs.toFixed(0) }, default: `Best validated provider: ${providerLabel(outcome.provider)}, ${outcome.medianMs.toFixed(0)} ms per image` })}
                                     {:else if outcome.provider}
@@ -710,7 +710,7 @@
                         </li>
                     {/each}
                 </ul>
-                <p class="text-xs text-slate-500 dark:text-slate-400">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('model_eval.compat_only_body', { default: 'This run checked that each provider loads, gives finite output and agrees with the CPU baseline. It did not measure accuracy, so no accuracy figures are shown. Run Evaluation to measure accuracy.' })}</p>
             {/if}
         {/if}
     </WizardLoadState>

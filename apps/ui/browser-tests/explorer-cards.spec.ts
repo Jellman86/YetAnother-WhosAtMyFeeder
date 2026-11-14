@@ -160,12 +160,14 @@ for (const theme of ['light', 'dark']) {
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (shots) await item.screenshot({ path: `${shots}/explorer-card-mobile-collapsed-${theme}.png` });
         const next = page.locator('[data-explorer-visit="single"]');
-        const before = await next.boundingBox();
+        // Where the next card sits on the page, not in the window: opening the captures may scroll
+        // the page a few pixels to bring them into view, which moves nothing on the page itself.
+        const pageY = async (): Promise<number> => ((await next.boundingBox())?.y ?? NaN) + await page.evaluate(() => scrollY);
+        const before = await pageY();
         await item.locator('[data-visit-captures-toggle]').click();
         await expect(item.locator('[data-visit-capture]')).toHaveCount(3);
         await expectOneOutline(item);
-        const after = await next.boundingBox();
-        expect(after?.y).toBe(before?.y);
+        expect(await pageY()).toBe(before);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
         if (shots) await page.screenshot({ path: `${shots}/explorer-card-mobile-expanded-${theme}.png` });
         expect(errors).toEqual([]);

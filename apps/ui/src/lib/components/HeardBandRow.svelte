@@ -32,14 +32,14 @@
         <div class="pt-0.5">
             <!-- Like a visit row, a band is placed and labelled by when it began. -->
             <time class="block font-display text-sm font-bold tabular-nums leading-tight text-slate-600 dark:text-slate-300" datetime={band.firstHeard}>{formatTime(band.firstHeard)}</time>
-            {#if day}<span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{day}</span>{/if}
+            {#if day}<span class="block text-3xs font-semibold text-slate-600 dark:text-slate-400">{day}</span>{/if}
         </div>
         <LayeredThumbs sources={pictures} spectrogram />
         <div class="min-w-0">
             <HeardBandHeading {band} />
             <button
                 type="button"
-                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+                class="-ml-2 mt-0.5 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:bg-brand-500/10"
                 aria-expanded={open}
                 aria-controls="{uid}-calls"
                 onclick={() => (open = !open)}

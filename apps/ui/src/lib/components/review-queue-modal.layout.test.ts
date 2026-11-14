@@ -122,7 +122,7 @@ describe('review queue walk-through', () => {
         // The one copy already used for this, which names the loss and offers hiding instead.
         expect(modalSource).toContain('actions.confirm_delete');
         // Destructive work is not styled like the neutral way out beside it.
-        expect(modalSource).toContain('text-red-600');
+        expect(modalSource).toContain('text-red-700');
         expect(dashboardSource).toContain('ondelete={deleteFromQueue}');
         expect(dashboardSource).toContain('async function deleteFromQueue');
     });
@@ -198,7 +198,7 @@ describe('review queue walk-through', () => {
 
     it('keeps one repeated Identify quiet until its row is pointed at or focused', () => {
         const identify = modalSource.match(/<span class="([^"]*)">\s*\{\$_\('dashboard\.field_log\.identify'/)?.[1] ?? '';
-        expect(identify).toContain('text-slate-500');
+        expect(identify).toContain('text-slate-600');
         expect(identify).toContain('group-hover:text-brand-700');
         expect(identify).toContain('group-focus-visible:text-brand-700');
     });

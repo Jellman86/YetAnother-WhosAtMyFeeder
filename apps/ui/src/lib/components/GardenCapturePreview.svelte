@@ -54,7 +54,7 @@
 </script>
 
 {#snippet placeholder(size: string, icon: string)}
-    <span class="flex {size} items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600" aria-hidden="true">
+    <span class="flex {size} items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-500" aria-hidden="true">
         <svg class={icon} fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
@@ -117,12 +117,12 @@
                         {/if}
                     </div>
                     {#if scientific && scientific !== text.title}
-                        <p class="truncate text-2xs italic text-slate-500 dark:text-slate-400">{scientific}</p>
+                        <p class="truncate text-2xs italic text-slate-600 dark:text-slate-400">{scientific}</p>
                     {/if}
                     <p class="text-2xs font-medium {view.review ? 'text-attention-800 dark:text-attention-300' : 'text-slate-600 dark:text-slate-300'}" data-garden-capture-preview-state>
                         {text.state}
                     </p>
-                    <p class="text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="text-2xs text-slate-600 dark:text-slate-400">
                         {formatTime(capture.observed_at)} &middot; {capture.camera}
                     </p>
                 </div>

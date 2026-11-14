@@ -84,7 +84,7 @@ describe('content that arrives late has its space held', () => {
 
     it('holds the system chart, the status line and the header reading on the Health tab', () => {
         expect(systemHealthPanelSource).toMatch(/class="min-h-96 [^"]*md:min-h-80[^"]*" data-system-health-loading/);
-        expect(errorsSource).toContain('min-h-8 text-xs text-slate-500 sm:min-h-4');
+        expect(errorsSource).toContain('min-h-8 text-xs text-slate-600 sm:min-h-4');
         expect(errorsSource).toContain("refreshedAgoText() ? '' : 'invisible'");
     });
 

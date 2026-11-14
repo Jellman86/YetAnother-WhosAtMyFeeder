@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import { markerPopup, type MapMarker } from '../utils/map-popup';
+  import { _ } from 'svelte-i18n';
+  import { markerName, markerPopup, type MapMarker } from '../utils/map-popup';
   import type { Layer, Map as LeafletMap } from 'leaflet';
 
   type LeafletApi = typeof import('leaflet');
@@ -104,28 +105,25 @@
       }
     });
 
-    // Custom Icon for Birds
-    const birdIcon = leaflet.divIcon({
+    // Each pin is a small dot centred in a 24px target, so it can be hit with a finger or a
+    // shaky pointer without the dot itself growing over the map.
+    const pinIcon = (colour: string, dot: number) => leaflet.divIcon({
         className: 'custom-div-icon',
-        html: `<div style="background-color: #ef4444; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [12, 12],
-        iconAnchor: [6, 6],
-        popupAnchor: [0, -6]
+        html: `<div style="display: grid; place-items: center; width: 24px; height: 24px;"><div style="background-color: ${colour}; width: ${dot}px; height: ${dot}px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+        popupAnchor: [0, -8]
     });
+    const birdIcon = pinIcon('#ef4444', 12);
 
-    // Custom Icon for User (Home)
-    const homeIcon = leaflet.divIcon({
-        className: 'custom-div-icon',
-        html: `<div style="background-color: #3b82f6; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-        popupAnchor: [0, -7]
-    });
+    const homeIcon = pinIcon('#3b82f6', 14);
 
     // Draw User Location/Home Radius if available
     if (userLocation) {
-        leaflet.marker(userLocation, { icon: homeIcon })
-         .bindPopup("Your Location")
+        // A pin is a keyboard-reachable button, so each one carries a name.
+        const yourLocation = $_('common.map_your_location', { default: 'Your location' });
+        leaflet.marker(userLocation, { icon: homeIcon, title: yourLocation })
+         .bindPopup(yourLocation)
          .addTo(mapInstance);
          
         // Optional: Draw a subtle circle if we knew the radius (passed via props perhaps?)
@@ -133,7 +131,10 @@
 
     // Draw Bird Markers
     markers.forEach(m => {
-        const marker = leaflet.marker([m.lat, m.lng], { icon: birdIcon }).addTo(mapInstance);
+        const marker = leaflet.marker([m.lat, m.lng], {
+            icon: birdIcon,
+            title: markerName(m, $_('common.map_sighting', { default: 'Sighting location' }))
+        }).addTo(mapInstance);
         
         const content = markerPopup(m);
         if (content) marker.bindPopup(content);

@@ -88,7 +88,7 @@
 
     {#if showFooter}
         <div class="mt-2 flex items-center justify-between gap-3 px-1">
-            <span class="text-3xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
+            <span class="text-3xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-400">
                 {$_('detection.reclassification.snapshot_fallback_badge', { default: 'Snapshot fallback' })}
             </span>
             <span class="text-3xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">

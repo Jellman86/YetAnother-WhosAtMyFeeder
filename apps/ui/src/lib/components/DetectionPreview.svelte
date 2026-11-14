@@ -130,7 +130,7 @@
             {#snippet thumbnail(frame: Detection)}
                 {#if failed.has(thumbnailUrl(frame))}
                     <span
-                        class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
+                        class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-500"
                         aria-hidden="true"
                     >
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -176,7 +176,7 @@
             {#if popout.openIndex === index}
                 <HoverPopoutPanel {popout} {index} data-detection-preview-panel>
                     {#if failed.has(thumbnailUrl(frame))}
-                        <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
+                        <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-500">
                             <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
@@ -204,11 +204,11 @@
                             </span>
                         </div>
                         {#if secondaryName}
-                            <p class="truncate text-2xs italic text-slate-500 dark:text-slate-400">
+                            <p class="truncate text-2xs italic text-slate-600 dark:text-slate-400">
                                 {secondaryName}
                             </p>
                         {/if}
-                        <p class="text-2xs text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs text-slate-600 dark:text-slate-400">
                             {formatTime(frame.detection_time)} &middot; {frame.camera_name}{frame.weather_condition
                                 ? ` · ${frame.weather_condition}`
                                 : ''}{formatTemperature(frame.temperature, temperatureUnit)
@@ -216,7 +216,7 @@
                                 : ''}
                         </p>
                         {#if frameCount > 1}
-                            <p class="text-2xs text-slate-500 dark:text-slate-400">
+                            <p class="text-2xs text-slate-600 dark:text-slate-400">
                                 {$_('dashboard.field_log.preview_frame_position', {
                                     values: { position: index + 1, count: frameCount },
                                     default: 'Frame {position} of {count} in this visit'
@@ -230,12 +230,12 @@
     {/each}
 
     {#if showCount && frameCount > 1}
-        <span class="ml-1.5 text-2xs font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
+        <span class="ml-1.5 text-2xs font-semibold text-slate-600 dark:text-slate-400 sm:hidden">
             +{frameCount - 1}
         </span>
     {/if}
     {#if showCount && frameCount > VISIBLE_FRAMES}
-        <span class="ml-1.5 hidden text-2xs font-semibold text-slate-500 sm:inline dark:text-slate-400">
+        <span class="ml-1.5 hidden text-2xs font-semibold text-slate-600 sm:inline dark:text-slate-400">
             +{frameCount - VISIBLE_FRAMES}
         </span>
     {/if}

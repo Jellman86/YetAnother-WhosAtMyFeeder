@@ -217,7 +217,7 @@
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-2xl font-bold text-slate-900 dark:text-white">{progressPercent}%</span>
-                            <span class="text-3xs font-bold text-brand-600 dark:text-brand-300 uppercase tracking-widest leading-none">
+                            <span class="text-3xs font-bold text-brand-700 dark:text-brand-300 uppercase tracking-widest leading-none">
                                 {isComplete
                                     ? $_('detection.reclassification.complete', { default: 'Complete' })
                                     : $_('detection.reclassification.analysis')}
@@ -305,7 +305,7 @@
                                             {formatTerminalReason(progress.reason)}
                                         </p>
                                         {#if strongestEvidence}
-                                            <p class="mt-2 text-2xs font-semibold text-slate-500 dark:text-slate-400">
+                                            <p class="mt-2 text-2xs font-semibold text-slate-600 dark:text-slate-400">
                                                 {$_('detection.reclassification.unchanged_evidence', {
                                                     default: 'Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.',
                                                     values: {
@@ -341,7 +341,7 @@
                                     {displayLabel}
                                 </span>
                                 {#if displayScorePercent !== null}
-                                    <span class="text-3xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest mt-1">
+                                    <span class="text-3xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-1">
                                         {displayScorePercent}%
                                     </span>
                                 {/if}
@@ -410,7 +410,7 @@
                         </span>
                     {/if}
                 </div>
-                <span class="text-xs font-bold text-brand-600 dark:text-brand-300">{progressPercent}%</span>
+                <span class="text-xs font-bold text-brand-700 dark:text-brand-300">{progressPercent}%</span>
             </div>
         {/if}
 
@@ -465,7 +465,7 @@
                         {displayLabel}
                     </span>
                     {#if !small && displayScorePercent !== null}
-                        <span class="text-3xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-widest mt-1">
+                        <span class="text-3xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest mt-1">
                             {displayScorePercent}%
                         </span>
                     {/if}

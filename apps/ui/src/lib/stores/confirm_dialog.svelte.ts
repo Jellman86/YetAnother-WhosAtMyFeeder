@@ -9,6 +9,8 @@ export interface ConfirmRequest {
     message: string;
     /** Names the effect, e.g. "Reset database", never a bare "OK". */
     confirmLabel: string;
+    /** Names the safe answer when "Cancel" would misread, e.g. "Stay" on a leave prompt. Defaults to Cancel. */
+    cancelLabel?: string;
     tone?: ConfirmTone;
 }
 
@@ -23,7 +25,7 @@ class ConfirmDialogStore {
         // One question at a time: an unanswered one is treated as cancelled.
         this.answer(false);
         return new Promise<boolean>((resolve) => {
-            this.current = { tone: 'danger', ...options, resolve };
+            this.current = { tone: 'danger', cancelLabel: '', ...options, resolve };
         });
     }
 

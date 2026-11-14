@@ -49,7 +49,7 @@
         <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">
             {$_('jobs.circuit_open_message', { default: 'Reclassification queue paused by circuit breaker.' })}
         </p>
-        <p class="mt-1 text-xs text-amber-700/90 dark:text-amber-200/90">
+        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">
             {$_('jobs.circuit_open_detail', {
                 values: {
                     queued: queuedJobs.toLocaleString(),
@@ -77,7 +77,7 @@
                 {/if}
                 {$_('jobs.circuit_reset_button', { default: 'Try again' })}
             </button>
-            <p class="mt-1 text-3xs text-amber-600/80 dark:text-amber-300/70">
+            <p class="mt-1 text-3xs text-amber-700 dark:text-amber-300">
                 {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
             </p>
             {#if resetError}

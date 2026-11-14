@@ -71,12 +71,12 @@
                             onclick={() => (oncheck ? oncheck(row.key) : onopen(row.key))}
                         >
                             {#if thumb}
-                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-amber-400 group-focus-visible:ring-4 group-focus-visible:ring-brand-400" onerror={() => markFailed(thumb.raw)} />
+                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-amber-400 group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
                             {:else}
                                 <span class="block h-28 w-28 rounded-2xl bg-surface-raised ring-1 ring-line" aria-hidden="true"></span>
                             {/if}
                             <span class="mt-2 block text-sm font-semibold leading-snug text-slate-900 dark:text-white">{row.displayName}</span>
-                            <span class="block text-sm tabular-nums text-slate-500 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
+                            <span class="block text-sm tabular-nums text-slate-600 dark:text-slate-400">{row.count.toLocaleString()} {countLabel(row.count)}</span>
                         </button>
                     </li>
                 {/each}

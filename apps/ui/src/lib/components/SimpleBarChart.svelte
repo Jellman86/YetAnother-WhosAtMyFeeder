@@ -54,7 +54,7 @@
         {#if title}
             <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
         {/if}
-        <span class="text-xs text-slate-400 dark:text-slate-500">{total} total</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400">{total} total</span>
     </div>
 
     <!-- Chart container with proper overflow handling -->
@@ -93,7 +93,7 @@
             {#each labels as label, i}
                 <div class="flex-1 min-w-0 text-center">
                     {#if shouldShowLabel(i)}
-                        <span class="text-xs leading-none text-slate-500 dark:text-slate-400
+                        <span class="text-xs leading-none text-slate-600 dark:text-slate-400
                                      {hoveredIndex === i ? 'text-slate-700 dark:text-slate-300 font-medium' : ''}">
                             {label}
                         </span>

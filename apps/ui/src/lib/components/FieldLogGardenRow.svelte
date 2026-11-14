@@ -60,7 +60,7 @@
     data-field-log-garden={visit.id}
     data-needs-review={view.review ? 'true' : 'false'}
 >
-    <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400 {cell.time}">{span}</span>
+    <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400 {cell.time}">{span}</span>
 
     <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
         <!-- The spine runs behind the nodes so the day reads as one thread. -->
@@ -77,7 +77,7 @@
         <p class="hyphens-auto wrap-break-word text-sm font-semibold leading-5 text-slate-900 dark:text-white" data-field-log-name>
             {text.title}
         </p>
-        <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+        <p class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
             <GardenExplorerMarker compact />
             {#if score !== null}
                 <span class="font-bold tabular-nums log-wide:hidden {scoreTone}">{score}%</span>
@@ -106,7 +106,8 @@
 
     <span class="flex items-center justify-end {cell.action}">
         {#if view.review}
-            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" aria-label={openLabel} onclick={() => onopen(visit)} data-field-log-action>
+            <!-- Named by the word it shows first, then which capture, so speech input can call it "Review". -->
+            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" aria-label="{$_('dashboard.field_log.review', { default: 'Review' })}: {text.title}, {span}" onclick={() => onopen(visit)} data-field-log-action>
                 {$_('dashboard.field_log.review', { default: 'Review' })}
             </button>
         {:else}

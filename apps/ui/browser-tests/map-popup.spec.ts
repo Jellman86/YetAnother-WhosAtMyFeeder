@@ -10,3 +10,16 @@ for (const variant of ['title', 'body']) {
         await expect.poll(() => page.evaluate(() => document.documentElement.dataset.popupExecuted ?? null)).toBeNull();
     });
 }
+
+test('every pin is a named button with a 24px target', async ({ page }) => {
+    await page.route('https://**/*', route => route.abort());
+    await page.goto('/browser-tests/map-popup.html?variant=title');
+    const pins = page.locator('.leaflet-marker-icon[role="button"]');
+    await expect(pins.first()).toBeVisible();
+    for (const pin of await pins.all()) {
+        expect((await pin.getAttribute('title'))?.trim()).toBeTruthy();
+        const box = await pin.boundingBox();
+        expect(box?.width ?? 0).toBeGreaterThanOrEqual(24);
+        expect(box?.height ?? 0).toBeGreaterThanOrEqual(24);
+    }
+});

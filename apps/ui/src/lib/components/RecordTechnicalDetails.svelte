@@ -51,7 +51,7 @@
         }
         return {
             shell: 'bg-slate-950',
-            prompt: 'text-slate-500',
+            prompt: 'text-slate-400',
             host: null,
             sigil: '$',
             output: 'text-emerald-300'
@@ -66,7 +66,7 @@
     class="group order-last rounded-lg border border-slate-300 dark:border-slate-700/70 {terminalTheme.shell}"
 >
     <summary
-        class="flex min-h-11 flex-wrap cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
+        class="flex min-h-11 flex-wrap cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-on-dark group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
         'windows'
             ? 'bg-[#000080]'
             : 'bg-slate-900/80'}"
