@@ -61,7 +61,7 @@
                             onclick={toggle}
                         >
                             <span class="min-w-0 wrap-break-word">{title}</span>
-                            <svg class="h-4 w-4 shrink-0 text-slate-500 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                            <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                         </button>
                     {:else}
                         {title}

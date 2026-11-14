@@ -859,6 +859,7 @@
     "link_preview_others": "Discord のタイトル、Pushover、メールも同じアドレスを使います。",
     "link_preview_none": "リンクは送信されません",
     "sentence": {
+      "chip_context": "（{setting}）",
       "lead": "通知する内容",
       "confidence_join": "・信頼度",
       "confidence_chip": "{value}%以上",

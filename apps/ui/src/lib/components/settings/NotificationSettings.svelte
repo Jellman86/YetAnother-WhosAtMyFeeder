@@ -455,7 +455,7 @@
             <div class="flex items-center justify-between gap-4">
                 <div>
                     <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                    <span class="block text-xs text-slate-600 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                    <span class="block text-xs text-slate-600 dark:text-slate-400 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <input
@@ -466,7 +466,7 @@
                         class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
                         aria-label={$_('settings.notifications.cooldown')}
                     />
-                    <span class="text-xs font-bold text-slate-600">{$_('settings.notifications.cooldown_unit')}</span>
+                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_unit')}</span>
                 </div>
             </div>
 
@@ -514,19 +514,19 @@
 
             <!-- Where the notification link opens -->
             <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h4>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h3>
                 <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_req')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_req')}</span>
                     </label>
                 </div>
                 {#if frigateUrlMissing}
@@ -537,35 +537,35 @@
                 {/if}
                 <div class="mt-4 grid gap-1 text-xs">
                     <div class="flex flex-wrap gap-x-3 gap-y-1">
-                        <span class="font-bold text-slate-600">{$_('settings.notifications.link_preview_telegram')}</span>
+                        <span class="font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_telegram')}</span>
                         {#if linkPreview}
                             <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
                         {:else}
-                            <span class="italic text-slate-600">{$_('settings.notifications.link_preview_none')}</span>
+                            <span class="italic text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_none')}</span>
                         {/if}
                     </div>
-                    <span class="text-slate-600">{$_('settings.notifications.link_preview_others')}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_others')}</span>
                 </div>
             </div>
 
             <!-- Species Filter -->
             <div id={speciesFilterSectionId} class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30 scroll-mt-24">
-                <h4 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h4>
+                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h3>
                 <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_none_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_none_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
                         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
                     </label>
                 </div>
 
@@ -580,11 +580,11 @@
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                         {#if speciesSearchLoading}
-                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('common.loading')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('common.loading')}</p>
                         {:else if speciesSearchError}
-                            <p class="mt-2 text-xs font-bold text-red-500">{speciesSearchError}</p>
+                            <p class="mt-2 text-xs font-bold text-red-700 dark:text-red-300">{speciesSearchError}</p>
                         {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
-                            <p class="mt-2 text-xs font-bold text-slate-600">{$_('settings.notifications.species_filter_no_results')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
                         {/if}
 
                         {#if speciesSearchResults.length > 0}
@@ -598,7 +598,7 @@
                                     >
                                         <span class="block text-sm font-bold text-slate-900 dark:text-white">{names.primary}</span>
                                         {#if names.secondary}
-                                            <span class="block text-xs font-semibold italic text-slate-600">{names.secondary}</span>
+                                            <span class="block text-xs font-semibold italic text-slate-600 dark:text-slate-400">{names.secondary}</span>
                                         {/if}
                                     </button>
                                 {/each}
@@ -612,14 +612,14 @@
                                     <button
                                         onclick={() => removeSpeciesFilterEntry(entry)}
                                         aria-label={$_('settings.notifications.species_filter_remove_label', { values: { species: formatBlockedSpeciesLabel(entry) } })}
-                                        class="text-slate-600 hover:text-red-500 transition-colors"
+                                        class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                     >
                                         x
                                     </button>
                                 </span>
                             {/each}
                             {#if filterSpeciesEntries.length === 0 && legacySpeciesWhitelist.length === 0}
-                                <p class="text-xs font-bold text-slate-600 italic">{$_('settings.notifications.no_species_filter')}</p>
+                                <p class="text-xs font-bold text-slate-600 dark:text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
                             {/if}
                         </div>
 
@@ -633,7 +633,7 @@
                                             <button
                                                 onclick={() => removeLegacySpeciesWhitelist(species)}
                                                 aria-label={$_('settings.notifications.remove_species_label', { values: { species } })}
-                                                class="text-slate-600 hover:text-red-500 transition-colors"
+                                                class="text-slate-600 dark:text-slate-400 hover:text-red-500 transition-colors"
                                             >
                                                 x
                                             </button>
@@ -909,8 +909,8 @@
                     <!-- OAuth App Credentials -->
                     <div class="border-t border-line-soft pt-4 space-y-3">
                         <div>
-                            <h5 class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.oauth_app_credentials')}</h5>
-                            <p class="text-xs text-slate-600">{$_('settings.email.oauth_app_credentials_desc')}</p>
+                            <h4 class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.email.oauth_app_credentials')}</h4>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.oauth_app_credentials_desc')}</p>
                         </div>
                         <!-- Gmail credentials -->
                         <div class="grid grid-cols-1 gap-2">
@@ -1028,7 +1028,7 @@
                                     }}
                                     aria-label={$_('settings.email.disconnect')}
                                     disabled={disconnectingEmailOAuth}
-                                    class="text-xs text-red-600 dark:text-red-400 hover:underline"
+                                    class="text-xs text-red-700 dark:text-red-400 hover:underline"
                                 >
                                     {disconnectingEmailOAuth ? $_('common.testing') : $_('settings.email.disconnect')}
                                 </button>
@@ -1146,7 +1146,7 @@
                             />
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
                         </label>
-                        <p class="mt-1 text-xs text-slate-600">{$_('settings.email.only_on_end_desc')}</p>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                 </AdvancedSection>
 

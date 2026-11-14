@@ -317,10 +317,10 @@
             <div class="flex items-center justify-between gap-2 px-4 py-2">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                    <span class="text-xs font-semibold text-accent-700 dark:text-accent-300">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                     <button
                         type="button"
-                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                         aria-label={$_('settings.cameras.preview_close')}
                         onclick={() => stopPreview(camera)}
                     >
@@ -336,12 +336,12 @@
                         <img class="absolute inset-0 h-full w-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
                     {/if}
                     {#if previewLoading}
-                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-600 dark:bg-slate-900/70">
+                        <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 text-xs font-semibold text-slate-600 dark:text-slate-400 dark:bg-slate-900/70">
                             {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
                         </div>
                     {/if}
                     {#if previewError}
-                        <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 px-3 text-center text-xs font-semibold text-rose-500 dark:bg-slate-900/80">
+                        <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 px-3 text-center text-xs font-semibold text-rose-700 dark:text-rose-300 dark:bg-slate-900/80">
                             {previewError}
                         </div>
                     {/if}

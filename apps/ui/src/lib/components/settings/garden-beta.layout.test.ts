@@ -53,7 +53,7 @@ describe('Garden animals is a beta feature', () => {
         expect(gardenBetaSource.match(/<BetaSection id="garden-section-(cameras|checks)"[^>]*openByDefault>/g)).toHaveLength(2);
         expect(betaSectionSource).toContain('useDisclosure(() => ({ id, openByDefault }))');
         // A heading that is the disclosure button, hidden rather than unmounted when closed.
-        expect(betaSectionSource).toMatch(/<h5>\s*<button/);
+        expect(betaSectionSource).toMatch(/<h4>\s*<button/);
         expect(betaSectionSource).toContain('aria-expanded={open}');
         expect(betaSectionSource).toContain('hidden={!open}');
         expect(betaSectionSource).toContain('min-h-11');

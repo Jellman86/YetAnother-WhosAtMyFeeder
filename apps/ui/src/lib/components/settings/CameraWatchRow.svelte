@@ -68,7 +68,7 @@
 
     function stateClass(checked: boolean, blocked: boolean): string {
         if (checked) return 'bg-brand-700 text-white';
-        if (blocked) return 'cursor-not-allowed text-slate-500 line-through decoration-slate-400 dark:text-slate-400';
+        if (blocked) return 'cursor-not-allowed text-slate-600 line-through decoration-slate-400 dark:text-slate-400';
         return 'cursor-pointer text-slate-700 hover:bg-surface-raised dark:text-slate-200';
     }
 </script>

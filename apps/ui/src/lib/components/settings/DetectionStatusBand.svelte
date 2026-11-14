@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { settingsScrollBehaviour } from '../../settings/scroll-behaviour';
     import { _ } from 'svelte-i18n';
     import type { ClassifierStatus } from '../../api';
     import { classifierRuntimeState } from '../../utils/classifier-runtime-state';
@@ -47,7 +48,7 @@
 
     async function jumpTo(anchorId: string) {
         await onreveal?.(anchorId);
-        document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: settingsScrollBehaviour() });
     }
 </script>
 

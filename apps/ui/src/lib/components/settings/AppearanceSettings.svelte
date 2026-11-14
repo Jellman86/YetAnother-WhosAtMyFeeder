@@ -64,7 +64,7 @@
     >
         <SettingsSegmented
             value={currentTheme}
-            ariaLabelTemplate={(label) => $_('theme.select', { values: { theme: label } })}
+            labelledBy="setting-theme"
             onchange={(v) => setTheme(v as Theme)}
             options={[
                 { value: 'light', label: $_('theme.light') },
@@ -192,7 +192,7 @@
             value={currentNamingMode}
             layout="card"
             columns={1}
-            ariaLabelTemplate={(label) => $_('settings.detection.naming_select_label', { values: { mode: label } })}
+            labelledBy="setting-naming"
             onchange={(v) => setNamingMode(v as NamingMode)}
             options={[
                 { value: 'standard', label: $_('settings.detection.naming_standard'), sub: $_('settings.detection.naming_standard_sub') },
@@ -215,7 +215,7 @@
             <SettingsSegmented
                 value={draft.fontTheme}
                 layout="card"
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-font-theme"
                 onchange={(v) => onchange({ fontTheme: v as FontTheme })}
                 options={[
                     { value: 'default', label: $_('theme.font_default'), sub: 'Instrument Sans / Bricolage', meta: $_('theme.font_lang_default') },
@@ -236,7 +236,7 @@
             <SettingsSegmented
                 value={draft.colorTheme}
                 layout="card"
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-color-theme"
                 onchange={(v) => onchange({ colorTheme: v as ColorTheme })}
                 options={[
                     { value: 'default', label: $_('theme.color_default'), sub: $_('theme.color_default_desc'), swatch: 'bg-brand-500' },

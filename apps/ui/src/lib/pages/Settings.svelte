@@ -3290,7 +3290,7 @@
                 <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
                 <div class="space-y-4" data-beta-page>
                     <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
-                        <h3 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h3>
+                        <h2 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h2>
                         <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
                             {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.' })}
                         </p>

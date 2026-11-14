@@ -307,8 +307,8 @@
                                     {/if}
                                 {/each}
                             {/if}
-                            <span class="pointer-events-none absolute left-full top-0 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-600">100%</span>
-                            <span class="pointer-events-none absolute left-full top-1/2 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-600">50%</span>
+                            <span class="pointer-events-none absolute left-full top-0 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-600 dark:text-slate-400">100%</span>
+                            <span class="pointer-events-none absolute left-full top-1/2 ml-1.5 -translate-y-1/2 text-3xs tabular-nums text-slate-600 dark:text-slate-400">50%</span>
                             {#if inspected}
                                 <div
                                     class="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white/95 px-2.5 py-1.5 text-xs shadow-md dark:border-slate-700 dark:bg-slate-900/95"
@@ -343,7 +343,7 @@
                             aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
                         />
-                        <div class="flex justify-between text-3xs tabular-nums text-slate-600">
+                        <div class="flex justify-between text-3xs tabular-nums text-slate-600 dark:text-slate-400">
                             {#each ticks as tick (tick.at)}
                                 <span>{timeOf(tick.at)}</span>
                             {/each}
@@ -376,48 +376,55 @@
                     {/if}
                 </div>
 
-                <dl class="grid grid-cols-3 gap-4 md:grid-cols-1 md:gap-5" data-system-health-now>
-                    <div>
-                        <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
-                        <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
-                    </div>
-                    {#each acceleratorSeries as line (line.id)}
+                <div>
+                    <dl class="grid grid-cols-3 gap-4 md:grid-cols-1 md:gap-5" data-system-health-now>
                         <div>
-                            <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
-                            <dd class="font-display font-bold tabular-nums {line.text} {line.latest === null ? 'text-sm' : 'text-3xl'}">{formatPercent(line.latest) ?? $_('settings.system_health.not_measured', { default: 'Not measured' })}</dd>
-                            {#if line.latest === null}
-                                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400" data-system-health-measurement-gap>
-                                    {$_('settings.system_health.measurement_gap', { default: 'No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.' })}
-                                </p>
-                            {/if}
-                            <p class="text-3xs text-slate-600 dark:text-slate-400">{scopeNote(line.scope)}</p>
+                            <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
+                            <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
                         </div>
-                    {/each}
-                    <div>
-                        <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
-                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-                            {formatBytes(history.app_rss_bytes) ?? '—'}
-                            {#if history.host.memory_total_bytes}
-                                <span class="text-xs font-normal text-slate-600 dark:text-slate-400">{$_('settings.system_health.memory_of', { values: { total: formatBytes(history.host.memory_total_bytes) }, default: 'of {total}' })}</span>
-                            {/if}
-                        </dd>
-                    </div>
-                    <div class="col-span-3 text-xs text-slate-600 md:col-span-1 dark:text-slate-400" data-system-health-host>
+                        {#each acceleratorSeries as line (line.id)}
+                            <div>
+                                <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.accelerator_now', { values: { label: line.label }, default: '{label} now' })}</dt>
+                                <!-- The notes belong to the value, so they sit inside its <dd>: a list item holds
+                                     only its term and description. -->
+                                <dd>
+                                    <span class="block font-display font-bold tabular-nums {line.text} {line.latest === null ? 'text-sm' : 'text-3xl'}">{formatPercent(line.latest) ?? $_('settings.system_health.not_measured', { default: 'Not measured' })}</span>
+                                    {#if line.latest === null}
+                                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400" data-system-health-measurement-gap>
+                                            {$_('settings.system_health.measurement_gap', { default: 'No utilisation reading for this sample. The worker rows below show their loaded accelerator; this gap does not establish a CPU fallback.' })}
+                                        </p>
+                                    {/if}
+                                    <p class="text-3xs text-slate-600 dark:text-slate-400">{scopeNote(line.scope)}</p>
+                                </dd>
+                            </div>
+                        {/each}
+                        <div>
+                            <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.memory_now', { default: 'This app in memory' })}</dt>
+                            <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                                {formatBytes(history.app_rss_bytes) ?? '—'}
+                                {#if history.host.memory_total_bytes}
+                                    <span class="text-xs font-normal text-slate-600 dark:text-slate-400">{$_('settings.system_health.memory_of', { values: { total: formatBytes(history.host.memory_total_bytes) }, default: 'of {total}' })}</span>
+                                {/if}
+                            </dd>
+                        </div>
+                    </dl>
+                    <!-- About the host, not one of the readings, so it follows the list rather than sitting in it. -->
+                    <p class="mt-4 text-xs text-slate-600 md:mt-5 dark:text-slate-400" data-system-health-host>
                         {#if history.host.cpu_count}
                             {history.host.cpu_quota
                                 ? $_('settings.system_health.cores_limited', { values: { count: history.host.cpu_count, quota: history.host.cpu_quota }, default: '{count, plural, one {# core} other {# cores}}, limited to {quota}' })
                                 : $_('settings.system_health.cores', { values: { count: history.host.cpu_count }, default: '{count, plural, one {# core} other {# cores}}, no CPU limit on the container' })}
                         {/if}
-                    </div>
-                </dl>
+                    </p>
+                </div>
             </div>
 
             {#if rows.length > 0}
                 <div class="border-t border-slate-200/70 pt-5 dark:border-slate-700/50" data-system-health-share>
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <h4 class="font-display text-base font-bold text-slate-900 dark:text-white">
+                        <h3 class="font-display text-base font-bold text-slate-900 dark:text-white">
                             {$_('settings.system_health.share_title', { default: 'Resource use right now' })}
-                        </h4>
+                        </h3>
                         {#if latest?.cpu_percent !== null && latest?.cpu_percent !== undefined}
                             <p class="text-xs tabular-nums text-slate-600 dark:text-slate-400">
                                 {$_('settings.system_health.share_summary', {

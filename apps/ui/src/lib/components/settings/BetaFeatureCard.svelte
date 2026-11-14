@@ -35,7 +35,7 @@
 <article class="card-base min-w-0" aria-labelledby={nameId} data-beta-feature={id}>
     <header class="flex items-start justify-between gap-4 p-5 sm:p-6">
         <div class="min-w-0 space-y-1">
-            <h4 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h4>
+            <h3 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400">
                 {description}
                 {#if learnMoreHref}

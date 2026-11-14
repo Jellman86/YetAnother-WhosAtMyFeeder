@@ -167,7 +167,7 @@
     <div class="space-y-4 wrap-break-word" data-garden-beta-settings>
         {#if summary.steps.length > 0}
             <section class="space-y-2 rounded-xl p-4 {summary.attention ? 'bg-attention-500/5' : 'bg-surface-raised/70'}" aria-labelledby="garden-next-steps" data-garden-next-steps>
-                <h5 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h5>
+                <h4 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h4>
                 <ol class="space-y-2">
                     {#each summary.steps as step (step.kind === 'download_model' ? step.role : step.kind)}
                         <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-garden-next-step={step.kind}>

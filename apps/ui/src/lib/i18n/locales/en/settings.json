@@ -859,6 +859,7 @@
     "link_preview_others": "Discord title, Pushover and email use the same address.",
     "link_preview_none": "no link is sent",
     "sentence": {
+      "chip_context": "({setting})",
       "lead": "Tell me about",
       "confidence_join": "that are at least",
       "confidence_chip": "{value}% sure",

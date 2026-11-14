@@ -859,6 +859,7 @@
     "link_preview_others": "Discord 标题、Pushover 和邮件使用同一地址。",
     "link_preview_none": "不发送链接",
     "sentence": {
+      "chip_context": "（{setting}）",
       "lead": "通知我",
       "confidence_join": "、置信度至少",
       "confidence_chip": "{value}%",

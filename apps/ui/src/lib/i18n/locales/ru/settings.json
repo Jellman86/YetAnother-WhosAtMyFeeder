@@ -859,6 +859,7 @@
     "link_preview_others": "Заголовок Discord, Pushover и письмо используют тот же адрес.",
     "link_preview_none": "ссылка не отправляется",
     "sentence": {
+      "chip_context": "({setting})",
       "lead": "Сообщай мне о",
       "confidence_join": "с уверенностью не ниже",
       "confidence_chip": "{value}%",

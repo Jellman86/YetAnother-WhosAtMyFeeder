@@ -193,7 +193,7 @@
         >
             <SettingsSegmented
                 value={draft.llmProvider}
-                ariaLabelTemplate={(label) => label}
+                labelledBy="setting-llm-provider"
                 onchange={(v) => onchange({ llmProvider: v })}
                 options={[
                     { value: 'gemini', label: 'Gemini' },
@@ -399,7 +399,7 @@
                 <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                     <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
                     <p class="text-2xl font-bold text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
-                    <p class="text-xs font-bold text-slate-600 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
+                    <p class="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
                 </div>
                 <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
                     <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
@@ -444,7 +444,7 @@
             {/if}
         {:else}
             <div class="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/50">
-                <p class="text-sm font-bold text-slate-600">
+                <p class="text-sm font-bold text-slate-600 dark:text-slate-400">
                     {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
                 </p>
             </div>

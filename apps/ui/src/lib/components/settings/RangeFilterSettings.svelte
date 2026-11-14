@@ -452,7 +452,7 @@
         {/if}
 
         <section class="space-y-2" aria-labelledby="range-filter-how" data-range-filter-how>
-            <h4 id="range-filter-how" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}</h4>
+            <h3 id="range-filter-how" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.how_title', { default: 'What happens to a bird outside the range' })}</h3>
             <ul class="list-disc space-y-1.5 pl-5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
                 <li>{$_('settings.range_filter.how_fallback', { default: "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first." })}</li>
                 <li>{$_('settings.range_filter.how_skip', { default: 'If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.' })}</li>
@@ -464,7 +464,7 @@
         {#if status?.region}
             <section class="space-y-3" aria-labelledby="range-filter-preview" data-range-filter-preview>
                 <div>
-                    <h4 id="range-filter-preview" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.preview_title', { default: 'Preview' })}</h4>
+                    <h3 id="range-filter-preview" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.preview_title', { default: 'Preview' })}</h3>
                     <p class="mt-0.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_desc', { default: 'What the filter would set aside with this list and the current model. Detections already recorded stay in your history.' })}</p>
                 </div>
                 {#if previewLoading && !preview}
@@ -508,7 +508,7 @@
         {/if}
 
         <section class="space-y-2" aria-labelledby="range-filter-skips" data-range-filter-skips>
-            <h4 id="range-filter-skips" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.skips_title', { default: 'Recently set aside' })}</h4>
+            <h3 id="range-filter-skips" class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.range_filter.skips_title', { default: 'Recently set aside' })}</h3>
             {#if skips.length === 0}
                 <p class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.range_filter.skips_empty', { default: 'Nothing has been set aside as outside the range.' })}</p>
             {:else}

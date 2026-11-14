@@ -644,7 +644,7 @@
                             <div class="flex items-center justify-between gap-2">
                                 <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
-                                    <span class="text-xs font-bold text-slate-600">{mappingTokensFor(camera).length} mapped</span>
+                                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{mappingTokensFor(camera).length} mapped</span>
                                 {/if}
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -712,11 +712,11 @@
                             {/if}
                         </div>
                         {#if loadingBirdnetSources}
-                            <p class="text-xs text-slate-600 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
                         {:else if birdnetSourcesError}
-                            <p class="text-xs text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
+                            <p class="text-xs text-rose-700 dark:text-rose-300 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
                         {:else if birdnetSourceOptions.length === 0}
-                            <p class="text-xs text-slate-600 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
                             <ul class="max-h-56 overflow-y-auto">
                                 {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
@@ -737,7 +737,7 @@
                                                 ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
                                                 : sourceValue}
                                         >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-600 group-hover:bg-brand-700 group-hover:text-white group-hover:group-disabled:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 group-hover:bg-brand-700 group-hover:text-white group-hover:group-disabled:bg-slate-200/70 transition-colors text-xs font-bold leading-none" aria-hidden="true">+</span>
                                             <span class="min-w-0 flex-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
                                             <span class="shrink-0 text-sm font-semibold text-slate-700 whitespace-nowrap tabular-nums dark:text-slate-200">{formatRelativeTime(source.last_seen)}</span>
                                         </button>
@@ -800,7 +800,7 @@
 
         <div class="border-t border-line-soft pt-4 space-y-3">
             <p class="text-xs text-slate-700 dark:text-slate-200">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
-            <p class="text-xs text-slate-600 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
@@ -850,7 +850,7 @@
                         }}
                         aria-label={$_('settings.integrations.inaturalist.disconnect_label')}
                         disabled={inatDisconnecting}
-                        class="text-xs text-rose-600 dark:text-rose-400 hover:underline"
+                        class="text-xs text-rose-700 dark:text-rose-400 hover:underline"
                     >
                         {inatDisconnecting ? $_('common.testing') : $_('settings.integrations.inaturalist.disconnect')}
                     </button>
@@ -989,9 +989,9 @@
                 />
             </SettingsRow>
         </div>
-        <p class="text-xs text-slate-600 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
         {#if ebirdExportRangeError}
-            <p class="text-xs text-rose-500 font-bold">{ebirdExportRangeError}</p>
+            <p class="text-xs text-rose-700 dark:text-rose-300 font-bold">{ebirdExportRangeError}</p>
         {/if}
         <button
             type="button"
@@ -1014,7 +1014,7 @@
         >
             {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
         </button>
-        <p class="text-xs text-slate-600 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
 
         <AdvancedSection
             id="integrations-ebird-advanced"
@@ -1277,7 +1277,7 @@
                     value={locationAuto ? 'auto' : 'manual'}
                     layout="card"
                     columns={2}
-                    ariaLabelTemplate={(label) => $_('settings.location.mode_select', { default: 'Use {mode}', values: { mode: label } })}
+                    labelledBy="setting-location-mode"
                     onchange={(v) => (locationAuto = v === 'auto')}
                     options={[
                         {
@@ -1331,13 +1331,13 @@
                 <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
                     <span class="text-sm font-semibold text-slate-700 shrink-0 dark:text-slate-200">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
                     {#if geocodeLoading}
-                        <span class="text-slate-600 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
+                        <span class="text-slate-600 dark:text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
                     {:else if geocodeError}
-                        <span class="text-rose-500 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
+                        <span class="text-rose-700 dark:text-rose-300 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
                     {:else if geocodePlace}
                         <span class="font-bold text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
                     {:else}
-                        <span class="text-slate-600 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
+                        <span class="text-slate-600 dark:text-slate-400 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
                     {/if}
                 </div>
             {/if}
@@ -1356,7 +1356,7 @@
                             <Map userLocation={mapPoint} center={mapPoint} zoom={11} />
                         {/key}
                     {:else}
-                        <div class="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-900/40 text-xs font-bold text-slate-600 italic">
+                        <div class="w-full h-full flex items-center justify-center bg-slate-50 dark:bg-slate-900/40 text-xs font-bold text-slate-600 dark:text-slate-400 italic">
                             {$_('settings.location.map_empty', { default: 'No coordinates configured yet.' })}
                         </div>
                     {/if}
