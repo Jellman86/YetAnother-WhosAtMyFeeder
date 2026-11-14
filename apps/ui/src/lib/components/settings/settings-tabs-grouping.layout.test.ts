@@ -19,7 +19,7 @@ describe('Settings navigation', () => {
         expect(settingsTabsSource).toContain('href={settingsHref(tab.id)}');
         expect(settingsTabsSource).toContain('toAppPath(`/settings/${tab}`)');
         expect(settingsTabsSource).toContain('event.metaKey');
-        expect(settingsTabsSource).toContain('focus-visible:ring-2');
+        expect(settingsTabsSource).toContain('focus-ring');
         // The current section also carries a bar and heavier type, not only a tint.
         expect(settingsTabsSource).toContain('border-brand-600 bg-brand-50 font-semibold');
     });

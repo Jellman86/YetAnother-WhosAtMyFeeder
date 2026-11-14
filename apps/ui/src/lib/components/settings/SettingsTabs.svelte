@@ -138,7 +138,7 @@
                                 onclick={(event) => handleLinkClick(event, tab.id)}
                                 aria-current={current ? 'page' : undefined}
                                 aria-describedby={unsavedTabs.includes(tab.id) ? 'settings-tab-unsaved-note' : undefined}
-                                class="flex min-h-10 items-center gap-2 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500
+                                class="flex min-h-10 items-center gap-2 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors focus-ring
                                        {current
                                     ? 'border-brand-600 bg-brand-50 font-semibold text-slate-900 dark:border-brand-400 dark:bg-brand-950/60 dark:text-white'
                                     : 'border-transparent font-medium text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}"

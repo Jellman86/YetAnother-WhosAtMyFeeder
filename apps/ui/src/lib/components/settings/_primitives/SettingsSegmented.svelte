@@ -52,7 +52,7 @@
             type="button"
             onclick={() => onchange(opt.value)}
             aria-pressed={active}
-            class="rounded-2xl border-2 transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-brand-400
+            class="rounded-2xl border-2 transition-all duration-200 focus-ring
                    {layout === 'tile'
                         ? 'flex flex-col items-center gap-2 p-4'
                         : 'flex items-center gap-4 p-4 text-left'}
