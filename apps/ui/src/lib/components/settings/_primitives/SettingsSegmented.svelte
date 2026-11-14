@@ -76,12 +76,12 @@
                         {opt.label}
                     </div>
                     {#if opt.sub}
-                        <div class="text-xs font-medium mt-1 {active ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'} truncate">
+                        <div class="text-xs font-medium mt-1 {active ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'} truncate">
                             {opt.sub}
                         </div>
                     {/if}
                     {#if opt.meta}
-                        <div class="text-3xs font-semibold mt-1 {active ? 'text-white/70' : 'text-slate-400 dark:text-slate-500'}">
+                        <div class="text-3xs font-semibold mt-1 {active ? 'text-white/70' : 'text-slate-600 dark:text-slate-400'}">
                             {opt.meta}
                         </div>
                     {/if}

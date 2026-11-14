@@ -3,7 +3,7 @@
   "subtitle": "Configurez et gérez votre instance YA-WAMF",
   "load_failed": "Vos paramètres n'ont pas pu être lus, rien n'est donc affiché pour modification. Vérifiez que le backend YA-WAMF fonctionne, puis réessayez.",
   "language_selector": "Langue",
-  "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
+  "language_desc": "La langue de cet écran, sur cet appareil. Les notifications utilisent la langue choisie dans Notifications.",
   "date_format": {
     "label": "Format de date",
     "desc": "Choisissez le format d’affichage des dates.",
@@ -68,7 +68,7 @@
     "config_backup_import_error": "Impossible d'importer la sauvegarde de la configuration",
     "diagnostics_title": "Diagnostics",
     "diagnostics_desc": "Ouvre l’onglet Santé avec l’état du backend, les incidents groupés et les lots de support.",
-    "open_diagnostics": "Ouvrir Santé",
+    "open_diagnostics": "Ouvrir santé",
     "taxonomy_title": "Réparation taxonomique",
     "taxonomy_desc": "Associer les noms scientifiques et communs",
     "taxonomy_syncing": "Synchronisation…",
@@ -230,7 +230,7 @@
     "frigate_success": "Connecté à Frigate v{version} sur {url}",
     "frigate_unexpected": "Frigate a renvoyé un statut inattendu",
     "frigate_error": "Échec de la connexion à Frigate",
-    "mqtt_title": "Paramètres MQTT (événements Frigate)",
+    "mqtt_title": "Le broker auquel Frigate publie ses événements. YA-WAMF y écoute les nouvelles détections.",
     "simulating": "Simulation…",
     "advanced_title": "Réglage fin",
     "full_visit_advanced_title": "Clips de visite complète (depuis les enregistrements)"
@@ -259,7 +259,12 @@
       "operations": "Exploitation",
       "interface": "Interface"
     },
-    "beta": "Fonctions bêta"
+    "beta": "Fonctions bêta",
+    "unsaved": "non enregistré",
+    "skip_to_content": "Aller aux paramètres",
+    "section_label": "Section des paramètres",
+    "navigation_label": "Sections des paramètres",
+    "unsaved_note": "Contient des modifications non enregistrées"
   },
   "debug": {
     "title": "Outils de débogage",
@@ -281,7 +286,7 @@
     "llm_prompt_chart": "Prompt d'analyse de graphique",
     "llm_prompt_chart_hint": "Jetons : {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
     "strict_non_finite_output": "Gestion stricte des sorties non finies",
-    "strict_non_finite_output_desc": "Lorsqu’elle est activée, les sorties du classificateur entièrement non finies sont rejetées et déclenchent une récupération d’exécution. Désactivez-la uniquement pour un débogage contrôlé."
+    "strict_non_finite_output_desc": "Rejette un résultat que le modèle n’a pas pu calculer et redémarre le modèle, pour que rien n’en soit enregistré. Désactivez-le uniquement pour déboguer le modèle."
   },
   "ai": {
     "usage_title": "Tableau de bord d'utilisation de l'IA",
@@ -289,13 +294,13 @@
     "total_calls": "Requêtes API",
     "total_tokens": "Tokens consommés",
     "estimated_cost": "Coût estimé",
-    "pricing_not_configured": "Configurez les tarifs ci-dessous pour plus de précision",
+    "pricing_not_configured": "Indiquez les prix dans Tarifs et modèles d’invite pour un coût exact.",
     "no_usage_data": "Aucune utilisation de l'IA enregistrée pour le moment.",
     "clear_usage": "Effacer l'historique",
     "clear_usage_confirm": "Voulez-vous vraiment effacer l'historique d'utilisation de l'IA ? Cette action est irréversible.",
     "clear_usage_success": "Historique d'utilisation de l'IA effacé.",
     "clear_usage_error": "Échec de l'effacement de l'historique d'utilisation.",
-    "connection_title": "Configuration du modèle",
+    "connection_title": "Fournisseur d’IA",
     "provider_info_title": "Fournisseurs d'IA cloud",
     "provider_info_desc": "YA-WAMF utilise des LLM cloud pour l'analyse comportementale et les interactions en langage naturel. Vous aurez besoin de votre propre clé API du fournisseur.",
     "prompts_title": "Modèles de prompts",
@@ -336,7 +341,7 @@
   "integrations": {
     "birdnet": {
       "title": "BirdNET-Go",
-      "toggle_label": "Activer l'intégration BirdNET-Go",
+      "toggle_label": "Associe les chants entendus par BirdNET-Go aux visites de la caméra, pour confirmer une visite par le son.",
       "internal_url_label": "URL interne BirdNET-Go",
       "internal_url_help": "URL réservée au backend pour récupérer les arrière-plans de spectrogramme, par exemple l'adresse du réseau Docker.",
       "external_url_label": "URL BirdNET-Go du navigateur",
@@ -378,7 +383,7 @@
     },
     "inaturalist": {
       "title": "iNaturalist",
-      "toggle_label": "Activer les envois iNaturalist",
+      "toggle_label": "Permet d’envoyer une détection à iNaturalist comme observation, depuis sa fiche.",
       "client_id": "ID client",
       "client_id_label": "ID client iNaturalist",
       "client_id_placeholder": "ID client iNaturalist",
@@ -407,7 +412,7 @@
     },
     "ebird": {
       "title": "eBird",
-      "toggle_label": "Activer l'enrichissement eBird",
+      "toggle_label": "Affiche les observations proches, la saisonnalité et la rareté d’eBird sur les pages d’espèces.",
       "api_key": "Clé API",
       "api_key_label": "Clé API eBird",
       "api_key_placeholder": "Clé API eBird",
@@ -428,13 +433,13 @@
       "export_range_help": "Laissez les deux champs vides pour exporter toutes les détections, ou choisissez une plage de dates inclusive.",
       "export_range_error": "La date de début doit être antérieure ou égale à la date de fin.",
       "export_everything": "Tout exporter",
-      "export_everything_label": "Activer/désactiver l’export complet pour CSV eBird",
+      "export_everything_label": "Exporter toutes les détections, pas seulement une période",
       "export_everything_help": "Activez ceci pour exporter toutes les détections et désactiver la plage de dates.",
       "advanced_title": "Valeurs par défaut de recherche de hotspots"
     },
     "birdweather": {
       "title": "BirdWeather",
-      "toggle_label": "Activer l'intégration BirdWeather",
+      "toggle_label": "Envoie chaque détection identifiée à votre station BirdWeather.",
       "token": "Jeton de station",
       "token_label": "Jeton de station BirdWeather",
       "token_placeholder": "Votre jeton BirdWeather",
@@ -498,7 +503,10 @@
     "seasonality_title": "Saisonnalité",
     "rarity_title": "Indicateurs de rareté",
     "links_title": "Liens externes",
-    "disabled": "Désactivé"
+    "disabled": "Désactivé",
+    "needs_ebird": "Non affiché : nécessite une clé d’API eBird",
+    "ebird_hint": "Les observations proches, la saisonnalité et la rareté apparaissent sur les pages d’espèces dès qu’eBird est activé avec une clé d’API.",
+    "open_ebird": "Configurer eBird"
   },
   "auth": {
     "title": "Authentification",
@@ -573,7 +581,7 @@
     "dyslexia_font": "Police pour dyslexiques",
     "dyslexia_font_desc": "Utiliser la police OpenDyslexic pour une meilleure lisibilité",
     "reduced_motion": "Réduire les mouvements",
-    "reduced_motion_desc": "Désactiver les animations et transitions",
+    "reduced_motion_desc": "Arrête les animations et les transitions. Le réglage de mouvement réduit de votre appareil est aussi toujours respecté.",
     "live_announcements": "Annonces en direct",
     "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran."
   },
@@ -724,12 +732,12 @@
     "appreciation_tooltip": "Si vous le pouvez, activez la télémétrie. Elle m’aide à comprendre comment YA-WAMF est utilisé et à orienter les améliorations."
   },
   "email": {
-    "title": "Notifications par Email",
+    "title": "Notifications par email",
     "desc": "Envoyer des alertes par email pour les détections d'oiseaux",
-    "enable": "Activer les Notifications par Email",
+    "enable": "Activer les Notifications par email",
     "auth_mode": "Mode d'Authentification",
     "oauth": "OAuth (Recommandé)",
-    "smtp": "SMTP Traditionnel",
+    "smtp": "SMTP traditionnel",
     "oauth_section": "Configuration OAuth",
     "oauth_desc": "Authentification sécurisée via Gmail ou Outlook",
     "connect_gmail": "Connecter Gmail",
@@ -746,15 +754,15 @@
     "smtp_username": "Nom d'utilisateur",
     "smtp_password": "Mot de passe",
     "smtp_use_tls": "Utiliser TLS/STARTTLS",
-    "from_email": "Adresse Email d'Expéditeur",
+    "from_email": "Adresse email d'Expéditeur",
     "from_email_placeholder": "votre-email@exemple.com",
-    "to_email": "Adresse Email du Destinataire",
+    "to_email": "Adresse email du destinataire",
     "to_email_placeholder": "destinataire@exemple.com",
-    "preferences": "Préférences Email",
-    "include_snapshot": "Inclure l'Image de Capture",
+    "preferences": "Préférences email",
+    "include_snapshot": "Inclure l'Image de capture",
     "only_on_end": "Envoyer uniquement à la fin de l'événement",
     "only_on_end_desc": "Envoyer les emails uniquement lorsque Frigate publie l'événement de fin (traité comme une mise à jour).",
-    "test_email": "Envoyer un Email de Test",
+    "test_email": "Envoyer un email de test",
     "test_email_sending": "Envoi…",
     "test_email_success": "Email de test envoyé avec succès à {email} !",
     "test_email_error": "Échec de l'envoi de l'email de test : {error}",
@@ -846,7 +854,7 @@
     "link_opens_frigate_desc": "Le même objet suivi dans la page Explore de Frigate.",
     "link_opens_frigate_req": "Nécessite Frigate 0.15 ou plus récent et l'URL publique de Frigate dans les réglages Intégrations.",
     "link_frigate_url_missing": "L'URL publique de Frigate n'est pas définie ; les notifications ne contiendront aucun lien tant qu'elle ne l'est pas.",
-    "link_open_integrations": "Ouvrir les réglages Intégrations",
+    "link_open_integrations": "Ouvrir les réglages intégrations",
     "link_preview_telegram": "Bouton Telegram",
     "link_preview_others": "Le titre Discord, Pushover et l'e-mail utilisent la même adresse.",
     "link_preview_none": "aucun lien n'est envoyé",
@@ -966,7 +974,7 @@
     "temperature_unit_desc": "Afficher la température dans les données météorologiques",
     "auto_detect_enabled": "Détection automatique via IP activée",
     "desc": "Utilisé pour le contexte météorologique localisé lors des détections.",
-    "state": "État / Région",
+    "state": "État / région",
     "country": "Pays",
     "map_empty": "Aucune coordonnée configurée pour le moment. Saisissez une latitude et une longitude (ou activez la détection automatique) pour voir la carte.",
     "map_help": "Affiche l'emplacement actuellement configuré pour la météo, les hotspots et les observations.",
@@ -984,10 +992,10 @@
     "resolving": "Recherche…"
   },
   "danger": {
-    "title": "Zone de Danger",
+    "title": "Actions irréversibles",
     "subtitle": "Actions destructrices",
     "reset_desc": "Réinitialiser la base supprimera définitivement TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible.",
-    "reset_button": "Réinitialiser BDD & Cache",
+    "reset_button": "Réinitialiser BDD & cache",
     "resetting": "Réinitialisation…",
     "confirm": "DANGER : cela supprimera TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible. Confirmer ?",
     "clear_feedback_button": "Effacer les données de personnalisation",
@@ -1027,7 +1035,7 @@
     "naming_title": "Style de nommage des oiseaux",
     "naming_standard": "Standard",
     "naming_standard_sub": "Noms communs en premier, scientifiques en sous-titres.",
-    "naming_hobbyist": "Passionné",
+    "naming_hobbyist": "Nom scientifique d’abord",
     "naming_hobbyist_sub": "Noms scientifiques en premier, communs en sous-titres.",
     "naming_scientific": "Strictement scientifique",
     "naming_scientific_sub": "Afficher uniquement les noms scientifiques.",
@@ -1322,7 +1330,8 @@
     "bird_finder_recommended_failed": "{devices} ne correspondent pas au CPU sur les photos d’oiseaux récentes. Le CPU reste disponible.",
     "bird_finder_recommended_running": "Vérification de {devices} en cours. Le CPU reste disponible pendant la vérification.",
     "bird_finder_recommended_unchecked": "CPU jusqu’à ce que {devices} réussissent la vérification ici. Aucun accélérateur recommandé pour le moment.",
-    "bird_finder_recommended_waiting": "En attente de photos d’oiseaux enregistrées pour revérifier {devices}. Le CPU reste disponible."
+    "bird_finder_recommended_waiting": "En attente de photos d’oiseaux enregistrées pour revérifier {devices}. Le CPU reste disponible.",
+    "model_manager_card_on_disk": "Sur cet hôte"
   },
   "llm": {
     "title": "Analyses IA",
@@ -1343,14 +1352,15 @@
     "test_label": "Tester la connexion IA",
     "test_hint": "Exécute une invite rapide pour vérifier votre clé API et le modèle.",
     "model_hint": "Choisissez un modèle prenant en charge les images (vision). Les modèles texte seul échoueront à l’analyse.",
-    "enabled": "Activer les analyses IA",
+    "enabled": "Analyses par IA",
     "test_connection": "Tester la connexion IA",
     "recommended_model": "Recommandé : {model}",
     "get_gemini_key": "Obtenir une clé Google Gemini →",
     "get_openai_key": "Obtenir une clé OpenAI →",
     "get_claude_key": "Obtenir une clé Anthropic Claude →",
     "get_openrouter_key": "Obtenir une clé OpenRouter →",
-    "openrouter_model_hint": "Saisissez n'importe quel ID de modèle OpenRouter (ex. google/gemini-3.1-flash-lite). Parcourez les modèles sur openrouter.ai/models."
+    "openrouter_model_hint": "Saisissez n'importe quel ID de modèle OpenRouter (ex. google/gemini-3.1-flash-lite). Parcourez les modèles sur openrouter.ai/models.",
+    "enabled_desc": "Permet de demander à un fournisseur d’IA de décrire une détection depuis sa fiche. Nécessite une clé d’API du fournisseur, qui facture chaque requête."
   },
   "explorer_view": {
     "label": "Affichage de l’explorateur",
@@ -1465,7 +1475,7 @@
     "garden_cameras_summary": "Animaux du jardin surveillés sur {cameras}.",
     "garden_cameras_none": "Aucune caméra ne surveille encore les animaux du jardin.",
     "garden_motion_summary": "Des photos de mouvement à vérifier sont collectées sur {cameras}.",
-    "garden_cameras_open": "Choisir les caméras dans Connexion",
+    "garden_cameras_open": "Choisir les caméras dans connexion",
     "garden_alerts_on": "Les alertes du jardin sont activées. Elles se règlent dans Notifications, avec leurs canaux.",
     "garden_alerts_off": "Les alertes du jardin sont désactivées. Activez-les dans Notifications, avec leurs canaux.",
     "garden_alerts_open": "Régler les alertes",
@@ -1490,9 +1500,9 @@
     "garden_step_camera": "Choisissez une caméra qui surveille les animaux du jardin.",
     "garden_step_apply": "Enregistrez les modifications pour activer le jardin. Les vérifications du modèle et du pays apparaîtront alors ici.",
     "garden_step_model": "Téléchargez le {model}.",
-    "garden_step_model_open": "Ouvrir Modèles",
+    "garden_step_model_open": "Ouvrir modèles",
     "garden_step_location": "Définissez votre position pour que le jardin connaisse votre pays et puisse nommer les animaux.",
-    "garden_step_location_open": "Définir la position dans Intégrations",
+    "garden_step_location_open": "Définir la position dans intégrations",
     "garden_off_note": "Le jardin cesse de collecter de nouvelles captures. Les captures et réglages existants sont conservés et reviennent quand vous le réactivez.",
     "garden_off_effects": "Tant qu’il est désactivé, le jardin est masqué dans l’Explorateur, ses alertes s’arrêtent et les oiseaux que vous élevez sont enregistrés comme oiseaux sauvages. La durée de conservation s’applique toujours aux captures enregistrées.",
     "garden_section_cameras": "Caméras",

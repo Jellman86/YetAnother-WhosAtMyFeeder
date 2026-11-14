@@ -3,7 +3,7 @@
   "subtitle": "配置和管理您的 YA-WAMF 实例",
   "load_failed": "无法读取设置，因此不显示任何可编辑内容。请确认 YA-WAMF 后端正在运行，然后重试。",
   "language_selector": "语言",
-  "language_desc": "更改用户界面文本和通知内容。",
+  "language_desc": "此设备上本界面的语言。通知消息使用“通知”中设置的语言。",
   "date_format": {
     "label": "日期格式",
     "desc": "选择日期的显示格式。",
@@ -230,7 +230,7 @@
     "frigate_success": "已连接到位于 {url} 的 Frigate v{version}",
     "frigate_unexpected": "Frigate 返回了意外状态",
     "frigate_error": "连接 Frigate 失败",
-    "mqtt_title": "MQTT 设置（Frigate 事件）",
+    "mqtt_title": "Frigate 发布事件的代理服务器。YA-WAMF 在此接收新的检测。",
     "simulating": "模拟中…",
     "advanced_title": "调优",
     "full_visit_advanced_title": "完整到访剪辑（来自录像）"
@@ -259,7 +259,12 @@
       "operations": "运维",
       "interface": "界面"
     },
-    "beta": "测试版功能"
+    "beta": "测试版功能",
+    "unsaved": "未保存",
+    "skip_to_content": "跳到设置",
+    "section_label": "设置分区",
+    "navigation_label": "设置分区列表",
+    "unsaved_note": "有未保存的更改"
   },
   "debug": {
     "title": "调试工具",
@@ -281,7 +286,7 @@
     "llm_prompt_chart": "图表分析提示",
     "llm_prompt_chart_hint": "标记: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
     "strict_non_finite_output": "严格处理非有限输出",
-    "strict_non_finite_output_desc": "启用后，分类器完全由非有限值组成的输出将被拒绝，并触发运行时恢复。仅在受控调试时禁用。"
+    "strict_non_finite_output_desc": "丢弃模型无法计算的结果并重启模型，因此不会从中保存任何内容。仅在调试模型时关闭。"
   },
   "ai": {
     "usage_title": "AI 使用情况",
@@ -289,13 +294,13 @@
     "total_calls": "API 请求数",
     "total_tokens": "消耗的令牌",
     "estimated_cost": "预估费用",
-    "pricing_not_configured": "请在下方配置价格以提高准确性",
+    "pricing_not_configured": "在“价格与提示模板”中设置价格，费用才准确。",
     "no_usage_data": "尚无 AI 使用记录。",
     "clear_usage": "清除历史记录",
     "clear_usage_confirm": "确定要清除 AI 使用历史吗？此操作无法撤销。",
     "clear_usage_success": "AI 使用历史已清除。",
     "clear_usage_error": "清除使用历史失败。",
-    "connection_title": "模型配置",
+    "connection_title": "AI 服务商",
     "provider_info_title": "云端 AI 提供商",
     "provider_info_desc": "YA-WAMF 使用云端 LLM 进行行为分析和自然语言交互。你需要使用提供商的 API 密钥。",
     "prompts_title": "提示词模板",
@@ -336,7 +341,7 @@
   "integrations": {
     "birdnet": {
       "title": "BirdNET-Go",
-      "toggle_label": "切换 BirdNET-Go 集成",
+      "toggle_label": "将 BirdNET-Go 听到的鸟鸣与摄像头来访匹配，以便用声音确认来访。",
       "internal_url_label": "BirdNET-Go 内部 URL",
       "internal_url_help": "仅供后端获取声谱图背景的 URL，例如 Docker 网络地址。",
       "external_url_label": "BirdNET-Go 浏览器 URL",
@@ -378,7 +383,7 @@
     },
     "inaturalist": {
       "title": "iNaturalist",
-      "toggle_label": "切换 iNaturalist 提交",
+      "toggle_label": "可从检测记录将其作为观察提交到 iNaturalist。",
       "client_id": "客户端 ID",
       "client_id_label": "iNaturalist 客户端 ID",
       "client_id_placeholder": "iNaturalist 客户端 ID",
@@ -407,7 +412,7 @@
     },
     "ebird": {
       "title": "eBird",
-      "toggle_label": "切换 eBird 增强",
+      "toggle_label": "在物种页面显示来自 eBird 的附近观测、季节性和稀有度。",
       "api_key": "API 密钥",
       "api_key_label": "eBird API 密钥",
       "api_key_placeholder": "eBird API 密钥",
@@ -428,13 +433,13 @@
       "export_range_help": "将两项都留空即可导出所有检测，或者选择包含起止日期的日期范围。",
       "export_range_error": "开始日期必须早于或等于结束日期。",
       "export_everything": "导出全部",
-      "export_everything_label": "切换 eBird CSV 的全量导出",
+      "export_everything_label": "导出所有检测，而不仅是某个日期范围",
       "export_everything_help": "启用此项以导出所有检测并禁用日期范围。",
       "advanced_title": "热点搜索默认值"
     },
     "birdweather": {
       "title": "BirdWeather",
-      "toggle_label": "切换 BirdWeather 集成",
+      "toggle_label": "将每条已识别的检测发送到你的 BirdWeather 站点。",
       "token": "电台令牌",
       "token_label": "BirdWeather 电台令牌",
       "token_placeholder": "你的 BirdWeather 令牌",
@@ -498,7 +503,10 @@
     "seasonality_title": "季节性",
     "rarity_title": "稀有度指标",
     "links_title": "外部链接",
-    "disabled": "已禁用"
+    "disabled": "已禁用",
+    "needs_ebird": "未显示：需要 eBird API 密钥",
+    "ebird_hint": "开启 eBird 并填写 API 密钥后，物种页面会显示附近观测、季节性和稀有度。",
+    "open_ebird": "设置 eBird"
   },
   "auth": {
     "title": "身份验证",
@@ -573,7 +581,7 @@
     "dyslexia_font": "阅读障碍友好字体",
     "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
     "reduced_motion": "减少动态效果",
-    "reduced_motion_desc": "禁用动画和过渡效果",
+    "reduced_motion_desc": "停止动画和过渡效果。也始终遵循设备的“减少动态效果”设置。",
     "live_announcements": "实时播报",
     "live_announcements_desc": "使用屏幕阅读器播报新的检测。"
   },
@@ -984,7 +992,7 @@
     "resolving": "正在查找…"
   },
   "danger": {
-    "title": "危险区域",
+    "title": "无法撤销的操作",
     "subtitle": "破坏性操作",
     "reset_desc": "重置数据库将永久删除所有检测记录、清空媒体缓存并移除所有已归档的收藏。此操作无法撤销。",
     "reset_button": "重置数据库和缓存",
@@ -1027,7 +1035,7 @@
     "naming_title": "鸟类命名样式",
     "naming_standard": "标准",
     "naming_standard_sub": "优先显示常见名，副标题显示学名。",
-    "naming_hobbyist": "爱好者",
+    "naming_hobbyist": "学名优先",
     "naming_hobbyist_sub": "优先显示学名，副标题显示常见名。",
     "naming_scientific": "严格学名",
     "naming_scientific_sub": "仅显示学名，隐藏常见名。",
@@ -1322,7 +1330,8 @@
     "bird_finder_recommended_failed": "{devices}在近期鸟类照片上的结果与CPU不一致。CPU仍然可用。",
     "bird_finder_recommended_running": "正在检查{devices}。检查期间CPU仍然可用。",
     "bird_finder_recommended_unchecked": "在{devices}通过此主机的检查之前使用CPU。尚无加速器推荐。",
-    "bird_finder_recommended_waiting": "正在等待已保存的鸟类照片，以重新检查{devices}。CPU仍然可用。"
+    "bird_finder_recommended_waiting": "正在等待已保存的鸟类照片，以重新检查{devices}。CPU仍然可用。",
+    "model_manager_card_on_disk": "已在本机"
   },
   "llm": {
     "title": "AI 洞察",
@@ -1343,14 +1352,15 @@
     "test_label": "测试 AI 连接",
     "test_hint": "运行快速提示以验证您的 API 密钥和模型。",
     "model_hint": "请选择支持图像输入（视觉）的模型。仅文本模型将无法完成分析。",
-    "enabled": "切换 AI 洞察",
+    "enabled": "AI 分析",
     "test_connection": "测试 AI 连接",
     "recommended_model": "推荐：{model}",
     "get_gemini_key": "获取 Google Gemini 密钥 →",
     "get_openai_key": "获取 OpenAI 密钥 →",
     "get_claude_key": "获取 Anthropic Claude 密钥 →",
     "get_openrouter_key": "获取 OpenRouter 密钥 →",
-    "openrouter_model_hint": "输入任意 OpenRouter 模型 ID（例如 google/gemini-3.1-flash-lite）。可在 openrouter.ai/models 浏览模型。"
+    "openrouter_model_hint": "输入任意 OpenRouter 模型 ID（例如 google/gemini-3.1-flash-lite）。可在 openrouter.ai/models 浏览模型。",
+    "enabled_desc": "可让 AI 服务商根据检测记录描述该检测。需要服务商的 API 密钥，每次请求都会计费。"
   },
   "explorer_view": {
     "label": "浏览器视图",

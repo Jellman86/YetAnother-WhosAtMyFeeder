@@ -358,12 +358,12 @@
 
         {#if status && status.location_precision !== 'none' && status.ebird_configured}
             <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2" data-range-filter-facts>
-                <div class="rounded-xl bg-surface-raised/70 p-3">
-                    <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.range_filter.source_label', { default: 'Source' })}</dt>
+                <div class="border-t border-line-soft pt-4">
+                    <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.range_filter.source_label', { default: 'Source' })}</dt>
                     <dd class="mt-0.5 font-semibold text-slate-900 dark:text-white">{$_('settings.range_filter.source_value', { default: 'eBird regional species list' })}</dd>
                 </div>
-                <div class="rounded-xl bg-surface-raised/70 p-3">
-                    <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.range_filter.region_label', { default: 'Region' })}</dt>
+                <div class="border-t border-line-soft pt-4">
+                    <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.range_filter.region_label', { default: 'Region' })}</dt>
                     <dd class="mt-0.5 font-semibold text-slate-900 dark:text-white" data-range-filter-region>
                         {#if status.region}
                             {regionText}
@@ -373,14 +373,14 @@
                         {/if}
                     </dd>
                 </div>
-                <div class="rounded-xl bg-surface-raised/70 p-3">
-                    <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.range_filter.species_label', { default: 'Species in range' })}</dt>
+                <div class="border-t border-line-soft pt-4">
+                    <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.range_filter.species_label', { default: 'Species in range' })}</dt>
                     <dd class="mt-0.5 font-semibold tabular-nums text-slate-900 dark:text-white" data-range-filter-species>
                         {status.species_in_range ?? '–'}
                     </dd>
                 </div>
-                <div class="rounded-xl bg-surface-raised/70 p-3">
-                    <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.range_filter.refreshed_label', { default: 'Refreshed' })}</dt>
+                <div class="border-t border-line-soft pt-4">
+                    <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.range_filter.refreshed_label', { default: 'Refreshed' })}</dt>
                     <dd class="mt-0.5 font-semibold text-slate-900 dark:text-white">
                         {#if status.refreshed_at}
                             <time datetime={status.refreshed_at} title={formatDateTime(status.refreshed_at)}>{ageText(listAge)}</time>
@@ -474,7 +474,7 @@
                 {:else if preview && !preview.available}
                     <p class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_unavailable', { default: 'A preview needs a current list for this location. Refresh the list to see one.' })}</p>
                 {:else if preview}
-                    <div class="rounded-xl bg-surface-raised/70 p-3">
+                    <div class="border-t border-line-soft pt-4">
                         <p class="text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('settings.range_filter.preview_seen_heading', { values: { count: preview.window_days }, default: '{count, plural, one {Recorded here in the last # day} other {Recorded here in the last # days}}' })}</p>
                         {#if preview.recently_seen.length > 0}
                             <ul class="mt-2 divide-y divide-line-soft" data-range-filter-preview-seen>
@@ -482,7 +482,7 @@
                                     <li class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
                                         <span class="min-w-0">
                                             <span class="font-semibold text-slate-900 dark:text-white">{speciesName(species)}</span>
-                                            {#if species.common_name}<span class="ml-1 text-xs italic text-slate-500 dark:text-slate-400">{species.scientific_name}</span>{/if}
+                                            {#if species.common_name}<span class="ml-1 text-xs italic text-slate-600 dark:text-slate-400">{species.scientific_name}</span>{/if}
                                         </span>
                                         <span class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-300">{$_('settings.range_filter.preview_seen_detections', { values: { count: species.detections ?? 0 }, default: '{count, plural, one {# detection} other {# detections}}' })}</span>
                                     </li>
@@ -512,7 +512,7 @@
             {#if skips.length === 0}
                 <p class="text-xs text-slate-600 dark:text-slate-300">{$_('settings.range_filter.skips_empty', { default: 'Nothing has been set aside as outside the range.' })}</p>
             {:else}
-                <ul class="divide-y divide-line-soft rounded-xl bg-surface-raised/70 px-3">
+                <ul class="border-t border-line-soft pt-4 divide-y divide-line-soft">
                     {#each skips as skip (skip.frigate_event)}
                         <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2 text-sm">
                             <span class="min-w-0 font-semibold text-slate-900 dark:text-white">{skip.label}</span>

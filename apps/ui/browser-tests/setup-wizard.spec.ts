@@ -361,7 +361,7 @@ async function openRerun(page: Page, fake: FakeBackend): Promise<string[]> {
 
 const continueButton = (page: Page) => wizard(page).getByRole('button', { name: 'Continue', exact: true });
 const modelSelect = (page: Page) => wizard(page).getByLabel('Model', { exact: true });
-const providerSelect = (page: Page) => wizard(page).getByLabel('Inference Provider', { exact: true });
+const providerSelect = (page: Page) => wizard(page).getByLabel('Inference provider', { exact: true });
 const latitude = (page: Page) => wizard(page).getByLabel('Latitude', { exact: true });
 const longitude = (page: Page) => wizard(page).getByLabel('Longitude', { exact: true });
 const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Validate on my hardware' });
@@ -446,7 +446,7 @@ test(`first run walks every step to Finish with history import ${importHistory} 
     await expectStep(page, 'Import existing detections');
     if (importHistory) {
         await wizard(page).getByRole('checkbox', { name: 'Import retained Frigate bird events' }).check();
-        await wizard(page).getByText('Last Week', { exact: true }).click();
+        await wizard(page).getByText('Last week', { exact: true }).click();
         await wizard(page).getByRole('button', { name: 'Import & continue' }).click();
     } else {
         await wizard(page).getByRole('button', { name: 'Continue without importing' }).click();

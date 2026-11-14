@@ -111,6 +111,7 @@
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
+    import { RUNTIME_DISCLOSURES, runtimeProblemKey } from '../settings/runtime-problem';
     import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import {
         buildBirdModelRegionOverrideSettings,
@@ -145,6 +146,7 @@
     const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
     const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
     const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
+    const loadTelemetrySettings = lazyComponent(() => import('../components/settings/TelemetrySettings.svelte'));
 
     function normalizeFrigateMissingBehavior(value: unknown): 'mark_missing' | 'keep' | 'delete' {
         return value === 'keep' || value === 'delete' ? value : 'mark_missing';
@@ -944,6 +946,12 @@
     // Closable sections keep their open state here for the visit (see disclosures.svelte.ts).
     const disclosures = new SettingsDisclosures();
     provideSettingsDisclosures(disclosures);
+
+    // On every read of the runtime or the settings: the sections that show a runtime problem open
+    // for a new one, stay open while it clears, and stay closed on one the owner dismissed.
+    function reportRuntimeProblem(): void {
+        disclosures.attend(RUNTIME_DISCLOSURES, runtimeProblemKey(classifierStatus, { videoCircuitOpen, autoVideoClassification }));
+    }
 
     const tabLabel = (tab: SettingsTab): string => $_(`settings.tabs.${tab}`);
     const unsavedTabNames = $derived(
@@ -2045,6 +2053,7 @@
             const status = await fetchClassifierStatus();
             if (request === classifierStatusRequest) {
                 classifierStatus = status;
+                reportRuntimeProblem();
                 // A status read that started before the form was last loaded, or
                 // that lands mid-save, may report a preference older than the form's.
                 if (formLoad === settingsFormLoads && !saving) adoptSavedInferenceProvider(status.selected_provider);
@@ -2438,6 +2447,7 @@
             // A shared read is the store's own copy; handing it back would restart its age.
             if (!shareShellRead) settingsStore.update(settings);
             applySavedSettings(settings);
+            reportRuntimeProblem();
             loadedInferenceProvider = settings.inference_provider;
             settingsFormLoads += 1;
             try {
@@ -2841,7 +2851,7 @@
 </script>
 
 {#snippet pageTabs()}
-    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} />
+    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -2896,17 +2906,11 @@
                     bind:recordingClipEnabled
                     bind:recordingClipBeforeSeconds
                     bind:recordingClipAfterSeconds
-                    bind:telemetryEnabled
-                    bind:telemetryHealthEnabled
                     {frigateCameras}
                     {frigateCamerasFailed}
                     {recordingClipCapability}
                     {recordingClipCapabilityLoading}
                     {camerasLoading}
-                    {telemetryInstallationId}
-                    {telemetryPlatform}
-                    {telemetryPayloadPreview}
-                    {versionInfo}
                     {loadCameras}
                 />
                 {/snippet}
@@ -3101,11 +3105,15 @@
                 />
                 {/snippet}
                 </LazyRoute>
-            {/if}
-
-            <!-- Enrichment Tab -->
-            {#if activeTab === 'enrichment'}
-                <LazyRoute loader={loadEnrichmentTab} label={$_('settings.tabs.enrichment')} props={enrichmentDraft} />
+                <!-- Where species pages get their information: chosen from these integrations, so shown with them. -->
+                <LazyRoute
+                    loader={loadEnrichmentTab}
+                    label={$_('settings.enrichment.title')}
+                    props={{
+                        ...enrichmentDraft,
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')
+                    }}
+                />
             {/if}
 
             <!-- AI Tab -->
@@ -3233,6 +3241,18 @@
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
+                />
+                {/snippet}
+                </LazyRoute>
+                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
+                {#snippet content(TelemetrySettings)}
+                <TelemetrySettings
+                    bind:telemetryEnabled
+                    bind:telemetryHealthEnabled
+                    {telemetryInstallationId}
+                    {telemetryPlatform}
+                    {telemetryPayloadPreview}
+                    {versionInfo}
                 />
                 {/snippet}
                 </LazyRoute>

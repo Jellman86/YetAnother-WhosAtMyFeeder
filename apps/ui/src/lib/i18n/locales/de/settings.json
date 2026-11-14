@@ -3,7 +3,7 @@
   "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
   "load_failed": "Ihre Einstellungen konnten nicht gelesen werden, daher wird nichts zum Bearbeiten angezeigt. Prüfen Sie, ob das YA-WAMF-Backend läuft, und versuchen Sie es erneut.",
   "language_selector": "Sprache",
-  "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
+  "language_desc": "Die Sprache dieser Oberfläche auf diesem Gerät. Benachrichtigungen verwenden die Sprache, die unter Benachrichtigungen eingestellt ist.",
   "date_format": {
     "label": "Datumsformat",
     "desc": "Standardanzeigeformat für das Datum wählen.",
@@ -230,7 +230,7 @@
     "frigate_success": "Mit Frigate v{version} unter {url} verbunden",
     "frigate_unexpected": "Frigate hat einen unerwarteten Status zurückgegeben",
     "frigate_error": "Verbindung zu Frigate fehlgeschlagen",
-    "mqtt_title": "MQTT-Einstellungen (Frigate-Ereignisse)",
+    "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Erkennungen.",
     "simulating": "Simulation läuft…",
     "advanced_title": "Feineinstellungen",
     "full_visit_advanced_title": "Vollbesuch-Clips (aus Aufzeichnungen)"
@@ -259,7 +259,12 @@
       "operations": "Betrieb",
       "interface": "Oberfläche"
     },
-    "beta": "Beta-Funktionen"
+    "beta": "Beta-Funktionen",
+    "unsaved": "ungespeichert",
+    "skip_to_content": "Zu den Einstellungen springen",
+    "section_label": "Einstellungsbereich",
+    "navigation_label": "Einstellungsbereiche",
+    "unsaved_note": "Enthält ungespeicherte Änderungen"
   },
   "debug": {
     "title": "Debug-Tools",
@@ -281,7 +286,7 @@
     "llm_prompt_chart": "Prompt für Diagrammanalyse",
     "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
     "strict_non_finite_output": "Strenge Behandlung nicht-endlicher Ausgaben",
-    "strict_non_finite_output_desc": "Wenn aktiviert, werden vollständig nicht-endliche Klassifikator-Ausgaben verworfen und lösen eine Laufzeit-Wiederherstellung aus. Nur für kontrolliertes Debugging deaktivieren."
+    "strict_non_finite_output_desc": "Verwirft ein Ergebnis, das das Modell nicht berechnen konnte, und startet das Modell neu, sodass nichts daraus gespeichert wird. Schalten Sie dies nur zur Fehlersuche am Modell aus."
   },
   "ai": {
     "usage_title": "KI-Nutzungsübersicht",
@@ -289,13 +294,13 @@
     "total_calls": "API-Anfragen",
     "total_tokens": "Verbrauchte Tokens",
     "estimated_cost": "Geschätzte Kosten",
-    "pricing_not_configured": "Konfigurieren Sie unten Preise für genauere Angaben",
+    "pricing_not_configured": "Legen Sie unter Preise und Prompt-Vorlagen Preise fest, damit die Kosten stimmen.",
     "no_usage_data": "Noch keine KI-Nutzung erfasst.",
     "clear_usage": "Verlauf löschen",
     "clear_usage_confirm": "Möchten Sie den KI-Nutzungsverlauf wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
     "clear_usage_success": "KI-Nutzungsverlauf gelöscht.",
     "clear_usage_error": "KI-Nutzungsverlauf konnte nicht gelöscht werden.",
-    "connection_title": "Modellkonfiguration",
+    "connection_title": "KI-Anbieter",
     "provider_info_title": "Cloud-KI-Anbieter",
     "provider_info_desc": "YA-WAMF verwendet Cloud-LLMs für Verhaltensanalysen und natürliche Sprachinteraktionen. Sie benötigen einen eigenen API-Schlüssel vom jeweiligen Anbieter.",
     "prompts_title": "Prompt-Vorlagen",
@@ -336,7 +341,7 @@
   "integrations": {
     "birdnet": {
       "title": "BirdNET-Go",
-      "toggle_label": "BirdNET-Go-Integration umschalten",
+      "toggle_label": "Ordnet Vogelrufe, die BirdNET-Go hört, den Kamerabesuchen zu, sodass ein Besuch per Ton bestätigt werden kann.",
       "internal_url_label": "Interne BirdNET-Go-URL",
       "internal_url_help": "Nur vom Backend verwendete URL zum Laden von Spektrogramm-Hintergründen, z. B. die Docker-Netzwerkadresse.",
       "external_url_label": "BirdNET-Go-Browser-URL",
@@ -378,7 +383,7 @@
     },
     "inaturalist": {
       "title": "iNaturalist",
-      "toggle_label": "iNaturalist-Übermittlung umschalten",
+      "toggle_label": "Damit können Sie eine Erkennung aus ihrem Eintrag als Beobachtung an iNaturalist senden.",
       "client_id": "Client-ID",
       "client_id_label": "iNaturalist Client-ID",
       "client_id_placeholder": "iNaturalist Client-ID",
@@ -407,7 +412,7 @@
     },
     "ebird": {
       "title": "eBird",
-      "toggle_label": "eBird-Anreicherung umschalten",
+      "toggle_label": "Zeigt Sichtungen in der Nähe, Saisonalität und Seltenheit von eBird auf Artenseiten.",
       "api_key": "API-Schlüssel",
       "api_key_label": "eBird-API-Schlüssel",
       "api_key_placeholder": "eBird-API-Schlüssel",
@@ -428,13 +433,13 @@
       "export_range_help": "Lassen Sie beide Felder leer, um alle Erkennungen zu exportieren, oder wählen Sie einen einschließlichen Datumsbereich.",
       "export_range_error": "Das Von-Datum muss vor oder gleich dem Bis-Datum liegen.",
       "export_everything": "Alles exportieren",
-      "export_everything_label": "Alles für eBird-CSV-Export aktivieren/deaktivieren",
+      "export_everything_label": "Alle Erkennungen exportieren, nicht nur einen Zeitraum",
       "export_everything_help": "Aktivieren Sie dies, um alle Erkennungen zu exportieren und den Datumsbereich zu deaktivieren.",
       "advanced_title": "Standard-Hotspot-Suche"
     },
     "birdweather": {
       "title": "BirdWeather",
-      "toggle_label": "BirdWeather-Integration umschalten",
+      "toggle_label": "Sendet jede erkannte Art an Ihre BirdWeather-Station.",
       "token": "Stations-Token",
       "token_label": "BirdWeather-Stations-Token",
       "token_placeholder": "Ihr BirdWeather-Token",
@@ -498,7 +503,10 @@
     "seasonality_title": "Saisonalität",
     "rarity_title": "Seltenheitsindikatoren",
     "links_title": "Externe Links",
-    "disabled": "Deaktiviert"
+    "disabled": "Deaktiviert",
+    "needs_ebird": "Nicht angezeigt: benötigt einen eBird-API-Schlüssel",
+    "ebird_hint": "Sichtungen in der Nähe, Saisonalität und Seltenheit erscheinen auf Artenseiten, sobald eBird mit einem API-Schlüssel eingeschaltet ist.",
+    "open_ebird": "eBird einrichten"
   },
   "auth": {
     "title": "Authentifizierung",
@@ -573,7 +581,7 @@
     "dyslexia_font": "Schrift für Legastheniker",
     "dyslexia_font_desc": "OpenDyslexic-Schriftart für bessere Lesbarkeit verwenden",
     "reduced_motion": "Bewegung reduzieren",
-    "reduced_motion_desc": "Animationen und Übergänge deaktivieren",
+    "reduced_motion_desc": "Beendet Animationen und Übergänge. Die Einstellung Ihres Geräts für reduzierte Bewegung wird immer zusätzlich beachtet.",
     "live_announcements": "Live-Ansagen",
     "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen."
   },
@@ -984,7 +992,7 @@
     "resolving": "Suche läuft…"
   },
   "danger": {
-    "title": "Gefahrenzone",
+    "title": "Aktionen, die sich nicht rückgängig machen lassen",
     "subtitle": "Destruktive Aktionen",
     "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen, leert den Medien-Cache und entfernt jeden archivierten Favoriten. Das kann nicht rückgängig gemacht werden.",
     "reset_button": "Datenbank & Cache zurücksetzen",
@@ -1027,7 +1035,7 @@
     "naming_title": "Vogel-Benennungsstil",
     "naming_standard": "Standard",
     "naming_standard_sub": "Gebräuchliche Namen primär, wissenschaftliche Namen als Untertitel.",
-    "naming_hobbyist": "Hobby",
+    "naming_hobbyist": "Wissenschaftlicher Name zuerst",
     "naming_hobbyist_sub": "Wissenschaftliche Namen primär, gebräuchliche Namen als Untertitel.",
     "naming_scientific": "Rein wissenschaftlich",
     "naming_scientific_sub": "Nur wissenschaftliche Namen anzeigen. Gebräuchliche Namen ausblenden.",
@@ -1322,7 +1330,8 @@
     "bird_finder_recommended_failed": "{devices} stimmten auf aktuellen Vogelfotos nicht mit der CPU überein. CPU bleibt verfügbar.",
     "bird_finder_recommended_running": "Geräteprüfung für {devices} läuft. CPU bleibt während der Prüfung verfügbar.",
     "bird_finder_recommended_unchecked": "CPU, bis {devices} die Geräteprüfung hier bestehen. Noch keine Beschleunigerempfehlung.",
-    "bird_finder_recommended_waiting": "Warten auf gespeicherte Vogelfotos zur erneuten Prüfung von {devices}. CPU bleibt verfügbar."
+    "bird_finder_recommended_waiting": "Warten auf gespeicherte Vogelfotos zur erneuten Prüfung von {devices}. CPU bleibt verfügbar.",
+    "model_manager_card_on_disk": "Auf diesem Host"
   },
   "llm": {
     "title": "KI-Einblicke",
@@ -1343,14 +1352,15 @@
     "test_label": "KI-Verbindung testen",
     "test_hint": "Führt eine kurze Anfrage aus, um Ihren API-Schlüssel und das Modell zu überprüfen.",
     "model_hint": "Wählen Sie ein Modell, das Bildeingabe (Vision) unterstützt. Nur-Text-Modelle können keine Analyse durchführen.",
-    "enabled": "KI-Einblicke umschalten",
+    "enabled": "KI-Einblicke",
     "test_connection": "KI-Verbindung testen",
     "recommended_model": "Empfohlen: {model}",
     "get_gemini_key": "Google-Gemini-Schlüssel anfordern →",
     "get_openai_key": "OpenAI-Schlüssel anfordern →",
     "get_claude_key": "Anthropic-Claude-Schlüssel anfordern →",
     "get_openrouter_key": "OpenRouter-Schlüssel holen →",
-    "openrouter_model_hint": "Geben Sie eine beliebige OpenRouter-Modell-ID ein (z. B. google/gemini-3.1-flash-lite). Modelle finden Sie unter openrouter.ai/models."
+    "openrouter_model_hint": "Geben Sie eine beliebige OpenRouter-Modell-ID ein (z. B. google/gemini-3.1-flash-lite). Modelle finden Sie unter openrouter.ai/models.",
+    "enabled_desc": "Damit können Sie einen KI-Anbieter bitten, eine Erkennung in ihrem Eintrag zu beschreiben. Benötigt einen API-Schlüssel des Anbieters, der jede Anfrage berechnet."
   },
   "explorer_view": {
     "label": "Explorer-Ansicht",

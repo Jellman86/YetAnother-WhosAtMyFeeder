@@ -20,14 +20,17 @@
     let { label, description, labelId, descriptionId, layout = 'inline', children }: Props = $props();
 </script>
 
+<!-- One row pattern for every setting: label, a hint that says what it does, then the control.
+     Rows are separated by a hairline inside their card, never boxed inside it. -->
 <div
-    class="p-4 rounded-xl bg-surface-raised/70
+    class="settings-row border-t border-line-soft pt-4 first:border-t-0 first:pt-0
            {layout === 'inline' ? 'flex items-center justify-between gap-4' : 'flex flex-col gap-3'}"
+    data-settings-row
 >
     <div id={labelId} class="min-w-0">
         <span class="block text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
         {#if description}
-            <span id={descriptionId} class="mt-0.5 block text-xs leading-snug text-slate-500 dark:text-slate-400">
+            <span id={descriptionId} class="mt-1 block text-sm leading-snug text-slate-600 dark:text-slate-300">
                 {description}
             </span>
         {/if}

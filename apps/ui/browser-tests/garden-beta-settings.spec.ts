@@ -669,7 +669,7 @@ test('a running Garden states its cameras, the device it ran on and what is stil
         /Download the Automatic check model\./,
         /Set your location, so Garden knows your country/
     ]);
-    await page.locator('[data-garden-next-step="download_model"]').getByRole('button', { name: 'Open Models' }).click();
+    await page.locator('[data-garden-next-step="download_model"]').getByRole('button', { name: 'Open models' }).click();
     const models = page.getByRole('heading', { name: 'Models' }).getByRole('button');
     await expect(models).toHaveAttribute('aria-expanded', 'true');
     await expect(models).toBeFocused();

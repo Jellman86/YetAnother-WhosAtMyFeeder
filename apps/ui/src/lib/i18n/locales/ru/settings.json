@@ -3,7 +3,7 @@
   "subtitle": "Настройка и управление вашим экземпляром YA-WAMF",
   "load_failed": "Не удалось прочитать настройки, поэтому для редактирования ничего не показано. Проверьте, что серверная часть YA-WAMF запущена, и повторите попытку.",
   "language_selector": "Язык",
-  "language_desc": "Изменяет текст интерфейса и содержание уведомлений.",
+  "language_desc": "Язык этого экрана на этом устройстве. Уведомления используют язык, заданный в разделе «Уведомления».",
   "date_format": {
     "label": "Формат даты",
     "desc": "Выберите формат отображения дат.",
@@ -230,7 +230,7 @@
     "frigate_success": "Подключено к Frigate v{version} по адресу {url}",
     "frigate_unexpected": "Frigate вернул неожиданный статус",
     "frigate_error": "Не удалось подключиться к Frigate",
-    "mqtt_title": "Настройки MQTT (события Frigate)",
+    "mqtt_title": "Брокер, в который Frigate публикует события. YA-WAMF получает там новые обнаружения.",
     "simulating": "Симуляция…",
     "advanced_title": "Тонкая настройка",
     "full_visit_advanced_title": "Клипы полного визита (из записей)"
@@ -259,7 +259,12 @@
       "operations": "Управление",
       "interface": "Интерфейс"
     },
-    "beta": "Бета-функции"
+    "beta": "Бета-функции",
+    "unsaved": "не сохранено",
+    "skip_to_content": "Перейти к настройкам",
+    "section_label": "Раздел настроек",
+    "navigation_label": "Разделы настроек",
+    "unsaved_note": "Есть несохранённые изменения"
   },
   "debug": {
     "title": "Инструменты отладки",
@@ -281,7 +286,7 @@
     "llm_prompt_chart": "Промпт анализа графика",
     "llm_prompt_chart_hint": "Токены: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
     "strict_non_finite_output": "Строгая обработка нечисловых выходов",
-    "strict_non_finite_output_desc": "Если включено, полностью нечисловые выходы классификатора отклоняются и запускают восстановление во время выполнения. Отключайте только для контролируемой отладки."
+    "strict_non_finite_output_desc": "Отбрасывает результат, который модель не смогла вычислить, и перезапускает модель, поэтому из него ничего не сохраняется. Выключайте только при отладке модели."
   },
   "ai": {
     "usage_title": "Панель использования ИИ",
@@ -289,13 +294,13 @@
     "total_calls": "API-запросы",
     "total_tokens": "Израсходованные токены",
     "estimated_cost": "Оценочная стоимость",
-    "pricing_not_configured": "Настройте цены ниже для более точной оценки",
+    "pricing_not_configured": "Укажите цены в разделе «Цены и шаблоны запросов», чтобы стоимость была точной.",
     "no_usage_data": "Данных об использовании ИИ пока нет.",
     "clear_usage": "Очистить историю",
     "clear_usage_confirm": "Вы уверены, что хотите очистить историю использования ИИ? Это действие нельзя отменить.",
     "clear_usage_success": "История использования ИИ очищена.",
     "clear_usage_error": "Не удалось очистить историю использования.",
-    "connection_title": "Конфигурация модели",
+    "connection_title": "ИИ-провайдер",
     "provider_info_title": "Облачные провайдеры ИИ",
     "provider_info_desc": "YA-WAMF использует облачные LLM для анализа поведения и взаимодействий на естественном языке. Вам потребуется собственный API-ключ провайдера.",
     "prompts_title": "Шаблоны промптов",
@@ -336,7 +341,7 @@
   "integrations": {
     "birdnet": {
       "title": "BirdNET-Go",
-      "toggle_label": "Переключить интеграцию BirdNET-Go",
+      "toggle_label": "Сопоставляет голоса птиц, услышанные BirdNET-Go, с визитами у камеры, чтобы визит можно было подтвердить по звуку.",
       "internal_url_label": "Внутренний URL BirdNET-Go",
       "internal_url_help": "URL только для backend, используемый для загрузки фонов спектрограмм, например адрес в сети Docker.",
       "external_url_label": "URL BirdNET-Go для браузера",
@@ -378,7 +383,7 @@
     },
     "inaturalist": {
       "title": "iNaturalist",
-      "toggle_label": "Включить отправку в iNaturalist",
+      "toggle_label": "Позволяет отправить обнаружение в iNaturalist как наблюдение из его записи.",
       "client_id": "Client ID",
       "client_id_label": "Client ID iNaturalist",
       "client_id_placeholder": "Client ID iNaturalist",
@@ -407,7 +412,7 @@
     },
     "ebird": {
       "title": "eBird",
-      "toggle_label": "Включить обогащение eBird",
+      "toggle_label": "Показывает на страницах видов наблюдения поблизости, сезонность и редкость из eBird.",
       "api_key": "API ключ",
       "api_key_label": "API ключ eBird",
       "api_key_placeholder": "API ключ eBird",
@@ -428,13 +433,13 @@
       "export_range_help": "Оставьте оба поля пустыми, чтобы экспортировать все детекции, или выберите включительный диапазон дат.",
       "export_range_error": "Дата «С» должна быть раньше или равна дате «По».",
       "export_everything": "Экспортировать всё",
-      "export_everything_label": "Включить/выключить полный экспорт для CSV eBird",
+      "export_everything_label": "Экспортировать все обнаружения, а не только за период",
       "export_everything_help": "Включите это, чтобы экспортировать все детекции и отключить диапазон дат.",
       "advanced_title": "Поиск хотспотов по умолчанию"
     },
     "birdweather": {
       "title": "BirdWeather",
-      "toggle_label": "Включить интеграцию BirdWeather",
+      "toggle_label": "Отправляет каждое определённое обнаружение на вашу станцию BirdWeather.",
       "token": "Токен станции",
       "token_label": "Токен станции BirdWeather",
       "token_placeholder": "Ваш токен BirdWeather",
@@ -498,7 +503,10 @@
     "seasonality_title": "Сезонность",
     "rarity_title": "Индикаторы редкости",
     "links_title": "Внешние ссылки",
-    "disabled": "Отключено"
+    "disabled": "Отключено",
+    "needs_ebird": "Не показано: нужен API-ключ eBird",
+    "ebird_hint": "Наблюдения поблизости, сезонность и редкость появятся на страницах видов, когда eBird включён с API-ключом.",
+    "open_ebird": "Настроить eBird"
   },
   "auth": {
     "title": "Аутентификация",
@@ -573,7 +581,7 @@
     "dyslexia_font": "Шрифт для дислексиков",
     "dyslexia_font_desc": "Использовать шрифт OpenDyslexic для лучшей читаемости",
     "reduced_motion": "Уменьшение движения",
-    "reduced_motion_desc": "Отключить анимацию и переходы",
+    "reduced_motion_desc": "Останавливает анимации и переходы. Настройка уменьшения движения на устройстве тоже всегда учитывается.",
     "live_announcements": "Живые объявления",
     "live_announcements_desc": "Объявлять о новых обнаружениях с помощью оповещений для скринридера."
   },
@@ -984,7 +992,7 @@
     "resolving": "Поиск…"
   },
   "danger": {
-    "title": "Опасная зона",
+    "title": "Действия, которые нельзя отменить",
     "subtitle": "Разрушительные действия",
     "reset_desc": "Сброс базы данных навсегда удалит ВСЕ события, очистит кэш медиа и удалит всё архивное избранное. Отменить нельзя.",
     "reset_button": "Сбросить базу данных и кэш",
@@ -1027,7 +1035,7 @@
     "naming_title": "Стиль именования птиц",
     "naming_standard": "Стандартный",
     "naming_standard_sub": "Сначала обычное название, под ним научное.",
-    "naming_hobbyist": "Любительский",
+    "naming_hobbyist": "Сначала научное название",
     "naming_hobbyist_sub": "Сначала научное название, под ним обычное.",
     "naming_scientific": "Строго научный",
     "naming_scientific_sub": "Показывать только научные названия. Скрывать обычные названия.",
@@ -1322,7 +1330,8 @@
     "bird_finder_recommended_failed": "{devices} не совпали с CPU на недавних фотографиях птиц. CPU остаётся доступным.",
     "bird_finder_recommended_running": "Идёт проверка устройств {devices}. CPU остаётся доступным во время проверки.",
     "bird_finder_recommended_unchecked": "CPU, пока {devices} не пройдут проверку здесь. Рекомендации ускорителя пока нет.",
-    "bird_finder_recommended_waiting": "Ожидание сохранённых фотографий птиц для повторной проверки {devices}. CPU остаётся доступным."
+    "bird_finder_recommended_waiting": "Ожидание сохранённых фотографий птиц для повторной проверки {devices}. CPU остаётся доступным.",
+    "model_manager_card_on_disk": "Уже на этом хосте"
   },
   "llm": {
     "title": "ИИ-аналитика",
@@ -1343,14 +1352,15 @@
     "test_label": "Проверить подключение к ИИ",
     "test_hint": "Отправляет быстрый запрос для проверки вашего API-ключа и модели.",
     "model_hint": "Выберите модель, поддерживающую ввод изображений (vision). Текстовые модели не смогут выполнить анализ.",
-    "enabled": "Включить ИИ-аналитику",
+    "enabled": "ИИ-описания",
     "test_connection": "Проверить подключение к ИИ",
     "recommended_model": "Рекомендуется: {model}",
     "get_gemini_key": "Получить ключ Google Gemini →",
     "get_openai_key": "Получить ключ OpenAI →",
     "get_claude_key": "Получить ключ Anthropic Claude →",
     "get_openrouter_key": "Получить ключ OpenRouter →",
-    "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-3.1-flash-lite). Просмотрите модели на openrouter.ai/models."
+    "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-3.1-flash-lite). Просмотрите модели на openrouter.ai/models.",
+    "enabled_desc": "Позволяет попросить ИИ-провайдера описать обнаружение из его записи. Нужен API-ключ провайдера, который оплачивается за каждый запрос."
   },
   "explorer_view": {
     "label": "Вид проводника",
