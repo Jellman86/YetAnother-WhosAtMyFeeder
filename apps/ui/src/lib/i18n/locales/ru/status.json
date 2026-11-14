@@ -14,7 +14,7 @@
   "tile_offline": "Нет связи",
   "feed_live": "События камер поступают",
   "feed_connecting": "Подключение к MQTT-брокеру",
-  "feed_broker_down": "События камер не поступают: MQTT-брокер не подключён",
+  "feed_broker_down": "События камер не поступают. MQTT-брокер не подключён.",
   "feed_frigate_down": "Frigate не отвечает, поэтому новые обнаружения не сохраняются",
   "feed_app_only": "Подключено к YA-WAMF",
   "feed_reconnecting": "Переподключение к YA-WAMF"

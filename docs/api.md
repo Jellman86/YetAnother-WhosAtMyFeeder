@@ -1485,7 +1485,11 @@ The callback exception grants no owner role and does not expand cookie authentic
   has `state` (`reachable`, `unreachable`, `unchecked`), `url`, `checked_at`, `last_success_at`,
   `last_failure_at`, `last_failure` (`timeout`, `connection`, `unauthorized`, `server_error`) and
   `availability` (what Frigate last announced on its MQTT availability topic, `unknown` without the
-  broker). Every Frigate request the app makes updates the reading; one older than a minute is
+  broker). `server`, `url` and `last_error` are shown without credentials: user:password in an
+  address is dropped, and query values whose names look secret-bearing (`token`, `key`, `password`,
+  `secret`, `auth` and similar) and any configured secret value are replaced by `***REDACTED***`; the
+  same applies to the workspace, the diagnostics bundle and the log lines for these connections.
+  Every Frigate request the app makes updates the reading; one older than a minute is
   refreshed with a single `api/version` request (5 s timeout) before it is returned. A state change
   is pushed to owners over `GET /api/sse` as `{"type": "service_connections_changed"}` with no
   payload; guests never receive it.

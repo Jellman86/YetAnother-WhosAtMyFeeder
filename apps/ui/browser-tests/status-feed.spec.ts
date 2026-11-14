@@ -19,10 +19,10 @@ test('a connected page with the broker down is never shown as live', async ({ pa
     await expect(tile(page)).toHaveAttribute('data-status-on', 'false');
     await expect(tile(page)).toHaveAttribute('data-status-feed', 'broker_down');
     await expect(tile(page)).toContainText('No events');
-    await expect(tile(page)).toHaveAttribute('title', 'Live updates: Not receiving camera events, the MQTT broker is not connected');
+    await expect(tile(page)).toHaveAttribute('title', 'Live updates: Not receiving camera events. The MQTT broker is not connected.');
     // The state is a word and a slashed icon, not only a colour.
     await expect(tile(page).locator('path[d="M4 4l16 16"]')).toHaveCount(1);
-    await expect(line(page)).toHaveText('Not receiving camera events, the MQTT broker is not connected');
+    await expect(line(page)).toHaveText('Not receiving camera events. The MQTT broker is not connected.');
     await expect(page.getByText('Live Feed')).toHaveCount(0);
     expect(errors).toEqual([]);
 });

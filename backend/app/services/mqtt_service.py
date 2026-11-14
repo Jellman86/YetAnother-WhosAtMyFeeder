@@ -14,6 +14,7 @@ from app.utils.frigate import is_ingest_label
 from app.services.connection_tracking import MqttConnectionTracker
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.service_connections import announce_service_connections_changed
+from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -993,11 +994,12 @@ class MQTTService:
                     self._intentional_reconnect = False
                     log.info("MQTT session ended by stall-recovery watchdog; reconnecting immediately")
                     continue
-                self.connection.failed(datetime.now(timezone.utc), str(e))
+                error = redact_connection_error(str(e), configured_secrets())
+                self.connection.failed(datetime.now(timezone.utc), error)
                 delay = self._calculate_backoff()
                 log.error(
                     "MQTT connection lost, retrying...",
-                    error=str(e),
+                    error=error,
                     retry_delay=f"{delay:.1f}s",
                     backoff_level=self.reconnect_delay,
                 )
@@ -1006,11 +1008,12 @@ class MQTTService:
             except Exception as e:
                 self.client = None
                 self._intentional_reconnect = False
-                self.connection.failed(datetime.now(timezone.utc), str(e))
+                error = redact_connection_error(str(e), configured_secrets())
+                self.connection.failed(datetime.now(timezone.utc), error)
                 delay = self._calculate_backoff()
                 log.error(
                     "Unexpected error in MQTT service, retrying...",
-                    error=str(e),
+                    error=error,
                     retry_delay=f"{delay:.1f}s",
                     backoff_level=self.reconnect_delay,
                 )

@@ -138,5 +138,6 @@
   "try_again": "Try again",
   "count_unavailable": "Count unavailable",
   "results_loading": "Loading results…",
-  "selection_count": "{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}"
+  "selection_count": "{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}",
+  "settings_unavailable": "Your settings could not be loaded, so the Explorer cannot tell which visitors to show. Nothing was changed. Try again in a moment."
 }

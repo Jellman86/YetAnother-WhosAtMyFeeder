@@ -47,7 +47,7 @@
             case 'connecting':
                 return $_('status.feed_connecting', { default: 'Connecting to the MQTT broker' });
             case 'broker_down':
-                return $_('status.feed_broker_down', { default: 'Not receiving camera events, the MQTT broker is not connected' });
+                return $_('status.feed_broker_down', { default: 'Not receiving camera events. The MQTT broker is not connected.' });
             case 'frigate_down':
                 return $_('status.feed_frigate_down', { default: 'Frigate is not answering, so new detections cannot be saved' });
             case 'app_only':

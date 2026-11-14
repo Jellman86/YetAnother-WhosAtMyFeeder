@@ -5,7 +5,7 @@ import json
 import math
 import re
 from typing import Any
-from urllib.parse import quote, quote_plus
+from urllib.parse import quote, quote_plus, unquote, urlsplit, urlunsplit
 
 REDACTED_VALUE = "***REDACTED***"
 SENSITIVE_CONFIG_KEYS = frozenset(
@@ -119,6 +119,57 @@ def _redact_text(text: str, known: re.Pattern[str] | None) -> str:
 
 def redact_text(text: str, secrets: Sequence[str] = ()) -> str:
     return _redact_text(text, _known_pattern(secrets))
+
+
+# A query parameter whose name says it carries a credential. Broader than the settings keys,
+# because an address is typed by a person and can carry any provider's token parameter.
+_SENSITIVE_PARAMETER = re.compile(r"token|key|pass|secret|auth|sig|credential|session|cookie", re.I)
+_ADDRESS_IN_TEXT = re.compile(r"[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.I)
+
+
+def _redact_query(query: str) -> str:
+    pieces = []
+    for piece in query.split("&"):
+        name, separator, _value = piece.partition("=")
+        if separator and _SENSITIVE_PARAMETER.search(unquote(name)):
+            pieces.append(f"{name}={REDACTED_VALUE}")
+        else:
+            pieces.append(piece)
+    return "&".join(pieces)
+
+
+def redact_address(address: str, secrets: Sequence[str] = ()) -> str:
+    """An address safe to show or log: no user:password, no secret-shaped query value, no known secret.
+
+    Frigate and broker addresses are typed by the owner and may carry credentials in any of those
+    places; the host, port and path are what a person needs to recognise and fix them.
+    """
+    text = address.strip()
+    has_scheme = "://" in text
+    try:
+        parts = urlsplit(text if has_scheme else f"//{text}")
+        host = parts.netloc.rpartition("@")[2]
+        rebuilt = urlunsplit((parts.scheme, host, parts.path, _redact_query(parts.query), parts.fragment))
+    except ValueError:
+        # Unparseable: drop anything before an "@" and fall back to pattern redaction.
+        rebuilt = re.sub(r"[^/\s@]+@", "", text)
+        rebuilt = re.sub(r"\?.*$", lambda match: "?" + _redact_query(match.group(0)[1:]), rebuilt)
+    if not has_scheme and rebuilt.startswith("//"):
+        rebuilt = rebuilt[2:]
+    return redact_text(rebuilt, secrets)
+
+
+def redact_connection_error(text: str, secrets: Sequence[str] = ()) -> str:
+    """A connection error safe to show or log: every address in it redacted as an address."""
+    cleaned = _ADDRESS_IN_TEXT.sub(lambda match: redact_address(match.group(0), secrets), text)
+    # Credentials written as name=value outside an address ("auth=..." included).
+    cleaned = re.sub(
+        r"(\b[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*[:=]\s*)[^\s&,;'\"<>]+",
+        lambda match: match.group(1) + REDACTED_VALUE,
+        cleaned,
+        flags=re.I,
+    )
+    return redact_text(cleaned, secrets)
 
 
 def safe_error_message(error: BaseException) -> str:

@@ -14,7 +14,7 @@
   "tile_offline": "Desconectado",
   "feed_live": "Recebendo eventos da câmera",
   "feed_connecting": "Conectando ao broker MQTT",
-  "feed_broker_down": "Nenhum evento da câmera chega, o broker MQTT não está conectado",
+  "feed_broker_down": "Nenhum evento da câmera chega. O broker MQTT não está conectado.",
   "feed_frigate_down": "O Frigate não responde, então novas detecções não podem ser salvas",
   "feed_app_only": "Conectado ao YA-WAMF",
   "feed_reconnecting": "Reconectando ao YA-WAMF"

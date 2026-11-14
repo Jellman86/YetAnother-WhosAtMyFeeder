@@ -14,7 +14,7 @@
   "tile_offline": "离线",
   "feed_live": "正在接收摄像头事件",
   "feed_connecting": "正在连接MQTT代理",
-  "feed_broker_down": "未收到摄像头事件，MQTT代理未连接",
+  "feed_broker_down": "未收到摄像头事件。MQTT代理未连接。",
   "feed_frigate_down": "Frigate无响应，新的检测无法保存",
   "feed_app_only": "已连接到YA-WAMF",
   "feed_reconnecting": "正在重新连接YA-WAMF"

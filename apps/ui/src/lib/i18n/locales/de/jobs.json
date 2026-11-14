@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "Keiner erfasst",
   "errors_unknown_phase": "Unbekannte Phase",
-  "errors_summary_mqtt_down": "Der MQTT-Broker unter {server} ist nicht verbunden, daher kommen keine neuen Erkennungen an. Prüfen Sie die Broker-Adresse unter Einstellungen, Verbindung, und ob der Broker läuft.",
-  "errors_summary_mqtt_not_configured": "Es ist kein MQTT-Broker eingetragen, daher kommen keine Erkennungen an. Tragen Sie einen unter Einstellungen, Verbindung ein.",
-  "errors_summary_mqtt_stopped": "Der MQTT-Dienst läuft nicht, daher kommen keine neuen Erkennungen an.",
-  "errors_summary_frigate_down": "Frigate unter {url} antwortet nicht, daher können neue Erkennungen nicht gespeichert werden. Prüfen Sie die Frigate-Adresse unter Einstellungen, Verbindung, und ob Frigate läuft.",
   "errors_summary_connections_unread": "Innerhalb von YA-WAMF meldet nichts einen Fehler, aber die Verbindungen zum MQTT-Broker und zu Frigate konnten nicht gelesen werden.",
   "errors_no_snapshot": "Noch keine Zustandsmessung.",
   "errors_connections_unread": "Die Verbindung konnte nicht gelesen werden. Aktualisieren Sie, um es erneut zu versuchen.",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "Frigate meldet sich über MQTT als online.",
   "errors_frigate_announced_offline": "Frigate meldet sich über MQTT als offline.",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "Seit dem Start dieser Instanz hat keine Erkennung die Verarbeitung erreicht."
+  "errors_pipeline_idle": "Seit dem Start dieser Instanz hat keine Erkennung die Verarbeitung erreicht.",
+  "errors_problem": {
+    "mqtt_down": "Der MQTT-Broker unter {server} ist nicht verbunden, daher kommen keine neuen Erkennungen an.",
+    "mqtt_down_next": "Prüfen Sie die Adresse unter Einstellungen → Verbindung und ob der Broker läuft.",
+    "mqtt_not_configured": "Es ist kein MQTT-Broker eingetragen, daher kommen keine Erkennungen an.",
+    "mqtt_not_configured_next": "Tragen Sie einen unter Einstellungen → Verbindung ein.",
+    "mqtt_stopped": "Der MQTT-Dienst läuft nicht, daher kommen keine neuen Erkennungen an.",
+    "mqtt_stopped_next": "Starten Sie YA-WAMF neu, um ihn wieder zu starten.",
+    "frigate_down": "Frigate unter {url} antwortet nicht, daher können neue Erkennungen nicht gespeichert werden.",
+    "frigate_down_next": "Prüfen Sie die Adresse unter Einstellungen → Verbindung und ob Frigate läuft."
+  }
 }

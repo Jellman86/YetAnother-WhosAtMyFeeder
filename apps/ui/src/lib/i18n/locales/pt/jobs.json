@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "Nenhum registrado",
   "errors_unknown_phase": "Fase desconhecida",
-  "errors_summary_mqtt_down": "O broker MQTT em {server} não está conectado, então nenhuma nova detecção pode chegar. Verifique o endereço do broker em Configurações, Conexão, e se o broker está em execução.",
-  "errors_summary_mqtt_not_configured": "Nenhum broker MQTT está definido, então nenhuma detecção pode chegar. Adicione um em Configurações, Conexão.",
-  "errors_summary_mqtt_stopped": "O serviço MQTT não está em execução, então nenhuma nova detecção pode chegar.",
-  "errors_summary_frigate_down": "O Frigate em {url} não responde, então novas detecções não podem ser salvas. Verifique o endereço do Frigate em Configurações, Conexão, e se o Frigate está em execução.",
   "errors_summary_connections_unread": "Nada dentro do YA-WAMF relata falha, mas não foi possível ler as conexões com o broker MQTT e com o Frigate.",
   "errors_no_snapshot": "Ainda não há leitura de estado.",
   "errors_connections_unread": "Não foi possível ler a conexão. Atualize para tentar novamente.",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "O Frigate se anuncia online pelo MQTT.",
   "errors_frigate_announced_offline": "O Frigate se anuncia offline pelo MQTT.",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "Nenhuma detecção chegou ao processamento desde que esta instância iniciou."
+  "errors_pipeline_idle": "Nenhuma detecção chegou ao processamento desde que esta instância iniciou.",
+  "errors_problem": {
+    "mqtt_down": "O broker MQTT em {server} não está conectado, então nenhuma nova detecção pode chegar.",
+    "mqtt_down_next": "Verifique o endereço em Configurações → Conexão e se o broker está em execução.",
+    "mqtt_not_configured": "Nenhum broker MQTT está definido, então nenhuma detecção pode chegar.",
+    "mqtt_not_configured_next": "Adicione um em Configurações → Conexão.",
+    "mqtt_stopped": "O serviço MQTT não está em execução, então nenhuma nova detecção pode chegar.",
+    "mqtt_stopped_next": "Reinicie o YA-WAMF para iniciá-lo novamente.",
+    "frigate_down": "O Frigate em {url} não responde, então novas detecções não podem ser salvas.",
+    "frigate_down_next": "Verifique o endereço em Configurações → Conexão e se o Frigate está em execução."
+  }
 }

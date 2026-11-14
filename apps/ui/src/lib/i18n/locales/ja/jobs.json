@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "記録なし",
   "errors_unknown_phase": "不明なフェーズ",
-  "errors_summary_mqtt_down": "{server} のMQTTブローカーに接続していないため、新しい検出は届きません。設定の「接続」でブローカーのアドレスを確認し、ブローカーが動作していることを確認してください。",
-  "errors_summary_mqtt_not_configured": "MQTTブローカーが設定されていないため、検出は届きません。設定の「接続」で追加してください。",
-  "errors_summary_mqtt_stopped": "MQTTサービスが動作していないため、新しい検出は届きません。",
-  "errors_summary_frigate_down": "{url} のFrigateが応答しないため、新しい検出を保存できません。設定の「接続」でFrigateのアドレスを確認し、Frigateが動作していることを確認してください。",
   "errors_summary_connections_unread": "YA-WAMF内部で障害は報告されていませんが、MQTTブローカーとFrigateへの接続状態を読み取れませんでした。",
   "errors_no_snapshot": "まだ状態の測定がありません。",
   "errors_connections_unread": "接続状態を読み取れませんでした。更新してもう一度お試しください。",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "FrigateはMQTTでオンラインを通知しています。",
   "errors_frigate_announced_offline": "FrigateはMQTTでオフラインを通知しています。",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "このインスタンスの起動以降、処理に届いた検出はありません。"
+  "errors_pipeline_idle": "このインスタンスの起動以降、処理に届いた検出はありません。",
+  "errors_problem": {
+    "mqtt_down": "{server} のMQTTブローカーに接続していないため、新しい検出は届きません。",
+    "mqtt_down_next": "設定 → 接続 でアドレスを確認し、ブローカーが動作していることを確認してください。",
+    "mqtt_not_configured": "MQTTブローカーが設定されていないため、検出は届きません。",
+    "mqtt_not_configured_next": "設定 → 接続 で追加してください。",
+    "mqtt_stopped": "MQTTサービスが動作していないため、新しい検出は届きません。",
+    "mqtt_stopped_next": "YA-WAMFを再起動すると再開します。",
+    "frigate_down": "{url} のFrigateが応答しないため、新しい検出を保存できません。",
+    "frigate_down_next": "設定 → 接続 でアドレスを確認し、Frigateが動作していることを確認してください。"
+  }
 }

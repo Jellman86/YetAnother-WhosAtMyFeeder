@@ -339,23 +339,35 @@
         return healthVerdict(overallStatus(), connections);
     }
 
-    function problemSentence(problem: ConnectionProblem): string {
+    /** One short item per failed connection: what is wrong, then what to do. */
+    function problemItem(problem: ConnectionProblem): { title: string; next: string } {
         const server = connections ? `${connections.mqtt.server}:${connections.mqtt.port}` : '';
         const url = connections?.frigate.url ?? '';
         switch (problem) {
             case 'mqtt_down':
-                return $_('jobs.errors_summary_mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new detections can arrive. Check the broker address in Settings, Connection, and that the broker is running.' });
+                return {
+                    title: $_('jobs.errors_problem.mqtt_down', { values: { server }, default: 'The MQTT broker at {server} is not connected, so no new detections can arrive.' }),
+                    next: $_('jobs.errors_problem.mqtt_down_next', { default: 'Check its address in Settings → Connection and that the broker is running.' })
+                };
             case 'mqtt_not_configured':
-                return $_('jobs.errors_summary_mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive. Add one in Settings, Connection.' });
+                return {
+                    title: $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive.' }),
+                    next: $_('jobs.errors_problem.mqtt_not_configured_next', { default: 'Add one in Settings → Connection.' })
+                };
             case 'mqtt_stopped':
-                return $_('jobs.errors_summary_mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
+                return {
+                    title: $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' }),
+                    next: $_('jobs.errors_problem.mqtt_stopped_next', { default: 'Restart YA-WAMF to start it again.' })
+                };
             case 'frigate_down':
-                return $_('jobs.errors_summary_frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new detections cannot be saved. Check the Frigate address in Settings, Connection, and that Frigate is running.' });
+                return {
+                    title: $_('jobs.errors_problem.frigate_down', { values: { url }, default: 'Frigate at {url} is not answering, so new detections cannot be saved.' }),
+                    next: $_('jobs.errors_problem.frigate_down_next', { default: 'Check its address in Settings → Connection and that Frigate is running.' })
+                };
         }
     }
 
     function overallSummary(): string {
-        if (problems.length > 0) return problems.map(problemSentence).join(' ');
         const status = overallStatus().toLowerCase();
         if ((status === 'ok' || status === 'healthy') && connections === null) {
             return $_('jobs.errors_summary_connections_unread', { default: 'Nothing inside YA-WAMF reports a fault, but the MQTT broker and Frigate connections could not be read.' });
@@ -444,10 +456,10 @@
             return $_('jobs.errors_mqtt_connecting', { values: { server }, default: 'Connecting to {server}.' });
         }
         if (link.state === 'not_configured') {
-            return $_('jobs.errors_summary_mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive. Add one in Settings, Connection.' });
+            return $_('jobs.errors_problem.mqtt_not_configured', { default: 'No MQTT broker is set, so no detections can arrive.' });
         }
         if (link.state === 'stopped') {
-            return $_('jobs.errors_summary_mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
+            return $_('jobs.errors_problem.mqtt_stopped', { default: 'The MQTT service is not running, so no new detections can arrive.' });
         }
         const connected = $_('jobs.errors_mqtt_connected', { values: { server, at: at(link.connected_since) }, default: 'Connected to {server} since {at}.' });
         return `${connected} ${mqttLoadSummary()}`;
@@ -724,7 +736,19 @@
                     </span>
                     <div class="min-w-0 flex-1">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
-                        <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
+                        {#if problems.length > 0}
+                            <ul class="mt-1 space-y-2" data-health-problems>
+                                {#each problems as problem (problem)}
+                                    {@const item = problemItem(problem)}
+                                    <li class="break-words text-sm" data-health-problem={problem}>
+                                        <p class="font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
+                                        <p class="text-slate-600 dark:text-slate-300">{item.next}</p>
+                                    </li>
+                                {/each}
+                            </ul>
+                        {:else}
+                            <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
+                        {/if}
                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{latestHealthLine()}</p>
                     </div>
                 </div>

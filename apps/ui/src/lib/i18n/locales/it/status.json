@@ -14,7 +14,7 @@
   "tile_offline": "Non in linea",
   "feed_live": "Ricezione degli eventi della telecamera",
   "feed_connecting": "Connessione al broker MQTT in corso",
-  "feed_broker_down": "Nessun evento della telecamera, il broker MQTT non è connesso",
+  "feed_broker_down": "Nessun evento della telecamera. Il broker MQTT non è connesso.",
   "feed_frigate_down": "Frigate non risponde, quindi i nuovi rilevamenti non possono essere salvati",
   "feed_app_only": "Connesso a YA-WAMF",
   "feed_reconnecting": "Riconnessione a YA-WAMF"

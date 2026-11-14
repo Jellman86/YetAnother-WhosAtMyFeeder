@@ -1,5 +1,6 @@
 """Health and the status tiles read the broker and Frigate connections as measured."""
 
+import json
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 
@@ -192,3 +193,118 @@ async def test_mqtt_service_without_a_broker_address_says_so(monkeypatch):
     monkeypatch.setattr(settings.frigate, "mqtt_server", "")
     await service.start(event_processor=None)
     assert service.connection.state == "not_configured"
+
+
+SECRETS = ("hunter2", "s3cr3t-token", "mqttpass", "apikey99")
+
+
+@pytest.mark.asyncio
+async def test_credentials_in_addresses_never_reach_the_page_the_export_or_the_logs(client, monkeypatch):
+    from structlog.testing import capture_logs
+
+    monkeypatch.setattr(service_connections, "_refresh_frigate_reading", REAL_REFRESH)
+    monkeypatch.setattr(
+        "app.routers.diagnostics.collect_video_sample_diagnostic", AsyncMock(return_value={"available": False})
+    )
+    monkeypatch.setattr(
+        settings.frigate, "frigate_url", "http://admin:hunter2@frigate:5000/?token=s3cr3t-token&api_key=apikey99"
+    )
+    monkeypatch.setattr(settings.frigate, "mqtt_server", "bob:mqttpass@broker.local")
+    monkeypatch.setattr(settings.frigate, "mqtt_password", "mqttpass")
+
+    def refuse(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError(f"Could not connect to {request.url}", request=request)
+
+    service = MQTTService()
+
+    class RefusingBroker:
+        def __init__(self, **_kwargs):
+            pass
+
+        async def __aenter__(self):
+            raise MqttError("mqtt://bob:mqttpass@broker.local refused: password=mqttpass")
+
+        async def __aexit__(self, *_exc):
+            return False
+
+    async def stop_after_first_failure(_delay):
+        service.running = False
+
+    monkeypatch.setattr(mqtt_module, "Client", RefusingBroker)
+    monkeypatch.setattr(mqtt_module.asyncio, "sleep", stop_after_first_failure)
+    monkeypatch.setattr(mqtt_module, "mqtt_service", service)
+    monkeypatch.setattr(mqtt_service, "connection", service.connection)
+
+    mock_client = _frigate_answering(monkeypatch, refuse)
+    try:
+        with capture_logs() as logs:
+            await service.start(event_processor=None)
+            connections = (await client.get("/api/diagnostics/connections")).text
+            workspace = (await client.get("/api/diagnostics/workspace")).text
+            bundle = (await client.get("/api/diagnostics/bundle")).text
+    finally:
+        await mock_client.aclose()
+
+    assert '"state":"disconnected"' in connections.replace(" ", "")
+    assert "frigate:5000" in connections and "broker.local" in connections
+    for text in (connections, workspace, bundle, json.dumps(logs, default=str)):
+        for secret in SECRETS:
+            assert secret not in text
+
+
+@pytest.mark.asyncio
+async def test_concurrent_readings_share_one_frigate_request(monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(service_connections, "_refresh_frigate_reading", REAL_REFRESH)
+    requests: list[str] = []
+    release = asyncio.Event()
+
+    async def slow_answer(request: httpx.Request) -> httpx.Response:
+        requests.append(request.url.path)
+        await release.wait()
+        return httpx.Response(200, json="0.16.0")
+
+    mock_client = _frigate_answering(monkeypatch, slow_answer)
+    try:
+        readings = [
+            asyncio.create_task(service_connections.collect_service_connections(refresh_frigate=True)) for _ in range(5)
+        ]
+        await asyncio.sleep(0.05)
+        release.set()
+        results = await asyncio.gather(*readings)
+    finally:
+        await mock_client.aclose()
+    assert requests == ["/api/version"]
+    assert {result.frigate.state for result in results} == {"reachable"}
+
+
+@pytest.mark.asyncio
+async def test_a_reading_cancelled_mid_probe_records_nothing_and_frees_the_next_probe(monkeypatch):
+    import asyncio
+
+    monkeypatch.setattr(service_connections, "_refresh_frigate_reading", REAL_REFRESH)
+    never = asyncio.Event()
+
+    async def hang(_request: httpx.Request) -> httpx.Response:
+        await never.wait()
+        return httpx.Response(200)
+
+    mock_client = _frigate_answering(monkeypatch, hang)
+    try:
+        reading = asyncio.create_task(service_connections.collect_service_connections(refresh_frigate=True))
+        await asyncio.sleep(0.05)
+        reading.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await reading
+    finally:
+        await mock_client.aclose()
+    # A request the page abandoned says nothing about Frigate.
+    assert service_connections.frigate_reachability.state == "unchecked"
+
+    mock_client = _frigate_answering(monkeypatch, lambda request: httpx.Response(200, json="0.16.0"))
+    try:
+        result = await asyncio.wait_for(service_connections.collect_service_connections(refresh_frigate=True), 2)
+    finally:
+        await mock_client.aclose()
+    assert result.frigate.state == "reachable"

@@ -47,8 +47,13 @@ test('Health never reads healthy while the broker and Frigate are down', async (
 
     const status = page.locator('[data-health-status]');
     await expect(status.locator('[data-health-status-pill]')).toHaveText('Degraded');
-    await expect(status).toContainText('The MQTT broker at mqtt.invalid:1883 is not connected, so no new detections can arrive.');
-    await expect(status).toContainText('Frigate at http://frigate.invalid:5000 is not answering');
+    // One short item per failed connection, each with what to do, in the app's own path style.
+    const problems = status.locator('[data-health-problem]');
+    await expect(problems).toHaveCount(2);
+    await expect(status.locator('[data-health-problem="mqtt_down"]')).toContainText('The MQTT broker at mqtt.invalid:1883 is not connected, so no new detections can arrive.');
+    await expect(status.locator('[data-health-problem="mqtt_down"]')).toContainText('Check its address in Settings → Connection and that the broker is running.');
+    await expect(status.locator('[data-health-problem="frigate_down"]')).toContainText('Frigate at http://frigate.invalid:5000 is not answering');
+    await expect(status).not.toContainText('Settings, Connection');
     await expect(page.getByText('All monitored services look healthy right now.')).toHaveCount(0);
 
     await page.locator('[data-subsystem-detail] summary').click();

@@ -138,5 +138,6 @@
   "try_again": "Erneut versuchen",
   "count_unavailable": "Anzahl nicht verfügbar",
   "results_loading": "Ergebnisse werden geladen…",
-  "selection_count": "{count, plural, =0 {Keine Aufnahmen ausgewählt} one {# Aufnahme ausgewählt} other {# Aufnahmen ausgewählt}}"
+  "selection_count": "{count, plural, =0 {Keine Aufnahmen ausgewählt} one {# Aufnahme ausgewählt} other {# Aufnahmen ausgewählt}}",
+  "settings_unavailable": "Ihre Einstellungen konnten nicht geladen werden, daher weiß der Explorer nicht, welche Besucher er zeigen soll. Es wurde nichts geändert. Versuchen Sie es gleich noch einmal."
 }

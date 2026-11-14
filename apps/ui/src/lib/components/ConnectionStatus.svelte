@@ -24,7 +24,7 @@
             case 'connecting':
                 return { on: false, slashed: false, onClass: NEUTRAL_CLASS, short: $_('status.tile_connecting', { default: 'Connecting' }), state: $_('status.feed_connecting', { default: 'Connecting to the MQTT broker' }) };
             case 'broker_down':
-                return { on: false, slashed: true, onClass: ATTENTION_CLASS, short: $_('status.tile_no_events', { default: 'No events' }), state: $_('status.feed_broker_down', { default: 'Not receiving camera events, the MQTT broker is not connected' }) };
+                return { on: false, slashed: true, onClass: ATTENTION_CLASS, short: $_('status.tile_no_events', { default: 'No events' }), state: $_('status.feed_broker_down', { default: 'Not receiving camera events. The MQTT broker is not connected.' }) };
             case 'frigate_down':
                 return { on: false, slashed: true, onClass: ATTENTION_CLASS, short: $_('status.tile_no_frigate', { default: 'No Frigate' }), state: $_('status.feed_frigate_down', { default: 'Frigate is not answering, so new detections cannot be saved' }) };
             case 'app_only':

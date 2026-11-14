@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "None recorded",
   "errors_unknown_phase": "Unknown phase",
-  "errors_summary_mqtt_down": "The MQTT broker at {server} is not connected, so no new detections can arrive. Check the broker address in Settings, Connection, and that the broker is running.",
-  "errors_summary_mqtt_not_configured": "No MQTT broker is set, so no detections can arrive. Add one in Settings, Connection.",
-  "errors_summary_mqtt_stopped": "The MQTT service is not running, so no new detections can arrive.",
-  "errors_summary_frigate_down": "Frigate at {url} is not answering, so new detections cannot be saved. Check the Frigate address in Settings, Connection, and that Frigate is running.",
   "errors_summary_connections_unread": "Nothing inside YA-WAMF reports a fault, but the MQTT broker and Frigate connections could not be read.",
   "errors_no_snapshot": "No health reading yet.",
   "errors_connections_unread": "The connection could not be read. Refresh to try again.",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "Frigate announces itself online over MQTT.",
   "errors_frigate_announced_offline": "Frigate announces itself offline over MQTT.",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "No detections have reached the pipeline since this instance started."
+  "errors_pipeline_idle": "No detections have reached the pipeline since this instance started.",
+  "errors_problem": {
+    "mqtt_down": "The MQTT broker at {server} is not connected, so no new detections can arrive.",
+    "mqtt_down_next": "Check its address in Settings → Connection and that the broker is running.",
+    "mqtt_not_configured": "No MQTT broker is set, so no detections can arrive.",
+    "mqtt_not_configured_next": "Add one in Settings → Connection.",
+    "mqtt_stopped": "The MQTT service is not running, so no new detections can arrive.",
+    "mqtt_stopped_next": "Restart YA-WAMF to start it again.",
+    "frigate_down": "Frigate at {url} is not answering, so new detections cannot be saved.",
+    "frigate_down_next": "Check its address in Settings → Connection and that Frigate is running."
+  }
 }

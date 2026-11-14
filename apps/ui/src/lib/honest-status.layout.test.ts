@@ -22,10 +22,12 @@ describe('status the shell only claims once measured', () => {
         expect(healthSource).not.toContain("'No recent workspace snapshot yet.'");
     });
 
-    it('reads owner settings before the Explorer decides whether a Garden link can be read', () => {
-        const wait = eventsSource.indexOf('if (authStore.hasOwnerAccess && settingsStore.settings === null) await settingsStore.load();');
-        const firstRead = eventsSource.indexOf('const metadataTask = loadEventMetadata(false, true);');
-        expect(wait).toBeGreaterThan(0);
-        expect(wait).toBeLessThan(firstRead);
+    it('makes every owner Explorer read wait for a successful settings read', () => {
+        const load = eventsSource.indexOf('async function loadEvents()');
+        const guard = eventsSource.indexOf('if (authStore.hasOwnerAccess && settingsStore.settings === null) {', load);
+        const firstRequest = eventsSource.indexOf('fetchGardenVisits({', load);
+        expect(guard).toBeGreaterThan(load);
+        expect(guard).toBeLessThan(firstRequest);
+        expect(eventsSource).toContain("events.settings_unavailable");
     });
 });

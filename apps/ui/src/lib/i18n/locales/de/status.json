@@ -14,7 +14,7 @@
   "tile_offline": "Getrennt",
   "feed_live": "Kameraereignisse kommen an",
   "feed_connecting": "Verbindung zum MQTT-Broker wird aufgebaut",
-  "feed_broker_down": "Keine Kameraereignisse, der MQTT-Broker ist nicht verbunden",
+  "feed_broker_down": "Keine Kameraereignisse. Der MQTT-Broker ist nicht verbunden.",
   "feed_frigate_down": "Frigate antwortet nicht, neue Erkennungen können nicht gespeichert werden",
   "feed_app_only": "Mit YA-WAMF verbunden",
   "feed_reconnecting": "Verbindung zu YA-WAMF wird wiederhergestellt"

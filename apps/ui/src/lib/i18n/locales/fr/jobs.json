@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "Aucun enregistré",
   "errors_unknown_phase": "Phase inconnue",
-  "errors_summary_mqtt_down": "Le broker MQTT à {server} n’est pas connecté, aucune nouvelle détection ne peut donc arriver. Vérifiez l’adresse du broker dans Paramètres, Connexion, et que le broker fonctionne.",
-  "errors_summary_mqtt_not_configured": "Aucun broker MQTT n’est défini, aucune détection ne peut donc arriver. Ajoutez-en un dans Paramètres, Connexion.",
-  "errors_summary_mqtt_stopped": "Le service MQTT ne fonctionne pas, aucune nouvelle détection ne peut donc arriver.",
-  "errors_summary_frigate_down": "Frigate à {url} ne répond pas, les nouvelles détections ne peuvent donc pas être enregistrées. Vérifiez l’adresse de Frigate dans Paramètres, Connexion, et que Frigate fonctionne.",
   "errors_summary_connections_unread": "Rien dans YA-WAMF ne signale de panne, mais les connexions au broker MQTT et à Frigate n’ont pas pu être lues.",
   "errors_no_snapshot": "Aucune mesure d’état pour l’instant.",
   "errors_connections_unread": "La connexion n’a pas pu être lue. Actualisez pour réessayer.",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "Frigate s’annonce en ligne via MQTT.",
   "errors_frigate_announced_offline": "Frigate s’annonce hors ligne via MQTT.",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "Aucune détection n’a atteint le traitement depuis le démarrage de cette instance."
+  "errors_pipeline_idle": "Aucune détection n’a atteint le traitement depuis le démarrage de cette instance.",
+  "errors_problem": {
+    "mqtt_down": "Le broker MQTT à {server} n’est pas connecté, aucune nouvelle détection ne peut donc arriver.",
+    "mqtt_down_next": "Vérifiez son adresse dans Paramètres → Connexion et que le broker fonctionne.",
+    "mqtt_not_configured": "Aucun broker MQTT n’est défini, aucune détection ne peut donc arriver.",
+    "mqtt_not_configured_next": "Ajoutez-en un dans Paramètres → Connexion.",
+    "mqtt_stopped": "Le service MQTT ne fonctionne pas, aucune nouvelle détection ne peut donc arriver.",
+    "mqtt_stopped_next": "Redémarrez YA-WAMF pour le relancer.",
+    "frigate_down": "Frigate à {url} ne répond pas, les nouvelles détections ne peuvent donc pas être enregistrées.",
+    "frigate_down_next": "Vérifiez son adresse dans Paramètres → Connexion et que Frigate fonctionne."
+  }
 }

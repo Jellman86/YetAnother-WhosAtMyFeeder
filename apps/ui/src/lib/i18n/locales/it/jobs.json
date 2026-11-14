@@ -267,10 +267,6 @@
   },
   "errors_no_reconnect_reason": "Nessuno registrato",
   "errors_unknown_phase": "Fase sconosciuta",
-  "errors_summary_mqtt_down": "Il broker MQTT su {server} non è connesso, quindi non possono arrivare nuovi rilevamenti. Controlla l’indirizzo del broker in Impostazioni, Connessione, e che il broker sia in esecuzione.",
-  "errors_summary_mqtt_not_configured": "Nessun broker MQTT impostato, quindi non possono arrivare rilevamenti. Aggiungine uno in Impostazioni, Connessione.",
-  "errors_summary_mqtt_stopped": "Il servizio MQTT non è in esecuzione, quindi non possono arrivare nuovi rilevamenti.",
-  "errors_summary_frigate_down": "Frigate su {url} non risponde, quindi i nuovi rilevamenti non possono essere salvati. Controlla l’indirizzo di Frigate in Impostazioni, Connessione, e che Frigate sia in esecuzione.",
   "errors_summary_connections_unread": "Nulla in YA-WAMF segnala un guasto, ma non è stato possibile leggere le connessioni al broker MQTT e a Frigate.",
   "errors_no_snapshot": "Ancora nessuna lettura dello stato.",
   "errors_connections_unread": "Non è stato possibile leggere la connessione. Aggiorna per riprovare.",
@@ -290,5 +286,15 @@
   "errors_frigate_announced_online": "Frigate si annuncia in linea tramite MQTT.",
   "errors_frigate_announced_offline": "Frigate si annuncia non in linea tramite MQTT.",
   "errors_card_frigate": "Frigate",
-  "errors_pipeline_idle": "Nessun rilevamento è arrivato all’elaborazione dall’avvio di questa istanza."
+  "errors_pipeline_idle": "Nessun rilevamento è arrivato all’elaborazione dall’avvio di questa istanza.",
+  "errors_problem": {
+    "mqtt_down": "Il broker MQTT su {server} non è connesso, quindi non possono arrivare nuovi rilevamenti.",
+    "mqtt_down_next": "Controlla l’indirizzo in Impostazioni → Connessione e che il broker sia in esecuzione.",
+    "mqtt_not_configured": "Nessun broker MQTT impostato, quindi non possono arrivare rilevamenti.",
+    "mqtt_not_configured_next": "Aggiungine uno in Impostazioni → Connessione.",
+    "mqtt_stopped": "Il servizio MQTT non è in esecuzione, quindi non possono arrivare nuovi rilevamenti.",
+    "mqtt_stopped_next": "Riavvia YA-WAMF per riavviarlo.",
+    "frigate_down": "Frigate su {url} non risponde, quindi i nuovi rilevamenti non possono essere salvati.",
+    "frigate_down_next": "Controlla l’indirizzo in Impostazioni → Connessione e che Frigate sia in esecuzione."
+  }
 }

@@ -12,6 +12,7 @@ from app.models.service_connections import FrigateAvailability, ServiceConnectio
 from app.services.broadcaster import broadcaster
 from app.services.connection_tracking import FrigateReachabilityTracker
 from app.utils.api_datetime import serialize_api_datetime
+from app.utils.diagnostic_redaction import configured_secrets, redact_address, redact_connection_error
 from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
@@ -54,7 +55,9 @@ async def _refresh_frigate_reading(now: datetime) -> None:
             # The client records the outcome; the answer itself is not needed.
             await frigate_client.get("api/version", timeout=FRIGATE_PROBE_TIMEOUT_SECONDS)
         except Exception as exc:  # noqa: BLE001 - every failure is already recorded as unreachable
-            log.debug("Frigate reachability check failed", error=str(exc))
+            log.debug(
+                "Frigate reachability check failed", error=redact_connection_error(str(exc), configured_secrets())
+            )
 
 
 async def collect_service_connections(*, refresh_frigate: bool) -> ServiceConnectionsResponse:
@@ -64,11 +67,19 @@ async def collect_service_connections(*, refresh_frigate: bool) -> ServiceConnec
     if refresh_frigate and (settings.frigate.frigate_url or "").strip():
         await _refresh_frigate_reading(now)
     availability: FrigateAvailability = mqtt_service.frigate_availability()
+    # Addresses and errors are typed or produced from owner input and can carry credentials; this
+    # reading is shown, exported in diagnostics bundles and logged, so none of it goes out raw.
+    secrets = configured_secrets()
+    mqtt = mqtt_service.connection.snapshot(
+        server=redact_address(settings.frigate.mqtt_server or "", secrets),
+        port=int(settings.frigate.mqtt_port),
+    )
+    if mqtt.last_error:
+        mqtt = mqtt.model_copy(update={"last_error": redact_connection_error(mqtt.last_error, secrets)})
     return ServiceConnectionsResponse(
-        mqtt=mqtt_service.connection.snapshot(
-            server=(settings.frigate.mqtt_server or "").strip(),
-            port=int(settings.frigate.mqtt_port),
+        mqtt=mqtt,
+        frigate=frigate_reachability.snapshot(
+            url=redact_address(settings.frigate.frigate_url or "", secrets), availability=availability
         ),
-        frigate=frigate_reachability.snapshot(url=settings.frigate.frigate_url or "", availability=availability),
         generated_at=serialize_api_datetime(datetime.now(timezone.utc)) or "",
     )

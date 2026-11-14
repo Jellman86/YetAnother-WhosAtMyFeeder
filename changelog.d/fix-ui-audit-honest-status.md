@@ -8,12 +8,13 @@
   (address, last attempt and the broker client's own error) instead of queue load, and a new
   Frigate card says whether Frigate answered the latest request. `GET /health` reports `degraded`
   in those cases too, and the new owner endpoint `GET /api/diagnostics/connections` carries the
-  measured state (see [the API reference](docs/api.md#debug-owner)).
+  measured state (see [the API reference](docs/api.md#debug-owner)). Addresses and broker errors
+  are shown, exported and logged without any user:password, token or other secret they contain.
 - **The Garden review link opens the captures waiting for review.** Opening
   `/events?visitors=garden&review=pending` (or an old `/garden` link) read bird visits before the
   owner settings had loaded, then labelled them an empty Garden queue ("No Garden captures need
-  review" above "Showing 1-24 of 725"). The Explorer now waits for those settings before its first
-  read.
+  review" above "Showing 1-24 of 725"). The Explorer now reads nothing until those settings have
+  loaded, and if they cannot be loaded it says so and offers **Try again** instead of guessing.
 - **The setup review is honest about access and connections.** Running without a password shows
   **No password** instead of a green **Configured**, and saved Frigate and MQTT addresses that
   cannot be reached show **Not reachable** rather than **Configured**.
