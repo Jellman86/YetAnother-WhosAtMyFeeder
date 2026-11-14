@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, one {Un'impostazione che hai modificato è stata cambiata anche altrove. Scegli quale valore tenere prima di salvare:} other {# impostazioni che hai modificato sono state cambiate anche altrove. Scegli quale valore tenere prima di salvare:}}",
     "use_saved": "Usa il valore salvato",
     "use_mine": "Usa la mia modifica",
-    "conflict_field": "Il valore salvato è cambiato altrove da quando hai modificato questo campo. Scegli quale tenere nella barra qui sotto."
+    "conflict_field": "Il valore salvato è cambiato altrove da quando hai modificato questo campo. Scegli quale tenere nella barra qui sotto.",
+    "conflict_choice_for": "per {field}"
   },
   "leave": {
     "title": "Uscire senza salvare?",

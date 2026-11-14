@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, one {A setting you changed was also changed elsewhere. Choose which value to keep before saving:} other {# settings you changed were also changed elsewhere. Choose which value to keep before saving:}}",
     "use_saved": "Use the saved value",
     "use_mine": "Use my change",
-    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep in the bar below."
+    "conflict_field": "The saved value changed elsewhere since you edited this. Choose which to keep in the bar below.",
+    "conflict_choice_for": "for {field}"
   },
   "leave": {
     "title": "Leave without saving?",

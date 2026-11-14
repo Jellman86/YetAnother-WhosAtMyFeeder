@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, one {Uma configuração que você alterou também foi alterada em outro lugar. Escolha qual valor manter antes de salvar:} other {# configurações que você alterou também foram alteradas em outro lugar. Escolha qual valor manter antes de salvar:}}",
     "use_saved": "Usar o valor salvo",
     "use_mine": "Usar minha alteração",
-    "conflict_field": "O valor salvo mudou em outro lugar desde que você editou isto. Escolha qual manter na barra abaixo."
+    "conflict_field": "O valor salvo mudou em outro lugar desde que você editou isto. Escolha qual manter na barra abaixo.",
+    "conflict_choice_for": "para {field}"
   },
   "leave": {
     "title": "Sair sem salvar?",

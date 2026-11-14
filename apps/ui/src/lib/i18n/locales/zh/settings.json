@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, other {你更改的 # 项设置也在其他地方被更改了。保存前请选择要保留的值：}}",
     "use_saved": "使用已保存的值",
     "use_mine": "使用我的更改",
-    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在下方栏中选择要保留的值。"
+    "conflict_field": "你编辑之后，已保存的值在其他地方被更改了。请在下方栏中选择要保留的值。",
+    "conflict_choice_for": "（{field}）"
   },
   "leave": {
     "title": "不保存就离开？",

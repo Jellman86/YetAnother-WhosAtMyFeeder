@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, one {Un ajuste que cambió también se cambió en otro lugar. Elija qué valor conservar antes de guardar:} other {# ajustes que cambió también se cambiaron en otro lugar. Elija qué valor conservar antes de guardar:}}",
     "use_saved": "Usar el valor guardado",
     "use_mine": "Usar mi cambio",
-    "conflict_field": "El valor guardado cambió en otro lugar desde que editó esto. Elija cuál conservar en la barra de abajo."
+    "conflict_field": "El valor guardado cambió en otro lugar desde que editó esto. Elija cuál conservar en la barra de abajo.",
+    "conflict_choice_for": "para {field}"
   },
   "leave": {
     "title": "¿Salir sin guardar?",

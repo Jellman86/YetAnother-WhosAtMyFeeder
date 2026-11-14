@@ -1639,7 +1639,8 @@
     "conflicts": "{count, plural, one {Un paramètre que vous avez modifié a aussi été modifié ailleurs. Choisissez la valeur à garder avant d'enregistrer :} other {# paramètres que vous avez modifiés ont aussi été modifiés ailleurs. Choisissez la valeur à garder avant d'enregistrer :}}",
     "use_saved": "Utiliser la valeur enregistrée",
     "use_mine": "Utiliser ma modification",
-    "conflict_field": "La valeur enregistrée a changé ailleurs depuis votre modification. Choisissez laquelle garder dans la barre ci-dessous."
+    "conflict_field": "La valeur enregistrée a changé ailleurs depuis votre modification. Choisissez laquelle garder dans la barre ci-dessous.",
+    "conflict_choice_for": "pour {field}"
   },
   "leave": {
     "title": "Quitter sans enregistrer ?",

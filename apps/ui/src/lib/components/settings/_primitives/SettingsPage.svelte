@@ -62,6 +62,12 @@
         children
     }: Props = $props();
 
+    // Every conflict row has the same two buttons; the hidden words say which setting each one
+    // decides, after the visible ones so the name still starts with what is on screen.
+    // The space is added here: a translation may not start with one, and markup would trim it.
+    const conflictChoiceFor = (label: string): string =>
+        ` ${$_('settings.save_bar.conflict_choice_for', { values: { field: label }, default: 'for {field}' })}`;
+
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
 </script>
 
@@ -158,10 +164,10 @@
                                         <span class="min-w-0 font-semibold text-slate-900 dark:text-white">{conflict.label}</span>
                                         <span class="flex flex-wrap gap-2">
                                             <button type="button" class="btn btn-secondary min-h-9 px-3 text-sm" onclick={() => onUseSaved?.(conflict.field)}>
-                                                {$_('settings.save_bar.use_saved', { default: 'Use the saved value' })}
+                                                {$_('settings.save_bar.use_saved', { default: 'Use the saved value' })}<span class="sr-only">{conflictChoiceFor(conflict.label)}</span>
                                             </button>
                                             <button type="button" class="btn btn-secondary min-h-9 px-3 text-sm" onclick={() => onUseMine?.(conflict.field)}>
-                                                {$_('settings.save_bar.use_mine', { default: 'Use my change' })}
+                                                {$_('settings.save_bar.use_mine', { default: 'Use my change' })}<span class="sr-only">{conflictChoiceFor(conflict.label)}</span>
                                             </button>
                                         </span>
                                     </li>
