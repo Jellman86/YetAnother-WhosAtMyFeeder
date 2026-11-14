@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Frigate 身份验证失败 - 请检查身份验证令牌",
       "frigate_error": "Frigate 返回错误：{status_code}",
       "connection_failed": "无法连接到 Frigate，地址：{url}",
+      "frigate_unreachable": "无法连接到 Frigate，请稍后再试。",
       "snapshot_not_found": "未找到快照",
       "thumbnail_not_found": "未找到缩略图",
       "clip_not_found": "未找到视频片段",

@@ -842,7 +842,8 @@ other identifications for `needs_review`, and are excluded from personalization 
 - `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
 - `GET /api/frigate/test` (owner) — accepts an optional `url` query override for testing
   the value currently being edited without saving it. Stored Frigate credentials are
-  forwarded only when the normalized override matches the saved Frigate base URL.
+  forwarded only when the normalized override matches the saved Frigate base URL. The
+  returned `frigate_url` is reduced to `scheme://host[:port]`.
 - `GET /api/frigate/config`
 - `GET /api/frigate/recording-clip-capability`
 - `POST /api/video-share`
@@ -850,6 +851,10 @@ other identifications for `needs_review`, and are excluded from personalization 
 - `GET /api/video-share/{event_id}/links`
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
+
+When Frigate cannot be reached, these media and Frigate routes answer `502`. A guest's message
+names no address. An owner's message names the Frigate address reduced to `scheme://host[:port]`,
+so credentials, tokens or path segments in the configured URL never appear in a response.
 
 The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
 counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
@@ -1202,7 +1207,8 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   entry are removed so the test cannot affect history or audio confirmation.
 - `GET /api/settings/birdnet/reachability` (owner) — checks that BirdNET-Go answers over
   HTTP; accepts an optional credential-free HTTP(S) `url` query override so an edited
-  value can be tested without saving it.
+  value can be tested without saving it. The message names the address as
+  `scheme://host[:port]` only.
 - `POST /api/settings/mqtt/test-publish` (owner) — JSON body accepts optional `server`,
   `port`, `auth`, `username`, and `password` overrides. Send `{}` to test saved values.
   Empty/redacted passwords retain the stored secret; the probe uses an isolated,

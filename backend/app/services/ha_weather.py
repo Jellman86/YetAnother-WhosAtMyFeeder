@@ -17,6 +17,8 @@ from typing import Any, Literal, Optional
 import httpx
 import structlog
 
+from app.utils.diagnostic_redaction import safe_connection_error
+
 log = structlog.get_logger()
 
 _UNKNOWN_STATES = {"unavailable", "unknown", "none", ""}
@@ -311,7 +313,7 @@ class HomeAssistantWeatherSource:
             log.info("home_assistant_state_timeout", entity_id=entity_id)
             return None
         except Exception as exc:
-            log.info("home_assistant_state_unavailable", entity_id=entity_id, error=str(exc))
+            log.info("home_assistant_state_unavailable", entity_id=entity_id, error=safe_connection_error(exc))
             return None
 
     async def get_current_weather(self) -> dict:

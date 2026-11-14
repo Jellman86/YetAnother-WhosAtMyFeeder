@@ -180,6 +180,15 @@ def redact_connection_error(text: str, secrets: Sequence[str] = ()) -> str:
     return redact_text(cleaned, secrets)
 
 
+def safe_connection_error(error: BaseException) -> str:
+    """A client error made safe to log or return: :func:`redact_connection_error` with configured secrets.
+
+    Use it for any exception an HTTP or broker client raised, because its text can quote the
+    request URL, and a configured integration URL can carry credentials in its userinfo, path or query.
+    """
+    return redact_connection_error(str(error), configured_secrets())[:2048]
+
+
 def safe_error_message(error: BaseException) -> str:
     """Keep useful failure text while redacting configured and recognizable credentials."""
     return redact_text(str(error), configured_secrets())[:2048]

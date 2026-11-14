@@ -11,6 +11,7 @@ import os
 import json
 from datetime import datetime, timedelta, timezone
 import sys  # Trigger CI rebuild
+import traceback
 from time import monotonic
 from contextlib import asynccontextmanager
 from typing import Awaitable, Callable
@@ -92,6 +93,7 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.middleware.public_calendar import PublicCalendarMiddleware
 from app.utils.tasks import create_background_task
+from app.utils.diagnostic_redaction import configured_secrets, redact_connection_error, safe_connection_error
 from app.utils.runtime_flavor import get_image_flavor
 from app.services.label_enrichment import start_background_map_refresh
 from app.services.localized_names import start_background_refresh
@@ -893,7 +895,16 @@ def db_pool_is_degraded(db_pool_health: dict) -> bool:
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    log.error("Unhandled exception", path=request.url.path, method=request.method, error=str(exc), exc_info=True)
+    # The traceback is redacted here rather than rendered from exc_info, because an HTTP client
+    # error repeats the request URL, and an integration URL can carry credentials.
+    log.error(
+        "Unhandled exception",
+        path=request.url.path,
+        method=request.method,
+        error_type=type(exc).__name__,
+        error=safe_connection_error(exc),
+        traceback=redact_connection_error("".join(traceback.format_exception(exc)), configured_secrets()),
+    )
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 

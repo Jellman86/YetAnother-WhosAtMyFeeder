@@ -15,6 +15,7 @@ from app.routers.proxy import _get_recording_clip_context, _is_no_recordings_res
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
 from app.utils.tasks import create_background_task
+from app.utils.diagnostic_redaction import safe_connection_error
 
 log = structlog.get_logger()
 
@@ -507,7 +508,7 @@ class FullVisitClipService:
                 return "unavailable"
             return "complete" if duration >= min_duration_seconds else "partial"
         except (httpx.TimeoutException, httpx.RequestError, httpx.HTTPStatusError) as exc:
-            log.warning("Automatic full-visit fetch failed", event_id=event_id, error=str(exc))
+            log.warning("Automatic full-visit fetch failed", event_id=event_id, error=safe_connection_error(exc))
             return "unavailable"
         finally:
             if response is not None:

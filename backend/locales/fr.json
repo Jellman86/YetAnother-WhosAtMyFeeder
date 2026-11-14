@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Échec de l'authentification Frigate - vérifiez le jeton d'authentification",
       "frigate_error": "Frigate a renvoyé une erreur : {status_code}",
       "connection_failed": "Échec de la connexion à Frigate sur {url}",
+      "frigate_unreachable": "Impossible de joindre Frigate. Réessayez dans un instant.",
       "snapshot_not_found": "Instantané non trouvé",
       "thumbnail_not_found": "Miniature non trouvée",
       "clip_not_found": "Clip non trouvé",

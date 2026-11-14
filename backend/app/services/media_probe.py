@@ -24,6 +24,7 @@ import structlog
 from app.config import settings
 from app.services.frigate_client import frigate_client
 from app.services.media_cache import media_cache
+from app.utils.diagnostic_redaction import safe_connection_error
 
 log = structlog.get_logger()
 
@@ -285,7 +286,7 @@ async def collect_video_sample_diagnostic(
     except Exception as error:  # pragma: no cover - guarded by test_probe_never_escapes
         # Each helper already swallows its own failures. This is the backstop:
         # a bundle must never fail to assemble because a probe went wrong.
-        log.warning("media_sample_probe_failed", error=str(error))
+        log.warning("media_sample_probe_failed", error=safe_connection_error(error))
         return _unavailable("The media sample could not be read.")
 
 

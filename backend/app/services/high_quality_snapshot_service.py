@@ -64,6 +64,7 @@ from app.utils.frigate_track import (
     nearest_path_point,
 )
 from app.utils.tasks import create_background_task
+from app.utils.diagnostic_redaction import safe_connection_error
 from app.utils.image_io import decode_image_bytes
 from app.utils.api_datetime import serialize_storage_datetime, utc_naive_now
 
@@ -582,7 +583,9 @@ class HighQualitySnapshotService:
             if cached_path and await asyncio.to_thread(cached_path.exists):
                 return await asyncio.to_thread(cached_path.read_bytes)
         except Exception as e:
-            log.warning("High-quality snapshot recording fallback failed", event_id=event_id, error=str(e))
+            log.warning(
+                "High-quality snapshot recording fallback failed", event_id=event_id, error=safe_connection_error(e)
+            )
             return None
 
         return None
