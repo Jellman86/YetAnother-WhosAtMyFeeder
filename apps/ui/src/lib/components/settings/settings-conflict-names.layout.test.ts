@@ -33,11 +33,11 @@ function renderConflicts(): string {
     }).body;
 }
 
-// A button's accessible name from its rendered content: the visible words plus any visually
-// hidden text, with markup and comments removed.
+// The accessible name of each conflict button: its visible words followed by its visually hidden
+// text. Read directly from the two parts rather than by stripping markup.
 function buttonNames(body: string): string[] {
-    return [...body.matchAll(/<button\b[^>]*>([\s\S]*?)<\/button>/g)]
-        .map((match) => match[1].replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+    return [...body.matchAll(/<button\b[^>]*>([^<]*)(?:<!---->)*<span class="sr-only">([^<]*)<\/span>/g)]
+        .map((match) => `${match[1]}${match[2]}`.replace(/\s+/g, ' ').trim());
 }
 
 beforeAll(() => {
@@ -52,9 +52,9 @@ describe('the buttons that settle a conflict', () => {
         expect(names).toContain('Use my change for MQTT Broker (Connection)');
         expect(names).toContain('Use the saved value for Port (Connection)');
         expect(names).toContain('Use my change for Port (Connection)');
-        // No two of them sound the same.
-        const conflictNames = names.filter((name) => name.startsWith('Use '));
-        expect(new Set(conflictNames).size).toBe(conflictNames.length);
+        // Four buttons, and no two of them sound the same.
+        expect(names).toHaveLength(4);
+        expect(new Set(names).size).toBe(names.length);
     });
 
     it('add the setting in every language, after the visible words', () => {
