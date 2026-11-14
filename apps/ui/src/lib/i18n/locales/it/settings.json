@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, one {# associato} other {# associati}}",
       "title": "BirdNET-Go",
       "toggle_label": "Abbina i canti uditi da BirdNET-Go alle visite della telecamera, così una visita può essere confermata dal suono.",
       "internal_url_label": "URL interna di BirdNET-Go",

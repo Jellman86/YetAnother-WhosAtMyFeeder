@@ -108,7 +108,7 @@
                 <legend class="mb-2 text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.garden.send_to', { default: 'Send Garden alerts to' })}</legend>
                 <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {#each modes as option (option.value)}
-                        <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 focus-within:ring-2 focus-within:ring-brand-500 focus-within:ring-offset-2 dark:focus-within:ring-offset-slate-950 {useBirdChannels === option.value ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-900/40'}">
+                        <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {useBirdChannels === option.value ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 bg-white/70 dark:border-slate-700 dark:bg-slate-900/40'}">
                             <input class="mt-0.5 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="garden-notification-channel-mode"
                                 checked={useBirdChannels === option.value} onchange={() => (useBirdChannels = option.value)} />
                             <span class="min-w-0">

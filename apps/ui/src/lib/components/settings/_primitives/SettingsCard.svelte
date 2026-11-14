@@ -42,8 +42,10 @@
 </script>
 
 <section class="card-base overflow-hidden" {id}>
-    <header class="flex items-start justify-between gap-4 px-5 pt-5 pb-4 md:px-6 md:pt-6">
-        <div class="flex items-start gap-3 min-w-0">
+    <!-- The actions sit beside the title while it keeps at least 10rem, and wrap under it when it
+         would not, as with enlarged text on a phone. -->
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5 pb-4 md:px-6 md:pt-6">
+        <div class="flex min-w-0 flex-1 basis-40 items-start gap-3">
             {#if iconSnippet}
                 <div class="mt-0.5 shrink-0 {accent ? 'text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400'}">
                     {@render iconSnippet()}
@@ -55,7 +57,7 @@
                     {#if collapsible}
                         <button
                             type="button"
-                            class="flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+                            class="focus-ring flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left"
                             aria-expanded={open}
                             aria-controls={bodyId}
                             onclick={toggle}
@@ -75,7 +77,7 @@
             </div>
         </div>
         {#if actions}
-            <div class="shrink-0">
+            <div class="max-w-full shrink-0">
                 {@render actions()}
             </div>
         {/if}

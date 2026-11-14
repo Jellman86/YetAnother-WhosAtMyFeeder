@@ -338,7 +338,7 @@
                             value={inspectedIndex ?? points.length - 1}
                             oninput={(event) => (inspectedIndex = Number(event.currentTarget.value))}
                             onblur={() => (inspectedIndex = null)}
-                            class="system-health-scrub mt-1 block h-3 w-full cursor-crosshair appearance-none rounded-full bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+                            class="focus-ring system-health-scrub mt-1 block h-3 w-full cursor-crosshair appearance-none rounded-full bg-transparent"
                             aria-label={$_('settings.system_health.inspect', { default: 'Inspect a sample' })}
                             aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
@@ -377,7 +377,9 @@
                 </div>
 
                 <div>
-                    <dl class="grid grid-cols-3 gap-4 md:grid-cols-1 md:gap-5" data-system-health-now>
+                    <!-- As many readings to a row as fit at 6rem each: three on a phone, one beside the chart, and
+                     one at a time when the text is enlarged. -->
+                <dl class="grid grid-cols-[repeat(auto-fit,minmax(6rem,1fr))] gap-4 md:gap-5" data-system-health-now>
                         <div>
                             <dt class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.system_health.cpu_now', { default: 'CPU now' })}</dt>
                             <dd class="font-display text-3xl font-bold tabular-nums text-blue-700 dark:text-blue-300">{formatPercent(latest?.cpu_percent) ?? '—'}</dd>
@@ -447,7 +449,10 @@
                             {/each}
                         </div>
                     {/if}
-                    <table class="mt-3 w-full text-xs sm:text-sm" data-system-health-table>
+                    <!-- A table keeps its columns: when they cannot fit, as with enlarged text on a phone, it
+                         scrolls sideways within its own box instead of widening the page. -->
+                    <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-xs sm:text-sm" data-system-health-table>
                         <thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">
                             <tr>
                                 <th scope="col" class="pb-2 text-left font-bold">{$_('settings.system_health.col_process', { default: 'Process' })}</th>
@@ -489,6 +494,7 @@
                             {/each}
                         </tbody>
                     </table>
+                    </div>
                     <p class="mt-3 text-xs text-slate-600 dark:text-slate-400">
                         {$_('settings.system_health.note', {
                             default: "CPU and memory are read from this container's own processes. Accelerator cells name the runtime a classifier worker actually loaded; NPU utilisation is device-wide and cannot be divided honestly between workers. Anything else on the host is measured only as the CPU remainder."

@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, other {已映射 # 个}}",
       "title": "BirdNET-Go",
       "toggle_label": "将 BirdNET-Go 听到的鸟鸣与摄像头来访匹配，以便用声音确认来访。",
       "internal_url_label": "BirdNET-Go 内部 URL",

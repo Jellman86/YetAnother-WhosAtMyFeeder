@@ -641,10 +641,10 @@
                 <div class="divide-y divide-slate-200/70 dark:divide-slate-700/60" role="group">
                     {#each availableCameras as camera}
                         <div class="py-3 first:pt-0 space-y-2">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                            <div class="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                <span class="inline-flex max-w-full items-center break-all rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-bold uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
-                                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{mappingTokensFor(camera).length} mapped</span>
+                                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.integrations.birdnet.sensor_mapped_count', { values: { count: mappingTokensFor(camera).length }, default: '{count, plural, one {# mapped} other {# mapped}}' })}</span>
                                 {/if}
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -654,11 +654,11 @@
                                     bind:value={cameraAudioMapping[camera]}
                                     placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
                                     aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-hidden"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-focus outline-hidden"
                                 />
                                 <select
                                     aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 outline-hidden disabled:opacity-50"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50"
                                     disabled={birdnetMappingOptions.length === 0}
                                     onchange={(event) => {
                                         const select = event.currentTarget;
@@ -684,7 +684,7 @@
                                             <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
-                                                class="shrink-0 rounded-full text-brand-600 hover:text-rose-600 dark:text-brand-300 dark:hover:text-rose-300 focus:outline-hidden focus:ring-2 focus:ring-brand-500"
+                                                class="shrink-0 rounded-full text-brand-600 hover:text-rose-600 dark:text-brand-300 dark:hover:text-rose-300 focus:outline-hidden focus:ring-2 focus:ring-focus"
                                                 aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
                                                 onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
                                             >
@@ -725,7 +725,7 @@
                                     <li>
                                         <button
                                             type="button"
-                                            class="group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-brand-50 dark:hover:bg-brand-950/40 active:bg-brand-100 dark:active:bg-brand-950/60 focus:outline-hidden focus-visible:bg-brand-50 dark:focus-visible:bg-brand-950/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                            class="focus-ring group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-brand-50 dark:hover:bg-brand-950/40 active:bg-brand-100 dark:active:bg-brand-950/60 focus:outline-hidden focus-visible:bg-brand-50 dark:focus-visible:bg-brand-950/40 focus-visible:ring-inset transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                             style="opacity: {fade};"
                                             onclick={() => {
                                                 if (availableCameras.length > 0) {
@@ -971,7 +971,7 @@
                     bind:value={ebirdExportFrom}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_from_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             </SettingsRow>
             <SettingsRow
@@ -985,7 +985,7 @@
                     bind:value={ebirdExportTo}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_to_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             </SettingsRow>
         </div>

@@ -76,7 +76,7 @@
                         {opt.label}
                     </div>
                     {#if opt.sub}
-                        <div class="text-xs font-medium mt-1 {active ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'} truncate">
+                        <div class="text-xs font-medium mt-1 break-words {active ? 'text-white/80' : 'text-slate-600 dark:text-slate-400'}">
                             {opt.sub}
                         </div>
                     {/if}

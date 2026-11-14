@@ -74,3 +74,22 @@ describe('Settings names and structure', () => {
         expect(offenders).toEqual([]);
     });
 });
+
+describe('Settings controls from the shared kit', () => {
+    it('draws every switch with the kit track and thumb, whose off state and focus ring pass', () => {
+        const toggle = readFileSync(join(SETTINGS_DIR, '_primitives/SettingsToggle.svelte'), 'utf8');
+        expect(toggle).toMatch(/class="switch-track\b/);
+        expect(toggle).toContain('class="switch-thumb"');
+        expect(toggle).not.toMatch(/bg-slate-[0-9]{3}|translate-x-5|focus(-visible)?:ring-brand/);
+    });
+
+    it('shows keyboard focus with the kit ring, never a hand-rolled brand ring', () => {
+        // The kit's colour is `ring-focus`, offset against `surface` so it reads in both themes.
+        const ring = /\b(?:focus|focus-visible|focus-within):ring-(?:brand-|offset-(?:slate|white|gray))|\bdark:focus(?:-visible|-within)?:ring-offset-/;
+        const offenders = quotedStrings()
+            .filter(({ text }) => ring.test(text))
+            .map(({ where, text }) => `${where} ${text.slice(0, 90)}`);
+        expect(offenders).toEqual([]);
+    });
+});
+

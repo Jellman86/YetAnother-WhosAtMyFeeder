@@ -320,7 +320,7 @@
                     <span class="text-xs font-semibold text-accent-700 dark:text-accent-300">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                     <button
                         type="button"
-                        class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        class="focus-ring flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                         aria-label={$_('settings.cameras.preview_close')}
                         onclick={() => stopPreview(camera)}
                     >
@@ -650,7 +650,7 @@
              card header and cut off the nest window below the list. -->
         <div
             id="settings-camera-list"
-            class="space-y-3 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+            class="focus-ring space-y-3 focus:outline-hidden"
             role="group"
             aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}
             tabindex="-1"
@@ -723,7 +723,7 @@
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-hidden text-right"
+                            class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-focus outline-hidden text-right"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
                         <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>

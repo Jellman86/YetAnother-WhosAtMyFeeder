@@ -57,7 +57,7 @@ describe('Garden animals is a beta feature', () => {
         expect(betaSectionSource).toContain('aria-expanded={open}');
         expect(betaSectionSource).toContain('hidden={!open}');
         expect(betaSectionSource).toContain('min-h-11');
-        expect(betaSectionSource).toContain('focus-visible:ring-2');
+        expect(betaSectionSource).toContain('focus-ring');
         expect(betaSectionSource).toContain("rotate-180");
     });
 

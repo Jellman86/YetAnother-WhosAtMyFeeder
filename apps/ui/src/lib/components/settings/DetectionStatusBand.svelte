@@ -61,7 +61,7 @@
     <button
         type="button"
         onclick={() => jumpTo(modelsAnchorId)}
-        class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+        class="focus-ring group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left"
     >
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.band_model')}</span>
         <span class="break-all text-sm font-bold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">
@@ -132,7 +132,7 @@
     <button
         type="button"
         onclick={() => jumpTo(reportAnchorId)}
-        class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
+        class="focus-ring group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left"
     >
         <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.band_health')}</span>
         {#if issueCount > 0 || runtimeState.restartRecommended}

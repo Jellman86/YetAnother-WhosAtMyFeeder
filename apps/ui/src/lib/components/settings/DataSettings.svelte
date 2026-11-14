@@ -1026,8 +1026,8 @@
         openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
     >
         <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
-        <ul class="divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="feedback">
+        <ul class="@container divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="feedback">
                 <div class="min-w-0 space-y-1">
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h3>
                     <p id="danger-feedback-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">
@@ -1046,7 +1046,7 @@
                     {clearingFeedback ? $_('settings.danger.clearing_feedback', { default: 'Clearing...' }) : $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })}
                 </button>
             </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="favorites">
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="favorites">
                 <div class="min-w-0 space-y-1">
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.favorites_title', { default: 'Favourites' })}</h3>
                     <p id="danger-favorites-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.data.clear_favorites_desc')}</p>
@@ -1062,7 +1062,7 @@
                     {clearingFavorites ? $_('settings.data.cleaning') : $_('settings.data.clear_favorites_button')}
                 </button>
             </li>
-            <li class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6" data-danger-action="reset">
+            <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="reset">
                 <div class="min-w-0 space-y-1">
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.reset_title', { default: 'Database and media cache' })}</h3>
                     <p id="danger-reset-consequence" class="text-xs leading-snug text-slate-600 dark:text-slate-300">{$_('settings.danger.reset_desc')}</p>

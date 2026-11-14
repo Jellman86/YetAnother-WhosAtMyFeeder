@@ -74,8 +74,10 @@
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
 </script>
 
-<!-- The shell sets the width; a narrower column here sat inside the full-width header. -->
-<div class="space-y-6">
+<!-- The shell sets the width; a narrower column here sat inside the full-width header. The page is
+     a container so the rail is chosen by room measured in rem: with the reader's text doubled the
+     rail would squeeze the settings, so they stack as on a phone instead. -->
+<div class="@container space-y-6">
     {#if onRefresh}
         <div class="flex items-center justify-end gap-3 -mt-2">
             <button
@@ -113,9 +115,9 @@
             {/if}
         </div>
     {:else}
-        <div class="relative space-y-6 lg:flex lg:items-start lg:gap-8 lg:space-y-0">
+        <div class="relative space-y-6 @4xl:flex @4xl:items-start @4xl:gap-8 @4xl:space-y-0">
             {#if tabs}
-                <div class="lg:sticky lg:top-6 lg:w-56 lg:shrink-0">
+                <div class="@4xl:sticky @4xl:top-6 @4xl:w-56 @4xl:shrink-0">
                     {@render tabs()}
                 </div>
             {/if}
@@ -151,7 +153,7 @@
                                     {#each unsaved.tabs as tab (tab.id)}
                                         <button
                                             type="button"
-                                            class="min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-100"
+                                            class="focus-ring min-h-6 rounded-sm px-1 font-semibold text-brand-700 underline decoration-1 underline-offset-2 hover:text-brand-900 dark:text-brand-300 dark:hover:text-brand-100"
                                             onclick={() => onOpenTab?.(tab.id)}
                                         >{tab.label}</button>
                                     {/each}

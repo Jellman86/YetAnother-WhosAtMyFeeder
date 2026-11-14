@@ -30,7 +30,7 @@
             aria-expanded={open}
             aria-controls={`${id}-panel`}
             onclick={() => disclosure.toggle()}
-            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+            class="focus-ring flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left"
         >
             <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{title}</span>
             <span class="flex shrink-0 items-center gap-2">

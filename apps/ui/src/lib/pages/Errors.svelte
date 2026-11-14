@@ -731,11 +731,11 @@
 
         {#snippet status()}
             <div class="space-y-4" data-health-status>
-                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-5 py-4 {heroToneClass(verdict())}">
+                <div class="flex flex-wrap items-start gap-x-4 gap-y-2 rounded-2xl border px-4 py-4 sm:px-5 {heroToneClass(verdict())}">
                     <span class={`inline-flex shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${toneClass(verdict())}`} title={verdict()} data-health-status-pill>
                         {statusLabel(verdict())}
                     </span>
-                    <div class="min-w-0 flex-1">
+                    <div class="min-w-0 flex-1 wrap-break-word">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
                         {#if problems.length > 0}
                             <ul class="mt-1 space-y-2" data-health-problems>
@@ -1093,7 +1093,7 @@
                     })}
                 </p>
             </div>
-            <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-400">
+            <span class="min-w-0 rounded-2xl border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-400">
                 {$_('jobs.errors_activity_window', {
                     values: { started: startedAgoText() },
                     default: 'Since this instance started, {started}'
@@ -1130,7 +1130,7 @@
     <!-- ── Current Issues + Recent Diagnostics ────────────────────── -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
         <section class="panel" data-health-current-issues>
-            <div class="mb-4 flex items-start justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h2>
                     <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
@@ -1177,7 +1177,7 @@
         </section>
 
         <section class="panel" data-health-backend-diagnostics>
-            <div class="mb-4 flex items-start justify-between gap-3">
+            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h2>
                     <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>

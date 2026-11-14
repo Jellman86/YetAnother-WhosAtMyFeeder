@@ -340,6 +340,7 @@
   },
   "integrations": {
     "birdnet": {
+      "sensor_mapped_count": "{count, plural, other {# 件を割り当て済み}}",
       "title": "BirdNET-Go",
       "toggle_label": "BirdNET-Go が聞いた鳴き声をカメラの訪問と照合し、音で訪問を確認できるようにします。",
       "internal_url_label": "BirdNET-Go 内部 URL",

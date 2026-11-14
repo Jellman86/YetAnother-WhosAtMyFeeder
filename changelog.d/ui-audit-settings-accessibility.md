@@ -9,3 +9,10 @@
   outline, and the System health readings are a valid list.
 - Jumping to a Settings section no longer glides when your system or the Accessibility tab asks
   for reduced motion.
+- Settings switches and focus rings come from the shared kit: an off switch is as easy to see as an
+  on one, and keyboard focus draws the same clear ring as everywhere else.
+- Settings holds up with your text doubled. On a wide screen it switches to the stacked layout
+  instead of squeezing the settings beside the section list. Card buttons, notification channel
+  switches, danger actions and the System readings wrap under their titles when there is no room
+  beside them, option captions wrap instead of cutting off, and the worker table scrolls within
+  its own box.
