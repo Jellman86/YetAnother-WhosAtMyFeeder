@@ -91,3 +91,39 @@ def test_msal_pin_is_compatible_with_cryptography_pin():
             "msal must be >=1.34.0 when cryptography is pinned to >=44; "
             "older msal releases cap cryptography below 44 and break CI installs"
         )
+
+
+def test_python_version_is_the_same_in_every_image_ci_job_and_lint_target():
+    """The Dockerfiles, both workflows and Ruff must name one Python minor version.
+
+    CI installs with `setup-python` and never builds an image on a pull request, so a
+    base-image bump on its own gets a green tick from an interpreter the image will not
+    run. Python 3.15 was proposed that way while TensorFlow, ONNX Runtime and OpenVINO
+    had no wheels for it. Holding these in step makes that bump fail here instead.
+    """
+    repository_root = Path(__file__).resolve().parents[2]
+
+    def versions(relative_path: str, pattern: str) -> set[str]:
+        found = set(re.findall(pattern, (repository_root / relative_path).read_text(encoding="utf-8"), re.MULTILINE))
+        assert found, f"{relative_path} names no Python version"
+        return found
+
+    image_pattern = r"^FROM python:(\d+\.\d+)-slim"
+    workflow_pattern = r"python-version: [\"'](\d+\.\d+)[\"']"
+    named = {
+        "Dockerfile": versions("Dockerfile", image_pattern),
+        "backend/Dockerfile": versions("backend/Dockerfile", image_pattern),
+        ".github/workflows/ci.yml": versions(".github/workflows/ci.yml", workflow_pattern),
+        ".github/workflows/build-and-push.yml": versions(".github/workflows/build-and-push.yml", workflow_pattern),
+        "pyproject.toml": {
+            f"{major}.{minor}"
+            for major, minor in re.findall(
+                r'^target-version = "py(\d)(\d+)"',
+                (repository_root / "pyproject.toml").read_text(encoding="utf-8"),
+                re.MULTILINE,
+            )
+        },
+    }
+
+    assert all(len(found) == 1 for found in named.values()), named
+    assert len(set.union(*named.values())) == 1, named

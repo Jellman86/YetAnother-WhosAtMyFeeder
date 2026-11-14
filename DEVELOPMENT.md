@@ -25,10 +25,10 @@ reviewed path; release promotion follows the
 
 ## Prepare a local development environment
 
-Use Python 3.12 and Node.js 22, matching CI. From the repository root:
+Use Python 3.13 and Node.js 22, matching CI. From the repository root:
 
 ```bash
-python3.12 -m venv backend/.venv
+python3.13 -m venv backend/.venv
 source backend/.venv/bin/activate
 python -m pip install -r backend/requirements.txt
 npm --prefix apps/ui ci

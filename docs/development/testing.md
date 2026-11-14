@@ -8,7 +8,7 @@ their total usage still depends on how often you push and build.
 
 ## Normal gate
 
-Use Python 3.12 and Node.js 22, matching CI. Install the locked/project dependencies
+Use Python 3.13 and Node.js 22, matching CI. Install the locked/project dependencies
 first. From the repository root:
 
 ```bash
@@ -162,7 +162,7 @@ and cover cancellation, bounded escalation and replacement blocked by failed
 cleanup. A killed child must have an exit code before its capacity is reused.
 The real signal-handler case is POSIX-only; portable lifecycle cases still run
 on other platforms. Process waiting follows Python's
-[asyncio subprocess contract](https://docs.python.org/3.12/library/asyncio-subprocess.html).
+[asyncio subprocess contract](https://docs.python.org/3.13/library/asyncio-subprocess.html).
 
 Use the [backfill replay recipe](../reviews/2026-09-23-backfill-test-hardening.md#repeatable-real-model-replay)
 with an already installed model and a retained bird crop. Run one accelerator
@@ -214,13 +214,13 @@ from a single pass. Review every failure, even when another repeat passes.
 ### Native Windows validation
 
 Install `requirements-base.txt`, `requirements-provider-cuda.txt` and
-`requirements-dev.txt` into an isolated Python 3.12 virtual environment. The base
+`requirements-dev.txt` into an isolated Python 3.13 virtual environment. The base
 requirements include Windows timezone data, because Windows has no system IANA
 database. Run worker lifecycle tests before the installed-model CUDA gate.
 
 Windows workers use bounded binary stdin reads in a thread so heartbeats continue
 while waiting for requests. The parent launches the base interpreter directly
-with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.12/Modules/getpath.py), retaining the environment's
+with [CPython's virtual environment launcher hint](https://github.com/python/cpython/blob/3.13/Modules/getpath.py), retaining the environment's
 packages and ownership of the actual worker process. Runtime discovery probes,
 model validation and hardware/regression gates use the same launch helper.
 Cancelled crop validation kills and reaps its child before returning, including
