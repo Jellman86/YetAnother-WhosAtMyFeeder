@@ -94,10 +94,20 @@ export class SettingsStore {
         return this.settings;
     }
 
+    /** A complete copy just read from or saved to the server, so it is as fresh as a read. */
     update(newSettings: Settings) {
         if (!this.canReadSettings()) return;
         this.settings = newSettings;
         this.lastReadAt = Date.now();
+    }
+
+    /**
+     * Merges fields the server has confirmed into the copy held. The rest of that copy is no newer
+     * than before, so this keeps its age: a reader that needs a fresh copy still reads again.
+     */
+    patch(confirmed: Partial<Settings>) {
+        if (!this.canReadSettings() || !this.settings) return;
+        this.settings = { ...this.settings, ...confirmed };
     }
 
     clear() {

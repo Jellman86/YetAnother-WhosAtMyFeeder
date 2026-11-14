@@ -1991,9 +1991,7 @@
         if (!update) return;
         loadedInferenceProvider = update.saved;
         inferenceProvider = update.form;
-        if (settingsStore.settings) {
-            settingsStore.update({ ...settingsStore.settings, inference_provider: update.saved });
-        }
+        settingsStore.patch({ inference_provider: update.saved });
     }
 
     // A re-run overlays this form. Adopt confirmed wizard writes only for fields
@@ -2038,7 +2036,7 @@
             confirmed.mqtt_password = '***REDACTED***';
         }
         loadedSetupSettings = { ...baseline, ...confirmed };
-        if (settingsStore.settings) settingsStore.update({ ...settingsStore.settings, ...confirmed });
+        settingsStore.patch(confirmed);
     }
 
     async function loadRecordingClipCapability() {
@@ -2061,7 +2059,8 @@
         try {
             const settings = shareShellRead ? await settingsStore.read(SHARED_SETTINGS_READ_MS) : await fetchSettings();
             loadedSetupSettings = settings;
-            settingsStore.update(settings);
+            // A shared read is the store's own copy; handing it back would restart its age.
+            if (!shareShellRead) settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
             frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
             frigateExternalUrl = settings.frigate_external_url || '';

@@ -197,3 +197,33 @@ it('continues applying saved settings while owner access is valid', () => {
     store.update(ownerSettings);
     expect(store.settings).toEqual(ownerSettings);
 });
+
+it('does not certify an old copy as fresh when one confirmed field is merged into it', async () => {
+    vi.useFakeTimers();
+    try {
+        const fresh = { cameras: ['fresh-camera'], inference_provider: 'cpu' } as unknown as Settings;
+        const fetchSettings = vi.fn(async () => fresh);
+        const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+        await store.load();
+
+        vi.advanceTimersByTime(60_000);
+        store.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+        expect(store.settings?.inference_provider).toBe('intel_npu');
+
+        // Every other field in the held copy is still a minute old, so an editable form reads again.
+        await store.read(5_000);
+        expect(fetchSettings).toHaveBeenCalledTimes(2);
+    } finally {
+        vi.useRealTimers();
+    }
+});
+
+it('ignores a merged field when no copy is held, or for a guest', () => {
+    const empty = new SettingsStore({ canReadSettings: () => true });
+    empty.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+    expect(empty.settings).toBeNull();
+
+    const guest = new SettingsStore({ canReadSettings: () => false });
+    guest.patch({ inference_provider: 'intel_npu' } as Partial<Settings>);
+    expect(guest.settings).toBeNull();
+});

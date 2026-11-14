@@ -2,6 +2,7 @@
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
     import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startVisiblePoll } from '../app/visible-poll';
     import { settingsStore } from '../stores/settings.svelte';
     import { fetchEventFilters } from '../api/events';
     import {
@@ -31,8 +32,9 @@
     let rootEl: HTMLDivElement | null = $state(null);
     let triggerEl: HTMLButtonElement | null = $state(null);
     let viewerEl: HTMLDivElement | null = $state(null);
-    let healthTimer: ReturnType<typeof setInterval> | null = null;
-    let frameTimer: ReturnType<typeof setInterval> | null = null;
+    // Each poll holds no timer while the tab is hidden and reads again once it is shown.
+    let stopHealthPoll: (() => void) | null = null;
+    let stopFramePoll: (() => void) | null = null;
     let healthController: AbortController | null = null;
     let frameController: AbortController | null = null;
     let healthPromise: Promise<void> | null = null;
@@ -185,25 +187,27 @@
     }
 
     function startHealthRefresh(refreshNow = true): void {
-        if (refreshNow) void refreshHealth();
-        if (!healthTimer) healthTimer = setInterval(() => void refreshHealth(), HEALTH_REFRESH_MS);
+        stopHealthPoll ??= startVisiblePoll({
+            read: refreshHealth,
+            delayMs: () => HEALTH_REFRESH_MS,
+            readAtStart: refreshNow
+        });
     }
 
     function stopHealthRefresh(): void {
-        if (healthTimer) clearInterval(healthTimer);
-        healthTimer = null;
+        stopHealthPoll?.();
+        stopHealthPoll = null;
         healthController?.abort();
         healthController = null;
     }
 
     function startFrameRefresh(): void {
-        void refreshSelectedFrame();
-        if (!frameTimer) frameTimer = setInterval(() => void refreshSelectedFrame(), FRAME_REFRESH_MS);
+        stopFramePoll ??= startVisiblePoll({ read: refreshSelectedFrame, delayMs: () => FRAME_REFRESH_MS });
     }
 
     function stopFrameRefresh(): void {
-        if (frameTimer) clearInterval(frameTimer);
-        frameTimer = null;
+        stopFramePoll?.();
+        stopFramePoll = null;
         frameController?.abort();
         frameController = null;
     }
@@ -265,7 +269,6 @@
         } else {
             void refreshHealth();
         }
-        if (popoverOpen) void refreshSelectedFrame();
     }
 
     onMount(() => {
