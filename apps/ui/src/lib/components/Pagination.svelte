@@ -70,7 +70,7 @@
 </script>
 
 {#if totalPages > 0}
-    <div data-pagination class="flex flex-col items-center justify-between gap-4 pt-5 pb-1 sm:flex-row">
+    <div data-pagination class="flex flex-col items-center justify-between gap-4 pt-5 pb-1 sm:flex-row sm:flex-wrap">
         <!-- Items info and page size selector -->
         <div class="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-600 dark:text-slate-400 sm:justify-start">
             <span class="font-medium text-slate-700 dark:text-slate-300">
@@ -95,7 +95,7 @@
         </div>
 
         <!-- Page navigation -->
-        <nav class="flex max-w-full items-center gap-1" aria-label={$_('pagination.navigation', { default: 'Pagination' })}>
+        <nav class="flex max-w-full flex-wrap items-center justify-center gap-1" aria-label={$_('pagination.navigation', { default: 'Pagination' })}>
             <!-- Previous button -->
             <button
                 onclick={() => goToPage(currentPage - 1)}
@@ -115,10 +115,10 @@
 
             <!-- Full page numbers are useful on wider screens; on mobile, previous/current/next
                  stays within the viewport and keeps every control at 44px. -->
-            <span class="hidden items-center gap-1 sm:flex">
+            <span class="hidden flex-wrap items-center justify-center gap-1 sm:flex">
                 {#each pageNumbers() as page}
                     {#if page === 'ellipsis'}
-                        <span class="px-2 text-slate-400 dark:text-slate-500">...</span>
+                        <span class="px-2 text-slate-600 dark:text-slate-400">...</span>
                     {:else}
                         <button
                             onclick={() => goToPage(page)}

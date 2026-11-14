@@ -183,6 +183,7 @@
   "working": "Working…",
   "skip_step": "Skip step",
   "step_list": "Setup steps",
+  "progress": "Setup progress",
   "step_names": {
     "welcome": "Welcome",
     "account": "Account",

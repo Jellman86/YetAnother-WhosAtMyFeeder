@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
 import type { ShowcaseRow } from './showcase';
+import { contrastRatio, type Rgb } from '../utils/contrast';
 import { packTiles, readableInk, wallTiles, WALL_MINIMUM } from './wall';
 
 const MINUTE = 60_000;
@@ -218,10 +219,24 @@ describe('the leaderboard wall', () => {
     });
 
     it('reads the best ink on a species colour: dark on light colours, white on dark ones', () => {
-        expect(readableInk('#eda100')).toBe('#020617');
+        expect(readableInk('#eda100')).toBe('#000000');
         expect(readableInk('#4a3aa7')).toBe('#ffffff');
-        expect(readableInk('#1baf7a')).toBe('#020617');
-        expect(readableInk('#fff')).toBe('#020617');
+        expect(readableInk('#1baf7a')).toBe('#000000');
+        expect(readableInk('#fff')).toBe('#000000');
+    });
+
+    it('reaches 4.5:1 on every colour a segment can take, the mid-tones included', () => {
+        // On a mid blue neither ink is far ahead; picking the wrong one left the label at 4.4:1.
+        expect(readableInk('#2a78d6')).toBe('#000000');
+        for (let red = 0; red <= 255; red += 15) {
+            for (let green = 0; green <= 255; green += 15) {
+                for (let blue = 0; blue <= 255; blue += 15) {
+                    const ground: Rgb = [red, green, blue];
+                    const ink: Rgb = readableInk(`#${ground.map((part) => part.toString(16).padStart(2, '0')).join('')}`) === '#ffffff' ? [255, 255, 255] : [0, 0, 0];
+                    expect(contrastRatio(ink, ground), ground.join(',')).toBeGreaterThanOrEqual(4.5);
+                }
+            }
+        }
     });
 
     it('needs at least a handful of visits to be a wall', () => {

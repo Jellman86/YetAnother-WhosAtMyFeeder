@@ -113,7 +113,7 @@
             <h2 id="dashboard-notable-nearby-title" class="font-display text-xl font-bold text-slate-950 dark:text-white">
                 {$_('dashboard.notable_nearby.title')}
             </h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">
+            <p class="text-sm text-slate-600 dark:text-slate-400">
                 {$_('dashboard.notable_nearby.subtitle')}
             </p>
         </div>
@@ -153,7 +153,7 @@
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
                 {$_('dashboard.notable_nearby.empty', { values: { distance: radiusLabel, days: daysBack } })}
             </p>
-            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                 {$_('dashboard.notable_nearby.empty_hint')}
             </p>
         </div>
@@ -173,7 +173,7 @@
                         disabled={!onselectspecies || !observationName}
                         onclick={() => observationName && onselectspecies?.(observationName)}
                         aria-label={$_('dashboard.notable_nearby.open_species', { values: { species: observationName || $_('common.unknown_species') } })}
-                        class="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:hover:bg-transparent"
+                        class="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-default disabled:hover:bg-transparent"
                     >
                     {#if group.thumbnail_url}
                         <img
@@ -185,7 +185,7 @@
                             class="h-12 w-12 shrink-0 rounded-lg object-cover"
                         />
                     {:else}
-                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-slate-500 dark:text-slate-400" aria-hidden="true">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-surface-raised text-slate-600 dark:text-slate-400" aria-hidden="true">
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 19c5.5 0 10-4.5 10-10V5l4 4-4 4M5 5v14" />
                             </svg>
@@ -202,9 +202,9 @@
                             {/if}
                         </p>
                         {#if observation.common_name && observation.scientific_name}
-                            <p class="truncate text-xs italic text-slate-500 dark:text-slate-400">{observation.scientific_name}</p>
+                            <p class="truncate text-xs italic text-slate-600 dark:text-slate-400">{observation.scientific_name}</p>
                         {/if}
-                        <p class="truncate text-xs text-slate-500 dark:text-slate-400">
+                        <p class="truncate text-xs text-slate-600 dark:text-slate-400">
                             {group.locations.length > 1
                                 ? $_('dashboard.notable_nearby.places', { values: { count: group.locations.length }, default: '{count, plural, one {# place} other {# places}}' })
                                 : observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}

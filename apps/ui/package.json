@@ -16,6 +16,7 @@
     "lint:dead": "knip --no-progress --include files,dependencies,devDependencies,unlisted,unresolved,exports,types,nsExports,nsTypes,enumMembers"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
     "@playwright/test": "1.64.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tailwindcss/vite": "^4.3.5",

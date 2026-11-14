@@ -54,7 +54,7 @@
                     class="btn btn-secondary min-h-11 px-4 text-sm"
                     onclick={() => confirmDialog.answer(false)}
                 >
-                    {$_('common.cancel')}
+                    {pending.cancelLabel || $_('common.cancel')}
                 </button>
                 <button
                     type="button"

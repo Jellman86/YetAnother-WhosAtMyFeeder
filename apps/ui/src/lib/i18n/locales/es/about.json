@@ -118,6 +118,7 @@
     "shared_today": "Hoy en este comedero.",
     "shared_days": "Los últimos {days} días en este comedero.",
     "empty": "Aún no hay visitas registradas. Se irá llenando a medida que lleguen aves.",
+    "no_latest": "Aún no hay ninguna imagen de una visita reciente.",
     "visits": "visitas",
     "species": "especies",
     "busiest_day": "Día con más actividad",

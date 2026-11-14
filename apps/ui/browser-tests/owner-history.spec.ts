@@ -27,7 +27,8 @@ test('recent sightings link to the exact capture even when it has no clip', asyn
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/owner-history.html?surface=species');
-    const links = page.locator('[data-species-recent-sightings]').getByRole('link', { name: 'Open Eurasian Blue Tit capture' });
+    // Each link is named by what it shows: the bird in the picture, then when it was seen and how sure the model was.
+    const links = page.locator('[data-species-recent-sightings]').getByRole('link', { name: /^Eurasian Blue Tit .*\d+%$/ });
     await expect(links).toHaveCount(2);
     for (const [index, capture] of sightings.entries()) {
         await expect(links.nth(index)).toHaveAttribute('href', `/events?event=${encodeURIComponent(capture.frigate_event)}`);

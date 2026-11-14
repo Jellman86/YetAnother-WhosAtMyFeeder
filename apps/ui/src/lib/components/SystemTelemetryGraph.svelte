@@ -1,16 +1,17 @@
 <script lang="ts">
     interface Props {
-        /** Where the live readout sits; the host card reserves that row so nothing draws over it. */
-        readoutClass?: string;
+        /** The row of the host card that holds the live readout, in the card's own flow. */
+        readoutHost: HTMLElement | null;
     }
 
-    let { readoutClass = 'bottom-3 left-3' }: Props = $props();
+    let { readoutHost }: Props = $props();
 
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchSystemTelemetry } from '../api/system';
     import { telemetrySampleDelayMs } from '../app/public-refresh-budget';
     import { authStore } from '../stores/auth.svelte';
+    import { portal } from '../utils/portal';
     import {
         appendTelemetrySample,
         telemetryPolyline,
@@ -123,7 +124,7 @@
             <polygon
                 points={cpuArea}
                 fill="currentColor"
-                class="text-brand-500 opacity-[0.07] dark:text-brand-400 dark:opacity-[0.09]"
+                class="text-brand-700 opacity-[0.07] dark:text-brand-400 dark:opacity-[0.09]"
             />
             <polyline
                 points={cpuPoints}
@@ -131,7 +132,7 @@
                 stroke="currentColor"
                 stroke-width="1.25"
                 vector-effect="non-scaling-stroke"
-                class="text-brand-500 opacity-20 dark:text-brand-400 dark:opacity-25"
+                class="text-brand-700 opacity-20 dark:text-brand-400 dark:opacity-25"
             />
             {#if acceleratorPoints}
                 <polyline
@@ -146,16 +147,18 @@
         </svg>
     {/if}
 
-    {#if current}
-        <div class="absolute {readoutClass} flex items-center gap-2 text-3xs font-semibold tabular-nums">
+    <!-- Moved into the host's row rather than placed over the card: text placed by offset has no
+         way to make room when the words around it grow. -->
+    {#if current && readoutHost}
+        <div use:portal={readoutHost} class="pointer-events-none flex flex-wrap items-center gap-x-2 text-3xs font-semibold leading-4 tabular-nums">
             {#if stale}
-                <span class="text-slate-500 dark:text-slate-400">{$_('system_telemetry.last_reading', { default: 'Last reading' })}</span>
+                <span class="text-slate-600 dark:text-slate-400">{$_('system_telemetry.last_reading', { default: 'Last reading' })}</span>
             {/if}
             {#if currentCpuPercent}
-                <span class="text-brand-700/70 dark:text-brand-300/70">CPU {currentCpuPercent}</span>
+                <span class="text-brand-700 dark:text-brand-300">CPU {currentCpuPercent}</span>
             {/if}
             {#if currentAcceleratorPercent}
-                <span class="text-indigo-700/70 dark:text-indigo-300/70">
+                <span class="text-indigo-700 dark:text-indigo-300">
                     {current.acceleratorLabel ?? ''} {currentAcceleratorPercent}
                 </span>
             {/if}

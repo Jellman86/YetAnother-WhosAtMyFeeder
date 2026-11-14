@@ -52,7 +52,7 @@
                     type="button"
                     onclick={() => void pageRefreshAction.run()}
                     disabled={!pageRefreshAction.available || pageRefreshAction.refreshing}
-                    class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
+                    class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
                     title={$_('common.refresh')}
                     aria-label={$_('common.refresh')}
                     aria-busy={pageRefreshAction.refreshing}
@@ -66,12 +66,12 @@
             <NotificationCenter
                 current={notificationsCurrent}
                 onNavigate={(path) => onNavigate?.(path)}
-                buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
+                buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
             />
             <button
                 type="button"
                 onclick={goSettings}
-                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
+                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
                 title={$_('nav.settings')}
                 aria-label={$_('nav.settings')}
             >
@@ -85,17 +85,17 @@
 </header>
 
 <style>
-    /* Measured in rem, so enlarged text on a phone steps the title down instead of breaking the
-       page's name inside a word. */
+    /* The title is never made smaller to fit: enlarged text must stay enlarged. In a column too
+       narrow for one of its words (measured in rem, so this follows the text size), the word is
+       hyphenated by the page's language, and broken anywhere only if that is not enough. */
     .page-title-block {
         container-type: inline-size;
     }
 
     @container (width < 16rem) {
         .page-title {
-            font-size: 1.5rem;
-            line-height: 2rem;
             hyphens: auto;
+            overflow-wrap: anywhere;
         }
     }
 </style>

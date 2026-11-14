@@ -104,7 +104,7 @@
                 {/if}
             </div>
             <div class="min-w-0 flex-1 space-y-0.5">
-                <p class="text-3xs font-semibold text-slate-500 tabular-nums dark:text-slate-400">{valueText}</p>
+                <p class="text-3xs font-semibold text-slate-600 tabular-nums dark:text-slate-400">{valueText}</p>
                 {#if scan.latest}
                     <p class="flex items-baseline justify-between gap-3">
                         <span class="min-w-0 truncate text-sm font-semibold text-slate-900 dark:text-white">{scan.latest.label}</span>
@@ -116,7 +116,7 @@
                     </p>
                 {/if}
                 {#if scan.best}
-                    <p class="truncate text-2xs text-slate-500 dark:text-slate-400">
+                    <p class="truncate text-2xs text-slate-600 dark:text-slate-400">
                         {$_('detection.frame_scan.best', {
                             values: { position: scan.best.position, label: scan.best.label, score: scan.best.scorePercent },
                             default: 'Clearest so far: frame {position}, {label} {score}%'
@@ -126,7 +126,7 @@
             </div>
         </div>
 
-        <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-3xs text-slate-500 dark:text-slate-400">
+        <ul class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-3xs text-slate-600 dark:text-slate-400">
             <li class="flex items-center gap-1.5">
                 <span class="h-2.5 w-2.5 rounded-xs bg-success-500" aria-hidden="true"></span>
                 {$_('detection.frame_scan.legend_strong', { default: '80% and over' })}

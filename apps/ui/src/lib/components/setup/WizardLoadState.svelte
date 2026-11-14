@@ -16,7 +16,7 @@
 </script>
 
 {#if state === 'loading'}
-    <div role="status" aria-live="polite" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+    <div role="status" aria-live="polite" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-600 dark:text-slate-400">
         <span class="h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" aria-hidden="true"></span>
         {$_('setup.load.loading', { default: 'Loading your saved settings…' })}
     </div>

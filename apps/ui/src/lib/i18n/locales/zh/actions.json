@@ -8,6 +8,7 @@
   "delete_detection": "永久删除此次到访",
   "hide_detection": "隐藏检测",
   "unhide_detection": "取消隐藏检测",
+  "unhide": "取消隐藏",
   "read_more_wikipedia": "在维基百科上阅读更多",
   "read_more_source": "在 {source} 上阅读更多",
   "delete_selected": "删除所选",

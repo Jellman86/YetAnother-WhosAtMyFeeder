@@ -125,7 +125,7 @@
     onContinue={() => setupWizardStore.close()}
 >
     {#if setupWizardStore.refreshing && sections.length === 0}
-        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-500 dark:text-slate-400">
+        <div role="status" class="flex min-h-28 items-center justify-center gap-3 text-sm text-slate-600 dark:text-slate-400">
             <span class="h-5 w-5 animate-spin rounded-full border-2 border-brand-200 border-t-brand-600" aria-hidden="true"></span>
             {$_('setup.review.loading', { default: 'Checking the saved setup…' })}
         </div>
@@ -149,7 +149,7 @@
                 <div class="min-w-0">
                     <p class="text-sm font-medium text-slate-800 dark:text-slate-100">{sectionLabel(section.id)}</p>
                     {#if sectionDetail(section)}
-                        <p class="wrap-break-word text-xs leading-relaxed text-slate-500 dark:text-slate-400">{sectionDetail(section)}</p>
+                        <p class="wrap-break-word text-xs leading-relaxed text-slate-600 dark:text-slate-400">{sectionDetail(section)}</p>
                     {/if}
                 </div>
                 <div class="flex shrink-0 items-center gap-2">

@@ -9,7 +9,7 @@ const en = { about: enAbout };
 
 describe('About surface polish', () => {
     it('gives the quick links and credit links a full touch target', () => {
-        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-600 focus-ring');
+        expect(aboutSource).toContain('class="group inline-flex min-h-11 items-center gap-1.5 text-brand-700 focus-ring');
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
@@ -87,7 +87,7 @@ describe('About surface polish', () => {
 
     it('sizes the external link arrow in the icon, not the display font', () => {
         expect(aboutSource).not.toContain('↗');
-        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-slate-400');
+        expect(aboutSource).toContain('h-2.5 w-2.5 shrink-0 text-slate-500');
     });
 
     it('speaks in the first person and drops the title case', () => {

@@ -715,7 +715,7 @@
         {#snippet headerActions()}
             <div class="flex flex-wrap items-center justify-end gap-2">
                 <!-- Its place is held before the first reading, so the header does not rewrap when it arrives. -->
-                <span class="text-xs text-slate-500 dark:text-slate-400 {refreshedAgoText() ? '' : 'invisible'}" aria-hidden={refreshedAgoText() ? undefined : 'true'}>
+                <span class="text-xs text-slate-600 dark:text-slate-400 {refreshedAgoText() ? '' : 'invisible'}" aria-hidden={refreshedAgoText() ? undefined : 'true'}>
                     {refreshedAgoText() ?? $_('jobs.errors_updated_just_now', { default: 'Updated just now' })}
                 </span>
                 <button
@@ -751,7 +751,7 @@
                             <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
                         {/if}
                         <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
-                        <p class="mt-1 min-h-8 text-xs text-slate-500 sm:min-h-4 dark:text-slate-400">{latestHealthLine()}</p>
+                        <p class="mt-1 min-h-8 text-xs text-slate-600 sm:min-h-4 dark:text-slate-400">{latestHealthLine()}</p>
                     </div>
                 </div>
                 {#if refreshError}
@@ -786,7 +786,7 @@
         <details class="border-t border-line-soft pt-4" data-subsystem-detail>
             <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 eyebrow focus-ring">
                 <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
-                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </summary>
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
@@ -1087,13 +1087,13 @@
                 <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">
                     {$_('jobs.errors_activity_title', { default: 'What happened' })}
                 </h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">
+                <p class="text-sm text-slate-600 dark:text-slate-400">
                     {$_('jobs.errors_activity_subtitle', {
                         default: 'Recorded visits, filtered detections and pipeline faults, in the order they happened'
                     })}
                 </p>
             </div>
-            <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-400">
                 {$_('jobs.errors_activity_window', {
                     values: { started: startedAgoText() },
                     default: 'Since this instance started, {started}'
@@ -1102,7 +1102,7 @@
         </header>
 
         {#if instanceWindow === null}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
                 {$_('jobs.errors_activity_no_window', {
                     default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
                 })}
@@ -1133,13 +1133,13 @@
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
                 </div>
                 <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{currentIssues.length.toLocaleString()} open</span>
             </div>
             <div class="space-y-3">
                 {#if currentIssues.length === 0}
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
                 {:else}
                     {#each currentIssues as incident (incident.id)}
                         <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
@@ -1147,17 +1147,17 @@
                                 <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
                                     {statusLabel(incident.status)}
                                 </span>
-                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{incident.summary}</p>
                         </article>
                     {/each}
                 {/if}
 
                 {#if recentIncidents.length > 0}
                     <div class="pt-3">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
                         <div class="mt-3 space-y-2">
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
@@ -1165,7 +1165,7 @@
                                         <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
                                             {statusLabel(incident.status)}
                                         </span>
-                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                                     </div>
                                     <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
                                 </article>
@@ -1180,12 +1180,12 @@
             <div class="mb-4 flex items-start justify-between gap-3">
                 <div class="min-w-0">
                     <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
                 </div>
                 <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{backendEvents.length.toLocaleString()} events</span>
             </div>
             {#if backendEvents.length === 0}
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
             {:else}
                 <div class="space-y-3">
                     {#each backendEvents.slice(0, 8) as event (event.id)}
@@ -1221,12 +1221,12 @@
          page whose job is to say whether the feeder is working. It sits behind
          the same disclosure the subsystem detail uses. -->
     <details class="panel" data-diagnostics-export>
-        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
+        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-bold uppercase tracking-widest text-slate-600 focus-ring dark:text-slate-400">
             <span class="flex items-center gap-2">
-                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                 {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
             </span>
-            <span class="font-semibold normal-case tracking-normal text-slate-400">
+            <span class="font-semibold normal-case tracking-normal text-slate-600 dark:text-slate-400">
                 {$_('jobs.errors_export_count', {
                     values: { count: bundles.length.toLocaleString() },
                     default: '{count} saved'
@@ -1269,7 +1269,7 @@
         {/if}
 
         {#if bundles.length === 0}
-            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            <p class="mt-4 text-sm text-slate-600 dark:text-slate-400">
                 {$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })}
             </p>
         {:else}
@@ -1278,7 +1278,7 @@
                     <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
-                            <p class="mt-0.5 text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                            <p class="mt-0.5 text-xs tabular-nums text-slate-600 dark:text-slate-400">
                                 {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
                             </p>
                             {#if bundleNotesPreview(bundle)}

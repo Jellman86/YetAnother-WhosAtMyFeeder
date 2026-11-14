@@ -1,3 +1,4 @@
+import { contrastRatio, type Rgb } from '../utils/contrast';
 import type { Detection } from '../api';
 import { groupDetectionsIntoVisits } from '../utils/visit-grouping';
 import type { ShowcaseRow } from './showcase';
@@ -164,17 +165,17 @@ function layout(tiles: readonly WallTile[], columns: number, maxRows: number): {
     return { tiles: placed.map((entry) => entry.tile), cells: filled };
 }
 
-/** The ink that reads best on a colour: near-black or white, whichever has the higher WCAG contrast. */
+// Pure black, not slate-950: at the crossover the two inks tie at 4.58:1, and slate-950 there is a hair under 4.5.
+const DARK_INK: Rgb = [0, 0, 0];
+const LIGHT_INK: Rgb = [255, 255, 255];
+
+/**
+ * The ink that reads best on a colour: black or white, whichever has the higher WCAG contrast.
+ * Measured against the real inks, the better of the two is 4.5:1 or more on every colour.
+ */
 export function readableInk(hex: string): string {
-    const channel = (value: number): number => {
-        const unit = value / 255;
-        return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
-    };
     const digits = hex.replace('#', '');
     const expanded = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits;
-    const [red, green, blue] = [0, 2, 4].map((offset) => channel(parseInt(expanded.slice(offset, offset + 2), 16)));
-    const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-    const againstDark = (luminance + 0.05) / (0.0087 + 0.05);
-    const againstLight = 1.05 / (luminance + 0.05);
-    return againstDark >= againstLight ? '#020617' : '#ffffff';
+    const ground: Rgb = [parseInt(expanded.slice(0, 2), 16), parseInt(expanded.slice(2, 4), 16), parseInt(expanded.slice(4, 6), 16)];
+    return contrastRatio(DARK_INK, ground) >= contrastRatio(LIGHT_INK, ground) ? '#000000' : '#ffffff';
 }

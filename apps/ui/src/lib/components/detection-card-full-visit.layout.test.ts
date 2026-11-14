@@ -25,7 +25,7 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toMatch(/absolute bottom-3 left-3 z-20 flex[^"]*items-center/);
         expect(detectionCardSource).toContain('{#if !analysisActive}');
         expect(detectionCardSource).toContain('{#if canPlayVideo}');
-        expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55');
+        expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/75');
         expect(detectionCardSource).not.toContain('absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100');
         expect(detectionCardSource).toContain('M7 3H5a2 2 0 00-2 2v2');
 

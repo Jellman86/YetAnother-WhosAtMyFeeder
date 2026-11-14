@@ -17,7 +17,7 @@ export type FieldLogRow =
  * and `log-narrow` container variants), so enlarged text on a phone reflows instead of overflowing.
  */
 export const FIELD_LOG_GRID =
-    'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-2 log-wide:grid-cols-[5rem_0.75rem_auto_minmax(0,1fr)_auto_8rem] log-wide:gap-x-3 log-narrow:grid-cols-[0.6rem_auto_minmax(0,1fr)]';
+    'grid grid-cols-[3.25rem_0.6rem_auto_minmax(0,1fr)_auto] gap-x-1.5 log-wide:grid-cols-[5.75rem_0.75rem_auto_minmax(0,1fr)_auto_8rem] log-wide:gap-x-3 log-narrow:grid-cols-[0.6rem_auto_minmax(0,1fr)]';
 
 /**
  * Where each cell of a line sits when the log is narrower than 16rem: the thread and photo first

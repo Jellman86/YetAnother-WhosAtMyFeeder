@@ -117,7 +117,7 @@
     <div class="min-h-svh" aria-busy="true" data-route-loading>
         {#if showLoadingState}
             <div
-                class="flex items-center gap-3 border-t border-slate-200 py-6 text-sm font-medium text-slate-500 dark:border-slate-700 dark:text-slate-400"
+                class="flex items-center gap-3 border-t border-slate-200 py-6 text-sm font-medium text-slate-600 dark:border-slate-700 dark:text-slate-400"
                 role="status"
                 aria-live="polite"
             >

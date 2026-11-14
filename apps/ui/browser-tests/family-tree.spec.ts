@@ -514,7 +514,7 @@ test('a Garden animal gets the same tree with its own Garden visits and no world
     await expect(card).toHaveCount(0);
     await svg.locator('[data-family-tree-node="72"]').hover();
     await expect(card.locator('[data-taxon-card-caption]')).toHaveText('Your photo of Red Fox');
-    await expect(page.locator('[data-family-tree] footer')).toContainText('SpeciesNet taxonomy');
+    await expect(page.locator('[data-family-tree] [data-family-tree-source]')).toContainText('SpeciesNet taxonomy');
     expect(errors).toEqual([]);
 });
 

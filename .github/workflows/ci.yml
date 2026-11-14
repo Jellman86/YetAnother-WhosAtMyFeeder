@@ -140,7 +140,8 @@ jobs:
   browser:
     name: Browser regressions (Chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The suite alone takes about 12.5 minutes on a hosted runner; 15 cancelled a run that was passing.
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/ui

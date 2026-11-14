@@ -74,6 +74,9 @@ test('capture badge explanations escape clipping and close with their scrolling 
         const parent = node.closest('[popover]')!;
         return node.getBoundingClientRect().top - parent.getBoundingClientRect().top + node.getBoundingClientRect().height + 16;
     });
+    // Park the pointer off the panel first: scrolling slides other rows under a resting pointer, and
+    // whichever badge lands there opens its own explanation on hover, which is not what is asked here.
+    await page.mouse.move(2, 2);
     await panel.evaluate((node, top) => { node.scrollTop = top; }, target);
     await expect(page.getByRole('tooltip')).toHaveCount(0, { timeout: 2000 });
     await panel.evaluate(node => { node.scrollTop = 0; });

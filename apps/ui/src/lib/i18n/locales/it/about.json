@@ -118,6 +118,7 @@
     "shared_today": "Oggi a questa mangiatoia.",
     "shared_days": "Gli ultimi {days} giorni a questa mangiatoia.",
     "empty": "Nessuna visita registrata finora. Si riempirà man mano che arrivano gli uccelli.",
+    "no_latest": "Ancora nessuna immagine di una visita recente.",
     "visits": "visite",
     "species": "specie",
     "busiest_day": "Giorno più movimentato",

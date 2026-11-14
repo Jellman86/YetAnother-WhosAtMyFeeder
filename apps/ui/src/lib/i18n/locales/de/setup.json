@@ -183,6 +183,7 @@
   "working": "Wird ausgeführt…",
   "skip_step": "Schritt überspringen",
   "step_list": "Einrichtungsschritte",
+  "progress": "Fortschritt der Einrichtung",
   "step_names": {
     "welcome": "Willkommen",
     "account": "Konto",

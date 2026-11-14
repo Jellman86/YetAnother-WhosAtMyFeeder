@@ -53,7 +53,7 @@ describe('Explorer page layout', () => {
         expect(paginationSource).toContain("$_('pagination.showing'");
         expect(paginationSource).not.toContain('Showing <span');
         expect(paginationSource).toContain('sm:hidden');
-        expect(paginationSource).toContain('hidden items-center gap-1 sm:flex');
+        expect(paginationSource).toContain('hidden flex-wrap items-center justify-center gap-1 sm:flex');
     });
 
     it('names the page-size select by its visible label and keeps the arrows at the touch floor', () => {

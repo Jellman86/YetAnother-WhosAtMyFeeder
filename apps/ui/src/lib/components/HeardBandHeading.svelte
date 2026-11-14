@@ -31,7 +31,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
     </svg>
     <span>{title}</span>
-    <span class="font-semibold tabular-nums text-slate-500 dark:text-slate-400">
+    <span class="font-semibold tabular-nums text-slate-600 dark:text-slate-400">
         {from === to
             ? $_('events.heard.summary_at', { values: { time: from, calls: band.callCount, species: band.species.length }, default: '{time}, {calls} calls, {species} species' })
             : $_('events.heard.summary_span', { values: { from, to, calls: band.callCount, species: band.species.length }, default: '{from} to {to}, {calls} calls, {species} species' })}
@@ -44,7 +44,7 @@
         </li>
     {/each}
     {#if more > 0}
-        <li class="inline-flex min-h-6 items-center px-1 text-2xs font-semibold text-slate-500 dark:text-slate-400">
+        <li class="inline-flex min-h-6 items-center px-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">
             {$_('events.heard.more_species', { values: { count: more }, default: '+{count} more' })}
         </li>
     {/if}

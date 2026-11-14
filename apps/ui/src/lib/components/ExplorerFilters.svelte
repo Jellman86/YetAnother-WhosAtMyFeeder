@@ -231,11 +231,11 @@
 
     // One look for every choice: a chosen row is the kit's recessed brand key with a lit check, so it
     // reads by weight and shape as well as tint. Hover is a neutral wash; keyboard focus is a ring.
-    const rowClass = 'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500';
+    const rowClass = 'flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus';
     const rowChosenClass = 'choice-active hover:bg-brand-100 dark:hover:bg-brand-950';
     const rowIdleClass = 'text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/60';
     const segmentClass = 'mt-2 grid gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70';
-    const segmentButtonClass = 'min-h-11 min-w-0 rounded-lg px-1.5 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500';
+    const segmentButtonClass = 'min-h-11 min-w-0 rounded-lg px-1.5 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus';
     const segmentChosenClass = 'bg-white text-brand-800 shadow-xs ring-1 ring-brand-500/50 dark:bg-brand-500/25 dark:text-white dark:ring-brand-400/70';
     const segmentIdleClass = 'text-slate-600 hover:bg-white/60 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/60 dark:hover:text-white';
 </script>
@@ -249,7 +249,7 @@
             </svg>
         {/if}
         {#if count !== undefined}
-            <span class="tabular-nums font-normal text-slate-500 dark:text-slate-400">{count}</span>
+            <span class="tabular-nums font-normal text-slate-600 dark:text-slate-400">{count}</span>
         {/if}
     </span>
 {/snippet}
@@ -279,7 +279,7 @@
 
         {#each tokens as token (token.key)}
             <button
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:bg-brand-950/40 dark:text-brand-200 dark:hover:bg-brand-950/70"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:bg-brand-950/40 dark:text-brand-200 dark:hover:bg-brand-950/70"
                 onclick={token.clear}
                 data-explorer-token
             >
@@ -338,7 +338,7 @@
                             </button>
                         {/each}
                     </div>
-                    <p id="explorer-visitors-hint" class="mt-1.5 px-1 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                    <p id="explorer-visitors-hint" class="mt-1.5 px-1 text-2xs leading-4 text-slate-600 dark:text-slate-400">
                         {subjectOptions.find((option) => option.value === subjects)?.hint ?? ''}
                     </p>
                 </div>
@@ -386,7 +386,7 @@
                         </button>
                     {/each}
                 </div>
-                <p id="explorer-show-hint" class="mt-1.5 px-1 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                <p id="explorer-show-hint" class="mt-1.5 px-1 text-2xs leading-4 text-slate-600 dark:text-slate-400">
                     {groupingLocked
                         ? $_('events.filters.show_locked', { default: 'Selecting works on individual captures.' })
                         : (showOptions.find((option) => option.grouped === groupVisits)?.hint ?? '')}
@@ -401,7 +401,7 @@
                     {#each datePresets as preset}
                         <button
                             type="button"
-                            class="min-h-11 rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {datePreset ===
+                            class="min-h-11 rounded-full border px-3 py-1 text-xs font-semibold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {datePreset ===
                             preset
                                 ? 'border-brand-500 bg-brand-50 text-brand-800 dark:border-brand-400 dark:bg-brand-950/40 dark:text-brand-200'
                                 : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'}"
@@ -459,13 +459,13 @@
                             <span class="min-w-0 py-1.5 leading-4">
                                 <span class="block wrap-anywhere">{item.display_name}</span>
                                 {#if item.display_secondary}
-                                    <span class="block text-2xs font-normal italic text-slate-500 wrap-anywhere dark:text-slate-400">{item.display_secondary}</span>
+                                    <span class="block text-2xs font-normal italic text-slate-600 wrap-anywhere dark:text-slate-400">{item.display_secondary}</span>
                                 {/if}
                             </span>
                             {@render chosenEnd(chosen, item.count ?? 0)}
                         </button>
                     {:else}
-                        <p class="px-2 py-2 text-xs text-slate-500 dark:text-slate-400">
+                        <p class="px-2 py-2 text-xs text-slate-600 dark:text-slate-400">
                             {$_('events.filters.no_species', { default: 'No species recorded yet.' })}
                         </p>
                     {/each}
@@ -473,7 +473,7 @@
                 {#if shownSpecies.more > 0 || speciesExpanded}
                     <button
                         type="button"
-                        class="mt-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-100"
+                        class="mt-1 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-xs font-semibold text-brand-700 transition-colors hover:text-brand-900 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-100"
                         aria-expanded={speciesExpanded}
                         aria-controls="explorer-species-list"
                         onclick={() => (speciesExpanded = !speciesExpanded)}
@@ -491,7 +491,7 @@
             <!-- With no camera to offer (a visitor not shown camera names), the section would open on nothing. -->
             {#if cameras.length > 0}
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-camera-facet>
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span class="min-w-0 truncate">
                         {$_('events.filters.cameras', { default: 'Cameras' })}{#if cameraFilter}<span class="normal-case tracking-normal text-brand-700 dark:text-brand-300"> · {cameraFilter}</span>{/if}
                     </span>
@@ -516,7 +516,7 @@
 
             {#if !gardenOnly}
             <details class="group shrink-0 border-t border-line-soft pt-1" data-explorer-only-facet>
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
+                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 eyebrow rounded-lg hover:bg-surface-raised hover:text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:text-slate-200 [&::-webkit-details-marker]:hidden">
                     <span>
                         {$_('events.filters.only', { default: 'Only' })}{#if onlyActiveCount > 0}<span class="normal-case tracking-normal text-brand-700 dark:text-brand-300"> · {$_('events.filters.only_active', { default: '{count} on', values: { count: onlyActiveCount } })}</span>{/if}
                     </span>
@@ -535,7 +535,7 @@
                             <span>{$_('visits.multiple_species', { default: 'Multiple bird species' })}</span>
                             {@render chosenEnd(multipleSpeciesOnly)}
                         </button>
-                        <p id="explorer-multiple-species-hint" class="px-2 text-2xs leading-4 text-slate-500 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
+                        <p id="explorer-multiple-species-hint" class="px-2 text-2xs leading-4 text-slate-600 dark:text-slate-400">{$_('visits.multiple_species_hint', { default: 'Two or more named species in one analyzed capture.' })}</p>
                     {/if}
 
                     <button
@@ -576,7 +576,7 @@
             <!-- Options are counted when the page loads; this re-reads them, it changes no filter. -->
             <button
                 type="button"
-                class="mt-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 self-start rounded-lg text-xs font-semibold text-slate-500 transition-colors hover:text-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50 dark:text-slate-400 dark:hover:text-slate-200"
+                class="mt-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 self-start rounded-lg text-xs font-semibold text-slate-600 transition-colors hover:text-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-50 dark:text-slate-400 dark:hover:text-slate-200"
                 disabled={refreshing}
                 onclick={onrefresh}
             >

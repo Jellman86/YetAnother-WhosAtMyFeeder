@@ -112,7 +112,7 @@
                 <img src={APP_ICON_192_URL} alt="" class="h-9 w-9 shrink-0 object-contain" />
                 <div class="min-w-0">
                     <p class="truncate font-display text-sm font-bold tracking-tight text-brand-800 dark:text-brand-200">YA-WAMF</p>
-                    <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400">
+                    <p class="truncate text-xs font-medium text-slate-600 dark:text-slate-400">
                         {$_('auth.status_check_eyebrow', { default: 'Service connection' })}
                     </p>
                 </div>
@@ -135,7 +135,7 @@
 
         <div class="px-6 py-8 sm:px-8 sm:py-10">
             <div class="grid gap-6 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-8">
-                <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500 shadow-xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300" aria-hidden="true">
+                <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-600 shadow-xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300" aria-hidden="true">
                     {#if attentionNeeded}
                         <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7.5 6.5h9a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3Z" />
@@ -173,7 +173,7 @@
                                 <span class="font-semibold text-slate-700 dark:text-slate-200">
                                     {$_('auth.startup_progress', { default: 'Startup progress' })}
                                 </span>
-                                <span class="font-mono text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">{startupProgress}%</span>
+                                <span class="font-mono text-xs font-bold tabular-nums text-slate-600 dark:text-slate-400">{startupProgress}%</span>
                             </div>
                             <div
                                 class="mt-2 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700"
@@ -209,7 +209,7 @@
                             <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 {$_('auth.status_unavailable_auto_retry', { default: 'YA-WAMF checks again automatically every five seconds.' })}
                             </p>
-                            <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                            <p class="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-400">
                                 {$_('auth.status_unavailable_help', { default: 'If it stays offline, check the container health and startup logs.' })}
                             </p>
                         </div>
