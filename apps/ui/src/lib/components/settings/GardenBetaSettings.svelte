@@ -10,6 +10,7 @@
     import { _, locale } from 'svelte-i18n';
     import BetaFeatureCard from './BetaFeatureCard.svelte';
     import BetaSection from './BetaSection.svelte';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
@@ -82,7 +83,7 @@
     });
 
     // Cameras and naming are what most visits change; the rest is set once and stays closed.
-    let sections = $state({ cameras: true, checks: true, models: false, domestic: false, alerts: false, outcomes: false });
+    const modelsSection = useDisclosure(() => ({ id: 'garden-section-models' }));
 
     const collectingMotion = $derived(gardenMotionWithinGarden(cameras, motionCameras));
     const listLocale = $derived($locale ?? 'en');
@@ -105,9 +106,9 @@
     function statusPart(part: GardenStatusPart): string {
         switch (part.kind) {
             case 'off': return $_('settings.beta.status_off', { default: 'Off' });
-            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you apply' });
+            case 'off_after_apply': return $_('settings.beta.status_off_after_apply', { default: 'Off after you save' });
             case 'on': return $_('settings.beta.status_on', { default: 'On' });
-            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you apply' });
+            case 'on_after_apply': return $_('settings.beta.status_on_after_apply', { default: 'On after you save' });
             case 'cameras': return $_('settings.beta.garden_status_cameras', { default: '{count, plural, =0 {no camera chosen} one {# camera} other {# cameras}}', values: { count: part.count } });
             case 'device': return $_('settings.beta.garden_status_device', { default: 'automatic checks on {device}', values: { device: EXECUTION_DEVICE_LABEL[part.provider] } });
             case 'model_missing': return $_('settings.beta.garden_status_model_missing', { default: 'model not downloaded yet' });
@@ -118,14 +119,14 @@
     function stepText(step: GardenNextStep): string {
         switch (step.kind) {
             case 'choose_camera': return $_('settings.beta.garden_step_camera', { default: 'Choose a camera to watch for Garden animals.' });
-            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Apply Settings to turn Garden on. Model and country checks then appear here.' });
+            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Save changes to turn Garden on. Model and country checks then appear here.' });
             case 'download_model': return $_('settings.beta.garden_step_model', { default: 'Download the {model}.', values: { model: modelName(step.role) } });
             case 'set_location': return $_('settings.beta.garden_step_location', { default: 'Set your location, so Garden knows your country and can name animals.' });
         }
     }
 
     async function openModels(): Promise<void> {
-        sections.models = true;
+        modelsSection.open = true;
         await tick();
         const toggle = document.getElementById('garden-section-models-toggle');
         toggle?.scrollIntoView({ block: 'start' });
@@ -194,7 +195,7 @@
         {/if}
 
         <div class="divide-y divide-line-soft">
-            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} bind:open={sections.cameras}>
+            <BetaSection id="garden-section-cameras" title={$_('settings.beta.garden_section_cameras', { default: 'Cameras' })} openByDefault>
                 <div class="flex flex-wrap items-center justify-between gap-3" data-garden-camera-summary>
                     <div class="min-w-0 flex-1 basis-56 space-y-1 text-sm text-slate-700 dark:text-slate-300">
                         <p>
@@ -223,6 +224,7 @@
                 >
                     <SettingsInput
                         id="garden-labels"
+                        field="garden_labels"
                         value={labels}
                         ariaLabel={$_('garden.labels', { default: 'Frigate animal labels' })}
                         describedBy="garden-label-help"
@@ -241,6 +243,7 @@
                         <div class="min-w-0 flex-1">
                             <SettingsInput
                                 id="garden-motion-confidence"
+                                field="garden_motion_confidence"
                                 type="number"
                                 min={50}
                                 max={95}
@@ -256,7 +259,7 @@
                 </SettingsRow>
             </BetaSection>
 
-            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} bind:open={sections.checks}>
+            <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
                 <div class="space-y-3" data-garden-naming>
                     <SettingsRow
                         labelId="setting-garden-naming"
@@ -282,6 +285,7 @@
                                 <div class="min-w-0 flex-1">
                                     <SettingsInput
                                         id="garden-naming-threshold"
+                                        field="garden_naming_threshold"
                                         type="number"
                                         min={70}
                                         max={99}
@@ -316,7 +320,7 @@
                 {/if}
             </BetaSection>
 
-            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })} bind:open={sections.models}>
+            <BetaSection id="garden-section-models" title={$_('settings.beta.garden_section_models', { default: 'Models' })}>
                 <GardenModelSetup motionCameras={collectingMotion} {service} />
             </BetaSection>
 
@@ -324,7 +328,6 @@
                 id="garden-section-domestic"
                 title={$_('settings.beta.garden_domestic_birds', { default: 'Domestic birds you keep' })}
                 hint={$_('settings.beta.garden_domestic_birds_count', { default: '{count, plural, =0 {None} one {# bird} other {# birds}}', values: { count: domesticBirds.length } })}
-                bind:open={sections.domestic}
             >
                 <div class="space-y-3" data-garden-domestic-birds>
                     <p id="garden-domestic-birds-help" class="text-sm text-slate-600 dark:text-slate-400">
@@ -375,7 +378,6 @@
                 id="garden-section-alerts"
                 title={$_('settings.beta.garden_section_alerts', { default: 'Alerts' })}
                 hint={notificationsEnabled ? $_('settings.beta.status_on', { default: 'On' }) : $_('settings.beta.status_off', { default: 'Off' })}
-                bind:open={sections.alerts}
             >
                 <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-summary>
                     <p class="min-w-0 flex-1 basis-56 text-sm text-slate-700 dark:text-slate-300">
@@ -391,7 +393,7 @@
                 </div>
             </BetaSection>
 
-            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })} bind:open={sections.outcomes}>
+            <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}>
                 <div class="space-y-3" data-garden-outcomes>
                     <dl class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                         <div>

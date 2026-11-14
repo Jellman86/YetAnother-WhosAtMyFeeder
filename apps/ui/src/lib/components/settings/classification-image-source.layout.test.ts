@@ -84,7 +84,7 @@ describe('initial classification image setting', () => {
         expect(settingsPageSource).toContain('bind:recordingFrameDelaySeconds');
         expect(settingsPageSource).toContain('recordingFrameDelaySeconds = settings.recording_frame_delay_seconds ?? 12;');
         expect(settingsPageSource).toContain('recording_frame_delay_seconds: recordingFrameDelaySeconds,');
-        expect(settingsPageSource).toContain("{ key: 'recordingFrameDelaySeconds', val: recordingFrameDelaySeconds, store: s.recording_frame_delay_seconds ?? 12 }");
+        expect(settingsPageSource).toContain("{ field: 'recording_frame_delay_seconds', draft: recordingFrameDelaySeconds, saved: s.recording_frame_delay_seconds ?? 12 }");
         expect(settingsApiSource).toContain("recording_frame_delay_seconds?: NonNullable<components['schemas']['SettingsResponse']['recording_frame_delay_seconds']>;");
     });
     it('offers exactly the generated contract values with the snapshot first', () => {
@@ -197,7 +197,7 @@ describe('initial classification image wiring', () => {
         expect(settingsPageSource).toContain("let classificationImageSource = $state<ClassificationImageSource>('frigate_snapshot');");
         expect(settingsPageSource).toContain("classificationImageSource = settings.classification_image_source ?? 'frigate_snapshot';");
         expect(settingsPageSource).toContain(
-            "{ key: 'classificationImageSource', val: classificationImageSource, store: s.classification_image_source ?? 'frigate_snapshot' }"
+            "{ field: 'classification_image_source', draft: classificationImageSource, saved: s.classification_image_source ?? 'frigate_snapshot' }"
         );
         expect(settingsPageSource).toContain('classification_image_source: classificationImageSource,');
         expect(settingsPageSource).toContain('bind:classificationImageSource');

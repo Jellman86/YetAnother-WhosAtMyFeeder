@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, unsavedChanges as unsaved, type FixtureSettings } from './settings-page-mock';
+import { openSettings, saveBar as unsaved, type FixtureSettings } from './settings-page-mock';
 
 // Settings → Appearance holds its choices in the one Settings draft and loads its tab body on
 // first use. The saved choices must load into the tab, an edit must survive leaving the tab, and
@@ -41,7 +41,7 @@ test('Appearance loads on first open, shows the saved choices and saves edits wi
     await page.getByRole('link', { name: 'Appearance' }).click();
     await expect(page.locator('#time-format-select')).toHaveValue('24h');
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({
         ...SAVED_APPEARANCE,

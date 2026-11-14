@@ -60,8 +60,8 @@ test('before it is switched on, the preview shows what would be set aside and th
     const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
-    await expect(card(page).locator('[data-range-filter-unsaved]')).toHaveText('Apply settings to turn the filter on.');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await expect(card(page).locator('[data-range-filter-unsaved]')).toHaveText('Save changes to turn the filter on.');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].range_filter_enabled).toBe(true);
     expect(state.saves[0].range_filter_region_level).toBe('county');

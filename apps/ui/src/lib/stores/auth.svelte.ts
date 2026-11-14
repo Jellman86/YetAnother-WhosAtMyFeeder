@@ -15,6 +15,7 @@ import {
 import { normalizeGuestRateLimit } from '../app/public-refresh-budget';
 import { StaleTracker } from '../utils/stale_tracker';
 import { refreshCoordinator } from './refresh_coordinator.svelte';
+import { isNewSession, type SessionFacts } from './auth-session';
 
 class AuthStore {
     authRequired = $state(false);
@@ -65,6 +66,14 @@ class AuthStore {
     // The Explorer's install default. A guest is refused /api/settings, so this
     // is the only route by which the owner's choice reaches a public visitor.
     explorerView = $state<'cards' | 'list'>('cards');
+    /**
+     * Changes on every sign-in, sign-out, expired session and owner or guest switch, and on
+     * nothing else. Work tied to one session (a kept Settings draft) is bound to this rather than
+     * to the token, so no credential is ever copied into it.
+     */
+    sessionGeneration = $state(0);
+    private readonly sessionListeners = new Set<() => void>();
+    private lastSession: SessionFacts | null = null;
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
     private _isRefreshing = false;
 
@@ -83,6 +92,32 @@ class AuthStore {
     constructor() {
         // Status is loaded via loadStatus()
         refreshCoordinator.register(() => this.refreshIfStale());
+    }
+
+    /** Calls `listener` each time the session changes; returns the unsubscribe. */
+    onSessionChange(listener: () => void): () => void {
+        this.sessionListeners.add(listener);
+        return () => this.sessionListeners.delete(listener);
+    }
+
+    private sessionFacts(): SessionFacts {
+        return {
+            authRequired: this.authRequired,
+            isAuthenticated: this.isAuthenticated,
+            username: this.username,
+            hasOwnerAccess: this.hasOwnerAccess,
+            hasToken: this.token !== null
+        };
+    }
+
+    // `begun` marks a sign-in or sign-out, a new session whatever the facts say.
+    private noteSession(begun = false): void {
+        const now = this.sessionFacts();
+        if (begun || (this.lastSession !== null && isNewSession(this.lastSession, now))) {
+            this.sessionGeneration += 1;
+            for (const listener of this.sessionListeners) listener();
+        }
+        this.lastSession = now;
     }
 
     requestLogin() {
@@ -160,6 +195,7 @@ class AuthStore {
             this.token = getAuthToken();
             this.statusLoaded = true;
             this.statusLoading = false;
+            this.noteSession();
         }
     }
 
@@ -176,6 +212,7 @@ class AuthStore {
     async login(username: string, password: string) {
         await apiLogin(username, password);
         this.token = getAuthToken();
+        this.noteSession(true);
         await this.loadStatus();
     }
 
@@ -183,12 +220,14 @@ class AuthStore {
         await apiLogout();
         this.staleTracker.reset();
         this.token = null;
+        this.noteSession(true);
         await this.loadStatus();
     }
 
     async completeInitialSetup(options: { username: string; password: string | null; enableAuth: boolean }) {
         await setInitialPassword(options);
         this.token = getAuthToken();
+        this.noteSession(true);
         await this.loadStatus();
     }
 
@@ -196,6 +235,7 @@ class AuthStore {
         setAuthToken(null);
         this.token = null;
         this.isAuthenticated = false;
+        this.noteSession(true);
         // Refresh status to see if auth requirements changed (e.g. auth enabled)
         this.loadStatus();
     }

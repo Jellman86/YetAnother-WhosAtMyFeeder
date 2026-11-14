@@ -19,7 +19,7 @@
     let { executionMode = 'subprocess', autoVideoEnabled = false, birdFinder = $bindable<BirdFinder>('yolox_tiny'), birdFinderProvider = $bindable<BirdFinderProvider>('auto'), classifierStatus, deviceCheckRunning = false, onruntimechange, onopenlocationsettings, oncheckfinderdevices }: {
         executionMode?: string;
         autoVideoEnabled?: boolean;
-        /** The finder staged in the settings form; it is saved by Apply Settings with everything else. */
+        /** The finder staged in the settings form; it is saved by Save changes with everything else. */
         birdFinder?: BirdFinder;
         birdFinderProvider?: BirdFinderProvider;
         classifierStatus: ClassifierStatus | null;
@@ -1138,7 +1138,7 @@
                         </div>
                         {#if savedBirdFinder && birdFinder !== savedBirdFinder}
                             <p class="text-sm font-semibold text-slate-700 dark:text-slate-200" role="status">
-                                {$_('settings.detection.bird_finder_pending', { default: 'Apply settings to switch the bird finder. The current finder keeps running until then.' })}
+                                {$_('settings.detection.bird_finder_pending', { default: 'Save changes to switch the bird finder. The current finder keeps running until then.' })}
                             </p>
                         {:else if cropDetectorStatus?.reason === 'fallback_default_accurate'}
                             <p class="text-sm font-semibold text-amber-700 dark:text-amber-300" role="status">
@@ -1169,7 +1169,7 @@
                                 </p>
                             {/if}
                             <p id="bird-finder-device-help" class="text-xs text-slate-600 dark:text-slate-400">
-                                {t('settings.detection.bird_finder_device_help', 'Apply settings to save this device. If it becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.')}
+                                {t('settings.detection.bird_finder_device_help', 'Takes effect when you save changes. If this device becomes unavailable, the finder uses CPU instead of another accelerator. The fast fallback finder picks its device automatically.')}
                             </p>
                             <ModelExecutionEvidence execution={cropDetectorStatus?.last_execution?.model_id === chosenFinder.model.id ? cropDetectorStatus.last_execution : null} />
                             <div class="flex flex-wrap items-center gap-3">

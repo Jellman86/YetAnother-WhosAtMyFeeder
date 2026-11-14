@@ -49,8 +49,8 @@ describe('one settings request answers the whole page load', () => {
         expect(source).not.toContain('fetchSettings');
     });
 
-    it('opening Settings joins the read the shell has just made', () => {
-        expect(settingsSource).toContain('loadSettings(false, true)');
+    it('opening Settings joins the read the shell has just made, unless a kept draft needs a fresh one', () => {
+        expect(settingsSource).toContain('loadSettings(false, !unsavedDraft.pendingFor(currentAccessIdentity()))');
         expect(settingsSource).toContain('await settingsStore.read(SHARED_SETTINGS_READ_MS)');
     });
 });

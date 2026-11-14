@@ -337,6 +337,7 @@
                 >
                     <SettingsInput
                         id="maintenance-max-concurrent"
+                        field="maintenance_max_concurrent"
                         type="number"
                         min={1}
                         max={8}

@@ -9,7 +9,7 @@
     import { getErrorMessage } from '../../utils/error-handling';
     import { getLlmModelOptions, getRecommendedLlmModel } from '../../settings/llm-models';
     import type { AiDraft } from '../../settings/ai-section';
-    import { promptTemplatesFor } from '../../settings/llm-prompt-templates';
+    import { matchingPromptStyle, promptTemplatesFor } from '../../settings/llm-prompt-templates';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -29,23 +29,30 @@
         onchange: (edit: Partial<AiDraft>) => void;
     } = $props();
 
-    // Choosing a style only picks which templates Apply style writes; it is not saved.
-    let llmPromptStyle = $state('classic');
     const availableModels = $derived(getLlmModelOptions(draft.llmProvider));
 
-    function applyPromptStyle(style: string): void {
+    // The style is not saved itself: it names the built-in wording the templates hold, and choosing
+    // one writes that wording into the draft, which Save changes then stores with everything else.
+    const CUSTOM_STYLE = 'custom';
+    const promptStyle = $derived(
+        matchingPromptStyle(
+            {
+                analysis: draft.llmAnalysisPromptTemplate,
+                conversation: draft.llmConversationPromptTemplate,
+                chart: draft.llmChartPromptTemplate
+            },
+            $locale || 'en'
+        ) ?? CUSTOM_STYLE
+    );
+
+    function choosePromptStyle(style: string): void {
+        if (style === CUSTOM_STYLE) return;
         const { analysis, conversation, chart } = promptTemplatesFor(style, get(locale) || 'en');
         onchange({
             llmAnalysisPromptTemplate: analysis,
             llmConversationPromptTemplate: conversation,
             llmChartPromptTemplate: chart
         });
-        toastStore.success($_('settings.debug.llm_prompt_apply_notice', { default: 'Prompt templates updated.' }));
-    }
-
-    function resetPromptTemplates(): void {
-        llmPromptStyle = 'classic';
-        applyPromptStyle('classic');
     }
 
     let usage = $state<AIUsageResponse | null>(null);
@@ -295,28 +302,24 @@
             <SettingsRow
                 labelId="setting-llm-prompt-style"
                 label={$_('settings.debug.llm_prompt_style_label')}
+                description={$_('settings.ai.prompt_style_desc', { default: 'Choosing a style replaces the three templates below with its wording. Save changes keeps it.' })}
+                descriptionId="setting-llm-prompt-style-desc"
                 layout="stacked"
             >
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <SettingsSelect
-                        id="llm-prompt-style"
-                        value={llmPromptStyle}
-                        ariaLabel={$_('settings.debug.llm_prompt_style_label')}
-                        options={[
-                            { value: 'classic', label: $_('settings.debug.llm_prompt_style_classic') },
-                            { value: 'field', label: $_('settings.debug.llm_prompt_style_field') }
-                        ]}
-                        onchange={(v) => (llmPromptStyle = v)}
-                    />
-                    <div class="flex gap-2">
-                        <button type="button" onclick={() => applyPromptStyle(llmPromptStyle)} class="flex-1 {buttonPrimaryClass}">
-                            {$_('settings.debug.llm_prompt_apply_style')}
-                        </button>
-                        <button type="button" onclick={resetPromptTemplates} class="flex-1 {buttonSecondaryClass}">
-                            {$_('settings.debug.llm_prompt_reset_defaults')}
-                        </button>
-                    </div>
-                </div>
+                <SettingsSelect
+                    id="llm-prompt-style"
+                    value={promptStyle}
+                    ariaLabel={$_('settings.debug.llm_prompt_style_label')}
+                    ariaDescribedBy="setting-llm-prompt-style-desc"
+                    options={[
+                        { value: 'classic', label: $_('settings.debug.llm_prompt_style_classic') },
+                        { value: 'field', label: $_('settings.debug.llm_prompt_style_field') },
+                        ...(promptStyle === CUSTOM_STYLE
+                            ? [{ value: CUSTOM_STYLE, label: $_('settings.ai.prompt_style_custom', { default: 'Your own wording' }) }]
+                            : [])
+                    ]}
+                    onchange={choosePromptStyle}
+                />
             </SettingsRow>
 
             <SettingsRow

@@ -924,3 +924,18 @@ export function promptTemplatesFor(style: string, locale: string): PromptTemplat
     const localeCode: PromptLocale = normalized in promptTemplates.classic ? (normalized as PromptLocale) : 'en';
     return promptTemplates[style as PromptStyle]?.[localeCode] || promptTemplates.classic.en;
 }
+
+/** The built-in style the templates match in the reader's language, or null for edited wording. */
+export function matchingPromptStyle(templates: PromptTemplateSet, locale: string): PromptStyle | null {
+    for (const style of Object.keys(promptTemplates) as PromptStyle[]) {
+        const candidate = promptTemplatesFor(style, locale);
+        if (
+            candidate.analysis === templates.analysis.trim()
+            && candidate.conversation === templates.conversation.trim()
+            && candidate.chart === templates.chart.trim()
+        ) {
+            return style;
+        }
+    }
+    return null;
+}

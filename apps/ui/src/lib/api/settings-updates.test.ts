@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./core', () => ({ API_BASE: '/api', apiFetch: vi.fn(), handleResponse: vi.fn() }));
 import { apiFetch, handleResponse } from './core';
-import { subscribeSettingsUpdates, updateSettings } from './settings';
+import { SettingsSaveRejected, subscribeSettingsUpdates, updateSettings } from './settings';
 
 describe('local confirmed settings updates', () => {
     beforeEach(() => {
@@ -26,6 +26,22 @@ describe('local confirmed settings updates', () => {
         const unsubscribe = subscribeSettingsUpdates(listener);
         vi.mocked(handleResponse).mockRejectedValueOnce(new Error('Read-only config volume'));
         await expect(updateSettings({ location_latitude: 12.5, location_longitude: -45.25 })).rejects.toThrow('Read-only config volume');
+        expect(listener).not.toHaveBeenCalled();
+        unsubscribe();
+    });
+
+    it('names the refused fields of a rejected save and publishes nothing', async () => {
+        const listener = vi.fn();
+        const unsubscribe = subscribeSettingsUpdates(listener);
+        vi.mocked(apiFetch).mockResolvedValueOnce(new Response(JSON.stringify({
+            detail: [{ type: 'less_than_equal', loc: ['body', 'mqtt_port'], msg: 'Input should be less than or equal to 65535', ctx: { le: 65535 } }]
+        }), { status: 422, headers: { 'content-type': 'application/json' } }));
+        const failure = await updateSettings({ mqtt_port: 70000 }).catch((error: unknown) => error);
+        expect(failure).toBeInstanceOf(SettingsSaveRejected);
+        expect((failure as SettingsSaveRejected).fieldErrors).toEqual([
+            expect.objectContaining({ field: 'mqtt_port', key: 'settings.field_errors.too_large', values: { limit: 65535 } })
+        ]);
+        expect(handleResponse).not.toHaveBeenCalled();
         expect(listener).not.toHaveBeenCalled();
         unsubscribe();
     });

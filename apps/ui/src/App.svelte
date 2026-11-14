@@ -26,6 +26,7 @@
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
 import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
+import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { publicSettingsStore } from './lib/stores/public_settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
@@ -192,6 +193,18 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
       const targetPath = normalizeRouteForCurrentAccess(path);
+      // A page holding unsaved work is asked before an in-app navigation; nothing has moved yet.
+      // Back and Forward are never held: the page keeps its draft for the return instead.
+      if (unsavedChanges.warningFor(targetPath)) {
+          void unsavedChanges.allowLeaving(targetPath).then((leave) => {
+              if (leave) goTo(targetPath, opts);
+          });
+          return;
+      }
+      goTo(targetPath, opts);
+  }
+
+  function goTo(targetPath: string, opts: { replace?: boolean }) {
       const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
       if (isDashboardRefresh) {
           dashboardRefreshKey += 1;

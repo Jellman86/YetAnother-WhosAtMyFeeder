@@ -237,7 +237,7 @@ fallback cannot be mistaken for successful validation of the selected ONNX model
 
 5. Open **Settings → Detection**, download the classifier if needed, and run its
    device compatibility check. After it passes, select the supported device under
-   **Inference Provider** (or keep **Auto**) and select **Apply settings**.
+   **Inference Provider** (or keep **Auto**) and select **Save changes**.
    Downloading alone does not authorize a host-gated GPU/NPU.
 
 ## Expected result
@@ -310,7 +310,7 @@ Repository tag instead.
 
 RF-DETR Nano is a CUDA candidate in the `full` and `cuda` images. Under
 **Settings → Detection → Models → Bird finder**, select RF-DETR Nano, download it and
-select **Apply Settings**, then run **Hardware → Check devices on this host** with it installed.
+select **Save changes**, then run **Hardware → Check devices on this host** with it installed.
 The crop detector needs its own passing CPU/CUDA box comparison; selecting CUDA
 for the species classifier does not validate the bird finder.
 
@@ -327,7 +327,7 @@ entry, as shown in the [API reference](../api.md#model-evaluation-owner).
 The bird finder card's **Check *devices* for *finder*** button runs that scoped check.
 The fastest passing crop provider is recommended. **Finder device** can instead
 keep a specific validated device, such as **Intel NPU (OpenVINO)**. Save it with
-**Apply Settings**. If its evidence expires or the device fails, the accurate
+**Save changes**. If its evidence expires or the device fails, the accurate
 finder uses CPU rather than switching to another accelerator. The fast fallback
 finder keeps its own device evidence. Startup re-checks respect the saved choice;
 manual **Check devices** still checks all supported devices, so do not use it to

@@ -5,17 +5,21 @@
      * and only hidden, so a download or a status read inside it keeps running.
      */
     import type { Snippet } from 'svelte';
+    import { useDisclosure } from '../../settings/disclosures.svelte';
 
     interface Props {
         id: string;
         title: string;
         /** A short summary of the closed section, such as "Off" or "2 birds". */
         hint?: string;
-        open?: boolean;
+        /** Open until someone closes it; the Settings page then remembers the choice by id. */
+        openByDefault?: boolean;
         children: Snippet;
     }
 
-    let { id, title, hint, open = $bindable(false), children }: Props = $props();
+    let { id, title, hint, openByDefault = false, children }: Props = $props();
+    const disclosure = useDisclosure(() => ({ id, openByDefault }));
+    const open = $derived(disclosure.open);
 </script>
 
 <div class="py-1" data-beta-section={id}>
@@ -25,7 +29,7 @@
             id={`${id}-toggle`}
             aria-expanded={open}
             aria-controls={`${id}-panel`}
-            onclick={() => (open = !open)}
+            onclick={() => disclosure.toggle()}
             class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
         >
             <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{title}</span>

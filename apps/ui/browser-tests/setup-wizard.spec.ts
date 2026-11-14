@@ -807,7 +807,7 @@ for (const change of ['location', 'cameras', 'quality', 'integrations'] as const
         await expectStep(page, 'Review setup');
         await wizard(page).getByRole('button', { name: 'Done', exact: true }).click();
         await expect(slider).toHaveValue('0.75');
-        await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect.poll(() => fake.settingsWrites().length).toBeGreaterThan(1);
         const save = fake.settingsWrites().at(-1);
         expect(save?.classification_threshold).toBe(0.75);

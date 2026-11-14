@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openSettings, unsavedChanges } from './settings-page-mock';
+import { openSettings, saveBar as unsavedChanges } from './settings-page-mock';
 
 // Settings → Accessibility keeps its toggles in the one Settings draft and loads its tab body on
 // first use; Apply saves them with the rest of the form.
@@ -32,7 +32,7 @@ test('Accessibility loads on first open, keeps an edit across tabs and saves it 
     await page.getByRole('link', { name: 'Accessibility' }).click();
     await expect(reducedMotion).toHaveAttribute('aria-checked', 'true');
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({
         accessibility_high_contrast: true,

@@ -318,8 +318,8 @@
                 {#if unsaved}
                     <p class="mt-2 text-xs font-semibold text-slate-700 dark:text-slate-200" data-range-filter-unsaved>
                         {enabled
-                            ? $_('settings.range_filter.unsaved_on', { default: 'Apply settings to turn the filter on.' })
-                            : $_('settings.range_filter.unsaved_off', { default: 'Apply settings to turn the filter off.' })}
+                            ? $_('settings.range_filter.unsaved_on', { default: 'Save changes to turn the filter on.' })
+                            : $_('settings.range_filter.unsaved_off', { default: 'Save changes to turn the filter off.' })}
                     </p>
                 {/if}
                 {#if summary?.action === 'location' && onopenlocationsettings}
