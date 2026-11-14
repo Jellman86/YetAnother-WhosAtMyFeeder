@@ -17,7 +17,7 @@ describe('Counted birds keep scene, bird and capture identity', () => {
     });
 
     it('never turns a drawn box into a control', () => {
-        expect(countedBirdsSource).toMatch(/pointer-events-none absolute rounded-sm[^"]*"[^>]*data-counted-bird-outline/s);
+        expect(countedBirdsSource).toMatch(/pointer-events-none absolute rounded-xs[^"]*"[^>]*data-counted-bird-outline/s);
         expect(countedBirdsSource).not.toMatch(/<button[^>]*data-counted-bird-outline/);
     });
 

@@ -172,13 +172,13 @@ describe('review queue walk-through', () => {
 
     it('fills a phone like the detection record and floats as the same dialog from sm up', () => {
         const dialog = modalSource.match(/<div\s+bind:this=\{dialogEl\}[\s\S]*?class="([^"]*)"/)?.[1] ?? '';
-        expect(dialog).toContain('max-h-[100dvh]');
+        expect(dialog).toContain('max-h-dvh');
         expect(dialog).toContain('rounded-none');
         expect(dialog).toContain('sm:max-h-[92vh]');
         expect(dialog).toContain('sm:rounded-2xl');
         expect(dialog).toContain('max-w-5xl');
         expect(dialog).toContain('bg-surface');
-        expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-sm sm:p-4');
+        expect(modalSource).toContain('bg-slate-950/70 p-0 backdrop-blur-xs sm:p-4');
     });
 
     it('states the position beside the title in one header row', () => {

@@ -29,7 +29,7 @@
         aria-label={ariaLabel}
         aria-describedby={ariaDescribedBy}
         onchange={(e) => onchange(e.currentTarget.value as T)}
-        class="peer w-full min-h-11 appearance-none pl-2 pr-5 sm:pl-4 sm:pr-8 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        class="peer w-full min-h-11 appearance-none pl-2 pr-5 sm:pl-4 sm:pr-8 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed"
     >
         {#each options as opt}
             <option value={opt.value} disabled={opt.disabled}>{opt.label}</option>

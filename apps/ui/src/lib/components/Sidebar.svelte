@@ -137,7 +137,7 @@
             <BrandMark
                 alt={$_('app.title')}
                 sizes={collapsed ? '40px' : '64px'}
-                class="flex-shrink-0 rounded-2xl transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
+                class="shrink-0 rounded-2xl transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
             />
             {#if !collapsed}
                 <div class="flex flex-col items-center gap-0.5 overflow-hidden">
@@ -172,7 +172,7 @@
                             aria-label={item.label}
                             aria-current={isRouteActive(item) ? 'page' : undefined}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
                             </svg>
                             {#if !collapsed}
@@ -211,7 +211,7 @@
             {#if authStore.showSettings}
                 <a
                     href="/settings/health"
-                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors hover:border-brand-400/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:border-brand-400/60"
+                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors hover:border-brand-400/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:border-brand-400/60"
                     aria-label={$_('status.open_health', { default: 'System health' })}
                     data-sidebar-status-link
                     onclick={(event) => {
@@ -234,9 +234,9 @@
             {#if authStore.isAuthenticated}
                 <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
                     {#if avatarStore.url}
-                        <img src={avatarStore.url} alt="" class="h-8 w-8 flex-shrink-0 rounded-lg object-cover" data-sidebar-avatar />
+                        <img src={avatarStore.url} alt="" class="h-8 w-8 shrink-0 rounded-lg object-cover" data-sidebar-avatar />
                     {:else}
-                        <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                        <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
                             {accountInitial}
                         </div>
                     {/if}
@@ -257,7 +257,7 @@
                 </div>
             {:else if authStore.isGuest}
                 <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
-                    <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />

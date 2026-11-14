@@ -11,6 +11,8 @@ For Raspberry Pi 4/5, use [the ARM64 setup](raspberry-pi.md).
 
 - Docker and Docker Compose.
 - A reachable Frigate NVR, connected to an MQTT broker.
+- A current browser for the dashboard: Chrome or Edge 111, Firefox 128, or Safari 16.4 (iOS and
+  iPadOS 16.4), or newer. See [supported browsers](#supported-browsers).
 - For optional GPU/NPU inference, complete [hardware setup](hardware-acceleration.md)
   before the wizard's compatibility check.
 
@@ -145,3 +147,14 @@ If you override `MEDIA_CACHE_DIR`, persist and back up that directory too.
 Photographs and generated visit media follow your [retention and size limits](configuration.md#data);
 Frigate event-clip copies are optional. Keep mounts unchanged and back up both
 before upgrades or destructive maintenance. See [the upgrade guide](../../MIGRATION.md).
+
+## Supported browsers
+
+The dashboard needs Chrome or Edge 111, Firefox 128, or Safari 16.4 or newer. On an iPhone or
+iPad every browser uses Safari's engine, so the device needs iOS or iPadOS 16.4.
+
+An older browser still loads the page, but colours, borders and focus rings are drawn wrongly or
+not at all, because the stylesheet relies on features those browsers lack. A wall tablet that can
+no longer be updated past these versions, such as an iPad on iPadOS 15, cannot show the dashboard
+correctly. Use a newer device, or a browser the device can still update.
+

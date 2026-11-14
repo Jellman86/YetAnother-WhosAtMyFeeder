@@ -182,7 +182,7 @@
                 href={birdnetExternalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-brand-300"
                 title={$_('dashboard.audio_feed.open_birdnet')}
             >
                 BirdNET-Go

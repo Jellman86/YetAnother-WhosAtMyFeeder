@@ -60,7 +60,7 @@
 
 {#snippet unmeasured(pending: boolean)}
     {#if pending}
-        <span class="inline-block h-3.5 w-5 translate-y-0.5 rounded bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" aria-hidden="true" data-loading-placeholder></span>
+        <span class="inline-block h-3.5 w-5 translate-y-0.5 rounded-sm bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" aria-hidden="true" data-loading-placeholder></span>
         <span class="sr-only">{$_('dashboard.day_bar.loading', { default: 'still loading' })}</span>
     {:else}
         <span aria-hidden="true">–</span>
@@ -76,7 +76,7 @@
     <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div class="min-w-0 space-y-1">
             <p class="eyebrow">{$_('nav.dashboard')}</p>
-            <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-slate-950 sm:text-4xl dark:text-white">
+            <h1 class="day-bar-window font-display text-3xl font-bold leading-tight text-slate-950 sm:text-4xl sm:leading-10 dark:text-white">
                 {$_('dashboard.day_bar.window', { default: 'Last 24 hours' })}
             </h1>
         </div>
@@ -105,7 +105,7 @@
              does not make the band taller. -->
         {#snippet figure(hook: string, label: string, value: number | null, pending: boolean, tone: 'plain' | 'attention' | 'clear' = 'plain', note: string = '', title: string = '', noted: boolean = false)}
             <div class="flex min-w-0 flex-col gap-1.5 px-5 py-4" {title} data-day-bar-figure={hook}>
-                <dt class="break-words text-sm text-slate-600 first-letter:uppercase dark:text-slate-400">{label}</dt>
+                <dt class="wrap-break-word text-sm text-slate-600 first-letter:uppercase dark:text-slate-400">{label}</dt>
                 <dd class="flex min-w-0 flex-col gap-1">
                     <span
                         class="figure text-3xl {tone === 'attention'
@@ -115,10 +115,10 @@
                         {#if value === null}{@render unmeasured(pending)}{:else}{value}{/if}
                     </span>
                     {#if note && value !== null}
-                        <span class="min-w-0 break-words text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}">{note}</span>
+                        <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}">{note}</span>
                     {:else if noted && value === null && pending}
                         <span class="flex h-4 items-center" aria-hidden="true">
-                            <span class="h-2.5 w-20 max-w-full rounded bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" data-loading-placeholder></span>
+                            <span class="h-2.5 w-20 max-w-full rounded-sm bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" data-loading-placeholder></span>
                         </span>
                     {/if}
                 </dd>

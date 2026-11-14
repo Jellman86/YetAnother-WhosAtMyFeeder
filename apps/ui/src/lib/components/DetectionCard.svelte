@@ -206,12 +206,12 @@
     }
 </script>
 
-<div class="relative h-full rounded-[2rem] transition-all duration-300 ease-out">
+<div class="relative h-full rounded-4xl transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
         data-detection-card
         class="group relative bg-white/90 dark:bg-slate-800/75 rounded-2xl
-               shadow-sm hover:shadow-md dark:shadow-slate-950/15
+               shadow-xs hover:shadow-md dark:shadow-slate-950/15
                border border-slate-200/80 dark:border-slate-700/60
                hover:border-brand-500/40 dark:hover:border-brand-500/30
                overflow-hidden transition-[border-color,box-shadow] duration-200 ease-out
@@ -230,7 +230,7 @@
         aria-label={recordLabel}
         aria-pressed={selectionMode ? selected : undefined}
         onclick={onclick}
-        class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        class="absolute inset-0 z-10 {footer ? 'rounded-t-2xl' : 'rounded-2xl'} focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
     ></button>
 
     <!-- Reclassification Overlay -->
@@ -241,10 +241,10 @@
     {/if}
 
     <!-- Image Section -->
-    <div class="relative aspect-[4/3] overflow-hidden">
+    <div class="relative aspect-4/3 overflow-hidden">
         {#if !imageError && isVisible}
             {#if !imageLoaded}
-                <div class="absolute inset-0 bg-slate-100 dark:bg-slate-800 animate-shimmer bg-[length:200%_100%] bg-gradient-to-r from-transparent via-slate-200/10 to-transparent"></div>
+                <div class="absolute inset-0 bg-slate-100 dark:bg-slate-800 animate-shimmer bg-size-[200%_100%] bg-linear-to-r/srgb from-transparent via-slate-200/10 to-transparent"></div>
             {/if}
             {#if photoFit === 'contain'}
                 <!-- A tall crop is shown whole over a soft copy of itself, not cut to a band. -->
@@ -264,7 +264,7 @@
                 }}
                 onerror={(event) => failedThumbnailUrl = event.currentTarget.getAttribute('src')}
             />
-            <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
+            <div class="absolute inset-0 bg-linear-to-t/srgb from-black/60 via-transparent to-black/20 opacity-60"></div>
             <div class="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {:else}
@@ -381,7 +381,7 @@
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-xs transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>

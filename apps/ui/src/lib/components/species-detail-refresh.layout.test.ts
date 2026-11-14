@@ -7,7 +7,7 @@ import barChartSource from './SimpleBarChart.svelte?raw';
 describe('species detail field-record layout', () => {
     it('uses a responsive dialog shell with an accessible close target', () => {
         expect(speciesDetailSource).toContain('max-w-6xl');
-        expect(speciesDetailSource).toContain('h-[100dvh]');
+        expect(speciesDetailSource).toContain('h-dvh');
         expect(speciesDetailSource).not.toContain('max-w-4xl');
         expect(speciesDetailSource).toContain('min-h-11 min-w-11');
     });
@@ -63,7 +63,7 @@ describe('species detail field-record layout', () => {
 
     it('shows the complete reference image instead of forcing a panoramic crop', () => {
         expect(speciesDetailSource).toContain('data-species-hero-image');
-        expect(speciesDetailSource).toContain('aspect-[4/3]');
+        expect(speciesDetailSource).toContain('aspect-4/3');
         expect(speciesDetailSource).toContain('object-contain');
         expect(speciesDetailSource).not.toContain('object-cover object-center');
     });

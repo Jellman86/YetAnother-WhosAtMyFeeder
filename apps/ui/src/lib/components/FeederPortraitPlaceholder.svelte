@@ -14,7 +14,7 @@
 
     let { failed = false, withCommunity = false }: Props = $props();
 
-    const bar = 'block rounded bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60';
+    const bar = 'block rounded-sm bg-slate-200/80 animate-pulse motion-reduce:animate-none dark:bg-slate-700/60';
 </script>
 
 {#if failed}

@@ -26,7 +26,7 @@
     }: Props = $props();
 </script>
 
-<div class="md:hidden sticky top-0 z-40 bg-surface border-b border-line-soft h-[var(--app-chrome-height,4rem)] flex items-center px-4 justify-between">
+<div class="md:hidden sticky top-0 z-40 bg-surface border-b border-line-soft h-(--app-chrome-height,4rem) flex items-center px-4 justify-between">
     <button
         class="btn btn-ghost min-h-11 min-w-11 p-2 -ml-2 text-slate-500 hover:bg-surface-raised rounded-lg transition-colors"
         onclick={onToggleMenu}

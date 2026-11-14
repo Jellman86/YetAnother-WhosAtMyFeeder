@@ -68,7 +68,7 @@
 
 {#if visible}
     <div
-        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4"
         onclick={() => visible = false}
         onkeydown={handleKeydown}
         role="presentation"
@@ -97,7 +97,7 @@
                             {#each group.items as shortcut}
                                 <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white/90 dark:bg-slate-800/70 px-3 py-2">
                                     <span class="text-sm text-slate-700 dark:text-slate-300">{shortcut.description}</span>
-                                    <kbd class="inline-flex items-center justify-center px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md font-mono text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[64px] text-center shadow-sm border border-slate-200 dark:border-slate-600">
+                                    <kbd class="inline-flex items-center justify-center px-2 py-1 bg-slate-100 dark:bg-slate-700 rounded-md font-mono text-xs font-bold text-slate-700 dark:text-slate-200 min-w-[64px] text-center shadow-xs border border-slate-200 dark:border-slate-600">
                                         {shortcut.key}
                                     </kbd>
                                 </div>

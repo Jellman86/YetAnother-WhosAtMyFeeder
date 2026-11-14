@@ -37,8 +37,8 @@ describe('state is never a coloured bar on one edge', () => {
 
 describe('a chosen row is a recessed brand key with a lit check', () => {
     it('is defined once in the kit', () => {
-        expect(appCss).toMatch(/\.choice-active \{[^}]*bg-brand-50[^}]*\}/);
-        expect(appCss).toMatch(/\.choice-active svg \{[^}]*text-brand-600/);
+        expect(appCss).toMatch(/@utility choice-active \{[^}]*bg-brand-50[^}]*\}/);
+        expect(appCss).toMatch(/@utility choice-active \{[^}]*& svg \{[^}]*text-brand-600/);
     });
 
     it('marks the rail rows with the kit class and a check that is not colour alone', () => {
@@ -55,7 +55,7 @@ describe('a chosen row is a recessed brand key with a lit check', () => {
 
 describe('a row that needs a person carries an amber dot beside its reason in words', () => {
     it('is defined once in the kit, on the attention scale', () => {
-        expect(appCss).toMatch(/\.attention-dot \{[^}]*bg-attention-500[^}]*\}/);
+        expect(appCss).toMatch(/@utility attention-dot \{[^}]*bg-attention-500[^}]*\}/);
     });
 
     for (const [name, source] of Object.entries({

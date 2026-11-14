@@ -182,8 +182,8 @@
             style="background-image: url({backdropImageUrl})"
         ></div>
     {/if}
-    <div class="absolute inset-0 bg-gradient-to-br from-white/55 via-white/35 to-slate-100/50 dark:from-slate-950/70 dark:via-slate-950/55 dark:to-slate-900/70"></div>
-    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent dark:from-black/60"></div>
+    <div class="absolute inset-0 bg-linear-to-br/srgb from-white/55 via-white/35 to-slate-100/50 dark:from-slate-950/70 dark:via-slate-950/55 dark:to-slate-900/70"></div>
+    <div class="absolute inset-0 bg-linear-to-t/srgb from-slate-950/45 via-transparent to-transparent dark:from-black/60 dark:via-black/30"></div>
 
     <div class="relative w-full {small ? '' : 'max-w-4xl h-full'} flex flex-col items-center {small ? 'gap-2' : 'gap-5'}">
         

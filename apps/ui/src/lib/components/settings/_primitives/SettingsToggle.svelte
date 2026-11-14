@@ -30,12 +30,12 @@
             toggle();
         }
     }}
-    class="relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900
+    class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900
            {disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
            {checked ? 'bg-brand-500' : 'bg-slate-300 dark:bg-slate-600'}"
 >
     <span class="sr-only">{srLabel}</span>
     <span
-        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 {checked ? 'translate-x-5' : 'translate-x-0'}"
+        class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition duration-200 {checked ? 'translate-x-5' : 'translate-x-0'}"
     ></span>
 </button>

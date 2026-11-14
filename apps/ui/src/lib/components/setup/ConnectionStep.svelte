@@ -139,7 +139,7 @@
                         {$_('setup.connection.mqtt_auth_hint', { default: 'Enable this only when your broker requires a username and password.' })}
                     </span>
                 </span>
-                <input type="checkbox" bind:checked={mqttAuth} class="mt-1 h-5 w-5 shrink-0 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                <input type="checkbox" bind:checked={mqttAuth} class="mt-1 h-5 w-5 shrink-0 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
             </label>
 
             {#if mqttAuth}

@@ -104,7 +104,7 @@
                         </span>
                         <button
                             type="button"
-                            class="ml-2 flex min-h-11 min-w-0 flex-col justify-center rounded-lg px-2 text-left hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                            class="ml-2 flex min-h-11 min-w-0 flex-col justify-center rounded-lg px-2 text-left hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                             aria-expanded={peek.isOpen(taxon.taxon_id)}
                             onpointerenter={(event) => {
                                 if (!isHoverPointer(event)) return;

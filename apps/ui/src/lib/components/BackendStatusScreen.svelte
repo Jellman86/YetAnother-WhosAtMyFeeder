@@ -135,7 +135,7 @@
 
         <div class="px-6 py-8 sm:px-8 sm:py-10">
             <div class="grid gap-6 sm:grid-cols-[4rem_minmax(0,1fr)] sm:gap-8">
-                <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500 shadow-sm dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300" aria-hidden="true">
+                <div class="flex h-16 w-16 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-500 shadow-xs dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-300" aria-hidden="true">
                     {#if attentionNeeded}
                         <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7.5 6.5h9a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3Z" />

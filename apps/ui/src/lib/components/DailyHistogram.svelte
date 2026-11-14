@@ -56,7 +56,7 @@
         >
             {#each bars as bar (bar.hour)}
                 <div
-                    class="min-h-px flex-1 rounded-t-sm {bar.isNow
+                    class="min-h-px flex-1 rounded-t-xs {bar.isNow
                         ? 'bg-brand-600 dark:bg-brand-400'
                         : bar.value > 0
                           ? 'bg-brand-500/60 dark:bg-brand-400/50'

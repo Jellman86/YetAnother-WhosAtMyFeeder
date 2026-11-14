@@ -103,18 +103,18 @@
                     <div class="mt-4 space-y-2">
                         <div class="text-sm">
                             <strong class="text-slate-700 dark:text-slate-300">Error:</strong>
-                            <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded text-xs overflow-x-auto text-red-600 dark:text-red-400">{error.message}</pre>
+                            <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded-sm text-xs overflow-x-auto text-red-600 dark:text-red-400">{error.message}</pre>
                         </div>
                         {#if error.stack}
                             <div class="text-sm">
                                 <strong class="text-slate-700 dark:text-slate-300">{$_('errors.stack_trace', { default: 'Stack trace:' })}</strong>
-                                <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded text-xs overflow-x-auto text-slate-600 dark:text-slate-400 max-h-48">{error.stack}</pre>
+                                <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded-sm text-xs overflow-x-auto text-slate-600 dark:text-slate-400 max-h-48">{error.stack}</pre>
                             </div>
                         {/if}
                         {#if errorInfo}
                             <div class="text-sm">
                                 <strong class="text-slate-700 dark:text-slate-300">Location:</strong>
-                                <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded text-xs overflow-x-auto text-slate-600 dark:text-slate-400">{errorInfo}</pre>
+                                <pre class="mt-1 p-2 bg-white dark:bg-slate-800 rounded-sm text-xs overflow-x-auto text-slate-600 dark:text-slate-400">{errorInfo}</pre>
                             </div>
                         {/if}
                     </div>

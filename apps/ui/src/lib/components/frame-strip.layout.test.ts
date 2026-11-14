@@ -138,7 +138,7 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
 
     it('lifts the chosen moment like a dock item without using an active outline', () => {
         expect(stripSource).toContain("'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'");
-        expect(stripSource).toContain('motion-reduce:transform-none');
+        expect(stripSource).toContain('motion-reduce:translate-none motion-reduce:scale-none');
         expect(stripSource).not.toContain("? 'ring-2 ring-brand-400'");
     });
 

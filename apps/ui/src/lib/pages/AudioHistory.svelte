@@ -521,7 +521,7 @@
                             <td class="row-span-2 flex items-center md:table-cell md:w-28 md:py-3 md:pr-4">
                                 {#if spec}
                                     {#if link}
-                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
+                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
                                             <img data-audio-spectrogram src={spec} alt={specAlt} loading="lazy" onerror={() => markSpectrogramFailed(detection.birdnet_id)} class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                         </a>
                                     {:else}
@@ -540,11 +540,11 @@
                                         <a
                                             data-audio-visual-match-link
                                             href={toAppPath(`/events?event=${encodeURIComponent(detection.matched_visual_event_id)}`)}
-                                            class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-500/10 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-400/10 dark:hover:text-brand-200"
+                                            class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-500/10 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-400/10 dark:hover:text-brand-200"
                                             aria-label={$_('audio.table.open_visual_match')}
                                             title={$_('audio.table.open_visual_match')}
                                         >
-                                            <svg aria-hidden="true" class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5A2.5 2.5 0 0 1 6.5 5h8A2.5 2.5 0 0 1 17 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-8A2.5 2.5 0 0 1 4 16.5v-9Z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="m17 10 3-2v8l-3-2M8 12l1.5 1.5L13 10" />
                                             </svg>
@@ -631,7 +631,7 @@
                             {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
                                 <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                     aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
-                                    <span class="h-2.5 w-2.5 rounded-sm" style="background-color: {audioSpeciesColor(index)}"></span>{item.species}
+                                    <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {audioSpeciesColor(index)}"></span>{item.species}
                                 </button>
                             {/each}
                         </div>
@@ -655,7 +655,7 @@
                                     data-audio-top-species-button
                                     onclick={() => selectedSpecies = item.species}
                                     aria-label={$_('leaderboard.view_species', { values: { species: item.species } })}
-                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35"
+                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35"
                                 >
                                     <span class="w-6 flex-none text-center text-xs font-bold tabular-nums text-slate-400 dark:text-slate-500">{index + 1}</span>
                                     <span class="h-11 w-11 flex-none overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">

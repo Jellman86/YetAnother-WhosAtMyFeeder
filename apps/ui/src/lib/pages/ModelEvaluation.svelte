@@ -267,16 +267,16 @@
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Run every installed classifier against auto-fetched, taxonomy-verified bird images
             from iNaturalist (with Wikimedia Commons fallback). Progress is reported live; full
-            artifacts persist under <code class="px-1 rounded bg-slate-100 dark:bg-slate-900">/config/yawamf-eval/&lt;run_id&gt;/</code>.
+            artifacts persist under <code class="px-1 rounded-sm bg-slate-100 dark:bg-slate-900">/config/yawamf-eval/&lt;run_id&gt;/</code>.
         </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
             <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-                <input type="checkbox" bind:checked={includePerImage} class="rounded" />
+                <input type="checkbox" bind:checked={includePerImage} class="rounded-sm" />
                 Include per-image details (results.jsonl)
             </label>
             <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300" title="Downloads every registry model, then validates each provider owned by this image against the CPU baseline. Slower.">
-                <input type="checkbox" bind:checked={sweepDevices} class="rounded" />
+                <input type="checkbox" bind:checked={sweepDevices} class="rounded-sm" />
                 Sweep image providers (auto-downloads all models)
             </label>
             <button
@@ -345,7 +345,7 @@
             </header>
 
             {#if selectedRun.error}
-                <div class="mt-3 rounded bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 p-2 text-sm text-red-800 dark:text-red-200">
+                <div class="mt-3 rounded-sm bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 p-2 text-sm text-red-800 dark:text-red-200">
                     Run failed: {selectedRun.error}
                 </div>
             {/if}

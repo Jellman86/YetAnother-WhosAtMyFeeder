@@ -347,7 +347,7 @@
     {#if popoverOpen}
         <div
             bind:this={viewerEl}
-            class="group/viewer fixed inset-x-4 top-[8.75rem] w-auto overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-2xl shadow-slate-950/25 z-[60] animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))] dark:border-slate-700"
+            class="group/viewer fixed inset-x-4 top-35 w-auto overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 shadow-2xl shadow-slate-950/25 z-60 animate-in fade-in zoom-in-95 md:absolute md:left-auto md:right-0 md:top-full md:mt-2 md:w-[min(34rem,calc(100vw-2rem))] dark:border-slate-700"
             id={menuId}
             role="dialog"
             aria-modal="false"

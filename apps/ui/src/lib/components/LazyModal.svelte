@@ -83,7 +83,7 @@
 {:else if failed}
     <div
         use:portal
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-xs"
         role="presentation"
         onclick={(event) => {
             if (event.target === event.currentTarget) onclose();

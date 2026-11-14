@@ -232,7 +232,7 @@
 <!-- Nothing while the first read is pending: most captures have no counted birds, and a passing
      loading line would shift the record for nothing. -->
 {#if error || regenerating || birds.length > 0 || (countingAvailable && !loading)}
-    <section bind:this={sectionEl} class="space-y-3 break-words border-t border-slate-200 pt-5 dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
+    <section bind:this={sectionEl} class="space-y-3 wrap-break-word border-t border-slate-200 pt-5 dark:border-slate-700" data-counted-birds aria-labelledby="counted-birds-title-{eventId}">
         <div class="flex items-baseline justify-between gap-3">
             <h4 id="counted-birds-title-{eventId}" class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                 {$_('detection.counted_birds.title', { default: 'Birds found in this capture' })}
@@ -319,7 +319,7 @@
                                 {#if !bird.is_hidden || bird.id === highlightedId}
                                     {@const lit = bird.id === highlightedId}
                                     <span
-                                        class="pointer-events-none absolute rounded-sm motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 {lit
+                                        class="pointer-events-none absolute rounded-xs motion-safe:transition-[border-color,box-shadow] motion-safe:duration-150 {lit
                                             ? bird.is_hidden
                                                 ? 'z-20 border-2 border-dashed border-slate-200 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
                                                 : 'z-20 border-2 border-sky-300 shadow-[0_0_0_9999px_rgba(2,6,23,0.45)]'
@@ -332,11 +332,11 @@
                                         data-lit={lit ? 'true' : 'false'}
                                     >
                                         {#if lit}
-                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded bg-sky-300 px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tag>
+                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded-sm bg-sky-300 px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tag>
                                                 {bird.is_hidden ? $_('detection.counted_birds.excluded_tag', { values: { bird: birdLabel(bird) }, default: '{bird}, excluded' }) : birdLabel(bird)}
                                             </span>
                                         {:else if bird.tracked && !bird.is_hidden}
-                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded bg-white px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tracked-tag>
+                                            <span class="absolute bottom-full left-0 mb-1 max-w-48 truncate rounded-sm bg-white px-1.5 py-0.5 text-xs font-bold leading-tight text-slate-950" data-counted-bird-tracked-tag>
                                                 {$_('detection.counted_birds.being_named_tag', { default: 'Being named' })}
                                             </span>
                                         {/if}
@@ -404,7 +404,7 @@
                                 {/if}
                             </span>
                             <span class="min-w-0 flex-1">
-                                <span class="block break-words text-sm font-semibold {bird.is_hidden ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}">{speciesName(bird)}</span>
+                                <span class="block wrap-break-word text-sm font-semibold {bird.is_hidden ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}">{speciesName(bird)}</span>
                                 {#if bird.tracked && bird.identity_source !== 'visit'}
                                     <span class="block text-xs font-semibold text-slate-700 dark:text-slate-200" data-counted-bird-tracked>{$_('detection.counted_birds.being_named', { default: 'The bird being named' })}</span>
                                 {/if}

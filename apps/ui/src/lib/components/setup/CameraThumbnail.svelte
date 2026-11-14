@@ -54,7 +54,7 @@
             {/if}
         </div>
     {/if}
-    <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+    <div class="absolute inset-x-0 bottom-0 flex items-center justify-between bg-linear-to-t/srgb from-black/70 to-transparent px-2 py-1.5">
         <span class="truncate text-xs font-semibold text-white">{showName ? camera : ''}</span>
         <span class="h-2 w-2 shrink-0 rounded-full {frameState === 'ok' ? 'bg-success-400' : frameState === 'loading' ? 'bg-slate-300' : 'bg-rose-400'}"></span>
     </div>

@@ -26,9 +26,9 @@
             aria-expanded={open}
             aria-controls={`${id}-panel`}
             onclick={() => (open = !open)}
-            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+            class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg py-2 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
         >
-            <span class="min-w-0 break-words text-sm font-semibold text-slate-900 dark:text-white">{title}</span>
+            <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-900 dark:text-white">{title}</span>
             <span class="flex shrink-0 items-center gap-2">
                 {#if hint}<span class="text-xs text-slate-600 dark:text-slate-400" data-beta-section-hint>{hint}</span>{/if}
                 <svg class="h-4 w-4 text-slate-500 motion-safe:transition-transform dark:text-slate-400 {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

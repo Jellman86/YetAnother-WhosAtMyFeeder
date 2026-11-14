@@ -626,7 +626,7 @@
                         aria-valuenow={Math.round(threshold * 100)}
                         aria-valuetext="{(threshold * 100).toFixed(0)} percent"
                         aria-label="{$_('settings.detection.confidence_threshold')}: {(threshold * 100).toFixed(0)}%"
-                        class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                        class="h-11 w-full cursor-pointer accent-brand-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                     />
                     <div class="flex flex-wrap justify-between gap-x-4">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.threshold_loose')}</span>
@@ -657,7 +657,7 @@
                         aria-valuenow={Math.round(minConfidence * 100)}
                         aria-valuetext="{(minConfidence * 100).toFixed(0)} percent"
                         aria-label="{$_('settings.detection.min_confidence_floor')}: {(minConfidence * 100).toFixed(0)}%"
-                        class="h-11 w-full cursor-pointer accent-amber-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                        class="h-11 w-full cursor-pointer accent-amber-500 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
                     />
                     <div class="flex flex-wrap justify-between gap-x-4">
                         <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.floor_capture_all')}</span>
@@ -756,7 +756,7 @@
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
                         <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
-                            <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded" />
+                            <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded-sm" />
                             {$_('settings.detection.compat_all_models', { default: 'test all models' })}
                         </label>
                         <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
@@ -899,7 +899,7 @@
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
                         {#if showCudaDiagnostics}
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
+                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
                                 {#if classifierStatus.cuda_available}
                                     {$_('settings.detection.cuda_available')}
                                 {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -910,13 +910,13 @@
                             </span>
                         {/if}
                         {#if showIntelDiagnostics}
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.openvino_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.openvino_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
                             </span>
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_gpu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                             </span>
-                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_npu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.intel_npu_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
                                 {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
                             </span>
                         {/if}
@@ -1176,7 +1176,7 @@
         />
 
         {#if blockedSpeciesSearchQuery.trim()}
-            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40 shadow-sm">
+            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40 shadow-xs">
                 <div class="max-h-64 overflow-y-auto p-1">
                     {#each blockedSpeciesSearchResults as result}
                         {@const names = getResultNames(result)}
@@ -1185,7 +1185,7 @@
                             type="button"
                             onclick={() => addBlockedSpecies(result)}
                             disabled={alreadyBlocked}
-                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                            class="min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-600 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
                         >
                             <span class="block">
                                 {names.primary}
@@ -1216,7 +1216,7 @@
                             type="button"
                             onclick={() => addBlockedLabelText(blockedSpeciesSearchQuery)}
                             data-blocked-label-escape-hatch
-                            class="min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
+                            class="min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
                         >
                             {$_('settings.detection.block_exact_label', {
                                 values: { label: blockedSpeciesSearchQuery.trim() },
@@ -1239,7 +1239,7 @@
                                 type="button"
                                 onclick={() => removeBlockedSpecies(entry)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-500 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
                             >
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <path d="M6 6l12 12M18 6 6 18" />
@@ -1263,7 +1263,7 @@
                                 type="button"
                                 onclick={() => removeLegacyBlockedLabel(label)}
                                 aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                             >
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                                     <path d="M6 6l12 12M18 6 6 18" />

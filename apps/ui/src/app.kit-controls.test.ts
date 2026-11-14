@@ -12,16 +12,16 @@ function rule(selector: string): string {
 
 /** The shared controls carry their own touch target and stay visible in both modes. */
 describe('the kit controls', () => {
-    it('gives a tab and an icon button the 44px floor and a keyboard ring', () => {
-        expect(rule('.tab-button')).toContain('min-h-11');
-        expect(rule('.tab-button')).toContain('focus-ring');
-        expect(rule('.btn-icon')).toContain('min-h-11');
-        expect(rule('.btn-icon')).toContain('min-w-11');
+    it('gives a tab and an icon button the 44px floor and a keyboard ring-3', () => {
+        expect(rule('@utility tab-button')).toContain('min-h-11');
+        expect(rule('@utility tab-button')).toContain('focus-ring');
+        expect(rule('@utility btn-icon')).toContain('min-h-11');
+        expect(rule('@utility btn-icon')).toContain('min-w-11');
     });
 
     it('draws the select chevron in a fixed colour for each mode, since a data URI cannot read currentColor', () => {
-        const light = rule('.select-base');
-        const dark = rule('.dark .select-base');
+        const light = rule('@utility select-base');
+        const dark = rule('.dark &');
         expect(light).not.toContain('currentColor');
         expect(light).toContain("stroke='%2364748b'");
         expect(dark).toContain('background-image');

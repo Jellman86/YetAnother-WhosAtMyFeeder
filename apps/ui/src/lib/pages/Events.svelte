@@ -2044,14 +2044,14 @@
             <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
             <div
                 bind:this={countElement}
-                class="mr-1 basis-full rounded text-sm text-slate-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
+                class="mr-1 basis-full rounded-sm text-sm text-slate-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
                 role="status"
                 tabindex="-1"
                 data-explorer-count={pane.count}
             >
                 {#if pane.count === 'pending'}
                     <span class="sr-only">{$_('events.results_loading', { default: 'Loading results…' })}</span>
-                    <span class="inline-block h-3 w-20 rounded bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
+                    <span class="inline-block h-3 w-20 rounded-sm bg-slate-200/80 align-middle animate-pulse motion-reduce:animate-none dark:bg-slate-700/60" aria-hidden="true" data-loading-placeholder></span>
                 {:else if pane.count === 'unavailable'}
                     <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('events.count_unavailable', { default: 'Count unavailable' })}</span>
                 {:else}
@@ -2127,7 +2127,7 @@
             </button>
             <!-- At the largest text size on a phone the two choices wrap inside the frame rather than off the screen. -->
             <div
-                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
+                class="inline-flex min-h-11 items-stretch max-w-full flex-wrap rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-xs dark:border-slate-700/60 dark:bg-slate-800/80"
                 role="group"
                 aria-label={$_('settings.explorer_view.label')}
             >
@@ -2137,7 +2137,7 @@
                         aria-pressed={explorerView === option.value}
                         onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
                         data-explorer-view-toggle={option.value}
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500
                                {explorerView === option.value
                             ? 'bg-brand-700 text-white'
                             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
@@ -2339,12 +2339,12 @@
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
                 <!-- One scrolling row on a phone, so a long page of days does not push the visits down. -->
-                <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
+                <div class="flex items-center gap-2 overflow-x-auto overscroll-x-contain scrollbar-none sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="group" aria-labelledby="events-timeline-scope">
                     <button
                         type="button"
                         class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === 'all'
-                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
+                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-xs'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = 'all'}
                         aria-pressed={selectedTimelineBucket === 'all'}
@@ -2371,7 +2371,7 @@
                             type="button"
                             class="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                                 {selectedTimelineBucket === bucket.key
-                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
+                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-xs'
                                     : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                             onclick={() => selectedTimelineBucket = bucket.key}
                             aria-pressed={selectedTimelineBucket === bucket.key}
@@ -2583,7 +2583,7 @@
                     {:else}
                         {@const event = entry.event}
                         {@const visit = entry.visit}
-                        <div class="[&>[data-detection-row]]:border-b-0" data-explorer-visit={visit?.visit_id}>
+                        <div class="*:data-detection-row:border-b-0" data-explorer-visit={visit?.visit_id}>
                         <DetectionRow
                             detection={event}
                             onclick={() => handleEventCardClick(event)}
@@ -2751,7 +2751,7 @@
 {/if}
 {#if authStore.hasOwnerAccess && showBulkTagModal}
     <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
         onclick={(e) => {
             if (e.target === e.currentTarget && !bulkTagging) {
                 showBulkTagModal = false;
@@ -2794,7 +2794,7 @@
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
+                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-hidden"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">

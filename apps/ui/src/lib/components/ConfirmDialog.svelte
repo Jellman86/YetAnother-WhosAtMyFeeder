@@ -26,7 +26,7 @@
 {#if pending}
     <div
         use:portal
-        class="fixed inset-0 z-[95] flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-95 flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-xs"
         role="presentation"
         onclick={(event) => {
             if (event.target === event.currentTarget) confirmDialog.answer(false);

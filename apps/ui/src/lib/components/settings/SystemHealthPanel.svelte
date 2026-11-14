@@ -338,7 +338,7 @@
                             value={inspectedIndex ?? points.length - 1}
                             oninput={(event) => (inspectedIndex = Number(event.currentTarget.value))}
                             onblur={() => (inspectedIndex = null)}
-                            class="system-health-scrub mt-1 block h-3 w-full cursor-crosshair appearance-none rounded-full bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+                            class="system-health-scrub mt-1 block h-3 w-full cursor-crosshair appearance-none rounded-full bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
                             aria-label={$_('settings.system_health.inspect', { default: 'Inspect a sample' })}
                             aria-valuetext={inspectedSpoken}
                             data-system-health-scrub
@@ -455,7 +455,7 @@
                                     <tr data-system-health-row={row.role}>
                                         <td class="py-2 pr-3">
                                             <span class="inline-flex items-center gap-2">
-                                                <span class="{swatch[row.role]} inline-block h-2.5 w-2.5 rounded-sm" aria-hidden="true"></span>
+                                                <span class="{swatch[row.role]} inline-block h-2.5 w-2.5 rounded-xs" aria-hidden="true"></span>
                                                 <span class="font-semibold text-slate-800 dark:text-slate-100" class:italic={row.role === 'other_host'}>{roleLabel(row)}</span>
                                                 {#if memberNote(row)}
                                                     <span class="text-xs text-slate-500 dark:text-slate-400">{memberNote(row)}</span>

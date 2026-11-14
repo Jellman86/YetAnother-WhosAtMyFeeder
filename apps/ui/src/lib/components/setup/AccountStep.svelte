@@ -86,7 +86,7 @@
         {/if}
 
         <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={skipAuth} class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+            <input type="checkbox" bind:checked={skipAuth} class="rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
             {$_('first_run.skip_auth', { default: 'Run without a password (trusted network only)' })}
         </label>
     {/if}

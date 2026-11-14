@@ -63,7 +63,7 @@
     <button type="button" class="btn btn-secondary" onclick={() => { total = 240; read = 0; feedRow(); }}>Long clip</button>
 </div>
 
-<section data-fixture="card" class="relative aspect-[4/3] w-72 overflow-hidden rounded-2xl bg-slate-300">
+<section data-fixture="card" class="relative aspect-4/3 w-72 overflow-hidden rounded-2xl bg-slate-300">
     <DetectionCardAnalysisOverlay {progress} />
 </section>
 

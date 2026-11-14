@@ -741,7 +741,7 @@
                             <ul class="mt-1 space-y-2" data-health-problems>
                                 {#each problems as problem (problem)}
                                     {@const item = problemItem(problem)}
-                                    <li class="break-words text-sm" data-health-problem={problem}>
+                                    <li class="wrap-break-word text-sm" data-health-problem={problem}>
                                         <p class="font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
                                         <p class="text-slate-600 dark:text-slate-300">{item.next}</p>
                                     </li>
@@ -791,7 +791,7 @@
             <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
             <!-- Event Pipeline -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(eventPipelineStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -801,7 +801,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.pipeline_title', { default: 'Event Pipeline' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={eventPipelineStatus()}>{statusLabel(eventPipelineStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={eventPipelineStatus()}>{statusLabel(eventPipelineStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{eventPipelineSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -815,7 +815,7 @@
             </article>
 
             <!-- Filtered detections (expected, configuration-driven drops) -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(filteredStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(filteredStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -825,7 +825,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
                         {#if expectedDropReasons(health?.event_pipeline).length > 0}
@@ -838,7 +838,7 @@
                                 {/each}
                             </dl>
                             {#if recentFilteredDetections(health?.event_pipeline).length > 0}
-                                <div class="mt-4 border-t border-current/15 pt-3">
+                                <div class="mt-4 border-t pt-3">
                                     <p class="text-xs font-bold uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
                                     <ul class="mt-2 space-y-1.5 text-xs font-semibold">
                                         {#each keyedPipelineDetections(recentFilteredDetections(health?.event_pipeline)) as { key, entry } (key)}
@@ -860,7 +860,7 @@
             </article>
 
             <!-- MQTT: the connection first, then how hard its handlers are working. -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(mqttStatus())}" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(mqttStatus())}" data-health-card="mqtt" data-health-card-status={mqttStatus()}>
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -870,11 +870,11 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">MQTT</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={mqttStatus()}>{statusLabel(mqttStatus())}</span>
                         </div>
-                        <p class="mt-2 break-words text-sm font-semibold">{mqttSummary()}</p>
+                        <p class="mt-2 wrap-break-word text-sm font-semibold">{mqttSummary()}</p>
                         {#if connections?.mqtt.state === 'disconnected' && connections.mqtt.last_error}
-                            <p class="mt-2 break-words text-xs font-semibold opacity-80">{$_('jobs.errors_mqtt_last_error', { values: { error: connections.mqtt.last_error }, default: 'The broker client said: {error}' })}</p>
+                            <p class="mt-2 wrap-break-word text-xs font-semibold opacity-80">{$_('jobs.errors_mqtt_last_error', { values: { error: connections.mqtt.last_error }, default: 'The broker client said: {error}' })}</p>
                         {/if}
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
                             <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_in_flight', { default: 'In Flight' })}</span><span>{asNumber(health?.mqtt?.in_flight).toLocaleString()} / {asNumber(health?.mqtt?.in_flight_capacity).toLocaleString()}</span></div>
@@ -886,7 +886,7 @@
             </article>
 
             <!-- Frigate: whether its API answered the latest request. -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(frigateStatus())}" data-health-card="frigate" data-health-card-status={frigateStatus()}>
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(frigateStatus())}" data-health-card="frigate" data-health-card-status={frigateStatus()}>
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -897,9 +897,9 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_frigate', { default: 'Frigate' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={frigateStatus()}>{statusLabel(frigateStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={frigateStatus()}>{statusLabel(frigateStatus())}</span>
                         </div>
-                        <p class="mt-2 break-words text-sm font-semibold">{frigateSummary()}</p>
+                        <p class="mt-2 wrap-break-word text-sm font-semibold">{frigateSummary()}</p>
                         {#if frigateAvailability()}
                             <p class="mt-2 text-xs font-semibold opacity-80">{frigateAvailability()}</p>
                         {/if}
@@ -908,7 +908,7 @@
             </article>
 
             <!-- Live Classification -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(liveClassificationStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(liveClassificationStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -918,7 +918,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_live_classification', { default: 'Live Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={liveClassificationStatus()}>{statusLabel(liveClassificationStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={liveClassificationStatus()}>{statusLabel(liveClassificationStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{liveClassificationSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -932,7 +932,7 @@
             </article>
 
             <!-- Video Classification -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(videoClassifierCard.status)}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(videoClassifierCard.status)}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -942,7 +942,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_video_classification', { default: 'Video Classification' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={videoClassifierCard.status}>{statusLabel(videoClassifierCard.status)}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={videoClassifierCard.status}>{statusLabel(videoClassifierCard.status)}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{videoClassifierCard.summary}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -956,7 +956,7 @@
             </article>
 
             <!-- Background Maintenance -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(backgroundStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(backgroundStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -966,7 +966,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_background_maintenance', { default: 'Background Maintenance' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={backgroundStatus()}>{statusLabel(backgroundStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={backgroundStatus()}>{statusLabel(backgroundStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{backgroundSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -980,7 +980,7 @@
             </article>
 
             <!-- Notifications & DB -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(dispatcherStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(dispatcherStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -990,7 +990,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_notifications_db', { default: 'Notifications & DB' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={dispatcherStatus()}>{statusLabel(dispatcherStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={dispatcherStatus()}>{statusLabel(dispatcherStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{dispatcherSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -1004,7 +1004,7 @@
             </article>
 
             <!-- Naming sources -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(namingStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(namingStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1014,7 +1014,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={namingStatus()}>{statusLabel(namingStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={namingStatus()}>{statusLabel(namingStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
                         <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
@@ -1026,7 +1026,7 @@
                             <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
                         {/if}
                         {#if catalogSources().length > 0}
-                            <div class="mt-4 border-t border-current/20 pt-3">
+                            <div class="mt-4 border-t pt-3">
                                 <span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
                                 <ul class="mt-2 space-y-2 text-xs">
                                     {#each catalogSources() as source}
@@ -1046,7 +1046,7 @@
             </article>
 
             <!-- Startup Warnings -->
-            <article class="rounded-2xl border p-5 shadow-sm {toneClass(startupStatus())}">
+            <article class="rounded-2xl border p-5 shadow-xs {toneClass(startupStatus())}">
                 <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 opacity-70">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1056,7 +1056,7 @@
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2">
                             <h4 class="eyebrow text-inherit dark:text-inherit">{$_('jobs.errors_card_startup_warnings', { default: 'Startup Warnings' })}</h4>
-                            <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-bold" title={startupStatus()}>{statusLabel(startupStatus())}</span>
+                            <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-bold" title={startupStatus()}>{statusLabel(startupStatus())}</span>
                         </div>
                         <p class="mt-2 text-sm font-semibold">{startupSummary()}</p>
                         <div class="mt-4 space-y-2 text-xs font-semibold">
@@ -1192,7 +1192,7 @@
                         <article class={`rounded-2xl border px-4 py-3 ${toneClass(event.severity ?? 'warning')}`}>
                             <div class="flex flex-wrap items-center justify-between gap-2">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <span class="inline-flex rounded-full border border-current/20 px-2 py-0.5 text-xs font-bold" title={event.severity}>
+                                    <span class="inline-flex rounded-full border px-2 py-0.5 text-xs font-bold" title={event.severity}>
                                         {statusLabel(event.severity ?? 'warning')}
                                     </span>
                                     <span class="font-mono text-xs opacity-80">

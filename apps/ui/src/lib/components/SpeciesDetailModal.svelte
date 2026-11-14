@@ -443,7 +443,7 @@
 
 <!-- Backdrop -->
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-xs sm:p-4"
     onclick={(e) => {
         if (e.target === e.currentTarget) {
             onclose();
@@ -454,7 +454,7 @@
     <!-- Modal Container -->
     <div
         bind:this={modalElement}
-        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
+        class="animate-fade-in h-dvh w-full max-w-6xl overflow-hidden bg-surface shadow-2xl ring-1 ring-black/5 sm:h-auto sm:max-h-[92dvh] sm:rounded-2xl sm:border sm:border-white/10"
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -475,7 +475,7 @@
             <button
                 type="button"
                 onclick={onclose}
-                class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/80 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-white"
+                class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/80 hover:text-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={$_('shortcuts.close_modal')}
             >
                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -492,9 +492,9 @@
                     <div class="flex gap-4">
                         <div class="w-32 h-32 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
                         <div class="flex-1 space-y-3">
-                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-3/4"></div>
-                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-full"></div>
-                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded w-5/6"></div>
+                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded-sm w-3/4"></div>
+                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded-sm w-full"></div>
+                            <div class="h-4 bg-slate-200 dark:bg-slate-700 rounded-sm w-5/6"></div>
                         </div>
                     </div>
                     <div class="grid grid-cols-4 gap-4">
@@ -523,7 +523,7 @@
                     <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-900/20 sm:p-6">
                         <div class="flex items-start gap-4">
                             <!-- Icon -->
-                            <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
+                            <div class="shrink-0 w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
                                 <span class="text-2xl text-white">?</span>
                             </div>
 
@@ -542,7 +542,7 @@
                                         <button
                                             onclick={() => handleReclassify('snapshot')}
                                             disabled={reclassifying || !stats?.recent_sightings?.[0]}
-                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white shadow-xs transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                                         >
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -553,7 +553,7 @@
                                         <button
                                             onclick={() => handleReclassify('video')}
                                             disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
-                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2 font-semibold text-white shadow-xs transition-colors hover:bg-brand-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                                             title={!stats?.recent_sightings?.[0]?.has_clip ? $_('species_detail.video_unavailable') : ''}
                                         >
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -566,7 +566,7 @@
                                     <button
                                         type="button"
                                         onclick={handleOpenExplorer}
-                                        class="flex min-h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white/80 px-4 py-2 font-semibold text-amber-800 shadow-sm transition-colors hover:border-amber-300 dark:border-amber-700 dark:bg-slate-900/40 dark:text-amber-100"
+                                        class="flex min-h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white/80 px-4 py-2 font-semibold text-amber-800 shadow-xs transition-colors hover:border-amber-300 dark:border-amber-700 dark:bg-slate-900/40 dark:text-amber-100"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -633,10 +633,10 @@
                                 {#each stats.recent_sightings as sighting}
                                     <a
                                         href={toAppPath(`/events?event=${encodeURIComponent(sighting.frigate_event)}`)}
-                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
+                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
                                         aria-label={$_('visits.open_capture', { values: { species: sighting.display_name }, default: 'Open {species} capture' })}
                                     >
-                                        <div class="relative aspect-[4/3] bg-slate-200 dark:bg-slate-700">
+                                        <div class="relative aspect-4/3 bg-slate-200 dark:bg-slate-700">
                                             <img
                                                 src={getThumbnailUrl(sighting.frigate_event)}
                                                 alt={sighting.display_name}
@@ -648,7 +648,7 @@
                                                 }}
                                             />
                                             {#if sighting.has_clip}
-                                                <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
+                                                <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-xs transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
                                                     <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" /></svg>
                                                 </span>
                                             {/if}
@@ -678,7 +678,7 @@
                     {#if info?.thumbnail_url}
                         <section
                             data-species-hero-image
-                            class="relative mx-auto aspect-[4/3] w-full max-w-2xl overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-950/40 dark:ring-slate-700"
+                            class="relative mx-auto aspect-4/3 w-full max-w-2xl overflow-hidden rounded-2xl bg-slate-100 shadow-xs ring-1 ring-slate-200/80 dark:bg-slate-950/40 dark:ring-slate-700"
                         >
                             <img
                                 src={info.thumbnail_url}
@@ -695,7 +695,7 @@
                                         href={info.source_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-xs backdrop-blur-xs transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500"
                                     >
                                         {info.source || $_('common.source')}
                                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -733,7 +733,7 @@
                                                 href={chip.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                class="badge focus-ring border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
+                                                class="badge focus-ring border-slate-200/80 bg-white/90 text-slate-500 shadow-xs transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
                                             >
                                                 {chip.label}
                                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -799,8 +799,8 @@
                                     <div class="space-y-3">
                                         {#each [1, 2, 3] as _}
                                             <div class="flex justify-between gap-4">
-                                                <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
-                                                <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded animate-pulse"></div>
+                                                <div class="h-3 w-2/3 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
+                                                <div class="h-3 w-1/4 bg-sky-100 dark:bg-sky-900/30 rounded-sm animate-pulse"></div>
                                             </div>
                                         {/each}
                                     </div>
@@ -819,7 +819,7 @@
                                         </div>
                                     {:else}
                                         {#if ebirdNearby.results.some(r => r.lat && r.lng)}
-                                            <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-sm relative z-0">
+                                            <div class="h-48 mb-4 rounded-xl overflow-hidden border border-sky-100 dark:border-sky-900/30 shadow-xs relative z-0">
                                                 <Map
                                                     markers={ebirdNearby.results
                                                         .filter(r => r.lat && r.lng)
@@ -852,7 +852,7 @@
                                                         </div>
                                                     </div>
                                                     {#if obs.how_many}
-                                                        <span class="flex-shrink-0 rounded-lg bg-sky-100 px-2 py-1 text-xs font-bold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
+                                                        <span class="shrink-0 rounded-lg bg-sky-100 px-2 py-1 text-xs font-bold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
                                                             x{obs.how_many}
                                                         </span>
                                                     {/if}
@@ -909,7 +909,7 @@
                                                     href={rangeMap.sourceUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-accent-500/30 hover:text-accent-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:text-accent-400"
+                                                    class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-xs transition-colors hover:border-accent-500/30 hover:text-accent-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:text-accent-400"
                                                 >
                                                     {rangeMap.source}
                                                     <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

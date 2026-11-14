@@ -53,7 +53,7 @@
 >
     <WizardLoadState state={loadState} onRetry={load}>
         <label class="flex items-start gap-3 rounded-2xl border border-slate-200 p-4 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
-            <input type="checkbox" bind:checked={enabled} class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+            <input type="checkbox" bind:checked={enabled} class="mt-0.5 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
             <span>
                 {$_('setup.telemetry.opt_in', { default: 'Yes, share anonymous usage stats to help guide development.' })}
                 <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">

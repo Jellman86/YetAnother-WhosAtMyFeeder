@@ -290,7 +290,7 @@
     <div
         use:portal
         bind:this={card}
-        class="pointer-events-auto fixed z-[90] w-80 overflow-hidden rounded-xl border border-line bg-surface text-left shadow-lg"
+        class="pointer-events-auto fixed z-90 w-80 overflow-hidden rounded-xl border border-line bg-surface text-left shadow-lg"
         style:left="{position.left}px"
         style:top="{position.top}px"
         style:max-width="calc(100vw - {MARGIN * 2}px)"
@@ -382,8 +382,8 @@
                             {#if visits.kind === 'loading'}
                                 <div class="space-y-1.5" aria-busy="true" data-taxon-card-facts-loading>
                                     <span class="sr-only">{$_('taxonomy.facts.loading', { default: 'Loading what was recorded here' })}</span>
-                                    <div class="h-3 w-3/4 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
-                                    <div class="h-3 w-1/2 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                    <div class="h-3 w-3/4 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                    <div class="h-3 w-1/2 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
                                 </div>
                             {:else if visits.kind === 'failed'}
                                 <p class="flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-300" data-taxon-card-facts-failed>
@@ -416,8 +416,8 @@
                         {#if pictureName && (isSpecies || describedRank)}
                             {#if referenceLoading}
                                 <div class="space-y-1.5 border-t border-line-soft pt-3" aria-hidden="true">
-                                    <div class="h-3 w-full animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
-                                    <div class="h-3 w-5/6 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+                                    <div class="h-3 w-full animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
+                                    <div class="h-3 w-5/6 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800"></div>
                                 </div>
                             {:else if reference?.state === 'failed'}
                                 <p class="border-t border-line-soft pt-3 text-2xs text-slate-500 dark:text-slate-400" data-taxon-card-description-failed>
@@ -437,12 +437,12 @@
 
                         {#if isSpecies}
                             {#if namesResult === null}
-                                <div class="h-3 w-2/5 animate-pulse rounded bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
+                                <div class="h-3 w-2/5 animate-pulse rounded-sm bg-slate-100 motion-reduce:animate-none dark:bg-slate-800" aria-hidden="true"></div>
                             {:else if namesResult.state === 'failed'}
                                 <p class="text-2xs text-slate-500 dark:text-slate-400" data-taxon-card-names-failed>{$_('taxonomy.names_failed', { default: 'Other names could not load.' })}</p>
                             {:else if nameGroups.length > 0}
                                 <details class="group border-t border-line-soft" data-taxon-card-names>
-                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 [&::-webkit-details-marker]:hidden">
+                                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 [&::-webkit-details-marker]:hidden">
                                         {$_('taxonomy.names_count', { values: { count: nameGroups.length }, default: '{count, plural, one {Names in # language} other {Names in # languages}}' })}
                                         <svg class="h-4 w-4 shrink-0 text-slate-500 transition-transform group-open:rotate-180 motion-reduce:transition-none" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m4 6 4 4 4-4" stroke-linecap="round" stroke-linejoin="round" /></svg>
                                     </summary>
@@ -464,7 +464,7 @@
         {/key}
         {#if overflowing && !scrolledToEnd}
             <!-- In the surface colour of either theme, over the last lines, never catching the pointer. -->
-            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" aria-hidden="true" data-taxon-card-more></div>
+            <div class="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-linear-to-t/srgb from-surface to-transparent" aria-hidden="true" data-taxon-card-more></div>
         {/if}
     </div>
 {/if}

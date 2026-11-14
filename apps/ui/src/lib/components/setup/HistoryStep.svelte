@@ -48,7 +48,7 @@
     onContinue={continueSetup}
 >
     <label class="flex min-h-12 items-start gap-3 border-y border-slate-200/80 py-3 text-sm text-slate-700 dark:border-slate-700/70 dark:text-slate-300">
-        <input type="checkbox" bind:checked={importHistory} class="mt-0.5 h-5 w-5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+        <input type="checkbox" bind:checked={importHistory} class="mt-0.5 h-5 w-5 rounded-sm border-slate-300 text-brand-600 focus:ring-brand-500" />
         <span>
             <span class="block font-semibold text-slate-900 dark:text-white">
                 {$_('setup.history.enable', { default: 'Import retained Frigate bird events' })}

@@ -45,13 +45,13 @@ describe('detection card full-visit fetch wiring', () => {
     });
 
     it('shows selection as a brand ring and a check badge, never a blur over the bird', () => {
-        expect(detectionCardSource).toMatch(/relative[^"\n]*rounded-\[2rem\][^"\n]*transition-all/);
+        expect(detectionCardSource).toMatch(/relative[^"\n]*rounded-4xl[^"\n]*transition-all/);
         expect(detectionCardSource).toContain("{selectionMode && selected && !analysisActive ? 'border-2 border-brand-600 ring-2 ring-brand-500/60");
         // Every card shows its check while selecting: filled when chosen, an empty circle when not.
         expect(detectionCardSource).toContain('{#if selectionMode && !analysisActive}');
         expect(detectionCardSource).toContain("data-detection-card-check={selected ? 'selected' : 'unselected'}");
         // A veil over the photo and the name hid what had been chosen.
-        expect(detectionCardSource).not.toContain('backdrop-blur-sm"></div>');
+        expect(detectionCardSource).not.toContain('backdrop-blur-xs"></div>');
         expect(detectionCardSource).not.toContain('bg-cyan-500/24');
         // The state is on the control, not only drawn.
         expect(detectionCardSource).toContain('aria-pressed={selectionMode ? selected : undefined}');

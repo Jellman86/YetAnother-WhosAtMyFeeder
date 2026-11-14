@@ -11,12 +11,12 @@ describe('Global progress layout', () => {
         expect(appSource).toContain('--app-chrome-height');
         expect(appSource).toContain("style=\"--app-chrome-height: {isMobile ? '4rem' : '0rem'};\"");
         expect(appSource).toContain('window.scrollY > 0');
-        expect(appSource).toContain("? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'");
+        expect(appSource).toContain("? 'sticky top-(--app-chrome-height) z-30 shrink-0'");
         expect(appSource).toContain(": 'relative z-30 shrink-0 mb-2'");
         expect(appSource).toContain('<GlobalProgress onNavigate={navigate} />');
         expect(appSource).toContain('<Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>');
         expect(appSource).not.toContain("effectiveLayout === 'horizontal'");
-        expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
+        expect(mobileTopBarSource).toContain('h-(--app-chrome-height,4rem)');
     });
 
     it('caps expanded details height and uses explicit, dismissible disclosure', () => {

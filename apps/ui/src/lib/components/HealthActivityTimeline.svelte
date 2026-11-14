@@ -80,7 +80,7 @@
     {#if loading && rows.length === 0}
         <div class="space-y-px p-2" data-health-activity-loading>
             {#each Array(5) as _unused, index (index)}
-                <div class="h-[4.5rem] animate-pulse rounded-xl bg-slate-100/80 dark:bg-slate-800/50"></div>
+                <div class="h-18 animate-pulse rounded-xl bg-slate-100/80 dark:bg-slate-800/50"></div>
             {/each}
         </div>
     {:else if rows.length === 0}

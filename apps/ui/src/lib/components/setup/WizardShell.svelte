@@ -79,7 +79,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div use:portal role="presentation" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-sm">
+<div use:portal role="presentation" class="fixed inset-0 z-70 flex items-center justify-center overflow-y-auto bg-slate-950/60 p-4 backdrop-blur-xs">
     <div
         bind:this={modalElement}
         role="dialog"
@@ -100,13 +100,13 @@
                         <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
-                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
+                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     {:else}
                         <button
                             type="button"
-                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
                             onclick={() => (skipConfirming = true)}
                         >
                             {$_('setup.skip', { default: 'Skip setup' })}

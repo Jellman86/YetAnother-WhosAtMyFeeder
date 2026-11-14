@@ -42,7 +42,7 @@
         <ul class="max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-1 dark:border-slate-700" aria-label={$_('garden.rename.matches', { default: 'Matching animal species' })}>
             {#each current.values as species (species.species_id)}
                 <li><button type="button" class="btn btn-ghost min-h-11 w-full flex-col items-start px-2 text-left text-xs focus-ring" disabled={busy} onclick={() => { input = species.name; choice = species; }}>
-                    <span class="break-words">{species.name}</span><span class="break-words font-normal italic">{species.scientific_name}</span>
+                    <span class="wrap-break-word">{species.name}</span><span class="wrap-break-word font-normal italic">{species.scientific_name}</span>
                 </button></li>
             {/each}
         </ul>

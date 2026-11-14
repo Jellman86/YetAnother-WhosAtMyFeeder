@@ -41,8 +41,8 @@
     );
     let imageClass = $derived(
         variant === 'compact'
-            ? 'aspect-[4/3] rounded-lg'
-            : 'aspect-[16/10] rounded-xl'
+            ? 'aspect-4/3 rounded-lg'
+            : 'aspect-16/10 rounded-xl'
     );
 </script>
 
@@ -53,14 +53,14 @@
                 class="absolute inset-0 bg-cover bg-center"
                 style={`background-image: url(${imageUrl})`}
             ></div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/65 via-black/10 to-transparent"></div>
+            <div class="absolute inset-0 bg-linear-to-t/srgb from-black/65 via-black/10 to-transparent"></div>
         {:else}
-            <div class="absolute inset-0 bg-gradient-to-br from-slate-800 via-slate-950 to-black"></div>
+            <div class="absolute inset-0 bg-linear-to-br/srgb from-slate-800 via-slate-950 to-black"></div>
             <div class="absolute inset-0 opacity-40" style="background-image: linear-gradient(135deg, rgba(255,255,255,.12) 0 1px, transparent 1px 12px);"></div>
         {/if}
 
         {#if !isComplete}
-            <div class="snapshot-analysis-sweep motion-reduce:animate-none absolute inset-x-0 -top-1/3 h-1/3 bg-gradient-to-b from-transparent via-amber-200/55 to-transparent"></div>
+            <div class="snapshot-analysis-sweep motion-reduce:animate-none absolute inset-x-0 -top-1/3 h-1/3 bg-linear-to-b/srgb from-transparent via-amber-200/55 to-transparent"></div>
             <div class="absolute inset-0 border-y border-amber-200/25"></div>
         {/if}
 

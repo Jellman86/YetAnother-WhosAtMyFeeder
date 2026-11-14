@@ -39,14 +39,14 @@
             <p class="text-sm text-slate-600 dark:text-slate-400">
                 {description}
                 {#if learnMoreHref}
-                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
+                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 {/if}
             </p>
             <p class="flex items-center gap-2 pt-1 text-sm font-semibold text-slate-800 dark:text-slate-100" aria-live="polite" data-beta-status={attention ? 'attention' : 'calm'}>
                 {#if attention}<span class="attention-dot" aria-hidden="true"></span>{/if}
-                <span class="min-w-0 break-words">{status}</span>
+                <span class="min-w-0 wrap-break-word">{status}</span>
             </p>
         </div>
         <div class="flex min-h-11 shrink-0 items-center">

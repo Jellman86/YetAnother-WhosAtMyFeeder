@@ -35,8 +35,8 @@
 
 <header class="flex flex-wrap items-start justify-between gap-4 {title ? 'mb-6' : 'mb-2'}">
     {#if title}
-        <div class="page-title-block min-w-0 basis-64 grow space-y-1 break-words">
-            <h1 class="page-title font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl dark:text-white">{title}</h1>
+        <div class="page-title-block min-w-0 basis-64 grow space-y-1 wrap-break-word">
+            <h1 class="page-title font-display text-3xl font-bold leading-tight text-slate-900 sm:text-4xl sm:leading-10 dark:text-white">{title}</h1>
             {#if subtitle}
                 <p class="text-base text-slate-600 dark:text-slate-400">{subtitle}</p>
             {/if}

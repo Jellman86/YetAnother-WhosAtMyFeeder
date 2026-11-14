@@ -173,7 +173,7 @@
                         disabled={!onselectspecies || !observationName}
                         onclick={() => observationName && onselectspecies?.(observationName)}
                         aria-label={$_('dashboard.notable_nearby.open_species', { values: { species: observationName || $_('common.unknown_species') } })}
-                        class="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:hover:bg-transparent"
+                        class="flex min-h-11 w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default disabled:hover:bg-transparent"
                     >
                     {#if group.thumbnail_url}
                         <img

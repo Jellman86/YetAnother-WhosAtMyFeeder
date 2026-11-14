@@ -878,7 +878,7 @@
                         bind:this={closeButton}
                         type="button"
                         onclick={onClose}
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-500/60 bg-black/40 text-white/80 hover:text-white hover:bg-black/60 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-white/40"
+                        class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-500/60 bg-black/40 text-white/80 hover:text-white hover:bg-black/60 transition-colors duration-200 focus:outline-hidden focus:ring-2 focus:ring-white/40"
                         aria-label={$_('video_player.close', { default: 'Close video' })}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -958,7 +958,7 @@
                         <button
                             type="button"
                             onclick={copyShareLink}
-                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-sky-400/60 bg-sky-500/18 border-sky-400/45 text-sky-100 hover:bg-sky-500/25"
+                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-hidden focus:ring-2 focus:ring-sky-400/60 border-sky-400/45 text-sky-100 hover:bg-sky-500/25"
                             aria-label={$_('video_player.share', { default: 'Share clip link' })}
                             title={$_('video_player.share', { default: 'Share clip link' })}
                         >
@@ -972,7 +972,7 @@
                         <button
                             type="button"
                             onclick={() => void toggleShareManager()}
-                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 bg-indigo-500/18 border-indigo-400/45 text-indigo-100 hover:bg-indigo-500/25"
+                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-hidden focus:ring-2 focus:ring-indigo-400/60 border-indigo-400/45 text-indigo-100 hover:bg-indigo-500/25"
                             aria-label={$_('video_player.share_manage', { default: 'Manage share links' })}
                             title={$_('video_player.share_manage', { default: 'Manage share links' })}
                         >
@@ -986,7 +986,7 @@
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-10 min-w-[2.5rem] items-center justify-center gap-1.5 rounded-xl bg-accent-500/18 border border-accent-400/45 px-3 text-accent-100 hover:bg-accent-500/25 focus:outline-none focus:ring-2 focus:ring-accent-400/60"
+                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border border-accent-400/45 px-3 text-accent-100 hover:bg-accent-500/25 focus:outline-hidden focus:ring-2 focus:ring-accent-400/60"
                             aria-label={$_('video_player.download', { default: 'Download clip' })}
                             title={$_('video_player.download', { default: 'Download clip' })}
                         >
@@ -1018,14 +1018,14 @@
                                 type="text"
                                 maxlength="64"
                                 bind:value={managerWatermark}
-                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
                             />
                         </label>
                         <label class="flex flex-col gap-1">
                             <span class="text-2xs text-slate-400">{$_('video_player.share_manage_expiry', { default: 'Expires in' })}</span>
                             <select
                                 bind:value={managerExpiresMinutes}
-                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
                             >
                                 {#each SHARE_EXPIRY_PRESETS as preset}
                                     <option value={preset.minutes}>{preset.label}</option>
@@ -1071,7 +1071,7 @@
                                                 const value = (event.currentTarget as HTMLInputElement).value;
                                                 linkWatermarkDraft = { ...linkWatermarkDraft, [link.id]: value };
                                             }}
-                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
                                         />
                                         <select
                                             value={String(linkExpiresMinutesDraft[link.id] ?? 60)}
@@ -1079,7 +1079,7 @@
                                                 const minutes = parseMinutes((event.currentTarget as HTMLSelectElement).value, 60);
                                                 linkExpiresMinutesDraft = { ...linkExpiresMinutesDraft, [link.id]: minutes };
                                             }}
-                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
                                         >
                                             {#each SHARE_EXPIRY_PRESETS as preset}
                                                 <option value={preset.minutes}>{preset.label}</option>

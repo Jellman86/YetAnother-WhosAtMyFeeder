@@ -88,7 +88,7 @@ describe('the Explorer list row preview', () => {
         expect(previewSource).toContain('<HoverPopoutPanel {popout} {index} data-detection-preview-panel>');
         expect(panelSource).toContain('use:portal');
         expect(popoutSource).toContain('getBoundingClientRect()');
-        expect(panelSource).toMatch(/class="fixed z-\[70\]/);
+        expect(panelSource).toMatch(/class="fixed z-70/);
         expect(eventsPageSource).toContain('overflow-hidden rounded-2xl');
     });
 

@@ -73,11 +73,11 @@
     class="flex h-full flex-col overflow-hidden rounded-2xl border border-dashed border-line bg-surface-raised/40"
     data-heard-band-card={band.position}
 >
-    <div class="relative aspect-[4/3] overflow-hidden bg-slate-200 dark:bg-slate-950" aria-hidden="true">
+    <div class="relative aspect-4/3 overflow-hidden bg-slate-200 dark:bg-slate-950" aria-hidden="true">
         <div class="grid h-full grid-cols-2 grid-rows-2 gap-0.5">
             {#each pictures as id (id)}
                 <span class="block overflow-hidden bg-slate-100 dark:bg-slate-900 {pictures.length === 1 ? 'row-span-2' : ''}">
-                    <img src={spectrogram(id)} alt="" loading="lazy" class="h-full w-full scale-125 object-cover [transform-origin:50%_64%]" onerror={() => (failed = { ...failed, [id]: true })} />
+                    <img src={spectrogram(id)} alt="" loading="lazy" class="h-full w-full scale-125 object-cover origin-[50%_64%]" onerror={() => (failed = { ...failed, [id]: true })} />
                 </span>
             {/each}
             <span class="flex flex-col items-center justify-center bg-surface text-slate-700 dark:text-slate-200 {pictures.length === 0 ? 'col-span-2 row-span-2' : pictures.length === 1 ? 'row-span-2' : pictures.length === 2 ? 'col-span-2' : ''}">
@@ -96,7 +96,7 @@
             type="button"
             bind:this={trigger}
             popovertarget={panelId}
-            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
             aria-expanded={open}
             aria-controls={panelId}
             data-heard-band-toggle
