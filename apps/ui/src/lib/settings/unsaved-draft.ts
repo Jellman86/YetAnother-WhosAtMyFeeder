@@ -1,3 +1,5 @@
+import { authStore } from '../stores/auth.svelte';
+
 /**
  * Settings fields that hold a secret. Their values are never kept outside the form: a draft only
  * records that one was edited, so the owner can be told to type it again.
@@ -23,25 +25,30 @@ export const SECRET_FIELDS = [
 
 const SECRETS: ReadonlySet<string> = new Set(SECRET_FIELDS);
 
-/** Who is signed in, as far as a kept draft is concerned. */
+/** Who is signed in, as far as a kept draft is concerned. Holds no credential. */
 export interface AccessState {
+    /** Changes on every sign-in, sign-out, expired session and owner or guest switch. */
+    sessionGeneration: number;
     authRequired: boolean;
     isAuthenticated: boolean;
     username: string | null;
     hasOwnerAccess: boolean;
-    /** The session's token: a new sign-in, even by the same person, gets a new one. */
-    token: string | null;
 }
 
 /**
- * The session a draft belongs to, or null when nobody with owner access is signed in. A sign-out,
- * an expired session, another person or another sign-in all give a different identity.
+ * The session a draft belongs to, or null when nobody with owner access is signed in. It is
+ * built from the session generation and who is signed in, never from a token or anything
+ * derived from one, so a kept draft carries no credential.
  */
 export function accessIdentity(access: AccessState): string | null {
     if (!access.hasOwnerAccess) return null;
-    if (!access.authRequired) return 'open';
-    if (!access.isAuthenticated) return null;
-    return JSON.stringify([access.username ?? '', access.token ?? '']);
+    if (access.authRequired && !access.isAuthenticated) return null;
+    return JSON.stringify([access.sessionGeneration, access.authRequired ? access.username ?? '' : null]);
+}
+
+/** The identity of whoever is using the app now (see accessIdentity). */
+export function currentAccessIdentity(): string | null {
+    return accessIdentity(authStore);
 }
 
 /** Unsaved Settings edits, kept when Settings is left by Back or Forward. */
@@ -136,3 +143,7 @@ class UnsavedDraftStore {
 }
 
 export const unsavedDraft = new UnsavedDraftStore();
+
+// Nothing outlives the session that made it: a sign-out, an expired session or a new sign-in
+// drops the draft at once, not on the next visit to Settings.
+authStore.onSessionChange(() => unsavedDraft.clear());

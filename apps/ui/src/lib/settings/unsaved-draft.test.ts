@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { SECRET_FIELDS, accessIdentity, draftFromForm, mergeDraft, unsavedDraft, type UnsavedDraft } from './unsaved-draft';
 
 const saved = { mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_password: '***REDACTED***', cameras: ['patio'], llm_api_key: '***REDACTED***' };
-const owner = accessIdentity({ authRequired: true, isAuthenticated: true, username: 'owner', hasOwnerAccess: true, token: 'token-1' });
+const owner = accessIdentity({ authRequired: true, isAuthenticated: true, username: 'owner', hasOwnerAccess: true, sessionGeneration: 1 });
 
 describe('the draft kept when Settings is left by Back or Forward', () => {
     afterEach(() => unsavedDraft.clear());
@@ -48,9 +48,9 @@ describe('whose draft it is', () => {
     afterEach(() => unsavedDraft.clear());
 
     it('belongs to one signed-in session: another session, a guest or a signed-out page gets nothing and drops it', () => {
-        const nextLogin = accessIdentity({ authRequired: true, isAuthenticated: true, username: 'owner', hasOwnerAccess: true, token: 'token-2' });
+        const nextLogin = accessIdentity({ authRequired: true, isAuthenticated: true, username: 'owner', hasOwnerAccess: true, sessionGeneration: 2 });
         expect(nextLogin).not.toBe(owner);
-        expect(accessIdentity({ authRequired: true, isAuthenticated: false, username: null, hasOwnerAccess: false, token: null })).toBeNull();
+        expect(accessIdentity({ authRequired: true, isAuthenticated: false, username: null, hasOwnerAccess: false, sessionGeneration: 3 })).toBeNull();
         unsavedDraft.keep(draftFromForm({ mqtt_server: 'broker.lan' }, saved, ['mqtt_server'], owner));
         expect(unsavedDraft.take(nextLogin)).toBeNull();
         // It is gone even for the session that kept it: it was dropped, not set aside.

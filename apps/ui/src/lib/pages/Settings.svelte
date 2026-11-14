@@ -111,7 +111,7 @@
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
-    import { accessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
+    import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import {
         buildBirdModelRegionOverrideSettings,
         resolveBirdModelRegionOverrideFromSettings,
@@ -980,15 +980,6 @@
             )
             : null
     );
-
-    // The session a kept draft belongs to: another sign-in, a sign-out or a guest gets none of it.
-    const currentAccessIdentity = (): string | null => accessIdentity({
-        authRequired: authStore.authRequired,
-        isAuthenticated: authStore.isAuthenticated,
-        username: authStore.username,
-        hasOwnerAccess: authStore.hasOwnerAccess,
-        token: authStore.token
-    });
 
     // Drafted values whose saved value changed elsewhere while Settings was away. They are not
     // applied; each waits for the owner to keep the saved value or their own change.

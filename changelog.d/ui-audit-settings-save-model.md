@@ -13,7 +13,8 @@
   names any you need to type again. Save or Discard clears them. Moving between Settings tabs still
   keeps your edits without asking.
 - Kept Settings changes never outlive your session: signing out, an expired session or signing in
-  again drops them, even when you sign out from Settings itself. Coming back reads the saved values
+  again drops them at once, even when you sign out from Settings itself. They are tied to the
+  session without copying its sign-in token, so no credential is ever kept with them. Coming back reads the saved values
   afresh, so a setting someone changed elsewhere meanwhile shows its new value. If you had changed
   the same setting, neither value wins silently: the field says the saved value changed elsewhere,
   the bar names it with **Use the saved value** and **Use my change**, and Save waits until you
