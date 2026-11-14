@@ -5,11 +5,12 @@
   back, stored secrets included, without a request. The button is now **Save changes**
   everywhere, and the AI tab's separate **Apply style** is gone: choosing a prompt style fills the
   templates and the one Save keeps them.
-- Leaving Settings, going Back or reloading with unsaved changes now asks first, naming what would
-  be lost. Moving between Settings tabs still keeps your edits without asking.
+- Leaving Settings, going Back or Forward, or reloading with unsaved changes now asks first,
+  naming what would be lost. Cancelling a Back or Forward step returns to Settings without adding
+  or losing history entries. Moving between Settings tabs still keeps your edits without asking.
 - A refused save now says so where it matters. Nothing is stored, each refused field is marked
-  with the reason in plain words (for example "Enter 65535 or less."), and the bar lists the
-  fields with a link to each. A server failure says nothing was saved and what to try, instead of
+  with the reason in plain words (for example "Enter 65535 or less."), the first one is opened and
+  focused even on another tab, and the bar lists the fields with a link to each. A server failure says nothing was saved and what to try, instead of
   "Internal Server Error". Each result is reported once, as a notification, rather than twice.
 - `POST /api/settings` now reports an instance address without a scheme (previously `400`) and
   turning on sign-in without a password as `422` validation errors that name their field, like
