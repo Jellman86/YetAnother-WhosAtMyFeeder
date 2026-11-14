@@ -233,7 +233,7 @@
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
                                 <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{naming.primary}</p>
                                 {#if naming.secondary}<p class="wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{naming.secondary}</p>{/if}
-                                <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
+                                <time class="block text-xs font-semibold tabular-nums wrap-anywhere text-slate-800 dark:text-slate-100" datetime={capture.detection_time}>
                                     {time}
                                 </time>
                                 {#if captureNotes.length > 0}

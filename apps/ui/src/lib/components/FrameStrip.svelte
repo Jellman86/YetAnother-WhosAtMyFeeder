@@ -576,7 +576,10 @@
                                 iconClass="h-4 w-4"
                             />
                             {#if chosen && marksChoice}
-                                <span class="pointer-events-none absolute bottom-1.5 left-1.5 rounded-sm bg-brand-500 px-1 text-3xs font-bold leading-4 text-slate-950">
+                                <!-- Held between the thumbnail's own edges. Hung from the left alone, a word wider
+                                     than the thumbnail stuck out past the last frame and lengthened the strip
+                                     after it had been scrolled to its end. -->
+                                <span class="pointer-events-none absolute inset-x-0.5 bottom-1.5 rounded-sm bg-brand-500 px-0.5 text-center text-3xs font-bold leading-4 wrap-anywhere text-slate-950">
                                     {$_('detection.frame_chosen_badge', { default: 'Chosen' })}
                                 </span>
                             {/if}

@@ -289,7 +289,7 @@
             </button>
         {/if}
         {#if visit.needsReview && canIdentify}
-            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" onclick={() => onidentify?.(visit.best)} data-field-log-action>
+            <button class="btn btn-primary min-h-11 px-1.5 py-1.5 text-xs log-wide:px-3" onclick={() => onidentify?.(visit.best)} data-field-log-action>
                 {$_('dashboard.field_log.identify', { default: 'Identify' })}
             </button>
         {:else}
@@ -354,7 +354,7 @@
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <!-- A step smaller on phones, where the time column is narrowest and seconds must still fit. -->
-                    <time class="block text-3xs tabular-nums text-slate-600 log-wide:text-2xs dark:text-slate-400 {cell.time}" datetime={capture.detection_time}>{time}</time>
+                    <time class="block text-3xs tabular-nums wrap-anywhere text-slate-600 log-wide:text-2xs dark:text-slate-400 {cell.time}" datetime={capture.detection_time}>{time}</time>
                     {@render branch(
                         'capture',
                         server && captureFacts(capture, server).shown

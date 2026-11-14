@@ -107,7 +107,7 @@
     <span class="flex items-center justify-end {cell.action}">
         {#if view.review}
             <!-- Named by the word it shows first, then which capture, so speech input can call it "Review". -->
-            <button class="btn btn-primary min-h-11 px-2 py-1.5 text-xs log-wide:px-3" aria-label="{$_('dashboard.field_log.review', { default: 'Review' })}: {text.title}, {span}" onclick={() => onopen(visit)} data-field-log-action>
+            <button class="btn btn-primary min-h-11 px-1.5 py-1.5 text-xs log-wide:px-3" aria-label="{$_('dashboard.field_log.review', { default: 'Review' })}: {text.title}, {span}" onclick={() => onopen(visit)} data-field-log-action>
                 {$_('dashboard.field_log.review', { default: 'Review' })}
             </button>
         {:else}

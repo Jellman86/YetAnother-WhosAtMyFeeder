@@ -166,7 +166,7 @@
                             <div class="pointer-events-none relative z-10 min-w-0 py-1">
                                 <p class="wrap-break-word text-sm font-semibold leading-5 text-slate-800 dark:text-slate-100">{text.title}</p>
                                 {#if capture.scientific_name && capture.scientific_name !== text.title}<p class="wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{capture.scientific_name}</p>{/if}
-                                <time class="block text-xs font-semibold tabular-nums text-slate-800 dark:text-slate-100" datetime={capture.observed_at}>{time}</time>
+                                <time class="block text-xs font-semibold tabular-nums wrap-anywhere text-slate-800 dark:text-slate-100" datetime={capture.observed_at}>{time}</time>
                                 <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400" data-garden-visit-capture-notes>
                                     {#if facts.shown}
                                         <span class="font-medium text-brand-700 dark:text-brand-300">{$_('visits.shown_photo', { default: 'Visit photo' })}</span>
