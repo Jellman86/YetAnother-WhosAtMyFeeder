@@ -1159,7 +1159,11 @@ Settings writes are partial and use the flat API field names, rather than the ne
 `config.json` layout. Omitted fields stay unchanged. Empty or redacted secrets retain
 the saved value; they do not clear it. A provider or execution-mode change reloads
 the classifier, as does a saved-coordinate change. Invalid requests are rejected
-before changing any settings, including public-access controls. For example:
+before changing any settings, including public-access controls. Every refusal a form save can
+meet is a `422` whose `detail` is a list of errors, each naming its field in `loc`
+(`["body", "<field>"]`), so the UI can mark that field: Pydantic's own checks, an instance address
+without `http://` or `https://`, and turning on sign-in without a password. A refusal never echoes
+the rejected value. For example:
 
 ```http
 POST /api/settings

@@ -181,7 +181,7 @@ In **Settings → Connection**, select **Test Connection**. The staged dialog ch
 **Frigate API**, then **MQTT broker publish**, using the values currently visible in
 the form. A passed MQTT stage proves the isolated client connected and published;
 it does not prove Frigate is publishing real bird events or that a camera is selected.
-Save changes with **Apply settings**, then verify a real event arrives.
+Choose **Save changes**, then verify a real event arrives.
 
 ---
 

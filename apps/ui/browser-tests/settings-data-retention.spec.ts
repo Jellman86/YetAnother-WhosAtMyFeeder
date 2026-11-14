@@ -68,7 +68,7 @@ test('shrinking retention shows the count, and cancelling the confirmation saves
     await expect(tiles.filter({ hasText: 'Retention' })).toContainText('30');
     await page.screenshot({ path: testInfo.outputPath('retention-shrink-note.png'), fullPage: true });
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     const dialog = page.getByRole('alertdialog').or(page.getByRole('dialog'));
     await expect(dialog).toContainText('Delete older history?');
     await expect(dialog.getByRole('button', { name: 'Save and delete 42 detections' })).toBeVisible();
@@ -78,7 +78,7 @@ test('shrinking retention shows the count, and cancelling the confirmation saves
     await page.waitForTimeout(300);
     expect(fixture.saves).toEqual([]);
 
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await dialog.getByRole('button', { name: 'Save and delete 42 detections' }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
     expect(fixture.saves[0].retention_days).toBe(7);
@@ -89,7 +89,7 @@ test('a longer window asks nothing and shows no deletion note', async ({ page })
     const fixture = await openDataSettings(page, 30);
     await page.locator('#retention-days').selectOption('90');
     await expect(page.locator('[data-retention-deletion-note]')).toHaveCount(0);
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
     expect(fixture.previews).toEqual([]);
 });
@@ -108,7 +108,7 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
     const fixture = await openDataSettings(page, 30, false);
     await page.locator('#retention-days').selectOption('7');
     await expect(page.locator('[data-retention-deletion-note]')).toContainText('Automatic cleanup is off, so saving deletes nothing by itself.');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 

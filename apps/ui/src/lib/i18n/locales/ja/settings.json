@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "現在の言語に合わせた既定値を適用します。",
     "llm_prompt_style_classic": "クラシック",
     "llm_prompt_style_field": "フィールドノート",
-    "llm_prompt_apply_style": "スタイルを適用",
-    "llm_prompt_reset_defaults": "既定に戻す",
-    "llm_prompt_apply_notice": "プロンプトテンプレートを更新しました。",
     "llm_prompt_analysis": "検出解析プロンプト",
     "llm_prompt_analysis_hint": "トークン: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "会話プロンプト",
@@ -332,7 +329,9 @@
     "test_probe_note": "テストでは、実際の分析リクエストと同じ枚数・寸法・おおよそのデータ量になるよう、1280×720 の代表的な JPEG フレームを5枚送信します。",
     "test_retry": "テストを再実行",
     "test_network_error": "診断要求がYA-WAMFに到達できませんでした。",
-    "advanced_title": "料金とプロンプトテンプレート"
+    "advanced_title": "料金とプロンプトテンプレート",
+    "prompt_style_desc": "スタイルを選ぶと、下の 3 つのテンプレートがその文面に置き換わります。「変更を保存」で確定します。",
+    "prompt_style_custom": "独自の文面"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "Frigate API が応答し、MQTT ブローカーが送信を受け付けることを確認します。",
     "test_title": "Frigate と MQTT の接続テスト",
     "recording_frame_delay": "初回識別の待機時間（秒）",
-    "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。",
-    "recording_frame_delay_invalid": "録画フレームの待機時間を1～120秒で入力してください。"
+    "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。"
   },
   "cameras": {
     "title": "監視するカメラ",
@@ -890,7 +888,7 @@
       "title": "庭の動物",
       "desc": "庭の動物に名前が付いたときの通知です。鳥の通知とは別です。",
       "enabled": "庭の通知を送る",
-      "enabled_help": "動物が自動で名前付けされたとき、またはあなたが種を承認したときに、訪問ごとに1回通知します。「設定を適用」で保存します。",
+      "enabled_help": "動物が自動で名付けられたとき、または種を承認したときに、訪問ごとに 1 件通知します。変更を保存すると有効になります。",
       "send_to": "庭の通知の送信先",
       "use_bird": "鳥の通知先を使う",
       "use_bird_help": "上で有効になっていて設定済みの通知先です。",
@@ -907,7 +905,7 @@
       "privacy": "動物名、カメラ、目撃時刻、選んだ場合は写真をこれらのサービスへ送信します。リンクはここでこの撮影を開きます。訪問者は一般公開で共有されている間だけ開けます。",
       "rules": "名前が決まってから5分以内、目撃から2時間以内のものだけ送信するため、通知を有効にしても履歴は再送されません。訪問ごとに各通知先へ1回試行し、失敗や不明な送信は再試行しません。",
       "status": "保存された送信試行。通知先が受理: {sent}。失敗: {failed}。未確認: {unknown}。スキップ: {skipped}。",
-      "status_after_apply": "「設定を適用」で庭を有効にすると送信状況が表示されます。",
+      "status_after_apply": "庭をオンにして保存すると、配信状況がここに表示されます。",
       "refresh": "送信状況を更新"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "カメラ画像内の各鳥の位置を見つけ、YA-WAMFが切り抜きと数え上げをできるようにします。種名は判定しません。",
     "bird_finder_device": "鳥検出のデバイス",
     "bird_finder_device_auto": "自動（検証済みの最速デバイス）",
-    "bird_finder_device_help": "「設定を適用」で保存します。利用できなくなった場合、別のアクセラレータではなく CPU を使用します。予備の高速検出器はデバイスを自動で選択します。",
+    "bird_finder_device_help": "変更を保存すると有効になります。このデバイスが使えなくなった場合、鳥検出は別のアクセラレーターではなく CPU を使います。高速な予備の鳥検出はデバイスを自動で選びます。",
     "bird_finder_default_badge": "既定",
     "bird_finder_optional_badge": "任意",
     "bird_finder_ram": "RAM {ram}",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "CPUで動作します。YA-WAMFに鳥の写真が保存されると、再起動後に{devices}を再チェックします。",
     "bird_finder_check_devices": "{name}の{devices}をチェック",
     "bird_finder_check_devices_hint": "鳥の写真でこの検出器を各デバイスとCPUで比較し、一致した中で最も速いデバイスを使います。識別モデルは変更されません。",
-    "bird_finder_pending": "鳥検出を切り替えるには設定を適用してください。それまでは現在の鳥検出が動作します。",
+    "bird_finder_pending": "鳥検出を切り替えるには変更を保存してください。それまでは現在の鳥検出が動作します。",
     "bird_finder_download": "{name}をダウンロード",
     "bird_finder_redownload": "{name}を再ダウンロード",
     "bird_finder_backup": "使える鳥が見つからない場合、YA-WAMFは高速な予備の鳥検出とFrigateの追跡枠も試し、どれも信頼できる切り抜きにならない場合にのみ画像全体を使います。",
@@ -1423,15 +1421,13 @@
     "garden_animals": "庭の動物",
     "garden_animals_desc": "選んだカメラから、猫やキツネなど鳥以外の訪問者を集めて確認できるようにします。",
     "garden_motion_toggle": "{camera} で確認用の動体写真を収集",
-    "garden_motion_confidence_invalid": "動物候補のしきい値は 50% から 95% の範囲で入力してください。",
-    "garden_naming_threshold_invalid": "名前付けのしきい値は 70% から 99% の範囲で入力してください。",
     "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
     "garden_naming_threshold_help": "70% から 99% まで。値を上げると自動で名前を付ける動物が減り、信頼度の低い写真の除外が増えます。人物の確認は変わりません。",
     "garden_naming_threshold": "名前付けのしきい値",
     "garden_naming": "動物に自動で名前を付ける",
     "garden_requirements": "動物を追跡するか、動きの録画を保持する Frigate カメラが必要です。庭のモデルは依頼したときだけダウンロードされます。自動チェック用に 224 MB、任意で 224 MB と 101 MB のモデルがあります。鳥のモデルは変わりません。",
     "garden_models_help": "庭は鳥のモデルとは別の専用モデルを使います。ダウンロードは検証済みファイルを追加するだけで、設定の保存やチェックの開始は行いません。",
-    "garden_models_apply": "設定を適用すると庭の動物がオンになり、ここにモデルの状態とダウンロードが表示されます。",
+    "garden_models_apply": "庭をオンにするには変更を保存してください。その後、モデルの状態とダウンロードがここに表示されます。",
     "garden_models_loading": "庭のモデルを確認しています…",
     "garden_model_check": "自動チェック用モデル",
     "garden_model_suggestions": "種の候補用モデル",
@@ -1480,7 +1476,7 @@
     "garden_domestic_birds_none": "まだありません。ニワトリなど飼っている鳥は野鳥として扱われます。",
     "garden_domestic_birds_add": "家禽を追加",
     "garden_domestic_birds_choose": "鳥を選択",
-    "intro": "テスト中の機能です。どれもオンにするまでオフのままで、変更や削除の可能性があります。機能をオフにしても、記録済みの内容は残ります。ここでのスイッチは適用したときに反映されます。",
+    "intro": "まだテスト中の機能です。どれもオンにするまではオフで、変更や削除の可能性があります。機能をオフにしても、すでに記録した内容は残ります。ここのスイッチは変更を保存すると有効になります。",
     "learn_more": "詳しく見る",
     "status_off": "オフ",
     "status_off_after_apply": "適用後にオフ",
@@ -1492,7 +1488,7 @@
     "garden_status_no_country": "国が未設定",
     "garden_next_steps": "残りの設定",
     "garden_step_camera": "庭の動物を見張るカメラを選んでください。",
-    "garden_step_apply": "設定を適用すると庭がオンになります。モデルと国の確認はその後ここに表示されます。",
+    "garden_step_apply": "庭をオンにするには変更を保存してください。その後、モデルと国の確認がここに表示されます。",
     "garden_step_model": "{model}をダウンロードしてください。",
     "garden_step_model_open": "モデルを開く",
     "garden_step_location": "場所を設定すると、庭が国を把握して動物に名前を付けられます。",
@@ -1562,8 +1558,8 @@
     "status_unusable": "フィルターなし：保存されたリストが検査に通りませんでした。{problem}",
     "status_error": "分布域フィルターの状態を読み込めませんでした。{message}",
     "status_loading": "分布域フィルターの状態を読み込み中…",
-    "unsaved_on": "フィルターをオンにするには設定を適用してください。",
-    "unsaved_off": "フィルターをオフにするには設定を適用してください。",
+    "unsaved_on": "フィルターをオンにするには変更を保存してください。",
+    "unsaved_off": "フィルターをオフにするには変更を保存してください。",
     "open_location": "位置を設定",
     "open_ebird": "eBird キーを追加",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "本物の珍鳥を残すには、手動で記録してください。Frigate は保存期間が許す限りクリップを保持します。",
     "skips_open_log": "アクティビティログを開く",
     "skips_add_manually": "観察を手動で記録"
+  },
+  "save_bar": {
+    "region": "未保存の変更",
+    "summary": "{count, plural, other {未保存の変更 # 件:}}",
+    "discard": "変更を破棄",
+    "save": "変更を保存",
+    "refused": "何も保存されていません。強調表示された値を直してから、もう一度保存してください。",
+    "refused_reason": "何も保存されていません: {reason}",
+    "failed": "YA-WAMF が設定を保存できなかったため、何も保存されていません。バックエンドが動作していることを確認してから、もう一度「変更を保存」を選んでください。",
+    "other_field": "その他の設定"
+  },
+  "leave": {
+    "title": "保存せずに移動しますか?",
+    "message": "{tabs} の {count, plural, other {# 件の変更}} が失われます。",
+    "confirm": "保存せずに移動"
+  },
+  "field_errors": {
+    "frigate_url": "アドレスは http:// または https:// で始めてください (例: http://frigate:5000)。",
+    "birdnet_url": "アドレスは http:// または https:// で始めてください (例: http://birdnet-go:8080)。",
+    "instance_url": "アドレスは http:// または https:// で始めてください (例: https://feeder.example.com)。",
+    "auth_password_required": "サインインをオンにする前にパスワードを設定してください。",
+    "auth_username": "英字、数字、アンダースコア、ハイフン、ピリオドのみを使ってください。",
+    "too_large": "{limit} 以下の値を入力してください。",
+    "too_small": "{limit} 以上の値を入力してください。",
+    "whole_number": "整数を入力してください。",
+    "number": "数値を入力してください。",
+    "refused": "受け付けられませんでした: {reason}。値を変えてもう一度保存してください。",
+    "out_of_range": "{min} から {max} までの値を入力してください。",
+    "out_of_range_percent": "{min}% から {max}% までの値を入力してください。"
   }
 }

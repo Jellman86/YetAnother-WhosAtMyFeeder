@@ -45,7 +45,7 @@ describe('a Home Assistant light sensor is recorded with each detection (#945)',
     it('the settings page loads, saves and tracks the field', () => {
         expect(settingsPageSource).toContain("haWeatherIlluminanceEntity = settings.ha_weather_illuminance_entity ?? ''");
         expect(settingsPageSource).toContain('ha_weather_illuminance_entity: haWeatherIlluminanceEntity.trim() || null');
-        expect(settingsPageSource).toContain("store: s.ha_weather_illuminance_entity ?? ''");
+        expect(settingsPageSource).toContain("saved: s.ha_weather_illuminance_entity ?? ''");
         expect(settingsPageSource).toContain('bind:haWeatherIlluminanceEntity');
     });
 

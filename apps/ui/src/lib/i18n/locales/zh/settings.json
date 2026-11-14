@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "应用当前语言的本地化默认值。",
     "llm_prompt_style_classic": "经典",
     "llm_prompt_style_field": "野外笔记",
-    "llm_prompt_apply_style": "应用风格",
-    "llm_prompt_reset_defaults": "重置默认值",
-    "llm_prompt_apply_notice": "提示模板已更新。",
     "llm_prompt_analysis": "检测分析提示",
     "llm_prompt_analysis_hint": "标记: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "对话提示",
@@ -332,7 +329,9 @@
     "test_probe_note": "测试会发送五个具有代表性的 1280×720 JPEG 帧，以匹配真实分析请求的帧数、尺寸和大致负载大小。",
     "test_retry": "再次运行测试",
     "test_network_error": "诊断请求无法连接到 YA-WAMF。",
-    "advanced_title": "价格与提示词模板"
+    "advanced_title": "价格与提示词模板",
+    "prompt_style_desc": "选择一种风格会用它的措辞替换下面的三个模板。选择“保存更改”后生效。",
+    "prompt_style_custom": "自定义措辞"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "检查 Frigate API 是否响应，以及 MQTT 代理是否接受发布。",
     "test_title": "Frigate 与 MQTT 连接测试",
     "recording_frame_delay": "首次识别延迟（秒）",
-    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。",
-    "recording_frame_delay_invalid": "请输入1至120秒的录像帧延迟。"
+    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。"
   },
   "cameras": {
     "title": "要监视的摄像头",
@@ -890,7 +888,7 @@
       "title": "花园动物",
       "desc": "花园动物被命名时发送提醒，与鸟类提醒分开。",
       "enabled": "发送花园提醒",
-      "enabled_help": "动物被自动命名或你接受其物种时，每次到访发送一条提醒。点击“应用设置”保存。",
+      "enabled_help": "动物被自动命名或你确认其物种时，每次来访发送一条提醒。保存更改后生效。",
       "send_to": "花园提醒发送到",
       "use_bird": "使用我的鸟类通知渠道",
       "use_bird_help": "上方已开启且已配置的渠道。",
@@ -907,7 +905,7 @@
       "privacy": "将动物名称、摄像头、目击时间以及（如已选择）照片发送到这些服务。链接会在此处打开该捕获；访客只能在公开访问共享它时打开。",
       "rules": "仅在名称确定后五分钟内、且目击不超过两小时时发送，因此开启提醒不会重放历史。每次到访每个渠道只尝试一次；失败或不确定的发送不会重试。",
       "status": "已保存的发送尝试。渠道已接受：{sent}。失败：{failed}。未确认：{unknown}。已跳过：{skipped}。",
-      "status_after_apply": "“应用设置”开启花园后会显示发送状态。",
+      "status_after_apply": "开启并保存花园后，这里会显示发送状态。",
       "refresh": "刷新发送状态"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "在摄像头画面中定位每只鸟，便于 YA-WAMF 裁剪和计数。它不判断物种。",
     "bird_finder_device": "鸟类定位设备",
     "bird_finder_device_auto": "自动（最快的已验证设备）",
-    "bird_finder_device_help": "点击“应用设置”保存。若该设备不可用，定位器将使用 CPU，而不会切换到其他加速器。备用快速定位器会自动选择设备。",
+    "bird_finder_device_help": "保存更改后生效。如果该设备不可用，鸟类检测会改用 CPU，而不是其他加速器。快速备用检测会自动选择设备。",
     "bird_finder_default_badge": "默认",
     "bird_finder_optional_badge": "可选",
     "bird_finder_ram": "{ram} 内存",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "在 CPU 上运行。YA-WAMF 保存鸟类照片后，将在重启后重新检查 {devices}。",
     "bird_finder_check_devices": "为 {name} 检查 {devices}",
     "bird_finder_check_devices_hint": "用鸟类照片将此查找器在每个设备上的结果与 CPU 比较，然后使用一致且最快的设备。识别模型不会改变。",
-    "bird_finder_pending": "应用设置后才会切换鸟类定位器。在此之前，当前定位器继续运行。",
+    "bird_finder_pending": "保存更改以切换鸟类检测。在此之前，当前的鸟类检测会继续运行。",
     "bird_finder_download": "下载 {name}",
     "bird_finder_redownload": "重新下载 {name}",
     "bird_finder_backup": "如果找不到可用的鸟，YA-WAMF 还会尝试快速备用定位器和 Frigate 的跟踪框，只有都无法给出可靠裁剪时才使用整幅画面。",
@@ -1423,15 +1421,13 @@
     "garden_animals": "花园动物",
     "garden_animals_desc": "从你选择的摄像头收集猫、狐狸等非鸟类访客，供你审核。",
     "garden_motion_toggle": "在 {camera} 收集待审核的移动照片",
-    "garden_motion_confidence_invalid": "请输入 50% 到 95% 之间的动物候选阈值。",
-    "garden_naming_threshold_invalid": "请输入 70% 到 99% 之间的命名阈值。",
     "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
     "garden_naming_threshold_help": "从 70% 到 99%。值越高，自动命名的动物越少，被忽略的低置信度照片越多。人物检查不变。",
     "garden_naming_threshold": "命名阈值",
     "garden_naming": "自动为动物命名",
     "garden_requirements": "需要能追踪动物或保留运动录像的 Frigate 摄像头。花园只在你要求时下载自己的模型：自动检查需要 224 MB，另有可选的 224 MB 和 101 MB 模型。你的鸟类模型不会改变。",
     "garden_models_help": "花园使用独立于鸟类模型的专用模型。下载只会添加一个经过校验的文件，不会保存设置，也不会开始检查。",
-    "garden_models_apply": "点击应用设置以开启花园动物。之后这里会显示模型状态和下载。",
+    "garden_models_apply": "保存更改以开启花园。之后这里会显示模型状态和下载。",
     "garden_models_loading": "正在检查花园模型…",
     "garden_model_check": "自动检查模型",
     "garden_model_suggestions": "物种建议模型",
@@ -1480,7 +1476,7 @@
     "garden_domestic_birds_none": "暂无。鸡和您饲养的其他鸟会被当作野鸟处理。",
     "garden_domestic_birds_add": "添加家禽",
     "garden_domestic_birds_choose": "选择一种鸟",
-    "intro": "仍在测试的功能。每项功能在你开启前都保持关闭，并可能更改或移除。关闭某项功能会保留它已记录的内容。此处的开关在应用后生效。",
+    "intro": "仍在测试的功能。每项功能在你开启前都是关闭的，并且可能更改或移除。关闭某项功能会保留它已记录的内容。这里的开关在保存更改后生效。",
     "learn_more": "了解更多",
     "status_off": "关闭",
     "status_off_after_apply": "应用后关闭",
@@ -1492,7 +1488,7 @@
     "garden_status_no_country": "未设置国家",
     "garden_next_steps": "仍需设置",
     "garden_step_camera": "选择一个用于观察花园动物的摄像头。",
-    "garden_step_apply": "应用设置以开启花园。之后模型和国家的检查会显示在这里。",
+    "garden_step_apply": "保存更改以开启花园。之后这里会显示模型和国家检查。",
     "garden_step_model": "下载{model}。",
     "garden_step_model_open": "打开模型",
     "garden_step_location": "设置你的位置，让花园知道你的国家并为动物命名。",
@@ -1562,8 +1558,8 @@
     "status_unusable": "未筛选：保存的名录未通过检查。{problem}",
     "status_error": "无法加载分布范围筛选的状态。{message}",
     "status_loading": "正在加载分布范围筛选的状态…",
-    "unsaved_on": "应用设置后即可开启筛选。",
-    "unsaved_off": "应用设置后即可关闭筛选。",
+    "unsaved_on": "保存更改以开启筛选。",
+    "unsaved_off": "保存更改以关闭筛选。",
     "open_location": "设置位置",
     "open_ebird": "添加 eBird 密钥",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "要保留真正的稀有鸟，请手动记录。只要保留期允许，Frigate 会一直保存片段。",
     "skips_open_log": "打开活动日志",
     "skips_add_manually": "手动记录一次观察"
+  },
+  "save_bar": {
+    "region": "未保存的更改",
+    "summary": "{count, plural, other {# 项未保存的更改，位于}}",
+    "discard": "放弃更改",
+    "save": "保存更改",
+    "refused": "没有保存任何内容。请更正标出的值，然后再次保存。",
+    "refused_reason": "没有保存任何内容：{reason}",
+    "failed": "没有保存任何内容，因为 YA-WAMF 未能存储设置。请确认后端正在运行，然后再次选择“保存更改”。",
+    "other_field": "其他设置"
+  },
+  "leave": {
+    "title": "不保存就离开？",
+    "message": "{tabs} 中的 {count, plural, other {# 项更改}}将会丢失。",
+    "confirm": "不保存就离开"
+  },
+  "field_errors": {
+    "frigate_url": "地址需以 http:// 或 https:// 开头，例如 http://frigate:5000。",
+    "birdnet_url": "地址需以 http:// 或 https:// 开头，例如 http://birdnet-go:8080。",
+    "instance_url": "地址需以 http:// 或 https:// 开头，例如 https://feeder.example.com。",
+    "auth_password_required": "开启登录前请先设置密码。",
+    "auth_username": "只能使用字母、数字、下划线、连字符和句点。",
+    "too_large": "请输入不大于 {limit} 的值。",
+    "too_small": "请输入不小于 {limit} 的值。",
+    "whole_number": "请输入整数。",
+    "number": "请输入数字。",
+    "refused": "未被接受：{reason}。请修改该值后再次保存。",
+    "out_of_range": "请输入 {min} 到 {max} 之间的值。",
+    "out_of_range_percent": "请输入 {min}% 到 {max}% 之间的值。"
   }
 }

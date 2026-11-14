@@ -3,7 +3,7 @@
      * One beta feature on Settings → Beta features: its name, what it does, its switch and a status
      * line in words. Its settings appear only while it is on; while it is off the card says what
      * off means. The switch stages a change in the page's draft like every other setting, so
-     * nothing takes effect until Apply Settings.
+     * nothing takes effect until Save changes.
      */
     import type { Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';

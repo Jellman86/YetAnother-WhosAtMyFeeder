@@ -118,7 +118,7 @@
     function stepText(step: GardenNextStep): string {
         switch (step.kind) {
             case 'choose_camera': return $_('settings.beta.garden_step_camera', { default: 'Choose a camera to watch for Garden animals.' });
-            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Apply Settings to turn Garden on. Model and country checks then appear here.' });
+            case 'apply': return $_('settings.beta.garden_step_apply', { default: 'Save changes to turn Garden on. Model and country checks then appear here.' });
             case 'download_model': return $_('settings.beta.garden_step_model', { default: 'Download the {model}.', values: { model: modelName(step.role) } });
             case 'set_location': return $_('settings.beta.garden_step_location', { default: 'Set your location, so Garden knows your country and can name animals.' });
         }
@@ -223,6 +223,7 @@
                 >
                     <SettingsInput
                         id="garden-labels"
+                        field="garden_labels"
                         value={labels}
                         ariaLabel={$_('garden.labels', { default: 'Frigate animal labels' })}
                         describedBy="garden-label-help"
@@ -241,6 +242,7 @@
                         <div class="min-w-0 flex-1">
                             <SettingsInput
                                 id="garden-motion-confidence"
+                                field="garden_motion_confidence"
                                 type="number"
                                 min={50}
                                 max={95}
@@ -282,6 +284,7 @@
                                 <div class="min-w-0 flex-1">
                                     <SettingsInput
                                         id="garden-naming-threshold"
+                                        field="garden_naming_threshold"
                                         type="number"
                                         min={70}
                                         max={99}

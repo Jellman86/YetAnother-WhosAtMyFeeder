@@ -1116,6 +1116,7 @@
                     >
                         <SettingsInput
                             id="video-delay"
+                            field="video_classification_delay"
                             type="number"
                             min={0}
                             value={videoClassificationDelay}
@@ -1130,6 +1131,7 @@
                     >
                         <SettingsInput
                             id="video-retries"
+                            field="video_classification_max_retries"
                             type="number"
                             min={0}
                             value={videoClassificationMaxRetries}
@@ -1144,6 +1146,7 @@
                     >
                         <SettingsInput
                             id="video-frames"
+                            field="video_classification_frames"
                             type="number"
                             min={5}
                             max={100}

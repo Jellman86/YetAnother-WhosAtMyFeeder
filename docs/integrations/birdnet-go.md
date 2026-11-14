@@ -45,7 +45,7 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 1. Go to **Settings → Integrations → BirdNET-Go → Audio buffer & sensor mapping**.
 2. Check **Recently Detected BirdNET Sources** after audio messages have arrived.
 3. Under **BirdNET Source Mapping (Optional)**, use **Add detected source…** for the corresponding camera, or type the stable source name.
-4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Apply Settings to save the mapping.
+4. Multiple source names can be mapped to a camera; comma-separated entries are accepted. Choose Save changes to keep the mapping.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
 deliberately want any source to correlate with that camera; a blank or missing mapping is not a

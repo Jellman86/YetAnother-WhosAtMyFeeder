@@ -46,7 +46,7 @@ test('the illuminance entity is optional, sits beside the weather entity and sav
     const field = page.getByRole('textbox', { name: 'Illuminance entity' });
     await expect(field).toHaveValue('');
     await expect(field).toHaveAccessibleDescription(/Optional\. A light sensor that reports lx/);
-    await expect(page.getByText('Unsaved Changes', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
 
     // Same column, directly under the weather entity and above the overrides disclosure.
     const weatherBox = await page.locator('#ha-weather-entity').boundingBox();
@@ -62,7 +62,7 @@ test('the illuminance entity is optional, sits beside the weather entity and sav
     await field.fill('  sensor.feeder_illuminance ');
     await expect(field).not.toHaveAttribute('aria-invalid', 'true');
     if (shots) await page.locator('#ha-weather-illuminance').locator('xpath=ancestor::section[1]').screenshot({ path: `${shots}/settings-illuminance-field.png` });
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ ha_weather_illuminance_entity: 'sensor.feeder_illuminance', ha_weather_entity: 'weather.home' });
 });

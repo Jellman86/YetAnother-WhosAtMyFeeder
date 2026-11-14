@@ -22,11 +22,11 @@ test('Enrichment loads on first open, shows the stored providers and saves them 
     const sightings = page.getByText('Nearby Sightings', { exact: true }).locator('..');
     await expect(sightings).toContainText('eBird');
     expect(harness.moduleRequests('EnrichmentSettings.svelte')).toBe(1);
-    await expect(page.getByText('Unsaved Changes', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
 
     await page.getByRole('link', { name: 'Connection' }).click();
     await page.locator('#mqtt-server').fill('mqtt-broker');
-    await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(1);
     expect(harness.writes[0]).toMatchObject({ ...SAVED_PROVIDERS, enrichment_single_provider: 'wikipedia' });
 });

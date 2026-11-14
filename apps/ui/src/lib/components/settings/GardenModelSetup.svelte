@@ -95,7 +95,7 @@
 
     {#if !savedEnabled}
         <p class="rounded-xl border border-dashed border-line-soft p-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
-            {$_('settings.beta.garden_models_apply', { default: 'Choose Apply Settings to switch Garden on. Model status and downloads then appear here.' })}
+            {$_('settings.beta.garden_models_apply', { default: 'Save changes to switch Garden on. Model status and downloads then appear here.' })}
         </p>
     {:else}
         {#if service.loading && !identification && !service.motion}

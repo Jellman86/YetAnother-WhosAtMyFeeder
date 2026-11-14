@@ -2,7 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test';
 
 // The save footer and the saved-status message are shared by every Settings
 // section. With text enlarged to 200% on a narrow phone they must wrap rather
-// than push Apply Settings or the message past the edge of the screen.
+// than push Save changes, Discard changes or the notification past the edge of the screen.
 async function openConnectionSettings(page: Page) {
     const saves: Record<string, unknown>[] = [];
     await page.route('https://fonts.googleapis.com/**', route => route.fulfill({ body: '' }));
@@ -48,13 +48,16 @@ for (const width of [320, 393]) {
     test.describe(`at ${width}px with 200% text`, () => {
         test.use({ viewport: { width, height: 740 } });
 
-        test('the save footer keeps Apply Settings fully on screen and reachable by keyboard', async ({ page }) => {
+        test('the save bar keeps both its buttons fully on screen and reachable by keyboard', async ({ page }) => {
             const saves = await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');
-            const apply = page.getByRole('button', { name: 'Apply Settings', exact: true });
+            const apply = page.getByRole('button', { name: 'Save changes', exact: true });
             await expect(apply).toBeInViewport({ ratio: 1 });
             await expectInsideViewport(page, apply);
-            await expect(page.getByText('Unsaved Changes', { exact: true })).toBeInViewport({ ratio: 1 });
+            await expect(page.getByRole('region', { name: 'Unsaved changes' }).getByText('1 unsaved change in')).toBeInViewport({ ratio: 1 });
+            const discard = page.getByRole('button', { name: 'Discard changes', exact: true });
+            await expect(discard).toBeInViewport({ ratio: 1 });
+            await expectInsideViewport(page, discard);
             await expectNoHorizontalOverflow(page);
 
             await apply.focus();
@@ -64,13 +67,10 @@ for (const width of [320, 393]) {
             expect(saves[0].mqtt_server).toBe('mqtt-broker');
         });
 
-        test('the saved message and its notification wrap inside the screen', async ({ page }) => {
+        test('the saved notification wraps inside the screen', async ({ page }) => {
             await openConnectionSettings(page);
             await page.locator('#mqtt-server').fill('mqtt-broker');
-            await page.getByRole('button', { name: 'Apply Settings', exact: true }).click();
-            const saved = page.getByRole('status').filter({ hasText: 'Settings saved' });
-            await expect(saved).toBeVisible();
-            await expectInsideViewport(page, saved);
+            await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
             const toast = page.locator('[data-toast-container] [data-toast]').filter({ hasText: 'Settings saved' });
             await expect(toast).toBeInViewport({ ratio: 1 });

@@ -26,6 +26,7 @@
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
 import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
+import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { publicSettingsStore } from './lib/stores/public_settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
@@ -192,6 +193,17 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
       const targetPath = normalizeRouteForCurrentAccess(path);
+      // A page holding unsaved work is asked first; it answers null when nothing would be lost.
+      if (unsavedChanges.warningFor(targetPath)) {
+          void unsavedChanges.allowLeaving(targetPath).then((leave) => {
+              if (leave) goTo(targetPath, opts);
+          });
+          return;
+      }
+      goTo(targetPath, opts);
+  }
+
+  function goTo(targetPath: string, opts: { replace?: boolean }) {
       const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
       if (isDashboardRefresh) {
           dashboardRefreshKey += 1;
@@ -469,8 +481,23 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               authStore.handleAuthError();
           });
 
+          // Back and Forward have already moved the address when they arrive here. With unsaved
+          // work the address is put back first, and only a confirmed leave moves on.
+          let confirmedHistoryMove = false;
           const handlePopState = () => {
-              currentRoute = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
+              const target = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
+              if (!confirmedHistoryMove && unsavedChanges.warningFor(target)) {
+                  const stay = currentRoute;
+                  window.history.pushState(null, '', toAppPath(stay));
+                  void unsavedChanges.allowLeaving(target).then((leave) => {
+                      if (!leave) return;
+                      confirmedHistoryMove = true;
+                      window.history.back();
+                  });
+                  return;
+              }
+              confirmedHistoryMove = false;
+              currentRoute = target;
               refreshCoordinator.onNavigate();
           };
           window.addEventListener('popstate', handlePopState);

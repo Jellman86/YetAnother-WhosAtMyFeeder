@@ -27,17 +27,25 @@ export function locationSettingsDirty(input: {
     current: CurrentLocationSettings;
     stored: StoredLocationSettings;
 }): boolean {
+    return locationChangedFields(input).length > 0;
+}
+
+/** The saved location fields the draft would change, named as the save sends them. */
+export function locationChangedFields(input: {
+    current: CurrentLocationSettings;
+    stored: StoredLocationSettings;
+}): string[] {
     const { current, stored } = input;
     const storedWeatherUnitSystem =
         (stored.location_weather_unit_system as WeatherUnitSystem | undefined) ??
         (stored.location_temperature_unit === 'fahrenheit' ? 'imperial' : 'metric');
-
-    return (
-        current.latitude !== (stored.location_latitude ?? null) ||
-        current.longitude !== (stored.location_longitude ?? null) ||
-        current.state !== normalizeText(stored.location_state) ||
-        current.country !== normalizeText(stored.location_country) ||
-        current.automatic !== (stored.location_automatic ?? true) ||
-        current.weatherUnitSystem !== storedWeatherUnitSystem
-    );
+    const comparisons: Array<[string, boolean]> = [
+        ['location_latitude', current.latitude !== (stored.location_latitude ?? null)],
+        ['location_longitude', current.longitude !== (stored.location_longitude ?? null)],
+        ['location_state', current.state !== normalizeText(stored.location_state)],
+        ['location_country', current.country !== normalizeText(stored.location_country)],
+        ['location_automatic', current.automatic !== (stored.location_automatic ?? true)],
+        ['location_weather_unit_system', current.weatherUnitSystem !== storedWeatherUnitSystem]
+    ];
+    return comparisons.filter(([, changed]) => changed).map(([field]) => field);
 }

@@ -55,7 +55,7 @@ its photo instead of placing it in Dismissed, preserving the privacy rules below
 
 It is off unless you turn it on with its switch in **Settings → Beta features** (or set
 `SYSTEM__BETA_GARDEN_ANIMALS=true`). The switch is staged with the rest of the page and takes
-effect when you choose **Apply Settings**. While it is off, Garden collects nothing new, the
+effect when you choose **Save changes**. While it is off, Garden collects nothing new, the
 motion scanner does not run, Garden animals and camera options are hidden in the Explorer, Garden
 alerts stop, birds you keep are recorded as ordinary bird detections, and the Garden API answers
 that the feature is switched off. Saved captures and Garden settings are kept and come back when
@@ -88,7 +88,7 @@ Garden animals page opens the Explorer's Garden review instead.
    detector actually tracks. The default is `cat, dog`. Adding `squirrel` here cannot make a
    detector learn squirrels; Frigate must already track that label and publish completed events
    over MQTT.
-4. Choose **Apply Settings**. **Models** then shows each Garden model's status.
+4. Choose **Save changes**. **Models** then shows each Garden model's status.
    Choose **Download** for the **Automatic check model**, and for the **Motion detector**
    if a camera collects motion review photos.
 5. Open the **Explorer**, or choose **Review Garden animals** under **Where captures go** on the Garden card. In
@@ -699,7 +699,7 @@ in the **Garden animals** section that appears while the Garden beta is on.
    configured for birds. Or pick **Choose channels** and select channels
    yourself; they use the saved credentials, and their bird switches can stay off.
 3. Keep **Include the photo** on to attach the picture, or turn it off for text only.
-4. Select **Apply settings**. Set an instance URL under Notifications if you want
+4. Select **Save changes**. Set an instance URL under Notifications if you want
    messages to link back to the capture.
 
 An alert is sent when a confirmed animal gets an accepted species name: automatic

@@ -274,9 +274,6 @@
     "llm_prompt_style_help": "Applica i valori predefiniti localizzati per la lingua corrente.",
     "llm_prompt_style_classic": "Classico",
     "llm_prompt_style_field": "Note di campo",
-    "llm_prompt_apply_style": "Applica stile",
-    "llm_prompt_reset_defaults": "Ripristina predefiniti",
-    "llm_prompt_apply_notice": "Modelli di prompt aggiornati.",
     "llm_prompt_analysis": "Prompt per analisi rilevazione",
     "llm_prompt_analysis_hint": "Token: {species}, {time}, {weather_str}, {frame_note}, {language_note}",
     "llm_prompt_conversation": "Prompt conversazione",
@@ -332,7 +329,9 @@
     "test_probe_note": "Il test invia cinque immagini JPEG rappresentative da 1280 × 720, riproducendo numero, dimensioni e peso approssimativo di una vera richiesta di analisi.",
     "test_retry": "Esegui di nuovo il test",
     "test_network_error": "La richiesta diagnostica non ha potuto raggiungere YA-WAMF.",
-    "advanced_title": "Prezzi e modelli di prompt"
+    "advanced_title": "Prezzi e modelli di prompt",
+    "prompt_style_desc": "Scegliere uno stile sostituisce i tre modelli qui sotto con il suo testo. Salva modifiche lo conserva.",
+    "prompt_style_custom": "Testo personalizzato"
   },
   "integrations": {
     "birdnet": {
@@ -641,8 +640,7 @@
     "test_subtitle": "Verifica che l’API di Frigate risponda e che il broker MQTT accetti una pubblicazione.",
     "test_title": "Test connessione Frigate e MQTT",
     "recording_frame_delay": "Ritardo identificazione iniziale (secondi)",
-    "recording_frame_delay_desc": "Attende da 1 a 120 secondi dalla prima istantanea. Usa i metadati di tracciamento più recenti ricevuti durante l’attesa. Identificazione e notifiche arrivano più tardi. Non attende la fine di ogni evento e non riclassifica i rilevamenti salvati.",
-    "recording_frame_delay_invalid": "Inserisci un ritardo del fotogramma registrato tra 1 e 120 secondi."
+    "recording_frame_delay_desc": "Attende da 1 a 120 secondi dalla prima istantanea. Usa i metadati di tracciamento più recenti ricevuti durante l’attesa. Identificazione e notifiche arrivano più tardi. Non attende la fine di ogni evento e non riclassifica i rilevamenti salvati."
   },
   "cameras": {
     "title": "Telecamere da osservare",
@@ -890,7 +888,7 @@
       "title": "Animali del giardino",
       "desc": "Avvisi quando un animale del giardino viene nominato, separati dagli avvisi sugli uccelli.",
       "enabled": "Invia avvisi del giardino",
-      "enabled_help": "Un avviso per visita quando un animale viene nominato automaticamente o ne accetti la specie. Salva con Applica impostazioni.",
+      "enabled_help": "Un avviso per visita quando un animale viene nominato automaticamente o ne accetti la specie. Ha effetto quando salvi le modifiche.",
       "send_to": "Invia avvisi del giardino a",
       "use_bird": "Usa i miei canali per gli uccelli",
       "use_bird_help": "I canali qui sopra attivati e configurati.",
@@ -907,7 +905,7 @@
       "privacy": "Invia nome dell’animale, telecamera, ora dell’avvistamento e, se scelto, la foto a questi servizi. Il link apre questa cattura qui; un visitatore può aprirla solo finché l’accesso pubblico la condivide.",
       "rules": "Inviato entro cinque minuti dalla scelta del nome, per avvistamenti fino a due ore prima, quindi attivare gli avvisi non ripropone mai lo storico. Un tentativo per canale e visita; gli invii falliti o incerti non vengono ripetuti.",
       "status": "Tentativi di consegna salvati. Accettati dal canale: {sent}. Non riusciti: {failed}. Non confermati: {unknown}. Saltati: {skipped}.",
-      "status_after_apply": "Lo stato di consegna appare quando Applica impostazioni ha attivato il giardino.",
+      "status_after_apply": "Lo stato di consegna appare quando il giardino è attivato e salvato.",
       "refresh": "Aggiorna stato di consegna"
     }
   },
@@ -1294,7 +1292,7 @@
     "bird_finder_role": "Trova ogni uccello nell'inquadratura così YA-WAMF può ritagliarlo e contarlo. Non indica la specie.",
     "bird_finder_device": "Dispositivo del localizzatore",
     "bird_finder_device_auto": "Automatico (dispositivo convalidato più veloce)",
-    "bird_finder_device_help": "Salva con Applica impostazioni. Se il dispositivo non è disponibile, il localizzatore usa la CPU anziché un altro acceleratore. Il localizzatore rapido di riserva sceglie automaticamente il dispositivo.",
+    "bird_finder_device_help": "Ha effetto quando salvi le modifiche. Se questo dispositivo non è disponibile, il rilevatore usa la CPU invece di un altro acceleratore. Il rilevatore rapido di riserva sceglie il suo dispositivo automaticamente.",
     "bird_finder_default_badge": "Predefinito",
     "bird_finder_optional_badge": "Facoltativo",
     "bird_finder_ram": "{ram} di RAM",
@@ -1306,7 +1304,7 @@
     "bird_finder_device_check_waiting": "Funziona sulla CPU. {devices} verranno ricontrollati dopo un riavvio, quando YA-WAMF avrà salvato foto di uccelli.",
     "bird_finder_check_devices": "Controlla {devices} per {name}",
     "bird_finder_check_devices_hint": "Confronta questo rilevatore su ogni dispositivo con la CPU usando foto di uccelli, poi usa il più veloce che corrisponde. Il modello di identificazione non cambia.",
-    "bird_finder_pending": "Applica le impostazioni per cambiare localizzatore. Fino ad allora resta attivo quello attuale.",
+    "bird_finder_pending": "Salva le modifiche per cambiare il rilevatore di uccelli. Quello attuale resta in funzione fino ad allora.",
     "bird_finder_download": "Scarica {name}",
     "bird_finder_redownload": "Scarica di nuovo {name}",
     "bird_finder_backup": "Se non trova un uccello utilizzabile, YA-WAMF prova anche il localizzatore rapido di riserva e il riquadro di tracciamento di Frigate, e usa l'inquadratura intera solo se nessuno dà un ritaglio affidabile.",
@@ -1423,15 +1421,13 @@
     "garden_animals": "Animali del giardino",
     "garden_animals_desc": "Raccoglie gatti, volpi e altri visitatori che non sono uccelli dalle telecamere che scegli, per la tua revisione.",
     "garden_motion_toggle": "Raccogli foto di movimento da verificare su {camera}",
-    "garden_motion_confidence_invalid": "Inserisci una soglia delle proposte di animali tra 50% e 95%.",
-    "garden_naming_threshold_invalid": "Inserisci una soglia per il nome tra 70% e 99%.",
     "garden_naming_off": "Ogni animale resta in Da controllare finché non lo confermi e gli assegni un nome.",
     "garden_naming_threshold_help": "Da 70% a 99%. Valori più alti assegnano automaticamente il nome a meno animali e scartano più foto poco sicure. I controlli sulle persone restano invariati.",
     "garden_naming_threshold": "Soglia per il nome",
     "garden_naming": "Assegna i nomi agli animali automaticamente",
     "garden_requirements": "Richiede telecamere Frigate che tracciano animali o conservano registrazioni di movimento. Il giardino scarica i propri modelli solo quando lo chiedi: 224 MB per i controlli automatici, più modelli facoltativi da 224 MB e 101 MB. Il tuo modello degli uccelli non cambia.",
     "garden_models_help": "Il giardino usa i propri modelli, separati dal tuo modello degli uccelli. Un download aggiunge solo un file verificato. Non salva impostazioni e non avvia controlli.",
-    "garden_models_apply": "Scegli Applica Impostazioni per attivare Animali del giardino. Lo stato dei modelli e i download compariranno qui.",
+    "garden_models_apply": "Salva le modifiche per attivare il giardino. Lo stato dei modelli e i download appariranno qui.",
     "garden_models_loading": "Verifica dei modelli del giardino…",
     "garden_model_check": "Modello di controllo automatico",
     "garden_model_suggestions": "Modello per i suggerimenti sulle specie",
@@ -1480,7 +1476,7 @@
     "garden_domestic_birds_none": "Ancora nessuno. Galline e altri uccelli che allevi sono trattati come uccelli selvatici.",
     "garden_domestic_birds_add": "Aggiungi un uccello domestico",
     "garden_domestic_birds_choose": "Scegli un uccello",
-    "intro": "Funzioni ancora in prova. Ognuna resta spenta finché non la attivi, e può cambiare o essere rimossa. Spegnere una funzione conserva ciò che ha già registrato. Gli interruttori qui hanno effetto quando applichi.",
+    "intro": "Funzioni ancora in prova. Ognuna resta disattivata finché non la attivi, e può cambiare o essere rimossa. Disattivare una funzione conserva ciò che ha già registrato. Gli interruttori qui hanno effetto quando salvi le modifiche.",
     "learn_more": "Scopri di più",
     "status_off": "Spento",
     "status_off_after_apply": "Spento dopo l’applicazione",
@@ -1492,7 +1488,7 @@
     "garden_status_no_country": "nessun paese impostato",
     "garden_next_steps": "Ancora da configurare",
     "garden_step_camera": "Scegli una telecamera che osservi gli animali del giardino.",
-    "garden_step_apply": "Applica le impostazioni per attivare il giardino. I controlli di modello e paese compariranno qui.",
+    "garden_step_apply": "Salva le modifiche per attivare il giardino. I controlli di modello e paese appariranno qui.",
     "garden_step_model": "Scarica il {model}.",
     "garden_step_model_open": "Apri Modelli",
     "garden_step_location": "Imposta la tua posizione, così il giardino conosce il tuo paese e può dare un nome agli animali.",
@@ -1562,8 +1558,8 @@
     "status_unusable": "Nessun filtro: l'elenco salvato non ha superato i controlli. {problem}",
     "status_error": "Non è stato possibile caricare lo stato del filtro di areale. {message}",
     "status_loading": "Caricamento dello stato del filtro di areale…",
-    "unsaved_on": "Applica le impostazioni per attivare il filtro.",
-    "unsaved_off": "Applica le impostazioni per disattivare il filtro.",
+    "unsaved_on": "Salva le modifiche per attivare il filtro.",
+    "unsaved_off": "Salva le modifiche per disattivare il filtro.",
     "open_location": "Imposta la posizione",
     "open_ebird": "Aggiungi la chiave eBird",
     "problem": {
@@ -1628,5 +1624,34 @@
     "skips_recover": "Per conservare una vera rarità, registrala a mano. Frigate conserva il clip finché la sua conservazione lo consente.",
     "skips_open_log": "Apri il registro attività",
     "skips_add_manually": "Registra un avvistamento a mano"
+  },
+  "save_bar": {
+    "region": "Modifiche non salvate",
+    "summary": "{count, plural, one {# modifica non salvata in} other {# modifiche non salvate in}}",
+    "discard": "Scarta modifiche",
+    "save": "Salva modifiche",
+    "refused": "Non è stato salvato nulla. Correggi i valori evidenziati, poi salva di nuovo.",
+    "refused_reason": "Non è stato salvato nulla: {reason}",
+    "failed": "Non è stato salvato nulla perché YA-WAMF non ha memorizzato le impostazioni. Verifica che il backend sia in esecuzione, poi scegli di nuovo Salva modifiche.",
+    "other_field": "Un’altra impostazione"
+  },
+  "leave": {
+    "title": "Uscire senza salvare?",
+    "message": "{count, plural, one {# modifica} other {# modifiche}} in {tabs} andranno perse.",
+    "confirm": "Esci senza salvare"
+  },
+  "field_errors": {
+    "frigate_url": "Inizia l’indirizzo con http:// o https://, per esempio http://frigate:5000.",
+    "birdnet_url": "Inizia l’indirizzo con http:// o https://, per esempio http://birdnet-go:8080.",
+    "instance_url": "Inizia l’indirizzo con http:// o https://, per esempio https://feeder.example.com.",
+    "auth_password_required": "Imposta una password prima di attivare l’accesso.",
+    "auth_username": "Usa solo lettere, numeri, trattini bassi, trattini e punti.",
+    "too_large": "Inserisci {limit} o meno.",
+    "too_small": "Inserisci {limit} o più.",
+    "whole_number": "Inserisci un numero intero.",
+    "number": "Inserisci un numero.",
+    "refused": "Non accettato: {reason}. Cambia il valore e salva di nuovo.",
+    "out_of_range": "Inserisci un valore da {min} a {max}.",
+    "out_of_range_percent": "Inserisci un valore da {min}% a {max}%."
   }
 }
