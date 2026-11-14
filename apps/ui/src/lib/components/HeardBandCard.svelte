@@ -96,7 +96,7 @@
             type="button"
             bind:this={trigger}
             popovertarget={panelId}
-            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-500/10"
+            class="mt-auto inline-flex min-h-11 items-center gap-1.5 self-start rounded-lg px-2 -ml-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:bg-brand-500/10"
             aria-expanded={open}
             aria-controls={panelId}
             data-heard-band-toggle
@@ -117,7 +117,7 @@
         class="fixed inset-auto m-0 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface pb-2 text-slate-900 shadow-xl dark:text-slate-100"
     >
         <div class="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-line-soft bg-surface px-4 py-1">
-            <p class="text-sm font-semibold">{$_('events.heard.calls_panel', { default: 'Heard calls' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-500 dark:text-slate-400">{span}</span></p>
+            <p class="text-sm font-semibold">{$_('events.heard.calls_panel', { default: 'Heard calls' })}<span class="ml-2 text-xs font-normal tabular-nums text-slate-600 dark:text-slate-400">{span}</span></p>
             <button type="button" class="btn btn-ghost min-h-11 min-w-11 px-2" popovertarget={panelId} popovertargetaction="hide">{$_('common.close', { default: 'Close' })}</button>
         </div>
         {#if open}<HeardCallList groups={band.groups} inline={false} />{/if}

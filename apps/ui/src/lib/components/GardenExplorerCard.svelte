@@ -53,7 +53,7 @@
 >
     <button
         type="button"
-        class="absolute inset-0 z-10 rounded-2xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+        class="absolute inset-0 z-10 rounded-2xl focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
         aria-label={$_('garden.explorer.open', { values: { subject: `${text.title}, ${formatTime(capture.observed_at)}` }, default: 'Open Garden capture: {subject}' })}
         onclick={() => onopen(capture)}
     ></button>
@@ -80,18 +80,18 @@
             <GardenExplorerMarker overlay />
             {#if grouped}
                 <!-- Several photos open from this one card, as a bird visit's captures do. -->
-                <span class="inline-flex items-center rounded-full border border-white/10 bg-black/60 px-2 py-0.5 text-2xs font-bold text-white backdrop-blur-md" data-garden-card-group>
+                <span class="inline-flex items-center rounded-full photo-chip px-2 py-0.5 text-2xs font-bold" data-garden-card-group>
                     {grouped}
                 </span>
             {/if}
         </div>
         <div class="absolute bottom-3 left-3 flex flex-nowrap items-center gap-2">
-            <time class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md" datetime={capture.observed_at}>
+            <time class="flex min-h-11 items-center gap-1.5 rounded-full photo-chip px-3 py-2 text-xs font-bold" datetime={capture.observed_at}>
                 <svg class="h-3 w-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 {formatTime(capture.observed_at)}
             </time>
             {#if score !== null}
-                <span class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                <span class="flex min-h-11 items-center gap-1.5 rounded-full photo-chip px-3 py-2 text-xs font-bold">
                     <span class="h-2 w-2 rounded-full {scoreDot}" aria-hidden="true"></span>
                     {score}%<span class="sr-only">{$_('garden.explorer.score_hint', { values: { score }, default: 'Species model score {score}%' })}</span>
                 </span>
@@ -102,7 +102,7 @@
                     type="button"
                     onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
                     aria-label={$_('detection.play_video', { values: { species: text.title } })}
-                    class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-xs transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
+                    class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/75 text-white shadow-lg transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                     data-garden-card-play
                 >
                     <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
@@ -112,7 +112,7 @@
     </div>
     <div class="flex flex-1 flex-col gap-2 p-4">
         <div>
-            <h3 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={text.title}>{text.title}</h3>
+            <h2 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={text.title}>{text.title}</h2>
             {#if detail.showState}
                 <p class="mt-1 flex items-start gap-1.5 text-2xs font-semibold {view.review ? 'text-attention-800 dark:text-attention-300' : 'text-slate-600 dark:text-slate-400'}">
                     {#if view.review}<span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-attention-500" aria-hidden="true"></span>{/if}
@@ -122,9 +122,9 @@
                 <p class="mt-1 truncate text-2xs font-semibold italic text-slate-600 dark:text-slate-400" data-garden-card-scientific>{detail.scientific}</p>
             {/if}
         </div>
-        <div class="mt-auto flex items-center gap-1.5 truncate text-2xs font-medium text-slate-500 dark:text-slate-400">
+        <div class="mt-auto flex items-center gap-1.5 truncate text-2xs font-medium text-slate-600 dark:text-slate-400">
             <span>{day}</span>
-            <span class="text-slate-300 dark:text-slate-600">&middot;</span>
+            <span class="text-slate-300 dark:text-slate-500">&middot;</span>
             <span class="truncate">{capture.camera}</span>
         </div>
     </div>

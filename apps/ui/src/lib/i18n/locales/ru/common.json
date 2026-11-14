@@ -65,5 +65,9 @@
   "undo": "Отменить",
   "unknown": "неизвестно",
   "diagnostic_step_status": "Шаг {step} из {total}: {label}",
-  "checks_failed": "Не пройдено проверок: {failed} из {total}: {labels}."
+  "checks_failed": "Не пройдено проверок: {failed} из {total}: {labels}.",
+  "checks_passed": "Все проверки пройдены: {total}.",
+  "check_passed": "Проверка пройдена.",
+  "map_your_location": "Ваше местоположение",
+  "map_sighting": "Место наблюдения"
 }

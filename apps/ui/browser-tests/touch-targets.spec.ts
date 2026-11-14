@@ -7,9 +7,11 @@ async function targetSizes(controls: Locator): Promise<void> {
         return { label: node.getAttribute('aria-label') || node.textContent, width, height, x, y };
     }));
     expect(bounds.length).toBeGreaterThan(0);
+    // A 44px box at a fractional position can measure 43.99999px in single-precision layout
+    // units, so the floor allows a hundredth of a pixel.
     for (const target of bounds) {
-        expect(target.width, `${target.label} width`).toBeGreaterThanOrEqual(44);
-        expect(target.height, `${target.label} height`).toBeGreaterThanOrEqual(44);
+        expect(target.width, `${target.label} width`).toBeGreaterThanOrEqual(43.99);
+        expect(target.height, `${target.label} height`).toBeGreaterThanOrEqual(43.99);
     }
     for (let a = 0; a < bounds.length; a += 1) {
         for (let b = a + 1; b < bounds.length; b += 1) {

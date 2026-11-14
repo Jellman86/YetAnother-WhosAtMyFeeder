@@ -42,13 +42,13 @@
                     <dt class="font-mono text-2xs font-semibold text-slate-800 dark:text-slate-100">
                         {row.table}
                     </dt>
-                    <dd class="text-slate-500 dark:text-slate-400">
+                    <dd class="text-slate-600 dark:text-slate-400">
                         {$_(`about.storage.${row.key}_desc`)}
                     </dd>
                 </div>
             {/each}
         </dl>
-        <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
+        <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
             {$_('about.storage.note', {
                 default: 'SQLite under /data. Schema changes ship reversible migrations.'
             })}
@@ -61,29 +61,29 @@
         </h3>
         <dl class="mt-2 divide-y divide-slate-200/70 text-xs dark:divide-slate-700/50">
             {#each outbound as item (item.key)}
-                <div class="flex items-center gap-3 py-1.5">
-                    <span class="min-w-0 flex-1">
-                        <dt class="font-semibold text-slate-800 dark:text-slate-100">
-                            {$_(`about.outbound.${item.key}`)}
-                        </dt>
-                        <dd class="text-slate-500 dark:text-slate-400">
-                            {$_(`about.outbound.${item.key}_desc`)}
-                        </dd>
-                    </span>
-                    <span
-                        class="shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold uppercase tracking-wider {item.on
+                <!-- Each group is a term and two descriptions (what it is for, whether it is on) as direct
+                     children, which is the only shape a definition list reads correctly in. -->
+                <div class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 py-1.5">
+                    <dt class="col-start-1 font-semibold text-slate-800 dark:text-slate-100">
+                        {$_(`about.outbound.${item.key}`)}
+                    </dt>
+                    <dd class="col-start-1 text-slate-600 dark:text-slate-400">
+                        {$_(`about.outbound.${item.key}_desc`)}
+                    </dd>
+                    <dd
+                        class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold uppercase tracking-wider {item.on
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}"
+                            : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}"
                     >
                         {item.on
                             ? $_('about.pipeline.enabled', { default: 'enabled' })
                             : $_('about.pipeline.off', { default: 'off' })}
-                    </span>
+                    </dd>
                 </div>
             {/each}
         </dl>
         {#if !isOwner}
-            <p class="mt-2 text-2xs text-slate-500 dark:text-slate-400">
+            <p class="mt-2 text-2xs text-slate-600 dark:text-slate-400">
                 {$_('about.outbound.guest_note', {
                     default: 'Shown for transparency. Only the owner can change these.'
                 })}

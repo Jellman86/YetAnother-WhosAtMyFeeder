@@ -637,7 +637,7 @@
             case 'installed':
                 return 'border-slate-400/30 bg-slate-500/10 text-slate-700 dark:text-slate-300';
             default:
-                return 'border-slate-300/60 bg-transparent text-slate-500 dark:border-slate-600/60 dark:text-slate-400';
+                return 'border-slate-300/60 bg-transparent text-slate-600 dark:border-slate-600/60 dark:text-slate-400';
         }
     }
 
@@ -701,7 +701,7 @@
                         <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
-                                    <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
+                                    <p class="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">{group.info.label}</p>
                                     <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
@@ -711,7 +711,7 @@
                                                 type="button"
                                                 aria-pressed={cardSelected}
                                                 onclick={() => (selectedModelId = modelOption.id)}
-                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
+                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
                                                 <span class="relative flex flex-wrap items-start justify-between gap-2">
                                                     <span class="min-w-0 wrap-break-word text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
@@ -719,7 +719,7 @@
                                                 </span>
                                                 <span class="relative mt-auto flex flex-col gap-1.5">
                                                     <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{scopeLabel(modelOption.taxonomy_scope)}</span>
-                                                    <span class="flex items-baseline justify-between gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                    <span class="flex items-baseline justify-between gap-2 text-xs font-medium text-slate-600 dark:text-slate-400">
                                                         <span>{t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })}</span>
                                                         {#if modelOption.estimated_ram_mb != null}
                                                             <span>{ramShortLabel(modelOption.estimated_ram_mb)}</span>
@@ -754,14 +754,14 @@
                                 }
                             }
                         }}
-                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
+                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
                     >
                         {showAdvancedModels
                             ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
                             : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
                     </button>
                     {#if !showAdvancedModels}
-                        <p class="mt-2 px-1 text-sm text-slate-500 dark:text-slate-400">
+                        <p class="mt-2 px-1 text-sm text-slate-600 dark:text-slate-400">
                             {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
                         </p>
                     {/if}
@@ -810,7 +810,7 @@
 
                             {#if active && classifierStatus?.active_provider}
                                 <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
-                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    <span class="mr-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
                                         {runtimePlanned
                                             ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
                                             : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
@@ -820,10 +820,10 @@
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
                                     {#if runtimePlanned}
-                                        <span class="ml-1 text-xs font-medium text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
+                                        <span class="ml-1 text-xs font-medium text-slate-600 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
                                     {/if}
                                     {#if runtimeProviderOrder.length > 1}
-                                        <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        <span class="mt-1 block text-xs font-medium text-slate-600 dark:text-slate-400">
                                             {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
                                             {runtimeProviderOrder.map(providerLabel).join(' → ')}
                                         </span>
@@ -844,7 +844,7 @@
                                     <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
                                         <div class="h-full rounded-full bg-brand-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
                                     </div>
-                                    <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                    <p class="mt-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                                         {#if executionMode === 'in_process'}
                                             {$_('settings.detection.model_manager_memory_formula_in_process', {
                                                 values: { per: ramShortLabel(model.estimated_ram_mb) },
@@ -874,7 +874,7 @@
                                     </p>
                                 </div>
                             {:else}
-                                <p class="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+                                <p class="mt-4 text-sm font-medium text-slate-600 dark:text-slate-400">
                                     {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
                                 </p>
                             {/if}
@@ -897,7 +897,7 @@
                                     <a
                                         href={toAppPath('/settings/integrations')}
                                         onclick={handleLocationSettingsClick}
-                                        class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:text-brand-200"
+                                        class="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:text-brand-200"
                                     >
                                         {$_('settings.detection.model_manager_location_link', { default: 'Open Location settings' })}
                                     </a>
@@ -916,7 +916,7 @@
                         </div>
 
                         <details class="group mt-5 border-t border-slate-200 dark:border-slate-700">
-                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
+                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-200">
                                 <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
                                 <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
@@ -934,34 +934,34 @@
 
                                 <dl class="grid gap-4 text-sm sm:grid-cols-2">
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}</dd>
                                     </div>
                                 </dl>
 
                                 {#if model.notes}
-                                    <p class="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{model.notes}</p>
+                                    <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
                                 {/if}
 
                                 <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
                                         <dd class="mt-1 font-medium uppercase text-slate-800 dark:text-slate-100">{model.runtime}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.accuracy_tier}</dd>
                                     </div>
                                     <div>
-                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
+                                        <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">
                                             {health?.ml
                                                 ? (health.ml.runtimes.tflite.installed ? 'TFLite ✓' : 'TFLite —') + ' · ' + (health.ml.runtimes.onnx.installed ? 'ONNX ✓' : 'ONNX —')
@@ -1085,7 +1085,7 @@
                                 {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
                                 {@const devices = deviceList(device.accelerators)}
                                 {@const optionChosen = birdFinder === option.choice}
-                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-focus-visible:ring-2 has-focus-visible:ring-brand-500 {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
+                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-focus-visible:ring-2 has-focus-visible:ring-focus {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
                                     <input
                                         type="radio"
                                         name="bird-finder"
@@ -1112,7 +1112,7 @@
                                                 ? $_('settings.detection.bird_finder_wide_desc', { default: 'Reads the whole frame and four overlapping tiles, so it finds far more small and distant birds. A 103 MB download, and each frame takes longer.' })
                                                 : $_('settings.detection.bird_finder_standard_desc', { default: 'Small and quick. Misses many birds that are small in a wide frame.' })}
                                         </span>
-                                        <span class="block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        <span class="block text-xs font-medium text-slate-600 dark:text-slate-400">
                                             {t('settings.detection.model_manager_card_download', '{size} MB download', { size: option.model.file_size_mb })}{#if option.model.estimated_ram_mb != null}{' · '}{t('settings.detection.bird_finder_ram', '{ram} RAM', { ram: ramShortLabel(option.model.estimated_ram_mb) })}{/if}
                                         </span>
                                         <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
@@ -1201,7 +1201,7 @@
                                 <div role="status">
                                     <div class="mb-1 flex justify-between text-xs font-semibold">
                                         <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
-                                        <span class="text-slate-500">{chosenFinderDownload.progress.toFixed(0)}%</span>
+                                        <span class="text-slate-600 dark:text-slate-400">{chosenFinderDownload.progress.toFixed(0)}%</span>
                                     </div>
                                     <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                                         <div class="h-full bg-brand-500 transition-all duration-300" style="width: {chosenFinderDownload.progress}%"></div>
@@ -1211,12 +1211,12 @@
                                 <p class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">{chosenFinderDownload.error}</p>
                             {/if}
                             {#if canCheckChosen}
-                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                                <p id="bird-finder-check-hint" class="max-w-3xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                                     {$_('settings.detection.bird_finder_check_devices_hint', { default: 'Compares this finder on each device with the CPU on bird photos, then uses the fastest one that matches. The identification model is not changed.' })}
                                 </p>
                             {/if}
                         {/if}
-                        <p class="max-w-3xl text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                        <p class="max-w-3xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                             {$_('settings.detection.bird_finder_backup', { default: 'If it cannot find a usable bird, YA-WAMF also tries the fast fallback finder and Frigate\'s tracking box, and uses the full frame only when none of them gives a reliable crop.' })}
                         </p>
                     </fieldset>

@@ -6,6 +6,8 @@
 @import './tailwind-3-parity.css';
 @source './**/*.{html,js,svelte,ts}';
 @source not './**/*.test.ts';
+/* The switch is part of the kit whether or not a screen in this build wears it yet. */
+@source inline('switch-track switch-thumb');
 
 /* Dark mode is the `dark` class on <html>, set before first paint in index.html. The selector is
    the one this app has always shipped, so a dark utility keeps the weight it had against a hover
@@ -37,11 +39,14 @@
      but never shrinks below 44px when a reader picks a smaller one. */
   --spacing-11: max(2.75rem, 44px);
 
-  /* Small print in rem, so it follows the reader's text size and display scale
-     instead of staying fixed in pixels. Never below 11px at the default size: 10px
-     labels read as noise rather than words, above all on a large, distant display. */
-  --text-2xs: 0.75rem;
-  --text-3xs: 0.6875rem;
+  /* Small print in rem, so it follows the reader's text size and display scale, with a 12px
+     floor: the Standard text size sets the root at 14px, where 0.6875rem is under 10px and reads
+     as noise rather than words. The floor holds at every text size, so the steps from 3xs to sm
+     never invert when a reader picks a smaller one. */
+  --text-3xs: max(0.6875rem, 12px);
+  --text-2xs: max(0.75rem, 12px);
+  --text-xs: max(0.75rem, 12px);
+  --text-sm: max(0.875rem, 12px);
 
   /* Leading in rem rather than as a ratio of the size: at a fractional root size a ratio rounds
      a line a sixty-fourth of a pixel short, and the error adds up down a page. */
@@ -108,6 +113,14 @@
   /* Rules: `line` edges controls, `line-soft` separates rows and panels. */
   --color-line: rgb(var(--line));
   --color-line-soft: rgb(var(--line-soft));
+  /* Keyboard focus: one opaque colour per mode, at 3:1 or better against the page, a panel and a
+     well. `focus-on-dark` is for a control drawn over a photograph or a fixed dark media ground,
+     which stays dark in the light theme. */
+  --color-focus: rgb(var(--focus));
+  --color-focus-on-dark: rgb(var(--focus-on-dark));
+  /* A switch's track, off and on: each 3:1 against what it sits on and under its white thumb. */
+  --color-switch-off: rgb(var(--switch-off));
+  --color-switch-on: rgb(var(--switch-on));
 }
 
 /* The fixed palette, in the sRGB values the app was drawn with, so a colour reads the same on
@@ -194,6 +207,11 @@
   --surface-raised: 241 245 249;
   --line: 214 222 232;
   --line-soft: 229 234 241;
+  /* These follow the colour theme: each names a step of the brand scale set further down. */
+  --focus: var(--brand-700);
+  --focus-on-dark: var(--brand-400);
+  --switch-off: 100 116 139;
+  --switch-on: var(--brand-600);
 }
 
 html.dark,
@@ -202,6 +220,7 @@ html[data-theme='dark'] {
   --surface-raised: 30 41 59;
   --line: 51 65 85;
   --line-soft: 34 46 66;
+  --focus: var(--brand-400);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -323,9 +342,16 @@ html[data-theme='dark'] {
   @apply bg-slate-400 dark:bg-slate-500;
 }
 
-/* Focus ring styling */
+/* The keyboard focus ring: two opaque pixels of the focus colour, set off from the control by two
+   of the panel colour, so it reads at 3:1 against whatever lies beside it in either mode. It shows
+   for keyboard focus only; a pointer press does not draw it. */
 @utility focus-ring {
-  @apply focus:outline-hidden focus:ring-2 focus:ring-brand-500/50 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-900;
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+}
+
+/* The same ring for a control over a photograph or a fixed dark media ground. */
+@utility focus-ring-on-dark {
+  @apply focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus-on-dark focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950;
 }
 
 /* A ruled panel on the page ground: a hairline and a flat fill, no shadow or blur.
@@ -344,13 +370,13 @@ html[data-theme='dark'] {
    dark and hover styles keep the extra weight they have always had. */
 /* A small uppercase label above a heading or a group: names the window, the camera, the section. */
 @utility eyebrow {
-  @apply text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  @apply text-xs font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400;
 }
 
 /* A taxonomic rank named beside a name: small tracked capitals, muted, the same wherever a rank
-   appears so the eye learns one label. Slate 500 and 400 keep AA contrast on either ground. */
+   appears so the eye learns one label. Slate 600 and 400 keep AA contrast on a panel, a well and the page. */
 @utility taxon-rank {
-  @apply text-3xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400;
+  @apply text-3xs font-semibold uppercase tracking-widest text-slate-600 dark:text-slate-400;
 }
 
 /* A figure set in the display face with lining, tabular digits so columns of numbers align. */
@@ -379,6 +405,12 @@ html[data-theme='dark'] {
 /* Unified buttons */
 @utility btn {
   @apply inline-flex items-center justify-center gap-2 rounded-xl text-sm font-semibold transition-colors duration-200 focus-ring disabled:opacity-50 disabled:cursor-not-allowed;
+
+  /* A button with nothing else said is a 44px target with room round its label. `:where` gives
+     the defaults no weight, so any height or padding utility beside `btn` replaces them. */
+  :where(&) {
+    @apply min-h-11 px-4 py-2;
+  }
 }
 
 /* A solid fill, dark enough under white text to pass AA in every theme. */
@@ -404,6 +436,28 @@ html[data-theme='dark'] {
   @apply bg-red-700 text-white hover:bg-red-800;
 }
 
+/* A button over a photograph or on a fixed dark media ground (the video player, a picture's
+   toolbar): white on a faint white fill, edged in white, the same in both themes because the
+   ground does not change with the theme. `:not(_)` puts its ring ahead of the one `btn` sets. */
+@utility btn-on-dark {
+  @apply border border-white/40 bg-white/10 text-white hover:bg-white/20;
+
+  &:focus-visible:not(_) {
+    --tw-ring-color: var(--color-focus-on-dark);
+    /* slate-950, written out: the fixed palette is inlined and has no variable to read. */
+    --tw-ring-offset-color: #020617;
+  }
+}
+
+/* Any other kit button that sits on a dark media ground keeps its own fill and takes the dark ring. */
+@utility btn-focus-on-dark {
+  &:focus-visible:not(_) {
+    --tw-ring-color: var(--color-focus-on-dark);
+    /* slate-950, written out: the fixed palette is inlined and has no variable to read. */
+    --tw-ring-offset-color: #020617;
+  }
+}
+
 @utility btn-icon {
   @apply min-h-11 min-w-11 p-2.5 rounded-xl;
 }
@@ -412,13 +466,42 @@ html[data-theme='dark'] {
 @utility input-base {
   @apply w-full px-3 py-2.5 rounded-xl bg-surface border border-line;
   @apply text-sm text-slate-900 dark:text-white placeholder:text-slate-500 dark:placeholder:text-slate-400;
-  @apply outline-hidden transition-colors focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500/70;
+  @apply outline-hidden transition-colors focus:ring-2 focus:ring-focus focus:border-focus;
 }
 
 /* For a field that sits flush against an edge that clips (a phone's edge, a scrolling rail): the ring is drawn
-   inside the border, solid, so no edge can cut it off and its contrast does not depend on what lies beyond. */
+   inside the border, so no edge can cut it off and its contrast does not depend on what lies beyond. */
 @utility input-focus-inset {
-  @apply focus:ring-inset focus:ring-brand-600 dark:focus:ring-brand-400;
+  @apply focus:ring-inset;
+}
+
+/* A field on a fixed dark media ground: the same shape as `input-base`, in colours that do not
+   follow the theme, with an edge that is 3:1 against the ground. */
+@utility input-on-dark {
+  @apply w-full rounded-xl border border-slate-400 bg-slate-900 px-3 py-2 text-sm text-white placeholder:text-slate-400;
+  @apply outline-hidden transition-colors focus:border-focus-on-dark focus:ring-2 focus:ring-focus-on-dark;
+}
+
+/* A switch: `switch-track` on the `role="switch"` button, `switch-thumb` on the span inside it.
+   The off track is as visible as the on track (3:1 against a panel or a well), the thumb's side
+   carries the state so it never reads by colour alone, and keyboard focus draws the kit ring. */
+@utility switch-track {
+  @apply relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-switch-off transition-colors duration-200 focus-ring;
+  @apply aria-checked:bg-switch-on aria-disabled:cursor-not-allowed aria-disabled:opacity-50;
+
+  &[aria-checked='true'] .switch-thumb {
+    @apply translate-x-5;
+  }
+}
+
+@utility switch-thumb {
+  @apply pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200;
+}
+
+/* A label set over a photograph (a time, a score, a camera): white on a fill dark enough to pass
+   AA over the palest frame, with no blur, so the words never depend on what the camera saw. */
+@utility photo-chip {
+  @apply bg-black/75 text-white;
 }
 
 @utility select-base {
@@ -435,7 +518,7 @@ html[data-theme='dark'] {
 }
 
 @utility sidebar-nav {
-  @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors duration-200 focus-ring;
+  @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium transition-colors duration-200 focus-ring;
 }
 
 @utility sidebar-nav-active {
@@ -676,6 +759,8 @@ html.high-contrast.high-contrast.high-contrast {
   --surface-raised: 0 0 0;
   --line: 255 255 0;
   --line-soft: 255 255 0;
+  --focus: 0 255 255;
+  --focus-on-dark: 0 255 255;
 }
 
 .high-contrast body,

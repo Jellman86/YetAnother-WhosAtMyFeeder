@@ -4,7 +4,7 @@
     import { _ } from 'svelte-i18n';
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
-    import type { DiagnosticStage, DiagnosticStageState, DiagnosticResult } from '../utils/diagnostic-runner';
+    import { diagnosticHeadline, type DiagnosticStage, type DiagnosticStageState, type DiagnosticResult } from '../utils/diagnostic-runner';
 
     interface Props {
         title: string;
@@ -147,7 +147,9 @@
         tabindex="-1"
         class="my-8 w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl ring-1 ring-black/5"
     >
-        <header class="space-y-4 bg-surface-raised px-6 py-5">
+        <!-- Plain divisions, not header and footer: the dialog is portalled to the body, where those
+             elements would count as a second page banner and a second page footer. -->
+        <div class="space-y-4 bg-surface-raised px-6 py-5">
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
                     <p class="text-3xs font-bold uppercase tracking-[0.22em] text-brand-700 dark:text-brand-300">{eyebrow}</p>
@@ -168,8 +170,8 @@
                     <span class="h-1.5 flex-1 rounded-full transition-colors duration-300 {stage.state === 'passed' ? 'bg-brand-500' : stage.state === 'failed' ? 'bg-red-500' : stage.state === 'warning' ? 'bg-amber-500' : stage.state === 'running' ? 'animate-pulse bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"></span>
                 {/each}
             </div>
-            <span class="sr-only" role="progressbar" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
-        </header>
+            <span class="sr-only" role="progressbar" aria-labelledby="diagnostic-title" aria-valuenow={progress} aria-valuemin="0" aria-valuemax="100">{progress}%</span>
+        </div>
 
         <p class="sr-only" role="status">{statusText}</p>
 
@@ -183,7 +185,7 @@
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
                     <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-700 text-white' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">
@@ -203,7 +205,7 @@
 
             {#if result && resultShown}
                 <div class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
-                    <p class="font-bold">{result.message}</p>
+                    <p class="font-bold">{diagnosticHeadline(result, displayStages)}</p>
                     {#if result.hint}
                         <p class="mt-1 text-sm">{result.hint}</p>
                     {/if}
@@ -211,17 +213,17 @@
             {/if}
 
             {#if note}
-                <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">{note}</p>
+                <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{note}</p>
             {/if}
         </div>
 
-        <footer class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700">
+        <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700" data-diagnostic-actions>
             <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" onclick={onClose}>{closeLabel ?? $_('common.close', { default: 'Close' })}</button>
             {#if onRetry}
                 <button type="button" class="btn btn-primary min-h-11 px-5 py-2.5" disabled={busy} onclick={onRetry}>
                     {busy ? (runningLabel ?? $_('common.testing', { default: 'Testing' })) : (retryLabel ?? $_('common.test', { default: 'Test' }))}
                 </button>
             {/if}
-        </footer>
+        </div>
     </div>
 </div>

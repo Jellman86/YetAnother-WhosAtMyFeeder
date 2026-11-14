@@ -18,7 +18,7 @@
 </script>
 
 {#if failed}
-    <p class="flex min-h-11 items-center text-sm text-slate-500 dark:text-slate-400" data-feeder-portrait-unavailable>
+    <p class="flex min-h-11 items-center text-sm text-slate-600 dark:text-slate-400" data-feeder-portrait-unavailable>
         {$_('about.portrait.unavailable', { default: "This feeder's facts could not be loaded." })}
     </p>
 {:else}

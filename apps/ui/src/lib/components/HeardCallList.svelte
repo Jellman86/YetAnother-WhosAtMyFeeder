@@ -49,7 +49,7 @@
         <li data-heard-call={key}>
             <button
                 type="button"
-                class="grid min-h-12 w-full grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 {open ? 'bg-surface-raised' : ''}"
+                class="grid min-h-12 w-full grid-cols-[4rem_2.75rem_minmax(0,1fr)_auto] items-center gap-3 px-3 py-1.5 text-left transition-colors hover:bg-surface-raised focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus {open ? 'bg-surface-raised' : ''}"
                 aria-expanded={open}
                 aria-controls="{uid}-{key}"
                 onclick={() => (openKey = open ? null : key)}
@@ -57,7 +57,7 @@
                 <span>
                     <time class="block font-display text-xs font-bold tabular-nums text-slate-600 dark:text-slate-300" datetime={group.first_heard}>{formatTime(group.first_heard)}</time>
                     {#if new Date(group.first_heard).toDateString() !== newestDay}
-                        <span class="block text-3xs font-semibold text-slate-500 dark:text-slate-400">{relativeDayLabel(group.first_heard, $_)}</span>
+                        <span class="block text-3xs font-semibold text-slate-600 dark:text-slate-400">{relativeDayLabel(group.first_heard, $_)}</span>
                     {/if}
                 </span>
                 <span class="mx-auto block h-9 w-9 overflow-hidden rounded-lg bg-slate-100 ring-1 ring-line-soft dark:bg-slate-800" aria-hidden="true">
@@ -70,18 +70,18 @@
                             onerror={() => (failed = { ...failed, [picture]: true })}
                         />
                     {:else}
-                        <svg class="m-2 h-5 w-5 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
+                        <svg class="m-2 h-5 w-5 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
                     {/if}
                 </span>
                 <span class="min-w-0">
                     <span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{group.species}</span>
-                    <span class="block truncate text-2xs font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="block truncate text-2xs font-semibold text-slate-600 dark:text-slate-400">
                         {#if heardCallsUntil(group)}{$_('events.heard.calls_until', { values: { count: group.call_count, time: heardCallsUntil(group) }, default: '{count} calls to {time}' })}{:else}{$_('events.heard.calls', { values: { count: group.call_count }, default: '{count} calls' })}{/if}{#if group.source_name}{' · '}{group.source_name}{/if}
                     </span>
                 </span>
                 <span class="flex items-center gap-2">
                     <span class="min-w-10 text-right font-display text-sm font-bold tabular-nums {heardConfidenceTone(group.best_confidence)}">{score}%</span>
-                    <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
+                    <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 20 20" fill="none" stroke="currentColor" aria-hidden="true">
                         <path d="m5 7 5 5 5-5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </span>
@@ -101,7 +101,7 @@
                             />
                         </div>
                     {:else}
-                        <p class="rounded-xl border border-line-soft bg-surface px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
+                        <p class="rounded-xl border border-line-soft bg-surface px-3 py-3 text-xs text-slate-600 dark:text-slate-400">
                             {$_('events.heard.no_spectrogram', { default: 'BirdNET-Go has no spectrogram for these calls any more.' })}
                         </p>
                     {/if}

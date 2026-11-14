@@ -65,5 +65,9 @@
   "undo": "Annulla",
   "unknown": "sconosciuto",
   "diagnostic_step_status": "Passaggio {step} di {total}: {label}",
-  "checks_failed": "{failed} controlli su {total} non superati: {labels}."
+  "checks_failed": "{failed} controlli su {total} non superati: {labels}.",
+  "checks_passed": "Tutti i {total} controlli superati.",
+  "check_passed": "Controllo superato.",
+  "map_your_location": "La tua posizione",
+  "map_sighting": "Luogo dell’avvistamento"
 }

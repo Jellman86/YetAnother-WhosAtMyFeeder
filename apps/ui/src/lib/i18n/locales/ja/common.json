@@ -65,5 +65,9 @@
   "undo": "元に戻す",
   "unknown": "不明",
   "diagnostic_step_status": "ステップ {step}/{total}: {label}",
-  "checks_failed": "{total} 件中 {failed} 件の確認が失敗しました: {labels}。"
+  "checks_failed": "{total} 件中 {failed} 件の確認が失敗しました: {labels}。",
+  "checks_passed": "{total} 件の確認すべてに合格しました。",
+  "check_passed": "確認に合格しました。",
+  "map_your_location": "現在地",
+  "map_sighting": "観察場所"
 }

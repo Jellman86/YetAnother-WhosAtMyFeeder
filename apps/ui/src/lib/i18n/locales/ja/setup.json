@@ -183,6 +183,7 @@
   "working": "処理中…",
   "skip_step": "このステップをスキップ",
   "step_list": "セットアップの手順",
+  "progress": "セットアップの進行状況",
   "step_names": {
     "welcome": "ようこそ",
     "account": "アカウント",

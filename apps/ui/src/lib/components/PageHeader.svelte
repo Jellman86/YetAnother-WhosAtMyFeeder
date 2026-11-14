@@ -52,7 +52,7 @@
                     type="button"
                     onclick={() => void pageRefreshAction.run()}
                     disabled={!pageRefreshAction.available || pageRefreshAction.refreshing}
-                    class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
+                    class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white disabled:opacity-60 disabled:cursor-wait"
                     title={$_('common.refresh')}
                     aria-label={$_('common.refresh')}
                     aria-busy={pageRefreshAction.refreshing}
@@ -66,12 +66,12 @@
             <NotificationCenter
                 current={notificationsCurrent}
                 onNavigate={(path) => onNavigate?.(path)}
-                buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
+                buttonClass="relative grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
             />
             <button
                 type="button"
                 onclick={goSettings}
-                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-500 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
+                class="grid min-h-11 min-w-11 place-items-center rounded-xl text-slate-600 transition-colors duration-200 hover:bg-surface-raised hover:text-slate-900 focus-ring dark:text-slate-400 dark:hover:text-white"
                 title={$_('nav.settings')}
                 aria-label={$_('nav.settings')}
             >

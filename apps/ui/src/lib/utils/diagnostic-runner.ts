@@ -98,3 +98,24 @@ export async function runSequentialDiagnostic(
     }
     return { ok: !failed, message: finalMessage };
 }
+
+/**
+ * The line under the checklist. Each row already states its own outcome, so a result that only
+ * repeats a row is replaced by a count that names what did not pass: every outcome is on screen once.
+ */
+export function diagnosticHeadline(result: DiagnosticResult, stages: DiagnosticStage[]): string {
+    const said = result.message.trim();
+    const repeatsARow = stages.some((stage) => stage.state !== 'pending' && stage.message.trim() === said);
+    if (!repeatsARow) return result.message;
+    const translate = get(_);
+    if (result.ok) {
+        return stages.length === 1
+            ? translate('common.check_passed', { default: 'The check passed.' })
+            : translate('common.checks_passed', { values: { total: stages.length }, default: 'All {total} checks passed.' });
+    }
+    const unmet = stages.filter((stage) => stage.state === 'failed' || stage.state === 'warning').map((stage) => stage.label);
+    return translate('common.checks_failed', {
+        values: { failed: unmet.length, total: stages.length, labels: unmet.join(', ') },
+        default: '{failed} of {total} checks did not pass: {labels}.'
+    });
+}

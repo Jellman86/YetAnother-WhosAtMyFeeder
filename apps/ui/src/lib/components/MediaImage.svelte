@@ -29,7 +29,7 @@
         sources,
         alt,
         class: className = '',
-        placeholderClass = 'bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600',
+        placeholderClass = 'bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-500',
         iconClass = 'h-5 w-5',
         element = $bindable(null),
         onload,

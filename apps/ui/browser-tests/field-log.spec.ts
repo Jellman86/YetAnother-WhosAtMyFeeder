@@ -400,7 +400,8 @@ for (const width of [320, 1280]) {
         const hedgehog = page.locator('[data-field-log-garden="hedgehog"]');
         await expect(hedgehog).toHaveAttribute('data-needs-review', 'true');
         await expect(hedgehog.locator('[data-field-log-garden-state]')).toHaveText('Needs review: suggested species');
-        await hedgehog.getByRole('button', { name: /Open Garden capture: European Hedgehog/ }).click();
+        // A capture waiting for review is opened by a button named for what it shows first: Review.
+        await hedgehog.getByRole('button', { name: /^Review: European Hedgehog/ }).click();
         await expect(page.getByLabel('Selected record')).toHaveText('garden:hedgehog');
 
         await fox.getByRole('button', { name: /Open Garden capture: Red Fox/ }).focus();

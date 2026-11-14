@@ -349,7 +349,9 @@
         return rowByKey(key)?.displayName ?? key;
     }
     function segmentLabel(segment: { key: string; kind: Kind; count: number }): string {
-        return `${segmentName(segment.key, segment.kind)}, ${segment.count.toLocaleString()} ${countLabel(segment.count)}, ${percentOfTotal(segment.count)}`;
+        // In the order the segment shows them (name, share, count), so the name a screen reader
+        // hears contains the words on screen.
+        return `${segmentName(segment.key, segment.kind)}, ${percentOfTotal(segment.count)}, ${segment.count.toLocaleString()} ${countLabel(segment.count)}`;
     }
     const CHECK_COLOUR = '#f59e0b';
     function segmentColour(segment: { key: string; kind: Kind }): string {
@@ -378,7 +380,7 @@
     {#if leader}
         <header class="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div class="min-w-0">
-                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">{eyebrow}</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 dark:text-slate-400">{eyebrow}</p>
                 <div class="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                     <h2 class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white sm:text-4xl sm:leading-10">{leader.displayName}</h2>
                     <p class="text-sm tabular-nums text-slate-600 dark:text-slate-300">
@@ -387,7 +389,7 @@
                     </p>
                 </div>
                 {#if leader.subName}
-                    <p class="text-sm italic text-slate-500 dark:text-slate-400">{leader.subName}</p>
+                    <p class="text-sm italic text-slate-600 dark:text-slate-400">{leader.subName}</p>
                 {/if}
             </div>
             {#if pinnedRow}
@@ -502,7 +504,7 @@
 
         {#if shown.length > 0}
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <p class="text-xs text-slate-500 dark:text-slate-400">
+                <p class="text-xs text-slate-600 dark:text-slate-400">
                     {$_('leaderboard.wall_footer', { values: { count: shown.length }, default: '{count, plural, one {# recent visit. It opens its species.} other {# recent visits. Each opens its species.}}' })}
                 </p>
                 {#if hasMore || opened}
@@ -539,12 +541,12 @@
                 >
                     <VisitFilm frigateEvent={open.frigateEvent} poster={getReelImageUrl(open.frigateEvent)} film={open.film} class="h-full w-full" />
                     {#if open.rank !== null}
-                        <span class="absolute left-2 top-2 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-bold tabular-nums text-white backdrop-blur-xs">
+                        <span class="absolute left-2 top-2 rounded-full photo-chip px-2 py-0.5 text-2xs font-bold tabular-nums">
                             {$_('leaderboard.wall_rank', { values: { rank: open.rank }, default: 'Rank {rank}' })}
                         </span>
                     {/if}
                     {#if open.film || open.hasClip}
-                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-slate-950/70 px-2 py-0.5 text-2xs font-semibold text-white backdrop-blur-xs">
+                        <span class="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full photo-chip px-2 py-0.5 text-2xs font-semibold">
                             <svg viewBox="0 0 16 16" class="h-2.5 w-2.5" fill="currentColor" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" /></svg>
                             {$_('leaderboard.wall_clip', { default: 'Clip' })}
                         </span>
@@ -556,23 +558,23 @@
                         <span class="min-w-0 truncate">{open.name}</span>
                     </p>
                     {#if open.subName}
-                        <p class="truncate text-sm italic text-slate-500 dark:text-slate-400">{open.subName}</p>
+                        <p class="truncate text-sm italic text-slate-600 dark:text-slate-400">{open.subName}</p>
                     {/if}
                     <dl class="mt-2.5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs">
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_confidence', { default: 'Confidence' })}</dt>
                         <dd class="flex items-center gap-2 font-semibold tabular-nums text-slate-900 dark:text-white">
                             {percent(open.score)}
                             <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
                                 <span class="block h-full rounded-full bg-accent-500" style:width={percent(open.score)}></span>
                             </span>
                         </dd>
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_seen', { default: 'Seen' })}</dt>
                         <dd class="text-slate-800 dark:text-slate-100">{formatDateTime(open.at)}</dd>
                         {#if open.camera}
-                            <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
+                            <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_camera', { default: 'Camera' })}</dt>
                             <dd class="truncate text-slate-800 dark:text-slate-100">{open.camera}</dd>
                         {/if}
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('leaderboard.wall_visit', { default: 'Visit' })}</dt>
                         <dd class="text-slate-800 dark:text-slate-100">
                             {$_('leaderboard.wall_frames', { values: { count: open.captures }, default: '{count, plural, one {# frame} other {# frames}}' })}
                         </dd>

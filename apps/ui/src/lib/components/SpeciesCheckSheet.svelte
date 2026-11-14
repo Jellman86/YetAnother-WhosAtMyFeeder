@@ -317,7 +317,7 @@
                 <button type="button" class="btn btn-primary mt-6 min-h-11 px-6" onclick={onclose}>{$_('common.close', { default: 'Close' })}</button>
             </div>
         {:else}
-            <header class="flex items-start justify-between gap-4 border-b border-line-soft px-5 pb-4 pt-5 sm:px-8 sm:pt-7">
+            <div class="flex items-start justify-between gap-4 border-b border-line-soft px-5 pb-4 pt-5 sm:px-8 sm:pt-7">
                 <div class="min-w-0">
                     <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
                         <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>
@@ -325,7 +325,7 @@
                     </p>
                     <h2 id="species-check-title" class="mt-1 font-display text-2xl font-bold leading-tight sm:text-4xl sm:leading-10">{current.displayName}</h2>
                     {#if current.scientificName && current.scientificName !== current.displayName}
-                        <p class="mt-1 text-base italic text-slate-500 dark:text-slate-400">{current.scientificName}</p>
+                        <p class="mt-1 text-base italic text-slate-600 dark:text-slate-400">{current.scientificName}</p>
                     {/if}
                     <p class="mt-3 text-base text-slate-700 dark:text-slate-300">
                         {#if isBird === false}
@@ -344,7 +344,7 @@
                         {/each}
                     </div>
                 </div>
-            </header>
+            </div>
 
             <div bind:this={scroller} class="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-y-auto lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:overflow-visible">
                 <div class="px-5 py-5 sm:px-8 lg:border-r lg:border-line-soft" aria-busy={loading}>
@@ -374,7 +374,7 @@
                                         onclick={() => toggle(entry.visit.visit_id)}
                                         data-species-check-visit
                                     >
-                                        <span class="relative block aspect-square overflow-hidden rounded-2xl bg-surface-raised transition group-focus-visible:ring-4 group-focus-visible:ring-brand-400 {on ? 'ring-[3px] ring-brand-500' : 'opacity-50 ring-1 ring-line'}">
+                                        <span class="relative block aspect-square overflow-hidden rounded-2xl bg-surface-raised transition group-focus-visible:ring-4 group-focus-visible:ring-focus {on ? 'ring-[3px] ring-brand-500' : 'opacity-50 ring-1 ring-line'}">
                                             <img src={entry.crop} alt="" loading="lazy" class="h-full w-full object-cover" />
                                             <span class="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full {on ? 'bg-brand-700 text-white' : 'bg-slate-950/60 text-slate-300'} ring-2 ring-surface" aria-hidden="true">
                                                 {#if on}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.6"><path d="m5 10.5 3.2 3.2L15 7" stroke-linecap="round" stroke-linejoin="round" /></svg>{/if}
@@ -382,7 +382,7 @@
                                             <span class="absolute bottom-2 right-2 rounded-full bg-slate-950/75 px-2 py-0.5 font-display text-sm font-bold text-brand-200">{Math.round((entry.visit.best_score ?? 0) * 100)}%</span>
                                         </span>
                                         <span class="mt-2 block text-sm font-semibold">{when(entry.visit)}</span>
-                                        <span class="block text-sm text-slate-500 dark:text-slate-400">
+                                        <span class="block text-sm text-slate-600 dark:text-slate-400">
                                             {entry.visit.representative.camera_name} · {$_('visits.captures', { values: { count: entry.visit.capture_count }, default: '{count} captures' })}
                                         </span>
                                     </button>
@@ -462,7 +462,7 @@
                                 <li>
                                     <button type="button" class="flex min-h-12 w-full flex-col items-start justify-center px-3 py-1.5 text-left hover:bg-surface-raised {picked?.id === result.id ? 'bg-brand-500/15' : ''}" aria-pressed={picked?.id === result.id} onclick={() => (picked = result)}>
                                         <span class="text-base font-semibold">{names.primary}</span>
-                                        {#if names.secondary}<span class="text-sm italic text-slate-500 dark:text-slate-400">{names.secondary}</span>{/if}
+                                        {#if names.secondary}<span class="text-sm italic text-slate-600 dark:text-slate-400">{names.secondary}</span>{/if}
                                     </button>
                                 </li>
                             {/each}

@@ -65,5 +65,9 @@
   "undo": "Annuler",
   "unknown": "inconnu",
   "diagnostic_step_status": "Étape {step} sur {total} : {label}",
-  "checks_failed": "Vérifications non réussies, {failed} sur {total} : {labels}."
+  "checks_failed": "Vérifications non réussies, {failed} sur {total} : {labels}.",
+  "checks_passed": "Les {total} vérifications ont réussi.",
+  "check_passed": "La vérification a réussi.",
+  "map_your_location": "Votre position",
+  "map_sighting": "Lieu de l’observation"
 }

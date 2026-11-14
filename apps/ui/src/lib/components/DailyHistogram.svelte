@@ -36,7 +36,7 @@
             <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 18V9m4 9V5m4 13v-7m4 7V7m4 11V3" /></svg>
             {title ?? $_('dashboard.histogram.title')}
         </h2>
-        <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
+        <p class="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{$_('dashboard.histogram.visits_per_hour', { default: 'Visits per hour, last 24 hours' })}</p>
     </div>
 
     {#if total > 0}
@@ -70,12 +70,12 @@
                 ></div>
             {/each}
         </div>
-        <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400" aria-hidden="true">
+        <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400" aria-hidden="true">
             <span>{hourLabel(bars[0].hour)}</span>
             <span>{hourLabel(bars[12].hour)}</span>
             <span class="font-semibold text-slate-700 dark:text-slate-200">{$_('dashboard.histogram.now', { default: 'now' })}</span>
         </div>
     {:else}
-        <p class="text-xs text-slate-500 dark:text-slate-400" role="status">{$_('dashboard.no_detections')}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400" role="status">{$_('dashboard.no_detections')}</p>
     {/if}
 </section>

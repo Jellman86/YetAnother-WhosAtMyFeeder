@@ -166,7 +166,7 @@
      growing on a wide screen, so an hour never stretches into a bar. -->
 <div class="relative w-full max-w-fit" bind:this={root} data-activity-heatmap>
     <div
-        class="grid gap-1 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
+        class="grid gap-1 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-950"
         style="grid-template-columns: 2.25rem repeat(24, minmax(0, 3rem)) 2.5rem; grid-template-rows: 2.5rem 1.25rem repeat(7, auto);"
         role="grid"
         tabindex="0"
@@ -195,16 +195,16 @@
         <span aria-hidden="true"></span>
         {#each HOURS as hour}
             <span
-                class="self-end whitespace-nowrap text-center text-xs tabular-nums {active?.hour === hour ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'} {hour % 6 === 0 || active?.hour === hour ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}"
+                class="self-end whitespace-nowrap text-center text-xs tabular-nums {active?.hour === hour ? 'font-semibold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-400'} {hour % 6 === 0 || active?.hour === hour ? '' : hour % 3 === 0 ? 'invisible sm:visible' : 'invisible'}"
                 aria-hidden="true"
             >{String(hour).padStart(2, '0')}</span>
         {/each}
-        <span class="self-end text-right text-xs text-slate-500 dark:text-slate-400" aria-hidden="true">{$_('leaderboard.heatmap_total_short', { default: 'Total' })}</span>
+        <span class="self-end text-right text-xs text-slate-600 dark:text-slate-400" aria-hidden="true">{$_('leaderboard.heatmap_total_short', { default: 'Total' })}</span>
 
         {#each DAY_ORDER as dayOfWeek, row}
             <div class="contents" role="row" aria-label={dayLabel(dayOfWeek)}>
             <span
-                class="self-center text-xs {active?.row === row ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-500 dark:text-slate-400'}"
+                class="self-center text-xs {active?.row === row ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-600 dark:text-slate-400'}"
                 aria-hidden="true"
             >{dayLabel(dayOfWeek)}</span>
             {#each HOURS as hour}
@@ -220,7 +220,7 @@
                     data-heatmap-hour={hour}
                 ></span>
             {/each}
-            <span class="self-center text-right text-xs tabular-nums text-slate-500 dark:text-slate-400" aria-hidden="true">{weekdayTotals[dayOfWeek].toLocaleString()}</span>
+            <span class="self-center text-right text-xs tabular-nums text-slate-600 dark:text-slate-400" aria-hidden="true">{weekdayTotals[dayOfWeek].toLocaleString()}</span>
             </div>
         {/each}
     </div>
@@ -240,7 +240,7 @@
         </div>
     {/if}
 
-    <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-slate-400">
         <span class="inline-flex items-center gap-2 tabular-nums">
             0
             <span class="inline-block h-2 w-24 rounded-full" style="background-image: {heatmapLegendGradient(dark)}"></span>

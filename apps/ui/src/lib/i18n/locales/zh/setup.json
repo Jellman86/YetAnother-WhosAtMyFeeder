@@ -183,6 +183,7 @@
   "working": "处理中…",
   "skip_step": "跳过此步骤",
   "step_list": "设置步骤",
+  "progress": "设置进度",
   "step_names": {
     "welcome": "欢迎",
     "account": "账户",

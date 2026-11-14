@@ -50,7 +50,7 @@
             {#if frameState === 'loading'}
                 <div class="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-brand-500"></div>
             {:else}
-                <span class="text-xs font-medium text-slate-400">{$_('setup.cameras.offline', { default: 'No preview' })}</span>
+                <span class="text-xs font-medium text-slate-600 dark:text-slate-400">{$_('setup.cameras.offline', { default: 'No preview' })}</span>
             {/if}
         </div>
     {/if}

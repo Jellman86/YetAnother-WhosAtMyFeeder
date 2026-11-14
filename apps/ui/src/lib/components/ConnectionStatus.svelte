@@ -20,7 +20,7 @@
     const feedTile = $derived.by(() => {
         switch (feed) {
             case 'live':
-                return { on: true, slashed: false, onClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300', short: $_('status.tile_live', { default: 'Live' }), state: $_('status.feed_live', { default: 'Receiving camera events' }) };
+                return { on: true, slashed: false, onClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', short: $_('status.tile_live', { default: 'Live' }), state: $_('status.feed_live', { default: 'Receiving camera events' }) };
             case 'connecting':
                 return { on: false, slashed: false, onClass: NEUTRAL_CLASS, short: $_('status.tile_connecting', { default: 'Connecting' }), state: $_('status.feed_connecting', { default: 'Connecting to the MQTT broker' }) };
             case 'broker_down':
@@ -54,7 +54,7 @@
             short: $_('status.tile_audio', { default: 'Audio' }),
             name: $_('status.audio_analysis'),
             state: birdnetEnabled ? $_('common.enabled') : $_('common.disabled'),
-            onClass: 'bg-brand-500/15 text-brand-600 dark:text-brand-300',
+            onClass: 'bg-brand-500/15 text-brand-700 dark:text-brand-300',
             icon: 'M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zM19 11a7 7 0 0 1-14 0M12 18v3'
         },
         ...(notificationsActive === null
@@ -79,7 +79,10 @@
     the full sentence is the tile's tooltip and its screen-reader text. The live tile is green only
     while the broker session is measured up; a broker or Frigate that is down turns it amber.
 -->
-<ul class="grid {tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5" role="status" aria-live="polite" data-status-tiles>
+<!-- The live region is the wrapper: `role="status"` on the list itself would take its list role
+     away and leave the tiles as items of nothing. -->
+<div role="status" aria-live="polite">
+<ul class="grid {tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'} gap-1.5" data-status-tiles>
     {#each tiles as tile (tile.key)}
         <li
             class="flex flex-col items-center gap-1 rounded-lg py-1.5"
@@ -88,7 +91,7 @@
             data-status-on={tile.on}
             data-status-feed={tile.key === 'live' ? feed : undefined}
         >
-            <span class="relative grid h-8 w-8 place-items-center rounded-full {tile.emphasised ? tile.onClass : 'bg-slate-200/70 text-slate-400 dark:bg-slate-700/50 dark:text-slate-500'}">
+            <span class="relative grid h-8 w-8 place-items-center rounded-full {tile.emphasised ? tile.onClass : 'bg-slate-200/70 text-slate-600 dark:bg-slate-700/50 dark:text-slate-400'}">
                 {#if tile.key === 'live' && tile.on}
                     <span class="absolute inset-0 animate-ping rounded-full bg-emerald-400/20 motion-reduce:animate-none" aria-hidden="true"></span>
                 {/if}
@@ -97,8 +100,9 @@
                     {#if tile.slashed}<path d="M4 4l16 16" />{/if}
                 </svg>
             </span>
-            <span class="text-center text-xs font-semibold leading-tight {tile.emphasised ? 'text-slate-700 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}" aria-hidden="true">{tile.short}</span>
+            <span class="text-center text-xs font-semibold leading-tight {tile.emphasised ? 'text-slate-700 dark:text-slate-200' : 'text-slate-600 dark:text-slate-400'}" aria-hidden="true">{tile.short}</span>
             <span class="sr-only">{tile.name}: {tile.state}</span>
         </li>
     {/each}
 </ul>
+</div>

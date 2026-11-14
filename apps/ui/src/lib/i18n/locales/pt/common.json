@@ -65,5 +65,9 @@
   "undo": "Desfazer",
   "unknown": "desconhecido",
   "diagnostic_step_status": "Etapa {step} de {total}: {label}",
-  "checks_failed": "{failed} de {total} verificações não passaram: {labels}."
+  "checks_failed": "{failed} de {total} verificações não passaram: {labels}.",
+  "checks_passed": "Todas as {total} verificações passaram.",
+  "check_passed": "A verificação passou.",
+  "map_your_location": "A sua localização",
+  "map_sighting": "Local do avistamento"
 }

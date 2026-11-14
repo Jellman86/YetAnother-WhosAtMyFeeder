@@ -305,7 +305,7 @@
         type="button"
         bind:this={triggerEl}
         onclick={toggle}
-        class="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors duration-200 motion-reduce:transition-none focus-ring"
+        class="relative p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors duration-200 motion-reduce:transition-none focus-ring"
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         aria-controls={menuId}
@@ -356,7 +356,7 @@
         >
             {#if cameras.length === 0}
                 <div class="flex aspect-video max-h-[calc(100dvh-9.75rem)] flex-col items-center justify-center gap-3 px-6 text-center text-slate-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
                     <p class="max-w-sm text-sm font-semibold">
@@ -377,7 +377,7 @@
                         </div>
                     {:else}
                         <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.73 5H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m0-4l2.553-1.276A1 1 0 0121 9.618v4.764a1 1 0 01-.553.894M15 8v-.999a2 2 0 00-2-2h-1" />
                             </svg>
                             <span class="text-xs font-bold uppercase tracking-widest">

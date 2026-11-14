@@ -95,18 +95,18 @@
                     <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF
                 </span>
                 <div class="flex items-center gap-3">
-                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                         {$_('setup.step_of', { values: { n: setupWizardStore.position, total: setupWizardStore.total }, default: `Step ${setupWizardStore.position} of ${setupWizardStore.total}` })}
                         <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
-                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-hidden focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus-ring dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     {:else}
                         <button
                             type="button"
-                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-600 hover:bg-slate-200/60 hover:text-slate-700 focus-ring dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
                             onclick={() => (skipConfirming = true)}
                         >
                             {$_('setup.skip', { default: 'Skip setup' })}
@@ -126,7 +126,7 @@
                     </li>
                 {/each}
             </ol>
-            <span class="sr-only" role="progressbar" aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
+            <span class="sr-only" role="progressbar" aria-label={$_('setup.progress', { default: 'Setup progress' })} aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
         </div>
 
         {#if skipConfirming}
@@ -142,7 +142,7 @@
                     {/if}
                 </p>
                 {#if skipError}
-                    <p role="alert" class="mt-2 text-sm font-semibold text-red-600 dark:text-red-400">{skipError}</p>
+                    <p role="alert" class="mt-2 text-sm font-semibold text-red-700 dark:text-red-400">{skipError}</p>
                 {/if}
                 <div class="mt-3 flex flex-wrap gap-2">
                     <button type="button" class="btn btn-secondary min-h-11 px-4" disabled={skipBusy} onclick={() => { skipConfirming = false; skipError = null; }}>

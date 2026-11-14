@@ -65,5 +65,9 @@
   "undo": "Rückgängig",
   "unknown": "unbekannt",
   "diagnostic_step_status": "Schritt {step} von {total}: {label}",
-  "checks_failed": "{failed} von {total} Prüfungen nicht bestanden: {labels}."
+  "checks_failed": "{failed} von {total} Prüfungen nicht bestanden: {labels}.",
+  "checks_passed": "Alle {total} Prüfungen bestanden.",
+  "check_passed": "Die Prüfung wurde bestanden.",
+  "map_your_location": "Ihr Standort",
+  "map_sighting": "Ort der Sichtung"
 }

@@ -118,7 +118,7 @@
             <span class="hidden items-center gap-1 sm:flex">
                 {#each pageNumbers() as page}
                     {#if page === 'ellipsis'}
-                        <span class="px-2 text-slate-400 dark:text-slate-500">...</span>
+                        <span class="px-2 text-slate-600 dark:text-slate-400">...</span>
                     {:else}
                         <button
                             onclick={() => goToPage(page)}

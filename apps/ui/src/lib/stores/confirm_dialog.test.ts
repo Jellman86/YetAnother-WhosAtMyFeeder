@@ -32,4 +32,14 @@ describe('in-app confirmation', () => {
         expect(confirmDialog.current?.tone).toBe('danger');
         confirmDialog.answer(false);
     });
+
+    it('lets a prompt name its safe answer, and says Cancel when it does not', () => {
+        void confirmAction({ ...request, cancelLabel: 'Stay' });
+        expect(confirmDialog.current?.cancelLabel).toBe('Stay');
+        confirmDialog.answer(false);
+        void confirmAction(request);
+        // Empty means the dialog falls back to its translated Cancel.
+        expect(confirmDialog.current?.cancelLabel).toBe('');
+        confirmDialog.answer(false);
+    });
 });

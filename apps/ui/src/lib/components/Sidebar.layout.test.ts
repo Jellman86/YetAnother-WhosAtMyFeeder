@@ -75,7 +75,9 @@ describe('Sidebar hybrid refresh', () => {
         // The readout has a row of its own, above the System health link when there is one.
         expect(sidebarSource).toContain('<span class="mt-1 block h-4" aria-hidden="true"></span>');
         expect(sidebarSource).toContain('relative overflow-hidden');
-        expect(sidebarSource).toContain('relative z-10');
+        // The tiles sit above the stretched System health link, so each keeps its own tooltip.
+        expect(sidebarSource).toContain('<div class="relative z-20">');
+        expect(sidebarSource).toContain('after:absolute after:-inset-3 after:z-10');
     });
 
     it('samples telemetry only while the status card is actually visible', () => {

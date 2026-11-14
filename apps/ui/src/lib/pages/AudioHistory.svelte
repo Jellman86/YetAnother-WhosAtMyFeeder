@@ -388,7 +388,7 @@
         <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
             {$_('audio.not_shared_title', { default: 'Audio is not shared publicly' })}
         </p>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
             {$_('audio.not_shared_body', { default: 'The owner of this instance has turned off audio for visitors.' })}
         </p>
     </section>
@@ -398,24 +398,24 @@
     <section class="border-y border-slate-200/80 dark:border-slate-800" data-audio-history-summary aria-label={$_('audio.history.title')}>
         <dl class="grid grid-cols-2 lg:grid-cols-4">
             <div class="border-b border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.heard', { default: 'Heard' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{(summary?.total ?? 0).toLocaleString()}</dd>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET detections in view' })}</p>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.heard_sub', { default: 'BirdNET detections in view' })}</dd>
             </div>
             <div class="border-b border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5 lg:border-b-0 lg:border-r">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.species', { default: 'Species' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary?.species_count ?? 0}</dd>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Audio-derived species' })}</p>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.species_sub', { default: 'Audio-derived species' })}</dd>
             </div>
             <div class="border-r border-slate-200/80 px-3 py-4 dark:border-slate-800 sm:px-5">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.peak_hour', { default: 'Peak hour' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{peakHour ? hourLabel(peakHour.hour) : '—'}</dd>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</p>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{peakHour ? $_('audio.stat.peak_hour_sub', { values: { count: peakHour.count }, default: '{count, plural, one {# detection} other {# detections}}' }) : $_('audio.stat.no_activity', { default: 'No activity yet' })}</dd>
             </div>
             <div class="px-3 py-4 sm:px-5">
-                <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
+                <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.stat.sources', { default: 'Sources' })}</dt>
                 <dd class="mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{summary?.source_count ?? 0}</dd>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</p>
+                <dd class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('audio.stat.sources_sub', { default: 'Microphones or streams' })}</dd>
             </div>
         </dl>
     </section>
@@ -423,8 +423,8 @@
     <section class="border-b border-slate-200/80 pb-6 dark:border-slate-800" data-audio-history-filters>
         <form class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-[9rem_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(12rem,1.2fr)_auto]" onsubmit={applyFilters}>
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
-                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-brand-500">
+                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.filter.window', { default: 'Window' })}</span>
+                <select bind:value={days} class="select-base min-h-11 font-semibold focus-visible:ring-2 focus-visible:ring-focus">
                     <option value={1}>{$_('audio.filter.24h', { default: '24 hours' })}</option>
                     <option value={7}>{$_('audio.filter.7d', { default: '7 days' })}</option>
                     <option value={30}>{$_('audio.filter.30d', { default: '30 days' })}</option>
@@ -433,23 +433,23 @@
                 </select>
             </label>
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
-                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-brand-500" placeholder="Dunnock" />
+                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.filter.species', { default: 'Species' })}</span>
+                <input bind:value={speciesFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder="Dunnock" />
             </label>
             <label class="space-y-1.5">
-                <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
-                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-brand-500" placeholder="BirdCam" />
+                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('audio.filter.source', { default: 'Source' })}</span>
+                <input bind:value={sourceFilter} class="input-base min-h-11 focus-visible:ring-2 focus-visible:ring-focus" placeholder="BirdCam" />
             </label>
             <label class="space-y-1.5">
-                <span class="flex justify-between gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <span class="flex justify-between gap-2 text-xs font-semibold text-slate-600 dark:text-slate-400">
                     <span>{$_('audio.filter.min_confidence', { default: 'Min confidence' })}</span>
                     <span class="tabular-nums text-brand-700 dark:text-brand-300">{confidencePercent(minConfidence)}</span>
                 </span>
-                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500" />
+                <input bind:value={minConfidence} type="range" min="0" max="1" step="0.05" class="min-h-11 w-full accent-brand-600 focus-visible:ring-2 focus-visible:ring-focus" />
             </label>
             <div class="flex items-end gap-2 md:col-span-2 xl:col-span-1">
-                <button type="submit" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
-                <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-brand-500 xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
+                <button type="submit" class="btn btn-primary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-focus xl:flex-none" disabled={loading}>{$_('common.apply', { default: 'Apply' })}</button>
+                <button type="button" class="btn btn-secondary min-h-11 flex-1 px-4 focus-visible:ring-2 focus-visible:ring-focus xl:flex-none" onclick={clearFilters} disabled={loading}>{$_('common.clear', { default: 'Clear' })}</button>
             </div>
         </form>
         <p class="{filtersChanged ? 'mt-3' : ''} text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-audio-filters-changed>{filtersChanged ? $_('audio.filter.changed', { default: 'Filters changed. Apply to update the list.' }) : ''}</p>
@@ -457,14 +457,14 @@
 
     <section class="space-y-5" data-audio-history-log>
         {#if authStore.canModify}
-            <p class="text-sm text-slate-500 dark:text-slate-400">{$_('audio.history.local_only')}</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">{$_('audio.history.local_only')}</p>
             {#if lastHiddenId !== null}
                 <div class="flex items-center justify-between gap-3 rounded-lg border border-slate-300 p-3 dark:border-slate-700" role="status">
                     <span>{$_('audio.history.hidden_message')}</span>
                     <button type="button" class="btn btn-secondary min-h-11" disabled={changingVisibility} onclick={() => { if (lastHiddenId !== null) void changeVisibility(lastHiddenId, false); }}>{$_('audio.history.undo')}</button>
                 </div>
             {/if}
-            {#if visibilityError}<p class="text-sm text-red-600 dark:text-red-300" role="alert">{visibilityError}</p>{/if}
+            {#if visibilityError}<p class="text-sm text-red-700 dark:text-red-300" role="alert">{visibilityError}</p>{/if}
         {/if}
 
         <div class="flex items-start justify-between gap-4">
@@ -475,11 +475,11 @@
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h3>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
+                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">{$_('audio.history.title', { default: 'Detection history' })}</h2>
+                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{$_('audio.history.sub', { default: 'Persisted BirdNET-Go detections, separate from visual visits.' })}</p>
                 </div>
             </div>
-            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={() => void loadAudioHistory()} disabled={loading}>
+            <button type="button" class="btn btn-secondary min-h-11 flex-none px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()} disabled={loading}>
                 <svg aria-hidden="true" class="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20 12a8 8 0 10-2.34 5.66M20 12v-5m0 5h-5" /></svg>
                 {$_('common.refresh', { default: 'Refresh' })}
             </button>
@@ -488,7 +488,7 @@
         {#if error}
             <div role="alert" class="flex flex-col gap-3 border-y border-red-200 bg-red-50/70 px-4 py-4 text-sm font-semibold text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200 sm:flex-row sm:items-center sm:justify-between">
                 <span>{error}</span>
-                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-brand-500" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
+                <button type="button" class="btn btn-secondary min-h-11 px-4 focus-visible:ring-2 focus-visible:ring-focus" onclick={() => void loadAudioHistory()}>{$_('common.retry')}</button>
             </div>
         {:else if loading}
             <div class="space-y-1 border-y border-slate-200/80 py-2 dark:border-slate-800" aria-label={$_('common.loading', { default: 'Loading' })}>
@@ -497,13 +497,13 @@
                 {/each}
             </div>
         {:else if detections.length === 0}
-            <div class="border-y border-dashed border-slate-300 px-4 py-12 text-center text-sm font-semibold text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <div class="border-y border-dashed border-slate-300 px-4 py-12 text-center text-sm font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                 {$_('audio.history.empty', { default: 'No BirdNET detections match these filters.' })}
             </div>
         {:else}
             <table class="block w-full text-sm md:table" data-audio-history-table>
                 <thead class="hidden border-y border-slate-200/80 md:table-header-group dark:border-slate-800">
-                    <tr class="text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    <tr class="text-left text-xs font-semibold text-slate-600 dark:text-slate-400">
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.sound', { default: 'Sound' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.species', { default: 'Species' })}</th>
                         <th scope="col" class="py-3 pr-4">{$_('audio.table.time', { default: 'Time' })}</th>
@@ -521,14 +521,14 @@
                             <td class="row-span-2 flex items-center md:table-cell md:w-28 md:py-3 md:pr-4">
                                 {#if spec}
                                     {#if link}
-                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
+                                        <a href={link} target="_blank" rel="noopener noreferrer" class="block min-h-11 rounded-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus" title={$_('audio.table.open_birdnet', { default: 'Open in BirdNET-Go' })}>
                                             <img data-audio-spectrogram src={spec} alt={specAlt} loading="lazy" onerror={() => markSpectrogramFailed(detection.birdnet_id)} class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                         </a>
                                     {:else}
                                         <img data-audio-spectrogram src={spec} alt={specAlt} loading="lazy" onerror={() => markSpectrogramFailed(detection.birdnet_id)} class="h-12 w-20 rounded-md object-cover ring-1 ring-slate-200 md:w-24 dark:ring-slate-700" />
                                     {/if}
                                 {:else}
-                                    <div class="flex h-12 w-20 items-center justify-center rounded-md bg-slate-100 text-slate-400 md:w-24 dark:bg-slate-800 dark:text-slate-500">
+                                    <div class="flex h-12 w-20 items-center justify-center rounded-md bg-slate-100 text-slate-500 md:w-24 dark:bg-slate-800 dark:text-slate-400">
                                         <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" /></svg>
                                     </div>
                                 {/if}
@@ -540,7 +540,7 @@
                                         <a
                                             data-audio-visual-match-link
                                             href={toAppPath(`/events?event=${encodeURIComponent(detection.matched_visual_event_id)}`)}
-                                            class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-500/10 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-400/10 dark:hover:text-brand-200"
+                                            class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-700 transition hover:bg-brand-500/10 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-brand-300 dark:hover:bg-brand-400/10 dark:hover:text-brand-200"
                                             aria-label={$_('audio.table.open_visual_match')}
                                             title={$_('audio.table.open_visual_match')}
                                         >
@@ -552,11 +552,11 @@
                                     {/if}
                                 </span>
                             </td>
-                            <td class="col-start-2 row-start-2 min-w-0 self-start text-xs text-slate-500 md:table-cell md:whitespace-nowrap md:py-3 md:pr-4 md:text-sm dark:text-slate-400">
+                            <td class="col-start-2 row-start-2 min-w-0 self-start text-xs text-slate-600 md:table-cell md:whitespace-nowrap md:py-3 md:pr-4 md:text-sm dark:text-slate-400">
                                 <span class="md:font-bold">{formatDate(detection.timestamp)}</span>
                                 <span class="before:mx-1 before:content-['·'] md:block md:before:content-none">{formatTime(detection.timestamp, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                             </td>
-                            <td class="col-start-3 row-start-2 max-w-28 self-start truncate text-right text-xs text-slate-500 md:table-cell md:max-w-48 md:py-3 md:pr-4 md:text-left md:text-sm dark:text-slate-400">
+                            <td class="col-start-3 row-start-2 max-w-28 self-start truncate text-right text-xs text-slate-600 md:table-cell md:max-w-48 md:py-3 md:pr-4 md:text-left md:text-sm dark:text-slate-400">
                                 {detection.source_name || detection.sensor_id || $_('audio.table.unknown_source', { default: 'Unknown source' })}
                             </td>
                             <td class="col-start-3 row-start-1 self-end whitespace-nowrap text-right md:table-cell md:py-3">
@@ -571,11 +571,11 @@
                     {/each}
                 </tbody>
             </table>
-            <div class="flex flex-col gap-3 border-b border-slate-200/80 py-4 text-sm font-semibold text-slate-500 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
+            <div class="flex flex-col gap-3 border-b border-slate-200/80 py-4 text-sm font-semibold text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:text-slate-400">
                 <span class="tabular-nums">{$_('audio.history.showing', { values: { from: offset + 1, to: Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0), total: history?.total ?? 0 }, default: `Showing ${offset + 1}-${Math.min(offset + (history?.items.length ?? 0), history?.total ?? 0)} of ${history?.total ?? 0}` })}</span>
                 <div class="grid grid-cols-2 gap-2 sm:flex">
-                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
-                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-brand-500" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus" onclick={previousPage} disabled={!canPrevious}>{$_('common.previous', { default: 'Previous' })}</button>
+                    <button type="button" class="btn btn-secondary min-h-11 px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus" onclick={nextPage} disabled={!canNext}>{$_('common.next', { default: 'Next' })}</button>
                 </div>
             </div>
         {/if}
@@ -589,13 +589,13 @@
                 </svg>
             </div>
             <div>
-                <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('leaderboard.analytics_section')}</h3>
-                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{$_('audio.chart.daily_sub', { default: 'BirdNET-Go detections heard per day' })}</p>
+                <h2 class="text-xl font-bold text-slate-900 dark:text-white">{$_('leaderboard.analytics_section')}</h2>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{$_('audio.chart.daily_sub', { default: 'BirdNET-Go detections heard per day' })}</p>
             </div>
         </div>
 
         <section class="min-w-0 border-y border-slate-200/80 py-6 dark:border-slate-800">
-            <h4 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.daily_title', { default: 'Activity over time' })}</h4>
+            <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.daily_title', { default: 'Activity over time' })}</h3>
             {#if loading}
                 <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
             {:else if hasDaily}
@@ -603,13 +603,13 @@
                     <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={dailyChartConfig()} aria-label={$_('audio.chart.daily_title', { default: 'Activity over time' })}></canvas></div>
                 {/key}
             {:else}
-                <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
             {/if}
         </section>
 
         <div class="grid min-w-0 border-b border-slate-200/80 lg:grid-cols-2 lg:divide-x lg:divide-slate-200/80 dark:border-slate-800 dark:lg:divide-slate-800">
             <section class="min-w-0 border-b border-slate-200/80 py-6 lg:border-b-0 lg:pr-6 dark:border-slate-800">
-                <h4 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.hourly_title', { default: 'Time of day' })}</h4>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.hourly_title', { default: 'Time of day' })}</h3>
                 {#if loading}
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasHourly}
@@ -617,11 +617,11 @@
                         <div class="relative mt-3 h-[240px] w-full"><canvas use:chartjs={hourlyChartConfig()} aria-label={$_('audio.chart.hourly_title', { default: 'Time of day' })}></canvas></div>
                     {/key}
                 {:else}
-                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
                 {/if}
             </section>
             <section class="min-w-0 py-6 lg:pl-6">
-                <h4 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.species_title', { default: 'Species mix' })}</h4>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.chart.species_title', { default: 'Species mix' })}</h3>
                 {#if loading}
                     <div class="mt-3 h-[240px] animate-pulse bg-slate-100/80 dark:bg-slate-800/60"></div>
                 {:else if hasSpecies}
@@ -629,7 +629,7 @@
                         <div class="relative mt-3 chart-h w-full"><canvas use:chartjs={speciesDonutConfig()} bind:this={speciesChartEl} aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}></canvas></div>
                         <div class="mt-2 flex flex-wrap justify-center gap-2" role="group" aria-label={$_('audio.chart.species_title', { default: 'Species mix' })}>
                             {#each (summary?.top_species ?? []).slice(0, 8) as item, index}
-                                <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
+                                <button type="button" class="btn btn-ghost min-h-9 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-focus {hiddenChartSpecies.includes(index) ? 'opacity-45 line-through' : ''}"
                                     aria-pressed={!hiddenChartSpecies.includes(index)} aria-label="{hiddenChartSpecies.includes(index) ? $_('common.show') : $_('common.hide')} {item.species}" onclick={() => toggleSpeciesSlice(index)}>
                                     <span class="h-2.5 w-2.5 rounded-xs" style="background-color: {audioSpeciesColor(index)}"></span>{item.species}
                                 </button>
@@ -637,14 +637,14 @@
                         </div>
                     {/key}
                 {:else}
-                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-400 dark:text-slate-500">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
+                    <div class="flex h-[240px] items-center justify-center text-sm font-semibold text-slate-600 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</div>
                 {/if}
             </section>
         </div>
 
         <div class="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
             <section>
-                <h4 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h4>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.top_species', { default: 'Top heard species' })}</h3>
                 {#if hasSpecies}
                     <ol class="mt-4 grid border-y border-slate-200/80 sm:grid-cols-2 dark:border-slate-800">
                         {#each (summary?.top_species ?? []).slice(0, 6) as item, index}
@@ -654,50 +654,49 @@
                                     type="button"
                                     data-audio-top-species-button
                                     onclick={() => selectedSpecies = item.species}
-                                    aria-label={$_('leaderboard.view_species', { values: { species: item.species } })}
-                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:hover:bg-slate-800/35"
+                                    class="group flex min-h-11 w-full items-center gap-3 py-3 text-left transition-colors hover:bg-slate-50/80 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/35"
                                 >
-                                    <span class="w-6 flex-none text-center text-xs font-bold tabular-nums text-slate-400 dark:text-slate-500">{index + 1}</span>
+                                    <span class="w-6 flex-none text-center text-xs font-bold tabular-nums text-slate-600 dark:text-slate-400">{index + 1}</span>
                                     <span class="h-11 w-11 flex-none overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                         {#if thumb}
-                                            <img src={thumb} alt={item.species} loading="lazy" class="h-full w-full object-cover" />
+                                            <img src={thumb} alt="" loading="lazy" class="h-full w-full object-cover" />
                                         {:else}
-                                            <span class="flex h-full w-full items-center justify-center text-slate-400 dark:text-slate-500">
+                                            <span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400">
                                                 <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3a4 4 0 00-4 4v4a4 4 0 008 0V7a4 4 0 00-4-4Z M6 11a6 6 0 0012 0 M12 17v4 M9 21h6" /></svg>
                                             </span>
                                         {/if}
                                     </span>
                                     <span class="min-w-0 flex-1">
                                         <span class="block truncate font-bold text-slate-900 transition-colors group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.species}</span>
-                                        <span class="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}</span>
+                                        <span class="mt-0.5 block truncate text-xs text-slate-600 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {item.last_heard ? formatDateTime(item.last_heard) : '—'}</span>
                                     </span>
                                     <span class="flex-none text-right">
                                         <span class="block font-bold tabular-nums text-brand-700 dark:text-brand-300">{item.count.toLocaleString()}</span>
-                                        <span class="block text-xs font-semibold tabular-nums text-slate-500 dark:text-slate-400">{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
+                                        <span class="block text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-400">{$_('audio.card.avg', { default: 'avg' })} {confidencePercent(item.avg_confidence)}</span>
                                     </span>
-                                    <svg aria-hidden="true" class="h-4 w-4 flex-none text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-slate-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                                    <svg aria-hidden="true" class="h-4 w-4 flex-none text-slate-500 transition-transform group-hover:translate-x-0.5 dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                                 </button>
                             </li>
                         {/each}
                     </ol>
                 {:else}
-                    <p class="mt-4 border-y border-slate-200/80 py-6 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</p>
+                    <p class="mt-4 border-y border-slate-200/80 py-6 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-400">{$_('audio.chart.empty', { default: 'No activity in this window.' })}</p>
                 {/if}
             </section>
 
             <section class="lg:border-l lg:border-slate-200/80 lg:pl-8 dark:lg:border-slate-800">
-                <h4 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.sources.title', { default: 'Sources' })}</h4>
+                <h3 class="text-base font-bold text-slate-900 dark:text-white">{$_('audio.sources.title', { default: 'Sources' })}</h3>
                 <div class="mt-4 divide-y divide-slate-200/80 border-y border-slate-200/80 dark:divide-slate-800 dark:border-slate-800">
                     {#each (summary?.sources ?? []).slice(0, 8) as item}
                         <div class="flex items-center justify-between gap-3 py-3">
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{item.source_name}</p>
-                                <p class="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
+                                <p class="mt-0.5 truncate text-xs text-slate-600 dark:text-slate-400">{$_('audio.card.last_heard', { default: 'Last heard' })} {formatDateTime(item.last_heard)}</p>
                             </div>
                             <span class="flex-none text-sm font-bold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span>
                         </div>
                     {:else}
-                        <p class="py-6 text-sm text-slate-500 dark:text-slate-400">{$_('audio.sources.empty', { default: 'No sources yet.' })}</p>
+                        <p class="py-6 text-sm text-slate-600 dark:text-slate-400">{$_('audio.sources.empty', { default: 'No sources yet.' })}</p>
                     {/each}
                 </div>
             </section>

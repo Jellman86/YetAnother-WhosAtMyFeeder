@@ -43,7 +43,7 @@
     <button
         onclick={() => showDropdown = !showDropdown}
         class={compact
-            ? 'btn btn-ghost min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring'
+            ? 'btn btn-ghost min-h-11 min-w-11 p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all duration-200 focus-ring'
             : 'btn btn-ghost min-h-11 min-w-11 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all duration-200 focus-ring'}
         aria-label={languageNames[currentLocaleValue || 'en'] || 'English'}
         title={compact ? (languageNames[currentLocaleValue || 'en'] || 'English') : undefined}

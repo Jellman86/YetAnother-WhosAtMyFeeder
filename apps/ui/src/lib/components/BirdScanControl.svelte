@@ -159,12 +159,12 @@
                                 <span class="absolute inset-0 animate-pulse rounded-full bg-brand-500/35 motion-reduce:animate-none"></span>
                             {/if}
                         </span>
-                        <span class="mt-1 block truncate text-2xs font-semibold {current ? 'text-brand-700 dark:text-brand-300' : part >= 1 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500'}" aria-hidden="true">{stepLabels[index]}</span>
+                        <span class="mt-1 block truncate text-2xs font-semibold {current ? 'text-brand-700 dark:text-brand-300' : part >= 1 ? 'text-slate-600 dark:text-slate-300' : 'text-slate-600 dark:text-slate-400'}" aria-hidden="true">{stepLabels[index]}</span>
                     </span>
                 {/each}
             </div>
             {#if elapsed !== null}
-                <span class="shrink-0 pt-px text-2xs font-semibold tabular-nums text-slate-500 dark:text-slate-400" aria-hidden="true">{$_('detection.bird_scan.elapsed', { values: { seconds: elapsed }, default: '{seconds}s' })}</span>
+                <span class="shrink-0 pt-px text-2xs font-semibold tabular-nums text-slate-600 dark:text-slate-400" aria-hidden="true">{$_('detection.bird_scan.elapsed', { values: { seconds: elapsed }, default: '{seconds}s' })}</span>
             {/if}
         </div>
     {/if}

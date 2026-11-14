@@ -118,6 +118,7 @@
     "shared_today": "Today at this feeder.",
     "shared_days": "The last {days} days at this feeder.",
     "empty": "No visits recorded yet. This fills in as birds arrive.",
+    "no_latest": "No picture of a recent visit to show yet.",
     "visits": "visits",
     "species": "species",
     "busiest_day": "Busiest day",

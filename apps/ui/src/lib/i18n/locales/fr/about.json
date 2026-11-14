@@ -118,6 +118,7 @@
     "shared_today": "Aujourd’hui à cette mangeoire.",
     "shared_days": "Les {days} derniers jours à cette mangeoire.",
     "empty": "Aucune visite enregistrée pour l’instant. Cela se remplit à mesure que les oiseaux arrivent.",
+    "no_latest": "Aucune image d’une visite récente à afficher pour l’instant.",
     "visits": "visites",
     "species": "espèces",
     "busiest_day": "Journée la plus animée",

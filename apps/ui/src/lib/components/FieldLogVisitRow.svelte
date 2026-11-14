@@ -147,7 +147,7 @@
         <!-- The time is the visit's handle: it opens the captures that make the visit. -->
         <button
             type="button"
-            class="-mx-1 min-h-11 self-stretch rounded-lg px-1 text-left text-xs font-medium tabular-nums {cell.time} text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-200 dark:hover:bg-slate-800/60 dark:hover:text-white"
+            class="-mx-1 min-h-11 self-stretch rounded-lg px-1 text-left text-xs font-medium tabular-nums {cell.time} text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-200 dark:hover:bg-slate-800/60 dark:hover:text-white"
             aria-expanded={expanded}
             aria-controls={listId}
             aria-label="{span}, {capturesText}"
@@ -157,7 +157,7 @@
             <span class="block">{span}</span>
         </button>
     {:else}
-        <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400 {cell.time}">{span}</span>
+        <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400 {cell.time}">{span}</span>
     {/if}
 
     <span class="relative flex h-full justify-center {cell.node}" aria-hidden="true">
@@ -189,7 +189,7 @@
             {naming.primary}
         </p>
         <!-- Wraps rather than truncates, so a marker is never cut off behind the name. -->
-        <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+        <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(score)]}">{percent(score)}%</span>
             {#if showCamera}
                 <span class="wrap-break-word" data-field-log-camera>{visit.camera}</span>
@@ -256,7 +256,7 @@
         </span>
         {#if captureCount > 1}
             <!-- A visit's score is its best capture's, the one its photo comes from. -->
-            <span class="text-3xs text-slate-500 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
+            <span class="text-3xs text-slate-600 dark:text-slate-400" data-field-log-best-capture>{$_('visits.best_capture', { default: 'best capture' })}</span>
         {/if}
     </span>
 
@@ -266,7 +266,7 @@
                  height. Its label says what it does; the count says how much it holds. -->
             <button
                 type="button"
-                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 {expanded
+                class="hidden min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border px-2 text-xs log-wide:inline-flex font-semibold tabular-nums transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {expanded
                     ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-700 dark:bg-brand-950/40 dark:text-brand-300'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-brand-300'}"
                 aria-expanded={expanded}
@@ -315,12 +315,12 @@
         <div class="col-[3/-1] -mt-1 min-w-0 log-wide:col-[4/-1] log-narrow:col-[2/-1]" data-field-log-footer>
             <button
                 type="button"
-                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-brand-300"
+                class="-ml-2 inline-flex min-h-11 items-center gap-1.5 rounded-lg px-2 text-left text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/60 dark:hover:text-brand-300"
                 aria-label={$_('dashboard.field_log.birds_open', { values: { summary: text }, default: '{summary}, open that capture' })}
                 onclick={() => onselect?.(birds.detection)}
                 data-field-log-birds={birds.summary.counted}
             >
-                <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3M14 17.75V21" />
                 </svg>
@@ -339,7 +339,7 @@
         >
             <li class="col-span-full grid grid-cols-subgrid" data-visit-captures-caption>
                 <span class="log-narrow:hidden"></span>{@render branch(null)}
-                <p class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-2xs text-slate-500 dark:text-slate-400">
+                <p class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-2xs text-slate-600 dark:text-slate-400">
                     {$_('visits.captures_caption', { default: 'Captures in this visit, oldest first.' })}
                 </p>
             </li>
@@ -350,7 +350,7 @@
                 {@const captureNaming = names(capture)}
                 <li class="col-span-full grid grid-cols-subgrid items-center py-0.5" data-visit-capture={capture.frigate_event}>
                     <!-- A step smaller on phones, where the time column is narrowest and seconds must still fit. -->
-                    <time class="block text-3xs tabular-nums text-slate-500 log-wide:text-2xs dark:text-slate-400 {cell.time}" datetime={capture.detection_time}>{time}</time>
+                    <time class="block text-3xs tabular-nums text-slate-600 log-wide:text-2xs dark:text-slate-400 {cell.time}" datetime={capture.detection_time}>{time}</time>
                     {@render branch(
                         'capture',
                         server && captureFacts(capture, server).shown
@@ -370,9 +370,9 @@
                         <!-- Quieter than the visit above it: a capture is a moment of the visit. -->
                         <button type="button" class="block min-h-11 w-full rounded-lg text-left focus-ring" onclick={() => onselect?.(capture)}>
                             <span class="block wrap-break-word text-[0.8125rem] font-medium leading-5 text-slate-700 dark:text-slate-200">{captureNaming.primary}</span>
-                            {#if captureNaming.secondary}<span class="block wrap-break-word text-2xs italic text-slate-500 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
+                            {#if captureNaming.secondary}<span class="block wrap-break-word text-2xs italic text-slate-600 dark:text-slate-400">{captureNaming.secondary}</span>{/if}
                         </button>
-                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-500 dark:text-slate-400">
+                        <p class="flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
                             <span class="font-bold tabular-nums log-wide:hidden {SCORE_TEXT[scoreBand(captureScore)]}" data-visit-capture-score>{percent(captureScore)}%</span>
                             {#each notes as note (note.text)}
                                 <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
@@ -386,7 +386,7 @@
                         {#if onplay && capture.has_clip}
                             <button
                                 type="button"
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-brand-400"
+                                class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
                                 aria-label={$_('detection.play_video', { values: { species: `${captureNaming.primary}, ${time}` } })}
                                 onclick={() => onplay?.(capture)}
                             >
@@ -411,7 +411,7 @@
             {#if list.loading}
                 <li class="col-span-full grid grid-cols-subgrid">
                     <span class="log-narrow:hidden"></span>{@render branch(null)}
-                    <p role="status" class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-xs text-slate-500 dark:text-slate-400 {list.captures.length === 0 ? 'sr-only' : ''}">
+                    <p role="status" class="col-[3/-1] log-narrow:col-[2/-1] py-1 text-xs text-slate-600 dark:text-slate-400 {list.captures.length === 0 ? 'sr-only' : ''}">
                         {$_('common.loading')}
                     </p>
                 </li>
@@ -426,7 +426,7 @@
             {:else if list.loaded && list.captures.length === 0}
                 <li class="col-span-full grid grid-cols-subgrid">
                     <span class="log-narrow:hidden"></span>{@render branch(null)}
-                    <p class="col-[3/-1] log-narrow:col-[2/-1] py-2 text-xs text-slate-500 dark:text-slate-400">
+                    <p class="col-[3/-1] log-narrow:col-[2/-1] py-2 text-xs text-slate-600 dark:text-slate-400">
                         {$_('visits.captures_empty', { default: 'No captures from this visit are visible in this view.' })}
                     </p>
                 </li>
@@ -437,7 +437,7 @@
                         <button type="button" class="btn btn-secondary min-h-11 px-3 text-xs" onclick={() => void list.load()}>
                             {$_('visits.load_more', { default: 'Load more captures' })}
                         </button>
-                        <p class="text-2xs tabular-nums text-slate-500 dark:text-slate-400">
+                        <p class="text-2xs tabular-nums text-slate-600 dark:text-slate-400">
                             {$_('visits.loaded_of_total', { values: { shown: list.captures.length, total: list.total }, default: '{shown} of {total} captures shown' })}
                         </p>
                     </div>

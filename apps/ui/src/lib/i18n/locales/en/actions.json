@@ -8,6 +8,7 @@
   "delete_detection": "Delete this visit permanently",
   "hide_detection": "Hide Detection",
   "unhide_detection": "Unhide Detection",
+  "unhide": "Unhide",
   "read_more_wikipedia": "Read more on Wikipedia",
   "read_more_source": "Read more on {source}",
   "delete_selected": "Delete Selected",

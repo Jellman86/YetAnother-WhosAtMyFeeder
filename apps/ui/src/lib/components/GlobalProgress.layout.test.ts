@@ -57,6 +57,6 @@ describe('global progress colour', () => {
         // layout-patterns 1.3: amber says "this needs a person"; a job in flight needs nobody.
         expect(progressSource).not.toContain('accent-');
         expect(progressSource).toContain('bg-brand-500');
-        expect(progressSource).toContain('text-amber-600');
+        expect(progressSource).toContain('text-amber-700');
     });
 });

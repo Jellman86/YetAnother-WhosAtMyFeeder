@@ -47,7 +47,8 @@
         onMobileClose?.();
     }
 
-    let collapsed = $derived(layoutStore.sidebarCollapsed);
+    // The icon rail is a desktop layout; a phone drawer always shows its labels.
+    let collapsed = $derived(layoutStore.sidebarCollapsed && !isMobile);
     let accountInitial = $derived((authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase());
     // The picture is fetched with the owner's credentials; a guest or signed-out viewer has none.
     $effect(() => {
@@ -176,7 +177,8 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
                             </svg>
                             {#if !collapsed}
-                                <span class="truncate text-base">{item.label}</span>
+                                <!-- A long label wraps onto a second line (German "Beobachtung hinzufügen") rather than losing its end. -->
+                                <span class="min-w-0 hyphens-auto text-base leading-tight wrap-break-word">{item.label}</span>
                             {/if}
                         </button>
                     {/each}
@@ -186,46 +188,43 @@
     </nav>
 
     {#if !collapsed}
-        {#snippet statusCard(linked: boolean)}
-            <SystemTelemetryGraph readoutClass={linked ? 'bottom-8 left-3' : 'bottom-3 left-3'} />
-            <div class="relative z-10">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <span class="eyebrow">
-                        {$_('status.title')}
-                    </span>
-                </div>
-                {@render status?.()}
-                <!-- A row of its own for the live CPU and accelerator readout, so it never draws over
-                     the tiles or the System health link below it. -->
-                <span class="mt-1 block h-4" aria-hidden="true"></span>
-                {#if linked}
-                    <span class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors group-hover:text-brand-700 dark:group-hover:text-brand-300">
-                        {$_('status.open_health', { default: 'System health' })}
-                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                    </span>
-                {/if}
-            </div>
-        {/snippet}
+        <!-- The card names the owner's System health; a guest cannot reach it, so for a guest there is no
+             link. The link is the words at the foot of the card and its hit area is stretched over the
+             card, so its name is exactly what it shows. The tiles sit above that area: each is a live
+             status with its own tooltip, not part of the link's name. -->
         <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
-            <!-- The card opens the owner's System health; a guest cannot reach it, so for a guest the card stays a card. -->
-            {#if authStore.showSettings}
-                <a
-                    href="/settings/health"
-                    class="group relative block cursor-pointer overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors hover:border-brand-400/70 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:border-brand-400/60"
-                    aria-label={$_('status.open_health', { default: 'System health' })}
-                    data-sidebar-status-link
-                    onclick={(event) => {
-                        event.preventDefault();
-                        navigateAndClose('/settings/health');
-                    }}
-                >
-                    {@render statusCard(true)}
-                </a>
-            {:else}
-                <div class="relative overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3">
-                    {@render statusCard(false)}
+            <section
+                class="relative overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors has-[a:hover]:border-brand-400/70 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-focus"
+                aria-labelledby="sidebar-status-title"
+                data-sidebar-status-card
+            >
+                <SystemTelemetryGraph readoutClass={authStore.showSettings ? 'bottom-8 left-3' : 'bottom-3 left-3'} />
+                <div class="relative">
+                    <p id="sidebar-status-title" class="eyebrow mb-2">
+                        {$_('status.title')}
+                    </p>
+                    <div class="relative z-20">
+                        {@render status?.()}
+                    </div>
+                    <!-- A row of its own for the live CPU and accelerator readout, so it never draws over
+                         the tiles or the System health link below it. -->
+                    <span class="mt-1 block h-4" aria-hidden="true"></span>
+                    {#if authStore.showSettings}
+                        <a
+                            href="/settings/health"
+                            class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors after:absolute after:-inset-3 after:z-10 hover:text-brand-700 focus-visible:text-brand-700 focus-visible:outline-hidden dark:hover:text-brand-300 dark:focus-visible:text-brand-300"
+                            data-sidebar-status-link
+                            onclick={(event) => {
+                                event.preventDefault();
+                                navigateAndClose('/settings/health');
+                            }}
+                        >
+                            {$_('status.open_health', { default: 'System health' })}
+                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        </a>
+                    {/if}
                 </div>
-            {/if}
+            </section>
         </div>
     {/if}
 
@@ -242,10 +241,10 @@
                     {/if}
                     <div class="min-w-0 flex-1">
                         <div class="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{authStore.username}</div>
-                        <div class="truncate text-xs text-slate-500 dark:text-slate-400">{$_('app.title')}</div>
+                        <div class="truncate text-xs text-slate-600 dark:text-slate-400">{$_('app.title')}</div>
                     </div>
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-red-50 hover:text-red-700 dark:text-slate-400 dark:hover:bg-red-900/30 dark:hover:text-red-400"
                         onclick={() => authStore.logout()}
                         title={$_('auth.logout')}
                         aria-label={$_('auth.logout')}
@@ -267,7 +266,7 @@
                         {$_('auth.public_view')}
                     </div>
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-500 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-400 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login')}
                         aria-label={$_('auth.login')}
@@ -281,7 +280,7 @@
         {:else}
             {#if authStore.isAuthenticated}
                 <button
-                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-red-600 dark:hover:text-red-400"
+                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-red-700 dark:hover:text-red-400"
                     onclick={() => authStore.logout()}
                     title={$_('auth.logout')}
                     aria-label={$_('auth.logout')}
@@ -309,7 +308,7 @@
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
             <LanguageSelector dropUp compact />
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => themeStore.toggle()}
                 title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
@@ -324,8 +323,10 @@
                     </svg>
                 {/if}
             </button>
+            <!-- Collapsing to an icon rail is a desktop choice; the phone drawer is either open or closed. -->
+            {#if !isMobile}
             <button
-                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
+                class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-xl p-2.5 text-slate-600 transition-all duration-200 hover:bg-surface-raised dark:text-slate-400"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
                 aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
@@ -338,6 +339,7 @@
                     {/if}
                 </svg>
             </button>
+            {/if}
         </div>
     </div>
 </aside>

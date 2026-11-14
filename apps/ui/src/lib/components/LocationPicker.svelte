@@ -97,7 +97,7 @@
 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
     <div bind:this={mapElement} class="h-64 w-full" aria-label={$_('manual_observation.location.map_label', { default: 'Map for placing the sighting pin' })}></div>
 </div>
-<p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+<p class="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-400">
     {$_('manual_observation.location.map_help', { default: 'Click or tap the map to place the pin. Drag it to make a precise adjustment.' })}
 </p>
 <p class="sr-only" aria-live="polite">{coordinateAnnouncement}</p>

@@ -51,6 +51,50 @@ The baseline checklist for every screen, feature, and flow:
 - **Robust** — **semantic HTML first**; add ARIA roles/names only to fill genuine gaps, never to
   paper over non-semantic markup.
 
+### Kit rules that keep AA true
+
+The kit in `apps/ui/src/app.css` carries the colours and sizes below, and
+`apps/ui/src/app.kit-contrast.test.ts` proves each one against the page, a panel and a well in
+both modes and both colour themes. A screen that uses the kit inherits the proof; a hand-rolled
+class does not. `apps/ui/src/lib/kit-accessibility-classes.test.ts` rejects the classes that broke
+these rules before.
+
+- **Focus is one opaque colour per mode.** Use `focus-ring` (or `ring-focus` on a hand-built
+  control): two opaque pixels of `--focus`, which is 3:1 or better against everything it can sit
+  beside. Never a translucent ring (`ring-brand-500/50` measured 1.6:1 on white) and never a raw
+  brand step, because teal and blue pass at different steps. A control over a photograph or on a
+  ground that stays dark in the light theme (the video player, the record terminal) uses
+  `focus-ring-on-dark`, `btn-on-dark` or `input-on-dark`.
+- **Muted text is `text-slate-600 dark:text-slate-400`.** Slate 500 passes on pure white only: on
+  a tinted row or the page ground it is 4.3 to 4.4:1. Slate 400 and lighter are for decoration
+  (a placeholder glyph, a separator dot), never for words on a light ground. Coloured small text
+  uses the 700 step on light (`text-brand-700`, `text-amber-700`, `text-red-700`).
+- **No readable text under 12px.** `text-3xs`, `text-2xs`, `text-xs` and `text-sm` are rem with a
+  12px floor, so they follow the reader's text size upward and never fall below 12px at the
+  Standard size (a 14px root) or a smaller one. Do not set type in px or with an arbitrary size.
+- **A button is a 44px target.** `btn` alone gives the height and padding; add a height or padding
+  utility only to change them. A control is never smaller than 24px in either direction.
+- **A switch is `switch-track` with a `switch-thumb` inside it.** The off track is 3:1 against
+  its ground, as visible as the on track; the thumb's side carries the state, so the state never
+  reads by colour alone; keyboard focus draws the kit ring.
+- **Words over a photograph use `photo-chip`.** White on a fill dark enough to pass 4.5:1 over a
+  white frame, with no blur, so legibility never depends on what the camera saw.
+- **A control's accessible name contains its visible words** (WCAG 2.5.3). Prefer no `aria-label`
+  at all when the content already names the control; when a label adds context, it starts with the
+  visible text ("Hide" on screen, "Hide detection" as the name).
+- **Lists, definition lists and regions keep their shape.** `role="status"` goes on a wrapper,
+  not on the `<ul>` it would turn into a non-list; a `<dl>` holds only `<dt>`/`<dd>` or `<div>`
+  groups of them; a dialog portalled to the body uses plain `<div>`s, not `<header>`/`<footer>`,
+  which would count as a second page banner and footer.
+- **Nothing changes by itself while it is being read.** No rotating text or carousel without a
+  pause control; a count or a status that updates is a live region, not an animation.
+- **The page declares its language.** `<html lang>` follows the language on screen.
+
+The Chromium suite runs axe-core over the main routes with data on them, in both themes
+(`apps/ui/browser-tests/accessibility.spec.ts`); a serious or critical violation fails the build.
+axe cannot assess focus order, target size or meaning carried by colour, so it is a floor under
+the manual checks above, not a replacement for them.
+
 ## 3. Visual craft — Refactoring UI
 
 - **Hierarchy through size, weight, and colour** — not size alone. Emphasise the primary action;

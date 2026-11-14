@@ -81,7 +81,10 @@
             </h1>
         </div>
 
-        <p class="flex max-w-full items-center gap-2 text-sm font-semibold" data-day-bar-feed={feed}>
+        <!-- On a phone the line has a row of its own, two lines tall, from the first paint: its
+             sentence grows from "Connecting" to a full reason once the broker's state is read, and
+             without the held row that pushes the whole Dashboard down. -->
+        <p class="flex min-h-10 max-w-full basis-full items-center gap-2 text-sm font-semibold sm:min-h-0 sm:basis-auto" data-day-bar-feed={feed}>
             <span
                 class="h-2 w-2 shrink-0 rounded-full {feedTone === 'live'
                     ? 'bg-success-500 ring-4 ring-success-500/20'
@@ -115,7 +118,7 @@
                         {#if value === null}{@render unmeasured(pending)}{:else}{value}{/if}
                     </span>
                     {#if note && value !== null}
-                        <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-500 dark:text-slate-400'}">{note}</span>
+                        <span class="min-w-0 wrap-break-word text-xs {tone === 'clear' ? 'text-success-700 dark:text-success-300' : 'text-slate-600 dark:text-slate-400'}">{note}</span>
                     {:else if noted && value === null && pending}
                         <span class="flex h-4 items-center" aria-hidden="true">
                             <span class="h-2.5 w-20 max-w-full rounded-sm bg-slate-200 animate-pulse motion-reduce:animate-none dark:bg-slate-700" data-loading-placeholder></span>

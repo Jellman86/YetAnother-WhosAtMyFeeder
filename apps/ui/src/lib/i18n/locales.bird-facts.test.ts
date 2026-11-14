@@ -68,16 +68,19 @@ describe('footer bird facts', () => {
         expect(en.footer.built_with_ai).toBe('Built with AI assistance, and a lot of trial and error');
     });
 
-    it('keeps a stable mobile footprint and honours reduced motion', () => {
+    it('keeps a stable mobile footprint', () => {
         expect(footerSource).toContain('min-h-28');
         expect(footerSource).toContain('sm:min-h-10');
-        expect(footerSource).toContain('motion-safe:transition-opacity');
-        expect(footerSource).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
     });
 
-    it('handles empty facts and clears both timers on teardown', () => {
-        expect(footerSource).toContain('if (birdFacts.length === 0) return;');
-        expect(footerSource).toContain('clearInterval(interval)');
-        expect(footerSource).toContain('clearTimeout(transitionTimeout)');
+    it('shows one fact per page load and never changes it while the page is read', () => {
+        // Text that turns over by itself needs a way to pause it (WCAG 2.2.2); the footer has none
+        // and does not need one, because it no longer moves.
+        expect(footerSource).not.toMatch(/setInterval|setTimeout/);
+        expect(footerSource).toContain('if (birdFacts.length > 0) currentFactIndex = Math.floor(Math.random() * birdFacts.length);');
+    });
+
+    it('keeps amber for work that needs a person, not for a bird fact', () => {
+        expect(footerSource).not.toMatch(/text-(?:amber|accent|attention)-/);
     });
 });

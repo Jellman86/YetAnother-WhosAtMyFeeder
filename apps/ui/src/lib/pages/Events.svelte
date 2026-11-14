@@ -2039,12 +2039,12 @@
         {/if}
         <!-- A key for the source badges on cards; a phone's narrow toolbar needs the room more. Beneath the
              search and toolbar on a desktop, where the search takes the start of the row. -->
-        <p class="hidden text-xs text-slate-500 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
+        <p class="hidden text-xs text-slate-600 sm:block lg:order-last lg:basis-full dark:text-slate-400">{$_('events.classification_legend')}</p>
         <div class="flex flex-wrap items-center gap-2">
             <!-- A count is stated only once measured; paging moves focus here so the new page is announced. -->
             <div
                 bind:this={countElement}
-                class="mr-1 basis-full rounded-sm text-sm text-slate-500 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 sm:basis-auto dark:text-slate-400"
+                class="mr-1 basis-full rounded-sm text-sm text-slate-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-focus sm:basis-auto dark:text-slate-400"
                 role="status"
                 tabindex="-1"
                 data-explorer-count={pane.count}
@@ -2079,7 +2079,7 @@
                 <a
                     data-explorer-audio-history-link
                     href={toAppPath('/audio')}
-                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
+                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus"
                 >
                     <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
@@ -2090,7 +2090,7 @@
             {#if audioHistoryAvailable && groupVisits && !selectionMode && !gardenOnly}
                 <button
                     type="button"
-                    class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {explorerHeardStore.enabled
+                    class="btn min-h-11 px-3 text-xs focus-visible:ring-2 focus-visible:ring-focus {explorerHeardStore.enabled
                         ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
                         : 'btn-secondary'}"
                     aria-pressed={explorerHeardStore.enabled}
@@ -2137,10 +2137,10 @@
                         aria-pressed={explorerView === option.value}
                         onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
                         data-explorer-view-toggle={option.value}
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus
                                {explorerView === option.value
                             ? 'bg-brand-700 text-white'
-                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
+                            : 'text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
                     >
                         {#if option.value === 'cards'}
                             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
@@ -2171,7 +2171,7 @@
                 <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-brand-700/80 dark:text-brand-100/80" role="status" data-explorer-selection-count>
+                <p class="text-xs text-brand-700 dark:text-brand-300" role="status" data-explorer-selection-count>
                     {$_('events.selection_count', {
                         values: { count: selectedEventIds.length },
                         default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2334,7 +2334,7 @@
                 <p
                     id="events-timeline-scope"
                     data-events-timeline-scope
-                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                    class="mb-2 text-2xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
@@ -2395,7 +2395,7 @@
                         </button>
                     {/each}
                 </div>
-                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-500 dark:text-slate-400 sm:inline-flex">
+                <p class="mt-2 hidden items-center gap-1.5 text-2xs text-slate-600 dark:text-slate-400 sm:inline-flex">
                     <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <path d="M6 7h8M6 10h8M6 13h5"></path>
                         <rect x="3" y="4" width="14" height="12" rx="2"></rect>
@@ -2504,13 +2504,13 @@
             <!-- The failure is stated above; with no read asked for, nothing is claimed. -->
         {:else if pane.state === 'empty' && gardenOnly && authStore.hasOwnerAccess && gardenCameraCount === 0}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h3>
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('garden.explorer.no_cameras_title', { default: 'No camera has Garden animals turned on' })}</h2>
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{$_('garden.explorer.no_cameras_desc', { default: 'Turn Garden animals on for a camera, and its confirmed animals and captures waiting for review appear here.' })}</p>
                 <a href={toAppPath('/settings/beta')} class="btn btn-secondary mt-4 inline-flex min-h-11 items-center px-4">{$_('garden.open_settings', { default: 'Garden settings' })}</a>
             </div>
         {:else if pane.state === 'empty' && gardenOnly}
             <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700" data-explorer-garden-empty>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
                     {gardenReview === 'pending'
                         ? $_('garden.explorer.empty_pending', { default: 'No Garden captures need review' })
                         : gardenReview === 'confirmed'
@@ -2518,13 +2518,13 @@
                           : gardenReview === 'dismissed'
                             ? $_('garden.explorer.empty_dismissed', { default: 'No dismissed Garden captures' })
                             : $_('garden.explorer.empty_title', { default: 'No Garden captures yet' })}
-                </h3>
+                </h2>
                 {#if gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
                     <p class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-garden-awaiting-check-empty>
                         {$_('garden.explorer.awaiting_check_empty', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture is waiting for the automatic check.} other {# camera captures are waiting for the automatic check.}} Animals it names go to Confirmed animals, photos without one go to Dismissed, and any it cannot decide appear here.' })}
                     </p>
                 {/if}
-                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{authStore.hasOwnerAccess
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{authStore.hasOwnerAccess
                     ? $_('garden.explorer.empty_desc', { default: 'Confirmed animals and captures waiting for review appear here. Dismissed captures are under Review, Dismissed.' })
                     : $_('garden.explorer.empty_guest_desc', { default: 'Animals confirmed on the Garden cameras appear here.' })}</p>
             </div>
@@ -2539,8 +2539,8 @@
                          filters, never about the feeder (#301): saying "no events
                          yet" here told an owner their history was gone. A failed read
                          is neither; explorerPane() keeps it out of both empty states. -->
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
                     <button
                         type="button"
                         class="btn btn-secondary mt-4 min-h-11 px-4"
@@ -2563,8 +2563,8 @@
                         {$_('events.empty_filtered_clear', { default: 'Clear all filters' })}
                     </button>
                 {:else}
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+                    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
                 {/if}
             </div>
         {:else if explorerView === 'list'}
@@ -2769,10 +2769,10 @@
         <div class="w-full max-w-md mx-2 bg-surface rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    <h2 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {$_('actions.manual_tag')}
-                    </h4>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    </h2>
+                    <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                         {$_('events.selection_count', {
                             values: { count: selectedEventIds.length },
                             default: '{count, plural, =0 {No captures selected} one {# capture selected} other {# captures selected}}'
@@ -2783,7 +2783,7 @@
                     type="button"
                     onclick={() => showBulkTagModal = false}
                     disabled={bulkTagging}
-                    class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    class="text-xs font-bold text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 >
                     {$_('common.cancel')}
                 </button>
@@ -2794,7 +2794,7 @@
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-hidden"
+                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-focus focus:border-transparent outline-hidden"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
@@ -2805,7 +2805,7 @@
                         type="button"
                         onclick={() => applyBulkManualTag(result)}
                         disabled={bulkTagging}
-                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-700 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
                     >
                         <span class="block text-sm leading-tight">
                             {names.primary}
@@ -2817,12 +2817,12 @@
                             {/if}
                         </span>
                         {#if names.secondary}
-                            <span class="block text-2xs text-slate-400 dark:text-slate-400 italic">{names.secondary}</span>
+                            <span class="block text-2xs text-slate-600 dark:text-slate-400 italic">{names.secondary}</span>
                         {/if}
                     </button>
                 {/each}
                 {#if bulkSearchResults.length === 0}
-                    <p class="px-4 py-6 text-sm text-slate-400 italic text-center">
+                    <p class="px-4 py-6 text-sm text-slate-600 dark:text-slate-400 italic text-center">
                         {bulkSearching ? $_('common.loading') : $_('detection.tagging.no_results')}
                     </p>
                 {/if}

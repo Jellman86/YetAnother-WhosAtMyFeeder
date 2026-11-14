@@ -520,7 +520,7 @@
                 })}
             {/if}
         </span>
-        <span class="hidden truncate text-white/45 sm:inline">
+        <span class="hidden truncate text-white/70 sm:inline">
             {$_('detection.frame_strip_hint', {
                 default: 'Choosing one changes the photograph, not the identification.'
             })}
@@ -552,7 +552,7 @@
                         <button
                             type="button"
                             bind:this={triggers[index]}
-                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:translate-none motion-reduce:scale-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70 {chosen && marksChoice
+                            class="relative block min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:translate-none motion-reduce:scale-none focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white {chosen && marksChoice
                                 ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'
                                 : chosen ? 'opacity-100' : 'opacity-80 hover:opacity-100'}"
                             aria-pressed={chosen}
@@ -620,7 +620,7 @@
                               >
                                 <button
                                     type="button"
-                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
+                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                                     aria-label={$_('common.close', { default: 'Close' })}
                                     onclick={(event) => { event.stopPropagation(); const current = openIndex; if (current !== null) triggers[current]?.focus(); hide(true); }}
                                 >
@@ -651,19 +651,19 @@
                                             <span class="text-slate-400">{$_(moment.choice === 'crop' ? 'detection.photo_option_model_read' : 'detection.frame_model_read', { default: moment.choice === 'crop' ? 'Model reads this crop as' : 'Model reads this frame as' })}</span>
                                             <span class="shrink-0 font-semibold text-white">{read}</span>
                                         </div>
-                                        <p class="text-xs text-slate-500">
+                                        <p class="text-xs text-slate-400">
                                             {$_('detection.frame_read_note', {
                                                 default: 'A read of one frame. The identification stays until you change it.'
                                             })}
                                         </p>
                                     {:else if moment.previous}
-                                        <p class="text-xs text-slate-500">
+                                        <p class="text-xs text-slate-400">
                                             {$_('detection.previous_photo_note', {
                                                 default: 'The photograph this record had before a later analysis replaced it.'
                                             })}
                                         </p>
                                     {:else}
-                                        <p class="text-xs text-slate-500">
+                                        <p class="text-xs text-slate-400">
                                             {$_('detection.frame_no_read', { default: 'The model has not read this frame on its own.' })}
                                         </p>
                                     {/if}
@@ -691,7 +691,7 @@
                                             onclick={(event) => { event.stopPropagation(); void removeChoice(moment); }}>
                                             {$_('visits.remove_photo', { default: 'Remove photo choice' })}
                                         </button>
-                                        {#if candidate?.selected}<p class="text-xs text-slate-500">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
+                                        {#if candidate?.selected}<p class="text-xs text-slate-400">{$_('visits.choose_first', { default: 'Choose another photograph before removing this one.' })}</p>{/if}
                                     {/if}
                                 </div>
                               </div>
@@ -732,7 +732,7 @@
         {#if canRegenerate && onregenerate}
             <button
                 type="button"
-                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70"
+                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                 disabled={regeneratePending || busy}
                 title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
                 aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots and recount birds' })}
@@ -749,7 +749,7 @@
         {/if}
     </div>
     {#if removedPhoto?.eventId === eventId}
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500" role="status">
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400" role="status">
             <span>{$_('visits.photo_removed', { default: 'Photo removed from the choices.' })}</span>
             <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" bind:this={undoButton} disabled={busy} onclick={() => void undoRemoval()}>{$_('common.undo', { default: 'Undo' })}</button>
         </div>

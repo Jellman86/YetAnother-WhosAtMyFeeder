@@ -476,12 +476,12 @@
         onkeydown={handleKeydown}
         class="flex h-dvh max-h-dvh w-full max-w-5xl flex-col overflow-hidden rounded-none border border-white/20 bg-surface shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl"
     >
-        <header class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
+        <div class="relative flex items-center gap-3 border-b border-slate-200 py-1.5 pl-5 pr-2 dark:border-slate-700">
             <div class="flex min-w-0 items-baseline gap-x-2.5">
                 <h2 id="review-session-title" class="wrap-break-word font-display text-base font-bold text-slate-900 dark:text-white">
                     {$_('dashboard.review_queue.title', { default: 'Needs your call' })}
                 </h2>
-                <p class="shrink-0 text-xs tabular-nums text-slate-500 dark:text-slate-400" data-review-position>
+                <p class="shrink-0 text-xs tabular-nums text-slate-600 dark:text-slate-400" data-review-position>
                     {session.done
                         ? $_('dashboard.review_session.summary', {
                               values: { resolved: session.resolved, skipped: session.skipped },
@@ -496,7 +496,7 @@
 
             <button
                 type="button"
-                class="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+                class="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
                 aria-label={$_('common.close', { default: 'Close' })}
                 onclick={onclose}
             >
@@ -510,7 +510,7 @@
                     style="width: {session.total === 0 ? 100 : (session.index / session.total) * 100}%"
                 ></div>
             </div>
-        </header>
+        </div>
 
         {#if session.done}
             <div class="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
@@ -586,7 +586,7 @@
                                  the app's plumbing, not the reviewer's concern. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white"
                                 data-review-whole-scene-peek
                                 aria-pressed={wholeScene.pinned}
                                 aria-label={wholeScene.pinned
@@ -630,7 +630,7 @@
                     <div class="flex items-start gap-3 px-4 pt-3 {authStore.hasOwnerAccess ? '' : 'pb-4'}" data-review-species-heading>
                         <div class="min-w-0 flex-1">
                             <h3 class="wrap-break-word font-display text-xl font-bold leading-tight text-white">{naming.primary}</h3>
-                            {#if authStore.hasOwnerAccess}<ClassificationSource evidence={current.classification_input} />{/if}
+                            {#if authStore.hasOwnerAccess}<ClassificationSource evidence={current.classification_input} onDark />{/if}
                             {#if naming.secondary}
                                 <p class="mt-0.5 wrap-break-word text-sm italic text-slate-300">{naming.secondary}</p>
                             {/if}
@@ -652,7 +652,7 @@
                         {#if onopen}
                             <button
                                 type="button"
-                                class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white/70 sm:px-3.5"
+                                class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1.5 rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white sm:px-3.5"
                                 onclick={() => onopen?.(current)}
                             >
                                 <!-- A phone keeps the width for the name; the arrow alone still names itself. -->
@@ -740,7 +740,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}
@@ -761,19 +761,19 @@
                                     <span class="min-w-0">
                                         <span class="block wrap-break-word font-medium">{choice.primary}</span>
                                         {#if choice.secondary}
-                                            <span class="block wrap-break-word text-xs italic text-slate-500 dark:text-slate-400">
+                                            <span class="block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">
                                                 {choice.secondary}
                                             </span>
                                         {/if}
                                     </span>
                                     <!-- Said on every row for the button's name, but only the row in hand calls attention to it. -->
-                                    <span class="shrink-0 text-xs font-semibold text-slate-500 transition-colors group-hover:text-brand-700 group-focus-visible:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300 dark:group-focus-visible:text-brand-300">
+                                    <span class="shrink-0 text-xs font-semibold text-slate-600 transition-colors group-hover:text-brand-700 group-focus-visible:text-brand-700 dark:text-slate-400 dark:group-hover:text-brand-300 dark:group-focus-visible:text-brand-300">
                                         {$_('dashboard.field_log.identify', { default: 'Identify' })}
                                     </span>
                                 </button>
                             </li>
                         {:else}
-                            <li class="px-2 py-3 text-xs text-slate-500 dark:text-slate-400">
+                            <li class="px-2 py-3 text-xs text-slate-600 dark:text-slate-400">
                                 {#if searching && !currentAnswer}
                                     {$_('common.loading')}
                                 {:else if currentAnswer?.failed}
@@ -810,7 +810,7 @@
                         </button>
                         {#if ondelete}
                             <button
-                                class="btn btn-ghost min-h-11 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                class="btn btn-ghost min-h-11 px-3 py-2 text-xs text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
                                 disabled={busy}
                                 onclick={remove}
                             >

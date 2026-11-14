@@ -442,7 +442,7 @@
     >
         <button
             type="button"
-            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white/60"
+            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
             onclick={onclose}
             disabled={saving}
             aria-label={$_('common.close', { default: 'Close' })}
@@ -506,7 +506,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-3">
                         <div class="hidden min-w-0 flex-1 sm:block">
                             <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
-                            <p class="mt-2 text-3xs font-semibold text-white/50">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
+                            <p class="mt-2 text-3xs font-semibold text-white/80">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
                         </div>
                         {#if canPlay}
                             <button
@@ -580,7 +580,7 @@
                             />
                         {/if}
                         <div class="min-w-0">
-                            <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                            <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
                                 {view.nameState === 'confirmed'
                                     ? viewer === 'owner'
                                         ? $_('detection.identified_by_you', { default: 'Identified by you' })
@@ -593,20 +593,20 @@
                             </p>
                             <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
                             {#if view.name && capture.scientific_name && capture.scientific_name !== view.name}
-                                <p class="text-xs italic text-slate-500 dark:text-slate-400" data-garden-scientific-name>{capture.scientific_name}</p>
+                                <p class="text-xs italic text-slate-600 dark:text-slate-400" data-garden-scientific-name>{capture.scientific_name}</p>
                             {/if}
                             {#if namedFrom}
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" data-garden-named-from>{namedFrom}</p>
+                                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400" data-garden-named-from>{namedFrom}</p>
                             {/if}
                             {#if view.name && !capture.owner_identification && capture.identification?.rank && capture.identification.rank !== 'species'}
-                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>
+                                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('garden.group_only', { default: 'Animal group only; species is unresolved.' })}</p>
                             {/if}
                         </div>
                     </div>
                     {#if view.score !== null}
                         <div class="mt-2 flex flex-wrap items-center gap-2.5" data-garden-capture-score>
                             <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">{Math.round(view.score * 100)}%</span>
-                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                            <span class="text-xs text-slate-600 dark:text-slate-400">
                                 {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
                                 {scoreBand(view.score) === 'high'
                                     ? $_('detection.confidence_high', { default: 'confident' })
@@ -645,8 +645,8 @@
                 <!-- The bird record's facts, in its rows: when and where, then what proposed it. -->
                 <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-garden-capture-facts>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
-                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        <dt class="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                             {$_('detection.fact_seen', { default: 'Seen' })}
                         </dt>
                         <dd class="min-w-0 max-w-full text-right font-medium text-slate-800 dark:text-slate-100">
@@ -654,7 +654,7 @@
                         </dd>
                     </div>
                     <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('garden.explorer.fact_source', { default: 'Proposed by' })}</dt>
+                        <dt class="text-slate-600 dark:text-slate-400">{$_('garden.explorer.fact_source', { default: 'Proposed by' })}</dt>
                         <dd class="min-w-0 max-w-full wrap-break-word text-right font-medium text-slate-800 dark:text-slate-100">
                             {capture.source_kind === 'motion'
                                 ? $_('garden.motion_source', { default: 'Candidate from retained motion footage' })
@@ -690,7 +690,7 @@
 
                 {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}
                     <section class="space-y-2" data-garden-species-info>
-                        <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
                             {$_('garden.explorer.about_species', { default: 'About {species}', values: { species: title } })}
                         </h4>
                         {#if speciesInfoLoading}
@@ -699,7 +699,7 @@
                                 <div class="h-3 w-full animate-pulse rounded-sm bg-slate-200 motion-reduce:animate-none dark:bg-slate-700"></div>
                             </div>
                         {:else if speciesInfoError}
-                            <p class="text-xs text-slate-500 dark:text-slate-400">{speciesInfoError}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400">{speciesInfoError}</p>
                         {:else if speciesInfo}
                             {@const summary = speciesInfo.extract || speciesInfo.description}
                             <p class="line-clamp-4 whitespace-pre-line text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -720,7 +720,7 @@
                     <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-garden-capture-actions>
                         {#if capture.status === 'pending'}
                             <details open={manualOverride} ontoggle={(event) => manualOverride = event.currentTarget.open} class="group/manual w-full" data-garden-manual-override>
-                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-brand-500 [&::-webkit-details-marker]:hidden">
+                                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus [&::-webkit-details-marker]:hidden">
                                     <span>{$_('garden.manual_override', { default: 'Manual override' })}</span>
                                     <svg class="h-4 w-4 shrink-0 transition-transform group-open/manual:rotate-180 motion-reduce:transition-none" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 7.5 5 5 5-5" /></svg>
                                 </summary>

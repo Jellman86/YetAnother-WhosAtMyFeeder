@@ -162,7 +162,7 @@ describe('detection surface polish', () => {
             /data-record-technical-details[\s\S]{0,240}?overflow-hidden/
         );
         expect(technicalSource).toContain('group-open:rounded-b-none');
-        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400');
+        expect(technicalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-on-dark');
         expect(technicalSource).toContain('font-mono text-xs');
         expect(technicalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
     });

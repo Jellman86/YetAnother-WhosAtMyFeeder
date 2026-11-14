@@ -866,22 +866,19 @@
                     <span class="text-xs text-slate-300 truncate font-mono">{shortEventId}</span>
                 </div>
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-3xs font-semibold border
-                        {playbackState === 'playing' ? 'bg-accent-400/15 text-accent-200 border-accent-400/35' :
-                         playbackState === 'buffering' ? 'bg-amber-400/15 text-amber-200 border-amber-400/35' :
-                         playbackState === 'ended' ? 'bg-slate-400/15 text-slate-200 border-slate-400/35' :
-                         'bg-cyan-400/15 text-cyan-100 border-cyan-400/30'}"
-                    >
+                    <!-- The state is the word. One neutral chip for every state: none of them is work
+                         waiting on a person, so none of them is amber. -->
+                    <span class="inline-flex items-center rounded-full border border-white/30 bg-white/10 px-2.5 py-1 text-3xs font-semibold text-white" data-video-playback-state>
                         {playbackLabel}
                     </span>
                     <button
                         bind:this={closeButton}
                         type="button"
                         onclick={onClose}
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-500/60 bg-black/40 text-white/80 hover:text-white hover:bg-black/60 transition-colors duration-200 focus:outline-hidden focus:ring-2 focus:ring-white/40"
+                        class="btn btn-on-dark h-11 w-11 rounded-full p-0"
                         aria-label={$_('video_player.close', { default: 'Close video' })}
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                     </button>
@@ -895,12 +892,12 @@
             {#if videoError}
                 <div class="aspect-video bg-slate-900 flex flex-col items-center justify-center text-center p-8">
                     {#if videoForbidden}
-                        <h3 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip Fetching Disabled' })}</h3>
+                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.clip_fetching_disabled', { default: 'Clip Fetching Disabled' })}</h2>
                         <p class="text-slate-400 max-w-sm">
                             {$_('video_player.clip_fetching_disabled_hint', { default: 'Enable "Fetch Video Clips" in Settings to view this recording.' })}
                         </p>
                     {:else}
-                        <h3 class="text-xl font-semibold text-white mb-2">{$_('video_player.video_unavailable', { default: 'Video Unavailable' })}</h3>
+                        <h2 class="text-xl font-semibold text-white mb-2">{$_('video_player.video_unavailable', { default: 'Video Unavailable' })}</h2>
                         <p class="text-slate-400 max-w-sm mb-6">
                             {$_('video_player.video_unavailable_hint', { default: 'The recording could not be loaded from Frigate. It may have been deleted or is not yet available.' })}
                         </p>
@@ -958,42 +955,40 @@
                         <button
                             type="button"
                             onclick={copyShareLink}
-                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-hidden focus:ring-2 focus:ring-sky-400/60 border-sky-400/45 text-sky-100 hover:bg-sky-500/25"
-                            aria-label={$_('video_player.share', { default: 'Share clip link' })}
+                            class="btn btn-on-dark min-h-11 px-3 text-xs"
                             title={$_('video_player.share', { default: 'Share clip link' })}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342A3 3 0 0 1 8 12a3 3 0 0 1 .684-1.902m0 3.244 6.632 3.79A3 3 0 1 0 17 15a2.99 2.99 0 0 0-.684.098l-6.632-3.79A3 3 0 0 0 10 9a2.99 2.99 0 0 0-.316-1.308l6.632-3.79A3 3 0 1 0 15 5a2.99 2.99 0 0 0 .316 1.308l-6.632 3.79A3 3 0 1 0 8.684 13.342Z" />
                             </svg>
-                            <span class="font-semibold">{$_('video_player.share_link', { default: 'Share link' })}</span>
+                            <span>{$_('video_player.share_link', { default: 'Share link' })}</span>
                         </button>
                     {/if}
                     {#if canManageShareLinks}
                         <button
                             type="button"
                             onclick={() => void toggleShareManager()}
-                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border px-3 focus:outline-hidden focus:ring-2 focus:ring-indigo-400/60 border-indigo-400/45 text-indigo-100 hover:bg-indigo-500/25"
-                            aria-label={$_('video_player.share_manage', { default: 'Manage share links' })}
+                            class="btn btn-on-dark min-h-11 px-3 text-xs"
+                            aria-expanded={shareManagerOpen}
+                            aria-controls="video-share-manager"
                             title={$_('video_player.share_manage', { default: 'Manage share links' })}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
-                            <span class="font-semibold">{shareManagerOpen ? $_('video_player.share_manage_hide', { default: 'Hide links' }) : $_('video_player.share_manage_show', { default: 'Manage links' })}</span>
+                            <span>{shareManagerOpen ? $_('video_player.share_manage_hide', { default: 'Hide links' }) : $_('video_player.share_manage_show', { default: 'Manage links' })}</span>
                         </button>
                     {/if}
                     {#if canDownloadClip}
                         <a
                             href={clipDownloadUrl}
                             download={`${frigateEvent}.mp4`}
-                            class="inline-flex h-10 min-w-10 items-center justify-center gap-1.5 rounded-xl border border-accent-400/45 px-3 text-accent-100 hover:bg-accent-500/25 focus:outline-hidden focus:ring-2 focus:ring-accent-400/60"
-                            aria-label={$_('video_player.download', { default: 'Download clip' })}
-                            title={$_('video_player.download', { default: 'Download clip' })}
+                            class="btn btn-on-dark min-h-11 px-3 text-xs"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v10.5m0 0l-4-4m4 4l4-4M5 15.75v1.5A1.75 1.75 0 0 0 6.75 19h10.5A1.75 1.75 0 0 0 19 17.25v-1.5" />
                             </svg>
-                            <span class="font-semibold">{$_('video_player.download', { default: 'Download clip' })}</span>
+                            <span>{$_('video_player.download', { default: 'Download clip' })}</span>
                         </a>
                     {/if}
                 </div>
@@ -1005,7 +1000,7 @@
             {/if}
 
             {#if canManageShareLinks && shareManagerOpen}
-                <div class="mt-2 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3 text-xs text-slate-200">
+                <div id="video-share-manager" class="mt-2 rounded-xl border border-slate-700/70 bg-slate-900/55 p-3 text-xs text-slate-200">
                     <div class="flex items-center justify-between gap-2 mb-2">
                         <p class="font-semibold tracking-wide uppercase text-2xs text-slate-300">{$_('video_player.share_manage_title', { default: 'Active share links' })}</p>
                         <span class="text-2xs text-slate-400">{activeShareLinks.length}</span>
@@ -1018,14 +1013,14 @@
                                 type="text"
                                 maxlength="64"
                                 bind:value={managerWatermark}
-                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
+                                class="input-on-dark min-h-11"
                             />
                         </label>
                         <label class="flex flex-col gap-1">
                             <span class="text-2xs text-slate-400">{$_('video_player.share_manage_expiry', { default: 'Expires in' })}</span>
                             <select
                                 bind:value={managerExpiresMinutes}
-                                class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
+                                class="input-on-dark min-h-11"
                             >
                                 {#each SHARE_EXPIRY_PRESETS as preset}
                                     <option value={preset.minutes}>{preset.label}</option>
@@ -1039,7 +1034,7 @@
                             type="button"
                             onclick={() => void createManagedShareLink()}
                             disabled={shareManagerCreating || shareManagerBusyLinkId !== null}
-                            class="inline-flex h-9 items-center justify-center rounded-lg border border-sky-400/40 bg-sky-500/20 px-3 text-sm font-semibold text-sky-100 hover:bg-sky-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                            class="btn btn-primary btn-focus-on-dark min-h-11 px-4"
                         >
                             {shareManagerCreating ? $_('video_player.share_manage_creating', { default: 'Creating...' }) : $_('video_player.share_manage_create', { default: 'Create and copy link' })}
                         </button>
@@ -1071,7 +1066,8 @@
                                                 const value = (event.currentTarget as HTMLInputElement).value;
                                                 linkWatermarkDraft = { ...linkWatermarkDraft, [link.id]: value };
                                             }}
-                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
+                                            aria-label={$_('video_player.share_manage_watermark', { default: 'Watermark label' })}
+                                            class="input-on-dark min-h-11"
                                         />
                                         <select
                                             value={String(linkExpiresMinutesDraft[link.id] ?? 60)}
@@ -1079,7 +1075,8 @@
                                                 const minutes = parseMinutes((event.currentTarget as HTMLSelectElement).value, 60);
                                                 linkExpiresMinutesDraft = { ...linkExpiresMinutesDraft, [link.id]: minutes };
                                             }}
-                                            class="h-9 rounded-lg border border-slate-600/70 bg-slate-800/80 px-2 text-sm text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-sky-400/50"
+                                            aria-label={$_('video_player.share_manage_expiry', { default: 'Expires in' })}
+                                            class="input-on-dark min-h-11"
                                         >
                                             {#each SHARE_EXPIRY_PRESETS as preset}
                                                 <option value={preset.minutes}>{preset.label}</option>
@@ -1090,7 +1087,7 @@
                                                 type="button"
                                                 onclick={() => void updateManagedShareLink(link.id)}
                                                 disabled={shareManagerBusyLinkId !== null || shareManagerCreating}
-                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-accent-400/40 bg-accent-500/20 px-3 text-sm font-semibold text-accent-100 hover:bg-accent-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                                class="btn btn-on-dark min-h-11 px-3"
                                             >
                                                 {$_('video_player.share_manage_save', { default: 'Save' })}
                                             </button>
@@ -1098,7 +1095,7 @@
                                                 type="button"
                                                 onclick={() => void revokeManagedShareLink(link.id)}
                                                 disabled={shareManagerBusyLinkId !== null || shareManagerCreating}
-                                                class="inline-flex h-9 items-center justify-center rounded-lg border border-rose-400/40 bg-rose-500/20 px-3 text-sm font-semibold text-rose-100 hover:bg-rose-500/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                                class="btn btn-on-dark min-h-11 border-rose-300/70 px-3 text-rose-100"
                                             >
                                                 {$_('video_player.share_manage_revoke', { default: 'Revoke' })}
                                             </button>
