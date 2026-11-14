@@ -51,7 +51,8 @@ export async function openSettings(page: Page, saved: FixtureSettings = {}, opti
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
+    // The first open compiles the page and its tab on the dev server, which is slow under load.
+    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt', { timeout: 15_000 });
     return {
         writes,
         moduleRequests: fileName => requestedPaths.filter(path => path.endsWith(`/${fileName}`)).length

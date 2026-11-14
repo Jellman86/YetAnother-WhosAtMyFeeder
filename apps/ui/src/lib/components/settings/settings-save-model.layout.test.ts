@@ -40,3 +40,14 @@ describe('the save bar announcements', () => {
         expect(pageSource.match(/aria-live=/g)).toHaveLength(1);
     });
 });
+
+describe('stored-secret flags', () => {
+    it('are never reset by an effect: whether a secret is stored follows from the saved copy alone', async () => {
+        const { default: integrationsSource } = await import('./IntegrationSettings.svelte?raw');
+        // An effect that cleared "saved" once anything was typed made a field cleared again look
+        // empty, although saving an empty field keeps the stored secret.
+        const resetting = /\$effect\(\(\) => \{[^}]*Saved = false/;
+        expect(settingsPageSource).not.toMatch(resetting);
+        expect(integrationsSource).not.toMatch(resetting);
+    });
+});

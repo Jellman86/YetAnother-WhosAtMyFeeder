@@ -196,3 +196,19 @@ test('the save summary and a save problem are announced by separate regions, nev
     await expect(summary).toHaveAttribute('aria-live', 'polite');
     expect(await summary.evaluate((element) => element.contains(document.querySelector('[data-save-problem]')))).toBe(false);
 });
+
+test('a stored secret still shows as stored after its field is typed in and cleared, and stays stored on save', async ({ page }) => {
+    const harness = await openSettings(page, { mqtt_auth: true, mqtt_username: 'feeder', mqtt_password: '***REDACTED***' });
+    const password = page.locator('#mqtt-password');
+    await expect(password).toHaveAttribute('placeholder', '***REDACTED***');
+    await password.fill('new-secret');
+    await expect(saveBar(page)).toBeVisible();
+    await password.fill('');
+    await expect(password).toHaveAttribute('placeholder', '***REDACTED***');
+    await expect(saveBar(page)).toHaveCount(0);
+
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await saveButton(page).click();
+    await expect.poll(() => harness.writes.length).toBe(1);
+    expect(harness.writes[0].mqtt_password).toBe('');
+});

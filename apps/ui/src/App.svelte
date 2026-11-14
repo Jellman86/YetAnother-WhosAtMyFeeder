@@ -206,6 +206,15 @@ import { historyIndexOf, withHistoryIndex } from './lib/app/history-index';
 
   // The position of the current entry among those the app wrote (see history-index.ts).
   let historyIndex = historyIndexOf(typeof window === 'undefined' ? null : window.history.state) ?? 0;
+  // The browser's index of the entry the app last settled on (null without the Navigation API).
+  let settledEntryIndex: number | null = null;
+
+  /** The browser's own index of the current history entry, where the Navigation API exists. */
+  function navigationEntryIndex(): number | null {
+      const navigation = (window as { navigation?: { currentEntry?: { index?: number } | null } }).navigation;
+      const index = navigation?.currentEntry?.index;
+      return typeof index === 'number' && index >= 0 ? index : null;
+  }
 
   function goTo(targetPath: string, opts: { replace?: boolean }) {
       const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
@@ -220,6 +229,7 @@ import { historyIndexOf, withHistoryIndex } from './lib/app/history-index';
           historyIndex += 1;
           window.history.pushState(withHistoryIndex(null, historyIndex), '', browserPath);
       }
+      settledEntryIndex = navigationEntryIndex();
       refreshCoordinator.onNavigate();
   }
 
@@ -494,20 +504,28 @@ import { historyIndexOf, withHistoryIndex } from './lib/app/history-index';
               window.history.replaceState(withHistoryIndex(window.history.state, historyIndex), '');
           }
           // Back and Forward have already moved the address when they arrive here. With unsaved
-          // work the app steps straight back to where it was (the same distance the other way),
-          // asks, and only a confirmed leave repeats the step. No entry is added or cut off.
+          // work the app steps straight back the same distance and asks; only a confirmed leave
+          // repeats the step. History is only ever traversed here, never written, so no entry is
+          // added or cut off. The distance comes from the positions the app records, or, for an
+          // entry without one, from the Navigation API's own index of the entry.
           let restoringHistoryStep = false;
           let confirmedHistoryMove = false;
+          settledEntryIndex = navigationEntryIndex();
           const handlePopState = (event: PopStateEvent) => {
-              const targetIndex = historyIndexOf(event.state);
               if (restoringHistoryStep) {
                   restoringHistoryStep = false;
                   return;
               }
+              const targetIndex = historyIndexOf(event.state);
+              const arrivedEntryIndex = navigationEntryIndex();
               const target = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
               if (!confirmedHistoryMove && unsavedChanges.warningFor(target)) {
-                  const delta = targetIndex === null ? null : historyIndex - targetIndex;
-                  if (delta !== null && delta !== 0) {
+                  const delta = targetIndex !== null
+                      ? historyIndex - targetIndex
+                      : arrivedEntryIndex !== null && settledEntryIndex !== null
+                          ? settledEntryIndex - arrivedEntryIndex
+                          : null;
+                  if (delta) {
                       restoringHistoryStep = true;
                       window.history.go(delta);
                       void unsavedChanges.allowLeaving(target).then((leave) => {
@@ -516,22 +534,29 @@ import { historyIndexOf, withHistoryIndex } from './lib/app/history-index';
                           window.history.go(-delta);
                       });
                   } else {
-                      // An entry the app did not write has no position; keep the page and ask.
-                      const stay = currentRoute;
-                      window.history.pushState(withHistoryIndex(null, historyIndex), '', toAppPath(stay));
+                      // The direction cannot be known, so the history is left exactly as it is and
+                      // the page with its draft stays open; only a confirmed leave shows the target.
                       void unsavedChanges.allowLeaving(target).then((leave) => {
-                          if (!leave) return;
-                          confirmedHistoryMove = true;
-                          window.history.back();
+                          if (leave) settleOn(target, targetIndex, arrivedEntryIndex);
                       });
                   }
                   return;
               }
               confirmedHistoryMove = false;
-              if (targetIndex !== null) historyIndex = targetIndex;
+              settleOn(target, targetIndex, arrivedEntryIndex);
+          };
+          function settleOn(target: string, targetIndex: number | null, arrivedEntryIndex: number | null): void {
+              if (targetIndex !== null) {
+                  historyIndex = targetIndex;
+              } else if (arrivedEntryIndex !== null && settledEntryIndex !== null) {
+                  // Give an entry the app did not write its position, keeping its address and state.
+                  historyIndex += arrivedEntryIndex - settledEntryIndex;
+                  window.history.replaceState(withHistoryIndex(window.history.state, historyIndex), '');
+              }
+              settledEntryIndex = arrivedEntryIndex;
               currentRoute = target;
               refreshCoordinator.onNavigate();
-          };
+          }
           window.addEventListener('popstate', handlePopState);
 
           // Surface actionable diagnostics for production-minified runtime exceptions.

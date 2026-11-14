@@ -128,6 +128,75 @@ test('repeated cancelled history steps never grow or shrink the history', async 
     expect(await historyLength(page)).toBe(length);
 });
 
+// An entry the app did not write carries no position (a fragment link, or an entry written before
+// positions existed). Restoring after a cancelled step must still add or remove nothing.
+const stripPosition = (page: Page) => page.evaluate(() => window.history.replaceState(null, '', window.location.href));
+
+test('Back onto an entry without a position: Cancel restores Settings without changing the history', async ({ page }) => {
+    await openOwnerShell(page, '/');
+    await stripPosition(page);
+    await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
+    await page.locator('#mqtt-server').fill('broker.lan');
+    const length = await historyLength(page);
+
+    await page.goBack();
+    await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    expect(await historyLength(page)).toBe(length);
+
+    await page.goBack();
+    await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    await page.goForward();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    expect(await historyLength(page)).toBe(length);
+});
+
+test('Forward onto an entry without a position: Cancel keeps that entry, so Forward still works', async ({ page }) => {
+    await openOwnerShell(page);
+    await dashboardLink(page).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    await stripPosition(page);
+    const length = await historyLength(page);
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await page.locator('#mqtt-server').fill('broker.lan');
+
+    await page.goForward();
+    await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    expect(await historyLength(page)).toBe(length);
+
+    await page.goForward();
+    await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    expect(await historyLength(page)).toBe(length);
+});
+
+test('without a way to tell the direction, a cancelled step keeps the draft and never changes the history', async ({ page }) => {
+    // Browsers without the Navigation API cannot say where an unpositioned entry sits.
+    await page.addInitScript(() => Object.defineProperty(window, 'navigation', { value: undefined, configurable: true }));
+    await openOwnerShell(page, '/');
+    await stripPosition(page);
+    await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.locator('#mqtt-server').fill('broker.lan');
+    const length = await historyLength(page);
+
+    await page.goBack();
+    await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    expect(await historyLength(page)).toBe(length);
+    // The entries are untouched: Forward still reaches Settings.
+    await page.goForward();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    expect(await historyLength(page)).toBe(length);
+});
+
 test('reloading with unsaved changes asks the browser to confirm, and without them does not', async ({ page }) => {
     await openOwnerShell(page);
     const asked: string[] = [];

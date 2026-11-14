@@ -361,14 +361,6 @@
     const inatLatPlaceholder = $derived(typeof locationLat === 'number' ? String(locationLat) : undefined);
     const inatLonPlaceholder = $derived(typeof locationLon === 'number' ? String(locationLon) : undefined);
 
-    $effect(() => {
-        if (ebirdApiKeySaved && ebirdApiKey) ebirdApiKeySaved = false;
-    });
-
-    $effect(() => {
-        if (birdweatherStationTokenSaved && birdweatherStationToken) birdweatherStationTokenSaved = false;
-        if (haWeatherAccessTokenSaved && haWeatherAccessToken) haWeatherAccessTokenSaved = false;
-    });
 
     $effect(() => {
         if (ebirdExportEverything) {

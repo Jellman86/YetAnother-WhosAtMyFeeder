@@ -474,77 +474,17 @@
         return trustedProxyHostsSuggested ? ['*'] : trustedProxyHosts;
     });
 
-    $effect(() => {
-        if (mqttPasswordSaved && mqttPassword) {
-            mqttPasswordSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (birdweatherStationTokenSaved && birdweatherStationToken) {
-            birdweatherStationTokenSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (inaturalistClientIdSaved && inaturalistClientId) {
-            inaturalistClientIdSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (inaturalistClientSecretSaved && inaturalistClientSecret) {
-            inaturalistClientSecretSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (emailGmailClientSecretSaved && emailGmailClientSecret) {
-            emailGmailClientSecretSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (emailOutlookClientSecretSaved && emailOutlookClientSecret) {
-            emailOutlookClientSecretSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (discordWebhookSaved && discordWebhook) {
-            discordWebhookSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (pushoverUserSaved && pushoverUser) {
-            pushoverUserSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (pushoverTokenSaved && pushoverToken) {
-            pushoverTokenSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (telegramTokenSaved && telegramToken) {
-            telegramTokenSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (telegramChatIdSaved && telegramChatId) {
-            telegramChatIdSaved = false;
-        }
-    });
 
-    $effect(() => {
-        if (emailSmtpPasswordSaved && emailSmtpPassword) {
-            emailSmtpPasswordSaved = false;
-        }
-    });
 
     // Version Info
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
