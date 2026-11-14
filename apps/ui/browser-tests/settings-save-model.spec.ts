@@ -152,3 +152,47 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
         expect(overflow).toBeLessThanOrEqual(1);
     });
 }
+
+test('a value refused here opens its tab and puts focus on it, wherever Save was pressed', async ({ page }) => {
+    const harness = await openSettings(page);
+    await tabLink(page, 'Beta features').click();
+    await page.getByRole('switch', { name: 'Garden animals' }).click();
+    const naming = page.getByRole('spinbutton', { name: 'Naming threshold' });
+    await naming.fill('100');
+    await tabLink(page, 'Connection').click();
+    await expect(page.locator('#mqtt-server')).toBeVisible();
+
+    await saveButton(page).click();
+    await expect(tabLink(page, 'Beta features')).toHaveAttribute('aria-current', 'page');
+    await expect(naming).toBeFocused();
+    await expect(naming).toHaveAttribute('aria-invalid', 'true');
+    expect(harness.writes).toEqual([]);
+});
+
+test('a value the server refuses opens its tab and puts focus on it', async ({ page }) => {
+    await openSettings(page, {}, {
+        refuseWrite: () => ({
+            status: 422,
+            json: { detail: [{ type: 'value_error', loc: ['body', 'frigate_url'], msg: 'Value error, frigate_url must start with http:// or https://' }] }
+        })
+    });
+    await page.locator('#frigate-url').fill('frigate.lan');
+    await tabLink(page, 'Security').click();
+    await saveButton(page).click();
+    await expect(tabLink(page, 'Connection')).toHaveAttribute('aria-current', 'page');
+    await expect(page.locator('#frigate-url')).toBeFocused();
+    await expect(page.locator('#frigate-url')).toHaveAttribute('aria-invalid', 'true');
+});
+
+test('the save summary and a save problem are announced by separate regions, never one inside the other', async ({ page }) => {
+    await openSettings(page, {}, { refuseWrite: () => ({ status: 500, json: { detail: 'Internal Server Error' } }) });
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await saveButton(page).click();
+    const problem = saveBar(page).locator('[data-save-problem]');
+    await expect(problem).toHaveAttribute('role', 'alert');
+    const nested = await problem.evaluate((element) => Boolean(element.parentElement?.closest('[aria-live], [role="alert"], [role="status"]')));
+    expect(nested).toBe(false);
+    const summary = saveBar(page).locator('[data-save-summary]');
+    await expect(summary).toHaveAttribute('aria-live', 'polite');
+    expect(await summary.evaluate((element) => element.contains(document.querySelector('[data-save-problem]')))).toBe(false);
+});

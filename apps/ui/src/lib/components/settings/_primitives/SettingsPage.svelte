@@ -109,8 +109,10 @@
         >
             <h2 id="settings-save-bar-title" class="sr-only">{$_('settings.save_bar.region', { default: 'Unsaved changes' })}</h2>
             <div class="save-bar-row flex items-center justify-between gap-4">
-                <div class="min-w-0 space-y-1.5" aria-live="polite">
-                    <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200">
+                <!-- Two sibling regions, each announced its own way: the running count politely, a
+                     save problem at once. Nesting one inside the other could announce it twice. -->
+                <div class="min-w-0 space-y-1.5">
+                    <p class="flex flex-wrap items-baseline gap-x-1 gap-y-1 text-sm text-slate-700 dark:text-slate-200" aria-live="polite" data-save-summary>
                         <span class="font-semibold text-slate-900 dark:text-white">{$_('settings.save_bar.summary', {
                             values: { count: unsaved.count },
                             default: '{count, plural, one {# unsaved change in} other {# unsaved changes in}}'

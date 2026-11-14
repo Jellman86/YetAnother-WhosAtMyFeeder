@@ -51,22 +51,81 @@ test('choosing another page with unsaved changes asks first; Cancel keeps the ed
     await expect.poll(() => pathname(page)).toBe('/');
 });
 
-test('Back with unsaved changes asks first, keeps Settings open on Cancel, and leaves when confirmed', async ({ page }) => {
+const historyLength = (page: Page) => page.evaluate(() => window.history.length);
+
+// History is Dashboard → Settings, with an unsaved edit on Settings.
+async function editSettingsAfterDashboard(page: Page): Promise<number> {
     await openOwnerShell(page, '/');
     await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click();
     await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
     await page.locator('#mqtt-server').fill('broker.lan');
+    return historyLength(page);
+}
+
+test('Back with unsaved changes asks first; Cancel restores Settings without adding or losing history entries', async ({ page }) => {
+    const length = await editSettingsAfterDashboard(page);
 
     await page.goBack();
     await expect(leaveDialog(page)).toBeVisible();
     await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
     await expect.poll(() => pathname(page)).toBe('/settings/connection');
     await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    expect(await historyLength(page)).toBe(length);
 
+    // The entry behind Settings is still the Dashboard: leaving lands there, and Forward returns.
     await page.goBack();
     await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
     await expect.poll(() => pathname(page)).toBe('/');
-    await expect(page.locator('#mqtt-server')).toHaveCount(0);
+    expect(await historyLength(page)).toBe(length);
+    await page.goForward();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
+});
+
+test('Forward with unsaved changes asks first; Cancel keeps the forward entry, so Forward still works', async ({ page }) => {
+    const settingsLength = await editSettingsAfterDashboard(page);
+    // Settings → Dashboard (clean), then Back to Settings, edit: Dashboard is now a forward entry.
+    await page.locator('#mqtt-server').fill('mqtt');
+    await dashboardLink(page).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    const length = await historyLength(page);
+    expect(length).toBe(settingsLength + 1);
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await page.locator('#mqtt-server').fill('broker.lan');
+
+    await page.goForward();
+    await expect(leaveDialog(page)).toBeVisible();
+    await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    expect(await historyLength(page)).toBe(length);
+
+    await page.goForward();
+    await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    expect(await historyLength(page)).toBe(length);
+    // Back from the Dashboard still reaches Settings, then the Dashboard before it.
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/settings/connection');
+    await page.goBack();
+    await expect.poll(() => pathname(page)).toBe('/');
+});
+
+test('repeated cancelled history steps never grow or shrink the history', async ({ page }) => {
+    const length = await editSettingsAfterDashboard(page);
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        await page.goBack();
+        await expect(leaveDialog(page)).toBeVisible();
+        await leaveDialog(page).getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect.poll(() => pathname(page)).toBe('/settings/connection');
+        expect(await historyLength(page)).toBe(length);
+    }
+    await expect(page.locator('#mqtt-server')).toHaveValue('broker.lan');
+    await page.goBack();
+    await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+    expect(await historyLength(page)).toBe(length);
 });
 
 test('reloading with unsaved changes asks the browser to confirm, and without them does not', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { changedFields, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from './settings-fields';
+import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from './settings-fields';
 
 describe('where a saved setting lives', () => {
     it('names the tab that shows each field, preferring an exact entry over a family prefix', () => {
@@ -54,5 +54,13 @@ describe('where a refused value is shown', () => {
         for (const field of ['frigate_url', 'audio_buffer_hours', 'auth_password', 'garden_naming_threshold']) {
             expect(settingsFieldTab(field)).not.toBeNull();
         }
+    });
+});
+
+describe('which refused field is shown first', () => {
+    it('prefers one on the open tab, then the first in navigation order', () => {
+        expect(firstRefusedField(['llm_model', 'mqtt_port'], 'ai')).toBe('llm_model');
+        expect(firstRefusedField(['llm_model', 'garden_naming_threshold', 'mqtt_port'], 'security')).toBe('mqtt_port');
+        expect(firstRefusedField([], 'connection')).toBeNull();
     });
 });
