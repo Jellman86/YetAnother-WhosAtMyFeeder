@@ -5,6 +5,7 @@ with basic-auth userinfo, a token query parameter or a token path segment in tha
 """
 
 import json
+import time
 from unittest.mock import AsyncMock
 
 import httpx
@@ -311,3 +312,39 @@ async def test_http_client_request_log_keeps_integration_url_credentials_out(cap
     _assert_clean(line, secrets)
     # The shortened address says so, rather than reading as a request to the bare host.
     assert f"{REDUCED_HOST}/***REDACTED***" in line
+
+
+def test_http_client_log_filter_withholds_a_line_it_cannot_redact(monkeypatch):
+    import logging
+
+    from app.services.notifications.transports import http_logging
+
+    def broken(*_args, **_kwargs):
+        raise RuntimeError("settings could not be read")
+
+    monkeypatch.setattr(http_logging, "configured_secrets", broken)
+    record = logging.LogRecord(
+        "httpx", logging.INFO, __file__, 1, "HTTP Request: GET %s", ("https://h.example/path-secret-789",), None
+    )
+
+    # A log filter that raises would break the request that logged; it must never let the line through raw.
+    assert http_logging._NotificationCredentialLogFilter().filter(record) is True
+    assert "path-secret-789" not in record.getMessage()
+
+
+def test_http_client_log_filter_redacts_a_long_line_before_cutting_it():
+    import logging
+
+    from app.services.notifications.transports import http_logging
+
+    padding = "a-" * 50_000
+    url = SECRET_URLS["token_path"][0]
+    record = logging.LogRecord("httpx", logging.DEBUG, __file__, 1, "%s %s/api", (padding, url), None)
+
+    started = time.perf_counter()
+    assert http_logging._NotificationCredentialLogFilter().filter(record) is True
+    assert time.perf_counter() - started < 1.0
+    line = record.getMessage()
+    assert line.endswith(" [truncated]")
+    assert len(line) <= http_logging._MAX_LOGGED_CHARS + len(" [truncated]")
+    assert "path-secret" not in line

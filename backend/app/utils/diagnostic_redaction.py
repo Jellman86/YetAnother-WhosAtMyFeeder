@@ -122,7 +122,15 @@ def redact_text(text: str, secrets: Sequence[str] = ()) -> str:
 
 
 _SCHEME = re.compile(r"[a-z][a-z0-9+.-]*", re.I)
-_ADDRESS_IN_TEXT = re.compile(r"[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.I)
+# Both patterns run on every verbose HTTP client log line, so each scans a run of scheme or name
+# characters once: the lookbehind starts a match only where such a run begins, and the possessive
+# quantifiers never hand characters back. Without them a long run with no "://" or "=" in it is
+# rescanned from every position, which took seconds for a few kilobytes.
+_ADDRESS_IN_TEXT = re.compile(r"(?<![a-z0-9+.-])[0-9+.-]*+(?P<address>[a-z][a-z0-9+.-]*+://[^\s'\"<>]++)", re.I)
+_NAMED_CREDENTIAL = re.compile(
+    r"(?<![\w-])(?P<name>[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*+[:=]\s*+)[^\s&,;'\"<>]++",
+    re.I,
+)
 # Sentence punctuation that follows an address in an error message rather than belonging to it.
 _TRAILING_PUNCTUATION = ".,;:!?)'\""
 
@@ -168,20 +176,16 @@ def redact_connection_error(text: str, secrets: Sequence[str] = (), *, mark_drop
     """
 
     def reduce(match: re.Match[str]) -> str:
-        found = match.group(0)
+        lead = match.group(0)[: match.start("address") - match.start()]
+        found = match.group("address")
         address = found.rstrip(_TRAILING_PUNCTUATION)
         reduced = redact_address(address, secrets)
         if mark_dropped and reduced != address.rstrip("/"):
             reduced += "/" + REDACTED_VALUE
-        return reduced + found[len(address) :]
+        return lead + reduced + found[len(address) :]
 
     cleaned = _ADDRESS_IN_TEXT.sub(reduce, text)
-    cleaned = re.sub(
-        r"(\b[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*[:=]\s*)[^\s&,;'\"<>]+",
-        lambda match: match.group(1) + REDACTED_VALUE,
-        cleaned,
-        flags=re.I,
-    )
+    cleaned = _NAMED_CREDENTIAL.sub(lambda match: match.group("name") + REDACTED_VALUE, cleaned)
     return redact_text(cleaned, secrets)
 
 
