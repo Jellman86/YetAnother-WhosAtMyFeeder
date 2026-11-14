@@ -262,10 +262,12 @@
         // link to bird visits, then labelled them an empty Garden queue, so an owner's read waits
         // for a successful settings read and stops, saying why, when there is none. Visitors read
         // the public projection and never load owner settings.
-        if (authStore.hasOwnerAccess && settingsStore.settings === null) {
-            await settingsStore.load();
+        // The settings store alone decides whether settings are known: its read joins one in
+        // flight, answers from the copy it holds, and rejects when there is none to be had.
+        if (authStore.hasOwnerAccess) {
+            const settingsKnown = await settingsStore.read().then(() => true, () => false);
             if (!load.isCurrent()) return;
-            if (settingsStore.settings === null) {
+            if (!settingsKnown) {
                 error = $_('events.settings_unavailable', { default: 'Your settings could not be loaded, so the Explorer cannot tell which visitors to show. Nothing was changed. Try again in a moment.' });
                 loading = false;
                 return;

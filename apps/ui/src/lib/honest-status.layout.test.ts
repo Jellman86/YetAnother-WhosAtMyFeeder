@@ -24,7 +24,8 @@ describe('status the shell only claims once measured', () => {
 
     it('makes every owner Explorer read wait for a successful settings read', () => {
         const load = eventsSource.indexOf('async function loadEvents()');
-        const guard = eventsSource.indexOf('if (authStore.hasOwnerAccess && settingsStore.settings === null) {', load);
+        // The settings store decides whether settings are known; the Explorer asks it and stops when they are not.
+        const guard = eventsSource.indexOf('const settingsKnown = await settingsStore.read().then(() => true, () => false);', load);
         const firstRequest = eventsSource.indexOf('fetchGardenVisits({', load);
         expect(guard).toBeGreaterThan(load);
         expect(guard).toBeLessThan(firstRequest);

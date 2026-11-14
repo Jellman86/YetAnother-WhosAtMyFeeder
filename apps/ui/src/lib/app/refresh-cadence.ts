@@ -14,7 +14,7 @@ export const REFRESH_CADENCE_MS = {
     serverJobsActive: 5_000,
     analysisQueueIdle: 60_000,
     analysisQueueActive: 5_000,
-    /** Backend health, the incident workspace, and the owner's history counts. */
+    /** Backend health, the incident workspace, the owner's history counts, and the service connections. */
     ownerSystemChecks: 120_000,
     /** Whether the media folder is writable. It needs a storage measurement, so it is read rarely. */
     mediaStorageCheck: 600_000,
@@ -37,8 +37,9 @@ export const SHELL_READINGS: ReadonlyArray<{ reading: Reading; requests: number 
     { reading: 'cameraHealth', requests: 1 },
     { reading: 'serverJobsIdle', requests: 1 },
     { reading: 'analysisQueueIdle', requests: 1 },
-    // Health, the incident workspace, and the two history reads (list and count).
-    { reading: 'ownerSystemChecks', requests: 4 },
+    // Health, the incident workspace, the two history reads (list and count), and the broker and
+    // Frigate connection reading, which the live stream also announces when it changes.
+    { reading: 'ownerSystemChecks', requests: 5 },
     // A measurement is started, then collected.
     { reading: 'mediaStorageCheck', requests: 2 }
 ];
