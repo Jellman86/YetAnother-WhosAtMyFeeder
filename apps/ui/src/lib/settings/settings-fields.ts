@@ -173,3 +173,16 @@ const FIELD_PLACES: Readonly<Record<string, SettingsFieldPlace>> = {
 export function settingsFieldPlace(field: string): SettingsFieldPlace | null {
     return FIELD_PLACES[field] ?? null;
 }
+
+/**
+ * The refused field to show first: one on the tab already open, so a correction there needs no
+ * jump, otherwise the first in navigation order.
+ */
+export function firstRefusedField(fields: readonly string[], openTab: SettingsTab): string | null {
+    const located = fields.map((field, order) => ({ field, order, tab: settingsFieldTab(field) }));
+    const here = located.find((entry) => entry.tab === openTab);
+    if (here) return here.field;
+    const rank = (tab: SettingsTab | null) => (tab === null ? SETTINGS_TAB_ORDER.length : SETTINGS_TAB_ORDER.indexOf(tab));
+    const sorted = [...located].sort((a, b) => rank(a.tab) - rank(b.tab) || a.order - b.order);
+    return sorted[0]?.field ?? null;
+}

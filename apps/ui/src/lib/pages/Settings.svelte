@@ -106,7 +106,7 @@
     import { enrichmentSection, type EnrichmentDraft } from '../settings/enrichment-section';
     import { aiSection, editAiDraft, type AiDraft } from '../settings/ai-section';
     import { sectionChangedFields } from '../settings/section-adapter';
-    import { changedFields, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
+    import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from '../settings/settings-fields';
     import { rangeFieldError, standingFieldErrors, type SettingsFieldError } from '../settings/field-errors';
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
@@ -2658,6 +2658,9 @@
         fieldErrors = errors;
         refusedPayload = payload as Record<string, unknown>;
         saveProblem = { key: 'settings.save_bar.refused', fallback: 'Nothing was saved. Correct the highlighted values, then save again.' };
+        // Focus stays on Save otherwise, and a refused field on another tab would never be seen.
+        const first = firstRefusedField(errors.map((error) => error.field), activeTab);
+        if (first) void openRefusedField(first);
     }
 
     async function saveSettings() {

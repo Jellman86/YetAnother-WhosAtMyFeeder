@@ -27,3 +27,16 @@ describe('the Settings save model', () => {
         expect(settingsPageSource).not.toContain('{message}');
     });
 });
+
+describe('the save bar announcements', () => {
+    it('keeps the polite summary and the save problem alert as separate, un-nested regions', async () => {
+        const { default: pageSource } = await import('./_primitives/SettingsPage.svelte?raw');
+        const summaryAt = pageSource.indexOf('aria-live="polite" data-save-summary');
+        const problemAt = pageSource.indexOf('role="alert" data-save-problem');
+        expect(summaryAt).toBeGreaterThan(-1);
+        expect(problemAt).toBeGreaterThan(summaryAt);
+        // The summary paragraph closes before the problem opens, and only one polite region exists.
+        expect(pageSource.slice(summaryAt, problemAt)).toContain('</p>');
+        expect(pageSource.match(/aria-live=/g)).toHaveLength(1);
+    });
+});

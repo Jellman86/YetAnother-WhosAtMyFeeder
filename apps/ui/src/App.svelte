@@ -27,6 +27,7 @@
   import { layoutStore } from './lib/stores/layout.svelte';
 import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
 import { unsavedChanges } from './lib/stores/unsaved-changes';
+import { historyIndexOf, withHistoryIndex } from './lib/app/history-index';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { publicSettingsStore } from './lib/stores/public_settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
@@ -203,6 +204,9 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       goTo(targetPath, opts);
   }
 
+  // The position of the current entry among those the app wrote (see history-index.ts).
+  let historyIndex = historyIndexOf(typeof window === 'undefined' ? null : window.history.state) ?? 0;
+
   function goTo(targetPath: string, opts: { replace?: boolean }) {
       const isDashboardRefresh = targetPath === '/' && currentRoute === '/' && !opts.replace;
       if (isDashboardRefresh) {
@@ -210,8 +214,12 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       }
       currentRoute = targetPath;
       const browserPath = toAppPath(targetPath);
-      if (opts.replace) window.history.replaceState(null, '', browserPath);
-      else window.history.pushState(null, '', browserPath);
+      if (opts.replace) {
+          window.history.replaceState(withHistoryIndex(window.history.state, historyIndex), '', browserPath);
+      } else {
+          historyIndex += 1;
+          window.history.pushState(withHistoryIndex(null, historyIndex), '', browserPath);
+      }
       refreshCoordinator.onNavigate();
   }
 
@@ -481,22 +489,46 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               authStore.handleAuthError();
           });
 
+          // The first entry gets its position too, so a later step back to it can be measured.
+          if (historyIndexOf(window.history.state) === null) {
+              window.history.replaceState(withHistoryIndex(window.history.state, historyIndex), '');
+          }
           // Back and Forward have already moved the address when they arrive here. With unsaved
-          // work the address is put back first, and only a confirmed leave moves on.
+          // work the app steps straight back to where it was (the same distance the other way),
+          // asks, and only a confirmed leave repeats the step. No entry is added or cut off.
+          let restoringHistoryStep = false;
           let confirmedHistoryMove = false;
-          const handlePopState = () => {
+          const handlePopState = (event: PopStateEvent) => {
+              const targetIndex = historyIndexOf(event.state);
+              if (restoringHistoryStep) {
+                  restoringHistoryStep = false;
+                  return;
+              }
               const target = normalizeRouteForCurrentAccess(fromAppPath(window.location.pathname));
               if (!confirmedHistoryMove && unsavedChanges.warningFor(target)) {
-                  const stay = currentRoute;
-                  window.history.pushState(null, '', toAppPath(stay));
-                  void unsavedChanges.allowLeaving(target).then((leave) => {
-                      if (!leave) return;
-                      confirmedHistoryMove = true;
-                      window.history.back();
-                  });
+                  const delta = targetIndex === null ? null : historyIndex - targetIndex;
+                  if (delta !== null && delta !== 0) {
+                      restoringHistoryStep = true;
+                      window.history.go(delta);
+                      void unsavedChanges.allowLeaving(target).then((leave) => {
+                          if (!leave) return;
+                          confirmedHistoryMove = true;
+                          window.history.go(-delta);
+                      });
+                  } else {
+                      // An entry the app did not write has no position; keep the page and ask.
+                      const stay = currentRoute;
+                      window.history.pushState(withHistoryIndex(null, historyIndex), '', toAppPath(stay));
+                      void unsavedChanges.allowLeaving(target).then((leave) => {
+                          if (!leave) return;
+                          confirmedHistoryMove = true;
+                          window.history.back();
+                      });
+                  }
                   return;
               }
               confirmedHistoryMove = false;
+              if (targetIndex !== null) historyIndex = targetIndex;
               currentRoute = target;
               refreshCoordinator.onNavigate();
           };
@@ -550,7 +582,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           const canonicalPath = normalizeSettingsRoute(getCanonicalNotificationRoute(resolvedPath) ?? resolvedPath);
           currentRoute = canonicalPath;
           if (canonicalPath !== resolvedPath) {
-              window.history.replaceState(null, '', toAppPath(canonicalPath));
+              window.history.replaceState(window.history.state, '', toAppPath(canonicalPath));
           }
 
           await authStore.loadStatus();
@@ -558,7 +590,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
               if (accessAdjustedPath !== currentRoute) {
                   currentRoute = accessAdjustedPath;
-                  window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
+                  window.history.replaceState(window.history.state, '', toAppPath(accessAdjustedPath));
               }
           }
           notificationCenter.hydrate();

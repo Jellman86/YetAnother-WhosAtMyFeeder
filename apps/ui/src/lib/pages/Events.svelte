@@ -1230,7 +1230,7 @@
             changed = true;
         }
         if (changed) {
-            window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}`);
         }
     }
 
