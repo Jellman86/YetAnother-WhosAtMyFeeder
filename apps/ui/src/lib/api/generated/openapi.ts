@@ -3140,7 +3140,9 @@ export interface paths {
       path: {
     event_id: string;
 };
-      query: never;
+      query: {
+    size?: "card" | "tile";
+};
       requestBody: unknown;
       response: unknown;
     };

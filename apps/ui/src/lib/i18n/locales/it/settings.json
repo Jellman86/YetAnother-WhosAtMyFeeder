@@ -1,6 +1,7 @@
 {
   "title": "Impostazioni",
   "subtitle": "Configura e gestisci la tua istanza YA-WAMF",
+  "load_failed": "Non è stato possibile leggere le impostazioni, quindi non viene mostrato nulla da modificare. Verifica che il backend di YA-WAMF sia in esecuzione, poi riprova.",
   "language_selector": "Lingua",
   "language_desc": "Cambia il testo dell'interfaccia e il contenuto delle notifiche.",
   "date_format": {

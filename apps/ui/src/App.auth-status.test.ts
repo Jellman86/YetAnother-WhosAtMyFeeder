@@ -50,7 +50,7 @@ describe('App auth status failure handling', () => {
     });
 
     it('uses one adaptive analysis polling path and pauses network work in hidden tabs', () => {
-        expect(appSource).toContain('const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;');
+        expect(appSource).toContain('const ANALYSIS_QUEUE_IDLE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueIdle;');
         expect(appSource).toContain('analysisQueueStatusStore.ingest(status);');
         expect(appSource).toContain('document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS');
         expect(appSource).not.toContain('const analysisInterval = window.setInterval');

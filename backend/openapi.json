@@ -23478,7 +23478,7 @@
     },
     "/api/about/showcase/{event_id}.jpg": {
       "get": {
-        "description": "The stored photograph at card size, under the same access rules as the photograph.",
+        "description": "The stored photograph at card or tile size, under the same access rules as the photograph.",
         "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
         "parameters": [
           {
@@ -23489,6 +23489,22 @@
               "maxLength": 64,
               "minLength": 1,
               "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "card for a single photograph, tile for a wall of many",
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": "card",
+              "description": "card for a single photograph, tile for a wall of many",
+              "enum": [
+                "card",
+                "tile"
+              ],
+              "title": "Size",
               "type": "string"
             }
           }

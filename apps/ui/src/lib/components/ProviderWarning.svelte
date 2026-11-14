@@ -1,6 +1,9 @@
 <script lang="ts">
     import { providerNeedsAttention } from '../utils/provider-warning';
     import { _ } from 'svelte-i18n';
+    import { untrack } from 'svelte';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startVisiblePoll } from '../app/visible-poll';
     import { authStore } from '../stores/auth.svelte';
     import { fetchClassifierStatus, fetchProviderValidationStatus, type ClassifierStatus, type ProviderValidationStatus } from '../api/classifier';
 
@@ -13,7 +16,6 @@
     $effect(() => {
         if (!authStore.hasOwnerAccess) return;
         let cancelled = false;
-        let timer: ReturnType<typeof setTimeout>;
         async function refresh(): Promise<void> {
             try {
                 const [nextClassifier, nextValidation] = await Promise.all([fetchClassifierStatus(), fetchProviderValidationStatus()]);
@@ -23,12 +25,19 @@
                 }
             } catch {
                 // Retain the last measured warning during a transient outage.
-            } finally {
-                if (!cancelled) timer = setTimeout(() => void refresh(), 15000);
             }
         }
-        void refresh();
-        return () => { cancelled = true; clearTimeout(timer); };
+        const stop = untrack(() => startVisiblePoll({
+            read: refresh,
+            // A running check finishes within seconds; a settled provider changes only when the runtime does.
+            delayMs: () => validation?.state === 'running'
+                ? REFRESH_CADENCE_MS.providerWarningChecking
+                : REFRESH_CADENCE_MS.providerWarning
+        }));
+        return () => {
+            cancelled = true;
+            stop();
+        };
     });
 </script>
 

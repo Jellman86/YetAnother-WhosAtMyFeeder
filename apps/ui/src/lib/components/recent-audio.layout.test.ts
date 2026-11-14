@@ -28,8 +28,10 @@ describe('RecentAudio dashboard widget layout', () => {
     });
 
     it('serializes background refreshes and stops them with the component lifecycle', () => {
-        expect(recentAudioSource).toContain('scheduleAudioPoll();');
-        expect(recentAudioSource).toContain('if (!document.hidden)');
+        // Serial reads, the hidden-tab pause and the stop are the shared poll's, tested with timers
+        // in app/visible-poll.test.ts; here the card is only required to use it and to stop it.
+        expect(recentAudioSource).toContain('stopAudioPoll = startVisiblePoll({');
+        expect(recentAudioSource).toContain('stopAudioPoll?.();');
         expect(recentAudioSource).not.toContain('setInterval(loadAudio');
         expect(recentAudioSource).toContain('audioLoader.dispose();');
     });

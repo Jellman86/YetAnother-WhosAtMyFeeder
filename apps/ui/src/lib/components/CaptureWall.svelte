@@ -93,7 +93,8 @@
     const shown = $derived(width === 0 ? [] : packTiles(usable, columns, rowCount));
     const hasMore = $derived(!opened && usable.length > shown.length);
     const large = (tile: WallTile): boolean => tile.featured && columns >= 4;
-    const skeleton = $derived(Array.from({ length: columns * 3 }, (_unused, index) => index));
+    // As many rows as a full wall draws, so the page beneath does not move when the photographs land.
+    const skeleton = $derived(Array.from({ length: columns * rowCount }, (_unused, index) => index));
 
     // The tiles rise into place once, on first paint; a wall that reflows later does not replay it.
     let introDone = $state(false);
@@ -480,7 +481,7 @@
                             onclick={() => pickTile(tile)}
                         >
                             <img
-                                src={getReelImageUrl(tile.frigateEvent)}
+                                src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}
                                 alt=""
                                 loading="lazy"
                                 decoding="async"

@@ -24,6 +24,21 @@ describe('Camera status health and viewer behavior', () => {
         expect(cameraStatusSource).not.toContain('onmouseleave');
     });
 
+    it('holds no timer while the tab is hidden: both refreshes run on the shared visible poll', () => {
+        // startVisiblePoll cancels its timer when the tab is hidden and reads again when it is shown
+        // (see app/visible-poll.test.ts); a hand-rolled interval keeps firing in a hidden tab.
+        expect(cameraStatusSource).toContain("import { startVisiblePoll } from '../app/visible-poll';");
+        expect(cameraStatusSource).toMatch(/startVisiblePoll\(\{\s*read: refreshHealth,/);
+        expect(cameraStatusSource).toMatch(/startVisiblePoll\(\{\s*read: refreshSelectedFrame,/);
+        expect(cameraStatusSource).not.toContain('setInterval');
+    });
+
+    it('starts no poll once destroyed, even when the mount bootstrap ends afterwards', () => {
+        expect(cameraStatusSource).toMatch(/onDestroy\(\(\) => \{\s*destroyed = true;/);
+        expect(cameraStatusSource).toMatch(/function startHealthRefresh\(refreshNow = true\): void \{\s*if \(destroyed\) return;/);
+        expect(cameraStatusSource).toMatch(/function startFrameRefresh\(\): void \{\s*if \(destroyed\) return;/);
+    });
+
     it('uses the shared API client instead of an inline fetch', () => {
         expect(cameraStatusSource).toContain('fetchLatestCameraSnapshot');
         expect(cameraStatusSource).toContain('fetchCameraStatuses');

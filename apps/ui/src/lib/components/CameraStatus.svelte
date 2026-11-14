@@ -1,7 +1,9 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchSettings } from '../api/settings';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startVisiblePoll } from '../app/visible-poll';
+    import { settingsStore } from '../stores/settings.svelte';
     import { fetchEventFilters } from '../api/events';
     import {
         fetchCameraStatuses,
@@ -15,7 +17,7 @@
     type FrameState = { url: string | null; loading: boolean; error: boolean };
     type OverallTone = 'ok' | 'mixed' | 'down' | 'checking' | 'idle';
 
-    const HEALTH_REFRESH_MS = 15_000;
+    const HEALTH_REFRESH_MS = REFRESH_CADENCE_MS.cameraHealth;
     const FRAME_REFRESH_MS = 15_000;
 
     let cameras = $state<string[]>([]);
@@ -30,8 +32,11 @@
     let rootEl: HTMLDivElement | null = $state(null);
     let triggerEl: HTMLButtonElement | null = $state(null);
     let viewerEl: HTMLDivElement | null = $state(null);
-    let healthTimer: ReturnType<typeof setInterval> | null = null;
-    let frameTimer: ReturnType<typeof setInterval> | null = null;
+    // Each poll holds no timer while the tab is hidden and reads again once it is shown.
+    let stopHealthPoll: (() => void) | null = null;
+    // The mount bootstrap awaits several reads; a poll started after destroy would never stop.
+    let destroyed = false;
+    let stopFramePoll: (() => void) | null = null;
     let healthController: AbortController | null = null;
     let frameController: AbortController | null = null;
     let healthPromise: Promise<void> | null = null;
@@ -96,7 +101,7 @@
 
     async function loadCameras(): Promise<void> {
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             const configured = viewerCameraNames({
                 cameras: cameraNames(settings.cameras),
                 garden_cameras: cameraNames(settings.garden_cameras),
@@ -184,25 +189,29 @@
     }
 
     function startHealthRefresh(refreshNow = true): void {
-        if (refreshNow) void refreshHealth();
-        if (!healthTimer) healthTimer = setInterval(() => void refreshHealth(), HEALTH_REFRESH_MS);
+        if (destroyed) return;
+        stopHealthPoll ??= startVisiblePoll({
+            read: refreshHealth,
+            delayMs: () => HEALTH_REFRESH_MS,
+            readAtStart: refreshNow
+        });
     }
 
     function stopHealthRefresh(): void {
-        if (healthTimer) clearInterval(healthTimer);
-        healthTimer = null;
+        stopHealthPoll?.();
+        stopHealthPoll = null;
         healthController?.abort();
         healthController = null;
     }
 
     function startFrameRefresh(): void {
-        void refreshSelectedFrame();
-        if (!frameTimer) frameTimer = setInterval(() => void refreshSelectedFrame(), FRAME_REFRESH_MS);
+        if (destroyed) return;
+        stopFramePoll ??= startVisiblePoll({ read: refreshSelectedFrame, delayMs: () => FRAME_REFRESH_MS });
     }
 
     function stopFrameRefresh(): void {
-        if (frameTimer) clearInterval(frameTimer);
-        frameTimer = null;
+        stopFramePoll?.();
+        stopFramePoll = null;
         frameController?.abort();
         frameController = null;
     }
@@ -210,6 +219,7 @@
     function open(): void {
         if (popoverOpen) return;
         popoverOpen = true;
+        void refreshHealth();
         startFrameRefresh();
         requestAnimationFrame(() => viewerEl?.focus());
     }
@@ -263,7 +273,6 @@
         } else {
             void refreshHealth();
         }
-        if (popoverOpen) void refreshSelectedFrame();
     }
 
     onMount(() => {
@@ -276,6 +285,7 @@
     });
 
     onDestroy(() => {
+        destroyed = true;
         stopHealthRefresh();
         stopFrameRefresh();
         for (const entry of Object.values(frames)) {

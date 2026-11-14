@@ -48,9 +48,15 @@ SHOWCASE_DEFAULT_LIMIT = 12
 # few hundred pixels. The reel serves a resized copy, kept in memory for the handful of
 # photographs the reel can show, keyed on the file so a re-chosen frame is picked up.
 REEL_IMAGE_MAX_EDGE = 480
+# A leaderboard wall draws about eighty visits in cells under ninety pixels wide. A card-sized
+# copy of each is megabytes of photograph the screen cannot show, so the wall asks for a tile.
+REEL_TILE_MAX_EDGE = 240
 REEL_IMAGE_QUALITY = 82
-REEL_IMAGE_CACHE_ENTRIES = 48
-_reel_images: "OrderedDict[tuple[str, int, int], bytes]" = OrderedDict()
+# Room for a whole wall of tiles beside the reel's cards, so drawing one does not evict the other.
+REEL_IMAGE_CACHE_ENTRIES = 256
+ReelImageSize = Literal["card", "tile"]
+_REEL_MAX_EDGE: dict[str, int] = {"card": REEL_IMAGE_MAX_EDGE, "tile": REEL_TILE_MAX_EDGE}
+_reel_images: "OrderedDict[tuple[str, int, int, str], bytes]" = OrderedDict()
 _reel_lock = asyncio.Lock()
 
 
@@ -348,19 +354,19 @@ async def get_feeder_portrait(
     )
 
 
-def resize_for_reel(image_bytes: bytes) -> bytes:
+def resize_for_reel(image_bytes: bytes, max_edge: int = REEL_IMAGE_MAX_EDGE) -> bytes:
     """A card-sized JPEG of the stored photograph; the crop is kept, only the size changes."""
     with Image.open(BytesIO(image_bytes)) as opened:
         image = (ImageOps.exif_transpose(opened) or opened).convert("RGB")
-        image.thumbnail((REEL_IMAGE_MAX_EDGE, REEL_IMAGE_MAX_EDGE))
+        image.thumbnail((max_edge, max_edge))
         out = BytesIO()
         image.save(out, format="JPEG", quality=REEL_IMAGE_QUALITY, optimize=True)
         return out.getvalue()
 
 
-async def reel_image_for(path: FilePath) -> bytes:
+async def reel_image_for(path: FilePath, size: ReelImageSize = "card") -> bytes:
     stat = await aiofiles.os.stat(path)
-    key = (str(path), int(stat.st_mtime), int(stat.st_size))
+    key = (str(path), int(stat.st_mtime), int(stat.st_size), size)
     async with _reel_lock:
         cached = _reel_images.get(key)
         if cached is not None:
@@ -368,7 +374,7 @@ async def reel_image_for(path: FilePath) -> bytes:
             return cached
     async with aiofiles.open(path, "rb") as handle:
         raw = await handle.read()
-    resized = await asyncio.to_thread(resize_for_reel, raw)
+    resized = await asyncio.to_thread(resize_for_reel, raw, _REEL_MAX_EDGE[size])
     async with _reel_lock:
         _reel_images[key] = resized
         _reel_images.move_to_end(key)
@@ -382,9 +388,10 @@ async def reel_image_for(path: FilePath) -> bytes:
 async def get_about_reel_image(
     request: Request,
     event_id: str = Path(..., min_length=1, max_length=64),
+    size: ReelImageSize = Query("card", description="card for a single photograph, tile for a wall of many"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ) -> Response:
-    """The stored photograph at card size, under the same access rules as the photograph."""
+    """The stored photograph at card or tile size, under the same access rules as the photograph."""
     lang = get_user_language(request)
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail="Invalid event ID format")
@@ -397,7 +404,7 @@ async def get_about_reel_image(
     if path is None:
         raise HTTPException(status_code=404, detail="Snapshot not found")
     try:
-        content = await reel_image_for(path)
+        content = await reel_image_for(path, size)
     except Exception:  # a corrupt file is a missing photograph, not a broken page
         raise HTTPException(status_code=404, detail="Snapshot not found")
     # The photograph can change (a candidate applied, the HQ pipeline settling), and a guest's

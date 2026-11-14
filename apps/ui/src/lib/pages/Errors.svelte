@@ -714,9 +714,10 @@
     <SystemHealthPanel>
         {#snippet headerActions()}
             <div class="flex flex-wrap items-center justify-end gap-2">
-                {#if refreshedAgoText()}
-                    <span class="text-xs text-slate-500 dark:text-slate-400">{refreshedAgoText()}</span>
-                {/if}
+                <!-- Its place is held before the first reading, so the header does not rewrap when it arrives. -->
+                <span class="text-xs text-slate-500 dark:text-slate-400 {refreshedAgoText() ? '' : 'invisible'}" aria-hidden={refreshedAgoText() ? undefined : 'true'}>
+                    {refreshedAgoText() ?? $_('jobs.errors_updated_just_now', { default: 'Updated just now' })}
+                </span>
                 <button
                     type="button"
                     class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
@@ -749,7 +750,8 @@
                         {:else}
                             <p class="text-sm text-slate-700 dark:text-slate-200">{overallSummary()}</p>
                         {/if}
-                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{latestHealthLine()}</p>
+                        <!-- Two lines on a phone, where the dated reading wraps; held so its arrival moves nothing. -->
+                        <p class="mt-1 min-h-8 text-xs text-slate-500 sm:min-h-4 dark:text-slate-400">{latestHealthLine()}</p>
                     </div>
                 </div>
                 {#if refreshError}

@@ -11,6 +11,10 @@
         message?: { type: 'success' | 'error'; text: string } | null;
         onRefresh?: () => void;
         refreshing?: boolean;
+        // Why the settings could not be read. While set, the reason and a retry take the place of
+        // the form: a form of defaults or of an older copy would look current and could be applied.
+        loadFailure?: string | null;
+        onRetryLoad?: () => void;
         // Dirty/save bar — when isDirty is true the sticky footer renders.
         isDirty?: boolean;
         saving?: boolean;
@@ -28,6 +32,8 @@
         message = null,
         onRefresh,
         refreshing = false,
+        loadFailure = null,
+        onRetryLoad,
         isDirty = false,
         saving = false,
         onSave,
@@ -83,6 +89,19 @@
                 <div class="h-48 bg-slate-100 dark:bg-slate-800/50 rounded-2xl animate-pulse border border-slate-200 dark:border-slate-700/50"></div>
             {/each}
         </div>
+    {:else if loadFailure}
+        <div
+            role="alert"
+            class="card-base flex flex-col items-start gap-4 border-red-200 bg-red-50/80 p-6 text-red-800 dark:border-red-800/70 dark:bg-red-950/30 dark:text-red-200"
+            data-settings-load-failed
+        >
+            <p class="text-sm font-semibold">{loadFailure}</p>
+            {#if onRetryLoad}
+                <button type="button" class="btn btn-secondary min-h-11 px-4" onclick={() => onRetryLoad?.()}>
+                    {$_('events.try_again', { default: 'Try again' })}
+                </button>
+            {/if}
+        </div>
     {:else}
         {#if tabs}
             {@render tabs()}
@@ -93,7 +112,7 @@
     {/if}
 </div>
 
-{#if isDirty && !loading}
+{#if isDirty && !loading && !loadFailure}
     <div class="save-footer fixed bottom-0 left-0 right-0 z-40 border-t border-line-soft bg-surface/95 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-4 {layoutStore.sidebarCollapsed ? 'md:left-20' : 'md:left-64'}">
         <div class="save-footer-row px-4 py-4 sm:px-6 lg:px-8 2xl:px-12 flex items-center justify-between gap-4">
             <div class="flex min-w-0 items-center gap-3 text-slate-600 dark:text-slate-400">

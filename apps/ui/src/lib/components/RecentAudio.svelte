@@ -2,7 +2,9 @@
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
-    import { fetchSettings } from '../api/settings';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { startVisiblePoll } from '../app/visible-poll';
+    import { settingsStore } from '../stores/settings.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
     import { createObservationProjectionLoader } from '../app/observation-projection-loader';
@@ -31,12 +33,10 @@
 
     const RECENT_AUDIO_LIMIT = 1;
     const MOST_HEARD_LIMIT = 4;
-    const RECENT_AUDIO_POLL_MS = 5_000;
+    const RECENT_AUDIO_POLL_MS = REFRESH_CADENCE_MS.recentAudio;
 
 
     let audioDetections = $state<AudioDetection[]>([]);
-    let pollTimer: ReturnType<typeof setTimeout> | undefined;
-    let stopped = false;
     let loading = $state(true);
     let birdnetExternalUrl = $state('');
 
@@ -73,7 +73,7 @@
             return;
         }
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             birdnetExternalUrl = settings.birdnet_external_url || settings.birdnet_url || '';
         } catch {
             birdnetExternalUrl = '';
@@ -82,28 +82,21 @@
 
 
 
-    function scheduleAudioPoll(delay = authStore.isGuest ? guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute) : RECENT_AUDIO_POLL_MS): void {
-        if (stopped) return;
-        if (pollTimer) clearTimeout(pollTimer);
-        pollTimer = setTimeout(async () => {
-            pollTimer = undefined;
-            if (!document.hidden) {
-                await loadAudio();
-            }
-            scheduleAudioPoll();
-        }, delay);
-    }
+    let stopAudioPoll: (() => void) | undefined;
 
     onMount(() => {
-        stopped = false;
-        void loadAudio().finally(() => scheduleAudioPoll());
+        stopAudioPoll = startVisiblePoll({
+            read: loadAudio,
+            delayMs: () => authStore.isGuest
+                ? guestRecentAudioPollDelayMs(authStore.publicAccessRateLimitPerMinute)
+                : RECENT_AUDIO_POLL_MS
+        });
         void loadBirdnetUrl();
     });
 
     onDestroy(() => {
-        stopped = true;
+        stopAudioPoll?.();
         audioLoader.dispose();
-        if (pollTimer) clearTimeout(pollTimer);
     });
 
     const latestCall = $derived(audioDetections[0] ?? null);

@@ -32,7 +32,7 @@ describe('Garden animals is a beta feature', () => {
         const beta = settingsSource.slice(settingsSource.indexOf("{#if activeTab === 'beta'}"), settingsSource.indexOf("{#if activeTab === 'debug'}"));
         expect(beta).toContain('data-beta-intro');
         expect(beta).toContain('data-beta-feature-list');
-        expect(beta).toMatch(/<li>\s*<GardenBetaSettings/);
+        expect(beta).toMatch(/<li>\s*<LazyRoute loader=\{loadGardenBetaSettings\}[^\n]*\s*\{#snippet content\(GardenBetaSettings\)\}\s*<GardenBetaSettings/);
         expect(gardenBetaSource).toContain('<BetaFeatureCard');
         expect(en.settings.beta.intro).toMatch(/off until you turn it on/);
         expect(en.settings.beta.intro).toMatch(/keeps what it has already recorded/);

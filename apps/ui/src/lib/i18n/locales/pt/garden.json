@@ -167,7 +167,11 @@
     "state_domestic": "Nomeada automaticamente como ave doméstica que você cria",
     "state_domestic_moved": "Movida das aves como ave doméstica que você cria",
     "awaiting_check": "{count, plural, one {# captura de câmera aguardando a verificação automática} other {# capturas de câmera aguardando a verificação automática}}",
-    "awaiting_check_empty": "{count, plural, one {# captura de câmera aguarda a verificação automática.} other {# capturas de câmera aguardam a verificação automática.}} Animais que ela nomeia vão para Animais confirmados, fotos sem animal para Descartadas, e o que ela não puder decidir aparece aqui."
+    "awaiting_check_empty": "{count, plural, one {# captura de câmera aguarda a verificação automática.} other {# capturas de câmera aguardam a verificação automática.}} Animais que ela nomeia vão para Animais confirmados, fotos sem animal para Descartadas, e o que ela não puder decidir aparece aqui.",
+    "late_reading": "A ler as capturas do jardim…",
+    "late_ready": "{count, plural, one {# captura do jardim desta página foi lida depois das visitas.} other {# capturas do jardim desta página foram lidas depois das visitas.}}",
+    "late_none": "Nenhuma captura do jardim nesta página.",
+    "late_show": "Mostrar capturas do jardim"
   },
   "automatic_animal_manual": "Animal detetado. A identificação automática está desativada ou este resultado antigo aguarda nova verificação.",
   "automatic_below_threshold": "Abaixo do limiar automático. Movido para Descartados; restaure a fotografia para a rever.",

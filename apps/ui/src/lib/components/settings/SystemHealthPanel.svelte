@@ -3,6 +3,8 @@
     import { _ } from 'svelte-i18n';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import { fetchSystemTelemetryHistory, type SystemTelemetryHistory } from '../../api';
+    import { REFRESH_CADENCE_MS } from '../../app/refresh-cadence';
+    import { startVisiblePoll } from '../../app/visible-poll';
     import { formatTime } from '../../utils/datetime';
     import {
         CHART_HEIGHT,
@@ -35,7 +37,7 @@
      *
      * The history is kept by the server, so the chart is full the moment it opens.
      */
-    const POLL_MS = 5_000;
+    const POLL_MS = REFRESH_CADENCE_MS.systemLoadHistory;
 
     interface Props {
         /** Header controls; without them the header names the chart's window. */
@@ -70,16 +72,10 @@
 
     onMount(() => {
         const controller = new AbortController();
-        void refresh(controller.signal);
-        const tick = () => {
-            if (document.visibilityState === 'visible') void refresh(controller.signal);
-        };
-        const interval = window.setInterval(tick, POLL_MS);
-        document.addEventListener('visibilitychange', tick);
+        const stop = startVisiblePoll({ read: () => refresh(controller.signal), delayMs: () => POLL_MS });
         return () => {
             controller.abort();
-            window.clearInterval(interval);
-            document.removeEventListener('visibilitychange', tick);
+            stop();
         };
     });
 
@@ -206,7 +202,8 @@
         {/if}
 
         {#if loading && !history}
-            <p class="text-sm text-slate-500 dark:text-slate-400" data-system-health-loading>
+            <!-- Holds roughly the chart's height, so what follows the card does not jump when the history lands. -->
+            <p class="min-h-96 text-sm text-slate-500 md:min-h-80 dark:text-slate-400" data-system-health-loading>
                 {$_('settings.system_health.loading', { default: 'Reading the last half hour…' })}
             </p>
         {:else if failed && !history}

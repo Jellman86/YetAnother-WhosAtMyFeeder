@@ -1,6 +1,7 @@
 {
   "title": "Einstellungen",
   "subtitle": "Konfigurieren und verwalten Sie Ihre YA-WAMF-Instanz",
+  "load_failed": "Ihre Einstellungen konnten nicht gelesen werden, daher wird nichts zum Bearbeiten angezeigt. Prüfen Sie, ob das YA-WAMF-Backend läuft, und versuchen Sie es erneut.",
   "language_selector": "Sprache",
   "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
   "date_format": {

@@ -1,6 +1,7 @@
 {
   "title": "Ajustes",
   "subtitle": "Configure y gestione su instancia de YA-WAMF",
+  "load_failed": "No se pudieron leer los ajustes, así que no se muestra nada para editar. Compruebe que el backend de YA-WAMF está en marcha y vuelva a intentarlo.",
   "language_selector": "Idioma",
   "language_desc": "Cambia el texto de la interfaz y el contenido de las notificaciones.",
   "date_format": {

@@ -27,7 +27,8 @@
         type SpeciesCount,
         type SpeciesInfo
     } from '../api';
-    import { chartjs, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
+    import { chartjsWhenNear, toggleChartSlice, type CanvasChartConfig, type MixedCanvasChartConfig } from '../actions/chartjs';
+    import { whenNearViewport } from '../actions/near-viewport';
     import LazyModal from '../components/LazyModal.svelte';
     import { loadSpeciesDetailModal } from '../components/lazy-dialogs';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
@@ -360,8 +361,9 @@
         })
     );
     $effect(() => {
-        // The reference image is what stands in for a species with no crop of its own.
-        for (const row of showcaseRows) void loadSpeciesInfo(row.key);
+        // The reference image stands in for a flagged species with no crop of its own. Every other
+        // row reads its reference when it comes near the viewport, not for the whole table at load.
+        for (const row of showcaseRows) if (row.flagged) void loadSpeciesInfo(row.key);
     });
     function scrollToChecks(): void {
         const checks = document.querySelector<HTMLElement>('[data-spotlight-checks]');
@@ -851,52 +853,11 @@
         }
     }
 
-    $effect(() => {
-        if (topByCount?.species) {
-            void loadSpeciesInfo(topByCount.species);
-        }
-        if (topByTrend?.species) {
-            void loadSpeciesInfo(topByTrend.species);
-        }
-        if (mostRecent?.species) {
-            void loadSpeciesInfo(mostRecent.species);
-        }
-    });
-
-    $effect(() => {
-        const topRows = sortedSpecies().slice(0, 20);
-        for (const row of topRows) {
-            if (!row?.species || row.species === "Unknown Bird") continue;
-            void loadSpeciesInfo(row.species);
-        }
-    });
-
     function formatDate(value?: string | null): string {
         if (!value) return '—';
         return formatDateTime(value);
     }
 
-    function getHeroBlurb(info: SpeciesInfo | null): string | null {
-        if (!info) return null;
-        const text = info.description || info.extract || null;
-        if (!text) return null;
-        const trimmed = text.trim();
-        if (trimmed.length <= 220) return trimmed;
-        return `${trimmed.slice(0, 217)}...`;
-    }
-
-    function getHeroSource(info: SpeciesInfo | null): { source: 'wikipedia' | 'inaturalist'; url: string } | null {
-        if (!info) return null;
-        if (info.wikipedia_url) return { source: 'wikipedia', url: info.wikipedia_url };
-        if (info.summary_source_url) return { source: 'inaturalist', url: info.summary_source_url };
-        if (info.source_url) return { source: 'inaturalist', url: info.source_url };
-        return null;
-    }
-
-    let heroInfo = $derived(summaryEnabled && topByCount ? getCachedSpeciesInfo(topByCount.species) : null);
-    let heroPortraitInfo = $derived(topByCount ? getCachedSpeciesInfo(topByCount.species) : null);
-    let heroBlurb = $derived(getHeroBlurb(heroInfo));
-    let heroSource = $derived(getHeroSource(heroInfo));
     function spanLabel(): string {
         if (span === 'day') return $_('leaderboard.sort_by_day');
         if (span === 'week') return $_('leaderboard.sort_by_week');
@@ -1905,7 +1866,7 @@
                         aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}
                     >
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
-                        <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800">
+                        <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                 <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
                             {:else}
@@ -1956,7 +1917,7 @@
                                 <td class="px-3 py-3 text-center"><span class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-500 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span></td>
                                 <td class="px-3 py-3">
                                     <button type="button" onclick={() => selectedSpecies = item.species} class="group flex min-h-11 max-w-full items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500" aria-label={$_('leaderboard.view_species', { values: { species: item.displayName } })}>
-                                        <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800">
+                                        <span data-leaderboard-species-portrait class="h-10 w-10 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-sm ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
                                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}<img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />{:else}<span class="flex h-full w-full items-center justify-center text-slate-400"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>{/if}
                                         </span>
                                         <span class="min-w-0"><span class="block truncate font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{item.displayName}</span>{#if item.subName}<span class="block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}</span>
@@ -2019,7 +1980,7 @@
                     {#if timeline?.points?.length}
                         {#key `${span}-${timeline.total_count}-${timeline.bucket}-${showPrecip}-${isDark()}-${themeStore.colorTheme}`}
                             <div class="flex h-full min-w-0 flex-col">
-                                <div class="relative min-h-0 flex-1"><canvas use:chartjs={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
+                                <div class="relative min-h-0 flex-1"><canvas use:chartjsWhenNear={chartOptions()} bind:this={chartEl} aria-label="{$_('leaderboard.detections_over_time')}: {metricLabel()}" class="w-full"></canvas></div>
                             </div>
                         {/key}
                     {:else}
@@ -2031,7 +1992,7 @@
                         <p class="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{panel.title}</p>
                         <div class="h-24 w-full">
                             {#key `${span}-${timeline?.total_count}-${timeline?.bucket}-${isDark()}-${panel.key}`}
-                                <canvas use:chartjs={panel.config} aria-label={panel.title}></canvas>
+                                <canvas use:chartjsWhenNear={panel.config} aria-label={panel.title}></canvas>
                             {/key}
                         </div>
                     </div>
@@ -2284,7 +2245,7 @@
                     <div class="mt-4 min-h-[260px]">
                         {#if donutHasData()}
                             {#key `${span}-${donutSeries().series.join(',')}-${isDark()}-${themeStore.colorTheme}`}
-                                <div class="relative chart-h w-full"><canvas use:chartjs={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
+                                <div class="relative chart-h w-full"><canvas use:chartjsWhenNear={donutChartOptions()} bind:this={donutChartEl} aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}></canvas></div>
                                 <div class="mt-2 flex flex-wrap justify-center gap-x-1" role="group" aria-label={$_('leaderboard.detection_breakdown_subtitle', { default: 'Species composition' })}>
                                     {#each donutSeries().labels as label, index}
                                         <button type="button" class="btn btn-ghost min-h-11 gap-1.5 px-2 text-xs focus-visible:ring-2 focus-visible:ring-brand-500 {hiddenDonutSpecies.includes(index) ? 'opacity-45 line-through' : ''}"

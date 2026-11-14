@@ -1,6 +1,7 @@
 {
   "title": "设置",
   "subtitle": "配置和管理您的 YA-WAMF 实例",
+  "load_failed": "无法读取设置，因此不显示任何可编辑内容。请确认 YA-WAMF 后端正在运行，然后重试。",
   "language_selector": "语言",
   "language_desc": "更改用户界面文本和通知内容。",
   "date_format": {

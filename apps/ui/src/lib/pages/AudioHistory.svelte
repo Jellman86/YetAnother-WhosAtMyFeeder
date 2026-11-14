@@ -15,6 +15,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { speciesSeriesColor } from '../leaderboard/species-palette';
     import { authStore } from '../stores/auth.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { createAudioHistoryLoader } from './audio-history-loader';
     import {
@@ -25,7 +26,6 @@
     } from './audio-history-filters';
     import { withAuthParams } from '../api/core';
     import { appApiPath, toAppPath } from '../app/url-base';
-    import { fetchSettings } from '../api/settings';
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
@@ -198,7 +198,7 @@
             return;
         }
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             birdnetExternalUrl = settings.birdnet_external_url || settings.birdnet_url || '';
         } catch {
             birdnetExternalUrl = '';

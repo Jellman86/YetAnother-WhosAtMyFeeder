@@ -2,11 +2,10 @@ import { get } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
 import { fetchJobsSnapshot, type JobsSnapshot, type ServerJob } from '../api/jobs';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
+import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+import { startVisiblePoll, type PollDocument } from '../app/visible-poll';
 import { authStore } from './auth.svelte';
 import type { JobProgressItem } from './job_progress.svelte';
-
-const ACTIVE_REFRESH_MS = 5_000;
-const IDLE_REFRESH_MS = 30_000;
 
 function parseTimestamp(value: string | null | undefined, fallback: number): number {
     if (!value) return fallback;
@@ -88,17 +87,33 @@ function correlationEventId(job: JobProgressItem): string | null {
     return null;
 }
 
+interface ServerJobsStoreOptions {
+    fetchSnapshot?: () => Promise<JobsSnapshot>;
+    /** Jobs are an owner reading; a guest's poll would only collect refusals. */
+    canReadJobs?: () => boolean;
+    tab?: PollDocument;
+}
+
 export class ServerJobsStore {
     snapshot = $state<JobsSnapshot | null>(null);
     loading = $state(false);
     error = $state<string | null>(null);
     private retainCount = 0;
-    private timer: ReturnType<typeof setTimeout> | null = null;
+    private stopPoll: (() => void) | null = null;
     private request: Promise<void> | null = null;
     private materializedSnapshot: JobsSnapshot | null = null;
     private materializedActive: JobProgressItem[] = [];
     private materializedHistory: JobProgressItem[] = [];
     private previousById = new Map<string, JobProgressItem>();
+    private readonly fetchSnapshot: () => Promise<JobsSnapshot>;
+    private readonly canReadJobs: () => boolean;
+    private readonly tab: PollDocument | undefined;
+
+    constructor(options: ServerJobsStoreOptions = {}) {
+        this.fetchSnapshot = options.fetchSnapshot ?? (() => fetchJobsSnapshot(true));
+        this.canReadJobs = options.canReadJobs ?? (() => authStore.showSettings);
+        this.tab = options.tab;
+    }
 
     private materializeSnapshot(): void {
         const snapshot = this.snapshot;
@@ -192,47 +207,48 @@ export class ServerJobsStore {
     }
 
     async refresh(): Promise<void> {
-        if (!authStore.showSettings) {
+        if (!this.canReadJobs()) {
             this.snapshot = null;
             this.error = null;
             this.loading = false;
-            this.scheduleNext();
             return;
         }
         if (this.request) return this.request;
         this.loading = this.snapshot === null;
         this.request = (async () => {
             try {
-                this.snapshot = await fetchJobsSnapshot(true);
+                this.snapshot = await this.fetchSnapshot();
                 this.error = null;
             } catch (error) {
                 this.error = error instanceof Error ? error.message : 'Jobs status is temporarily unavailable.';
             } finally {
                 this.loading = false;
                 this.request = null;
-                this.scheduleNext();
             }
         })();
         return this.request;
     }
 
+    /** Keeps the snapshot current for as long as something on screen shows it. */
     retain(): () => void {
         this.retainCount += 1;
-        if (this.retainCount === 1) void this.refresh();
+        if (this.retainCount === 1) {
+            this.stopPoll = startVisiblePoll({
+                read: () => this.refresh(),
+                // Running work is followed closely; an idle queue only needs noticing.
+                delayMs: () => (this.activeJobs.length > 0 ? REFRESH_CADENCE_MS.serverJobsActive : REFRESH_CADENCE_MS.serverJobsIdle),
+                tab: this.tab
+            });
+        }
+        let released = false;
         return () => {
-            this.retainCount = Math.max(0, this.retainCount - 1);
-            if (this.retainCount === 0 && this.timer) {
-                clearTimeout(this.timer);
-                this.timer = null;
-            }
+            if (released) return;
+            released = true;
+            this.retainCount -= 1;
+            if (this.retainCount > 0) return;
+            this.stopPoll?.();
+            this.stopPoll = null;
         };
-    }
-
-    private scheduleNext(): void {
-        if (this.retainCount <= 0) return;
-        if (this.timer) clearTimeout(this.timer);
-        const delay = this.activeJobs.length > 0 ? ACTIVE_REFRESH_MS : IDLE_REFRESH_MS;
-        this.timer = setTimeout(() => void this.refresh(), delay);
     }
 }
 
