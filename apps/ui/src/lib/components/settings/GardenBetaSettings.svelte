@@ -25,7 +25,8 @@
 
     const DOCS = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/features/garden-animals.md';
 
-    interface Props {
+    // A type alias, not an interface: the lazy tab loader needs props it can treat as a record.
+    type Props = {
         enabled: boolean;
         /** Cameras watched for Garden animals, chosen in Connection. */
         cameras: string[];
@@ -47,7 +48,7 @@
         onOpenNotifications?: () => void;
         /** Opens Integrations at the location, which gives Garden its country. */
         onOpenLocation?: () => void;
-    }
+    };
 
     let {
         enabled = $bindable(false),

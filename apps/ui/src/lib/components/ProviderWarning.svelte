@@ -1,6 +1,7 @@
 <script lang="ts">
     import { providerNeedsAttention } from '../utils/provider-warning';
     import { _ } from 'svelte-i18n';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
     import { authStore } from '../stores/auth.svelte';
     import { fetchClassifierStatus, fetchProviderValidationStatus, type ClassifierStatus, type ProviderValidationStatus } from '../api/classifier';
 
@@ -13,8 +14,12 @@
     $effect(() => {
         if (!authStore.hasOwnerAccess) return;
         let cancelled = false;
-        let timer: ReturnType<typeof setTimeout>;
+        let reading = false;
+        let timer: ReturnType<typeof setTimeout> | undefined;
         async function refresh(): Promise<void> {
+            clearTimeout(timer);
+            if (reading || document.hidden) return;
+            reading = true;
             try {
                 const [nextClassifier, nextValidation] = await Promise.all([fetchClassifierStatus(), fetchProviderValidationStatus()]);
                 if (!cancelled) {
@@ -24,11 +29,24 @@
             } catch {
                 // Retain the last measured warning during a transient outage.
             } finally {
-                if (!cancelled) timer = setTimeout(() => void refresh(), 15000);
+                reading = false;
+                if (!cancelled) {
+                    // A running check finishes within seconds; a settled provider changes only when the runtime does.
+                    const delay = validation?.state === 'running'
+                        ? REFRESH_CADENCE_MS.providerWarningChecking
+                        : REFRESH_CADENCE_MS.providerWarning;
+                    timer = setTimeout(() => void refresh(), delay);
+                }
             }
         }
+        const refreshWhenShown = (): void => { void refresh(); };
         void refresh();
-        return () => { cancelled = true; clearTimeout(timer); };
+        document.addEventListener('visibilitychange', refreshWhenShown);
+        return () => {
+            cancelled = true;
+            clearTimeout(timer);
+            document.removeEventListener('visibilitychange', refreshWhenShown);
+        };
     });
 </script>
 

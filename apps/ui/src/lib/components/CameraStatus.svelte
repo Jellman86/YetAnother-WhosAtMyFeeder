@@ -1,7 +1,8 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchSettings } from '../api/settings';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { settingsStore } from '../stores/settings.svelte';
     import { fetchEventFilters } from '../api/events';
     import {
         fetchCameraStatuses,
@@ -15,7 +16,7 @@
     type FrameState = { url: string | null; loading: boolean; error: boolean };
     type OverallTone = 'ok' | 'mixed' | 'down' | 'checking' | 'idle';
 
-    const HEALTH_REFRESH_MS = 15_000;
+    const HEALTH_REFRESH_MS = REFRESH_CADENCE_MS.cameraHealth;
     const FRAME_REFRESH_MS = 15_000;
 
     let cameras = $state<string[]>([]);
@@ -96,7 +97,7 @@
 
     async function loadCameras(): Promise<void> {
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             const configured = viewerCameraNames({
                 cameras: cameraNames(settings.cameras),
                 garden_cameras: cameraNames(settings.garden_cameras),
@@ -210,6 +211,7 @@
     function open(): void {
         if (popoverOpen) return;
         popoverOpen = true;
+        void refreshHealth();
         startFrameRefresh();
         requestAnimationFrame(() => viewerEl?.focus());
     }

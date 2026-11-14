@@ -177,7 +177,8 @@ test('a runtime change after returning to Detection refreshes without another ch
     await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
-    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 9_000 });
+    // The runtime line is re-read every 15 seconds while Detection is open.
+    await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 20_000 });
     await expect(slider).toHaveValue('0.75');
     expect(counters.settingsReads).toBe(settingsReads);
 });

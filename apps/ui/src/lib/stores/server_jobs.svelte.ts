@@ -2,11 +2,9 @@ import { get } from 'svelte/store';
 import { _, locale } from 'svelte-i18n';
 import { fetchJobsSnapshot, type JobsSnapshot, type ServerJob } from '../api/jobs';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
+import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
 import { authStore } from './auth.svelte';
 import type { JobProgressItem } from './job_progress.svelte';
-
-const ACTIVE_REFRESH_MS = 5_000;
-const IDLE_REFRESH_MS = 30_000;
 
 function parseTimestamp(value: string | null | undefined, fallback: number): number {
     if (!value) return fallback;
@@ -218,20 +216,32 @@ export class ServerJobsStore {
 
     retain(): () => void {
         this.retainCount += 1;
-        if (this.retainCount === 1) void this.refresh();
+        if (this.retainCount === 1) {
+            void this.refresh();
+            if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.resumeWhenShown);
+        }
         return () => {
             this.retainCount = Math.max(0, this.retainCount - 1);
-            if (this.retainCount === 0 && this.timer) {
+            if (this.retainCount > 0) return;
+            if (this.timer) {
                 clearTimeout(this.timer);
                 this.timer = null;
             }
+            if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.resumeWhenShown);
         };
     }
+
+    private readonly resumeWhenShown = (): void => {
+        if (!document.hidden && this.retainCount > 0) void this.refresh();
+    };
 
     private scheduleNext(): void {
         if (this.retainCount <= 0) return;
         if (this.timer) clearTimeout(this.timer);
-        const delay = this.activeJobs.length > 0 ? ACTIVE_REFRESH_MS : IDLE_REFRESH_MS;
+        this.timer = null;
+        // Nobody is looking at a hidden tab; the read resumes when it is shown again.
+        if (typeof document !== 'undefined' && document.hidden) return;
+        const delay = this.activeJobs.length > 0 ? REFRESH_CADENCE_MS.serverJobsActive : REFRESH_CADENCE_MS.serverJobsIdle;
         this.timer = setTimeout(() => void this.refresh(), delay);
     }
 }

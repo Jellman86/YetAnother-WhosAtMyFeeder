@@ -17,6 +17,54 @@ describe('SettingsStore', () => {
         expect(store.error).toBeNull();
     });
 
+    it('answers every reader in one page load with a single request', async () => {
+        let release!: (settings: Settings) => void;
+        const fetchSettings = vi.fn(() => new Promise<Settings>((resolve) => { release = resolve; }));
+        const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+
+        const shell = store.load();
+        const header = store.read();
+        const page = store.read(5_000);
+        release(ownerSettings);
+        await shell;
+
+        expect(await header).toEqual(ownerSettings);
+        expect(await page).toEqual(ownerSettings);
+        expect(await store.read()).toEqual(ownerSettings);
+        expect(fetchSettings).toHaveBeenCalledOnce();
+    });
+
+    it('reads again for a reader that needs a copy fresher than the one held', async () => {
+        vi.useFakeTimers();
+        try {
+            const fetchSettings = vi.fn(async () => ownerSettings);
+            const store = new SettingsStore({ fetchSettings, canReadSettings: () => true });
+            await store.load();
+
+            vi.advanceTimersByTime(5_001);
+            await store.read(5_000);
+            expect(fetchSettings).toHaveBeenCalledTimes(2);
+
+            // A save hands the store the saved copy, which is as fresh as a read.
+            vi.advanceTimersByTime(60_000);
+            store.update(ownerSettings);
+            await store.read(5_000);
+            expect(fetchSettings).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('fails a shared read plainly when the settings cannot be read', async () => {
+        const failing = new SettingsStore({ fetchSettings: vi.fn(async () => { throw new Error('backend away'); }), canReadSettings: () => true });
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        await expect(failing.read()).rejects.toThrow('backend away');
+
+        const guest = new SettingsStore({ fetchSettings: vi.fn(async () => ownerSettings), canReadSettings: () => false });
+        await expect(guest.read()).rejects.toThrow('not available');
+        vi.restoreAllMocks();
+    });
+
     it('does not request settings for a guest session', async () => {
         const fetchSettings = vi.fn(async () => ownerSettings);
         const store = new SettingsStore({ fetchSettings, canReadSettings: () => false });

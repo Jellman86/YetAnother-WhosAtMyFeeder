@@ -17,6 +17,7 @@ export class SettingsStore {
     private _loadPromise: Promise<void> | null = null;
     private loadGeneration = 0;
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
+    private lastReadAt = Number.NEGATIVE_INFINITY;
     private readonly fetchSettings: () => Promise<Settings>;
     private readonly canReadSettings: () => boolean;
 
@@ -40,6 +41,7 @@ export class SettingsStore {
                 const settings = await this.fetchSettings();
                 if (generation !== this.loadGeneration || !this.canReadSettings()) return;
                 this.settings = settings;
+                this.lastReadAt = Date.now();
                 this.staleTracker.touch();
             } catch (e) {
                 if (generation !== this.loadGeneration || !this.canReadSettings()) return;
@@ -73,9 +75,25 @@ export class SettingsStore {
         await this.load();
     }
 
+    /**
+     * The settings for a reader that does not need its own request: the shell, a header control and
+     * a page all ask during one page load, and one response answers them. Joins a read in flight,
+     * reuses one no older than `maxAgeMs`, and reads otherwise. Saves and live updates keep the held
+     * copy current, so a reader that only displays settings can accept any age.
+     */
+    async read(maxAgeMs: number = Number.POSITIVE_INFINITY): Promise<Settings> {
+        if (!this.canReadSettings()) throw new Error('Settings are not available to this session');
+        const held = this.settings;
+        if (held && this._loadPromise === null && Date.now() - this.lastReadAt <= maxAgeMs) return held;
+        await this.load();
+        if (!this.settings) throw new Error(this.error ?? 'Settings could not be read');
+        return this.settings;
+    }
+
     update(newSettings: Settings) {
         if (!this.canReadSettings()) return;
         this.settings = newSettings;
+        this.lastReadAt = Date.now();
     }
 
     clear() {
@@ -85,6 +103,7 @@ export class SettingsStore {
         this.isLoading = false;
         this.error = null;
         this.staleTracker.reset();
+        this.lastReadAt = Number.NEGATIVE_INFINITY;
     }
 
     // Computed properties for common settings

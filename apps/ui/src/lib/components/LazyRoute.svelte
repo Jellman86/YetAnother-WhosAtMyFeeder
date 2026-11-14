@@ -1,20 +1,25 @@
 <script lang="ts" generics="Props extends Record<string, unknown>">
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
-    import type { Component } from 'svelte';
+    import type { Component, Snippet } from 'svelte';
 
+    type LoadedPage = Component<Props>;
     type PageModule = {
-        default: Component<Props>;
+        default: LoadedPage;
     };
 
     let {
         loader,
         props,
+        content,
         label,
         onLoadError
     }: {
         loader: () => Promise<PageModule>;
-        props: Props;
+        /** What the page is given. A page whose props are bound to the host's state uses `content`. */
+        props?: Props;
+        /** Renders the loaded page itself, for a host that binds to the page's props. */
+        content?: Snippet<[LoadedPage]>;
         label: string;
         onLoadError?: (error: unknown) => void;
     } = $props();
@@ -68,7 +73,11 @@
 
 {#if pageModule}
     {@const Page = pageModule.default}
-    <Page {...props} />
+    {#if content}
+        {@render content(Page)}
+    {:else if props}
+        <Page {...props} />
+    {/if}
 {:else if loadError}
     <section
         class="my-6 border-y border-slate-200 py-8 dark:border-slate-700"

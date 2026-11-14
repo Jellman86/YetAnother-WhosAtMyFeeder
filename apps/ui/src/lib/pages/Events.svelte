@@ -358,13 +358,21 @@
                 nextTotal = countRes.count;
             }
             if (!load.isCurrent()) return;
+            // The first page is drawn once, with its Garden captures already in their places. Drawn
+            // in two steps, the captures land between visits a moment later and every card after
+            // them jumps. A page that replaces one on screen keeps its visits unblocked.
+            const firstPage = events.length === 0;
+            if (firstPage) {
+                await loadGarden({ visits: nextVisits, previous: nextPrevious, total: nextTotal });
+                if (!load.isCurrent()) return;
+            }
             events = newEvents;
             pageVisits = nextVisits;
             previousVisit = nextPrevious;
             totalCount = nextTotal;
             measured = true;
             void loadHeard();
-            void loadGarden();
+            if (!firstPage) void loadGarden();
             if (pendingEventId) {
                 const target = newEvents.find((event) => event.frigate_event === pendingEventId);
                 if (target) {
@@ -1552,7 +1560,10 @@
     const gardenInTimeline = $derived(subjects === 'all' && gardenNotice === null);
     const GARDEN_WINDOW_LIMIT = 200;
 
-    async function loadGarden(): Promise<void> {
+    /** The bird page the Garden captures are read around; the page on screen unless one is given. */
+    interface GardenAnchorPage { visits: DetectionVisit[]; previous: DetectionVisit | null; total: number }
+
+    async function loadGarden(page: GardenAnchorPage = { visits: pageVisits, previous: previousVisit, total: totalCount }): Promise<void> {
         if (gardenOnly) return;
         const generation = ++gardenLoadGeneration;
         if (!gardenInTimeline) {
@@ -1562,11 +1573,11 @@
         }
         const sort = sortOrder === 'oldest' ? 'oldest' : 'newest';
         const span = gardenWindow({
-            visits: pageVisits,
+            visits: page.visits,
             sort,
-            previous: previousVisit,
-            hasNextPage: currentPage * pageSize < totalCount,
-            birdTotal: totalCount,
+            previous: page.previous,
+            hasNextPage: currentPage * pageSize < page.total,
+            birdTotal: page.total,
             rangeStart: localDayBound(dateRange.start, false),
             rangeEnd: localDayBound(dateRange.end, true),
             now: new Date()
@@ -2307,6 +2318,16 @@
                     {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
                 </p>
             </section>
+        {:else if pane.state === 'first-load'}
+            <!-- The day strip's space, held while the first page is read, so the visits are not pushed down when it appears. -->
+            <div class="pb-4 pt-1" aria-hidden="true" data-events-timeline-placeholder>
+                <p class="invisible mb-2 text-2xs font-semibold uppercase tracking-wide">{$_('events.timeline_scope', { default: 'Days on this page' })}</p>
+                <div class="min-h-11"></div>
+                <p class="invisible mt-2 hidden items-center gap-1.5 text-2xs sm:inline-flex">
+                    <span class="h-3.5 w-3.5"></span>
+                    {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
+                </p>
+            </div>
         {/if}
 
         {#if heardBlocker}

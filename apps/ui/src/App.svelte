@@ -55,6 +55,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
   import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './lib/app/single-flight';
+  import { REFRESH_CADENCE_MS, readAtMostEvery } from './lib/app/refresh-cadence';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
@@ -247,8 +248,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   let mobileSidebarOpen = $state(false);
   const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
-  const ANALYSIS_QUEUE_POLL_MS = 5_000;
-  const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;
+  const ANALYSIS_QUEUE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueActive;
+  const ANALYSIS_QUEUE_IDLE_POLL_MS = REFRESH_CADENCE_MS.analysisQueueIdle;
   const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
   const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
@@ -340,7 +341,8 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           deployRecovery.observeHealth(health);
           return health;
       },
-      fetchCacheStats,
+      // A storage measurement walks the media folder; whether it is writable changes rarely.
+      fetchCacheStats: readAtMostEvery(fetchCacheStats, REFRESH_CADENCE_MS.mediaStorageCheck),
       fetchAnalysisStatus,
       diagnostics: jobDiagnosticsStore,
       syncDiagnosticsWorkspace: () => incidentWorkspaceStore.refresh(),
@@ -418,7 +420,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           if (document.hidden) return;
           void runOwnerSystemChecksOnce();
           refreshOwnerConnections();
-      }, 60_000);
+      }, REFRESH_CADENCE_MS.ownerSystemChecks);
       const staleInterval = window.setInterval(() => {
           liveUpdates.pruneStaleProcessNotifications();
           detectionsStore.pruneReclassifications();
@@ -852,7 +854,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
                   <GlobalProgress onNavigate={navigate} />
               </div>
           {/if}
-          <main id="main-content" class="flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
+          <!-- A screen tall at least: a page still reading its data is short, and the footer would
+               otherwise show beneath it and jump away when the data lands. -->
+          <main id="main-content" class="min-h-svh flex-1 w-full px-4 sm:px-6 lg:px-8 2xl:px-12 pt-4 pb-8">
               {#if showPageHeader}
                   <PageHeader
                       title={pageHeaderTitle}

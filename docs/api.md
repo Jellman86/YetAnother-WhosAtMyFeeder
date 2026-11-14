@@ -163,9 +163,10 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 - `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
-  graph). Guest rate limits apply; the response is not cacheable. The UI samples every 2.5 s for
-  the owner and, for a visitor, at a fifth of the public rate limit (every 10 s at the default 30
-  a minute). It pauses while the tab is hidden and backs off after failed samples.
+  graph). Guest rate limits apply; the response is not cacheable. The UI samples every 15 s for
+  the owner and, for a visitor, at a fifth of the public rate limit and never faster than the
+  owner (every 15 s at the default 30 a minute). It pauses while the tab is hidden and backs off
+  after failed samples.
 - `GET /api/system-telemetry/history` (owner): the last thirty minutes of host CPU and accelerator
   load, sampled every five seconds while the app runs, with what this container's own processes
   (the app, each classifier worker, any ffmpeg it spawned) took of it by CPU and memory. Anything
@@ -1283,8 +1284,10 @@ return 422. It does not reclassify saved detections or wait indefinitely for an 
   not made yet is asked for in the background. Guests get films only when clips are shared.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species, newest first;
   guests see the public media window, and nothing when snapshots are not shared.
-- `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card
-  size, under the same access rules as `snapshot.jpg`.
+- `GET /api/about/showcase/{event_id}.jpg?size=` (guest-rate-limited). The stored photograph at card
+  size (`size=card`, the default, 480 px on its longer edge) or at the size of one cell in a wall
+  of many (`size=tile`, 240 px), under the same access rules as `snapshot.jpg`. Any other `size`
+  is a 422.
 - `GET /api/about/showcase/{event_id}.webm` (guest-rate-limited). A visit film: four silent seconds
   of 640x360 VP8 WebM cut from Frigate's recording around the visit's best snapshot and framed on
   the bird, under the same access rules as the clip. Answers byte ranges and is never cached. A film

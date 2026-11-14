@@ -16,16 +16,16 @@ it.each([[30, 8000], [100, 5000], [1, 240000]])('reserves the guest audio pollin
     expect(60000 / delay).toBeLessThanOrEqual(cap * 0.25);
 });
 
-it.each([[30, 10000], [100, 3000], [1, 300000]])('samples the decorative telemetry within a fifth of a visitor cap %s', (cap, delay) => {
+it.each([[30, 15000], [100, 15000], [1, 300000]])('samples the decorative telemetry within a fifth of a visitor cap %s', (cap, delay) => {
     expect(telemetrySampleDelayMs({ guest: true, cap, failures: 0 })).toBe(delay);
     expect(60000 / delay).toBeLessThanOrEqual(cap * 0.2);
 });
 
-it('samples telemetry every 2.5 seconds for the owner, who has no public request budget', () => {
-    expect(telemetrySampleDelayMs({ guest: false, cap: 1, failures: 0 })).toBe(2500);
+it('samples the decorative telemetry four times a minute for the owner', () => {
+    expect(telemetrySampleDelayMs({ guest: false, cap: 1, failures: 0 })).toBe(15000);
 });
 
-it.each([[1, 5000], [2, 10000], [6, 60000], [40, 60000]])('backs off after %s failed telemetry samples in a row', (failures, delay) => {
+it.each([[1, 30000], [2, 60000], [6, 60000], [40, 60000]])('backs off after %s failed telemetry samples in a row', (failures, delay) => {
     expect(telemetrySampleDelayMs({ guest: false, cap: 30, failures })).toBe(delay);
 });
 

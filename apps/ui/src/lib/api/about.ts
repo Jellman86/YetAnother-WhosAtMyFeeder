@@ -11,9 +11,10 @@ export async function fetchFeederPortrait(signal?: AbortSignal): Promise<FeederP
     return handleResponse<FeederPortrait>(response);
 }
 
-/** The stored photograph at card size. */
-export function getReelImageUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/about/showcase/${encodeURIComponent(frigateEvent)}.jpg`);
+/** The stored photograph at card size, or at the size of one cell in a wall of many. */
+export function getReelImageUrl(frigateEvent: string, size: 'card' | 'tile' = 'card'): string {
+    const query = size === 'tile' ? '?size=tile' : '';
+    return withAuthParams(`${API_BASE}/about/showcase/${encodeURIComponent(frigateEvent)}.jpg${query}`);
 }
 
 /** A few silent seconds of the visit, framed on the bird; null while it is not made yet. */

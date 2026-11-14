@@ -2,7 +2,8 @@
     import { onMount, onDestroy, untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchRecentAudio, type AudioDetection, type AudioSummaryResponse } from '../api';
-    import { fetchSettings } from '../api/settings';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
+    import { settingsStore } from '../stores/settings.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { guestRecentAudioPollDelayMs } from '../app/public-refresh-budget';
     import { createObservationProjectionLoader } from '../app/observation-projection-loader';
@@ -31,7 +32,7 @@
 
     const RECENT_AUDIO_LIMIT = 1;
     const MOST_HEARD_LIMIT = 4;
-    const RECENT_AUDIO_POLL_MS = 5_000;
+    const RECENT_AUDIO_POLL_MS = REFRESH_CADENCE_MS.recentAudio;
 
 
     let audioDetections = $state<AudioDetection[]>([]);
@@ -73,7 +74,7 @@
             return;
         }
         try {
-            const settings = await fetchSettings();
+            const settings = await settingsStore.read();
             birdnetExternalUrl = settings.birdnet_external_url || settings.birdnet_url || '';
         } catch {
             birdnetExternalUrl = '';

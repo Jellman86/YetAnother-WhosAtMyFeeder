@@ -84,6 +84,8 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
     await expect(trend).toBeVisible();
     await expect(donut).toBeVisible();
     await expect.poll(() => trend.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
+    // A chart below the fold is drawn when it comes near the viewport, not at load.
+    await donut.scrollIntoViewIfNeeded();
     await expect.poll(() => donut.evaluate(node => Boolean((node as HTMLCanvasElement & { __chartjs?: unknown }).__chartjs))).toBe(true);
     await expect.poll(() => trend.evaluate(node => {
         const chart = (node as HTMLCanvasElement & { __chartjs?: { data: { datasets: unknown[] } } }).__chartjs;
@@ -99,6 +101,8 @@ test('trend, composition and heatmap render and respond to controls', async ({ p
 
     await page.getByRole('button', { name: 'Toggle theme' }).click();
     await expect(page.getByRole('group', { name: 'Species composition' }).getByRole('button', { name: 'Hide Robin' })).toHaveAttribute('aria-pressed', 'true');
+    // The theme control is at the top of the page; the recoloured chart is drawn once it is near again.
+    await donut.scrollIntoViewIfNeeded();
     await expect.poll(() => donut.evaluate(node => (node as HTMLCanvasElement & { __chartjs?: { getDataVisibility(index: number): boolean } }).__chartjs?.getDataVisibility(0))).toBe(true);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('species-charts.png'), fullPage: true });

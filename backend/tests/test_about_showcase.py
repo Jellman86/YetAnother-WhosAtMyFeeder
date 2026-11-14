@@ -19,7 +19,13 @@ from app.database import close_db, get_db, init_db
 from app.main import app
 from app.models import Detection
 from app.auth import session_cookie_allowed
-from app.routers.about import REEL_IMAGE_MAX_EDGE, is_crop_source, resize_for_reel, stored_crops
+from app.routers.about import (
+    REEL_IMAGE_MAX_EDGE,
+    REEL_TILE_MAX_EDGE,
+    is_crop_source,
+    resize_for_reel,
+    stored_crops,
+)
 from app.services import media_cache as media_cache_module
 
 SOURCES = {
@@ -207,6 +213,31 @@ async def test_reel_image_route_serves_the_stored_photograph_small(seeded_db, me
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             missing = await client.get("/api/about/showcase/robin_old.jpg")
     assert missing.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_reel_image_route_serves_a_wall_tile_smaller_than_a_card(seeded_db, media_cache_on, tmp_path):
+    from io import BytesIO
+
+    from PIL import Image
+
+    photograph = tmp_path / "robin_new.jpg"
+    photograph.write_bytes(_jpeg(2400, 1800))
+    with patch("app.services.media_cache.media_cache.get_snapshot_path", new=AsyncMock(return_value=photograph)):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            card = await client.get("/api/about/showcase/robin_new.jpg")
+            tile = await client.get("/api/about/showcase/robin_new.jpg?size=tile")
+            card_again = await client.get("/api/about/showcase/robin_new.jpg?size=card")
+            unknown = await client.get("/api/about/showcase/robin_new.jpg?size=poster")
+    assert tile.status_code == 200, tile.text
+    with Image.open(BytesIO(tile.content)) as image:
+        assert image.size == (REEL_TILE_MAX_EDGE, REEL_TILE_MAX_EDGE * 3 // 4)
+    with Image.open(BytesIO(card.content)) as image:
+        assert image.size == (REEL_IMAGE_MAX_EDGE, REEL_IMAGE_MAX_EDGE * 3 // 4)
+    assert len(tile.content) < len(card.content)
+    # The two sizes are cached apart: asking for a tile must not change what a card receives.
+    assert card_again.content == card.content
+    assert unknown.status_code == 422
 
 
 @pytest.fixture

@@ -20,7 +20,7 @@ describe('the leaderboard opens on a wall of this feeder\'s own visits', () => {
         expect(speciesSource).toContain('onopen={(key) => (selectedSpecies = key)}');
         // A tile is the stored photograph (the crop) at card size, never the whole-scene
         // thumbnail and never the multi-megabyte original.
-        expect(wallSource).toContain('src={getReelImageUrl(tile.frigateEvent)}');
+        expect(wallSource).toContain("src={getReelImageUrl(tile.frigateEvent, large(tile) ? 'card' : 'tile')}");
         expect(wallSource).not.toContain('getSnapshotUrl');
         expect(wallSource).toContain('<button');
         expect(wallSource).toContain('aria-label={tileName(tile)}');

@@ -58,6 +58,7 @@
     import type { BlockedSpeciesEntry, ClassificationImageSource, NotificationSpeciesFilterMode, Settings as SettingsPayload, SettingsUpdate } from '../api/settings';
     import { themeStore, type Theme } from '../stores/theme.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { REFRESH_CADENCE_MS } from '../app/refresh-cadence';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { toAppPath } from '../app/url-base';
@@ -84,7 +85,6 @@
     import SettingsCard from '../components/settings/_primitives/SettingsCard.svelte';
     import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
     import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
-    import GardenBetaSettings from '../components/settings/GardenBetaSettings.svelte';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { locationSettingsDirty } from '../settings/location-dirty';
     import { retentionShrinks } from '../settings/retention-change';
@@ -96,13 +96,7 @@
     } from '../settings/inference-providers';
     import { getErrorMessage } from '../utils/error-handling';
 
-    // Import all 7 settings components
-    import ConnectionSettings from '../components/settings/ConnectionSettings.svelte';
-    import DetectionSettings from '../components/settings/DetectionSettings.svelte';
-    import DataSettings from '../components/settings/DataSettings.svelte';
-    import IntegrationSettings from '../components/settings/IntegrationSettings.svelte';
-    import NotificationSettings from '../components/settings/NotificationSettings.svelte';
-    import AuthenticationSettings from '../components/settings/AuthenticationSettings.svelte';
+    // Every tab is its own chunk, loaded when it is opened (see the loaders above).
     import LazyRoute from '../components/LazyRoute.svelte';
     import { lazyComponent } from '../app/lazy-component';
     import { appearanceSection, type AppearanceDraft } from '../settings/appearance-section';
@@ -130,6 +124,13 @@
     } = $props();
 
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
+    const loadConnectionSettings = lazyComponent(() => import('../components/settings/ConnectionSettings.svelte'));
+    const loadDetectionSettings = lazyComponent(() => import('../components/settings/DetectionSettings.svelte'));
+    const loadNotificationSettings = lazyComponent(() => import('../components/settings/NotificationSettings.svelte'));
+    const loadIntegrationSettings = lazyComponent(() => import('../components/settings/IntegrationSettings.svelte'));
+    const loadAuthenticationSettings = lazyComponent(() => import('../components/settings/AuthenticationSettings.svelte'));
+    const loadDataSettings = lazyComponent(() => import('../components/settings/DataSettings.svelte'));
+    const loadGardenBetaSettings = lazyComponent(() => import('../components/settings/GardenBetaSettings.svelte'));
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
     const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
     const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
@@ -236,6 +237,8 @@
     // status reads can still say idle. Keep polling for a bounded while after starting:
     // a run with nothing to repair finishes before it is ever seen running.
     const TAXONOMY_START_GRACE_MS = 15_000;
+    /** A read the shell finished this recently is the same answer a second request would get. */
+    const SHARED_SETTINGS_READ_MS = 5_000;
     let taxonomyAwaitingStartUntil = 0;
     let taxonomyStatusLoading = false;
 
@@ -1102,11 +1105,9 @@
         // Settings route canonicalisation lives in a reactive $effect below so it
         // also self-heals after popstate / back-button to non-canonical URLs.
 
-        // Ensure settings store is loaded for dirty checking
-        await settingsStore.load();
-
             await Promise.all([
-                loadSettings(),
+                // The shell has usually just read the settings; opening this page joins that read.
+                loadSettings(false, true),
                 loadCameras(),
                 loadClassifierStatus(),
                 loadMaintenanceStats(),
@@ -1140,7 +1141,7 @@
             if (!document.hidden && classifierStatusReads === 0) void loadClassifierStatus();
         };
         refreshRuntime();
-        const interval = window.setInterval(refreshRuntime, 5000);
+        const interval = window.setInterval(refreshRuntime, REFRESH_CADENCE_MS.classifierRuntime);
         document.addEventListener('visibilitychange', refreshRuntime);
         return () => {
             window.clearInterval(interval);
@@ -1161,13 +1162,32 @@
         else window.history.pushState(null, '', toAppPath(path));
     }
 
+    // A tab's code arrives after the tab is chosen, so a link that lands on one of its fields waits
+    // for the field to exist. A tab that fails to load shows its own retry; nothing is focused then.
+    const FIELD_WAIT_FRAMES = 60;
+    async function fieldInOpenedTab(loadTab: () => Promise<unknown>, find: () => HTMLElement | null): Promise<HTMLElement | null> {
+        try {
+            await loadTab();
+        } catch {
+            return null;
+        }
+        for (let frame = 0; frame < FIELD_WAIT_FRAMES; frame += 1) {
+            await tick();
+            const field = find();
+            if (field) return field;
+            await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+        return null;
+    }
+
     // The range filter's next steps live in Integrations; land on the field itself, not the top of the tab.
     // A field hidden behind its switch (the key while eBird is off, coordinates while the location
     // is automatic) falls back to that switch, which is the step that reveals it.
     async function openIntegrationField(...selectors: string[]): Promise<void> {
         handleTabChange('integrations');
-        await tick();
-        const field = selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean);
+        const field = await fieldInOpenedTab(loadIntegrationSettings, () =>
+            selectors.map((selector) => document.querySelector<HTMLElement>(selector)).find(Boolean) ?? null
+        );
         field?.scrollIntoView({ block: 'center' });
         field?.focus({ preventScroll: true });
     }
@@ -1176,8 +1196,7 @@
     // on the camera list itself rather than at the top of a tab whose first card is Frigate.
     async function openCameraSettings(): Promise<void> {
         handleTabChange('connection');
-        await tick();
-        const list = document.getElementById('settings-camera-list');
+        const list = await fieldInOpenedTab(loadConnectionSettings, () => document.getElementById('settings-camera-list'));
         list?.scrollIntoView({ block: 'start' });
         list?.focus({ preventScroll: true });
     }
@@ -2035,13 +2054,13 @@
         }
     }
 
-    async function loadSettings(silent = false) {
+    async function loadSettings(silent = false, shareShellRead = false) {
         if (!silent) loading = true;
         if (!silent) message = null;
         loadingBirdnetSources = true;
         birdnetSourcesError = null;
         try {
-            const settings = await fetchSettings();
+            const settings = shareShellRead ? await settingsStore.read(SHARED_SETTINGS_READ_MS) : await fetchSettings();
             loadedSetupSettings = settings;
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
@@ -2695,6 +2714,8 @@
     {#snippet children()}
             <!-- Connection Tab -->
             {#if activeTab === 'connection'}
+                <LazyRoute loader={loadConnectionSettings} label={$_('settings.tabs.connection')}>
+                {#snippet content(ConnectionSettings)}
                 <ConnectionSettings
                     bind:frigateUrl
                     bind:frigateIngestLabels
@@ -2730,10 +2751,14 @@
                     {versionInfo}
                     {loadCameras}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Detection Tab -->
             {#if activeTab === 'detection'}
+                <LazyRoute loader={loadDetectionSettings} label={$_('settings.tabs.detection')}>
+                {#snippet content(DetectionSettings)}
                 <DetectionSettings
                     bind:threshold
                     bind:minConfidence
@@ -2765,10 +2790,14 @@
                     onopenactivitylog={() => handleTabChange('health')}
                     onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Notifications Tab -->
             {#if activeTab === 'notifications'}
+                <LazyRoute loader={loadNotificationSettings} label={$_('settings.tabs.notifications')}>
+                {#snippet content(NotificationSettings)}
                 <NotificationSettings
                     bind:notifyMinConfidence={filterConfidence}
                     bind:notifyAudioOnly={filterAudioOnly}
@@ -2834,6 +2863,8 @@
                     {disconnectEmailOAuth}
                     onActionFeedback={handleActionFeedback}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Health Tab -->
@@ -2844,6 +2875,8 @@
 
             <!-- Integrations Tab -->
             {#if activeTab === 'integrations'}
+                <LazyRoute loader={loadIntegrationSettings} label={$_('settings.tabs.integrations')}>
+                {#snippet content(IntegrationSettings)}
                 <IntegrationSettings
                     weatherUnitSystem={locationWeatherUnitSystem}
                     bind:birdnetEnabled
@@ -2905,6 +2938,8 @@
                     exportEbirdCsv={exportEbirdCsv}
                     onActionFeedback={(type, text) => type === 'success' ? toastStore.success(text) : toastStore.error(text)}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Enrichment Tab -->
@@ -2934,6 +2969,8 @@
                         </p>
                     </div>
                 {/if}
+                <LazyRoute loader={loadAuthenticationSettings} label={$_('settings.tabs.security')}>
+                {#snippet content(AuthenticationSettings)}
                 <AuthenticationSettings
                     bind:authEnabled
                     bind:authUsername
@@ -2963,10 +3000,14 @@
                     removeTrustedProxyHost={removeTrustedProxyHost}
                     acceptTrustedProxySuggestions={acceptTrustedProxySuggestions}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Data Tab -->
             {#if activeTab === 'data'}
+                <LazyRoute loader={loadDataSettings} label={$_('settings.tabs.data')}>
+                {#snippet content(DataSettings)}
                 <DataSettings
                     bind:retentionDays
                     bind:maintenanceMaxConcurrent
@@ -3032,6 +3073,8 @@
                     {handleResetDatabase}
                     {handleClearFeedback}
                 />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
             <!-- Appearance Tab -->
@@ -3073,6 +3116,8 @@
                     </header>
                     <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>
                         <li>
+                            <LazyRoute loader={loadGardenBetaSettings} label={$_('settings.tabs.beta')}>
+                            {#snippet content(GardenBetaSettings)}
                             <GardenBetaSettings
                                 bind:enabled={betaGardenAnimals}
                                 cameras={gardenCameras}
@@ -3089,6 +3134,8 @@
                                 onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
                                 onOpenCameras={openCameraSettings}
                             />
+                            {/snippet}
+                            </LazyRoute>
                         </li>
                     </ul>
                 </div>
