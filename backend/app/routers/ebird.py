@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.utils.diagnostic_redaction import safe_error_message
+from app.utils.diagnostic_redaction import safe_connection_error, safe_error_message
 from app.auth import AuthContext, get_auth_context_with_legacy, require_owner
 from app.database import get_db
 from app.config import settings
@@ -604,8 +604,8 @@ async def get_nearby_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, species_code=species_code
         )
     except Exception as e:
-        log.error("eBird nearby search failed", error=safe_error_message(e))
-        return {"status": "error", "message": str(e), "results": []}
+        log.error("eBird nearby search failed", error=safe_connection_error(e))
+        return {"status": "error", "message": safe_connection_error(e), "results": []}
 
     return {
         "status": "ok",
@@ -646,8 +646,8 @@ async def get_notable_observations(
             lat=lat, lng=lng, dist_km=dist, back_days=back, max_results=max_results, notable=True
         )
     except Exception as e:
-        log.error("eBird notable search failed", error=safe_error_message(e))
-        return {"status": "error", "message": str(e), "results": []}
+        log.error("eBird notable search failed", error=safe_connection_error(e))
+        return {"status": "error", "message": safe_connection_error(e), "results": []}
 
     results = ebird_service.simplify_observations(items)
 

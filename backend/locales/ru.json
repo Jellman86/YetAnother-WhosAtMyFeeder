@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Ошибка аутентификации Frigate - проверьте токен",
       "frigate_error": "Frigate вернул ошибку: {status_code}",
       "connection_failed": "Не удалось подключиться к Frigate по адресу {url}",
+      "frigate_unreachable": "Не удалось связаться с Frigate. Повторите попытку чуть позже.",
       "snapshot_not_found": "Снимок не найден",
       "thumbnail_not_found": "Миниатюра не найдена",
       "clip_not_found": "Клип не найден",

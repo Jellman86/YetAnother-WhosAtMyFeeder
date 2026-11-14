@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Error de autenticación con Frigate - verifique el token de autenticación",
       "frigate_error": "Frigate devolvió error: {status_code}",
       "connection_failed": "Error al conectar con Frigate en {url}",
+      "frigate_unreachable": "No se pudo contactar con Frigate. Inténtalo de nuevo en un momento.",
       "snapshot_not_found": "Captura no encontrada",
       "thumbnail_not_found": "Miniatura no encontrada",
       "clip_not_found": "Clip no encontrado",

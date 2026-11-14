@@ -14,6 +14,7 @@ from app.services.notifications.transports.email import EmailCredentials, EmailO
 from app.services.notifications.transports.discord import DiscordCredentials, DiscordOptions, DiscordTransport
 from app.services.notifications.transports.pushover import PushoverCredentials, PushoverOptions, PushoverTransport
 from app.services.notifications.transports.telegram import TelegramCredentials, TelegramOptions, TelegramTransport
+from app.utils.diagnostic_redaction import safe_connection_error
 from app.utils.blocked_species import matches_species_filter
 
 
@@ -501,7 +502,7 @@ class NotificationService:
                     else:
                         log.warning("Failed to fetch snapshot for email", status=resp.status_code)
                 except Exception as fetch_error:
-                    log.warning("Failed to fetch snapshot for email", error=str(fetch_error))
+                    log.warning("Failed to fetch snapshot for email", error=safe_connection_error(fetch_error))
 
             if cfg.use_oauth and cfg.oauth_provider:
                 # The OAuth mailbox sends as the address its token belongs to.
@@ -535,7 +536,7 @@ class NotificationService:
                 return False
 
         except Exception as e:
-            log.error("Email notification failed", error=str(e))
+            log.error("Email notification failed", error=safe_connection_error(e))
             return False
 
 

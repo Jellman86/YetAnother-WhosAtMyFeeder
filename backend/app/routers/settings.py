@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
 import structlog
 
-from app.utils.diagnostic_redaction import safe_error_message
+from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
 from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
@@ -255,17 +255,20 @@ async def test_birdnet_reachability(
             resp = await http_client.get(base_url, timeout=10.0)  # lgtm[py/full-ssrf]
         return ActionStatusResponse(
             status="ok",
-            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {base_url}.",
+            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {redact_address(base_url)}.",
         )
     except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
-            content={"status": "error", "message": f"BirdNET-Go timed out at {base_url}."},
+            content={"status": "error", "message": f"BirdNET-Go timed out at {redact_address(base_url)}."},
         )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=502,
-            content={"status": "error", "message": f"Could not reach BirdNET-Go at {base_url} ({type(e).__name__})."},
+            content={
+                "status": "error",
+                "message": f"Could not reach BirdNET-Go at {redact_address(base_url)} ({type(e).__name__}).",
+            },
         )
 
 
@@ -604,8 +607,8 @@ async def test_notification(
 
         return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
-        log.error("Notification test failed", error=safe_error_message(e))
-        return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
+        log.error("Notification test failed", error=safe_connection_error(e))
+        return JSONResponse(status_code=502, content={"status": "error", "message": safe_connection_error(e)})
 
 
 class BirdWeatherTestRequest(BaseModel):

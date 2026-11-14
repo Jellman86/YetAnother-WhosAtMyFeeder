@@ -122,7 +122,15 @@ def redact_text(text: str, secrets: Sequence[str] = ()) -> str:
 
 
 _SCHEME = re.compile(r"[a-z][a-z0-9+.-]*", re.I)
-_ADDRESS_IN_TEXT = re.compile(r"[a-z][a-z0-9+.-]*://[^\s'\"<>]+", re.I)
+# Both patterns run on every verbose HTTP client log line, so each scans a run of scheme or name
+# characters once: the lookbehind starts a match only where such a run begins, and the possessive
+# quantifiers never hand characters back. Without them a long run with no "://" or "=" in it is
+# rescanned from every position, which took seconds for a few kilobytes.
+_ADDRESS_IN_TEXT = re.compile(r"(?<![a-z0-9+.-])[0-9+.-]*+(?P<address>[a-z][a-z0-9+.-]*+://[^\s'\"<>]++)", re.I)
+_NAMED_CREDENTIAL = re.compile(
+    r"(?<![\w-])(?P<name>[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*+[:=]\s*+)[^\s&,;'\"<>]++",
+    re.I,
+)
 # Sentence punctuation that follows an address in an error message rather than belonging to it.
 _TRAILING_PUNCTUATION = ".,;:!?)'\""
 
@@ -157,27 +165,37 @@ def redact_address(address: str, secrets: Sequence[str] = ()) -> str:
     return redact_text(shown, secrets)
 
 
-def redact_connection_error(text: str, secrets: Sequence[str] = ()) -> str:
+def redact_connection_error(text: str, secrets: Sequence[str] = (), *, mark_dropped: bool = False) -> str:
     """Make a connection error safe to show or log, keeping its wording.
 
     Public for reuse wherever a client's error text is surfaced. Every address inside it is
     reduced with :func:`redact_address`, ``name=value`` credentials (token, key, password, secret,
     auth and similar) are replaced, and so are known ``secrets`` and recognisable credential forms.
+    With ``mark_dropped``, an address that lost a path, query or userinfo ends in
+    ``/***REDACTED***``, so a log line never reads as a request to the bare host.
     """
 
     def reduce(match: re.Match[str]) -> str:
-        found = match.group(0)
+        lead = match.group(0)[: match.start("address") - match.start()]
+        found = match.group("address")
         address = found.rstrip(_TRAILING_PUNCTUATION)
-        return redact_address(address, secrets) + found[len(address) :]
+        reduced = redact_address(address, secrets)
+        if mark_dropped and reduced != address.rstrip("/"):
+            reduced += "/" + REDACTED_VALUE
+        return lead + reduced + found[len(address) :]
 
     cleaned = _ADDRESS_IN_TEXT.sub(reduce, text)
-    cleaned = re.sub(
-        r"(\b[\w-]*?(?:token|key|password|passwd|pass|secret|auth)\s*[:=]\s*)[^\s&,;'\"<>]+",
-        lambda match: match.group(1) + REDACTED_VALUE,
-        cleaned,
-        flags=re.I,
-    )
+    cleaned = _NAMED_CREDENTIAL.sub(lambda match: match.group("name") + REDACTED_VALUE, cleaned)
     return redact_text(cleaned, secrets)
+
+
+def safe_connection_error(error: BaseException) -> str:
+    """A client error made safe to log or return: :func:`redact_connection_error` with configured secrets.
+
+    Use it for any exception an HTTP or broker client raised, because its text can quote the
+    request URL, and a configured integration URL can carry credentials in its userinfo, path or query.
+    """
+    return redact_connection_error(str(error), configured_secrets())[:2048]
 
 
 def safe_error_message(error: BaseException) -> str:

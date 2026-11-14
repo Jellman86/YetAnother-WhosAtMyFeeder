@@ -25,6 +25,7 @@
       "frigate_auth_failed": "Frigateの認証に失敗しました - 認証トークンを確認してください",
       "frigate_error": "Frigateがエラーを返しました: {status_code}",
       "connection_failed": "{url}でFrigateへの接続に失敗しました",
+      "frigate_unreachable": "Frigateに接続できませんでした。しばらくしてからもう一度お試しください。",
       "snapshot_not_found": "スナップショットが見つかりません",
       "thumbnail_not_found": "サムネイルが見つかりません",
       "clip_not_found": "クリップが見つかりません",
