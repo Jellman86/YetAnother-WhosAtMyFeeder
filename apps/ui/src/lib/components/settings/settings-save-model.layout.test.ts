@@ -57,7 +57,11 @@ describe('Settings sliders', () => {
         const { default: sliderSource } = await import('./_primitives/SettingsSlider.svelte?raw');
         const { default: detectionSource } = await import('./DetectionSettings.svelte?raw');
         const { default: dataSource } = await import('./DataSettings.svelte?raw');
-        expect(sliderSource).toMatch(/<label for=\{id\}[^>]*>\{label\}<\/label>\s*<output for=\{id\}/);
+        // The value sits beside the label for the eye only: the focused slider announces it once,
+        // through aria-valuetext. An <output> is a live region and would announce it again.
+        expect(sliderSource).toMatch(/<label for=\{id\}[^>]*>\{label\}<\/label>\s*(<!--[\s\S]*?-->\s*)?<span[^>]*aria-hidden="true"[^>]*>\{shown\}<\/span>/);
+        expect(sliderSource).not.toContain('<output');
+        expect(sliderSource).toContain('aria-valuetext={shown}');
         expect(sliderSource).not.toContain('h-11');
         expect(detectionSource.match(/<SettingsSlider/g)).toHaveLength(2);
         expect(detectionSource).not.toContain('type="range"');

@@ -9,10 +9,14 @@
   language, and notifications keep their own.
 - Detection leads with what decides an identification (the confidence sliders), then blocked
   labels and the range filter, then the models; Hardware and Frigate options start closed, keep
-  their state while you move between tabs, and open themselves when a refused value is inside. Model
+  their state while you move between tabs, and open themselves when a refused value is inside. Hardware
+  and its runtime report open for a runtime problem and stay open after it clears, so a report
+  being read never jumps shut; closed on a problem, they stay closed while that same problem
+  remains, and open again for a different one. The status line's health link opens both. Model
   cards badge only the active, installed or broken models and state memory in words, without the
   bar that looked like download progress. The minimum confidence floor is no longer amber, and
-  every Settings slider shows its value beside its label with the slider close beneath.
+  every Settings slider shows its value beside its label with the slider close beneath; screen
+  readers hear the value once, from the slider itself.
 - Settings reads calmly: rows are separated by hairlines instead of boxed inside cards, labels are
   in sentence case rather than spaced capitals, switch hints say what turning them on does instead
   of "Toggle …", off switches and small print meet contrast in both themes, and card titles sit

@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onDestroy, tick } from 'svelte';
     import { useDisclosure } from '../../settings/disclosures.svelte';
+    import { RUNTIME_DISCLOSURES } from '../../settings/runtime-problem';
     import { _ } from 'svelte-i18n';
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
@@ -110,7 +111,8 @@
     // health cell to the runtime report.
     const MODELS_CARD_ID = 'detection-models-card';
     const RUNTIME_REPORT_ID = 'detection-runtime-report';
-    const HARDWARE_CARD_ID = 'detection-hardware';
+    const HARDWARE_CARD_ID = RUNTIME_DISCLOSURES[0];
+    const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[1];
 
 
     const healthIssueCount = $derived(
@@ -124,9 +126,15 @@
 
     // Hardware is advanced and starts closed, unless the runtime has something to report; the
     // status line's health link opens it before scrolling to the report inside it.
+    // Both open themselves for a runtime problem (the Settings page reports it on every status
+    // read); the status line's health link opens both too, whatever was remembered.
     const hardwareCard = useDisclosure(() => ({ id: HARDWARE_CARD_ID }));
+    const runtimeReport = useDisclosure(() => ({ id: RUNTIME_REPORT_SECTION_ID }));
     async function revealAnchor(anchorId: string): Promise<void> {
-        if (anchorId === RUNTIME_REPORT_ID) hardwareCard.open = true;
+        if (anchorId === RUNTIME_REPORT_ID) {
+            hardwareCard.open = true;
+            runtimeReport.open = true;
+        }
         await tick();
     }
 
@@ -812,7 +820,7 @@
     <SettingsCard
         collapsible
         id={HARDWARE_CARD_ID}
-        openByDefault={healthIssueCount > 0}
+
         iconSnippet={engineIcon}
         title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
         description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}
@@ -996,9 +1004,8 @@
 
         <div id={RUNTIME_REPORT_ID} class="scroll-mt-24">
             <AdvancedSection
-                id="detection-inference-advanced"
+                id={RUNTIME_REPORT_SECTION_ID}
                 title={$_('settings.detection.runtime_report_title', { default: 'Runtime report' })}
-                openByDefault={healthIssueCount > 0}
             >
             {#if classifierStatus}
                 <div class="space-y-3">

@@ -9,6 +9,8 @@ const DISCLOSURES = Symbol('settings-disclosures');
  */
 export class SettingsDisclosures {
     private open = $state<Record<string, boolean>>({});
+    // Per section: the problem it is showing (null when none), and the last one the owner closed.
+    private attention: Record<string, { current: string | null; dismissed: string | null }> = {};
 
     isOpen(id: string): boolean | undefined {
         return this.open[id];
@@ -16,6 +18,24 @@ export class SettingsDisclosures {
 
     setOpen(id: string, open: boolean): void {
         this.open[id] = open;
+        const attention = this.attention[id];
+        // Closing a section that shows a problem dismisses that problem, and only that one.
+        if (!open && attention?.current) attention.dismissed = attention.current;
+    }
+
+    /**
+     * Tells these sections which problem the owner must act on is inside them now (null for none),
+     * on every read of it. A problem they have not shown opens them, unless the owner closed them
+     * on that same problem; they stay open after it clears, so a report being read never jumps shut.
+     */
+    attend(ids: readonly string[], problem: string | null): void {
+        for (const id of ids) {
+            const attention = (this.attention[id] ??= { current: null, dismissed: null });
+            if (problem !== null && problem !== attention.current && problem !== attention.dismissed) {
+                this.open[id] = true;
+            }
+            attention.current = problem;
+        }
     }
 
     /** Opens every section given, outermost first. */

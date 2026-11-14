@@ -35,7 +35,10 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource).toContain('const healthIssueCount = $derived(');
         expect(detectionSettingsSource).toContain('classifierStatus?.fallback_reason ? 1 : 0');
         expect(detectionSettingsSource).toContain('autoVideoClassification && videoCircuitOpen ? 1 : 0');
-        expect(detectionSettingsSource).toContain('openByDefault={healthIssueCount > 0}');
+        // The report and its card open for a runtime problem through the page (runtime-problem.ts),
+        // and the health link opens both.
+        expect(detectionSettingsSource).toContain('const RUNTIME_REPORT_SECTION_ID = RUNTIME_DISCLOSURES[1];');
+        expect(detectionSettingsSource).toMatch(/hardwareCard\.open = true;\s*runtimeReport\.open = true;/);
         expect(statusBandSource).toContain('scrollIntoView');
     });
 
@@ -55,14 +58,14 @@ describe('Detection settings, status first', () => {
         expect(detectionSettingsSource.match(/<SettingsCard/g)).toHaveLength(5);
         expect(detectionSettingsSource).not.toContain('tuning_column');
         expect(detectionSettingsSource).not.toContain('runtime_column');
-        expect(detectionSettingsSource).toContain("const HARDWARE_CARD_ID = 'detection-hardware';");
+        expect(detectionSettingsSource).toContain('const HARDWARE_CARD_ID = RUNTIME_DISCLOSURES[0];');
         expect(detectionSettingsSource).toContain('id="detection-frigate-video"');
         expect(detectionSettingsSource.match(/<SettingsCard\s+collapsible/g)).toHaveLength(2);
     });
 
     it('keeps everyday choices visible and puts memory and isolation behind a disclosure that opens when customised', () => {
         const memory = detectionSettingsSource.indexOf('id="detection-memory-advanced"');
-        const report = detectionSettingsSource.indexOf('id="detection-inference-advanced"');
+        const report = detectionSettingsSource.indexOf('id={RUNTIME_REPORT_SECTION_ID}');
         expect(memory).toBeGreaterThan(-1);
         for (const id of [
             'id="confidence-threshold-slider"',

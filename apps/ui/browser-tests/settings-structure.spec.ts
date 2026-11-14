@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openSettings, saveBar } from './settings-page-mock';
+import { openDetectionSettings } from './detection-settings-mock';
 
 // Settings' shape: a compact rail beside the settings on a wide screen, one named select on a
 // phone, every setting in one home, and Detection leading with its everyday decisions.
@@ -129,5 +130,44 @@ test.describe('a refused value inside a closed card', () => {
         await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('button', { name: /Memory and isolation/ })).toHaveAttribute('aria-expanded', 'true');
         await expect(page.locator('#live-worker-count')).toBeFocused();
+    });
+});
+
+test.describe('the runtime report, after it was closed and the tab left', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+    const report = (page: Page) => page.getByRole('button', { name: /Runtime report/ });
+    const hardware = (page: Page) => page.getByRole('button', { name: 'Hardware', exact: true });
+
+    async function closeReportAndReturn(page: Page): Promise<void> {
+        if ((await hardware(page).getAttribute('aria-expanded')) === 'false') await hardware(page).click();
+        if ((await report(page).getAttribute('aria-expanded')) === 'false') await report(page).click();
+        await report(page).click();
+        await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
+        await rail(page).getByRole('link', { name: 'Connection', exact: true }).click();
+        await expect(page.locator('#mqtt-server')).toBeVisible();
+        await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
+    }
+
+    test('the health link opens Hardware and the report, whatever was remembered', async ({ page }) => {
+        await openDetectionSettings(page);
+        await closeReportAndReturn(page);
+        await page.getByRole('button', { name: /Full report/ }).click();
+        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#detection-runtime-report')).toBeInViewport();
+    });
+
+    test('a runtime problem opens the report; once closed on it, the same problem keeps it closed on return', async ({ page }) => {
+        await openDetectionSettings(page, { statusExtra: { fallback_reason: 'Intel GPU failed to compile the model' } });
+        // The problem arrives with the runtime status, after the page itself, and opens both.
+        await expect(page.getByRole('alert').filter({ hasText: 'Intel GPU failed to compile the model' }).first()).toBeVisible();
+        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
+        await closeReportAndReturn(page);
+        await expect(hardware(page)).toHaveAttribute('aria-expanded', 'true');
+        await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
+        // The health link still opens it, whatever was remembered.
+        await page.getByRole('button', { name: /Full report/ }).click();
+        await expect(report(page)).toHaveAttribute('aria-expanded', 'true');
     });
 });

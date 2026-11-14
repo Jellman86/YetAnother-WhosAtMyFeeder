@@ -23,7 +23,9 @@
 <div class="border-t border-line-soft pt-4 first:border-t-0 first:pt-0" data-settings-row data-settings-slider>
     <div class="flex items-baseline justify-between gap-3">
         <label for={id} class="min-w-0 text-sm font-semibold text-slate-900 dark:text-white">{label}</label>
-        <output for={id} class="shrink-0 rounded-md bg-brand-700 px-2 py-0.5 text-xs font-bold tabular-nums text-white">{shown}</output>
+        <!-- For the eye only: the focused slider announces its value once, through aria-valuetext.
+             An output element is a live region and would announce every change a second time. -->
+        <span class="shrink-0 rounded-md bg-brand-700 px-2 py-0.5 text-xs font-bold tabular-nums text-white" aria-hidden="true">{shown}</span>
     </div>
     {#if description}
         <p id={descriptionId} class="mt-1 text-sm leading-snug text-slate-600 dark:text-slate-300">{description}</p>

@@ -99,6 +99,8 @@ export type DetectionMockOptions = {
     savedFinder?: 'yolox_tiny' | 'rfdetr_nano';
     rfdetrInstalled?: boolean;
     saveFails?: boolean;
+    /** Fields merged into every classifier status answer, e.g. a fallback reason the runtime reports. */
+    statusExtra?: Record<string, unknown>;
     savedProvider?: string;
     savedFinderProvider?: string;
 };
@@ -188,7 +190,7 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
             return route.fulfill({ json: options.range?.preview ?? { available: false, window_days: 90, recently_seen: [], model_out_of_range_total: null, examples: [] } });
         }
         if (path === '/api/range-filter/skips') return route.fulfill({ json: { items: options.range?.skips ?? [] } });
-        if (path === '/api/classifier/status') return route.fulfill({ json: classifierStatus(state, rfdetrInstalled, options.finderExecution) });
+        if (path === '/api/classifier/status') return route.fulfill({ json: { ...classifierStatus(state, rfdetrInstalled, options.finderExecution), ...(options.statusExtra ?? {}) } });
         if (path === '/api/models/available') return route.fulfill({ json: availableModels });
         if (path === '/api/models/installed') {
             return route.fulfill({ json: [
@@ -208,7 +210,8 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     });
     await page.goto('/browser-tests/settings-backfill.html');
     const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
+    // The first open compiles the page and its tab on the dev server, which is slow under load.
+    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible({ timeout: 15_000 });
     if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('detection');
     else await page.getByRole('link', { name: 'Detection', exact: true }).click();
     // Hardware starts closed; these tests exercise what is inside it.
