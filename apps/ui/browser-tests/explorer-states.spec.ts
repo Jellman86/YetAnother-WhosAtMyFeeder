@@ -194,6 +194,17 @@ test('selection is a pressed toggle named by what it picks, shown by a ring and 
     const card = page.locator('[data-detection-card]').first();
     await expect(card.locator('[data-detection-card-check]')).toHaveAttribute('data-detection-card-check', 'unselected');
 
+    // While selecting, a screen reader still hears the time and score on the photograph, and a
+    // click on either reading goes to the card.
+    const score = card.locator('button:has([data-detection-score])');
+    await expect(score).toBeVisible();
+    expect(await score.evaluate(node => node.closest('[inert]') === null)).toBe(true);
+    expect(await card.ariaSnapshot()).toMatch(/button "[^"]*\d+%/);
+    await score.click({ force: true });
+    await expect(first).toHaveAttribute('aria-pressed', 'true');
+    await score.click({ force: true });
+    await expect(first).toHaveAttribute('aria-pressed', 'false');
+
     await first.click();
     await expect(first).toHaveAttribute('aria-pressed', 'true');
     await expect(card.locator('[data-detection-card-check]')).toHaveAttribute('data-detection-card-check', 'selected');

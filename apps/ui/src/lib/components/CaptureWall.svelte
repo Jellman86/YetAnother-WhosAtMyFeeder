@@ -408,7 +408,6 @@
         >
             {#each segments as segment, index (`${segment.key}|${index}`)}
                 {@const colour = segmentColour(segment)}
-                {@const out = activeSegment === segment.key}
                 <li class="segment" style:flex-grow={segmentGrow(segment)}>
                     <button
                         type="button"
@@ -424,13 +423,19 @@
                         onblur={() => segmentLeave(segment.key)}
                         onclick={() => pickSegment(segment.key, segment.kind)}
                     >
-                        {#if segment.percent >= 14 || out}
-                            <span class="segment-name">{segmentName(segment.key, segment.kind)}</span>
-                            <span class="segment-meta">
-                                {#if out}{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}{:else}{percentOfTotal(segment.count)}{/if}
-                            </span>
-                        {/if}
+                        <span class="segment-share">{percentOfTotal(segment.count)}</span>
                     </button>
+                </li>
+            {/each}
+        </ul>
+        <!-- The key says in words what each colour is, in the bar's order, with nothing to hover.
+             It is hidden from a screen reader, which hears the same words as each segment's name. -->
+        <ul class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-700 dark:text-slate-300" aria-hidden="true" data-capture-wall-key>
+            {#each segments as segment, index (`${segment.key}|${index}`)}
+                <li class="min-w-0 wrap-break-word {activeSegment === segment.key ? 'font-bold text-slate-950 underline dark:text-white' : ''}">
+                    <span class="mr-1 inline-block h-2.5 w-2.5 rounded-xs align-baseline" style:background-color={segmentColour(segment)}></span>
+                    {segmentName(segment.key, segment.kind)}
+                    <span class="tabular-nums text-slate-600 dark:text-slate-400">{percentOfTotal(segment.count)} · {segment.count.toLocaleString()} {countLabel(segment.count)}</span>
                 </li>
             {/each}
         </ul>
@@ -597,6 +602,8 @@
         flex-basis: 0;
         flex-shrink: 1;
         min-width: 24px;
+        container-type: inline-size;
+        font-size: var(--text-xs);
         transition: flex-grow 0.38s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -607,7 +614,7 @@
         flex-direction: column;
         justify-content: center;
         overflow: hidden;
-        padding: 0 10px;
+        padding: 0 0.5em;
         text-align: left;
         white-space: nowrap;
         cursor: pointer;
@@ -629,21 +636,18 @@
         box-shadow: inset 0 -4px 0 currentColor;
     }
 
-    .segment-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 0.8125rem;
+    /* A segment says its share only where the figure fits whole at the reader's text size; the key
+       under the bar always says it. */
+    .segment-share {
+        display: none;
         font-weight: 700;
-        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
     }
 
-    .segment-meta {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-size: 0.75rem;
-        font-weight: 600;
-        line-height: 1.15;
-        font-variant-numeric: tabular-nums;
+    @container (width >= 4.5em) {
+        .segment-share {
+            display: block;
+        }
     }
 
     .wall-grid {

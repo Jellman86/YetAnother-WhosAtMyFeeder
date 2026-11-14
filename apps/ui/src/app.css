@@ -44,7 +44,11 @@
   --text-3xs: max(0.6875rem, var(--text-floor));
   --text-2xs: max(0.75rem, var(--text-floor));
   --text-xs: max(0.75rem, var(--text-floor));
-  --text-sm: max(0.875rem, var(--text-floor));
+  /* Secondary and normal text each keep a step above the floor, so at the small Appearance sizes,
+     where the floor has caught up with them, small print, secondary text and normal text are
+     still three sizes and hierarchy does not rest on one. */
+  --text-sm: max(0.875rem, var(--text-floor) * 25 / 24);
+  --text-base: max(1rem, var(--text-floor) * 13 / 12);
 
   /* Leading in rem rather than as a ratio of the size: at a fractional root size a ratio rounds
      a line a sixty-fourth of a pixel short, and the error adds up down a page. */
@@ -282,6 +286,8 @@ html[data-theme='dark'] {
   body {
     @apply text-slate-700 dark:text-slate-200;
     font-family: var(--font-body);
+    /* Normal text is the base step, not the bare root: the root can sit on the small-print floor. */
+    font-size: var(--text-base);
     min-height: 100%;
     /* Safari/iOS overscroll uses the root/body paint, so keep this explicit. */
     background-color: var(--app-bg);

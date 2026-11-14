@@ -1585,7 +1585,7 @@
 </script>
 
 {#snippet unlikelyReason(radiusKm: number)}
-    <span class="mt-1 flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
+    <span class="mt-1 flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300" data-leaderboard-unlikely-reason>
         <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" aria-hidden="true"></span>
         {$_('leaderboard.unlikely_reason', { values: { distance: displayDistance(radiusKm, $_) }, default: 'Not reported within {distance}' })}
     </span>
@@ -1656,7 +1656,7 @@
 
         <div class="flex flex-wrap items-center gap-3">
             {#if birdnetEnabled}
-                <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/70 p-0.5" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
+                <div class="inline-flex max-w-full flex-wrap rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800/70" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
                     <button
                         type="button"
                         aria-pressed={sourceMode === 'seen'}
@@ -1765,7 +1765,8 @@
             />
         {/if}
 
-        <dl class="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-slate-200 py-5 dark:border-slate-700 md:grid-cols-3 xl:grid-cols-6" data-leaderboard-standing>
+        <div class="@container">
+        <dl class="grid grid-cols-1 gap-x-6 gap-y-5 border-y border-slate-200 py-5 dark:border-slate-700 @xs:grid-cols-2 @2xl:grid-cols-3 @6xl:grid-cols-6" data-leaderboard-standing>
             <div class="min-w-0">
                 <dt class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('leaderboard.standing_species', { default: 'Species' })}</dt>
                 <dd class="mt-1 font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{leaderboardRows.length.toLocaleString()}</dd>
@@ -1825,6 +1826,7 @@
                 {/if}
             </div>
         </dl>
+        </div>
         <section class="space-y-5" data-leaderboard-rankings>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div class="flex items-center gap-3">
@@ -1855,44 +1857,47 @@
             {/if}
 
             {#key `${sourceMode}-${span}`}
-                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 md:hidden" data-leaderboard-mobile-rankings>
+                <!-- The ranking is a table only where its columns have room at the reader's text size:
+                     the widths below are in rem of this box, so larger text reflows it into rows. -->
+                <div class="@container" data-leaderboard-ranking-frame>
+                <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 @4xl:hidden" data-leaderboard-stacked-rankings>
                 {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     {@const evidence = evidenceOf(item)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
-                        class="group flex min-h-20 w-full items-center gap-3 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
+                        class="group flex min-h-20 w-full flex-wrap items-center gap-x-3 gap-y-1 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:hover:bg-slate-800/40 {unlikelyHere(item) ? 'bg-amber-50/70 dark:bg-amber-500/10' : ''}"
                         title={item.species === "Unknown Bird" ? $_('leaderboard.unidentified_desc') : ""}
                     >
                         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums {index < 3 ? 'bg-brand-100 text-brand-800 dark:bg-brand-900/50 dark:text-brand-200' : 'text-slate-600 dark:text-slate-400'}" aria-label={`${$_('leaderboard.rank')} ${index + 1}`}>{index + 1}</span>
-                        <span data-leaderboard-species-portrait class="h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
+                        <span data-leaderboard-species-portrait class="hidden h-12 w-12 shrink-0 overflow-hidden rounded-full @sm:block border-2 border-white bg-slate-100 shadow-xs ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:ring-brand-800" use:whenNearViewport={() => void loadSpeciesInfo(item.species)}>
                             {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
                                 <img src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined} alt="" class="h-full w-full object-cover" loading="lazy" />
                             {:else}
                                 <span class="flex h-full w-full items-center justify-center text-slate-600 dark:text-slate-400"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg></span>
                             {/if}
                         </span>
-                        <span class="min-w-0 flex-1">
+                        <span class="min-w-0 flex-1 basis-32">
                             <span class="flex items-center gap-2">
                                 <span class="wrap-break-word font-semibold text-slate-900 dark:text-white">{item.displayName}</span>
                             </span>
                             {#if item.subName}<span class="mt-0.5 block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}
                             {#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}
                             <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-400">
-                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span aria-hidden="true">·</span>{/if}
+                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span class="hidden @sm:inline" aria-hidden="true">·</span>{/if}
                                 <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
                             </span>
                         </span>
-                        <span class="shrink-0 text-right">
+                        <span class="ml-auto shrink-0 text-right">
                             <span class="block text-base font-bold tabular-nums text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
                             {#if trendAvailable}<span class="block text-xs font-semibold tabular-nums {trendTone(item)}">{trendGlyph(item)} {trendForMode(item, sourceMode)}</span>{/if}
                         </span>
-                        <svg class="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
+                        <svg class="hidden h-4 w-4 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 @sm:block dark:text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
                 {/each}
                 </div>
 
-                <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 md:block" data-leaderboard-desktop-rankings>
+                <div class="hidden overflow-hidden border-y border-slate-200 dark:border-slate-700 @4xl:block" data-leaderboard-table-rankings>
                 <table class="w-full table-fixed text-left text-sm" data-testid="leaderboard-table">
                     <thead class="border-b border-slate-200 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-400">
                         <tr>
@@ -1900,11 +1905,11 @@
                             <th scope="col" class="w-[32%] px-3 py-3">{$_('leaderboard.species')}</th>
                             <th scope="col" class="px-3 py-3 text-right">{countsAreVisits ? $_('leaderboard.metric_visits', { default: 'Visits' }) : $_('leaderboard.metric_detections', { default: 'Detections' })}</th>
                             {#if birdnetEnabled}<th scope="col" class="px-3 py-3 text-right">{$_('leaderboard.source_heard', { default: 'Heard' })}</th>{/if}
-                            <th scope="col" class="hidden w-52 px-3 py-3 lg:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
-                            {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>{/if}
-                            {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
-                            <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
-                            <th scope="col" class="hidden w-32 px-3 py-3 text-right lg:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
+                            <th scope="col" class="hidden w-52 px-3 py-3 @5xl:table-cell" title={$_('leaderboard.evidence_hint', { default: 'Camera only: BirdNET did not hear this species in the same window and no detection of it has been confirmed. Worth a look before you trust it.' })}>{$_('leaderboard.evidence', { default: 'Evidence' })}</th>
+                            {#if trendAvailable}<th scope="col" class="hidden px-3 py-3 text-right @5xl:table-cell">{$_('leaderboard.trend')}</th>{/if}
+                            {#if showCameraColumn}<th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.cameras')}</th>{/if}
+                            <th scope="col" class="hidden px-3 py-3 text-right @6xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
+                            <th scope="col" class="hidden w-32 px-3 py-3 text-right @5xl:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -1924,15 +1929,16 @@
                                 </td>
                                 <td class="px-3 py-3 text-right">{#if item.audio_only}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowCountPct}%"></span></span>{/if}</td>
                                 {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-slate-400/80 dark:bg-slate-400/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-600 dark:text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 lg:table-cell">{#if evidence === 'unknown'}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-600 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
-                                {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums lg:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
-                                {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
-                                <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
-                                <td class="hidden whitespace-nowrap px-3 py-3 text-right text-slate-600 dark:text-slate-400 lg:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
+                                <td class="hidden px-3 py-3 @5xl:table-cell">{#if evidence === 'unknown'}<span class="text-slate-600 dark:text-slate-400">—</span>{:else}<span class="inline-flex items-center gap-1.5 text-xs font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? 'text-slate-600 dark:text-slate-400' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span>{/if}{#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}</td>
+                                {#if trendAvailable}<td class="hidden px-3 py-3 text-right font-semibold tabular-nums @5xl:table-cell {trendTone(item)}"><span aria-hidden="true" class="mr-0.5 text-xs">{trendGlyph(item)}</span>{trendForMode(item, sourceMode)}</td>{/if}
+                                {#if showCameraColumn}<td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 @6xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>{/if}
+                                <td class="hidden px-3 py-3 text-right tabular-nums text-slate-600 dark:text-slate-300 @6xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
+                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-400 @5xl:table-cell" title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
                     </tbody>
                 </table>
+                </div>
                 </div>
             {/key}
         </section>
@@ -2045,7 +2051,7 @@
                 {/if}
                 <!-- Weather overlays -->
                 <details class="mt-3 group/weather">
-                    <summary class="inline-flex min-h-11 cursor-pointer list-none select-none items-center gap-2 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
+                    <summary class="flex min-h-11 w-fit max-w-full cursor-pointer list-none select-none flex-wrap items-center gap-x-2 gap-y-1 rounded-xl px-2 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:bg-slate-800/40 [&::-webkit-details-marker]:hidden">
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <path d="M6 9a4 4 0 1 1 7.5-1.8A2.8 2.8 0 1 1 14 13H6.5"></path>
                             <path d="M7 14.5v2M10 14.5v2M13 14.5v2"></path>

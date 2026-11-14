@@ -354,11 +354,11 @@
                  where the card is full width, but the densest desktop grid, so
                  the guard fired on an ordinary laptop and covered the bird. The
                  grid now keeps a card wide enough for one line instead. -->
-            <!-- While selecting, the card owns every click, as a list row does; the readings stay readable.
-                 `inert`, not only pointer-events: each reading is a button that turns its own pointer
-                 events back on, and a chip wide enough to reach the card's centre took the click meant
-                 to select the card. -->
-            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2 {selectionMode ? 'pointer-events-none' : ''}" inert={selectionMode}>
+            <!-- While selecting, the card owns every click, as a list row does. Pointer events are
+                 turned off on every descendant, because each reading is a button that turns its own
+                 back on and a wide chip took the click meant to select the card. Not `inert`: that
+                 would also take the time and score away from a screen reader. -->
+            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2 {selectionMode ? 'pointer-events-none [&_*]:pointer-events-none!' : ''}" data-detection-card-readings>
                 <BadgeHint text={$_('detection.captured_at_hint', { values: { date: formatDateValue(detection.detection_time), time: formatTime(detection.detection_time) } })} class="flex min-h-11 items-center gap-1.5 rounded-full photo-chip px-3 py-2 text-xs font-bold">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
