@@ -339,9 +339,7 @@ for (const width of [390, 1440]) {
     test.describe(`text at 200% in a ${width}px window`, () => {
         test.use({ viewport: { width, height: 900 } });
 
-        // The Leaderboard is not held to this yet: its ranking table and share bar are fixed-width
-        // comparisons that still crowd at twice the text size.
-        for (const route of ROUTES.filter((entry) => ['Dashboard', 'Explorer', 'Audio history', 'Notifications', 'About'].includes(entry.name))) {
+        for (const route of ROUTES.filter((entry) => ['Dashboard', 'Explorer', 'Leaderboard', 'Audio history', 'Notifications', 'About'].includes(entry.name))) {
             test(`${route.name} and the shell keep every word whole`, async ({ page }) => {
                 await replayFeeder(page, 'light');
                 await page.goto(route.path);
@@ -391,6 +389,47 @@ for (const width of [390, 1440]) {
         }
     });
 }
+
+test.describe('the Leaderboard at a large text size', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test('ranks in a full table at the normal size and reflows into stacked rows when the text is doubled', async ({ page }) => {
+        await replayFeeder(page, 'light');
+        await page.goto('/species');
+        const table = page.locator('[data-leaderboard-table-rankings]');
+        const stacked = page.locator('[data-leaderboard-stacked-rankings]');
+        await expect(table).toBeVisible(READY);
+        await expect(stacked).toBeHidden();
+        // Every column the table has is on show in a desktop window at the normal size.
+        await expect(table.getByRole('columnheader', { name: 'Avg confidence' })).toBeVisible();
+        await settled(page);
+        await doubleTheText(page);
+        await expect(stacked).toBeVisible();
+        await expect(table).toBeHidden();
+        // The stacked row still says what the table said first: rank, name and count, each whole.
+        const first = stacked.getByRole('button').first();
+        await expect(first).toContainText('Eurasian Blue Tit');
+        await expect(first.getByLabel('Rank 1')).toBeVisible();
+    });
+
+    for (const theme of THEMES) {
+        test(`the share bar names every segment in words without a pointer or focus (${theme})`, async ({ page }) => {
+            await replayFeeder(page, theme);
+            await page.goto('/species');
+            const segments = page.locator('[data-capture-wall-segment]');
+            await expect(segments.first()).toBeVisible(READY);
+            await settled(page);
+            const named = await segments.evaluateAll((nodes) => nodes.map((node) => (node.getAttribute('aria-label') ?? '').split(',')[0]));
+            const key = page.locator('[data-capture-wall-key] li');
+            await expect(key).toHaveCount(named.length);
+            for (const [index, name] of named.entries()) {
+                await expect(key.nth(index)).toBeVisible();
+                await expect(key.nth(index)).toContainText(name);
+                await expect(key.nth(index)).toContainText('%');
+            }
+        });
+    }
+});
 
 test('the page declares the language on screen, and a long German label is shown whole', async ({ page }) => {
     await replayFeeder(page, 'light');
@@ -459,3 +498,77 @@ test('About holds still on a phone when the feeder portrait lands without a pict
     // The picture's slot is kept, so what follows moves by a line of text at most, not a photograph.
     expect(Math.abs(after - before)).toBeLessThanOrEqual(24);
 });
+
+for (const width of [390, 1440]) {
+    test(`Notifications draws its history once, so background jobs landing late move nothing (${width}px)`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 844 });
+        await replayFeeder(page, 'light');
+        // Nothing kept on this device, and the jobs reading is the slow one.
+        await page.addInitScript(() => {
+            localStorage.setItem('yawamf_notification_center', '[]');
+            let total = 0;
+            new PerformanceObserver((list) => {
+                for (const entry of list.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) {
+                    if (!entry.hadRecentInput) total += entry.value;
+                }
+                document.documentElement.dataset.layoutShift = String(total);
+            }).observe({ type: 'layout-shift', buffered: true });
+        });
+        await page.route((url) => url.pathname === '/api/jobs', async (route) => {
+            await new Promise((resolve) => setTimeout(resolve, 1200));
+            await route.fallback();
+        });
+        await page.goto('/notifications');
+        // Until the jobs are in, the page says it is loading and offers no page controls for a partial list.
+        await expect(page.locator('[data-notifications-loading]')).toBeVisible(READY);
+        await expect(page.locator('[data-notifications-pagination]')).toHaveCount(0);
+        await expect(page.getByText('Taxonomy sync').first()).toBeVisible(READY);
+        await expect(page.locator('[data-notifications-loading]')).toHaveCount(0);
+        await settled(page);
+        const shift = Number(await page.locator('html').getAttribute('data-layout-shift') ?? 0);
+        expect(shift).toBeLessThan(0.02);
+    });
+}
+
+for (const enlarge of ['the browser text size', 'the root size'] as const) {
+    test(`at 200% by ${enlarge} in a 1440x900 window every sidebar link is reached by Tab with its focus ring on show`, async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await replayFeeder(page, 'light');
+        if (enlarge === 'the browser text size') {
+            const session = await page.context().newCDPSession(page);
+            await session.send('Page.setFontSizes', { fontSizes: { standard: 32 } });
+        }
+        await page.goto('/about');
+        const links = page.locator('#app-sidebar nav button');
+        await expect(links.first()).toBeVisible(READY);
+        await settled(page);
+        if (enlarge === 'the root size') await doubleTheText(page);
+        const total = await links.count();
+        expect(total).toBeGreaterThanOrEqual(5);
+        const reached: string[] = [];
+        // Tab from the top of the page, as a keyboard user arrives.
+        for (let presses = 0; presses < 40 && reached.length < total; presses += 1) {
+            await page.keyboard.press('Tab');
+            const focused = await page.evaluate(() => {
+                const element = document.activeElement as HTMLElement | null;
+                if (!element?.matches('#app-sidebar nav button')) return null;
+                const box = element.getBoundingClientRect();
+                const frame = (element.closest('nav') as HTMLElement).getBoundingClientRect();
+                const style = getComputedStyle(element);
+                const middle = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+                return {
+                    name: (element.textContent ?? '').trim(),
+                    // Scrolled wholly into the part of the sidebar that shows, and into the window.
+                    inView: box.top >= frame.top - 1 && box.bottom <= frame.bottom + 1 && box.top >= 0 && box.bottom <= innerHeight,
+                    onTop: middle !== null && element.contains(middle),
+                    ring: style.boxShadow !== 'none' && element.matches(':focus-visible')
+                };
+            });
+            if (!focused) continue;
+            expect(focused, focused.name).toMatchObject({ inView: true, onTop: true, ring: true });
+            reached.push(focused.name);
+        }
+        expect(reached).toHaveLength(total);
+        expect(new Set(reached).size).toBe(total);
+    });
+}

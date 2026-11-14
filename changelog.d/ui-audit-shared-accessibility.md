@@ -41,8 +41,7 @@
   names, captions and row details on the Dashboard, Explorer, Audio history, Notifications, About,
   the record and its delete prompt, the connection test, the video player and the setup wizard now
   wrap onto another line instead of ending in an ellipsis or running under the figure beside them.
-  The same names wrap at the normal size when they are too long for their row. The Leaderboard's
-  ranking table and share bar still crowd at that size.
+  The same names wrap at the normal size when they are too long for their row.
 - **Selecting visits in the Explorer always selects.** While choosing several cards, the time and
   score labels on a photograph no longer take the click meant for the card.
 - **The "Chosen" mark stays inside its thumbnail** in the photo strip, so it can no longer stretch

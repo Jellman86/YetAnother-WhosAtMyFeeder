@@ -89,11 +89,24 @@ describe('the sign-in screen', () => {
 
     it('announces a failure and ties it to the fields', () => {
         expect(loginSource).toContain('id="login-error" role="alert"');
-        expect(loginSource).toContain("aria-invalid={error ? 'true' : undefined}");
-        expect(loginSource).toContain("aria-describedby={error ? 'login-error' : undefined}");
+        expect(loginSource).toContain("aria-invalid={passwordMissing || credentialsRefused ? 'true' : undefined}");
+        expect(loginSource).toContain("return credentialsRefused ? 'login-error' : undefined;");
         expect(loginSource).toContain('passwordInput?.focus();');
-        expect(loginSource).toContain("$_('auth.login_failed'");
+        // The message is worded here from why the sign-in failed, never passed through from the server.
+        expect(loginSource).toContain('failure = signInFailure(err);');
+        expect(loginSource).not.toContain('err.message');
         expect(loginSource).not.toContain("'Login failed'");
+    });
+
+    it('checks its own fields and says what is missing beside each, without the browser bubble', () => {
+        expect(loginSource).toContain('novalidate>');
+        expect(loginSource).not.toMatch(/\n\s+required\n/);
+        expect(loginSource.match(/aria-required="true"/g) ?? []).toHaveLength(2);
+        // Messages are rendered before focus moves, and one live region speaks when it cannot.
+        expect(loginSource.indexOf('await tick();')).toBeLessThan(loginSource.indexOf('field.focus();'));
+        expect(loginSource.match(/role="status"/g) ?? []).toHaveLength(1);
+        expect(loginSource).toContain("$_('auth.username_required'");
+        expect(loginSource).toContain("$_('auth.password_required'");
     });
 
     it('is built from the shared kit, flat, with no retired glass styling', () => {

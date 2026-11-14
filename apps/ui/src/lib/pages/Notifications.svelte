@@ -36,6 +36,9 @@
     // Never retain or expose an earlier owner's server snapshot after access changes.
     let timelineJobs = $derived(isOwner ? [...activeJobs, ...historyJobs] : []);
     let items = $derived(buildTimelineItems(notificationItems, timelineJobs));
+    // An owner's history is not whole until the first jobs reading is in. Drawing the part this
+    // device already holds and then pushing job rows into it moved everything under them.
+    let historyPending = $derived(isOwner && serverJobsStore.snapshot === null && serverJobsStore.error === null);
     let counts = $derived(countByFilter(items));
     let unread = $derived(items.filter((item) => !item.read).length);
 
@@ -205,7 +208,13 @@
         {/each}
     </div>
 
-    {#if groups.length === 0}
+    {#if historyPending}
+        <div class="space-y-3" role="status" aria-label={$_('common.loading', { default: 'Loading…' })} data-notifications-loading>
+            {#each [1, 2, 3, 4, 5, 6, 7, 8] as row (row)}
+                <div class="h-20 rounded-xl bg-slate-100 motion-safe:animate-pulse dark:bg-slate-800" aria-hidden="true"></div>
+            {/each}
+        </div>
+    {:else if groups.length === 0}
         <div class="card-base px-6 py-10 text-center">
             {#if items.length > 0}
                 <p class="text-sm text-slate-600 dark:text-slate-400">

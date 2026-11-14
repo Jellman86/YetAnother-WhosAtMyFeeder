@@ -610,8 +610,9 @@ build something better."*
   digits). `tabular-nums` wherever digits align in a column. Small print uses `text-3xs` (11px)
   and `text-2xs` (12px) or `text-xs`: sizes in rem, never `text-[Npx]`, so display scaling and
   the reader's text size carry through.
-  The root size grows on a large display (`clamp(100%, 100% + (100vw - 1280px) / 256, 125%)` in
-  `app.css`), so a rem layout scales as a whole; never set a px font size on the root. The reader's
+  The root size grows on a large display (`100% * clamp(1, 1 + (100vw - 1280px) / 4096px, 1.25)`,
+  written with `tan(atan2())` in `app.css`), so a rem layout scales as a whole and still doubles
+  with the browser's text size; never set a px font size, or add a px term, on the root. The reader's
   **Text size** in Appearance multiplies it through `--text-scale` (per device, 75% to 150%, with
   Standard at 87.5%), so a layout must hold at the largest size on a 320px phone, not only at the
   default. Touch targets use the `11` spacing step, which is `max(2.75rem, 44px)`: never write a

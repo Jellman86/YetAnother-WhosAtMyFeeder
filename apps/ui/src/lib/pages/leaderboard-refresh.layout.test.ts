@@ -24,9 +24,12 @@ describe('leaderboard field-journal layout', () => {
         expect(analytics).toBeGreaterThan(rankings);
     });
 
-    it('uses dedicated mobile and desktop ranking presentations', () => {
-        expect(leaderboardSource).toContain('data-leaderboard-mobile-rankings');
-        expect(leaderboardSource).toContain('data-leaderboard-desktop-rankings');
+    it('ranks in stacked rows or a table by the room its own box has in rem, not by the window in px', () => {
+        expect(leaderboardSource).toContain('<div class="@container" data-leaderboard-ranking-frame>');
+        expect(leaderboardSource).toMatch(/@4xl:hidden" data-leaderboard-stacked-rankings/);
+        expect(leaderboardSource).toMatch(/@4xl:block" data-leaderboard-table-rankings/);
+        // A column that appears by window width would stay while doubled text squeezed it.
+        expect(leaderboardSource).not.toMatch(/\b(?:md|lg|xl):table-cell/);
         expect(leaderboardSource).not.toContain('min-w-[900px]');
         expect(leaderboardSource).not.toContain('role="button"');
     });

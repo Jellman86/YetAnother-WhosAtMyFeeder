@@ -1,4 +1,4 @@
-import { API_BASE, apiFetch, setAuthToken } from './core';
+import { API_BASE, ApiRequestError, apiFetch, setAuthToken } from './core';
 import { readApiErrorMessage } from './error-message';
 import type { paths } from './generated/openapi';
 
@@ -28,7 +28,8 @@ export async function login(username: string, password: string): Promise<LoginRe
     });
 
     if (!response.ok) {
-        throw new Error(await readApiErrorMessage(response, 'Login failed'));
+        // The status travels with the error: the sign-in screen words its message from it.
+        throw new ApiRequestError(await readApiErrorMessage(response, 'Login failed'), response.status);
     }
 
     const data: LoginResponse = await response.json();

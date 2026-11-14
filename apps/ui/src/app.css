@@ -44,7 +44,11 @@
   --text-3xs: max(0.6875rem, var(--text-floor));
   --text-2xs: max(0.75rem, var(--text-floor));
   --text-xs: max(0.75rem, var(--text-floor));
-  --text-sm: max(0.875rem, var(--text-floor));
+  /* Secondary and normal text each keep a step above the floor, so at the small Appearance sizes,
+     where the floor has caught up with them, small print, secondary text and normal text are
+     still three sizes and hierarchy does not rest on one. */
+  --text-sm: max(0.875rem, var(--text-floor) * 25 / 24);
+  --text-base: max(1rem, var(--text-floor) * 13 / 12);
 
   /* Leading in rem rather than as a ratio of the size: at a fractional root size a ratio rounds
      a line a sixty-fourth of a pixel short, and the error adds up down a page. */
@@ -282,6 +286,8 @@ html[data-theme='dark'] {
   body {
     @apply text-slate-700 dark:text-slate-200;
     font-family: var(--font-body);
+    /* Normal text is the base step, not the bare root: the root can sit on the small-print floor. */
+    font-size: var(--text-base);
     min-height: 100%;
     /* Safari/iOS overscroll uses the root/body paint, so keep this explicit. */
     background-color: var(--app-bg);
@@ -306,11 +312,13 @@ html[data-theme='dark'] {
 /* Smooth theme transitions */
 html {
   /* Type and spacing are all rem, so the root size scales the whole app. It holds the reader's own
-     size up to a 1280px window, then grows a pixel for every 256px of width, to at most 20px from
-     2304px, so a large display is not read at laptop size. A percentage keeps the browser's
-     text-size setting in charge; media queries stay in px and are unaffected. The reader's own
+     size up to a 1280px window, then grows by a sixteenth of that size for every 256px of width,
+     to a quarter more from 2304px, so a large display is not read at laptop size. The growth is a
+     share of the reader's size, not a count of pixels, so the whole root still doubles when the
+     browser's text size does: tan(atan2(a, b)) is the plain number a / b, which calc cannot get by
+     dividing one length by another. Media queries stay in px and are unaffected. The reader's own
      text size in Appearance (--text-scale, kept per device) multiplies the whole of it. */
-  font-size: calc(clamp(100%, calc(100% + (100vw - 1280px) / 256), 125%) * var(--text-scale, 1));
+  font-size: calc(100% * clamp(1, 1 + tan(atan2(100vw - 1280px, 4096px)), 1.25) * var(--text-scale, 1));
   transition: background-color 0.3s ease, color 0.3s ease;
   background-color: var(--app-bg);
   color: var(--app-fg);
