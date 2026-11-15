@@ -161,6 +161,10 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await expect(modal).toBeVisible({ timeout: 15000 });
     const audio = modal.getByRole('button', { name: /^All calls heard around this visit/ });
     await expect(audio).toHaveAttribute('aria-expanded', 'false');
+    // The rename control waits behind More actions, which must clear the floor as well.
+    const more = modal.locator('[data-detection-more-actions]');
+    await targetHeights(more);
+    await more.click();
     const editName = modal.getByRole('button', { name: 'Change the common name' });
     await targetHeights(audio);
     await targetHeights(editName);
