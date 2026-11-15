@@ -1670,6 +1670,12 @@
             ],
             "title": "Correlation Key"
           },
+          "count": {
+            "default": 1,
+            "description": "How many times this fault was recorded; repeats share one entry.",
+            "title": "Count",
+            "type": "integer"
+          },
           "event_id": {
             "anyOf": [
               {
@@ -1680,6 +1686,18 @@
               }
             ],
             "title": "Event Id"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the first occurrence was recorded.",
+            "title": "First Seen"
           },
           "id": {
             "title": "Id",
@@ -1695,6 +1713,18 @@
               }
             ],
             "title": "Job Id"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the newest occurrence was recorded; equals `timestamp`.",
+            "title": "Last Seen"
           },
           "message": {
             "title": "Message",
@@ -1820,7 +1850,14 @@
             "type": "object"
           },
           "total_events": {
+            "description": "Distinct entries held, after repeats are grouped.",
             "title": "Total Events",
+            "type": "integer"
+          },
+          "total_occurrences": {
+            "default": 0,
+            "description": "Recorded occurrences across every entry held.",
+            "title": "Total Occurrences",
             "type": "integer"
           }
         },
@@ -13092,6 +13129,650 @@
           "bytes_freed"
         ],
         "title": "ModelDeleteResponse",
+        "type": "object"
+      },
+      "ModelEvalActiveStatus": {
+        "properties": {
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "progress": {
+            "$ref": "#/components/schemas/ModelEvalProgress"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "phase",
+          "started_at",
+          "progress"
+        ],
+        "title": "ModelEvalActiveStatus",
+        "type": "object"
+      },
+      "ModelEvalListResponse": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelEvalActiveStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalRunRow"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "title": "ModelEvalListResponse",
+        "type": "object"
+      },
+      "ModelEvalModelSummary": {
+        "properties": {
+          "abstention_rate": {
+            "default": 0.0,
+            "title": "Abstention Rate",
+            "type": "number"
+          },
+          "active_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Provider"
+          },
+          "device": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Device"
+          },
+          "failed_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed Providers",
+            "type": "array"
+          },
+          "high_confidence_unknown_rate": {
+            "default": 0.0,
+            "title": "High Confidence Unknown Rate",
+            "type": "number"
+          },
+          "images_evaluated": {
+            "default": 0,
+            "title": "Images Evaluated",
+            "type": "integer"
+          },
+          "images_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Images In Vocabulary"
+          },
+          "inference_health_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Health Verdict"
+          },
+          "latency_drift_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Drift Ratio"
+          },
+          "mean_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Latency Ms"
+          },
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "p50_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P50 Latency Ms"
+          },
+          "p95_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P95 Latency Ms"
+          },
+          "panel_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Panel Species"
+          },
+          "ready": {
+            "default": true,
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "ready_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ready Reason"
+          },
+          "regional_top1": {
+            "default": 0.0,
+            "title": "Regional Top1",
+            "type": "number"
+          },
+          "regional_top1_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Regional Top1 In Vocabulary"
+          },
+          "requested_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested Provider"
+          },
+          "shared_core_top1": {
+            "default": 0.0,
+            "title": "Shared Core Top1",
+            "type": "number"
+          },
+          "shared_core_top1_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared Core Top1 In Vocabulary"
+          },
+          "species_outside_vocabulary": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Species Outside Vocabulary"
+          },
+          "startup_benchmark_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startup Benchmark Ms"
+          },
+          "top1_accuracy": {
+            "default": 0.0,
+            "title": "Top1 Accuracy",
+            "type": "number"
+          },
+          "top1_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top1 Accuracy In Vocabulary"
+          },
+          "top3_accuracy": {
+            "default": 0.0,
+            "title": "Top3 Accuracy",
+            "type": "number"
+          },
+          "top3_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top3 Accuracy In Vocabulary"
+          },
+          "top5_accuracy": {
+            "default": 0.0,
+            "title": "Top5 Accuracy",
+            "type": "number"
+          },
+          "top5_accuracy_in_vocabulary": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top5 Accuracy In Vocabulary"
+          },
+          "validated_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Providers",
+            "type": "array"
+          },
+          "vocabulary_known": {
+            "default": false,
+            "title": "Vocabulary Known",
+            "type": "boolean"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model_id"
+        ],
+        "title": "ModelEvalModelSummary",
+        "type": "object"
+      },
+      "ModelEvalProgress": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total",
+          "label"
+        ],
+        "title": "ModelEvalProgress",
+        "type": "object"
+      },
+      "ModelEvalRunResponse": {
+        "properties": {
+          "available_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Artifacts",
+            "type": "array"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "in_progress": {
+            "default": false,
+            "title": "In Progress",
+            "type": "boolean"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalModelSummary"
+            },
+            "title": "Models",
+            "type": "array"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "skipped_models": {
+            "items": {
+              "$ref": "#/components/schemas/ModelEvalSkippedModel"
+            },
+            "title": "Skipped Models",
+            "type": "array"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "test_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelEvalTestSet"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "ModelEvalRunResponse",
+        "type": "object"
+      },
+      "ModelEvalRunRow": {
+        "properties": {
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "model_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Count"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_images": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Images"
+          },
+          "total_species": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Species"
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "ModelEvalRunRow",
+        "type": "object"
+      },
+      "ModelEvalSkippedModel": {
+        "properties": {
+          "model_id": {
+            "title": "Model Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_id",
+          "reason"
+        ],
+        "title": "ModelEvalSkippedModel",
+        "type": "object"
+      },
+      "ModelEvalTestSet": {
+        "properties": {
+          "image_sources": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Image Sources",
+            "type": "object"
+          },
+          "images_per_species": {
+            "default": 0,
+            "title": "Images Per Species",
+            "type": "integer"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "regional_species": {
+            "default": 0,
+            "title": "Regional Species",
+            "type": "integer"
+          },
+          "shared_core_species": {
+            "default": 0,
+            "title": "Shared Core Species",
+            "type": "integer"
+          },
+          "total_images": {
+            "default": 0,
+            "title": "Total Images",
+            "type": "integer"
+          },
+          "total_species": {
+            "default": 0,
+            "title": "Total Species",
+            "type": "integer"
+          }
+        },
+        "title": "ModelEvalTestSet",
+        "type": "object"
+      },
+      "ModelEvalWarning": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "default": "",
+            "title": "Message",
+            "type": "string"
+          },
+          "severity": {
+            "default": "info",
+            "title": "Severity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "ModelEvalWarning",
         "type": "object"
       },
       "ModelFile": {
@@ -26564,11 +27245,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response List Runs Api Diagnostics Model Eval Runs Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ModelEvalListResponse"
                 }
               }
             },
@@ -26726,11 +27403,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": {
-                    "$ref": "#/components/schemas/JsonValue"
-                  },
-                  "title": "Response Get Run Api Diagnostics Model Eval Runs  Run Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/ModelEvalRunResponse"
                 }
               }
             },

@@ -10,9 +10,42 @@ attach to a bug report.
 The **MQTT** and **Frigate** cards under **Subsystem detail** report the connections every detection
 depends on, as measured: whether the broker session is up (and, when it is not, the address, the last
 attempt and the broker client's own error), and whether Frigate answered the latest request. The page
-never reads healthy while either is down. The sidebar's live tile follows the same reading: **Live**
-only while the broker is connected, **No events** while it is not, **No Frigate** while Frigate does
-not answer, and **Connected** when it can only say the page reached YA-WAMF.
+never reads healthy while either is down.
+
+The sidebar's **System status** list follows the same readings, in words:
+
+| Row | Says | When |
+|---|---|---|
+| **Frigate events** | **Live** | The broker session is up and Frigate answers. |
+| | **Waiting for events** | The broker session is still connecting. |
+| | **Not connected** | The broker is not connected. This needs you. |
+| | **Frigate not answering** | The broker is up but Frigate's API is not. This needs you. |
+| | **Connected** | Only the page's own connection is known (a visitor is never told more). |
+| | **Reconnecting** | The page has lost its connection to YA-WAMF. |
+| **Audio** | **Listening**, **Not listening**, **Off** | Audio detections arrive through the broker, so it is **Listening** only while the broker session is up. |
+| **Alerts** | **On**, **Off** | Whether notifications are switched on. |
+
+Under the rows is the current CPU and accelerator load, and the **System health** link. The link
+reads **2 issues need attention** (with the number) only while the System health page lists open items in its
+verdict (a failed connection or an unresolved incident); the two always count the same thing.
+
+## Repeated faults are one entry
+
+A fault that keeps happening is kept as one entry in **Backend warnings and errors**, marked with how
+many times it was recorded and when it was first and last seen (for example **×14, first 12:21, last
+12:27**), instead of fourteen rows. Entries are grouped when their source, component, reason code
+and severity match and their messages differ only in identifiers or numbers. The newest occurrence
+supplies the event shown.
+
+## While Frigate is starting
+
+Frigate and YA-WAMF usually restart together. For its first seconds Frigate answers every request
+with an error because its API has not started. YA-WAMF treats that as one condition: it stops asking
+Frigate about individual events, checks once a second (slowing to every 30 seconds) until Frigate
+answers, and writes one line to the log, **Frigate not ready; retrying event reads**, with the
+number of reads put off, followed by **Frigate is ready; event reads resumed**. Video analysis that
+was queued waits for Frigate rather than failing. An error from Frigate about one event while Frigate
+is otherwise answering is still logged as a warning.
 
 ## Capture current evidence for a report
 

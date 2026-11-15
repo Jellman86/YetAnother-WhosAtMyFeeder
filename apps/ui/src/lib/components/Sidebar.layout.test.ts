@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
 import connectionStatusSource from './ConnectionStatus.svelte?raw';
+import statusMappingSource from '../utils/system-status.ts?raw';
 import sidebarSource from './Sidebar.svelte?raw';
 import telemetryGraphSource from './SystemTelemetryGraph.svelte?raw';
 
@@ -23,15 +24,14 @@ describe('Sidebar hybrid refresh', () => {
 
     it('shows truthful operational status rows in the expanded sidebar', () => {
         expect(sidebarSource).toContain('data-sidebar-status');
-        // The unused compact header variant is gone; the sidebar tiles are the only shape.
+        // The unused compact header variant is gone; the status list is the only shape.
         expect(connectionStatusSource).not.toContain('variant');
-        expect(connectionStatusSource).toContain("$_('status.live_updates')");
-        expect(connectionStatusSource).toContain("$_('status.audio_analysis')");
-        expect(connectionStatusSource).toContain("$_('status.notifications')");
-        // The live tile says what was measured: the broker session, not only the page's stream.
-        expect(connectionStatusSource).toContain("$_('status.feed_live'");
-        expect(connectionStatusSource).toContain("$_('status.feed_broker_down'");
-        expect(connectionStatusSource).toContain("$_('status.feed_app_only'");
+        // The rows and their words come from one tested mapping, never from the markup.
+        expect(connectionStatusSource).toContain('[feedRow(feed), audioRow(birdnetEnabled, feed), alertsRow(notificationsActive)]');
+        // The Frigate events row says what was measured: the broker session, not only the page's stream.
+        expect(statusMappingSource).toContain("text('feed_live'");
+        expect(statusMappingSource).toContain("text('feed_broker_down'");
+        expect(statusMappingSource).toContain("text('feed_app_only'");
     });
 
     it('uses an account card when expanded while preserving compact auth actions', () => {
@@ -44,10 +44,10 @@ describe('Sidebar hybrid refresh', () => {
     });
 
     it('never tells a guest that notifications are off', () => {
-        // A guest cannot read the owner's settings, so the Alerts tile is left out, not guessed.
+        // A guest cannot read the owner's settings, so the Alerts row is left out, not guessed.
         expect(appSource).toContain('if (!s) return null;');
         expect(connectionStatusSource).toContain('notificationsActive?: boolean | null;');
-        expect(connectionStatusSource).toContain('...(notificationsActive === null');
+        expect(statusMappingSource).toContain('if (active === null) return null;');
     });
 
     it('is a wordmark, not a heading, so each page owns its single h1', () => {
@@ -69,18 +69,19 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
     });
 
-    it('layers a lightweight live telemetry graph behind the status content', () => {
+    it('states resource readings as one plain line in the card, on a neutral surface', () => {
         expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
-        expect(sidebarSource).toContain('<SystemTelemetryGraph readoutHost={readoutRow} />');
-        // The readout is drawn inside a row of the card's own flow, never positioned over it, so the
-        // tiles above and the System health link below can grow or wrap without running under it.
-        expect(sidebarSource).toContain('<div class="mt-1 min-h-4" aria-hidden="true" bind:this={readoutRow}></div>');
-        expect(telemetryGraphSource).toContain('use:portal={readoutHost}');
-        expect(telemetryGraphSource).not.toMatch(/class="absolute \{readoutClass\}/);
-        expect(sidebarSource).toContain('relative overflow-hidden');
-        // The tiles sit above the stretched System health link, so each keeps its own tooltip.
-        expect(sidebarSource).toContain('<div class="relative z-20">');
-        expect(sidebarSource).toContain('after:absolute after:-inset-3 after:z-10');
+        expect(sidebarSource).toContain('<SystemTelemetryGraph />');
+        // The readings are text in the card's own flow: nothing is drawn behind the rows, and
+        // nothing is positioned over them, so the rows and the link can grow or wrap freely.
+        expect(telemetryGraphSource).not.toContain('absolute');
+        expect(telemetryGraphSource).not.toContain('use:portal');
+        expect(telemetryGraphSource).toContain('tabular-nums');
+        expect(telemetryGraphSource).toContain('min-h-4');
+        // Muted body ink, not link or series colours: a reading is not something to click.
+        expect(telemetryGraphSource).not.toMatch(/text-(?:brand|indigo)-/);
+        const card = sidebarSource.slice(sidebarSource.indexOf('data-sidebar-status class'));
+        expect(card).not.toMatch(/bg-gradient|bg-linear|from-|overflow-hidden/);
     });
 
     it('samples telemetry only while the status card is actually visible', () => {

@@ -16,11 +16,19 @@
             generated_at: '2026-11-13T18:00:00Z'
         };
     const feed = liveFeedState(params.get('stream') !== '0', connections);
+    // audio=0|1 and alerts=0|1|none: the two settings rows; `none` is a guest, who has no alerts row.
+    const audio = params.get('audio') !== '0';
+    const alertsParam = params.get('alerts') ?? '0';
+    const alerts = alertsParam === 'none' ? null : alertsParam === '1';
 </script>
 
 <main class="space-y-6 bg-surface p-4" style="max-width: 1100px;">
     <div class="w-56 rounded-xl border border-line-soft p-3" data-fixture-sidebar>
-        <ConnectionStatus birdnetEnabled={true} notificationsActive={false} {feed} />
+        <ConnectionStatus birdnetEnabled={audio} notificationsActive={alerts} {feed} />
+    </div>
+    <!-- The icon rail is 5rem wide with the same padding as the real sidebar. -->
+    <div class="w-20 border border-line-soft p-3" data-fixture-rail>
+        <ConnectionStatus birdnetEnabled={audio} notificationsActive={alerts} {feed} collapsed />
     </div>
     <DayBar
         visitCount={4}

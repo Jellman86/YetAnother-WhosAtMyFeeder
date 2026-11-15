@@ -97,7 +97,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
           case 'health': return $_('nav.health', { default: 'Health' });
           case 'settings': return $_('settings.title', { default: 'Settings' });
-          case 'model_evaluation': return 'Model Evaluation';
+          case 'model_evaluation': return $_('model_eval.page_title', { default: 'Model evaluation' });
           case 'about': return $_('nav.about', { default: 'About' });
           default: return '';
       }
@@ -113,7 +113,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
           // One line about the open tab, not a list of every tab.
           case 'settings': return $_(`page_subtitle.settings_tab.${settingsTabFromRoute(currentRoute)}`);
-          case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
+          case 'model_evaluation': return $_('page_subtitle.model_evaluation', { default: 'How often each installed model names a bird correctly, and how fast.' });
           case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
           default: return '';
       }
@@ -844,15 +844,14 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       {/if}
 
       <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-          {#snippet status()}
+          {#snippet status(collapsed: boolean)}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
                   feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
+                  {collapsed}
               />
-              <div class="mt-1 flex justify-end">
-                  <UpdateIndicator />
-              </div>
+              <UpdateIndicator {collapsed} />
           {/snippet}
       </Sidebar>
 

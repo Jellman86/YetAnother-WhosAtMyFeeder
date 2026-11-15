@@ -20,5 +20,6 @@
     "beta": "Fonctions encore en test. Chacune reste désactivée jusqu’à ce que vous l’activiez, et peut changer ou disparaître. La désactiver garde ce qu’elle a déjà enregistré.",
     "appearance": "L’apparence de YA-WAMF et la façon dont il nomme les oiseaux.",
     "accessibility": "Contraste, police de lecture, animations et annonces vocales."
-  }
+  },
+  "model_evaluation": "À quelle fréquence chaque modèle installé nomme correctement un oiseau, et à quelle vitesse."
 }

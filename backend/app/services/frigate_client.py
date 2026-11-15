@@ -16,10 +16,13 @@ from collections.abc import Awaitable
 from datetime import datetime, timezone
 from typing import Optional
 from app.config import settings
+from app.services.frigate_readiness import FRIGATE_NOT_READY, FrigateReadinessGate
 from app.services.service_connections import frigate_reachability
 from app.utils.diagnostic_redaction import safe_connection_error
 
 log = structlog.get_logger()
+
+READINESS_CHECK_TIMEOUT_SECONDS = 5.0
 
 
 class FrigateEventsFetchError(RuntimeError):
@@ -37,6 +40,7 @@ class FrigateClient:
 
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
+        self.readiness = FrigateReadinessGate(self._answers_readiness_check)
 
     def _get_client(self) -> httpx.AsyncClient:
         """Get or create the shared HTTP client."""
@@ -99,6 +103,15 @@ class FrigateClient:
             raise
         frigate_reachability.record_response(response.status_code, datetime.now(timezone.utc))
         return response
+
+    async def _answers_readiness_check(self) -> bool:
+        """Whether Frigate's API is up. A refused token is still an answer: that is a
+        configuration fault for Health to report, not Frigate starting."""
+        try:
+            response = await self.get("api/version", timeout=READINESS_CHECK_TIMEOUT_SECONDS)
+        except httpx.HTTPError:
+            return False
+        return response.status_code < 500
 
     async def get_version(self) -> Optional[str]:
         """Get Frigate version string."""
@@ -391,23 +404,43 @@ class FrigateClient:
         return None
 
     async def get_event_with_error(self, event_id: str, timeout: float = 10.0) -> tuple[Optional[dict], Optional[str]]:
-        """Fetch event details with explicit error reason."""
+        """Fetch event details with explicit error reason.
+
+        While Frigate as a whole is not answering (starting, or unreachable) the read is
+        not sent and `frigate_not_ready` is returned: one condition, reported once by the
+        readiness gate rather than once per event. Callers treat it like any transient
+        failure and ask again.
+        """
+        if not await self.readiness.admit():
+            self.readiness.note_deferred()
+            return None, FRIGATE_NOT_READY
         try:
             resp = await self.get(f"api/events/{event_id}", timeout=timeout)
             if resp.status_code == 200:
+                self.readiness.note_answered()
                 return resp.json(), None
             if resp.status_code == 404:
+                self.readiness.note_answered()
                 # Expected once Frigate's retention passes the event by, and
                 # permanent when it does. The caller decides whether a given
                 # sighting is worth reporting; see `frigate_event_absence`.
                 log.debug("Event not found", event_id=event_id)
                 return None, "event_not_found"
+            if resp.status_code >= 500 and await self.readiness.failure_is_not_ready():
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
             log.warning("Failed to fetch event", event_id=event_id, status=resp.status_code)
             return None, f"event_http_{resp.status_code}"
         except httpx.TimeoutException:
+            if await self.readiness.failure_is_not_ready():
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
             log.warning("Event fetch timed out", event_id=event_id)
             return None, "event_timeout"
         except httpx.RequestError as e:
+            if await self.readiness.failure_is_not_ready():
+                self.readiness.note_deferred()
+                return None, FRIGATE_NOT_READY
             log.error("Error fetching event", event_id=event_id, error=safe_connection_error(e))
             return None, "event_request_error"
         except Exception as e:

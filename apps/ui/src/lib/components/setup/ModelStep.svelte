@@ -27,6 +27,7 @@
         type DeviceMatrix,
         type ModelEvalModelSummary
     } from '../../api/model_eval';
+    import { stopCause } from '../../utils/model-eval-view';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import {
         buildInferenceProviderChoices,
@@ -229,10 +230,11 @@
             }
             const summary = await getModelEvalRun(runId);
             if (destroyed || selectedModelId !== runModelId) return;
-            if (!summary.finished_at && !summary.error) return;
-            if (summary.error) {
+            const stopped = stopCause(summary.error_code);
+            if (!summary.finished_at && !stopped) return;
+            if (stopped) {
                 stopPolling();
-                errorMsg = summary.error;
+                errorMsg = $_(`model_eval.stopped.${stopped}`);
                 validationFailed = true;
                 validating = false;
                 progress = null;

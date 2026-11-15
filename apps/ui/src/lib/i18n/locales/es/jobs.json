@@ -116,6 +116,7 @@
   "errors_stored_locally": "almacenado localmente",
   "errors_backend_diagnostics_title": "Avisos y errores del backend",
   "errors_backend_diagnostics_desc": "Los más recientes que el backend ha registrado desde que se borró el historial de errores.",
+  "errors_repeated": "×{count}, primera vez {first}, última vez {last}",
   "errors_no_startup_warnings": "No se capturaron advertencias de inicio en el snapshot actual del workspace.",
   "errors_unknown_warning": "Advertencia desconocida",
   "errors_download_snapshot_title": "Descargar snapshot actual",

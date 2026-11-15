@@ -20,5 +20,6 @@
     "beta": "Funções ainda em teste. Cada uma fica desligada até você ligá-la, e pode mudar ou ser removida. Desligar uma mantém o que ela já registrou.",
     "appearance": "Como o YA-WAMF aparece e nomeia as aves.",
     "accessibility": "Contraste, uma fonte de leitura, movimento e avisos falados."
-  }
+  },
+  "model_evaluation": "Com que frequência cada modelo instalado nomeia uma ave corretamente, e com que rapidez."
 }

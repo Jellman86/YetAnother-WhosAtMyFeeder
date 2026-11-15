@@ -169,11 +169,21 @@ to a same-size placeholder, never a hole that shifts the row.
 The dashboard's audio-versus-camera card exists because being honest that two sensors never
 corroborate each other is more useful than hiding it.
 
-"Live" is a claim about camera events, not about the page. The sidebar's live tile and the
+"Live" is a claim about camera events, not about the page. The sidebar's Frigate events row and the
 Dashboard's feed line are green only while the MQTT broker session is measured up
 (`utils/live-feed-state.ts`); a broker or Frigate that is down turns them amber in words, and
 without a measurement (a guest, or before the first read) they say only that the page is connected
-to YA-WAMF. Settings → Health follows the same rule: its verdict is never healthy while the broker
+to YA-WAMF.
+
+The sidebar's System status is a list, not a row of icons: each row is a label, the state in words
+and a small dot whose shape as well as colour gives the tone (filled circle working, diamond needs a
+person, ring off or unknown). The words for every state come from one tested mapping
+(`utils/system-status.ts`). Off by choice is neutral, never amber, and one cause is flagged once:
+with the broker down, Frigate events is amber and Audio says "Not listening" in neutral ink. The
+card is a neutral surface with nothing drawn behind it; resource readings are one muted line of
+text with tabular numbers. Its System health link counts open issues from the same store the Health
+page lists them from, and says nothing about issues when none is open. The icon rail shows the same
+rows as icons named by the same words. Settings → Health follows the same rule: its verdict is never healthy while the broker
 or Frigate is down, and its MQTT and Frigate cards lead with the connection state, not queue load.
 
 ### 1.6 Show the evidence at the size the decision needs

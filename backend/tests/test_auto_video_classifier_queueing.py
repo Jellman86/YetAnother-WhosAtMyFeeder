@@ -1669,3 +1669,43 @@ async def test_35_missing_snapshots_settle_without_inference_circuit(monkeypatch
     finally:
         service._processor_task = processor
         await service.stop()
+
+
+@pytest.mark.asyncio
+async def test_a_restored_job_waits_for_frigate_and_reads_the_event_once_it_answers(monkeypatch):
+    """A job restored at startup runs while Frigate may still be starting. Its event read
+    must come after Frigate answers, and a read deferred as not ready is asked again."""
+    service = AutoVideoClassifierService()
+    order: list[str] = []
+
+    class Readiness:
+        async def wait_until_ready(self) -> bool:
+            order.append("wait")
+            return True
+
+    answers = iter(
+        [
+            (None, auto_video_classifier_module.FRIGATE_NOT_READY),
+            ({"id": "evt-restored", "has_clip": True}, None),
+        ]
+    )
+
+    async def read_event(_event_id, timeout=10.0):
+        order.append("read")
+        return next(answers)
+
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "readiness", Readiness())
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "get_event_with_error", read_event)
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
+    load_clip = AsyncMock(return_value=(None, "clip_not_retained", "event", None))
+    monkeypatch.setattr(service, "_load_preferred_clip", load_clip)
+    monkeypatch.setattr(service, "_classify_from_snapshot", AsyncMock(return_value=None))
+
+    await service._process_event("evt-restored", "cam1", skip_delay=True, fallback_to_snapshot=True)
+
+    assert order == ["wait", "read", "wait", "read"]
+    load_clip.assert_awaited_once()

@@ -20,5 +20,6 @@
     "beta": "Funktionen, die noch getestet werden. Jede ist aus, bis Sie sie einschalten, und kann sich ändern oder wegfallen. Beim Ausschalten bleibt, was sie schon aufgezeichnet hat.",
     "appearance": "Wie YA-WAMF aussieht und Vögel benennt.",
     "accessibility": "Kontrast, eine Leseschrift, Bewegung und vorgelesene Aktualisierungen."
-  }
+  },
+  "model_evaluation": "Wie oft jedes installierte Modell einen Vogel richtig benennt und wie schnell."
 }

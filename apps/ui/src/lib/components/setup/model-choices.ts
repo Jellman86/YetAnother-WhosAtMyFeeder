@@ -32,7 +32,7 @@ export function validationRecommendation(
     matrix: DeviceMatrix | null,
 ): ValidationRecommendation {
     const empty: ValidationRecommendation = { provider: null, medianMs: null, providers: [] };
-    if (!summary?.ready || summary.model_id !== modelId || summary.warnings.some((warning) => warning.severity === 'critical')) return empty;
+    if (!summary?.ready || summary.model_id !== modelId || (summary.warnings ?? []).some((warning) => warning.severity === 'critical')) return empty;
     const row = matrix?.models[modelId];
     if (row?.error) return empty;
     const entries = row?.providers ?? row?.devices;

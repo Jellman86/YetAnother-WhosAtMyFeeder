@@ -20,5 +20,6 @@
     "beta": "Funzioni ancora in prova. Ognuna è spenta finché non la attivi, e può cambiare o essere rimossa. Spegnerla conserva ciò che ha già registrato.",
     "appearance": "Come appare YA-WAMF e come nomina gli uccelli.",
     "accessibility": "Contrasto, un carattere di lettura, movimento e aggiornamenti letti ad alta voce."
-  }
+  },
+  "model_evaluation": "Quanto spesso ogni modello installato dà il nome giusto a un uccello, e con quale velocità."
 }

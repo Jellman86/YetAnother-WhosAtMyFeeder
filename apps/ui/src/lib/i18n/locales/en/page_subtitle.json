@@ -20,5 +20,6 @@
     "beta": "Features still being tested. Each is off until you turn it on, and may change or be removed. Turning one off keeps what it has already recorded.",
     "appearance": "How YA-WAMF looks and names birds.",
     "accessibility": "Contrast, a reading font, motion and spoken updates."
-  }
+  },
+  "model_evaluation": "How often each installed model names a bird correctly, and how fast."
 }
