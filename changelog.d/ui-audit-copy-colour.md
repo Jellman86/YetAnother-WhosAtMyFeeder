@@ -34,3 +34,6 @@
   the controls on it, no broken-image icon. The record's spectrogram keeps its size, says quietly
   that there is no spectrogram for the call, and the call can still be played. On the Leaderboard
   wall a missing picture keeps its cell and names the bird, so nothing on the wall moves.
+- The small dots between facts (in the footer, on Explorer cards and elsewhere) now take the colour
+  of the text around them, so they meet contrast in both themes, and screen readers no longer read
+  them out.

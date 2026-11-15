@@ -1,4 +1,15 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * Opens the dashboard fixture and waits until it has read the review queue. The card can say
+ * nothing about waiting work before that read lands, and how long a cold page takes to get there
+ * under load is not what these tests measure; a fixed five-second wait for the count was.
+ */
+async function openDashboard(page: Page): Promise<void> {
+    const queueRead = page.waitForResponse(response => new URL(response.url()).pathname === '/api/events/review-queue');
+    await page.goto('/browser-tests/dashboard-review.html');
+    await queueRead;
+}
 
 // The range check read and found nothing, so "Nothing waiting" rests on the visits alone.
 const noSpeciesChecks = { span: 'day', window_start: new Date(Date.now() - 86400000).toISOString(), window_end: new Date().toISOString(), nearby_check: 'checked', species: [] };
@@ -32,7 +43,7 @@ test('accepted historical choice survives an older pending count and omission fr
         if (/\/snapshot(?:\/thumbnail)?$/.test(path)) return route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"/>' });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
     });
-    await page.goto('/browser-tests/dashboard-review.html');
+    await openDashboard(page);
     const card = page.locator('[data-dashboard-review-queue]');
     await expect(card.locator('[data-review-queue-count]')).toHaveText('1');
     await page.evaluate(() => window.dispatchEvent(new Event('test-history-refresh')));
@@ -83,7 +94,7 @@ for (const { fails, ageHours } of [{ fails: false, ageHours: 0 }, { fails: true,
             // Supporting dashboard readings are unavailable; the ready review history remains usable.
             return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
         });
-        await page.goto('/browser-tests/dashboard-review.html');
+        await openDashboard(page);
         const card = page.locator('[data-dashboard-review-queue]');
         await expect(card.locator('[data-review-queue-count]')).toHaveText('2');
         await card.getByRole('button', { name: 'Work through the queue' }).click();
@@ -130,7 +141,7 @@ test('Needs your call counts what the server says is waiting, and the walkthroug
         if (url.pathname === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
     });
-    await page.goto('/browser-tests/dashboard-review.html');
+    await openDashboard(page);
     const card = page.locator('[data-dashboard-review-queue]');
     await expect(card.locator('[data-review-queue-count]')).toHaveText('24');
     await card.getByRole('button', { name: 'Work through the queue' }).click();
@@ -151,7 +162,7 @@ test('Needs your call says it could not check when the queue fails, never that n
         if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
     });
-    await page.goto('/browser-tests/dashboard-review.html');
+    await openDashboard(page);
     const card = page.locator('[data-dashboard-review-queue]');
     await expect(card.getByText('The queue could not be checked, so it is not known whether anything is waiting.')).toBeVisible();
     await expect(card.getByText('Nothing waiting on you.')).toHaveCount(0);
@@ -174,7 +185,7 @@ test('finishing a walkthrough that could not hold everything says more are waiti
         if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
     });
-    await page.goto('/browser-tests/dashboard-review.html');
+    await openDashboard(page);
     const card = page.locator('[data-dashboard-review-queue]');
     await expect(card.locator('[data-review-queue-count]')).toHaveText('3');
     await card.getByRole('button', { name: 'Work through the queue' }).click();
@@ -210,7 +221,7 @@ test("a visit below the naming threshold can be confirmed as the model's own spe
         if (path === '/api/leaderboard/species') return route.fulfill({ json: noSpeciesChecks });
         return route.fulfill({ status: 503, json: { detail: 'Supporting fixture reading unavailable.' } });
     });
-    await page.goto('/browser-tests/dashboard-review.html');
+    await openDashboard(page);
     const card = page.locator('[data-dashboard-review-queue]');
     await expect(card.locator('[data-review-queue-count]')).toHaveText('2');
     await card.getByRole('button', { name: 'Work through the queue' }).click();
@@ -265,7 +276,7 @@ test('a confirm taken on a visit someone else has since corrected is refused, an
     const first = await context.newPage();
     const second = await context.newPage();
     for (const page of [first, second]) {
-        await page.goto('/browser-tests/dashboard-review.html');
+        await openDashboard(page);
         await page.locator('[data-dashboard-review-queue]').getByRole('button', { name: 'Work through the queue' }).click();
         await expect(page.locator('[data-review-queue-modal]').getByRole('button', { name: 'Confirm Eurasian Bullfinch', exact: true })).toBeVisible();
     }
