@@ -1639,6 +1639,7 @@ export interface components {
     username?: string | null;
 };
     InstalledModel: {
+    bundled?: boolean;
     id: string;
     is_active: boolean;
     labels_path: string;
@@ -1771,6 +1772,16 @@ export interface components {
     port?: number | null;
     server?: string | null;
     username?: string | null;
+};
+    MaintenanceLastRun: {
+    changed?: number | null;
+    checked?: number | null;
+    finished_at?: string | null;
+    kind: "taxonomy" | "timezone_scan" | "timezone_repair" | "analyze_unknowns" | "detections" | "weather";
+    status: string;
+};
+    MaintenanceLastRunsResponse: {
+    runs: Array<components['schemas']['MaintenanceLastRun']>;
 };
     MaintenanceStatsResponse: {
     automatic_cleanup?: boolean;
@@ -5067,6 +5078,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['ClearFeedbackResponse'];
+    };
+  };
+  "/api/maintenance/last-runs": {
+    get: {
+      operationId: "get_maintenance_last_runs_api_maintenance_last_runs_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MaintenanceLastRunsResponse'];
     };
   };
   "/api/maintenance/purge-missing-clips": {

@@ -36,6 +36,7 @@ from app.services.ha_weather import IlluminanceMissingReason
 from app.services.inaturalist_service import inaturalist_service
 from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
+from app.services.maintenance_run_history import latest_maintenance_runs, record_maintenance_run
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND, evaluate_media_presence
@@ -168,6 +169,24 @@ async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     return canonical_identity_repair_service.get_status()
 
 
+class MaintenanceLastRun(BaseModel):
+    kind: Literal["taxonomy", "timezone_scan", "timezone_repair", "analyze_unknowns", "detections", "weather"]
+    status: str = Field(description="completed or failed; a backfill job can also report running or cancelled")
+    finished_at: Optional[str] = None
+    checked: Optional[int] = Field(None, description="Records the run looked at")
+    changed: Optional[int] = Field(None, description="Records it changed, found or queued")
+
+
+class MaintenanceLastRunsResponse(BaseModel):
+    runs: list[MaintenanceLastRun]
+
+
+@router.get("/maintenance/last-runs", response_model=MaintenanceLastRunsResponse)
+async def get_maintenance_last_runs(auth: AuthContext = Depends(require_owner)):
+    """The newest recorded run of each Maintenance job, so the tab can say when it last ran. Owner only."""
+    return {"runs": await latest_maintenance_runs()}
+
+
 @router.post("/maintenance/taxonomy/sync", response_model=TaxonomySyncStartResponse)
 async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Start the background process to normalize all detection names. Owner only."""
@@ -183,7 +202,17 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthConte
 
     async def _run_with_slot() -> None:
         try:
-            await canonical_identity_repair_service.run()
+            summary = await canonical_identity_repair_service.run()
+        except Exception:
+            await record_maintenance_run("taxonomy", status="failed")
+            raise
+        else:
+            await record_maintenance_run(
+                "taxonomy",
+                status="completed",
+                checked=int(summary.get("processed") or 0),
+                changed=int(summary.get("updated") or 0),
+            )
         finally:
             await maintenance_coordinator.release(holder_id)
 
@@ -1956,9 +1985,17 @@ async def preview_timezone_repair(auth: AuthContext = Depends(require_owner)):
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
-        return await timezone_repair_service.preview()
+        preview = await timezone_repair_service.preview()
     finally:
         await maintenance_coordinator.release(holder_id)
+    summary = preview.get("summary") or {}
+    await record_maintenance_run(
+        "timezone_scan",
+        status="completed",
+        checked=int(summary.get("scanned_count") or 0),
+        changed=int(summary.get("repair_candidate_count") or 0),
+    )
+    return preview
 
 
 @router.post("/maintenance/timezone-repair/apply", response_model=TimezoneRepairApplyResponse)
@@ -1974,9 +2011,17 @@ async def apply_timezone_repair(
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
     try:
-        return await timezone_repair_service.apply(confirm=True)
+        result = await timezone_repair_service.apply(confirm=True)
     finally:
         await maintenance_coordinator.release(holder_id)
+    repaired = int(result.get("repaired_count") or 0)
+    await record_maintenance_run(
+        "timezone_repair",
+        status="completed",
+        checked=repaired + int(result.get("skipped_count") or 0),
+        changed=repaired,
+    )
+    return result
 
 
 @router.post("/maintenance/cleanup", response_model=CleanupResponse)
@@ -2503,6 +2548,10 @@ async def _run_analyze_unknowns() -> dict:
         skipped_outside_retention=skipped_outside_retention,
         precheck_errors=precheck_errors,
     )
+    if not precheck_outage:
+        await record_maintenance_run(
+            "analyze_unknowns", status="completed", checked=processed_candidates, changed=accepted
+        )
     return {
         "status": "deferred" if precheck_outage else "queued",
         **({"reason": "frigate_unavailable"} if precheck_outage else {}),
