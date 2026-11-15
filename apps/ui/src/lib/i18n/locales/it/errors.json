@@ -1,3 +1,12 @@
 {
-  "stack_trace": "Traccia dello stack:"
+  "stack_trace": "Traccia dello stack:",
+  "server_failure": "Qualcosa sul server ha interrotto questa richiesta. Riprova; se continua a succedere, apri Stato del sistema per vedere cosa non va.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service}: il nome host in {address} non è stato trovato. Controlla l’indirizzo.",
+    "refused": "{service}: nessuna risposta da {address}. Controlla che sia in esecuzione e che la porta sia corretta.",
+    "timeout": "{service}: nessuna risposta da {address} in tempo utile. Controlla l’indirizzo e che questa macchina possa raggiungerlo.",
+    "not_authorised": "{service}: nome utente o password rifiutati. Controllali, oppure disattiva l’autenticazione se accetta client anonimi.",
+    "unreachable": "{service}: impossibile connettersi a {address}. Controlla l’indirizzo e la porta."
+  }
 }

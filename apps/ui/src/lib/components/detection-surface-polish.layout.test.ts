@@ -167,7 +167,7 @@ describe('detection surface polish', () => {
         const order = [
             'data-detection-identity',
             'data-detection-identification-actions',
-            'data-detection-record-actions',
+            'data-detection-more-actions-panel',
             'data-detection-facts',
             'data-detection-reference ',
             'data-detection-technical-identity'
@@ -185,7 +185,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-more-actions');
         expect(detectionModalSource).toMatch(/aria-expanded=\{moreActionsOpen\}\s+aria-controls="detection-more-actions"/);
         const panel = detectionModalSource.indexOf('data-detection-more-actions-panel');
-        for (const marker of ['data-detection-hide', 'data-detection-delete', 'detection.common_name_override_edit']) {
+        for (const marker of ['data-detection-score-again', 'data-detection-hide', 'data-detection-delete', 'detection.common_name_override_edit']) {
             expect(detectionModalSource.indexOf(marker)).toBeGreaterThan(panel);
         }
     });
@@ -199,7 +199,9 @@ describe('detection surface polish', () => {
         // It carried no padding class at all, so with its siblings hidden for a guest it
         // collapsed to the height of its own text. As a second primary it competed with Confirm.
         expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
-        expect(detectionModalSource).toContain('class="btn btn-secondary min-h-11 min-w-0 px-3 text-xs wrap-break-word"');
+        // Now a text link beside the name it is about, still a full touch target tall.
+        expect(detectionModalSource).toMatch(/onclick=\{handleSpeciesInfo\}\s+class="inline-flex min-h-11 items-center gap-1 rounded-sm text-xs font-semibold text-brand-700 underline/);
+        expect(detectionModalSource.indexOf('data-detection-species-details')).toBeLessThan(detectionModalSource.indexOf('data-detection-identification-actions'));
         expect(detectionModalSource).not.toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
         expect(detectionModalSource.match(/\{\$_\('actions\.species_info'\)\}/g)).toHaveLength(1);
     });
@@ -223,5 +225,14 @@ describe('detection surface polish', () => {
     it('shows retained upload coordinates without BirdNET context', () => {
         expect(detectionModalSource).toContain('detection.observation_latitude');
         expect(detectionModalSource).toContain('data-manual-observation-location');
+    });
+
+    it('keeps record status off the photograph and diagnostics out of the record', () => {
+        // The archive state is said in the panel; only the favourite star stays on the image.
+        const media = detectionModalSource.slice(detectionModalSource.indexOf('data-detection-media-actions'), detectionModalSource.indexOf('data-detection-details-column'));
+        expect(media).not.toContain('archiveLabel');
+        expect(detectionModalSource).toContain('data-detection-archive-state={archiveState}');
+        // Which device and model ran the video analysis is diagnostics, not record content.
+        expect(detectionModalSource).not.toMatch(/video_classification_model_name|completedVideoInferenceBadge/);
     });
 });

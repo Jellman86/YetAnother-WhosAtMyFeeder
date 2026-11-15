@@ -45,9 +45,6 @@
     "notify_on": "mindestens ein Kanal eingerichtet",
     "notify_off": "nichts eingerichtet",
     "browser_detail": "Live-Updates über SSE",
-    "legend_local": "läuft auf Ihrer Hardware",
-    "legend_optional": "optional",
-    "legend_external": "Ihr Broker und Browser",
     "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen.",
     "not_checked": "Nicht geprüft",
     "no_reading": "von hier aus keine Messung",
@@ -109,8 +106,9 @@
     "runtime": "Vogelbestimmung mit",
     "runtime_on": "{runtime} auf {device}",
     "runtime_unread": "Noch nicht gelesen. Das Modell meldet dies, sobald es geladen ist.",
-    "uptime_unmeasured": "Nicht gemessen. Die Startzeit konnte nicht vom Backend gelesen werden.",
-    "availability_heading": "Verfügbarkeit, letzte {hours} Stunden"
+    "uptime_unmeasured": "Das Backend hat nicht gemeldet, wann es gestartet wurde.",
+    "availability_heading": "Verfügbarkeit, letzte {hours} Stunden",
+    "uptime_unmeasured_value": "Nicht gemessen"
   },
   "close": {
     "title": "Daten, Datenschutz und Danksagungen"
@@ -118,11 +116,10 @@
   "reference_thanks": "Referenz & Dank",
   "thanks_to": "Dank an",
   "portrait": {
-    "since": "Beobachtet seit {date}.",
-    "shared_today": "Heute an diesem Futterhaus.",
-    "shared_days": "Die letzten {days} Tage an diesem Futterhaus.",
+    "since": "Beobachtet seit {date}",
+    "shared_today": "Heute an diesem Futterhaus",
+    "shared_days": "Die letzten {days} Tage an diesem Futterhaus",
     "empty": "Noch keine Besuche erfasst. Das füllt sich, sobald Vögel kommen.",
-    "no_latest": "Noch kein Bild eines aktuellen Besuchs vorhanden.",
     "visits": "Besuche",
     "species": "Arten",
     "busiest_day": "Aktivster Tag",

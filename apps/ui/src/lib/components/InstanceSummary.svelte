@@ -111,17 +111,17 @@
     });
 
     // Deliberately no keys, URLs or camera names: this is meant to be pasted in public.
-    const supportSummary = $derived(
+    // Kept as parts so the page can break the line between them and never inside a model name.
+    const supportParts = $derived(
         [
             `v${versionInfo.base_version}`,
             versionInfo.branch,
             versionInfo.git_hash,
             runtimeLabel,
             classifier?.effective_model_id ?? classifier?.active_model_id ?? 'no model'
-        ]
-            .filter(Boolean)
-            .join(' · ')
+        ].filter((part): part is string => Boolean(part))
     );
+    const supportSummary = $derived(supportParts.join(' · '));
 
     async function copySummary(): Promise<void> {
         try {
@@ -209,9 +209,13 @@
                         })}
                     </p>
                 {:else if startRead}
-                    <!-- Not measured is said in words, at body size: never a headline figure. -->
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" data-instance-running-unmeasured>
-                        {$_('about.instance.uptime_unmeasured', { default: 'Not measured. The start time could not be read from the backend.' })}
+                    <!-- A dash where the figure would be, and one muted line for why: never a sentence as the value. -->
+                    <p class="font-display text-2xl font-bold text-slate-900 dark:text-white" data-instance-running-unmeasured>
+                        <span aria-hidden="true">&mdash;</span>
+                        <span class="sr-only">{$_('about.instance.uptime_unmeasured_value', { default: 'Not measured' })}</span>
+                    </p>
+                    <p class="text-2xs text-slate-600 dark:text-slate-400">
+                        {$_('about.instance.uptime_unmeasured', { default: 'The backend did not report when it started.' })}
                     </p>
                 {:else}
                     <p class="mt-1 text-sm text-slate-600 dark:text-slate-400" role="status">{$_('common.loading', { default: 'Loading…' })}</p>
@@ -315,8 +319,8 @@
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
-                    <code class="min-w-0 max-w-full whitespace-normal break-all font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
-                        {supportSummary}
+                    <code class="min-w-0 max-w-full whitespace-normal font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 dark:text-slate-200">
+                        {#each supportParts as part, position (position)}{#if position > 0}{' · '}{/if}<span class="whitespace-nowrap">{part}</span>{/each}
                     </code>
                     <button class="btn btn-secondary min-h-11 w-full sm:w-auto shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
                         {copied

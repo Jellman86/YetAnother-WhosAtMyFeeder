@@ -6,7 +6,11 @@ import httpx
 import pytest
 from aiomqtt import MqttCodeError, MqttError
 
-from app.services.connection_failure import classify_connection_failure, describe_connection_failure
+from app.services.connection_failure import (
+    classify_connection_failure,
+    connection_failure_payload,
+    describe_connection_failure,
+)
 
 
 @pytest.mark.parametrize(
@@ -48,3 +52,22 @@ def test_every_cause_is_a_sentence_with_a_next_step_and_no_machine_words(cause):
     for machine_word in ("logs", "Error", "Errno", "Exception", "("):
         assert machine_word not in message
     assert "—" not in message
+
+
+def test_the_failure_payload_carries_a_code_and_only_safe_parameters():
+    payload = connection_failure_payload("refused", service="mqtt", address="mqtt.invalid:1883")
+    assert payload == {
+        "status": "error",
+        "cause": "refused",
+        "service": "mqtt",
+        "address": "mqtt.invalid:1883",
+        "message": "Nothing answered at mqtt.invalid:1883. Check that the MQTT broker is running and that the port is right.",
+    }
+
+
+def test_the_failure_payload_never_carries_credentials_from_an_address():
+    payload = connection_failure_payload(
+        "timeout", service="birdnet", address="http://user:secret@birdnet.invalid:8080/x?token=abc"
+    )
+    assert payload["address"] == "birdnet.invalid:8080"
+    assert "secret" not in payload["message"] and "token" not in payload["message"]

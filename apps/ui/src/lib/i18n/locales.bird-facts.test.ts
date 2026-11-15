@@ -64,15 +64,16 @@ describe('project notes and bird facts', () => {
         }
     });
 
-    it('keeps the facts and the project line off every operational page, on About', () => {
+    it('keeps the facts off every operational page, on About, and says the project line once', () => {
         // The footer of a working page carries the version, the licence and the links only.
         expect(footerSource).not.toMatch(/bird_facts|did_you_know|built_with_ai|project_notes/);
         expect(footerSource).toContain("common.mit_license");
         expect(footerSource).toContain('v{version}');
         expect(aboutSource).toContain('<ProjectNotes />');
-        expect(notesSource).toContain("project_notes.built_with_ai");
         expect(notesSource).toContain("project_notes.bird_facts");
-        expect(en.footer.built_with_ai).toBe('Built with AI assistance, and a lot of trial and error');
+        // About already says how it was built in its opening paragraph and its thanks; a third time was one too many.
+        expect(notesSource).not.toContain('built_with_ai');
+        expect(en.footer).not.toHaveProperty('built_with_ai');
     });
 
     it('drops the filler joke and writes no hyphen as a dash in English', () => {

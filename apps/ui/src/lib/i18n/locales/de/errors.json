@@ -1,3 +1,12 @@
 {
-  "stack_trace": "Stack-Trace:"
+  "stack_trace": "Stack-Trace:",
+  "server_failure": "Etwas auf dem Server hat diese Anfrage gestoppt. Versuche es erneut; wenn es weiter passiert, öffne den Systemzustand, um zu sehen, was nicht stimmt.",
+  "connection": {
+    "service_mqtt": "MQTT-Broker",
+    "host_not_found": "{service}: Der Hostname in {address} wurde nicht gefunden. Prüfe die Adresse.",
+    "refused": "{service}: Unter {address} hat nichts geantwortet. Prüfe, ob der Dienst läuft und der Port stimmt.",
+    "timeout": "{service}: Keine rechtzeitige Antwort von {address}. Prüfe die Adresse und ob dieses Gerät sie erreichen kann.",
+    "not_authorised": "{service}: Benutzername oder Passwort wurden abgelehnt. Prüfe beide oder schalte die Authentifizierung aus, wenn anonyme Clients erlaubt sind.",
+    "unreachable": "{service}: Verbindung zu {address} nicht möglich. Prüfe Adresse und Port."
+  }
 }

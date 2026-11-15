@@ -99,8 +99,8 @@ describe('the About page opens on a portrait of this feeder', () => {
 
     it('tells a guest the facts cover the shared window, so a short window never reads as a young feeder', () => {
         expect(portraitSource).toContain("if (portrait.scope === 'shared')");
-        expect(en.about.portrait.shared_days).toBe('The last {days} days at this feeder.');
-        expect(en.about.portrait.since).toBe('Watching since {date}.');
+        expect(en.about.portrait.shared_days).toBe('The last {days} days at this feeder');
+        expect(en.about.portrait.since).toBe('Watching since {date}');
     });
 
     it('reads the busiest day as a calendar date, so no time zone moves it', () => {

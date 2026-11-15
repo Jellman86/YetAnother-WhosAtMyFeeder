@@ -31,6 +31,22 @@ describe('runSequentialDiagnostic', () => {
     });
 });
 
+describe('a failed check says what to do next', () => {
+    it('carries the step’s next step onto its failed stage, and never onto a passed one', async () => {
+        let stages: DiagnosticStage[] = [];
+        await runSequentialDiagnostic(
+            [
+                { id: 'a', label: 'Frigate API', nextStep: 'Check the Frigate server URL.', run: async () => ({ status: 'error', message: 'No answer.' }) },
+                { id: 'b', label: 'MQTT broker', nextStep: 'Check the broker address.', run: async () => ({ status: 'ok', message: 'Published.' }) },
+                { id: 'c', label: 'Thrown', nextStep: 'Check the token.', run: async () => { throw new Error('Refused.'); } }
+            ],
+            (next) => (stages = next),
+            { independent: true }
+        );
+        expect(stages.map((stage) => stage.hint)).toEqual(['Check the Frigate server URL.', undefined, 'Check the token.']);
+    });
+});
+
 describe('diagnosticHeadline', () => {
     const stage = (state: DiagnosticStage['state'], label: string, message: string): DiagnosticStage => ({ id: label, label, state, message });
 

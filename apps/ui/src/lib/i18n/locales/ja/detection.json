@@ -424,7 +424,7 @@
     "again": "再スキャン",
     "detector_unavailable": "ほかの鳥を探すには、切り抜き用の検出モデルをインストールしてください。",
     "reviewed_other_frame": "別のフレームで確認した鳥は保持されます。このフレームで置き換えることはできません。",
-    "scene_unavailable": "この写真に対応するフレーム全体を利用できません。",
+    "scene_unavailable": "ほかの鳥は探せません。この写真の元になった全体フレームが保存されていないためです。",
     "other_running": "この記録の別のフレームをスキャン中です。完了後にもう一度お試しください。",
     "media_changed": "スキャン中にフレームが変更されました。現在のフレームでもう一度お試しください。",
     "interrupted": "スキャンが中断されました。もう一度お試しいただけます。",
@@ -501,5 +501,6 @@
   "reference_read_more_on": "{source}で続きを読む",
   "reference_read_more": "続きを読む",
   "reference_source": "出典: {source}",
-  "reference_conservation": "保全状況: {status}"
+  "reference_conservation": "保全状況: {status}",
+  "delete_permanently": "完全に削除…"
 }

@@ -5,8 +5,13 @@ nothing. The cause is read from the error itself and stated with the next step.
 """
 
 from typing import Literal
+from urllib.parse import urlsplit
 
 ConnectionFailure = Literal["host_not_found", "refused", "timeout", "not_authorised", "unreachable"]
+ConnectionService = Literal["mqtt", "birdnet"]
+
+# The English names used in the fallback sentence; the page names the service in its own language.
+_SERVICE_NAMES: dict[ConnectionService, str] = {"mqtt": "the MQTT broker", "birdnet": "BirdNET-Go"}
 
 # MQTT 3.1.1 answers 4 (bad user name or password) and 5 (not authorised); MQTT 5 uses 134 and 135.
 _NOT_AUTHORISED_CODES = frozenset({4, 5, 134, 135})
@@ -61,3 +66,30 @@ def describe_connection_failure(cause: ConnectionFailure, *, service: str, addre
     if cause == "not_authorised":
         return f"{named} refused the user name or password. Check them, or turn authentication off if it accepts anonymous clients."
     return f"Could not connect to {service} at {address}. Check the address and the port."
+
+
+def reduced_address(address: str) -> str:
+    """Host and port only: no scheme, user, password, path or query ever leaves in a failure."""
+    parts = urlsplit(address if "//" in address else f"//{address}")
+    host = parts.hostname or ""
+    try:
+        port = parts.port
+    except ValueError:
+        port = None
+    return f"{host}:{port}" if host and port else host
+
+
+def connection_failure_payload(cause: ConnectionFailure, *, service: ConnectionService, address: str) -> dict[str, str]:
+    """What a failed connection test answers: a stable cause code, the service, and the reduced address.
+
+    The page translates the cause and its next step from the code. ``message`` is the same thing in
+    English, for clients that read nothing else.
+    """
+    safe_address = reduced_address(address)
+    return {
+        "status": "error",
+        "cause": cause,
+        "service": service,
+        "address": safe_address,
+        "message": describe_connection_failure(cause, service=_SERVICE_NAMES[service], address=safe_address),
+    }

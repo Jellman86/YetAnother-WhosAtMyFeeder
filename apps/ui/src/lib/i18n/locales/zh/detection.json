@@ -424,7 +424,7 @@
     "again": "重新扫描",
     "detector_unavailable": "安装裁剪检测模型以查找更多鸟类。",
     "reviewed_other_frame": "在其他帧中审核过的鸟类信息会保留，此帧无法替换它们。",
-    "scene_unavailable": "此照片对应的完整帧不可用。",
+    "scene_unavailable": "无法查找更多鸟类：这张照片对应的完整画面没有保留。",
     "other_running": "正在扫描此记录的另一个帧，请在完成后重试。",
     "media_changed": "扫描期间帧已更改，请在当前帧上重试。",
     "interrupted": "扫描已中断，你可以重试。",
@@ -501,5 +501,6 @@
   "reference_read_more_on": "在 {source} 阅读更多",
   "reference_read_more": "阅读更多",
   "reference_source": "来源：{source}",
-  "reference_conservation": "保护状况：{status}"
+  "reference_conservation": "保护状况：{status}",
+  "delete_permanently": "永久删除…"
 }

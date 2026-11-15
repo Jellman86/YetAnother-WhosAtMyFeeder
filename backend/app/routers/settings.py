@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.utils.diagnostic_redaction import redact_address, safe_connection_error, safe_error_message
-from app.services.connection_failure import classify_connection_failure, describe_connection_failure
+from app.services.connection_failure import classify_connection_failure, connection_failure_payload
 from app.services.settings_update import apply_update, prepare_update, run_settings_writer
 from app.services.cache_stats_measurements import CacheStatsMeasurements
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
@@ -261,22 +261,12 @@ async def test_birdnet_reachability(
     except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
-            content={
-                "status": "error",
-                "message": describe_connection_failure(
-                    "timeout", service="BirdNET-Go", address=redact_address(base_url)
-                ),
-            },
+            content=connection_failure_payload("timeout", service="birdnet", address=base_url),
         )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=502,
-            content={
-                "status": "error",
-                "message": describe_connection_failure(
-                    classify_connection_failure(e), service="BirdNET-Go", address=redact_address(base_url)
-                ),
-            },
+            content=connection_failure_payload(classify_connection_failure(e), service="birdnet", address=base_url),
         )
 
 
@@ -319,10 +309,7 @@ async def test_mqtt_publish(
         return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
     return JSONResponse(
         status_code=502,
-        content={
-            "status": "error",
-            "message": describe_connection_failure(cause, service="the MQTT broker", address=f"{server}:{port}"),
-        },
+        content=connection_failure_payload(cause, service="mqtt", address=f"{server}:{port}"),
     )
 
 

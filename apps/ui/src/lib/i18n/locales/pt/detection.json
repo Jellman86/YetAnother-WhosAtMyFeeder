@@ -424,7 +424,7 @@
     "again": "Analisar novamente",
     "detector_unavailable": "Instale um detector de recortes para encontrar mais aves.",
     "reviewed_other_frame": "As aves revisadas em outro quadro são mantidas. Este quadro não pode substituí-las.",
-    "scene_unavailable": "O quadro completo desta fotografia não está disponível.",
+    "scene_unavailable": "Não é possível procurar mais aves: o fotograma inteiro por trás desta fotografia não foi guardado.",
     "other_running": "Outro quadro desta captura está sendo analisado. Tente novamente quando terminar.",
     "media_changed": "O quadro mudou durante a análise. Tente novamente no quadro atual.",
     "interrupted": "A análise foi interrompida. Você pode tentar novamente.",
@@ -501,5 +501,6 @@
   "reference_read_more_on": "Ler mais em {source}",
   "reference_read_more": "Ler mais",
   "reference_source": "Fonte: {source}",
-  "reference_conservation": "Estado de conservação: {status}"
+  "reference_conservation": "Estado de conservação: {status}",
+  "delete_permanently": "Eliminar permanentemente…"
 }

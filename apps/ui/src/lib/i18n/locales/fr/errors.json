@@ -1,3 +1,12 @@
 {
-  "stack_trace": "Trace de pile :"
+  "stack_trace": "Trace de pile :",
+  "server_failure": "Quelque chose sur le serveur a interrompu cette requête. Réessayez \u0001 si cela continue, ouvrez État du système pour voir ce qui ne va pas.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service} \u0001 le nom d’hôte dans {address} est introuvable. Vérifiez l’adresse.",
+    "refused": "{service} \u0001 rien n’a répondu à {address}. Vérifiez que le service fonctionne et que le port est correct.",
+    "timeout": "{service} \u0001 pas de réponse de {address} dans le délai. Vérifiez l’adresse et que cette machine peut l’atteindre.",
+    "not_authorised": "{service} \u0001 le nom d’utilisateur ou le mot de passe a été refusé. Vérifiez-les, ou désactivez l’authentification si les clients anonymes sont acceptés.",
+    "unreachable": "{service} \u0001 connexion à {address} impossible. Vérifiez l’adresse et le port."
+  }
 }

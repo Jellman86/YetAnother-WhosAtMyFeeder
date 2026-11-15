@@ -649,7 +649,9 @@
     "test_subtitle": "检查 Frigate API 是否响应，以及 MQTT 代理是否接受发布。",
     "test_title": "Frigate 与 MQTT 连接测试",
     "recording_frame_delay": "首次识别延迟（秒）",
-    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。"
+    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。",
+    "stage_frigate_next": "请检查此标签页中的 Frigate 服务器 URL，并确认 Frigate 正在运行。",
+    "stage_mqtt_next": "请检查此标签页中的代理服务器地址、端口和登录信息。"
   },
   "cameras": {
     "title": "要监视的摄像头",

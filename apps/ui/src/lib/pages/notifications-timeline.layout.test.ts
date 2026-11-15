@@ -61,7 +61,10 @@ describe('Notifications timeline layout', () => {
     it('makes opening a notification a real control', () => {
         // Was a <p> that looked like an action and could not be focused or clicked.
         expect(source).toContain('onclick={() => openItem(item)}');
-        expect(source).toContain('btn btn-secondary focus-ring');
+        // The whole row is the link, with a chevron: a boxed Open on every row doubled the list.
+        expect(source).toContain('data-notification-row="link"');
+        expect(source).toContain('data-notification-chevron');
+        expect(source).not.toMatch(/btn btn-secondary focus-ring[^\n]*\n[^\n]*openItem/);
     });
 
     it('states what the empty page will hold instead of that it is empty', () => {
@@ -84,7 +87,7 @@ describe('Notifications timeline layout', () => {
     it('keeps the rail unbroken between rows and capped at the outer dots', () => {
         // Vertical padding lives on the content column, not the row: as a grid item the rail's
         // box stopped at the row's padding and the line broke between every entry.
-        expect(source).toContain('flex items-start gap-3 py-3');
+        expect(source).toContain('class="flex min-w-0 items-start gap-1 py-1"');
         expect(source).toContain("? 'top-7 bottom-0'");
         expect(source).toContain("? 'top-0 h-7'");
         expect(source).toContain('{#if group.items.length > 1}');
@@ -102,7 +105,7 @@ describe('Notifications timeline layout', () => {
     });
 
     it('does not repeat the date on rows the group heading already dates', () => {
-        expect(source).toContain("group.key === 'older' || group.key === 'yesterday'");
+        expect(source).toContain("groupKey === 'older' || groupKey === 'yesterday'");
     });
 });
 

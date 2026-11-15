@@ -20,7 +20,6 @@
 
     interface Step {
         key: string;
-        kind: 'local' | 'optional' | 'external';
         detail: string;
         state: string | null;
         tone: Tone;
@@ -163,21 +162,18 @@
     const steps = $derived<Step[]>([
         {
             key: 'frigate',
-            kind: 'external',
             detail: cameraSummary.detail,
             state: cameraSummary.state,
             tone: cameraSummary.tone
         },
         {
             key: 'mqtt',
-            kind: 'external',
             detail: $_('about.pipeline.mqtt_detail', { default: 'frigate/events' }),
             state: mqttSummary.state,
             tone: mqttSummary.tone
         },
         {
             key: 'classifier',
-            kind: 'local',
             detail: classifierSummary.detail,
             identifier: 'identifier' in classifierSummary,
             state: classifierSummary.state,
@@ -185,7 +181,6 @@
         },
         {
             key: 'audio',
-            kind: 'optional',
             detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
             state: birdnetEnabled
                 ? $_('about.pipeline.enabled', { default: 'Enabled' })
@@ -194,14 +189,12 @@
         },
         {
             key: 'store',
-            kind: 'local',
             detail: $_('about.pipeline.store_detail', { default: 'SQLite under /data' }),
             state: notChecked,
             tone: 'unknown'
         },
         {
             key: 'notify',
-            kind: 'optional',
             // Notification channels are only reported in owner settings; a guest
             // reading "off" would be a guess presented as a measurement.
             detail: isGuestView
@@ -218,7 +211,6 @@
         },
         {
             key: 'browser',
-            kind: 'external',
             detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
             state: detectionsStore.connected
                 ? $_('about.pipeline.streaming', { default: 'Streaming' })
@@ -233,10 +225,14 @@
         return 'text-slate-600 dark:text-slate-400';
     }
 
-    function kindClass(kind: Step['kind']): string {
-        if (kind === 'local') return 'border-brand-300 bg-brand-50/70 dark:border-brand-800 dark:bg-brand-950/30';
-        if (kind === 'optional') return 'border-dashed border-slate-300 dark:border-slate-600';
-        return 'border-slate-200 dark:border-slate-700';
+    /** The dot beside the state word: filled when measured working, a ring otherwise. The word carries the meaning. */
+    function toneDot(tone: Tone): string {
+        return tone === 'ok' ? 'bg-success-500' : 'border border-slate-400 dark:border-slate-500';
+    }
+
+    /** An identifier may only break between its parts, never inside a model name. */
+    function parts(detail: string): string[] {
+        return detail.split(' · ');
     }
 </script>
 
@@ -244,7 +240,7 @@
     <ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {#each steps as step, index (step.key)}
             <li
-                class="pipeline-step relative overflow-hidden rounded-xl border p-3 {kindClass(step.kind)}"
+                class="pipeline-step relative overflow-hidden rounded-xl border border-line-soft p-3"
                 style="--flow-index: {index}"
             >
                 <!-- The pulse sweeps each card in turn, so the eye is carried along the chain in the
@@ -261,41 +257,31 @@
                     </span>
                 {/if}
                 {#if step.state}
-                    <!-- Seven narrow cards at a large text size: a word breaks rather than being cut by the card. -->
-                    <span class="relative block text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
+                    <!-- One card style for every step: the state is a dot and a word, never a border. -->
+                    <span class="relative flex items-center gap-1.5 text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
+                        <i class="h-1.5 w-1.5 shrink-0 rounded-full {toneDot(step.tone)}" aria-hidden="true"></i>
                         {step.state}
                     </span>
                 {/if}
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 wrap-anywhere dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                <!-- A model id has no spaces, so it may break anywhere rather than be cut mid-word. -->
-                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400 {step.identifier ? 'font-mono break-all' : ''}">
-                    {step.detail}
-                </span>
+                {#if step.identifier}
+                    <span class="relative mt-0.5 block font-mono text-2xs leading-snug text-slate-600 dark:text-slate-400" data-pipeline-identifier>
+                        {#each parts(step.detail) as part, position (position)}{#if position > 0}{' · '}{/if}<span class="whitespace-nowrap">{part}</span>{/each}
+                    </span>
+                {:else}
+                    <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
+                        {step.detail}
+                    </span>
+                {/if}
             </li>
         {/each}
     </ol>
 
-    <div class="flex flex-wrap items-center gap-x-5 gap-y-2 text-2xs text-slate-600 dark:text-slate-400">
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-brand-300 bg-brand-50 dark:border-brand-800 dark:bg-brand-950/40" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_local', { default: 'runs on your hardware' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-dashed border-slate-400 dark:border-slate-500" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_optional', { default: 'optional' })}
-        </span>
-        <span class="flex items-center gap-1.5">
-            <i class="h-2.5 w-2.5 rounded-xs border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
-            {$_('about.pipeline.legend_external', { default: 'your broker and browser' })}
-        </span>
-        <span class="sm:ml-auto">
-            {$_('about.pipeline.legend_note', {
-                default: 'Nothing leaves your network except the calls listed below.'
-            })}
-        </span>
-    </div>
+    <p class="text-2xs text-slate-600 dark:text-slate-400">
+        {$_('about.pipeline.legend_note', { default: 'Nothing leaves your network except the calls listed below.' })}
+    </p>
 
 </div>
 

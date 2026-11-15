@@ -35,7 +35,9 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   separate cards. Each row is a small status disc (number → ✓ / ! / –) plus a
   bold label, the outcome in a word (Passed, Failed, Passed with a warning, Not run), and a
   plain-language message. The word matters: a failed and a warned row share a disc and would
-  otherwise differ only by colour. A passed disc is success green.
+  otherwise differ only by colour. A passed disc is success green. A failed row ends with one
+  line of what to do about it: a step passes `nextStep` ("Check the Frigate server URL on this
+  tab, and that Frigate is running.") and the runner shows it only when that step fails.
 - **Summary:** drawn under the checklist only when it says something the rows do not: that
   every check passed, a message of its own, or a hint. A failure summary is red like its row,
   never amber, which is kept for work that needs a person.
@@ -61,7 +63,11 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   colours its row, and states the cause and next step in
   plain language (Nielsen #9) — not an error code, an exception class or "check logs". The
   backend reads the cause from the error (`app/services/connection_failure.py`: host not found,
-  nothing listening, no answer in time, credentials refused) and says what to check. Warning and skipped outcomes
+  nothing listening, no answer in time, credentials refused) and answers with that cause code,
+  the service and the host and port only. The page words the cause and the next step from the
+  code in its own language (`errors.connection.*`, in `apps/ui/src/lib/api/error-message.ts`).
+  The same helper never shows a raw server body: a 5xx with no stated reason reads as
+  `errors.server_failure`, which says what to try and where to look. Warning and skipped outcomes
   remain terminal but must not be promoted to a pass or produce a green summary.
 - **Keyboard & focus:** `Escape` closes, focus is trapped while open, and body
   scroll is locked. `trapFocus` alone returns focus to the opener on close; the dialog does not

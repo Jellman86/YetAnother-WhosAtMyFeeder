@@ -220,6 +220,10 @@
                             {#if stage.state !== 'pending'}
                                 <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-300">{stage.message}</p>
                             {/if}
+                            {#if stage.hint && (stage.state === 'failed' || stage.state === 'warning')}
+                                <!-- A failure never ends on the failure: the next line says what to do about it. -->
+                                <p class="text-xs font-semibold leading-relaxed text-slate-800 dark:text-slate-100" data-diagnostic-stage-hint>{stage.hint}</p>
+                            {/if}
                         </div>
                     </li>
                 {/each}

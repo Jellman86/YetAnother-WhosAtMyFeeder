@@ -45,9 +45,6 @@
     "notify_on": "pelo menos um canal configurado",
     "notify_off": "nada configurado",
     "browser_detail": "atualizações em direto por SSE",
-    "legend_local": "corre no seu hardware",
-    "legend_optional": "opcional",
-    "legend_external": "o seu broker e navegador",
     "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo.",
     "not_checked": "Não verificado",
     "no_reading": "sem leitura a partir daqui",
@@ -109,8 +106,9 @@
     "runtime": "A identificar aves com",
     "runtime_on": "{runtime} em {device}",
     "runtime_unread": "Ainda não foi lido. O modelo indica isto depois de carregar.",
-    "uptime_unmeasured": "Não medido. Não foi possível ler a hora de arranque do backend.",
-    "availability_heading": "Disponibilidade, últimas {hours} horas"
+    "uptime_unmeasured": "O backend não indicou quando arrancou.",
+    "availability_heading": "Disponibilidade, últimas {hours} horas",
+    "uptime_unmeasured_value": "Não medido"
   },
   "close": {
     "title": "Dados, privacidade e créditos"
@@ -118,11 +116,10 @@
   "reference_thanks": "Referências e agradecimentos",
   "thanks_to": "Obrigado a",
   "portrait": {
-    "since": "Observando desde {date}.",
-    "shared_today": "Hoje neste comedouro.",
-    "shared_days": "Os últimos {days} dias neste comedouro.",
+    "since": "Observando desde {date}",
+    "shared_today": "Hoje neste comedouro",
+    "shared_days": "Os últimos {days} dias neste comedouro",
     "empty": "Ainda não há visitas registradas. Isto se preenche conforme as aves chegam.",
-    "no_latest": "Ainda não há imagem de uma visita recente.",
     "visits": "visitas",
     "species": "espécies",
     "busiest_day": "Dia mais movimentado",

@@ -626,15 +626,20 @@ build something better."*
   ("Background jobs, health and system events are shown only to you, not to visitors."), never on
   every row.
 - The footer of a working page carries the build's version, the licence and the links, and nothing
-  that changes from page to page. The project's own voice (how it was built, a bird fact shown only
-  when asked for another) lives in the "About this project" section of About.
+  that changes from page to page. Bird facts live in the "Did you know?" card on About and change
+  only when asked for another.
 - A count names its unit and its window: "Detections, all time", "Availability, last 24 hours".
   A figure that was not measured is said in words at body size ("Not measured. The start time could
   not be read from the backend."), never as a headline value beside one that was.
 - The detection record reads, and is walked by keyboard, in one order: identification, the
   decisions about it, the facts, reference reading shortened to a few lines with a link to its
-  source, then the identifiers. Nothing is re-ordered in CSS, and the less common actions (rename,
-  hide, delete) wait behind "More actions".
+  source, then the identifiers. Nothing is re-ordered in CSS. One primary and one secondary button
+  sit under the name; every other action (score again, rename, hide, delete permanently) is a row
+  in the "More actions" list. A button takes its label's width so the label does not wrap.
+- Status belongs in the panel, never over the photograph: only the favourite star sits on the image.
+- A list whose rows lead somewhere makes the row the link, with a chevron at its right edge and the
+  time on the title line. It does not add a boxed "Open" under every row.
+- An identifier made of parts (`model · runtime`) breaks between its parts, never inside one.
 - Name a control by its effect. "Identify", "Add House Sparrow", "Work through the queue".
 - Empty states say what is true and what is next: "Every visit in the last 24 hours has a species.
   Nothing waiting on you." Never a bare "No data".

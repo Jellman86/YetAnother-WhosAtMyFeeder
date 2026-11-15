@@ -45,9 +45,6 @@
     "notify_on": "at least one channel configured",
     "notify_off": "nothing configured",
     "browser_detail": "live updates over SSE",
-    "legend_local": "runs on your hardware",
-    "legend_optional": "optional",
-    "legend_external": "your broker and browser",
     "legend_note": "Nothing leaves your network except the calls listed below.",
     "not_checked": "Not checked",
     "no_reading": "no reading from here",
@@ -109,8 +106,9 @@
     "runtime": "Identifying birds with",
     "runtime_on": "{runtime} on {device}",
     "runtime_unread": "Not read yet. The model reports this once it has loaded.",
-    "uptime_unmeasured": "Not measured. The start time could not be read from the backend.",
-    "availability_heading": "Availability, last {hours} hours"
+    "uptime_unmeasured": "The backend did not report when it started.",
+    "availability_heading": "Availability, last {hours} hours",
+    "uptime_unmeasured_value": "Not measured"
   },
   "close": {
     "title": "Data, privacy and credits"
@@ -118,11 +116,10 @@
   "reference_thanks": "Reference & thanks",
   "thanks_to": "Thanks to",
   "portrait": {
-    "since": "Watching since {date}.",
-    "shared_today": "Today at this feeder.",
-    "shared_days": "The last {days} days at this feeder.",
+    "since": "Watching since {date}",
+    "shared_today": "Today at this feeder",
+    "shared_days": "The last {days} days at this feeder",
     "empty": "No visits recorded yet. This fills in as birds arrive.",
-    "no_latest": "No picture of a recent visit to show yet.",
     "visits": "visits",
     "species": "species",
     "busiest_day": "Busiest day",

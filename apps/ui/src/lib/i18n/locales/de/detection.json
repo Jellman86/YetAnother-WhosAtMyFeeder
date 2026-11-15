@@ -424,7 +424,7 @@
     "again": "Erneut scannen",
     "detector_unavailable": "Installiere einen Ausschnittdetektor, um weitere Vögel zu finden.",
     "reviewed_other_frame": "Auf einem anderen Bild überprüfte Vögel bleiben erhalten. Dieses Bild kann sie nicht ersetzen.",
-    "scene_unavailable": "Das vollständige Bild zu diesem Foto ist nicht verfügbar.",
+    "scene_unavailable": "Nach weiteren Vögeln kann nicht gesucht werden: Das ganze Bild hinter diesem Foto wurde nicht aufbewahrt.",
     "other_running": "Ein anderes Bild dieser Aufnahme wird gescannt. Versuche es danach erneut.",
     "media_changed": "Das Bild hat sich während des Scans geändert. Versuche es mit dem aktuellen Bild erneut.",
     "interrupted": "Der Scan wurde unterbrochen. Du kannst es erneut versuchen.",
@@ -501,5 +501,6 @@
   "reference_read_more_on": "Mehr lesen bei {source}",
   "reference_read_more": "Mehr lesen",
   "reference_source": "Quelle: {source}",
-  "reference_conservation": "Schutzstatus: {status}"
+  "reference_conservation": "Schutzstatus: {status}",
+  "delete_permanently": "Dauerhaft löschen…"
 }

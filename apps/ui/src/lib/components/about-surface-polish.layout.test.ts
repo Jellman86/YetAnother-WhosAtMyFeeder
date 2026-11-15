@@ -13,9 +13,19 @@ describe('About surface polish', () => {
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
-    it('prints the classifier model id whole, as an identifier that may break anywhere', () => {
+    it('prints the classifier model id whole: an identifier breaks between its parts, never inside one', () => {
         expect(pipelineSource).toContain("identifier: true");
-        expect(pipelineSource).toContain("step.identifier ? 'font-mono break-all' : ''");
+        expect(pipelineSource).toContain("return detail.split(' · ');");
+        expect(pipelineSource).toMatch(/data-pipeline-identifier[\s\S]{0,200}<span class="whitespace-nowrap">\{part\}<\/span>/);
+        expect(pipelineSource).not.toContain('break-all');
+    });
+
+    it('draws every step as the same card, with its state as a dot and a word', () => {
+        // Three border styles and a three-item legend were more encoding than seven cards can carry.
+        expect(pipelineSource).not.toMatch(/kindClass|border-dashed|legend_local|legend_optional|legend_external/);
+        expect(pipelineSource).toContain('border border-line-soft p-3');
+        expect(pipelineSource).toContain('toneDot(step.tone)');
+        expect(pipelineSource).toContain('about.pipeline.legend_note');
     });
 
     it('lists every browser-side network call the sighting map makes', () => {
@@ -75,7 +85,9 @@ describe('About surface polish', () => {
         expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"');
         expect(instanceSource).toContain('class="min-w-0" data-instance-report');
         expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
-        expect(instanceSource).toContain('whitespace-normal break-all');
+        // The report line breaks between its parts, never inside a model name.
+        expect(instanceSource).not.toContain('break-all');
+        expect(instanceSource).toContain('{#each supportParts as part, position (position)}');
         expect(instanceSource).toContain('w-full sm:w-auto');
     });
 

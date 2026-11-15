@@ -45,9 +45,6 @@
     "notify_on": "almeno un canale configurato",
     "notify_off": "niente configurato",
     "browser_detail": "aggiornamenti live via SSE",
-    "legend_local": "gira sul tuo hardware",
-    "legend_optional": "opzionale",
-    "legend_external": "il tuo broker e browser",
     "legend_note": "Nulla esce dalla tua rete tranne le chiamate elencate sotto.",
     "not_checked": "Non verificato",
     "no_reading": "nessuna lettura da qui",
@@ -109,8 +106,9 @@
     "runtime": "Identificazione degli uccelli con",
     "runtime_on": "{runtime} su {device}",
     "runtime_unread": "Non ancora letto. Il modello lo comunica una volta caricato.",
-    "uptime_unmeasured": "Non misurato. Non è stato possibile leggere l’ora di avvio dal backend.",
-    "availability_heading": "Disponibilità, ultime {hours} ore"
+    "uptime_unmeasured": "Il backend non ha comunicato quando è stato avviato.",
+    "availability_heading": "Disponibilità, ultime {hours} ore",
+    "uptime_unmeasured_value": "Non misurato"
   },
   "close": {
     "title": "Dati, privacy e ringraziamenti"
@@ -118,11 +116,10 @@
   "reference_thanks": "Riferimenti e ringraziamenti",
   "thanks_to": "Grazie a",
   "portrait": {
-    "since": "In osservazione dal {date}.",
-    "shared_today": "Oggi a questa mangiatoia.",
-    "shared_days": "Gli ultimi {days} giorni a questa mangiatoia.",
+    "since": "In osservazione dal {date}",
+    "shared_today": "Oggi a questa mangiatoia",
+    "shared_days": "Gli ultimi {days} giorni a questa mangiatoia",
     "empty": "Nessuna visita registrata finora. Si riempirà man mano che arrivano gli uccelli.",
-    "no_latest": "Ancora nessuna immagine di una visita recente.",
     "visits": "visite",
     "species": "specie",
     "busiest_day": "Giorno più movimentato",

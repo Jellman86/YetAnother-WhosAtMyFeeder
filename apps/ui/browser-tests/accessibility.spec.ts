@@ -564,7 +564,7 @@ for (const theme of THEMES) {
     });
 }
 
-test('About holds still on a phone when the feeder portrait lands without a picture', async ({ page }) => {
+test('About shows no empty picture frame, and holds still once it knows this feeder has no picture', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await replayFeeder(page, 'light');
     // The portrait is the slow read; the recorded feeder has no picture of its latest visit.
@@ -572,13 +572,16 @@ test('About holds still on a phone when the feeder portrait lands without a pict
         await new Promise((resolve) => setTimeout(resolve, 1200));
         await route.fallback();
     });
+    // The first visit learns the portrait's shape: the facts sit under the title, with no frame for a missing picture.
     await page.goto('/about');
+    await expect(page.locator('[data-feeder-portrait-facts]')).toBeVisible();
+    await expect(page.locator('[data-feeder-portrait-no-visit]')).toHaveCount(0);
+    // From then on the loading shape is the shape that lands, so what follows does not move.
+    await page.reload();
     await expect(page.locator('[data-feeder-portrait-loading]')).toBeVisible();
     const before = await page.locator('#about-workflow').evaluate((node) => node.getBoundingClientRect().top + scrollY);
-    await expect(page.locator('[data-feeder-portrait]')).toBeVisible();
-    await expect(page.locator('[data-feeder-portrait-no-visit]')).toBeVisible();
+    await expect(page.locator('[data-feeder-portrait-facts]')).toBeVisible();
     const after = await page.locator('#about-workflow').evaluate((node) => node.getBoundingClientRect().top + scrollY);
-    // The picture's slot is kept, so what follows moves by a line of text at most, not a photograph.
     expect(Math.abs(after - before)).toBeLessThanOrEqual(24);
 });
 

@@ -424,7 +424,7 @@
     "again": "Analizza di nuovo",
     "detector_unavailable": "Installa un rilevatore per i ritagli per trovare altri uccelli.",
     "reviewed_other_frame": "Gli uccelli verificati in un altro fotogramma vengono conservati. Questo fotogramma non può sostituirli.",
-    "scene_unavailable": "Il fotogramma intero di questa fotografia non è disponibile.",
+    "scene_unavailable": "Non è possibile cercare altri uccelli: il fotogramma intero di questa fotografia non è stato conservato.",
     "other_running": "Un altro fotogramma di questa acquisizione è in analisi. Riprova al termine.",
     "media_changed": "Il fotogramma è cambiato durante l’analisi. Riprova con quello attuale.",
     "interrupted": "L’analisi è stata interrotta. Puoi riprovare.",
@@ -501,5 +501,6 @@
   "reference_read_more_on": "Continua a leggere su {source}",
   "reference_read_more": "Continua a leggere",
   "reference_source": "Fonte: {source}",
-  "reference_conservation": "Stato di conservazione: {status}"
+  "reference_conservation": "Stato di conservazione: {status}",
+  "delete_permanently": "Elimina definitivamente…"
 }

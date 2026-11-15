@@ -62,4 +62,9 @@ describe('the shared diagnostic dialog', () => {
     it('stops the reveal timer once the run is over and every stage is on show', () => {
         expect(dialogSource).toContain('if (!busy && tick >= stages.length) clearInterval(timer);');
     });
+
+    it('draws a next step under a failed row when the check gives one', () => {
+        expect(dialogSource).toContain("{#if stage.hint && (stage.state === 'failed' || stage.state === 'warning')}");
+        expect(dialogSource).toContain('data-diagnostic-stage-hint');
+    });
 });

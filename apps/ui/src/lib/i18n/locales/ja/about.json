@@ -45,9 +45,6 @@
     "notify_on": "1 つ以上のチャンネルを設定済み",
     "notify_off": "未設定",
     "browser_detail": "SSE によるライブ更新",
-    "legend_local": "自分のハードウェアで動作",
-    "legend_optional": "任意",
-    "legend_external": "ブローカーとブラウザ",
     "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。",
     "not_checked": "未確認",
     "no_reading": "ここからは取得できません",
@@ -109,8 +106,9 @@
     "runtime": "鳥の識別に使用中",
     "runtime_on": "{runtime}（{device}）",
     "runtime_unread": "まだ読み取れていません。モデルの読み込みが終わると表示されます。",
-    "uptime_unmeasured": "未計測です。バックエンドから起動時刻を読み取れませんでした。",
-    "availability_heading": "稼働率（過去{hours}時間）"
+    "uptime_unmeasured": "バックエンドから起動時刻が報告されませんでした。",
+    "availability_heading": "稼働率（過去{hours}時間）",
+    "uptime_unmeasured_value": "未計測"
   },
   "close": {
     "title": "データ、プライバシー、クレジット"
@@ -118,11 +116,10 @@
   "reference_thanks": "参考資料と謝辞",
   "thanks_to": "謝辞",
   "portrait": {
-    "since": "{date} から観察中。",
-    "shared_today": "今日のこの給餌台。",
-    "shared_days": "この給餌台の過去 {days} 日間。",
+    "since": "{date} から観察中",
+    "shared_today": "今日のこの給餌台",
+    "shared_days": "この給餌台の過去 {days} 日間",
     "empty": "まだ訪問は記録されていません。鳥が来ると埋まっていきます。",
-    "no_latest": "最近の訪問の画像はまだありません。",
     "visits": "回の訪問",
     "species": "種",
     "busiest_day": "最も賑わった日",

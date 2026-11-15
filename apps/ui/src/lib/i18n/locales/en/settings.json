@@ -649,7 +649,9 @@
     "test_subtitle": "Checks that the Frigate API answers and that the MQTT broker accepts a publish.",
     "test_title": "Frigate & MQTT connection test",
     "recording_frame_delay": "Initial identification delay (seconds)",
-    "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections."
+    "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.",
+    "stage_frigate_next": "Check the Frigate server URL on this tab, and that Frigate is running.",
+    "stage_mqtt_next": "Check the broker address, port and sign-in on this tab."
   },
   "cameras": {
     "title": "Cameras to watch",

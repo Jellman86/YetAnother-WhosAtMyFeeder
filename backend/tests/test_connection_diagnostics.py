@@ -104,10 +104,14 @@ async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeyp
     response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
 
     assert response.status_code == 502
-    message = response.json()["message"]
-    assert said in message
-    assert "Check" in message
-    assert "logs" not in message.lower()
+    body = response.json()
+    # A stable code and safe parameters, so the page words the cause in the reader's language.
+    assert body["cause"] == cause
+    assert body["service"] == "mqtt"
+    assert body["address"] == "mqtt.invalid:1883"
+    # The English sentence stays for clients that only read `message`.
+    assert said in body["message"]
+    assert "logs" not in body["message"].lower()
 
 
 @pytest.mark.asyncio

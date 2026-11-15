@@ -3,9 +3,7 @@
 </script>
 
 <span class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-brand-700 ring-1 ring-brand-100 dark:bg-brand-950/40 dark:text-brand-300 dark:ring-brand-900/70" aria-hidden="true">
-    {#if step === 'welcome'}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3m6.4-.4-2.1 2.1M21 12h-3M5.6 5.6l2.1 2.1M3 12h3" /><path d="M7 17c1.3-2 2.9-3 5-3s3.7 1 5 3" /><circle cx="12" cy="11" r="7" /></svg>
-    {:else if step === 'account'}
+    {#if step === 'account'}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v2" /></svg>
     {:else if step === 'connection'}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8M6.5 8.5l-2 2a4 4 0 0 0 5.7 5.7l2-2m5.3 1.3 2-2a4 4 0 0 0-5.7-5.7l-2 2" /></svg>

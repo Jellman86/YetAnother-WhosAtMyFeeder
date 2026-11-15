@@ -1,3 +1,12 @@
 {
-  "stack_trace": "Seguimiento de pila:"
+  "stack_trace": "Seguimiento de pila:",
+  "server_failure": "Algo en el servidor detuvo esta solicitud. Inténtalo de nuevo; si sigue ocurriendo, abre Estado del sistema para ver qué falla.",
+  "connection": {
+    "service_mqtt": "Broker MQTT",
+    "host_not_found": "{service}: no se encontró el nombre de host de {address}. Comprueba la dirección.",
+    "refused": "{service}: nada respondió en {address}. Comprueba que está en marcha y que el puerto es correcto.",
+    "timeout": "{service}: {address} no respondió a tiempo. Comprueba la dirección y que este equipo puede alcanzarla.",
+    "not_authorised": "{service}: se rechazó el nombre de usuario o la contraseña. Compruébalos, o desactiva la autenticación si acepta clientes anónimos.",
+    "unreachable": "{service}: no se pudo conectar con {address}. Comprueba la dirección y el puerto."
+  }
 }

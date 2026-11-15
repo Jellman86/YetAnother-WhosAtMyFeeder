@@ -45,9 +45,6 @@
     "notify_on": "au moins un canal configuré",
     "notify_off": "rien de configuré",
     "browser_detail": "mises à jour en direct via SSE",
-    "legend_local": "tourne sur votre matériel",
-    "legend_optional": "optionnel",
-    "legend_external": "votre broker et votre navigateur",
     "legend_note": "Rien ne sort de votre réseau en dehors des appels listés ci-dessous.",
     "not_checked": "Non vérifié",
     "no_reading": "aucune lecture depuis ici",
@@ -109,8 +106,9 @@
     "runtime": "Identification des oiseaux avec",
     "runtime_on": "{runtime} sur {device}",
     "runtime_unread": "Pas encore lu. Le modèle l’indique une fois chargé.",
-    "uptime_unmeasured": "Non mesuré. L’heure de démarrage n’a pas pu être lue depuis le backend.",
-    "availability_heading": "Disponibilité, {hours} dernières heures"
+    "uptime_unmeasured": "Le backend n’a pas indiqué quand il a démarré.",
+    "availability_heading": "Disponibilité, {hours} dernières heures",
+    "uptime_unmeasured_value": "Non mesuré"
   },
   "close": {
     "title": "Données, confidentialité et remerciements"
@@ -118,11 +116,10 @@
   "reference_thanks": "Références et remerciements",
   "thanks_to": "Merci à",
   "portrait": {
-    "since": "En observation depuis le {date}.",
-    "shared_today": "Aujourd’hui à cette mangeoire.",
-    "shared_days": "Les {days} derniers jours à cette mangeoire.",
+    "since": "En observation depuis le {date}",
+    "shared_today": "Aujourd’hui à cette mangeoire",
+    "shared_days": "Les {days} derniers jours à cette mangeoire",
     "empty": "Aucune visite enregistrée pour l’instant. Cela se remplit à mesure que les oiseaux arrivent.",
-    "no_latest": "Aucune image d’une visite récente à afficher pour l’instant.",
     "visits": "visites",
     "species": "espèces",
     "busiest_day": "Journée la plus animée",

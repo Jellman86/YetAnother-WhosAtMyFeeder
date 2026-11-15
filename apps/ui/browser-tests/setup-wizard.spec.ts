@@ -74,6 +74,8 @@ class FakeBackend {
     unexpected: string[] = [];
     allowExtraReads = false;
     frigateTestFails = false;
+    /** The cause code the broker test answers with, when it fails. */
+    mqttFailure: string | null = null;
     evalWarnings: Json[] = [];
     frigateConfigFails = false;
     downloadDone = false;
@@ -248,7 +250,11 @@ class FakeBackend {
             return json({ status: 'success' });
         }
         if (path === '/api/frigate/test') return this.frigateTestFails ? json({ detail: 'Frigate authentication failed.' }, 401) : json({ status: 'ok', version: '0.16.0' });
-        if (path === '/api/settings/mqtt/test-publish') return json({ status: 'ok', message: 'Test message published' });
+        if (path === '/api/settings/mqtt/test-publish') {
+            return this.mqttFailure
+                ? json({ status: 'error', cause: this.mqttFailure, service: 'mqtt', address: 'mqtt.invalid:1883', message: 'English fallback sentence.' }, 502)
+                : json({ status: 'ok', message: 'Test message published' });
+        }
         if (path === '/api/audio/sources') return json([]);
         if (path === '/api/frigate/config') return this.frigateConfigFails ? json({ detail: 'unreachable' }, 502) : json({ cameras: { feeder: {}, nestbox: {} } });
         if (path === '/api/backfill/status') return json(null);
@@ -1034,4 +1040,22 @@ test('the model step opens with a model selected even when the running model is 
     await expect(modelSelect(page)).toHaveValue(MOBILENET);
     await expect(continueButton(page)).toBeDisabled();
     await expect(wizard(page).locator('[data-setup-continue-blocked]')).toContainText('Download this model to continue, or skip this step');
+});
+
+test('a failed broker test is worded from its cause code in the page language', async ({ page }) => {
+    const fake = new FakeBackend({});
+    fake.mqttFailure = 'host_not_found';
+    await page.addInitScript(() => localStorage.setItem('preferred-language', 'de'));
+    await openFixture(page, fake);
+    await page.getByRole('button', { name: 'Open setup wizard' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('listitem').filter({ hasText: 'Frigate' }).first().getByRole('button').click();
+    await dialog.locator('#setup-frigate-url').fill('http://frigate:5000');
+    await dialog.locator('#setup-mqtt-server').fill('mqtt.invalid');
+    await dialog.locator('#setup-mqtt-server').press('Tab');
+    await dialog.getByRole('button', { name: /test/i }).click();
+    const failed = dialog.locator('[data-setup-connection-result="failed"]');
+    await expect(failed).toContainText('Der Hostname in mqtt.invalid:1883 wurde nicht gefunden. Prüfe die Adresse.');
+    await expect(failed).toContainText('MQTT-Broker');
+    await expect(dialog).not.toContainText('English fallback sentence.');
 });

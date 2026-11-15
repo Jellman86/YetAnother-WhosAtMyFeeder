@@ -62,7 +62,7 @@
           ? $_('detection.bird_scan.other_running', { default: 'Another frame in this capture is being scanned. Try again when it finishes.' })
           : unavailable === 'reviewed_other_frame'
           ? $_('detection.bird_scan.reviewed_other_frame', { default: 'Birds reviewed on another frame are kept. This frame cannot replace them.' })
-          : $_('detection.bird_scan.scene_unavailable', { default: 'The whole frame for this photograph is unavailable.' }));
+          : $_('detection.bird_scan.scene_unavailable', { default: 'More birds cannot be looked for: the whole frame behind this photograph was not kept.' }));
     const errorText = $derived(view.response?.error === 'ambiguous_localization'
         ? $_('detection.bird_scan.ambiguous_localization', { default: 'Could not distinguish separate birds in this frame. Existing findings are kept. Try another whole frame.' })
         : view.response?.error === 'media_changed'
@@ -168,7 +168,8 @@
             {/if}
         </div>
     {/if}
-    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring"
+    <!-- Disabled reads as disabled by losing its border and fill, not by fading its words. -->
+    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-transparent disabled:bg-transparent disabled:text-slate-600 disabled:opacity-100 disabled:shadow-none dark:disabled:text-slate-400"
         aria-busy={active || view.pending}
         disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
         onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>
