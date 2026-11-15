@@ -547,8 +547,9 @@
                 <span class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.connection.mqtt_where', { default: 'Address and port' })}</span>
                 <span id="setting-mqtt-broker-desc" class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_title')}</span>
             </div>
-            <div class="flex min-w-0 gap-3">
-                <label class="block min-w-0 flex-1 space-y-1.5">
+            <!-- The port wraps under the address when enlarged text leaves no room beside it. -->
+            <div class="flex min-w-0 flex-wrap gap-3">
+                <label class="block min-w-0 flex-1 basis-40 space-y-1.5">
                     <span class="block text-sm text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_host', { default: 'Address' })}</span>
                     <SettingsInput
                         id="mqtt-server"

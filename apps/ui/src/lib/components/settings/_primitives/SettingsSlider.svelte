@@ -54,9 +54,9 @@
             class="focus-ring mt-1 h-6 w-full cursor-pointer accent-brand-600"
         />
         {#if lowLabel || highLabel}
-            <div class="flex justify-between gap-x-4 text-xs text-slate-600 dark:text-slate-400">
+            <div class="flex flex-wrap justify-between gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                 <span>{lowLabel}</span>
-                <span class="text-right">{highLabel}</span>
+                <span class="ml-auto text-right">{highLabel}</span>
             </div>
         {/if}
         <FieldRefusal id={errorId} {refusal} />

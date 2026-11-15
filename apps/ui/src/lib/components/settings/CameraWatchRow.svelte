@@ -95,11 +95,12 @@
                 </button>
             {/if}
         </div>
+        <!-- Each choice's word sits beside its select, and above it when enlarged text leaves no room. -->
         <div class="min-w-0 space-y-2">
-            <label class="flex min-w-0 items-center gap-3 text-sm text-slate-600 dark:text-slate-400">
+            <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
                 <span class="w-24 shrink-0" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</span>
                 <select
-                    class="select-base min-h-11 min-w-0 flex-1"
+                    class="select-base min-h-11 min-w-0 flex-1 basis-40"
                     aria-label={$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })}
                     aria-describedby={blockReasons.length > 0 ? `${uid}-reason` : undefined}
                     value={row.mode}
@@ -112,10 +113,10 @@
                 </select>
             </label>
             {#if watchesBirds}
-                <label class="flex min-w-0 items-center gap-3 text-sm text-slate-600 dark:text-slate-400" data-camera-role>
+                <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400" data-camera-role>
                     <span class="w-24 shrink-0" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
                     <select
-                        class="select-base min-h-11 min-w-0 flex-1"
+                        class="select-base min-h-11 min-w-0 flex-1 basis-40"
                         aria-label={$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })}
                         aria-describedby="{uid}-role-help"
                         value={row.role ?? 'feeder'}
