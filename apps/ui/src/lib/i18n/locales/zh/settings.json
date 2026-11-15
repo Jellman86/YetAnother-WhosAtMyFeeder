@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · 此主机没有可供鸟类检测使用的加速器",
     "bird_finder_device_not_passed": "{provider} · 未在此主机上通过检查",
     "bird_finder_device_unpassed_saved": "已保存：{provider}。在 {provider} 通过检查之前使用 CPU 运行。请检查设备，或选择自动。",
-    "bird_finder_device_unpassed_chosen": "{provider} 尚未在此主机上通过检查。保存后，鸟类检测会使用 CPU 运行，直到它通过检查。请检查设备，或选择自动。",
+    "bird_finder_device_unpassed_chosen": "{provider} 尚未在此主机上通过此鸟类检测的检查，因此暂时无法保存。请检查设备，或选择自动。",
     "bird_finder_repair": "修复",
     "bird_finder_repair_desc": "如果鸟类检测的文件缺失或损坏，重新下载这些文件。",
     "bird_finder_how_title": "鸟类检测的工作方式",

@@ -6,7 +6,8 @@
   identification model.
 - **A saved device that has not passed stays saved.** The Device list names it "not passed on this
   host" and keeps it selectable, with one line saying the finder runs on CPU until it passes and
-  what to do: check devices, or choose Automatic.
+  what to do: check devices, or choose Automatic. Other devices that have not passed are named the
+  same way but cannot be chosen until they pass, because the save would be refused.
 - **Check devices is one short button with its explanation under it.** Re-download moved behind
   Repair, and the background on the fallback finder and when a change takes effect is under "How
   the finder works".

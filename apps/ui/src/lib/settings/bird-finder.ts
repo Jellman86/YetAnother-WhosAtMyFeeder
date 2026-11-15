@@ -131,25 +131,33 @@ export interface FinderDeviceOption {
     value: string;
     /** This host holds a passing check for the finder on this device. */
     passed: boolean;
+    /** The server would accept this choice: it passed, or it is the saved device, left as it is. */
+    selectable: boolean;
 }
 
 const DEVICE_ORDER = ['intel_cpu', 'intel_gpu', 'intel_npu', 'cuda'] as const;
 
 /**
  * The devices offered after Automatic and CPU: those this host offers the finder, any with passing
- * evidence, and the chosen one, so a saved device is never missing from its own list.
+ * evidence, and the chosen one, so a saved device is never missing from its own list. The server
+ * refuses a newly chosen device without a passing check and keeps an unchanged one, so only
+ * `keepable` (the saved device, while the saved finder is still chosen) stays selectable unpassed.
  */
 export function finderDeviceOptions(input: {
     evidence: readonly string[];
     accelerators: readonly string[];
     hostProviders: readonly string[];
     chosen: string;
+    keepable: string | null;
 }): FinderDeviceOption[] {
-    const { evidence, accelerators, hostProviders, chosen } = input;
+    const { evidence, accelerators, hostProviders, chosen, keepable } = input;
     return DEVICE_ORDER
         .filter((device) => accelerators.includes(device)
             || evidence.includes(device)
             || chosen === device
             || (device === 'intel_cpu' && hostProviders.includes(device)))
-        .map((device) => ({ value: device, passed: evidence.includes(device) }));
+        .map((device) => {
+            const passed = evidence.includes(device);
+            return { value: device, passed, selectable: passed || device === keepable };
+        });
 }

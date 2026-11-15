@@ -67,11 +67,15 @@ describe('bird finder choice', () => {
             .toBe('Saved: {provider}. It runs on CPU until {provider} passes a check. Check devices, or choose Automatic.');
     });
 
-    it('keeps a device without a passing check selectable, named as not passed on this host', () => {
+    it('names a device without a passing check, and keeps only the saved one selectable', () => {
         expect(panelSource).toContain('finderDeviceOptions(');
-        expect(panelSource).not.toMatch(/disabled:\s*!option\.passed/);
+        // The server keeps an unchanged saved device and refuses a newly chosen unpassed one.
+        expect(panelSource).toContain('disabled: !option.selectable');
+        expect(panelSource).toContain('finderSaved ? savedProvider : null');
+        expect(modelManagerSource).toContain('finderSaved={savedBirdFinder === null || savedBirdFinder === birdFinder}');
         expect(en.settings.detection.bird_finder_device_not_passed).toBe('{provider} · not passed on this host');
         expect(en.settings.detection.bird_finder_device_auto).toBe('Automatic (fastest device that passed)');
+        expect(en.settings.detection.bird_finder_device_unpassed_chosen).toMatch(/cannot be saved yet/);
     });
 
     it('offers one short check button with its hint directly under it, scoped to the chosen finder', () => {

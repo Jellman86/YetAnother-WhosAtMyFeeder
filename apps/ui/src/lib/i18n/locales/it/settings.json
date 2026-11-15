@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · questo host non offre alcun acceleratore al rilevatore",
     "bird_finder_device_not_passed": "{provider} · verifica non superata su questo host",
     "bird_finder_device_unpassed_saved": "Salvato: {provider}. Il rilevatore usa la CPU finché {provider} non supera una verifica. Verifica i dispositivi o scegli Automatico.",
-    "bird_finder_device_unpassed_chosen": "{provider} non ha superato alcuna verifica su questo host. Dopo il salvataggio il rilevatore usa la CPU finché non la supera. Verifica i dispositivi o scegli Automatico.",
+    "bird_finder_device_unpassed_chosen": "{provider} non ha superato alcuna verifica per questo rilevatore su questo host, quindi non può ancora essere salvato. Verifica i dispositivi o scegli Automatico.",
     "bird_finder_repair": "Ripara",
     "bird_finder_repair_desc": "Scarica di nuovo i file del rilevatore se mancano o sono danneggiati.",
     "bird_finder_how_title": "Come funziona il rilevatore",

@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · cet hôte n’offre aucun accélérateur au détecteur",
     "bird_finder_device_not_passed": "{provider} · vérification non réussie sur cet hôte",
     "bird_finder_device_unpassed_saved": "Enregistré : {provider}. Le détecteur fonctionne sur le CPU jusqu’à ce que {provider} réussisse une vérification. Vérifiez les appareils ou choisissez Automatique.",
-    "bird_finder_device_unpassed_chosen": "{provider} n’a réussi aucune vérification sur cet hôte. Une fois enregistré, le détecteur fonctionne sur le CPU jusqu’à ce que ce soit le cas. Vérifiez les appareils ou choisissez Automatique.",
+    "bird_finder_device_unpassed_chosen": "{provider} n’a réussi aucune vérification pour ce détecteur sur cet hôte et ne peut donc pas encore être enregistré. Vérifiez les appareils ou choisissez Automatique.",
     "bird_finder_repair": "Réparer",
     "bird_finder_repair_desc": "Télécharge à nouveau les fichiers du détecteur s’ils sont manquants ou endommagés.",
     "bird_finder_how_title": "Comment fonctionne le détecteur",

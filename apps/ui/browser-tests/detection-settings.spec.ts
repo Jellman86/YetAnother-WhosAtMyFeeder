@@ -112,11 +112,15 @@ test('a finder that fell back after a failed check says so with the date and the
         .toHaveText('Saved: Intel NPU. It runs on CPU until Intel NPU passes a check. Check devices, or choose Automatic.');
     await expect(finder(page)).not.toContainText('in this image');
     await expect(finder(page)).not.toContainText('No check has finished');
-    // An unsaved pick of another unpassed device is not called "Saved".
-    await device(page).selectOption('intel_gpu');
-    await expect(finder(page).locator('[data-finder-device-note]')).toHaveText(/^Intel GPU has not passed a check on this host\./);
+    // The server refuses a newly chosen device that has not passed, so that one is named but not offered.
+    const gpu = device(page).locator('option[value="intel_gpu"]');
+    await expect(gpu).toHaveText('Intel GPU · not passed on this host');
+    await expect(gpu).toHaveJSProperty('disabled', true);
+    // Moving away and back to the saved device is still possible.
     await device(page).selectOption('auto');
     await expect(finder(page).locator('[data-finder-device-note]')).toHaveCount(0);
+    await device(page).selectOption('intel_npu');
+    await expect(finder(page).locator('[data-finder-device-note]')).toContainText('Saved: Intel NPU.');
 });
 
 test('a cause the backend does not name is left unsaid', async ({ page }) => {
@@ -206,12 +210,13 @@ test('the finder keeps an explicit NPU choice even when GPU benchmarks faster', 
     await expect(runsOn(page)).toHaveText('Intel NPU · passed its device check on this host');
 });
 
-test('changing finder explains a saved device that the new finder has not passed on', async ({ page }) => {
+test('changing finder says a saved device the new finder has not passed on cannot be saved with it', async ({ page }) => {
     await openDetectionSettings(page, { savedFinder: 'rfdetr_nano', savedFinderProvider: 'intel_npu' });
     await finder(page).getByRole('radio', { name: /Standard/ }).check();
     await expect(device(page)).toHaveValue('intel_npu');
-    await expect(device(page).locator('option[value="intel_npu"]')).toHaveJSProperty('disabled', false);
-    await expect(finder(page).locator('[data-finder-device-note]')).toContainText('It runs on CPU until Intel NPU passes a check.');
+    await expect(device(page).locator('option[value="intel_npu"]')).toHaveText('Intel NPU · not passed on this host');
+    await expect(finder(page).locator('[data-finder-device-note]'))
+        .toHaveText('Intel NPU has not passed a check for this finder on this host, so it cannot be saved yet. Check devices, or choose Automatic.');
 });
 
 test('a saved provider this host cannot use is flagged in words beside the choice', async ({ page }) => {

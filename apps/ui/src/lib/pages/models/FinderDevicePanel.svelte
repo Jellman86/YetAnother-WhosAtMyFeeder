@@ -20,6 +20,8 @@
         check: FinderDeviceCheck | null | undefined;
         /** The device the running finder was saved with; the select below holds the staged one. */
         savedProvider: string;
+        /** The chosen finder is the saved one, so its saved device can be kept as it is. */
+        finderSaved: boolean;
         provider: BirdFinderProvider;
         checkRunning: boolean;
         downloading: boolean;
@@ -37,6 +39,7 @@
         hostProviders,
         check,
         savedProvider,
+        finderSaved,
         provider = $bindable<BirdFinderProvider>('auto'),
         checkRunning,
         downloading,
@@ -115,16 +118,19 @@
     // A fallback the owner did not choose is work for a person; the words say so, the colour only agrees.
     const needsAttention = $derived(runsOn.kind === 'failed' || runsOn.kind === 'interrupted');
 
+    // The server keeps an unchanged saved device and refuses a newly chosen one that has not passed.
+    const keepable = $derived(finderSaved ? savedProvider : null);
     const deviceOptions = $derived([
         { value: 'auto', label: $_('settings.detection.bird_finder_device_auto', { default: 'Automatic (fastest device that passed)' }) },
         { value: 'cpu', label: deviceName('cpu') },
-        ...finderDeviceOptions({ evidence, accelerators, hostProviders, chosen: provider }).map((option) => ({
+        ...finderDeviceOptions({ evidence, accelerators, hostProviders, chosen: provider, keepable }).map((option) => ({
             value: option.value,
+            disabled: !option.selectable,
             label: option.passed
                 ? deviceName(option.value)
                 : $_('settings.detection.bird_finder_device_not_passed', { default: '{provider} · not passed on this host', values: { provider: deviceName(option.value) } })
         }))
-    ] satisfies Array<{ value: string; label: string }>);
+    ] satisfies Array<{ value: string; label: string; disabled?: boolean }>);
     const chosenUnpassed = $derived(installed && provider !== 'auto' && provider !== 'cpu' && !evidence.includes(provider));
     const lastRun = $derived(execution?.model_id === modelId ? execution : null);
 </script>
@@ -156,9 +162,9 @@
             />
             {#if chosenUnpassed}
                 <p id="bird-finder-device-note" class="text-sm leading-snug text-slate-600 dark:text-slate-400" role="status" data-finder-device-note>
-                    {provider === savedProvider
+                    {provider === keepable
                         ? $_('settings.detection.bird_finder_device_unpassed_saved', { default: 'Saved: {provider}. It runs on CPU until {provider} passes a check. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })
-                        : $_('settings.detection.bird_finder_device_unpassed_chosen', { default: '{provider} has not passed a check on this host. Once saved, the finder runs on CPU until it does. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })}
+                        : $_('settings.detection.bird_finder_device_unpassed_chosen', { default: '{provider} has not passed a check for this finder on this host, so it cannot be saved yet. Check devices, or choose Automatic.', values: { provider: deviceName(provider) } })}
                 </p>
             {/if}
         </div>

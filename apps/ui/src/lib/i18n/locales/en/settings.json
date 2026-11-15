@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · this host offers the finder no accelerator",
     "bird_finder_device_not_passed": "{provider} · not passed on this host",
     "bird_finder_device_unpassed_saved": "Saved: {provider}. It runs on CPU until {provider} passes a check. Check devices, or choose Automatic.",
-    "bird_finder_device_unpassed_chosen": "{provider} has not passed a check on this host. Once saved, the finder runs on CPU until it does. Check devices, or choose Automatic.",
+    "bird_finder_device_unpassed_chosen": "{provider} has not passed a check for this finder on this host, so it cannot be saved yet. Check devices, or choose Automatic.",
     "bird_finder_repair": "Repair",
     "bird_finder_repair_desc": "Download the finder's files again if they are missing or damaged.",
     "bird_finder_how_title": "How the finder works",

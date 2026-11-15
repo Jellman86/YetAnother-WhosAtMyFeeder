@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · este servidor no ofrece ningún acelerador al buscador",
     "bird_finder_device_not_passed": "{provider} · no superada en este servidor",
     "bird_finder_device_unpassed_saved": "Guardado: {provider}. Se ejecuta en la CPU hasta que {provider} supere una comprobación. Comprueba los dispositivos o elige Automático.",
-    "bird_finder_device_unpassed_chosen": "{provider} no ha superado ninguna comprobación en este servidor. Una vez guardado, el buscador se ejecuta en la CPU hasta que la supere. Comprueba los dispositivos o elige Automático.",
+    "bird_finder_device_unpassed_chosen": "{provider} no ha superado ninguna comprobación para este buscador en este servidor, así que todavía no se puede guardar. Comprueba los dispositivos o elige Automático.",
     "bird_finder_repair": "Reparar",
     "bird_finder_repair_desc": "Vuelve a descargar los archivos del buscador si faltan o están dañados.",
     "bird_finder_how_title": "Cómo funciona el buscador",

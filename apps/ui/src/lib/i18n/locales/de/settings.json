@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · dieser Host bietet der Vogelsuche keinen Beschleuniger",
     "bird_finder_device_not_passed": "{provider} · auf diesem Host nicht bestanden",
     "bird_finder_device_unpassed_saved": "Gespeichert: {provider}. Die Vogelsuche läuft auf der CPU, bis {provider} eine Prüfung besteht. Prüfen Sie die Geräte oder wählen Sie Automatisch.",
-    "bird_finder_device_unpassed_chosen": "{provider} hat auf diesem Host noch keine Prüfung bestanden. Nach dem Speichern läuft die Vogelsuche auf der CPU, bis das der Fall ist. Prüfen Sie die Geräte oder wählen Sie Automatisch.",
+    "bird_finder_device_unpassed_chosen": "{provider} hat für diese Vogelsuche auf diesem Host noch keine Prüfung bestanden und kann daher noch nicht gespeichert werden. Prüfen Sie die Geräte oder wählen Sie Automatisch.",
     "bird_finder_repair": "Reparieren",
     "bird_finder_repair_desc": "Lädt die Dateien der Vogelsuche erneut herunter, falls sie fehlen oder beschädigt sind.",
     "bird_finder_how_title": "So arbeitet die Vogelsuche",

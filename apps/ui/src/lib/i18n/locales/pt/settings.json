@@ -1346,7 +1346,7 @@
     "bird_finder_runs_cpu_only": "CPU · este servidor não oferece nenhum acelerador ao localizador",
     "bird_finder_device_not_passed": "{provider} · não passou neste servidor",
     "bird_finder_device_unpassed_saved": "Salvo: {provider}. Executa na CPU até {provider} passar em uma verificação. Verifique os dispositivos ou escolha Automático.",
-    "bird_finder_device_unpassed_chosen": "{provider} não passou em nenhuma verificação neste servidor. Depois de salvo, o localizador executa na CPU até passar. Verifique os dispositivos ou escolha Automático.",
+    "bird_finder_device_unpassed_chosen": "{provider} não passou em nenhuma verificação para este localizador neste servidor, por isso ainda não pode ser salvo. Verifique os dispositivos ou escolha Automático.",
     "bird_finder_repair": "Reparar",
     "bird_finder_repair_desc": "Baixa novamente os arquivos do localizador se estiverem ausentes ou danificados.",
     "bird_finder_how_title": "Como o localizador funciona",

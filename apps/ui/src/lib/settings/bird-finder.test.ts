@@ -146,18 +146,27 @@ describe('finderRunsOn', () => {
 });
 
 describe('finderDeviceOptions', () => {
+    const host = ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'];
+
     it('lists the devices this host offers the finder and marks the ones without a passing check', () => {
-        expect(finderDeviceOptions({ evidence: ['intel_gpu', 'cpu'], accelerators: ['intel_gpu', 'intel_npu'], hostProviders: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'], chosen: 'auto' }))
+        expect(finderDeviceOptions({ evidence: ['intel_gpu', 'cpu'], accelerators: ['intel_gpu', 'intel_npu'], hostProviders: host, chosen: 'auto', keepable: null }))
             .toEqual([
-                { value: 'intel_cpu', passed: false },
-                { value: 'intel_gpu', passed: true },
-                { value: 'intel_npu', passed: false },
+                { value: 'intel_cpu', passed: false, selectable: false },
+                { value: 'intel_gpu', passed: true, selectable: true },
+                { value: 'intel_npu', passed: false, selectable: false },
             ]);
     });
 
-    it('keeps a saved device in the list even when this host does not offer it', () => {
-        expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cuda' }))
-            .toEqual([{ value: 'cuda', passed: false }]);
-        expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cpu' })).toEqual([]);
+    it('keeps the saved device selectable without a passing check, because the server keeps an unchanged choice', () => {
+        const options = finderDeviceOptions({ evidence: ['cpu'], accelerators: ['intel_gpu', 'intel_npu'], hostProviders: host, chosen: 'auto', keepable: 'intel_npu' });
+        expect(options.find((option) => option.value === 'intel_npu')).toEqual({ value: 'intel_npu', passed: false, selectable: true });
+        // The server refuses a newly chosen device that has not passed, so it is not offered as a choice.
+        expect(options.find((option) => option.value === 'intel_gpu')).toEqual({ value: 'intel_gpu', passed: false, selectable: false });
+    });
+
+    it('keeps a chosen device in the list even when this host does not offer it', () => {
+        expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cuda', keepable: 'cuda' }))
+            .toEqual([{ value: 'cuda', passed: false, selectable: true }]);
+        expect(finderDeviceOptions({ evidence: [], accelerators: [], hostProviders: ['cpu'], chosen: 'cpu', keepable: null })).toEqual([]);
     });
 });

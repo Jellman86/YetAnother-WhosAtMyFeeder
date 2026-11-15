@@ -1110,6 +1110,7 @@
                                 {hostProviders}
                                 check={cropDetectorStatus?.device_check}
                                 savedProvider={settingsStore.settings?.bird_crop_inference_provider ?? birdFinderProvider}
+                                finderSaved={savedBirdFinder === null || savedBirdFinder === birdFinder}
                                 bind:provider={birdFinderProvider}
                                 checkRunning={deviceCheckRunning}
                                 downloading={chosenFinderDownload?.status === 'downloading' || chosenFinderDownload?.status === 'pending'}
