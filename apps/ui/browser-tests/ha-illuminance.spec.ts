@@ -51,7 +51,7 @@ test('the illuminance entity is optional, sits beside the weather entity and sav
     // Same column, directly under the weather entity and above the overrides disclosure.
     const weatherBox = await page.locator('#ha-weather-entity').boundingBox();
     const fieldBox = await field.boundingBox();
-    const overridesBox = await page.getByText('Per-reading sensor overrides', { exact: true }).boundingBox();
+    const overridesBox = await page.getByRole('button', { name: /Per-reading sensor overrides/ }).boundingBox();
     if (!weatherBox || !fieldBox || !overridesBox) throw new Error('Home Assistant fields are not laid out');
     expect(fieldBox.x).toBe(weatherBox.x);
     expect(fieldBox.width).toBe(weatherBox.width);

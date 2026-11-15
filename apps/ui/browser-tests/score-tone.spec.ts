@@ -52,6 +52,13 @@ async function open(page: Page, query = ''): Promise<string[]> {
 /** Set the colour theme and mode as the theme store does, on <html>. */
 async function useTheme(page: Page, theme: Theme, mode: Mode): Promise<void> {
     await page.evaluate(([bluetit, dark]) => {
+        // Measure the settled colours, not a colour transition caught half way.
+        if (!document.getElementById('no-transitions')) {
+            const style = document.createElement('style');
+            style.id = 'no-transitions';
+            style.textContent = '*, *::before, *::after { transition: none !important; }';
+            document.head.append(style);
+        }
         const root = document.documentElement;
         root.classList.toggle('theme-bluetit', bluetit);
         root.classList.toggle('dark', dark);
@@ -65,7 +72,18 @@ function css(locator: Locator, property: 'color' | 'background-color'): Promise<
 /** WCAG contrast of an element's text over its own background fill. */
 function contrast(locator: Locator): Promise<number> {
     return locator.evaluate(node => {
-        const channels = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+        // Any CSS colour (rgb, oklch from Tailwind's palette) is painted on a canvas and read back as sRGB.
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        const paint = canvas.getContext('2d', { willReadFrequently: true });
+        const channels = (value: string) => {
+            if (!paint) throw new Error('No 2D canvas');
+            paint.clearRect(0, 0, 1, 1);
+            paint.fillStyle = value;
+            paint.fillRect(0, 0, 1, 1);
+            return [...paint.getImageData(0, 0, 1, 1).data.slice(0, 3)];
+        };
         const luminance = (rgb: number[]) => {
             const [r, g, b] = rgb.map(channel => {
                 const c = channel / 255;
@@ -113,7 +131,7 @@ for (const theme of ['classic', 'bluetit'] as const) {
         expect(errors).toEqual([]);
     });
 
-    test(`success and warning toasts differ, and white text on chosen fills passes AA (${theme})`, async ({ page }) => {
+    test(`success and warning toasts differ, and the chosen option and primary button read at AA (${theme})`, async ({ page }) => {
         const errors = await open(page, '?toasts=1');
         for (const mode of ['light', 'dark'] as const) {
             await useTheme(page, theme, mode);
