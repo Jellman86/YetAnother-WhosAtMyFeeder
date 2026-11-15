@@ -20,7 +20,8 @@
     let { capture, visit, scope, onopen, oncapture, onplay }: {
         capture: GardenCapture;
         /** Plays the capture's Frigate clip, as a bird row's play control does. */
-        onplay?: (capture: GardenCapture) => void;
+        /** The capture and the name it is shown under, so the player can be titled by the animal. */
+        onplay?: (capture: GardenCapture, title: string) => void;
         /** The stay or position stack this capture leads, opened together. */
         visit?: GardenVisit;
         scope?: GardenCaptureScope;
@@ -88,7 +89,7 @@
         {#if canPlay}
             <button
                 type="button"
-                onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
+                onclick={(event) => { event.stopPropagation(); onplay?.(capture, text.title); }}
                 aria-label={$_('detection.play_video', { values: { species: text.title } })}
                 class="inline-flex h-11 w-11 items-center justify-center rounded-full text-slate-500 dark:text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:hover:bg-slate-800 dark:hover:text-brand-400"
                 data-garden-row-play

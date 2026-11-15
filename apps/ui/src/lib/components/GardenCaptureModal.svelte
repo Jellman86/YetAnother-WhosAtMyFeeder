@@ -70,7 +70,8 @@
         /** Photos dismissed together, for the page to offer Undo. */
         ongroupdismissed?: (ids: string[], skipped: number, restoreMode?: 'review') => void;
         /** Plays the capture's Frigate clip, as its card and row do. */
-        onplay?: (capture: GardenCapture) => void;
+        /** The capture and its title, so the player can be titled by the animal. */
+        onplay?: (capture: GardenCapture, title: string) => void;
     }
     let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed, onplay }: Props = $props();
 
@@ -502,7 +503,7 @@
                                 type="button"
                                 class="btn btn-secondary min-h-11 shrink-0 gap-2 px-3 text-xs"
                                 disabled={saving}
-                                onclick={() => onplay?.(capture)}
+                                onclick={() => onplay?.(capture, title)}
                                 aria-label={$_('garden.explorer.play_clip', { values: { name: title }, default: 'Play clip of {name}' })}
                                 data-garden-capture-play
                             >

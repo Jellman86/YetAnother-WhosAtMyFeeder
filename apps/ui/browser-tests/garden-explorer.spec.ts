@@ -787,7 +787,7 @@ test('a Garden row reads like a bird row and plays its Frigate clip', async ({ p
     await expect(pending.locator('[data-garden-row-play]')).toHaveCount(0);
 
     await row.locator('[data-garden-row-play]').click();
-    const player = page.getByRole('dialog', { name: 'Video player' });
+    const player = page.getByRole('dialog', { name: 'Red fox' });
     await expect(player).toBeVisible();
     await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
     if (shots) await page.screenshot({ path: `${shots}/garden-list-row.png` });
@@ -852,7 +852,7 @@ test('a Garden record plays its Frigate clip, named for the animal, only when th
     if (shots) await page.screenshot({ path: `${shots}/garden-record-play.png` });
     await play.click();
     // The record closes, as a bird record does, so the player is the only dialog.
-    await expect(page.getByRole('dialog', { name: 'Video player' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'Red fox' })).toBeVisible();
     await expect(page.locator('[data-garden-capture-modal]')).toHaveCount(0);
     expect(errors).toEqual([]);
 });
@@ -895,7 +895,7 @@ for (const kept of [true, false]) {
         await expect(dialog.locator('[data-garden-capture-details]')).toContainText(/kept_media\s*photo, clip/);
         await expect(play).toBeVisible();
         await play.click();
-        await expect(page.getByRole('dialog', { name: 'Video player' })).toBeVisible();
+        await expect(page.getByRole('dialog', { name: 'Red fox' })).toBeVisible();
         // Frigate's stream is gone, so the player falls back to the clip proxy, which serves the kept copy.
         await expect.poll(() => clipRequests.length).toBeGreaterThan(0);
         expect(errors).toEqual([]);

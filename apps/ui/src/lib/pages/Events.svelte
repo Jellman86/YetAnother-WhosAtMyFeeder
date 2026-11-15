@@ -1280,10 +1280,10 @@
      * clips are on, and for a visitor only while the owner shares video. The Garden record closes
      * before it plays, as a bird record does, so the player is the only dialog.
      */
-    function playGardenClip(capture: GardenCapture): void {
+    function playGardenClip(capture: GardenCapture, title?: string): void {
         if (!capture.clip_event) return;
         videoEventId = capture.clip_event;
-        videoHeading = { name: $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at };
+        videoHeading = { name: title || $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' }), at: capture.observed_at };
         videoShareToken = null;
         videoPlayIntent = 'user';
         showVideo = true;
@@ -2727,7 +2727,7 @@
                     onchanged={gardenChanged}
                     onselect={(capture) => (selectedGarden = capture)}
                     ongroupdismissed={gardenGroupDismissed}
-                    onplay={(capture) => { closeGardenRecord(); playGardenClip(capture); }}
+                    onplay={(capture, title) => { closeGardenRecord(); playGardenClip(capture, title); }}
                 />
             {/if}
         {/snippet}

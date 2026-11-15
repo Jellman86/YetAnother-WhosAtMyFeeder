@@ -159,7 +159,7 @@ test('the record’s audio context and edit-name controls clear the touch floor'
     await page.goto('/browser-tests/modal-text-layout.html?controls=true');
     const modal = page.locator('[data-detection-detail-modal]');
     await expect(modal).toBeVisible({ timeout: 15000 });
-    const audio = modal.getByRole('button', { name: /^Audio context/ });
+    const audio = modal.getByRole('button', { name: /^All calls heard around this visit/ });
     await expect(audio).toHaveAttribute('aria-expanded', 'false');
     const editName = modal.getByRole('button', { name: 'Change the common name' });
     await targetHeights(audio);

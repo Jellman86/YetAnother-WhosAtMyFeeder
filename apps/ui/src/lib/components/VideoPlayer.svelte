@@ -866,10 +866,10 @@
         <div class="rounded-2xl overflow-hidden ring-1 ring-white/10 bg-black shadow-2xl">
             <div class="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/75 border-b border-slate-700/60">
                 <div class="min-w-0">
-                    <h2 id="video-player-title" class="truncate text-sm font-semibold text-white" title={heading ? undefined : frigateEvent}>
+                    <h2 id="video-player-title" class="wrap-break-word text-sm font-semibold text-white" title={heading ? undefined : frigateEvent}>
                         {heading?.name ?? $_('video_player.detection_clip_title', { default: 'Detection clip' })}
                     </h2>
-                    <p class="truncate text-xs text-slate-300">
+                    <p class="wrap-break-word text-xs text-slate-300">
                         {clipVariantLabel}{#if heading?.at}{` · ${formatDateTime(heading.at)}`}{/if}
                     </p>
                 </div>
