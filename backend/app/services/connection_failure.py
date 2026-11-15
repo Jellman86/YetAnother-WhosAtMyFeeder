@@ -7,7 +7,8 @@ nothing. The cause is read from the error itself and stated with the next step.
 from typing import Literal
 from urllib.parse import urlsplit
 
-ConnectionFailure = Literal["host_not_found", "refused", "timeout", "not_authorised", "unreachable"]
+from app.models.service_connections import ConnectionFailureCause as ConnectionFailure
+
 ConnectionService = Literal["mqtt", "birdnet"]
 
 # The English names used in the fallback sentence; the page names the service in its own language.

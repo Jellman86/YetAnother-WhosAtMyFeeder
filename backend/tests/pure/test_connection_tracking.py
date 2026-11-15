@@ -39,6 +39,22 @@ def test_mqtt_tracker_failed_attempt_reports_disconnected_with_the_error():
     assert status.connected_since is None
 
 
+def test_mqtt_tracker_reports_the_classified_cause_beside_the_raw_error():
+    # The page words the cause in its own language; the client's text stays for the details.
+    tracker = MqttConnectionTracker()
+    tracker.failed(T0, "[Errno -2] Name or service not known", cause="host_not_found")
+    status = tracker.snapshot(server="mqtt.invalid", port=1883)
+    assert status.last_error_cause == "host_not_found"
+    assert status.last_error == "[Errno -2] Name or service not known"
+
+
+def test_mqtt_tracker_forgets_the_cause_once_connected_again():
+    tracker = MqttConnectionTracker()
+    tracker.failed(T0, "Connection refused", cause="refused")
+    tracker.connected(T0 + timedelta(seconds=5))
+    assert tracker.snapshot(server="mqtt", port=1883).last_error_cause is None
+
+
 def test_mqtt_tracker_retry_after_failure_stays_disconnected_until_it_connects():
     # A retry is not a reason to stop saying the broker is down.
     tracker = MqttConnectionTracker()
