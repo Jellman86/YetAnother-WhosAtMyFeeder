@@ -274,6 +274,16 @@ class GardenMotionService:
         elif used == "software_fallback":
             self.hardware_fallbacks += 1
             log.warning("garden_motion_hardware_decode_fallback", camera=camera, consecutive=self.hardware_fallbacks)
+            # One stable identity, so intermittent fallbacks coalesce into a counted incident even
+            # when successes in between keep the decoder switched on.
+            error_diagnostics_history.record(
+                source="garden_motion",
+                component="motion_decoder",
+                reason_code="hardware_decode_fallback",
+                message="A motion recording could not be decoded on the Intel GPU, so it was decoded on the CPU.",
+                severity="warning",
+                context={"camera": camera},
+            )
             if self.hardware_fallbacks >= MOTION_HARDWARE_FALLBACK_LIMIT:
                 self.decoder = MotionDecoder("decode_failed")
                 self._report_decoder()
@@ -385,7 +395,12 @@ class GardenMotionService:
             raise ValueError("Motion worker returned an unknown unusable-recording reason")
         if result["outcome"] == "candidate" and result.get("devices") != ["CPUExecutionProvider"]:
             raise ValueError("Motion worker did not use its requested CPU provider")
-        allowed_decoders = {"vaapi", "software_fallback"} if payload.get("decode_device") else {None}
+        allowed_decoders: set[str | None] = {None}
+        if payload.get("decode_device"):
+            allowed_decoders = {"vaapi", "software_fallback", "software"}
+            if result["outcome"] == "unusable_recording":
+                # An unreadable recording can be refused before any frame is decoded.
+                allowed_decoders.add(None)
         if result.get("decoder") not in allowed_decoders:
             raise ValueError("Motion worker reported a decoder it was not asked to use")
         return result
@@ -485,6 +500,8 @@ class GardenMotionService:
                 return
             start, end = windows[0]
             self.last_scan_at = utc_naive_now().isoformat() + "Z"
+            # Every window taken from the queue spends the catch-up budget, rejected or not.
+            self.scan_starts.append(time.monotonic())
             if await self._person_overlap(camera, start, end):
                 self.last_outcome = "person_rejected"
                 self.message = (
@@ -498,7 +515,6 @@ class GardenMotionService:
             temporary = await asyncio.to_thread(tempfile.mkdtemp, prefix="yawamf-motion-")
             clip, photo = Path(temporary) / "clip.mp4", Path(temporary) / "photo.jpg"
             watcher = asyncio.create_task(watch())
-            self.scan_starts.append(time.monotonic())
             payload: dict[str, Any] = {}
             try:
                 await frigate_client.download_motion_recording(camera, start, end, clip)

@@ -911,3 +911,100 @@ async def test_an_unknown_decoder_in_a_worker_result_is_a_failure(collector, mon
         await garden_motion.GardenMotionService._native(
             collector, {"model": "m", "model_sha256": "e" * 64}, lambda: False
         )
+
+
+@pytest.mark.asyncio
+async def test_an_unusable_recording_from_a_gpu_scan_is_skipped_not_retried(collector, monkeypatch):
+    from app.services import garden_motion
+
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: 100.0)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    # The worker reports an unreadable recording before decoding anything, so it names no decoder.
+    monkeypatch.setattr(
+        collector.worker,
+        "request",
+        AsyncMock(return_value={"outcome": "unusable_recording", "reason": "invalid_metadata"}),
+    )
+    monkeypatch.setattr(collector, "_native", garden_motion.GardenMotionService._native.__get__(collector))
+    await collector.scan_once()
+    assert collector.last_outcome == "unusable_recording"
+    assert collector.next_scan < 130.0
+    async with get_db() as db:
+        assert await GardenRepository(db).motion_cursor("patio") is not None
+    status = await collector.status()
+    assert [(item.camera, item.count, item.last_reason) for item in status.unreadable_recordings] == [
+        ("patio", 1, "invalid_metadata")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_every_gpu_fallback_reaches_diagnostics_as_one_counted_incident(collector, monkeypatch):
+    from app.services import garden_motion
+    from app.services.error_diagnostics import ErrorDiagnosticsHistory
+
+    history = ErrorDiagnosticsHistory()
+    monkeypatch.setattr(garden_motion, "error_diagnostics_history", history)
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    # Intermittent: never three in a row, so the decoder is never switched off.
+    decoders = iter(["software_fallback", "vaapi", "software_fallback", "vaapi"])
+    monkeypatch.setattr(
+        collector,
+        "_native",
+        AsyncMock(side_effect=lambda *args: {"outcome": "no_candidate", "decoder": next(decoders)}),
+    )
+    for _ in range(4):
+        collector.next_scan = 0
+        await collector.scan_once()
+    events = history.snapshot(source="garden_motion")["events"]
+    fallbacks = [event for event in events if event["reason_code"] == "hardware_decode_fallback"]
+    assert len(fallbacks) == 1 and fallbacks[0]["count"] == 2
+    assert fallbacks[0]["context"] == {"camera": "patio"}
+    assert collector.decode_health()["state"] == "vaapi"
+
+
+@pytest.mark.asyncio
+async def test_person_rejected_windows_spend_the_catchup_budget_too(collector, monkeypatch):
+    from app.models.garden_motion import MOTION_CATCHUP_BUDGET
+    from app.services.garden_motion import frigate_client
+
+    clock = [100.0]
+    monkeypatch.setattr("app.services.garden_motion.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("app.services.garden_motion.time.time", lambda: 5000.0)
+    records = [{"start_time": 4400.0, "end_time": 4970.0, "motion": 5}]
+    monkeypatch.setattr("app.services.garden_motion.frigate_client.get", _records_get(records, []))
+    monkeypatch.setattr(frigate_client, "list_events", AsyncMock(return_value=[{"start_time": 1.0, "end_time": None}]))
+    native = AsyncMock()
+    monkeypatch.setattr(collector, "_native", native)
+    intervals = []
+    for _ in range(MOTION_CATCHUP_BUDGET + 2):
+        await collector.scan_once()
+        assert collector.last_outcome == "person_rejected"
+        intervals.append(collector.interval_seconds)
+        clock[0] = collector.next_scan
+    native.assert_not_awaited()
+    assert intervals[: MOTION_CATCHUP_BUDGET - 1] == [5] * (MOTION_CATCHUP_BUDGET - 1)
+    assert intervals[MOTION_CATCHUP_BUDGET - 1 :] == [10, 10, 10]
+
+
+@pytest.mark.asyncio
+async def test_a_recording_decoded_in_software_by_design_does_not_count_against_the_gpu(collector, monkeypatch):
+    from app.services import garden_motion
+
+    collector.decoder = MotionDecoder("vaapi", "/dev/dri/renderD128")
+    collector.decoder_reported = True
+    collector.hardware_fallbacks = 2
+    record = Mock()
+    monkeypatch.setattr(garden_motion.error_diagnostics_history, "record", record)
+    monkeypatch.setattr(
+        collector.worker, "request", AsyncMock(return_value={"outcome": "no_candidate", "decoder": "software"})
+    )
+    monkeypatch.setattr(collector, "_native", garden_motion.GardenMotionService._native.__get__(collector))
+    await collector.scan_once()
+    assert collector.last_outcome == "no_candidate"
+    assert collector.hardware_fallbacks == 2 and collector.decode_health()["state"] == "vaapi"
+    record.assert_not_called()

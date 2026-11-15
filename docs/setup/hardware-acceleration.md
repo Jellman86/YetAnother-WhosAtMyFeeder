@@ -405,6 +405,13 @@ decodes a tiny test recording on each render node and uses the first that works.
 | `probe_failed` | The GPU could not decode the test recording. Check the render group (`ls -ln /dev/dri`) and host driver. |
 | `decode_failed` | Three recordings in a row fell back to the CPU, so GPU decode stays off until restart. |
 
-The last three states also appear as a warning in **Diagnostics** once motion collection runs.
-Decoding falls back to the CPU for one recording at a time, so a GPU problem never stops
-collection.
+The last three states also appear as a warning in **Diagnostics** once motion collection runs,
+and every recording that falls back to the CPU is counted in one **Diagnostics** entry. Decoding
+falls back to the CPU for one recording at a time, so a GPU problem never stops collection.
+
+The GPU returns the same frames and pixels as CPU decoding, so the detector sees what it
+always saw. Each sample is the frame OpenCV's seek would return, worked out from the
+recording's packet timestamps; on cameras whose timestamps jitter that can be a frame either
+side of the frame number OpenCV reports. Recordings that reorder frames (B-frames) decode on
+the CPU. If YA-WAMF stops or the scan is pre-empted for birds, the decoder process is killed
+with it.

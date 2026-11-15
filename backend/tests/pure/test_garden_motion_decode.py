@@ -14,8 +14,99 @@ def test_sample_frames_are_the_nearest_frames_to_each_sample_time():
     assert decode.sample_frame_indices([0.99, 4.95, 8.91], fps=29.9945, count=300) == [30, 148, 267]
 
 
-def test_sample_frames_never_point_past_the_last_frame():
-    assert decode.sample_frame_indices([0.0, 9.99], fps=10, count=100) == [0, 99]
+def test_half_frame_sample_times_round_up_exactly_as_opencv_seeks():
+    # OpenCV seeks to (int64)(msec * fps * 0.001 + 0.5); Python's round() would pick 148.
+    assert decode.sample_frame_indices([4.95], fps=30.0, count=300) == [149]
+    assert decode.sample_frame_indices([0.05, 0.15, 0.25], fps=10.0, count=100) == [1, 2, 3]
+
+
+def test_sample_frame_numbers_are_capped_at_the_frame_count_like_opencv():
+    assert decode.sample_frame_indices([0.0, 9.99], fps=10, count=100) == [0, 100]
+
+
+def _framecrc(packets: list[tuple[int, int, str]], time_base: str = "1/90000") -> str:
+    lines = [f"#tb 0: {time_base}", "#media_type 0: video", "#codec_id 0: h264"]
+    for dts, pts, extra in packets:
+        lines.append(f"0, {dts:>10}, {pts:>10}, 3000, 1000, 0x12345678{extra}")
+    return "\n".join(lines) + "\n"
+
+
+def _cfr(count: int, *, keyframe_every: int, step: int = 3000) -> decode.VideoTimeline:
+    rows = [(i * step, i * step, "" if i % keyframe_every == 0 else ", F=0x0") for i in range(count)]
+    return decode.parse_timeline(_framecrc(rows))
+
+
+def test_the_packet_listing_reads_time_base_timestamps_and_keyframes():
+    text = _framecrc([(0, 0, ""), (3000, 3000, ", F=0x0"), (6000, 6000, ", S=1, 8, 0xabc"), (9000, 9000, ", F=0x5")])
+    timeline = decode.parse_timeline(text)
+    assert timeline.time_base == 1 / 90000
+    assert [(p.dts, p.pts, p.key) for p in timeline.packets] == [
+        (0, 0, True),
+        (3000, 3000, False),
+        (6000, 6000, True),
+        (9000, 9000, True),
+    ]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "#tb 0: 1/0\n0, 0, 0, 1, 1, 0x0\n",
+        "#tb 0: 1/90000\n",
+        "#tb 0: 1/90000\n0, x, 0, 1, 1, 0x0\n",
+        "#tb 0: 1/90000\n1, 0, 0, 1, 1, 0x0\n",
+        "#tb 0: 1/90000\n0, 0, 0, 1, 1, 0x0, F=0xZZ\n",
+    ],
+)
+def test_an_unreadable_packet_listing_is_a_hardware_failure_not_a_guess(text):
+    with pytest.raises(decode.HardwareDecodeFailed):
+        decode.parse_timeline(text)
+
+
+def test_an_unbounded_packet_listing_is_refused():
+    with pytest.raises(decode.HardwareDecodeFailed):
+        decode.parse_timeline(_framecrc([(i, i, "") for i in range(decode.TIMELINE_PACKET_LIMIT + 1)]))
+
+
+def test_on_a_constant_rate_recording_opencv_returns_the_frame_it_reports():
+    timeline = _cfr(300, keyframe_every=150)
+    assert decode.opencv_seek_frames(timeline, [0, 1, 30, 149, 267], fps=30.0) == [0, 1, 30, 149, 267]
+
+
+def test_on_jittered_timestamps_opencv_returns_the_frame_before_the_one_it_reports():
+    # The keyframe at position 120 arrived 22 ms late, so its timestamp numbers it 121.
+    rows = [(i * 3000, i * 3000, "" if i % 60 == 0 else ", F=0x0") for i in range(300)]
+    rows[120] = (120 * 3000 + 2000, 120 * 3000 + 2000, "")
+    timeline = decode.parse_timeline(_framecrc(rows))
+    assert int(30.0 * ((120 * 3000 + 2000) / 90000) + 0.5) == 121
+    # Seeks anchored on that keyframe report frame 148 but return position 147; seeks
+    # anchored on the punctual keyframe at 240 are unaffected.
+    assert decode.opencv_seek_frames(timeline, [30, 148, 267], fps=30.0) == [30, 147, 267]
+
+
+def test_a_recording_that_reorders_frames_keeps_decoding_in_software():
+    rows = [(0, 0, ""), (3000, 9000, ", F=0x0"), (6000, 3000, ", F=0x0"), (9000, 6000, ", F=0x0")]
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="reorders"):
+        decode.opencv_seek_frames(decode.parse_timeline(_framecrc(rows)), [2], fps=30.0)
+
+
+def test_a_recording_that_does_not_start_on_a_keyframe_keeps_decoding_in_software():
+    rows = [(0, 0, ", F=0x0"), (3000, 3000, "")]
+    with pytest.raises(decode.HardwareDecodeUnsupported, match="keyframe"):
+        decode.opencv_seek_frames(decode.parse_timeline(_framecrc(rows)), [1], fps=30.0)
+
+
+def test_a_sample_past_the_last_frame_is_left_to_software_which_reports_it_unreadable():
+    with pytest.raises(decode.HardwareDecodeFailed, match="last frame"):
+        decode.opencv_seek_frames(_cfr(100, keyframe_every=50), [100], fps=10.0)
+
+
+def test_the_packet_listing_command_reads_timestamps_without_decoding():
+    command = decode.packet_command(Path("/tmp/x/clip.mp4"))
+    assert command[command.index("-c") + 1] == "copy" and command[command.index("-f") + 1] == "framecrc"
+    assert "-copyts" in command and command[command.index("-map") + 1] == "0:v:0"
+    assert "-hwaccel" not in command and command[-1] == "pipe:1"
 
 
 def test_frame_command_decodes_on_the_gpu_and_cannot_fall_back_to_software_inside_ffmpeg():
@@ -27,8 +118,9 @@ def test_frame_command_decodes_on_the_gpu_and_cannot_fall_back_to_software_insid
     chain = command[command.index("-vf") + 1]
     # Only hardware frames can be downloaded, so a silent software decode fails instead.
     assert chain.startswith("select=eq(n\\,30)+eq(n\\,149)+eq(n\\,267),hwdownload,format=nv12,")
-    # OpenCV converts with the BT.601 matrix; the detector was qualified on that.
-    assert "in_color_matrix=bt601" in chain and chain.endswith("format=bgr24")
+    # OpenCV converts planar YUV 4:2:0 with BT.601 and bicubic scaling; converting NV12
+    # directly takes a different swscale path and changes pixels.
+    assert chain.endswith(",format=nv12,format=yuv420p,scale=in_color_matrix=bt601:flags=bicubic,format=bgr24")
     assert command[command.index("-frames:v") + 1] == "3"
     assert command[command.index("-i") + 1] == "/tmp/x/clip.mp4"
     assert command[-1] == "pipe:1" and "-nostdin" in command
@@ -168,3 +260,111 @@ def test_the_probe_clip_is_a_tiny_checked_in_h264_recording():
     assert decode.PROBE_CLIP.is_file()
     data = decode.PROBE_CLIP.read_bytes()
     assert len(data) < 16 * 1024 and b"ftyp" in data[:16] and b"avc1" in data
+
+
+def _stalled_ffmpeg(tmp_path: Path) -> tuple[Path, Path]:
+    """A decoder that records its PID and hangs before writing, like a stuck GPU."""
+    pid_file = tmp_path / "decoder.pid"
+    ffmpeg = _python_ffmpeg(
+        tmp_path, f"open({str(pid_file)!r}, 'w').write(str(__import__('os').getpid()))\ntime.sleep(60)"
+    )
+    return ffmpeg, pid_file
+
+
+def _decoder_pid(pid_file: Path) -> int:
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        if pid_file.exists() and pid_file.read_text():
+            return int(pid_file.read_text())
+        time.sleep(0.05)
+    raise AssertionError("The stand-in decoder never started")
+
+
+def _gone(pid: int, seconds: float = 5.0) -> bool:
+    """True once the process no longer exists or is a zombie waiting for its new parent to reap it."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0]
+        except (FileNotFoundError, ProcessLookupError):
+            return True
+        if state == "Z":
+            return True
+        time.sleep(0.05)
+    return False
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Decoder ownership is kernel-enforced on Linux")
+@pytest.mark.parametrize("stop", ["SIGKILL", "SIGTERM"])
+def test_a_stalled_decoder_dies_with_a_motion_worker_that_is_stopped(tmp_path, stop):
+    import os
+    import signal
+    import subprocess
+
+    ffmpeg, pid_file = _stalled_ffmpeg(tmp_path)
+    # A stand-in motion worker blocked reading its first GPU frame, as bird pre-emption finds it.
+    script = (
+        "from pathlib import Path\n"
+        "from app.services.garden_motion_decode import stream_frames\n"
+        f"next(stream_frames('/dev/dri/renderD128', Path('clip.mp4'), [0], width=4, height=2, ffmpeg=Path({str(ffmpeg)!r})))\n"
+    )
+    backend = Path(decode.__file__).resolve().parents[2]
+    worker = subprocess.Popen(
+        [sys.executable, "-c", script], cwd=backend, env={**os.environ, "PYTHONPATH": str(backend)}
+    )
+    try:
+        pid = _decoder_pid(pid_file)
+        worker.send_signal(getattr(signal, stop))
+        worker.wait(timeout=10)
+        assert _gone(pid), "The decoder outlived the worker that started it"
+    finally:
+        if worker.poll() is None:
+            worker.kill()
+            worker.wait()
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="Decoder ownership is kernel-enforced on Linux")
+def test_closing_a_stalled_decode_kills_and_reaps_the_decoder(tmp_path):
+    import threading
+
+    ffmpeg, pid_file = _stalled_ffmpeg(tmp_path)
+    frames = decode.stream_frames("/dev/dri/renderD128", Path("clip.mp4"), [0], width=4, height=2, ffmpeg=ffmpeg)
+    failures = []
+    reader = threading.Thread(target=lambda: failures.extend(_drain(frames)))
+    reader.start()
+    pid = _decoder_pid(pid_file)
+    # Retiring the decode from outside, as the worker deadline does, ends the blocked read.
+    import os
+    import signal
+
+    os.kill(pid, signal.SIGKILL)
+    reader.join(10)
+    assert not reader.is_alive() and failures == ["HardwareDecodeFailed"]
+    assert _gone(pid)
+
+
+def _drain(frames) -> list[str]:
+    try:
+        list(frames)
+    except decode.HardwareDecodeFailed:
+        return ["HardwareDecodeFailed"]
+    return []
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(sys.platform != "linux", reason="Decoder ownership is kernel-enforced on Linux")
+async def test_cancelling_the_startup_probe_kills_and_reaps_its_decoder(tmp_path, monkeypatch):
+    import asyncio
+
+    ffmpeg, pid_file = _stalled_ffmpeg(tmp_path)
+    dri = _render_nodes(tmp_path, "renderD128")
+    monkeypatch.setattr(decode, "RENDER_NODE", __import__("re").compile(rf"{dri}/renderD[0-9]{{3}}"))
+    probe = asyncio.create_task(decode.probe_motion_decoder(ffmpeg=ffmpeg, dri=dri, timeout=60))
+    deadline = time.monotonic() + 10
+    while not (pid_file.exists() and pid_file.read_text()) and time.monotonic() < deadline:
+        await asyncio.sleep(0.05)
+    pid = int(pid_file.read_text())
+    probe.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await probe
+    assert _gone(pid, seconds=1.0)

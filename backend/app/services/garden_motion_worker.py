@@ -17,7 +17,15 @@ import numpy as np
 
 from app.services.garden_detector_runtime import detector_input, decode_candidates
 from app.services.garden_model_runtime import Runtime, digest
-from app.services.garden_motion_decode import RENDER_NODE, HardwareDecodeFailed, sample_frame_indices, stream_frames
+from app.services.garden_motion_decode import (
+    RENDER_NODE,
+    HardwareDecodeFailed,
+    HardwareDecodeUnsupported,
+    opencv_seek_frames,
+    read_timeline,
+    sample_frame_indices,
+    stream_frames,
+)
 from app.services.garden_motion_policy import STILL_PROPOSAL_MOTION_RATIO, box_motion_ratio
 from app.services.garden_worker_loop import BoundModel, serve
 from app.models.garden_motion import (
@@ -76,23 +84,35 @@ def hardware_samples(
     width: int,
     height: int,
     on_fallback: Callable[[], None],
+    on_unsupported: Callable[[], None],
 ) -> Generator[tuple[float, np.ndarray]]:
     """GPU-decoded samples; if the GPU stops, the remaining samples are read in software.
 
-    Hardware and software decode return the same pixels, so a scan that changes
-    decoder part-way still compares like with like.
+    Each sample is the frame OpenCV's seek returns, reported under the number OpenCV
+    reports, and the pixels are OpenCV's, so a scan that changes decoder part-way still
+    compares like with like.
     """
-    indices = sample_frame_indices(times, fps=fps, count=count)
-    frames = stream_frames(device, clip, indices, width=width, height=height)
+    targets = sample_frame_indices(times, fps=fps, count=count)
     try:
-        for position, index in enumerate(indices):
+        chosen = opencv_seek_frames(read_timeline(clip), targets, fps=fps)
+    except HardwareDecodeUnsupported:
+        on_unsupported()
+        yield from software_samples(reader, times)
+        return
+    except HardwareDecodeFailed:
+        on_fallback()
+        yield from software_samples(reader, times)
+        return
+    frames = stream_frames(device, clip, chosen, width=width, height=height)
+    try:
+        for position, target in enumerate(targets):
             try:
                 frame = next(frames)
             except HardwareDecodeFailed:
                 on_fallback()
                 yield from software_samples(reader, times[position:])
                 return
-            yield index, frame
+            yield target, frame
     finally:
         frames.close()
 
@@ -104,7 +124,8 @@ def scan_clip(
 
     ``runtime`` is the warm detector already loaded for this payload's model binding.
     A ``decode_device`` render node decodes the samples on the GPU; when that fails the
-    remaining samples are read in software and the result says ``software_fallback``.
+    remaining samples are read in software and the result says ``software_fallback``. A
+    recording the GPU cannot match to OpenCV's frames is read in software as ``software``.
     """
     if type(samples_per_window) is not int or samples_per_window not in (3, 9):
         raise ValueError("Motion sampling supports only three live or nine offline samples")
@@ -161,6 +182,10 @@ def scan_clip(
                 nonlocal decoder
                 decoder = "software_fallback"
 
+            def unsupported() -> None:
+                nonlocal decoder
+                decoder = "software"
+
             samples = hardware_samples(
                 device,
                 clip,
@@ -171,6 +196,7 @@ def scan_clip(
                 width=int(width),
                 height=int(height),
                 on_fallback=fell_back,
+                on_unsupported=unsupported,
             )
         for index, frame in samples:
             if not math.isfinite(index) or not 0 <= index <= 1200 or index / fps > duration:

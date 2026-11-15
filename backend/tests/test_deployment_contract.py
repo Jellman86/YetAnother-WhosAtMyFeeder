@@ -431,6 +431,8 @@ def test_only_the_intel_image_builds_a_pinned_minimal_vaapi_decoder() -> None:
     assert "7138d28c96d9d3e3af4ee3d8cad72741f8ffb40da90c1112235dea3ecd3178a3" in dockerfile
     assert "--disable-everything" in dockerfile and "--disable-network" in dockerfile
     assert "--enable-hwaccel=h264_vaapi,hevc_vaapi" in dockerfile
+    # framecrc lists packet timestamps, so the GPU can return the frame OpenCV's seek returns.
+    assert "--enable-muxer=framecrc,rawvideo" in dockerfile
     assert "--enable-gpl" not in dockerfile and "--enable-nonfree" not in dockerfile
     assert dockerfile.count('yawamf-runtime-flavor needs-vaapi "$RUNTIME_FLAVOR"') == 3
     assert (

@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
+from app.services import garden_motion_decode as decode_module
 from app.services import garden_motion_worker as worker
 
 
@@ -340,6 +341,13 @@ def hardware_frames(monkeypatch, frames_by_index, *, fail_after=None):
             closed.append(True)
 
     monkeypatch.setattr(worker, "stream_frames", stream)
+    # A constant-rate recording, where OpenCV returns exactly the frames it reports.
+    count = 200
+    rows = "\n".join(
+        f"0, {i * 9000}, {i * 9000}, 9000, 10, 0x0" + ("" if i % 50 == 0 else ", F=0x0") for i in range(count)
+    )
+    timeline = decode_module.parse_timeline("#tb 0: 1/90000\n" + rows)
+    monkeypatch.setattr(worker, "read_timeline", lambda clip: timeline)
     return calls, closed
 
 
@@ -442,3 +450,28 @@ def test_the_worker_lowers_its_own_scheduling_priority_before_serving(monkeypatc
     worker.main()
     assert calls == [worker.MOTION_WORKER_NICENESS, "serve"]
     assert worker.MOTION_WORKER_NICENESS >= 10
+
+
+def test_a_recording_whose_timestamps_cannot_be_listed_is_read_in_software(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeFailed
+
+    payload, reader, runtime, _, _ = scan
+    hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "read_timeline", Mock(side_effect=HardwareDecodeFailed("listing failed")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software_fallback"}
+    assert reader.read.call_count == 3 and runtime.infer.call_count == 3
+
+
+def test_a_recording_the_gpu_cannot_match_is_read_in_software_without_blaming_the_gpu(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeUnsupported
+
+    payload, reader, runtime, _, _ = scan
+    calls, _ = hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "opencv_seek_frames", Mock(side_effect=HardwareDecodeUnsupported("reorders")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    # Not a GPU failure: the stream itself needs software, so the fallback count is untouched.
+    assert result == {"outcome": "no_candidate", "decoder": "software"}
+    assert calls == [] and reader.read.call_count == 3

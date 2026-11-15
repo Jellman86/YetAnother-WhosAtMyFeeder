@@ -12,16 +12,22 @@ worker then calls ``stream_frames`` for each recording.
 """
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import suppress
+import ctypes
 from dataclasses import dataclass
+import os
 from pathlib import Path
 import re
+import signal
 import subprocess
+import sys
 import threading
-from typing import Literal
+from typing import Any, Literal
 
 import numpy as np
+
+from app.utils.child_signals import kill_child
 
 FFMPEG = Path("/usr/local/bin/yawamf-ffmpeg")
 RENDER_NODES = Path("/dev/dri")
@@ -55,8 +61,39 @@ DECODER_MESSAGES: dict[DecoderState, str] = {
 }
 
 
+_PR_SET_PDEATHSIG = 1
+
+
+def owned_by_this_process() -> Callable[[], None] | None:
+    """A pre-exec hook that ties the decoder's life to the process starting it.
+
+    Bird pre-emption kills the motion worker, and a decoder stalled before its next pipe
+    write would otherwise outlive it. The kernel sends the decoder SIGKILL when its parent
+    exits, however it exits; checking the parent afterwards closes the race where it died
+    before the hook ran. prctl is resolved before fork, so the child makes only system calls.
+    """
+    if sys.platform != "linux":
+        return None
+    prctl = ctypes.CDLL(None, use_errno=True).prctl
+    parent = os.getpid()
+
+    def bind() -> None:
+        if prctl(_PR_SET_PDEATHSIG, int(signal.SIGKILL), 0, 0, 0) != 0 or os.getppid() != parent:
+            os._exit(127)
+
+    return bind
+
+
 class HardwareDecodeFailed(RuntimeError):
     """The GPU did not return the requested frames; the caller decodes them in software."""
+
+
+class HardwareDecodeUnsupported(HardwareDecodeFailed):
+    """This recording cannot be matched to OpenCV's frames on the GPU, so it is read in software.
+
+    A property of the stream, not a fault of the GPU, so it does not count towards
+    switching hardware decode off.
+    """
 
 
 @dataclass(frozen=True)
@@ -74,9 +111,157 @@ class MotionDecoder:
 
 
 def sample_frame_indices(times: list[float], *, fps: float, count: float) -> list[int]:
-    """The frame nearest each sample time, as a frame-accurate reader would return it."""
-    last = max(0, int(count) - 1)
-    return [min(last, max(0, round(time * fps))) for time in times]
+    """The frame number OpenCV's reader seeks to, and reports, for each sample time.
+
+    OpenCV 4.10 turns a millisecond position into ``(int64)(msec / 1000.0 * fps + 0.5)``,
+    capped at the frame count: half a frame rounds up, where Python's ``round()`` rounds to
+    even and chose another frame. The same operations in the same order give the same double.
+    """
+    return [min(int(count), max(0, int(time * 1000 / 1000.0 * fps + 0.5))) for time in times]
+
+
+@dataclass(frozen=True)
+class Packet:
+    dts: int
+    pts: int
+    key: bool
+
+
+@dataclass(frozen=True)
+class VideoTimeline:
+    """A recording's video packets in decode order, with their stream time base in seconds."""
+
+    time_base: float
+    packets: tuple[Packet, ...]
+
+
+TIMELINE_PACKET_LIMIT = 4096
+
+
+def parse_timeline(text: str) -> VideoTimeline:
+    """Read ffmpeg's framecrc listing of one stream-copied video stream, strictly and boundedly."""
+    time_base: float | None = None
+    packets: list[Packet] = []
+    for line in text.splitlines():
+        if line.startswith("#tb 0:"):
+            numerator, _, denominator = line.split(":", 1)[1].strip().partition("/")
+            if not numerator.isdigit() or not denominator.isdigit() or int(denominator) == 0:
+                raise HardwareDecodeFailed("Recording time base is unreadable")
+            time_base = int(numerator) / int(denominator)
+        elif line and not line.startswith("#"):
+            fields = [field.strip() for field in line.split(",")]
+            if len(fields) < 6 or fields[0] != "0" or len(packets) >= TIMELINE_PACKET_LIMIT:
+                raise HardwareDecodeFailed("Recording packet listing is unreadable")
+            try:
+                dts, pts = int(fields[1]), int(fields[2])
+            except ValueError as error:
+                raise HardwareDecodeFailed("Recording packet timestamps are unreadable") from error
+            # framecrc names flags (F=0x..) only when a packet is not exactly a keyframe, and
+            # may append side data (S=..) after them.
+            flags = [field for field in fields[6:] if field.startswith("F=0x")]
+            try:
+                key = not flags or bool(int(flags[0][4:], 16) & 1)
+            except ValueError as error:
+                raise HardwareDecodeFailed("Recording packet flags are unreadable") from error
+            packets.append(Packet(dts, pts, key))
+    if time_base is None or not packets:
+        raise HardwareDecodeFailed("Recording has no video packets")
+    return VideoTimeline(time_base, tuple(packets))
+
+
+def opencv_seek_frames(timeline: VideoTimeline, targets: list[int], *, fps: float) -> list[int]:
+    """The decoded frame OpenCV 4.10 returns after seeking to each frame number.
+
+    OpenCV seeks backward to the keyframe at or before ``target - 16`` frames, numbers that
+    keyframe from its timestamp, then counts decoded frames from there. On a camera whose
+    timestamps jitter, such as one at 30.14 fps on a 1/60 s grid, the keyframe's timestamp
+    number differs from its position, so OpenCV returns a frame or two either side of the
+    one it reports. Replaying its arithmetic here makes the GPU return the same frame.
+    Recordings that reorder frames are refused, so they keep decoding in software.
+    """
+    packets = timeline.packets
+    if any(later.pts <= earlier.pts or later.dts < earlier.dts for earlier, later in zip(packets, packets[1:])):
+        raise HardwareDecodeUnsupported("Recording reorders frames")
+    start = packets[0].pts
+
+    def number(index: int) -> int:
+        packet = packets[index]
+        stamp = packet.pts if packet.pts != 0 else packet.dts
+        return int(fps * ((stamp - start) * timeline.time_base) + 0.5)
+
+    first = number(0)
+    keyframes = [index for index, packet in enumerate(packets) if packet.key]
+    if not keyframes or keyframes[0] != 0:
+        raise HardwareDecodeUnsupported("Recording does not start on a keyframe")
+
+    def seek(frame: int) -> int:
+        stamp = start + int(frame / fps / timeline.time_base + 0.5)
+        chosen = 0
+        for index in keyframes:
+            if packets[index].dts <= stamp:
+                chosen = index
+        return chosen
+
+    chosen_frames = []
+    for target in targets:
+        if target < 2:
+            chosen = seek(0) + target
+        else:
+            delta = 16
+            while True:
+                earlier = max(target - delta, 0)
+                keyframe = seek(earlier)
+                found = number(keyframe) - first
+                if 0 <= found <= target - 1:
+                    chosen = keyframe + target - found
+                    break
+                if earlier == 0:
+                    raise HardwareDecodeUnsupported("OpenCV's seek for this recording cannot be reproduced")
+                delta = delta * 2 if delta < 16 else delta * 3 // 2
+        if chosen >= len(packets):
+            raise HardwareDecodeUnsupported("Sample lies past the recording's last frame")
+        chosen_frames.append(chosen)
+    if chosen_frames != sorted(chosen_frames):
+        raise HardwareDecodeUnsupported("OpenCV's seek would return these samples out of order")
+    return chosen_frames
+
+
+def packet_command(clip: Path, *, ffmpeg: Path = FFMPEG) -> list[str]:
+    # Stream copy reads timestamps without decoding; -copyts keeps them as the demuxer sees them.
+    return [
+        str(ffmpeg),
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-copyts",
+        "-i",
+        str(clip),
+        "-map",
+        "0:v:0",
+        "-c",
+        "copy",
+        "-f",
+        "framecrc",
+        "pipe:1",
+    ]
+
+
+def read_timeline(clip: Path, *, ffmpeg: Path = FFMPEG) -> VideoTimeline:
+    try:
+        completed = subprocess.run(
+            packet_command(clip, ffmpeg=ffmpeg),
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            timeout=FRAME_TIMEOUT_SECONDS,
+            check=False,
+            preexec_fn=owned_by_this_process(),
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise HardwareDecodeFailed(type(error).__name__) from error
+    if completed.returncode != 0 or len(completed.stdout) > 1024 * 1024:
+        raise HardwareDecodeFailed("Recording packets could not be listed")
+    return parse_timeline(completed.stdout.decode("ascii", "replace"))
 
 
 def frame_command(device: str, clip: Path, indices: list[int], *, ffmpeg: Path = FFMPEG) -> list[str]:
@@ -106,9 +291,10 @@ def frame_command(device: str, clip: Path, indices: list[int], *, ffmpeg: Path =
         str(clip),
         "-vf",
         # hwdownload accepts only GPU frames, so ffmpeg cannot quietly decode in software.
-        # OpenCV's reader converts with the BT.601 matrix; matching it keeps the samples the
-        # detector was qualified on.
-        f"select={select},hwdownload,format=nv12,scale=in_color_matrix=bt601:flags=bicubic,format=bgr24",
+        # OpenCV's reader converts planar YUV 4:2:0 to BGR with bicubic swscale and the BT.601
+        # matrix. Converting the GPU's NV12 straight to BGR takes another swscale path and
+        # changed pixels; going through yuv420p first returns OpenCV's exact pixels.
+        f"select={select},hwdownload,format=nv12,format=yuv420p,scale=in_color_matrix=bt601:flags=bicubic,format=bgr24",
         "-fps_mode",
         "passthrough",
         "-frames:v",
@@ -138,6 +324,7 @@ def stream_frames(
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
+            preexec_fn=owned_by_this_process(),
         )
     except OSError as error:
         raise HardwareDecodeFailed(type(error).__name__) from error
@@ -161,17 +348,30 @@ def stream_frames(
             process.stdout.close()
 
 
+async def _reap(process: Any) -> None:
+    """Kill the probe's decoder if it is still running and wait until it has exited."""
+    if process.returncode is None:
+        with suppress(ProcessLookupError):
+            kill_child(process)
+    # Shielded so a second cancellation cannot leave the child unreaped.
+    await asyncio.shield(process.wait())
+
+
 async def _decodes_probe_clip(command: list[str], timeout: float) -> bool:
     process = await asyncio.create_subprocess_exec(
-        *command, stdin=asyncio.subprocess.DEVNULL, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL
+        *command,
+        stdin=asyncio.subprocess.DEVNULL,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+        preexec_fn=owned_by_this_process(),
     )
     try:
         output, _ = await asyncio.wait_for(process.communicate(), timeout)
     except TimeoutError:
-        with suppress(ProcessLookupError):
-            process.kill()
-        await process.wait()
         return False
+    finally:
+        # Covers a timeout and cancellation alike, such as shutdown during the startup check.
+        await _reap(process)
     width, height = PROBE_SIZE
     return process.returncode == 0 and len(output) == width * height * 3
 

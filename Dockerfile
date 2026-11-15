@@ -50,8 +50,8 @@ RUN runtime_arch="${TARGETARCH:-amd64}"; \
 # Garden motion collection decodes a few frames from each 1440p recording. In software
 # that decode was most of the scan's CPU, so the Intel image decodes on the GPU through
 # VA-API. Debian's ffmpeg package would add about 430 MB (LLVM, Mesa, SDL) for that, so
-# this stage builds a minimal LGPL ffmpeg that can only read MP4 and decode H.264 and
-# HEVC through VA-API: about 7 MB. Every other flavor builds nothing here and keeps
+# this stage builds a minimal LGPL ffmpeg that can only read MP4, list its packet
+# timestamps and decode H.264 and HEVC through VA-API: about 7 MB. Every other flavor builds nothing here and keeps
 # decoding in software through OpenCV.
 FROM python:3.13-slim AS motion-decoder-builder
 
@@ -78,7 +78,7 @@ RUN set -eux; \
             --enable-protocol=file,pipe --enable-demuxer=mov --enable-parser=h264,hevc \
             --enable-decoder=h264,hevc --enable-hwaccel=h264_vaapi,hevc_vaapi \
             --enable-filter=select,hwdownload,format,scale \
-            --enable-encoder=rawvideo --enable-muxer=rawvideo; \
+            --enable-encoder=rawvideo --enable-muxer=framecrc,rawvideo; \
         make -j"$(nproc)"; \
         install -m 0755 ffmpeg /out/yawamf-ffmpeg; \
         strip /out/yawamf-ffmpeg; \
