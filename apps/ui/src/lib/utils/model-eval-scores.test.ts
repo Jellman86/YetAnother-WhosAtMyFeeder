@@ -28,7 +28,7 @@ describe('model evaluation scores', () => {
             shared_core_top1_in_vocabulary: 0.86,
             regional_top1_in_vocabulary: 0.81,
         });
-        expect(scores).toEqual({ top1: 0.83, top3: 0.9, core: 0.86, region: 0.81, canName: '115 of 141' });
+        expect(scores).toEqual({ top1: 0.83, top3: 0.9, core: 0.86, region: 0.81, canName: { known: 115, total: 141 } });
     });
 
     it('shows no core score when the model can name no core bird, rather than 0%', () => {
@@ -42,7 +42,7 @@ describe('model evaluation scores', () => {
             regional_top1_in_vocabulary: 1,
         });
         expect(scores.core).toBeNull();
-        expect(scores.canName).toBe('1 of 3');
+        expect(scores.canName).toEqual({ known: 1, total: 3 });
     });
 
     it('keeps the figures over every bird for runs that do not know the vocabulary', () => {

@@ -31,7 +31,7 @@ for behavior shipped in a tagged image.
 - [AI Models & Performance](features/ai-models.md) — select and validate a classifier.
 - [October model catalogue](features/model-catalogue-2026-10.md) — coverage, sizes and hardware limits.
 - [Accuracy and benchmarks](features/model-accuracy.md) — measured results and their limits.
-- [Model Evaluation](features/model-evaluation.md) — compatibility checks, results and temporary model changes.
+- [Model evaluation](features/model-evaluation.md) — compatibility checks, results and temporary model changes.
 
 ## 🔗 Integrations
 

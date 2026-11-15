@@ -1,9 +1,58 @@
-# Model Evaluation Harness
+# Model evaluation
 
-Use the owner-only **Model Evaluation** page at `/diagnostics/model-eval` to compare installed
+Use the owner-only **Model evaluation** page at `/diagnostics/model-eval` to compare installed
 classifiers on taxonomy-verified images or check which providers run correctly on your hardware.
-Accuracy evaluation and compatibility checks answer different questions; a passing device check
-does not establish correct species identification at your feeder.
+Open it from **Settings → Models → Testing the models** (**Open model evaluation**). Accuracy evaluation and compatibility checks answer
+different questions; a passing provider check does not establish correct species identification at
+your feeder.
+
+## The page
+
+- **Start an evaluation** says in one sentence what a run does. **How this works** opens the
+  rest: where the photos come from, that each model is loaded in turn so live detections can be
+  slower, that the photos are not from your feeder, and what each column means. While one runs
+  the button reads **Evaluation running**, the phase and its count are shown above a progress bar,
+  and **Stop evaluation** asks before it stops.
+- **Show evaluation options** is closed by default and holds two switches:
+  - **Keep each photo's result** adds `results.jsonl` to the run, offered afterwards as the
+    **Each photo's result** download.
+  - **Check every model on every provider** also validates each model on every provider this
+    image can use. It downloads every bird model and bird finder that is not installed and leaves
+    them installed, so the page reads the registry, states how many models and how large the
+    download is, and asks you to confirm before it starts. A model the registry gives no size for
+    is counted apart from the total ("1 of them has no known size"), and no size is stated when
+    none is known. The page and the question both say that the download may take a while and that
+    downloaded models stay on disk until you delete their files in **Settings → Models →
+    Models**.
+- **Results** shows one evaluation, chosen by its start time in the **Evaluation** list (newest
+  first, the 20 most recent). Models are shown by the names Settings uses. **Delete this
+  evaluation**, at the right of the panel's heading, asks first and cannot be undone; it is
+  unavailable for the one that is running. On a narrow panel each model's figures are a labelled
+  list instead of a table.
+- **Provider checks** appears for an evaluation that validated providers, with each result in
+  words beside a status dot: **Reference**, **Same on all 24 photos** (green), **Differs: same on
+  21 of 24 photos** (amber), **Did not load** or **Unusable output** (red), or **Not tested**.
+
+A read or an action that fails says what failed, the cause and the next step (for example that
+YA-WAMF did not answer, that the sign-in has expired, or that another evaluation is already
+running), with **Try again** where a read failed. A failed read is never shown as "no evaluations".
+
+An evaluation that stopped early, a model that was skipped and a model with no provider checks
+each say why from a code the server records (no installed model, no test photos, a failed request
+to iNaturalist, a model that could not be loaded), followed by what to do. A reason the page does
+not know is said to be unknown, and points to the container logs. The page never shows the text of
+an exception or of a server reply: that stays in the logs.
+
+| Column | What it measures | Field in `summary.json` |
+|---|---|---|
+| First guess right | photos whose first guess was the correct species | `top1_accuracy_in_vocabulary` (or `top1_accuracy`) |
+| Right in top three | photos whose correct species was among the first three guesses | `top3_accuracy_in_vocabulary` (or `top3_accuracy`) |
+| Common feeder birds | first-guess share on the shared core of widespread feeder birds | `shared_core_top1_in_vocabulary` (or `shared_core_top1`) |
+| Birds near you | first-guess share on birds recorded near the saved location | `regional_top1_in_vocabulary` (or `regional_top1`) |
+| Species it can name | test species the model has an output for | `panel_species` less `species_outside_vocabulary` |
+| Average time | mean inference time per photo | `mean_latency_ms` |
+| Slow photos | the time 19 in 20 photos stayed under | `p95_latency_ms` |
+| Ran on | the provider the model ran on | `active_provider` |
 
 ## What it does
 
@@ -14,18 +63,20 @@ does not establish correct species identification at your feeder.
 5. Restores the originally-active model after the run finishes (even on failure).
 6. Cleans up the image cache at the end of the run; **persistent artifacts are kept** until you delete the run from the UI.
 
-The run detail provides **summary.json**, **runtime.json**, and **confusions.csv** download
-buttons. Downloads use your current owner session and save the file in your browser; a failed or
-expired session shows an error on the page. Sign in again if access has expired.
+**Download the results** offers the files the evaluation wrote, by what they hold: **Summary**
+(`summary.json`), **Mix-ups** (`confusions.csv`), **Speed details** (`runtime.json`), **Each
+photo's result** (`results.jsonl`) and **Provider checks** (`device_matrix.json`). A file the
+evaluation did not write is not offered. Downloads use your current owner session and save the
+file in your browser; a refused download says so on the page. Sign in again if access has expired.
 
 A compatibility check started from **Settings → Models** or the setup wizard also appears in
-the run history. It checks providers but does not score accuracy, so the page labels it
-**Compatibility check only** and shows each model's best validated provider, that provider's
-median inference time, and the providers that passed. It shows no accuracy columns and no mean or
-p95 latency, because the run measured neither. Such a run writes only `summary.json` and
+the **Evaluation** list. It checks providers but does not score accuracy, so the page labels it
+**Provider check only** and shows each model's fastest provider that passed, that provider's
+typical time per photo, and the providers that passed. It shows no accuracy columns and no average
+or slow-photo time, because the run measured neither. Such a run writes only `summary.json` and
 `device_matrix.json`, so those are the only downloads offered.
 
-![A compatibility-only run showing best validated CPU and NPU providers, median inference time and passing providers, with summary and device-matrix downloads and no accuracy figures](../images/model-evaluation-compatibility.png)
+![A provider check only: the fastest provider that passed and its typical time per photo for each model, the provider checks written in words, Summary and Provider checks downloads, and no accuracy figures](../images/model-evaluation-compatibility.png)
 
 For a location-aware classifier such as DINOv2, normal in-app runs use the saved feeder location.
 Record whether coordinates were present when comparing runs; the October public benchmark used
@@ -41,7 +92,7 @@ Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
 | `summary.json` | headline metrics + per-model breakdown (top-1/3/5 accuracy, latency, abstention, shared-core vs regional split, sanity-check warnings) |
 | `runtime.json` | per-model provider / device / startup benchmark / drift factor / `InferenceHealth` snapshot |
 | `confusions.csv` | top wrong→right confusions per model, ranked by frequency |
-| `results.jsonl` | per-image top-5 predictions with scores, output index, catalogue `species_id` and taxa_id resolution, plus the expected species and whether the model can name it — only when **Include per-image details** is checked |
+| `results.jsonl` | per-image top-5 predictions with scores, output index, catalogue `species_id` and taxa_id resolution, plus the expected species and whether the model can name it — only when **Keep each photo's result** is on |
 | `device_matrix.json` | image-aware classifier and crop-detector provider compile, finite-output, CPU-agreement and median inference-latency results when provider validation is enabled |
 
 The container mount means you can pull these straight off the host:
@@ -59,7 +110,7 @@ A prediction is scored by species, not by label text. Its species comes from the
 A model can only name the species it has an output for. A European model has none for a Blue Jay, so every figure is reported twice:
 
 - **`top1_accuracy`**, **`shared_core_top1`**, **`regional_top1`** — over every test image. Production threshold work usually compares against top-1.
-- **`top1_accuracy_in_vocabulary`**, **`shared_core_top1_in_vocabulary`**, **`regional_top1_in_vocabulary`** (and top-3/top-5) — over the images of species the model can name. This is the fair cross-model number, and the one the page shows. `images_in_vocabulary` and `species_outside_vocabulary` (out of `panel_species`) say how much of the test set that covers; the page shows it under **Can name**. These are `null` when `vocabulary_known` is false.
+- **`top1_accuracy_in_vocabulary`**, **`shared_core_top1_in_vocabulary`**, **`regional_top1_in_vocabulary`** (and top-3/top-5) — over the images of species the model can name. This is the fair cross-model number, and the one the page shows. `images_in_vocabulary` and `species_outside_vocabulary` (out of `panel_species`) say how much of the test set that covers; the page shows it under **Species it can name**. These are `null` when `vocabulary_known` is false.
 
 Only a species the catalogue proves is outside the model's outputs is set aside. Some outputs have no catalogue identity (the European models' "Feral pigeon" and "Great bittern"); a species stays in the score when any of those could be it, by sharing its genus or the last word of its common name. A species whose membership is unknown still counts, so a miss is never hidden on a guess. Which species a model can name is decided from the test panel, not from the images that classified successfully.
 
@@ -71,13 +122,16 @@ Only a species the catalogue proves is outside the model's outputs is set aside.
 
 ### Warnings
 
+The page states each warning as one line under the model's row, with its next step, marked
+**Needs a look**, **Worth a check** or **Note**. The codes below are what `summary.json` carries.
+
 | Code | What it means | What to do |
 |---|---|---|
 | `latency_drift_high` | measured mean > 5× the startup benchmark | suspect the accelerated provider — try toggling to CPU and rerun |
 | `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check vocabulary coverage, catalogue readiness and preprocessing; a model may not include the feeder species |
 | `low_shared_core` | top-1 < 50% on the shared-core species the model can name (on every shared-core species when its vocabulary is unknown) | inspect install readiness, catalogue or custom label mapping, and preprocessing |
 | `partial_vocabulary` | the model cannot name some test species, usually because they are outside its region | informational — accuracy is shown on the species it can name |
-| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Detection → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
+| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Models → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
 | `incomplete_install` | model is not ready, required config is missing, or neither a complete catalogue mapping nor required legacy labels is available | use Model Manager's repair download; catalogue-backed installs do not require `labels.txt` |
 | `inference_health_unhealthy` | the `InferenceHealth` verdict for this model on the provider it ran on is `unhealthy` at run end | the runtime errored or timed out during the run; check classifier logs |
 | `region_mismatch` | EU model evaluated against NA region (or vice versa) | informational — accuracy will look low but isn't a regression |

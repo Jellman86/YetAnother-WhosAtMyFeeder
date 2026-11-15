@@ -1,8 +1,196 @@
 {
-  "col_best_provider": "最佳已验证提供程序",
-  "col_median_inference": "推理中位耗时",
+  "checks": {
+    "body": "每个提供程序都会在相同的鸟类照片上与 CPU 比较。",
+    "cell": {
+      "did_not_load": "未能加载",
+      "differs": "{photos, plural, other {有差异：# 张照片中 {same} 张相同}}",
+      "differs_boxes": "{photos, plural, other {有差异：# 张照片中 {same} 张边框相同}}",
+      "not_tested": "未测试",
+      "ran": "可以运行",
+      "reference": "基准，{photos, plural, other {# 张照片}}",
+      "reference_plain": "基准",
+      "same": "{photos, plural, other {全部 # 张照片结果相同}}",
+      "same_boxes": "{photos, plural, other {全部 # 张照片边框相同}}",
+      "unusable_output": "输出不可用"
+    },
+    "finder": "鸟类定位模型",
+    "row": {
+      "activation_failed": "无法加载它，因此没有检查任何提供程序。请在“设置 → 模型”中对该模型使用“重新下载修复”。",
+      "provider_sweep_failed": "在任何提供程序给出结果之前，检查就失败了。请重新运行；如果再次失败，原因记录在容器日志中。",
+      "unknown": "它没有被检查，原因本页面无法说明。原因记录在容器日志中。"
+    },
+    "title": "提供程序检查"
+  },
+  "col_best_provider": "通过检查的最快提供程序",
+  "col_median_inference": "每张照片的一般用时",
   "col_model": "模型",
-  "col_validated_providers": "已验证的提供程序",
-  "compat_only_body": "此次运行检查了每个提供程序能否加载、输出有限值并与 CPU 基准一致。未测量准确率，因此不显示准确率数据。运行评估以测量准确率。",
-  "compat_only_title": "仅兼容性检查"
+  "col_validated_providers": "通过检查的提供程序",
+  "compat_only_body": "这次检查确认了哪些提供程序能加载各个模型，并给出与 CPU 相同的答案。它没有测量准确率，因此不显示准确率数据。要测量准确率，请开始一次评估。",
+  "compat_only_title": "仅检查了提供程序",
+  "confirm_delete": {
+    "confirm": "删除评估",
+    "message": "{when} 这次评估的结果和文件将从服务器上移除。此操作无法撤销。",
+    "title": "删除这次评估？"
+  },
+  "confirm_download": {
+    "cancel": "返回",
+    "confirm": "下载并开始",
+    "title": "{count, plural, other {下载 # 个模型？}}",
+    "title_unknown": "下载缺少的模型？"
+  },
+  "confirm_stop": {
+    "cancel": "继续运行",
+    "confirm": "停止评估",
+    "message": "已经测试过的模型会保留结果，并换回你现在使用的模型。",
+    "title": "停止评估？"
+  },
+  "how": {
+    "checks": "在提供程序检查中，每个模型都会在本安装可用的所有提供程序上运行，并且各自使用独立的进程，这样即使崩溃也不会让 YA-WAMF 停止。鸟类定位模型按它放置边框的位置来比较。",
+    "col": {
+      "average_time": "为一张照片命名的平均用时。",
+      "can_name": "测试物种中，模型能给出答案的物种数量。",
+      "common": "分布广泛的喂食器鸟类中，首个猜测正确的比例。",
+      "first_guess": "首个猜测即为正确物种的照片所占比例。",
+      "local": "你的位置附近记录到的鸟类中，首个猜测正确的比例。",
+      "provider": "模型运行所用的提供程序。",
+      "slow_time": "20 张照片中有 19 张不超过的用时。",
+      "top_three": "正确物种出现在前三个猜测中的照片所占比例。"
+    },
+    "columns_title": "各列的含义",
+    "cost": "运行期间，YA-WAMF 会依次加载各个模型，所以实时检测可能变慢。结束后会换回你现在使用的模型。获取照片需要联网。",
+    "limit": "这些照片不是在你的喂食器拍的。请用这些数据在模型之间做比较，而不要用来预测某个模型在你的喂食器上的准确率。",
+    "photos": "照片来自 iNaturalist 和 Wikimedia Commons：常见喂食器鸟类，以及你保存的位置附近记录到的鸟类。",
+    "title": "工作原理"
+  },
+  "page_title": "模型评估",
+  "problem": {
+    "cause": {
+      "already_running": "已有另一个评估正在运行。请等它完成，或先停止它。",
+      "gone": "它已不在服务器上。请刷新页面查看现有内容。",
+      "refused": "YA-WAMF 拒绝了该请求。请刷新页面后重试；如果再次被拒绝，原因记录在容器日志中。",
+      "server_fault": "YA-WAMF 在处理请求时出错。请重试；如果一直失败，请查看容器日志。",
+      "signed_out": "你的登录已过期，或不是所有者的登录。请重新登录后再试。",
+      "unreachable": "YA-WAMF 没有响应。请确认它正在运行且本设备可以访问它，然后重试。"
+    },
+    "stale": "下方显示的内容可能不是最新的。",
+    "what": {
+      "delete": "评估没有被删除。",
+      "download": "文件没有下载。",
+      "history": "无法读取以往的评估。",
+      "results": "无法读取这次评估的结果。",
+      "start": "评估没有开始。",
+      "stop": "评估没有停止。"
+    }
+  },
+  "progress": {
+    "count": "{done} / {total}",
+    "label": "评估进度",
+    "phase": {
+      "building_panel": "正在选择测试鸟类",
+      "device_sweep": "正在检查提供程序",
+      "downloading_models": "正在下载模型",
+      "evaluating": "正在测试模型",
+      "fetching_images": "正在获取照片",
+      "starting": "正在启动",
+      "working": "处理中"
+    }
+  },
+  "results": {
+    "can_name": "{known} / {total}",
+    "capped": "仅列出最近的 20 次评估。",
+    "choose": "评估",
+    "col_average_time": "平均用时",
+    "col_can_name": "能命名的物种",
+    "col_common": "常见喂食器鸟类",
+    "col_first_guess": "首个猜测正确",
+    "col_local": "你附近的鸟类",
+    "col_provider": "运行于",
+    "col_slow_time": "较慢的照片",
+    "col_top_three": "前三个猜测中正确",
+    "columns_hint": "各列的说明见“工作原理”。",
+    "delete": "删除这次评估",
+    "delete_blocked": "请先停止它，再删除。",
+    "duration": "{minutes, plural, other {# 分钟}}",
+    "empty": "还没有运行过评估。在上方开始一次，结果会显示在这里。",
+    "file": {
+      "each_photo": "每张照片的结果",
+      "mix_ups": "混淆情况",
+      "provider_checks": "提供程序检查",
+      "speed": "速度详情",
+      "summary": "摘要"
+    },
+    "file_download": "下载{label}（{file}）",
+    "files": "下载结果",
+    "folder": "服务器上的文件夹：",
+    "loading": "正在读取结果",
+    "loading_list": "正在读取以往的评估",
+    "no_models": "这次评估没有测试任何模型。",
+    "not_measured": "未测量",
+    "option_running": "{when}，正在运行",
+    "option_stopped": "{when}，提前停止",
+    "photos": "{count, plural, other {# 张照片}}",
+    "region": "地区 {region}",
+    "species": "{count, plural, other {# 个物种}}",
+    "still_running": "这次评估仍在运行。每个模型完成后，结果会显示在这里。",
+    "stopped_early": "这次评估在完成前停止了，因此可能缺少部分模型。",
+    "title": "结果",
+    "under_a_minute": "不到一分钟",
+    "vocabulary_note": "比例只计入模型能命名的物种。"
+  },
+  "skipped": {
+    "activation_failed": "它的文件缺失或不完整。请在“设置 → 模型”中对该模型使用“重新下载修复”。",
+    "other": "它被跳过了，原因本页面无法说明。原因记录在容器日志中。",
+    "reload_failed": "无法加载它。请在“设置 → 模型”中对该模型使用“重新下载修复”；如果仍无效，原因记录在容器日志中。",
+    "title": "未测试的模型"
+  },
+  "start": {
+    "action": "开始评估",
+    "all_models_desc": "同时检查每个模型在你的图形芯片或 NPU 上给出的答案是否与 CPU 相同。尚未安装的模型会先下载，并保留在已安装状态。这会花费长得多的时间。",
+    "all_models_label": "在每个提供程序上检查每个模型",
+    "download_none": "所有模型都已安装，无需下载。",
+    "download_note": "下载可能需要一些时间，取决于你的网络。下载的模型会一直保留在磁盘上，直到你在“设置 → 模型”中删除它们的文件。",
+    "download_reading": "正在读取需要下载的大小…",
+    "download_size": "{count, plural, other {还有 # 个模型未安装：需要下载约 {size}。}}",
+    "download_size_partial": "{count, plural, other {还有 # 个模型未安装。}}{unknown, plural, other {其中 # 个大小未知；}}其余需要下载约 {size}。",
+    "download_size_unknown": "{count, plural, other {还有 # 个模型未安装。大小未知。}}",
+    "download_unknown": "无法读取下载大小。尚未安装的模型仍会被下载。",
+    "each_photo_desc": "添加一个文件，记录每张照片的前五个猜测，方便你查看个别错误。它可以和其他结果一起下载。",
+    "each_photo_label": "保留每张照片的结果",
+    "options_hide": "隐藏评估选项",
+    "options_show": "显示评估选项",
+    "running": "评估进行中",
+    "running_reason": "一次只能运行一个评估。要开始新的评估，请先停止当前这个。",
+    "stop": "停止评估",
+    "title": "开始评估",
+    "what": "每个已安装的模型都会为物种已确认的鸟类照片命名，方便你比较各模型答对的频率和速度。"
+  },
+  "stopped": {
+    "finder_needs_provider_check": "鸟类定位模型只能做提供程序检查。请在“设置 → 模型”中运行该检查。",
+    "models_not_ready": "为这次检查选择的模型尚未安装或不可用。请在“设置 → 模型”中查看，然后重新开始。",
+    "network": "对 iNaturalist 或 Wikimedia Commons 的请求失败。请检查网络连接，然后重新开始。",
+    "no_models": "没有已安装并可用的鸟类模型。请在“设置 → 模型”中安装一个，然后重新开始。",
+    "no_test_birds": "由于 iNaturalist 没有响应，无法生成测试鸟类列表。请检查网络连接，然后重新开始。",
+    "no_test_photos": "无法从 iNaturalist 或 Wikimedia Commons 获取任何测试照片。请检查网络连接，然后重新开始。",
+    "unexpected": "它因为本页面无法说明的错误而停止。请重新开始；如果再次停止，原因记录在容器日志中。"
+  },
+  "warning": {
+    "high_abstention": "有 {share}% 的照片没有给出物种。它可能不涵盖这些鸟类，或者安装不完整。请在“设置 → 模型”中检查该模型。",
+    "incomplete_install": "它的文件不完整。请在“设置 → 模型”中对该模型使用“重新下载修复”。",
+    "inference_health_unhealthy": "运行期间出现了错误或超时。请在容器日志中查找原因。",
+    "latency_drift_high": "比加载时慢得多：每张照片 {measured, number} 毫秒，而加载时为 {loaded, number} 毫秒。它运行所用的提供程序可能有故障。请在“设置 → 模型”中把推理提供程序设为 CPU，然后重新评估。",
+    "latency_drift_high_plain": "比加载时慢得多。它运行所用的提供程序可能有故障。请在“设置 → 模型”中把推理提供程序设为 CPU，然后重新评估。",
+    "low_shared_core": "常见喂食器鸟类中答对的不到一半，这通常说明安装已损坏。请在“设置 → 模型”中对该模型使用“重新下载修复”。",
+    "partial_vocabulary": "{total} 个测试物种中有 {outside} 个无法命名，通常是因为它们生活在其区域之外。它的比例只涵盖它能命名的物种。",
+    "partial_vocabulary_plain": "有些测试物种无法命名，通常是因为它们生活在其区域之外。它的比例只涵盖它能命名的物种。",
+    "provider_fallback_active": "虽然请求了更快的提供程序，但它是在 CPU 上运行的。原因见“设置 → 模型”中的“运行时诊断”。",
+    "provider_validation_failed": "没有提供程序给出与 CPU 一致的可用答案。下方的“提供程序检查”显示了每项结果。",
+    "provider_validation_partial": "部分提供程序失败或在此处不可用。下方的“提供程序检查”显示了每项结果。",
+    "region_mismatch": "它是为另一个地区构建的，与你附近的鸟类不符，因此这里的比例会比在那个地区低。",
+    "severity": {
+      "critical": "需要查看",
+      "info": "说明",
+      "warning": "建议检查"
+    },
+    "unknown": "它被标记的原因，这个版本的页面无法解释。详情见“摘要”下载。"
+  }
 }

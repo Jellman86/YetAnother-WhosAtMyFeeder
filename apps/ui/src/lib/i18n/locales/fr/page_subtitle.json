@@ -7,5 +7,6 @@
   "notifications": "Visites, alertes et tâches de fond, les plus récentes d’abord.",
   "settings": "Connexions, identification, intégrations et personnalisation.",
   "species": "Quels oiseaux viennent le plus, à quelle fréquence et quand.",
-  "health": "Si YA-WAMF fonctionne, ce que fait la machine et ce qui s’est passé."
+  "health": "Si YA-WAMF fonctionne, ce que fait la machine et ce qui s’est passé.",
+  "model_evaluation": "À quelle fréquence chaque modèle installé nomme correctement un oiseau, et à quelle vitesse."
 }

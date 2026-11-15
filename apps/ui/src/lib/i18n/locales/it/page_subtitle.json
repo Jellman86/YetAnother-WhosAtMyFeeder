@@ -7,5 +7,6 @@
   "notifications": "Visite, avvisi e attività in background, dalle più recenti.",
   "settings": "Connessioni, identificazione, integrazioni e personalizzazione.",
   "species": "Quali uccelli vengono di più, quanto spesso e quando.",
-  "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo."
+  "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo.",
+  "model_evaluation": "Quanto spesso ogni modello installato dà il nome giusto a un uccello, e con quale velocità."
 }

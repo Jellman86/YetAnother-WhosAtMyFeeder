@@ -7,5 +7,6 @@
   "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
   "settings": "Conexões, identificação, integrações e personalização.",
   "species": "Que aves visitam mais, com que frequência e quando.",
-  "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu."
+  "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu.",
+  "model_evaluation": "Com que frequência cada modelo instalado nomeia uma ave corretamente, e com que rapidez."
 }

@@ -306,7 +306,7 @@ class FakeBackend {
         }
         if (path === `/api/diagnostics/model-eval/runs/${RUN_ID}`) {
             if (this.evalState === 'running') return json({ run_id: RUN_ID, finished_at: null });
-            if (this.evalState === 'error') return json({ run_id: RUN_ID, finished_at: null, error: this.evalError });
+            if (this.evalState === 'error') return json({ run_id: RUN_ID, finished_at: null, error_code: this.evalError });
             const passed = PROVIDER_ORDER.filter((p) => !this.evalFailedProviders.includes(p));
             return json({
                 run_id: RUN_ID, finished_at: '2026-10-10T12:05:00Z',
@@ -568,8 +568,9 @@ test('a failed check is said in words and keeps Continue disabled', async ({ pag
     // Nothing to save: no location was entered and none was saved.
     expect(fake.settingsWrites()).toEqual([]);
 
-    fake.failEval('The ONNX session could not be created on this host.');
-    await expect(wizard(page).getByRole('alert').filter({ hasText: 'The ONNX session could not be created on this host.' })).toBeVisible({ timeout: 10_000 });
+    // The server answers with a code. What it raised is in its log, not on the screen.
+    fake.failEval('models_not_ready');
+    await expect(wizard(page).getByRole('alert').filter({ hasText: 'A model chosen for this check is not installed and ready. Look at it in Settings → Models, then start again.' })).toBeVisible({ timeout: 10_000 });
     await expect(continueButton(page)).toBeDisabled();
     await expect(validateButton(page)).toBeEnabled();
     expect(fake.posts(`/api/models/${DINO}/activate`)).toEqual([]);
