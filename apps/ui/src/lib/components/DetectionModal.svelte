@@ -2816,17 +2816,15 @@
                             </button>
                         </li>
                         <li>
-                            <!-- The only red control here. Its words say the visit goes for good, and the
-                                 ellipsis that a confirmation follows. -->
+                            <!-- The only red control here. Its words say the visit goes for good. -->
                             <button
                                 type="button"
                                 onclick={handleDelete}
                                 class="btn btn-ghost min-h-11 w-full justify-start rounded-none px-3 text-sm text-red-700 hover:bg-red-50/80 hover:text-red-800 dark:text-red-300 dark:hover:bg-red-950/40 dark:hover:text-red-200"
-                                title={$_('actions.delete_detection')}
-                                aria-label={$_('actions.delete_detection')}
                                 data-detection-delete
                             >
-                                <span class="min-w-0 text-left hyphens-auto wrap-anywhere">{$_('detection.delete_permanently', { default: 'Delete permanently…' })}</span>
+                                <!-- The words on the row are its whole name, so what is read aloud is what is seen. -->
+                                <span class="min-w-0 text-left hyphens-auto wrap-anywhere">{$_('actions.delete_detection')}</span>
                             </button>
                         </li>
                     </ul>

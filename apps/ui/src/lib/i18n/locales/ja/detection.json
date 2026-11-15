@@ -501,6 +501,5 @@
   "reference_read_more_on": "{source}で続きを読む",
   "reference_read_more": "続きを読む",
   "reference_source": "出典: {source}",
-  "reference_conservation": "保全状況: {status}",
-  "delete_permanently": "完全に削除…"
+  "reference_conservation": "保全状況: {status}"
 }

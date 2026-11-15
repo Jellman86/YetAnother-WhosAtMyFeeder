@@ -501,6 +501,5 @@
   "reference_read_more_on": "在 {source} 阅读更多",
   "reference_read_more": "阅读更多",
   "reference_source": "来源：{source}",
-  "reference_conservation": "保护状况：{status}",
-  "delete_permanently": "永久删除…"
+  "reference_conservation": "保护状况：{status}"
 }

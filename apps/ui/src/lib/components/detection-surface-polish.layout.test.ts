@@ -240,4 +240,11 @@ describe('detection surface polish', () => {
         // A box that clips its content has no minimum height as a flex item, so Delete was cut off and could not be clicked.
         expect(detectionModalSource).toContain('class="card-base shrink-0 divide-y divide-line-soft overflow-hidden" data-detection-more-actions-panel');
     });
+
+    it('lets the delete row be named by the words on it', () => {
+        // A label that differs from the visible text fails speech input (label in name).
+        const row = detectionModalSource.slice(detectionModalSource.indexOf('onclick={handleDelete}'), detectionModalSource.indexOf('data-detection-delete') + 200);
+        expect(row).not.toContain('aria-label');
+        expect(row).toContain("{$_('actions.delete_detection')}");
+    });
 });

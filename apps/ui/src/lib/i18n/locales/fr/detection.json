@@ -501,6 +501,5 @@
   "reference_read_more_on": "Lire la suite sur {source}",
   "reference_read_more": "Lire la suite",
   "reference_source": "Source \u0001 {source}",
-  "reference_conservation": "Statut de conservation \u0001 {status}",
-  "delete_permanently": "Supprimer définitivement…"
+  "reference_conservation": "Statut de conservation \u0001 {status}"
 }

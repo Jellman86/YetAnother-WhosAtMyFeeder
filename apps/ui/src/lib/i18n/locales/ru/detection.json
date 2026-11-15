@@ -501,6 +501,5 @@
   "reference_read_more_on": "Читать далее: {source}",
   "reference_read_more": "Читать далее",
   "reference_source": "Источник: {source}",
-  "reference_conservation": "Охранный статус: {status}",
-  "delete_permanently": "Удалить навсегда…"
+  "reference_conservation": "Охранный статус: {status}"
 }

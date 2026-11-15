@@ -501,6 +501,5 @@
   "reference_read_more_on": "Ler mais em {source}",
   "reference_read_more": "Ler mais",
   "reference_source": "Fonte: {source}",
-  "reference_conservation": "Estado de conservação: {status}",
-  "delete_permanently": "Eliminar permanentemente…"
+  "reference_conservation": "Estado de conservação: {status}"
 }

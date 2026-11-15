@@ -225,7 +225,7 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(row).toContain('class="btn btn-primary min-h-11 w-full min-w-0 max-w-full px-4 text-sm sm:w-auto sm:flex-none"');
         expect(row).not.toContain('detection.score_again');
         const list = modalSource.slice(panel, modalSource.indexOf('</ul>', panel));
-        const order = ['detection.score_again', 'detection.common_name_override_edit', 'data-detection-hide', 'detection.delete_permanently'].map((marker) => list.indexOf(marker));
+        const order = ['detection.score_again', 'detection.common_name_override_edit', 'data-detection-hide', 'actions.delete_detection'].map((marker) => list.indexOf(marker));
         expect(order.every((index) => index > -1)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
     });
