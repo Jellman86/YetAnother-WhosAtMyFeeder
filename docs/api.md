@@ -1478,6 +1478,13 @@ The callback exception grants no owner role and does not expand cookie authentic
   (2,048 characters per string, 64 items per collection, depth eight and 512 nodes
   per payload field); truncation is marked. Source/correlation fields remain present.
   Failed redaction-context lookup drops details rather than interrupting ingestion.
+  Repeats of one fault are one entry: events with the same `source`, `component`,
+  `reason_code` and `severity`, whose messages differ only in tokens containing digits
+  (event ids, counts, durations), share an entry carrying `count`, `first_seen` and
+  `last_seen`. `timestamp` equals `last_seen`, `id` stays the first occurrence's, and the
+  other fields are the newest occurrence's. `total_events` counts entries;
+  `total_occurrences` counts every recorded occurrence held. The same shape is used for
+  `backend_diagnostics.events` in the workspace and bundle responses.
 
 - `GET /api/diagnostics/workspace` — focused video failure candidates include
   warning, error and critical events, excluding circuit summaries and successful

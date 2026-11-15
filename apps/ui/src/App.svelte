@@ -842,15 +842,14 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
       {/if}
 
       <Sidebar {currentRoute} onNavigate={navigate} {isMobile} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
-          {#snippet status()}
+          {#snippet status(collapsed: boolean)}
               <ConnectionStatus
                   birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
                   {notificationsActive}
                   feed={liveFeedState(detectionsStore.connected, serviceConnectionsStore.connections)}
+                  {collapsed}
               />
-              <div class="mt-1 flex justify-end">
-                  <UpdateIndicator />
-              </div>
+              <UpdateIndicator {collapsed} />
           {/snippet}
       </Sidebar>
 

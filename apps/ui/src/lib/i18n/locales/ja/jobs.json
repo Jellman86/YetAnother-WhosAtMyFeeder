@@ -116,6 +116,7 @@
   "errors_stored_locally": "ローカル保存",
   "errors_backend_diagnostics_title": "バックエンドの警告とエラー",
   "errors_backend_diagnostics_desc": "前回エラー履歴を消去してからバックエンドが記録した最新のものです。",
+  "errors_repeated": "×{count}、初回 {first}、最新 {last}",
   "errors_no_startup_warnings": "現在のワークスペーススナップショットに起動時警告は記録されていません。",
   "errors_unknown_warning": "不明な警告",
   "errors_download_snapshot_title": "現在のスナップショットをダウンロード",

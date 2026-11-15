@@ -198,19 +198,19 @@ test('the sidebar status is a list inside a live region, and its link is named b
     await replayFeeder(page, 'light');
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/about');
-    const tiles = page.locator('[data-status-tiles]');
-    await expect(tiles).toBeVisible();
+    const rows = page.locator('[data-status-list]');
+    await expect(rows).toBeVisible();
     // The list keeps its own role; the live region is its wrapper.
-    await expect(tiles).not.toHaveAttribute('role');
-    await expect(page.getByRole('status').filter({ has: tiles })).toHaveCount(1);
-    expect(await tiles.getByRole('listitem').count()).toBeGreaterThanOrEqual(2);
+    await expect(rows).not.toHaveAttribute('role');
+    await expect(page.getByRole('status').filter({ has: rows })).toHaveCount(1);
+    expect(await rows.getByRole('listitem').count()).toBeGreaterThanOrEqual(2);
     const link = page.locator('[data-sidebar-status-link]');
-    await expect(link).toHaveAccessibleName('System health');
+    await expect(link).toHaveAccessibleName(/System health$/);
     await expect(link).not.toHaveAttribute('aria-label');
-    // The link's hit area is the whole card, apart from the tiles.
-    const card = await page.locator('[data-sidebar-status-card]').boundingBox();
-    expect(card).not.toBeNull();
-    await page.mouse.click((card?.x ?? 0) + 12, (card?.y ?? 0) + 12);
+    // The link is its own words, at least 24px tall, and nothing is stretched over the card.
+    const box = await link.boundingBox();
+    expect(box?.height).toBeGreaterThanOrEqual(24);
+    await link.click();
     await expect(page).toHaveURL(/\/system-health$/);
 });
 

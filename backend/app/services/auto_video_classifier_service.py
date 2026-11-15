@@ -17,6 +17,7 @@ from PIL import Image
 
 from app.config import settings
 from app.services.frigate_client import frigate_client
+from app.services.frigate_readiness import FRIGATE_NOT_READY
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.hq_classification_refinement import crop_labels_disputing_full_frame
 from app.services import classifier_service as classifier_service_module
@@ -102,6 +103,7 @@ _FRIGATE_CONNECTIVITY_ERRORS: frozenset[str] = frozenset(
         "event_timeout",  # Frigate API request timed out
         "event_request_error",  # Network error reaching Frigate
         "event_unknown_error",  # Unexpected error during event fetch
+        FRIGATE_NOT_READY,  # Frigate's API is starting or unreachable; the read was deferred
         # --- Clip fetch errors (frigate_client.get_clip_with_error) ---
         "clip_not_retained",  # Continuous recordings disabled or retention window expired (expected)
         "clip_not_found",  # Frigate 404 for clip (transient or expected)
@@ -1630,7 +1632,12 @@ class AutoVideoClassifierService:
             _precheck_attempts = 0
             for _attempt in range(_PRECHECK_RETRIES + 1):
                 _precheck_attempts = _attempt + 1
+                # A job restored at startup runs while Frigate may still be starting.
+                # Waiting here keeps it queued instead of failing it on a 500.
+                await frigate_client.readiness.wait_until_ready()
                 event_data, event_error = await frigate_client.get_event_with_error(frigate_event, timeout=8.0)
+                if event_error == FRIGATE_NOT_READY and _attempt < _PRECHECK_RETRIES:
+                    continue
                 if not event_error or event_error != "event_not_found":
                     break
                 if _attempt < _PRECHECK_RETRIES:

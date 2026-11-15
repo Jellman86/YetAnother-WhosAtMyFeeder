@@ -256,9 +256,12 @@ export interface components {
     component: string;
     context?: Record<string, unknown> | null;
     correlation_key?: string | null;
+    count?: number;
     event_id?: string | null;
+    first_seen?: string | null;
     id: string;
     job_id?: string | null;
+    last_seen?: string | null;
     message: string;
     reason_code: string;
     runtime_recovery?: Record<string, unknown> | null;
@@ -278,6 +281,7 @@ export interface components {
     returned_events: number;
     severity_counts: Record<string, number>;
     total_events: number;
+    total_occurrences?: number;
 };
     BackfillFocusedDiagnosticsResponse: {
     failed_jobs: Array<Record<string, unknown>>;

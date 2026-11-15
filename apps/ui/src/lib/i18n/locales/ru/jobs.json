@@ -116,6 +116,7 @@
   "errors_stored_locally": "хранится локально",
   "errors_backend_diagnostics_title": "Предупреждения и ошибки сервера",
   "errors_backend_diagnostics_desc": "Последние записи сервера с момента последней очистки журнала ошибок.",
+  "errors_repeated": "×{count}, впервые {first}, в последний раз {last}",
   "errors_no_startup_warnings": "Предупреждения при запуске не зафиксированы в текущем снимке.",
   "errors_unknown_warning": "Неизвестное предупреждение",
   "errors_download_snapshot_title": "Скачать текущий снимок",

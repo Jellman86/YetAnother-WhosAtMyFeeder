@@ -116,6 +116,7 @@
   "errors_stored_locally": "本地存储",
   "errors_backend_diagnostics_title": "后端警告和错误",
   "errors_backend_diagnostics_desc": "自上次清除错误记录以来，后端记录的最新内容。",
+  "errors_repeated": "×{count}，首次 {first}，最近 {last}",
   "errors_no_startup_warnings": "当前工作区快照中没有捕获到启动警告。",
   "errors_unknown_warning": "未知警告",
   "errors_download_snapshot_title": "下载当前快照",

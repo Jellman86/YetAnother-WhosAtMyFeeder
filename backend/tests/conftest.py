@@ -235,6 +235,14 @@ def isolate_service_connections(monkeypatch):
     monkeypatch.setattr(service_connections, "_refresh_frigate_reading", no_probe)
     monkeypatch.setattr(mqtt_service, "connection", MqttConnectionTracker())
     service_connections.frigate_reachability.reset()
+
+    from app.services.frigate_client import frigate_client
+    from app.services.frigate_readiness import FrigateReadinessGate
+
+    async def frigate_answers() -> bool:
+        return True
+
+    monkeypatch.setattr(frigate_client, "readiness", FrigateReadinessGate(frigate_answers))
     yield
     service_connections.frigate_reachability.reset()
 

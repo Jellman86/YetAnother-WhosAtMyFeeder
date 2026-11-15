@@ -1179,6 +1179,19 @@
                                 <span class="text-xs font-semibold opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{event.message}</p>
+                            {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
+                                <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
+                                <p class="mt-1 text-xs tabular-nums opacity-80" data-diagnostic-repeats>
+                                    {$_('jobs.errors_repeated', {
+                                        values: {
+                                            count: (event.count ?? 1).toLocaleString(),
+                                            first: formatDateTime(Date.parse(event.first_seen)),
+                                            last: formatDateTime(Date.parse(event.last_seen))
+                                        },
+                                        default: '×{count}, first {first}, last {last}'
+                                    })}
+                                </p>
+                            {/if}
                             {#if event.event_id || event.correlation_key}
                                 <p class="mt-2 text-xs opacity-80">
                                     {#if event.event_id}<span>Event {event.event_id}</span>{/if}
