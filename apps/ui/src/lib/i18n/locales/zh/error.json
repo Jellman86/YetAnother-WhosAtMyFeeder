@@ -1,6 +1,6 @@
 {
-  "boundary_title": "出现问题了",
-  "boundary_subtitle": "发生了意外错误。请重试，如果问题仍然存在，请联系支持。",
+  "boundary_title": "此页面已停止工作",
+  "boundary_subtitle": "页面的一部分遇到了无法恢复的错误。你的历史记录和设置没有变化。请重新加载页面；如果再次发生，请将错误详情复制到 GitHub issue 中。",
   "show_details": "显示错误详情",
   "try_again": "重试",
   "copy_details": "复制错误详情",

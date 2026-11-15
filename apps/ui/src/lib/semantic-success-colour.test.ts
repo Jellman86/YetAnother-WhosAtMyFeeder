@@ -27,7 +27,7 @@ describe('success is a semantic colour, not the brand accent', () => {
 
     it('keeps passed and warning visually distinct in the shared diagnostic dialog', () => {
         expect(diagnosticDialogSource).toContain("stage.state === 'passed' ? 'bg-success-600");
-        expect(diagnosticDialogSource).toContain("stage.state === 'warning' ? 'bg-amber-500");
+        expect(diagnosticDialogSource).toContain("stage.state === 'warning' ? 'bg-attention-500");
         expect(diagnosticDialogSource).not.toMatch(/stage\.state === 'passed' \? 'bg-accent-/);
     });
 

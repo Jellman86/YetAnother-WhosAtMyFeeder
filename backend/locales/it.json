@@ -48,7 +48,8 @@
       "wildlife_model_unavailable": "Modello fauna selvatica non disponibile. Si prega di scaricarlo prima.",
       "reclassification_failed": "Riclassificazione fallita",
       "video_analysis_paused": "L’analisi video è temporaneamente sospesa dopo ripetuti errori di inferenza. Riprova più tardi.",
-      "video_analysis_capacity": "L’analisi video ha raggiunto la capacità massima. Riprova al termine dei processi attuali."
+      "video_analysis_capacity": "L’analisi video ha raggiunto la capacità massima. Riprova al termine dei processi attuali.",
+      "identification_changed": "Questa visita è stata modificata altrove. Ora indica {species}."
     },
     "species": {
       "unknown_bird": "Uccello Sconosciuto",

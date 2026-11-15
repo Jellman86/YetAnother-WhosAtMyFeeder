@@ -12,6 +12,7 @@
     "browser-tests/counted-birds.ts",
     "browser-tests/snapshot-candidates-race.ts",
     "browser-tests/modal-text-layout.ts",
+    "browser-tests/media-fallback.ts",
     "browser-tests/media-settings.ts",
     "browser-tests/focus.ts",
     "browser-tests/touch-targets.ts",

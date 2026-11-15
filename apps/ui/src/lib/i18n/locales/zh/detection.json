@@ -63,7 +63,7 @@
   "audio_context_empty": "附近没有音频检测",
   "audio_context_suppressed": "附近检测到音频，但来自未与此摄像头关联的麦克风。请在设置中修改传感器映射以包含该麦克风。",
   "common_name_override": "常用名",
-  "common_name_override_edit": "编辑名称",
+  "common_name_override_edit": "更改通用名称",
   "common_name_override_reset": "使用提供方名称",
   "common_name_override_saved": "常用名已更新",
   "common_name_override_cleared": "已恢复提供方常用名",
@@ -150,7 +150,7 @@
   "video_analysis": {
     "queued": "视频分析已排队",
     "preparing": "正在准备视频分析",
-    "title": "深度视频分析",
+    "title": "视频分析",
     "match": "{score}% 匹配",
     "verified_desc": "由视频中的多次观察支持。",
     "in_progress": "视频分析进行中…",
@@ -296,7 +296,7 @@
     "conversation_loading": "正在加载对话…",
     "conversation_empty": "还没有对话。向 AI 提一个后续问题吧。",
     "conversation_placeholder": "提出一个后续问题…",
-    "conversation_error": "对话失败。请重试。",
+    "conversation_error": "AI 没有回应。请在“设置 → 人工智能”中检查提供商和密钥，然后再问一次。",
     "assistant": "助手",
     "user": "你",
     "send": "发送",
@@ -414,7 +414,7 @@
   "audio_pause": "暂停音频片段",
   "audio_play": "播放音频片段",
   "audio_seek_spectrogram_aria": "点击可跳转到音频片段的对应位置",
-  "audio_spectrogram_unavailable": "此匹配没有可用的频谱图",
+  "audio_spectrogram_unavailable": "此鸣叫没有声谱图，但仍可播放。",
   "manual_upload": "通过上传添加",
   "search_species": "搜索物种",
   "species_updated": "物种已更新",
@@ -474,7 +474,6 @@
     "recording": "根据录像帧中 Frigate 跟踪的鸟识别",
     "snapshot": "根据快照中 Frigate 跟踪的鸟识别",
     "crop": "根据鸟类裁剪图像识别",
-    "unknown": "未记录识别来源",
     "original": "最初识别"
   },
   "frame_scan": {
@@ -495,5 +494,6 @@
   "move_to_garden_failed": "无法将此记录移至花园：{message}",
   "domestic_bird_declared": "这是您饲养的家禽（{bird}）。将其移至花园即可记录为花园动物。此鸟类记录会被隐藏，而不是删除。",
   "move_to_garden": "移至花园",
-  "range_fallback": "分布范围筛选：模型最初给出的是 {original}（{score}%），eBird 从未在 {region} 记录过，因此保留了它在分布范围内的下一个答案。"
+  "range_fallback": "分布范围筛选：模型最初给出的是 {original}（{score}%），eBird 从未在 {region} 记录过，因此保留了它在分布范围内的下一个答案。",
+  "audio_context_all": "此次到访前后听到的所有鸣叫"
 }

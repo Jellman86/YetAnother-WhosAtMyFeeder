@@ -91,7 +91,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'explorer': return $_('nav.explorer', { default: 'Explorer' });
           case 'add_observation': return $_('nav.add_observation', { default: 'Add observation' });
           case 'leaderboard': return $_('nav.leaderboard', { default: 'Leaderboard' });
-          case 'audio_history': return $_('nav.audio_history', { default: 'Audio History' });
+          case 'audio_history': return $_('nav.audio_history', { default: 'Audio history' });
           case 'notifications': return $_('nav.notifications', { default: 'Notifications' });
           case 'settings': return $_('settings.title', { default: 'Settings' });
           case 'model_evaluation': return 'Model Evaluation';
@@ -101,12 +101,12 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   });
   let pageSubtitle = $derived.by(() => {
       switch (routeId) {
-          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
+          case 'dashboard': return $_('page_subtitle.dashboard', { default: 'The last 24 hours at your feeder, and anything waiting on you.' });
           case 'explorer': return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
           case 'add_observation': return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
-          case 'leaderboard': return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
-          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
-          case 'notifications': return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
+          case 'leaderboard': return $_('page_subtitle.species', { default: 'Which birds visit most, how often, and when.' });
+          case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Calls BirdNET-Go has heard, by species and source.' });
+          case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
           case 'settings': return $_('page_subtitle.settings', { default: 'Connections, classification, integrations, and personalization.' });
           case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
           case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
@@ -829,7 +829,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
               onToggleTheme={() => themeStore.toggle()}
               theme={themeStore.theme}
               appTitle={$_('app.title')}
-              toggleMenuLabel={$_('nav.toggle_menu', { default: 'Toggle menu' }) || 'Toggle menu'}
+              toggleMenuLabel={$_('nav.toggle_menu', { default: 'Menu' })}
               switchThemeLabel={themeStore.theme === 'dark'
                   ? ($_('theme.switch_light', { default: 'Switch to light mode' }) || 'Switch to light mode')
                   : ($_('theme.switch_dark', { default: 'Switch to dark mode' }) || 'Switch to dark mode')}

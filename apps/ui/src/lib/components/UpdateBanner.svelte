@@ -35,7 +35,7 @@
                     <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-bold underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.release_notes', { default: 'Release notes →' })}
                     </a>
-                    <button type="button" onclick={dismiss} class="ml-2 font-bold uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
+                    <button type="button" onclick={dismiss} class="ml-2 font-bold underline underline-offset-2 hover:opacity-80">
                         {$_('update_banner.dismiss', { default: 'Dismiss' })}
                     </button>
                 </div>

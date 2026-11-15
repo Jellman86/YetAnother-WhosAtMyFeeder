@@ -72,8 +72,8 @@ export function syncBackfillJobProgress(
         ? normalizedTotal
         : (status.status === 'running' ? 0 : processed);
     const title = kind === 'weather'
-        ? t('jobs.kind_weather_backfill', 'Weather Backfill')
-        : t('jobs.kind_backfill', 'Detection Backfill');
+        ? t('jobs.kind_weather_backfill', 'Weather backfill')
+        : t('jobs.kind_backfill', 'Detection backfill');
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,

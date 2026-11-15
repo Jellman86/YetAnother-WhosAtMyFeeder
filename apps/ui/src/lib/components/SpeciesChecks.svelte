@@ -45,8 +45,8 @@
     <section class="panel flex flex-col gap-5" aria-labelledby="spotlight-checks-title" data-spotlight-checks>
         <div class="flex flex-col gap-5 lg:flex-row lg:items-center">
             <div class="min-w-0 lg:w-96 lg:shrink-0">
-                <p class="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">
-                    <span class="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
+                <p class="flex items-center gap-2 text-sm font-bold text-attention-700 dark:text-attention-300">
+                    <span class="h-2 w-2 rounded-full bg-attention-500" aria-hidden="true"></span>{$_('leaderboard.spotlight_needs_check', { default: 'Needs a check' })}
                 </p>
                 <h3 id="spotlight-checks-title" class="mt-1 font-display text-2xl font-bold text-slate-900 dark:text-white">
                     {$_('leaderboard.check.entry_title', { values: { count: checks.length }, default: '{count} species may be misnamed' })}
@@ -71,7 +71,7 @@
                             onclick={() => (oncheck ? oncheck(row.key) : onopen(row.key))}
                         >
                             {#if thumb}
-                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-amber-400 group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
+                                <img src={thumb.url} alt="" loading="lazy" decoding="async" class="h-28 w-28 rounded-2xl object-cover ring-1 ring-line transition group-hover:ring-2 group-hover:ring-brand-400 group-focus-visible:ring-4 group-focus-visible:ring-focus" onerror={() => markFailed(thumb.raw)} />
                             {:else}
                                 <span class="block h-28 w-28 rounded-2xl bg-surface-raised ring-1 ring-line" aria-hidden="true"></span>
                             {/if}

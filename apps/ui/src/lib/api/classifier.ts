@@ -63,12 +63,46 @@ export async function reclassifyDetection(eventId: string, strategy: 'snapshot' 
     return handleResponse<ReclassifyResult>(response);
 }
 
-export async function updateDetectionSpecies(eventId: string, displayName: string): Promise<UpdateDetectionResult> {
+/** What a detection reads now, when a decision was taken on an identification that has since changed. */
+export type CurrentIdentification = components['schemas']['CurrentIdentification'];
+/** The 409 body of PATCH /api/events/{event_id}, as the API declares it. */
+type IdentificationChangedResponse = components['schemas']['IdentificationChangedResponse'];
+
+/** The server refused a decision because the visit was changed elsewhere after it was shown. */
+export class IdentificationChangedError extends Error {
+    readonly status = 409;
+    readonly current: CurrentIdentification;
+
+    constructor(message: string, current: CurrentIdentification) {
+        super(message);
+        this.name = 'IdentificationChangedError';
+        this.current = current;
+    }
+}
+
+function isIdentificationChanged(payload: unknown): payload is IdentificationChangedResponse {
+    if (typeof payload !== 'object' || payload === null || !('detail' in payload)) return false;
+    const detail = (payload as { detail: unknown }).detail;
+    return typeof detail === 'object' && detail !== null && (detail as { code?: unknown }).code === 'identification_changed';
+}
+
+/**
+ * Sets a detection's species. `shownCategoryName` is the identification the owner was looking at:
+ * given, the server applies the change only while the detection still carries it, and otherwise
+ * refuses with what it says now (IdentificationChangedError).
+ */
+export async function updateDetectionSpecies(eventId: string, displayName: string, shownCategoryName?: string | null): Promise<UpdateDetectionResult> {
+    const body: components['schemas']['UpdateDetectionRequest'] = { display_name: displayName };
+    if (shownCategoryName) body.expected_category_name = shownCategoryName;
     const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(eventId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: displayName }),
+        body: JSON.stringify(body),
     });
+    if (response.status === 409) {
+        const payload: unknown = await response.clone().json().catch(() => null);
+        if (isIdentificationChanged(payload)) throw new IdentificationChangedError(payload.detail.message, payload.detail.current);
+    }
     return handleResponse<UpdateDetectionResult>(response);
 }
 

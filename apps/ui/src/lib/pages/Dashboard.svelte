@@ -26,12 +26,13 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
+    import { deleteDetection, hideDetection, IdentificationChangedError, updateDetectionSpecies, fetchAudioSummary, fetchDailySummary, reclassifyDetection, fetchReviewQueue, updateSettings, fetchLeaderboardSpecies, fetchAudioSpeciesLeaderboard } from '../api';
     import { readRangeCheck, SPECIES_CHECKS_LINK, type RangeCheckReading } from '../leaderboard/species-checks';
     import { needsYourCall, type ReadingStatus, type SpeciesChecksView } from '../utils/needs-your-call';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { DomesticBirdOffers } from '../utils/domestic-bird-offers.svelte';
     import { getBirdNames } from '../naming';
+    import { videoHeadingFor, type VideoHeading } from '../components/video-heading';
     import { settingsStore } from '../stores/settings.svelte';
     import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -91,6 +92,7 @@
     // Video playback state
     let showVideo = $state(false);
     let videoEventId = $state<string | null>(null);
+    let videoHeading = $state<VideoHeading | null>(null);
     let videoPlayIntent = $state<'auto' | 'user'>('auto');
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
@@ -134,11 +136,19 @@
 
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
-            const result = await updateDetectionSpecies(detection.frigate_event, species);
+            // The queue shows a snapshot; the server applies this only while the visit still reads as shown.
+            const result = await updateDetectionSpecies(detection.frigate_event, species, detection.category_name);
             detectionsStore.recordOwnerSpeciesChoice(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
             loadReviewQueue();
         } catch (e) {
+            if (e instanceof IdentificationChangedError) {
+                // Changed elsewhere: say what it reads now, and show that rather than the old copy.
+                detectionsStore.updateDetection({ ...detection, ...e.current });
+                toastStore.show(e.message, 'info');
+                loadReviewQueue();
+                throw e;
+            }
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
         }
@@ -682,7 +692,7 @@
                 canIdentify={canReview}
                 onselect={openRecord}
                 onidentify={openRecord}
-                onplay={(detection) => { videoEventId = detection.frigate_event; showVideo = true; }}
+                onplay={(detection) => { videoEventId = detection.frigate_event; videoHeading = videoHeadingFor(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary); showVideo = true; }}
                 onseeall={() => onnavigate?.(gardenVisits.length > 0 ? '/events?visitors=all' : '/events')}
             />
         </div>
@@ -795,6 +805,7 @@
                     onFetchFullVisit={selectedEventFullVisitHandler}
                     onPlayVideo={(frigateEvent: string, playIntent: 'auto' | 'user' = 'auto') => {
                         videoEventId = frigateEvent;
+                        videoHeading = selectedEvent ? videoHeadingFor(selectedEvent, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary) : null;
                         videoPlayIntent = playIntent;
                         showVideo = true;
                         selectedEvent = null;
@@ -842,6 +853,7 @@
             {#if videoEventId}
                 <VideoPlayer
                     frigateEvent={videoEventId}
+                    heading={videoHeading}
                     playIntent={videoPlayIntent}
                     initialFullVisitPromoted={fullVisitFetchState[videoEventId] === 'ready'}
                     onClose={() => {

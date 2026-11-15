@@ -7,7 +7,7 @@
 
     const STATUS_BADGE: Record<SetupSectionStatus, string> = {
         ok: 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200',
-        attention: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+        attention: 'bg-attention-100 text-attention-800 dark:bg-attention-900/30 dark:text-attention-200',
         optional: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
     };
 
@@ -138,7 +138,7 @@
         </div>
     {:else}
     {#if setupWizardStore.refreshFailed}
-        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-amber-500 bg-amber-50/70 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/20 dark:text-amber-200">
+        <div role="alert" class="flex flex-wrap items-center justify-between gap-2 border-l-2 border-attention-500 bg-attention-50/70 px-3 py-2 text-sm text-attention-800 dark:bg-attention-950/20 dark:text-attention-200">
             <span>{$_('setup.review.stale', { default: 'Showing the last setup summary because the latest refresh failed.' })}</span>
             <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setupWizardStore.refresh()}>{$_('common.retry', { default: 'Retry' })}</button>
         </div>

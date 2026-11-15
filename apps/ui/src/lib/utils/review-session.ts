@@ -49,6 +49,16 @@ export function advance(session: ReviewSession, outcome: ReviewOutcome): ReviewS
     );
 }
 
+/**
+ * The visit in hand as it reads now, when it was changed elsewhere while this session held an
+ * older copy. The session stays on it, so the owner sees the change before moving on.
+ */
+export function refreshCurrent(session: ReviewSession, changes: Partial<Detection>): ReviewSession {
+    if (!session.current) return session;
+    const items = session.items.map((item, index) => (index === session.index ? { ...item, ...changes } : item));
+    return build(items, session.index, session.resolved, session.skipped);
+}
+
 export function remaining(session: ReviewSession): number {
     return Math.max(session.total - session.index, 0);
 }

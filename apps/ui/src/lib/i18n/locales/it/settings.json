@@ -794,7 +794,7 @@
     "audio_only": "Solo confermati audio",
     "audio_only_desc": "Avvisa solo quando l'audio BirdNET conferma il rilevamento.",
     "species_whitelist": "Whitelist specie",
-    "species_placeholder": "Aggiungi una specie (es. Cardinale Rosso)",
+    "species_placeholder": "Aggiungi una specie (es. cardinale rosso)",
     "no_species_filter": "Nessun filtro specie applicato",
     "delivery_policy": "Politica di consegna",
     "mode_title": "Modalità notifiche",
@@ -926,7 +926,7 @@
     "bot_username": "Nome utente bot",
     "test_notification": "Invia notifica test",
     "test_sending": "Invio…",
-    "bot_placeholder": "YA-WAMF Bird Bot",
+    "bot_placeholder": "YA-WAMF bot",
     "test_needs": "Inserisci l’URL del webhook per inviare un test."
   },
   "pushover": {
@@ -941,7 +941,7 @@
     "priority_normal": "Normale",
     "priority_high": "Alta",
     "priority_emergency": "Emergenza",
-    "device": "Dispositivo/i",
+    "device": "Dispositivi",
     "device_placeholder": "es. iphone,nexus5 (lascia vuoto per tutti)",
     "device_hint": "Nomi dei dispositivi separati da virgola. Lascia vuoto per inviare a tutti i dispositivi attivi.",
     "test_notification": "Invia notifica test",

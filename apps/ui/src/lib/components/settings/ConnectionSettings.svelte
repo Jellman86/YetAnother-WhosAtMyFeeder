@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../Separator.svelte';
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
@@ -317,7 +318,7 @@
             <div class="flex items-center justify-between gap-2 px-4 py-2">
                 <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                 <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-accent-700 dark:text-accent-300">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                    <span class="text-xs font-semibold text-brand-700 dark:text-brand-300">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                     <button
                         type="button"
                         class="focus-ring flex h-11 w-11 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
@@ -541,10 +542,10 @@
             <span
                 class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full
                        {recordingClipCapability?.supported
-                           ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                           ? 'bg-success-500/10 text-success-700 dark:text-success-300'
                            : recordingClipCapabilityLoading || !recordingClipCapability
                              ? 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
-                             : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}"
+                             : 'bg-attention-500/10 text-attention-700 dark:text-attention-300'}"
                 aria-hidden="true"
             >
                 {#if recordingClipCapability?.supported}
@@ -568,7 +569,7 @@
                             })}
                         </p>
                     {:else}
-                        <p class="font-semibold leading-relaxed text-amber-800 dark:text-amber-200">
+                        <p class="font-semibold leading-relaxed text-attention-800 dark:text-attention-200">
                             {getRecordingCapabilityReason(recordingClipCapability.reason)}
                         </p>
                     {/if}
@@ -578,7 +579,7 @@
                             {#each Object.entries(recordingClipCapability.ineligible_cameras) as [camera, reason]}
                                 <li>
                                     <span class="font-semibold text-slate-700 dark:text-slate-300">{camera}</span>
-                                    <span aria-hidden="true"> · </span>
+                                    <Separator />
                                     <span>{getRecordingCameraIssue(reason)}</span>
                                 </li>
                             {/each}

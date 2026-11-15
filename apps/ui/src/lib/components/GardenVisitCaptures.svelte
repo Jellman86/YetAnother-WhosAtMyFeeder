@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     /**
      * A Garden visit's captures, listed as a bird visit's are (`VisitCaptures`): opened from the
      * row or card, read a bounded page at a time, each capture with its own time to the second,
@@ -85,7 +86,7 @@
     }
 
     function scoreTone(score: number, needsReview: boolean): string {
-        if (needsReview) return 'text-amber-800 dark:text-amber-300';
+        if (needsReview) return 'text-attention-800 dark:text-attention-300';
         if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
         return 'text-success-700 dark:text-success-300';
     }
@@ -170,11 +171,11 @@
                                 <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400" data-garden-visit-capture-notes>
                                     {#if facts.shown}
                                         <span class="font-medium text-brand-700 dark:text-brand-300">{$_('visits.shown_photo', { default: 'Visit photo' })}</span>
-                                        <span aria-hidden="true">&middot;</span>
+                                        <Separator />
                                     {/if}
-                                    <span class={facts.review ? 'font-medium text-amber-800 dark:text-amber-300' : ''}>{text.state}</span>
+                                    <span class={facts.review ? 'font-medium text-attention-800 dark:text-attention-300' : ''}>{text.state}</span>
                                     {#if facts.motion}
-                                        <span aria-hidden="true">&middot;</span>
+                                        <Separator />
                                         <span>{$_('garden.explorer.capture_motion', { default: 'Motion footage' })}</span>
                                     {/if}
                                 </p>

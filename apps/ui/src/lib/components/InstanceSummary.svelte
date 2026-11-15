@@ -67,7 +67,7 @@
     const acceleration = $derived(
         classifier?.active_provider ??
             classifier?.inference_backend ??
-            $_('about.pipeline.unknown', { default: 'unknown' })
+            $_('about.pipeline.unknown', { default: 'Unknown' })
     );
 
     // The readiness probe records when this process started. There is no health history,
@@ -140,14 +140,14 @@
             {#if updateStatus?.enabled}
                 <span
                     class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold {updateStatus.update_available
-                        ? 'border-accent-300 text-accent-800 dark:border-accent-800 dark:text-accent-200'
+                        ? 'border-brand-300 text-brand-800 dark:border-brand-700 dark:text-brand-200'
                         : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
                     data-instance-update
                 >
                     <span
                         class="h-1.5 w-1.5 rounded-full {updateStatus.update_available
-                            ? 'bg-accent-500'
-                            : 'bg-emerald-500'}"
+                            ? 'bg-brand-500'
+                            : 'bg-success-500'}"
                         aria-hidden="true"
                     ></span>
                     {#if updateStatus.update_available}
@@ -172,7 +172,7 @@
 
         <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
             <div class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.acceleration', { default: 'Acceleration' })}
                 </p>
                 <p class="wrap-break-word font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
@@ -184,11 +184,11 @@
             </div>
 
             <div data-instance-uptime class="min-w-0">
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
                 <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                    {uptime ?? $_('about.pipeline.unknown', { default: 'unknown' })}
+                    {uptime ?? $_('about.pipeline.unknown', { default: 'Unknown' })}
                 </p>
 
                 {#if uptimeLoadState === 'ready' && uptimeWindow}
@@ -220,9 +220,9 @@
                         {#each uptimeWindow.buckets as bucket (bucket.start)}
                             <span
                                 class="h-4 min-w-0 flex-1 rounded-[2px] {bucket.state === 'up'
-                                    ? 'bg-emerald-500/80'
+                                    ? 'bg-success-500/80'
                                     : bucket.state === 'down'
-                                      ? 'bg-accent-500'
+                                      ? 'bg-rose-500'
                                       : 'bg-slate-200 dark:bg-slate-700'}"
                                 title={`${formatTime(bucket.start)} · ${bucket.state}`}
                             ></span>
@@ -290,7 +290,7 @@
             </div>
 
             <div class="min-w-0" data-instance-report>
-                <p class="text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 wrap-anywhere dark:text-slate-400">
+                <p class="text-2xs font-semibold text-slate-600 wrap-anywhere dark:text-slate-400">
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
                 <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">

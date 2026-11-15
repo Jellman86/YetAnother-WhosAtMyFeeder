@@ -1,4 +1,6 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
+    import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import { onDestroy, untrack } from 'svelte';
     import { dismissSnapshotCandidate, applySnapshotCandidate, fetchFeederSpecies, fetchSnapshotCandidates, getSnapshotUrl, getThumbnailUrl, searchSpecies } from '../api';
@@ -21,7 +23,8 @@
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import { toastStore } from '../stores/toast.svelte';
     import { confirmAction } from '../stores/confirm_dialog.svelte';
-    import { advance, createReviewSession, type ReviewSession } from '../utils/review-session';
+    import { advance, createReviewSession, refreshCurrent, type ReviewSession } from '../utils/review-session';
+    import { IdentificationChangedError } from '../api/classifier';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { lockDocumentScroll } from '../utils/document-scroll-lock';
@@ -29,7 +32,7 @@
     import { SCORE_TEXT_ON_MEDIA, scoreBand } from '../utils/score-tone';
     import { findMatchingFullFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
-    import type { ReviewReason } from '../utils/review-queue';
+    import { reviewSuggestion, type ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -389,6 +392,10 @@
         try {
             await onidentify(current, species);
             session = advance(session, 'resolved');
+        } catch (error) {
+            // Someone else decided first: stay on the visit and show what it says now.
+            if (error instanceof IdentificationChangedError) session = refreshCurrent(session, error.current);
+            else throw error;
         } finally {
             busy = false;
         }
@@ -494,14 +501,7 @@
                 </p>
             </div>
 
-            <button
-                type="button"
-                class="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
-                aria-label={$_('common.close', { default: 'Close' })}
-                onclick={onclose}
-            >
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
-            </button>
+            <DialogCloseButton class="ml-auto" onclick={onclose} />
 
             <!-- Progress rides the header's own rule, on every screen size; the words above say it too. -->
             <div class="absolute inset-x-0 -bottom-px h-0.5" aria-hidden="true">
@@ -548,7 +548,9 @@
         {:else if session.current}
             {@const current = session.current}
             {@const naming = getBirdNames(current, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary)}
-            {@const isNewSpecies = reasons?.get(current.frigate_event) === 'new_species'}
+            {@const reason = reasons?.get(current.frigate_event) ?? 'low_score'}
+            {@const isNewSpecies = reason === 'new_species'}
+            {@const suggestion = reviewSuggestion(current, reason)}
             <!-- A column on phones: the media block keeps its own height and never overlaps the
                  rail beneath it. The two-column grid only applies where there is room. -->
             <div class="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
@@ -600,11 +602,11 @@
                             ></button>
                             {#if sceneReady && wholeScene.outline}
                                 <div
-                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-sky-300 {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
+                                    class="pointer-events-none absolute z-20 rounded-xs border-2 border-solid border-evidence {wholeScene.otherOutlines.length === 0 ? 'shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]' : ''}"
                                     style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-review-whole-scene-outline
                                     aria-hidden="true"
-                                ><span class="absolute left-0 top-0 rounded-sm bg-sky-300 px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
+                                ><span class="absolute left-0 top-0 rounded-sm bg-evidence px-1.5 py-0.5 text-3xs font-bold text-slate-950">{$_('detection.frame_chosen_badge', { default: 'Chosen' })}</span></div>
                                 {#each wholeScene.otherOutlines as outline}
                                     <div
                                         class="pointer-events-none absolute z-10 rounded-xs border-2 border-dashed border-white/90"
@@ -636,15 +638,15 @@
                             {/if}
                             <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-2xs text-slate-400">
                                 <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span>{current.camera_name}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span class="font-semibold tabular-nums {SCORE_TEXT_ON_MEDIA[scoreBand(current.score)]}">
                                     <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
                                     {Math.round((current.score ?? 0) * 100)}%
                                 </span>
                                 {#if current.weather_condition}
-                                    <span aria-hidden="true">&middot;</span>
+                                    <Separator />
                                     <span>{current.weather_condition}</span>
                                 {/if}
                             </p>
@@ -704,19 +706,21 @@
                         </span>
                     </p>
 
-                    {#if isNewSpecies}
-                        <div class="flex flex-wrap gap-2" data-review-new-species-actions>
+                    <!-- The model's own name is the likeliest answer, so it is one step away; the list below
+                         is for a different species. A visit with no species has nothing to confirm. -->
+                    {#if suggestion}
+                        <div class="flex flex-wrap gap-2" data-review-suggestion-actions>
                             <button
                                 class="btn btn-primary min-h-11 flex-1 px-3 py-2 text-xs"
                                 disabled={busy}
-                                onclick={() => identify(current.display_name)}
+                                onclick={() => identify(suggestion)}
                             >
                                 {$_('dashboard.review_session.confirm_species', {
-                                    values: { species: current.display_name },
+                                    values: { species: naming.primary || suggestion },
                                     default: 'Confirm {species}'
                                 })}
                             </button>
-                            {#if onblock}
+                            {#if isNewSpecies && onblock}
                                 <button
                                     class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
                                     disabled={busy}
@@ -740,7 +744,7 @@
                         />
                     </label>
 
-                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
+                    <p id="review-species-choices" class="-mb-1 text-2xs font-semibold text-slate-600 dark:text-slate-400">
                         {searching
                             ? $_('dashboard.review_session.all_species', { default: 'All species' })
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}

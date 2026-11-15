@@ -2,7 +2,7 @@
   "title": "仪表盘",
   "live_feed": "实时画面",
   "showing_last_3_days": "显示最近3天",
-  "no_detections": "暂无检测",
+  "no_detections": "过去 24 小时内没有到访。",
   "waiting_first_visitor": "过去24小时内没有到访。新的到访一出现就会显示在这里。",
   "discovery_feed": "发现动态",
   "see_full_history": "查看完整历史",
@@ -23,7 +23,7 @@
     "audio": "音频"
   },
   "histogram": {
-    "title": "活动脉冲",
+    "title": "活动",
     "visits_per_hour": "每小时到访次数（过去24小时）",
     "peak": "{count, plural, other {{time} 最繁忙，# 次到访}}",
     "now": "现在",

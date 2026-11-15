@@ -161,7 +161,7 @@
                                 {/if}
                                 {#if conflicts.length > 0}
                                     <div class="space-y-1.5 text-sm text-slate-700 dark:text-slate-200" data-draft-conflicts>
-                                        <p class="font-semibold text-amber-800 dark:text-amber-200" id="settings-conflicts-note">{$_('settings.save_bar.conflicts', {
+                                        <p class="font-semibold text-attention-800 dark:text-attention-200" id="settings-conflicts-note">{$_('settings.save_bar.conflicts', {
                                             values: { count: conflicts.length },
                                             default: '{count, plural, one {A setting you changed was also changed elsewhere. Choose which value to keep before saving:} other {# settings you changed were also changed elsewhere. Choose which value to keep before saving:}}'
                                         })}</p>

@@ -9,5 +9,5 @@
 </script>
 
 {#if refusal}
-    <p {id} class="mt-1.5 text-xs font-semibold {refusal.conflict ? 'text-amber-800 dark:text-amber-200' : 'text-red-700 dark:text-red-300'}" data-field-error={refusal.field} data-field-conflict={refusal.conflict ? refusal.field : undefined}>{$_(refusal.key, { values: refusal.values, default: refusal.fallback })}</p>
+    <p {id} class="mt-1.5 text-xs font-semibold {refusal.conflict ? 'text-attention-800 dark:text-attention-200' : 'text-red-700 dark:text-red-300'}" data-field-error={refusal.field} data-field-conflict={refusal.conflict ? refusal.field : undefined}>{$_(refusal.key, { values: refusal.values, default: refusal.fallback })}</p>
 {/if}

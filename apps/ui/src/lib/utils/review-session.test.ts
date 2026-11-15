@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
-import { advance, createReviewSession, remaining } from './review-session';
+import { advance, createReviewSession, refreshCurrent, remaining } from './review-session';
 
 function detection(id: string): Detection {
     return {
@@ -71,5 +71,25 @@ describe('review session', () => {
     it('knows how many are still ahead', () => {
         expect(remaining(createReviewSession(queue))).toBe(3);
         expect(remaining(advance(createReviewSession(queue), 'skipped'))).toBe(2);
+    });
+});
+
+describe('refreshCurrent', () => {
+    it('shows what a visit says now, in place, without moving the session on', () => {
+        const items = [
+            { frigate_event: 'a', display_name: 'Eurasian Bullfinch', category_name: 'Pyrrhula pyrrhula' },
+            { frigate_event: 'b', display_name: 'Dunnock', category_name: 'Prunella modularis' }
+        ] as Detection[];
+        const session = createReviewSession(items);
+        const refreshed = refreshCurrent(session, { display_name: 'Common Chaffinch', category_name: 'Fringilla coelebs', manual_tagged: true });
+        expect(refreshed.current).toMatchObject({ frigate_event: 'a', display_name: 'Common Chaffinch', category_name: 'Fringilla coelebs', manual_tagged: true });
+        expect(refreshed.position).toBe(1);
+        expect(refreshed.resolved).toBe(0);
+        expect(refreshed.items[1]).toBe(items[1]);
+    });
+
+    it('leaves a finished session alone', () => {
+        const done = advance(createReviewSession([{ frigate_event: 'a' } as Detection]), 'resolved');
+        expect(refreshCurrent(done, { display_name: 'Robin' })).toBe(done);
     });
 });

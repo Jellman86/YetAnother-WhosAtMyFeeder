@@ -17,7 +17,7 @@ describe('the status band states the in-process fallback in words', () => {
         expect(bandSource).toContain("settings.detection.band_worker_fallback'");
         expect(bandSource).toContain("settings.detection.band_worker_fallback_detail'");
         const fallbackBlock = bandSource.slice(bandSource.indexOf('workerFallbackActive}'));
-        expect(fallbackBlock).toContain('text-amber-700');
+        expect(fallbackBlock).toContain('text-attention-700');
     });
 });
 

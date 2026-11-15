@@ -98,9 +98,6 @@
     id="main-content"
     class="relative flex min-h-screen items-center justify-center overflow-hidden bg-surface-light px-4 py-10 text-slate-900 dark:bg-surface-dark dark:text-white sm:px-6"
 >
-    <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-transparent" aria-hidden="true"></div>
-    <div class="pointer-events-none absolute -right-24 top-1/3 h-64 w-64 rounded-full bg-accent-100/40 blur-3xl dark:bg-accent-950/20" aria-hidden="true"></div>
-
     <section
         class="relative w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-xl ring-1 ring-slate-900/5 dark:border-slate-700/70 dark:bg-slate-900/95 dark:ring-white/5"
         role={showingUnavailable || startupFailed ? 'alert' : 'status'}
@@ -118,10 +115,10 @@
                 </div>
             </div>
 
-            <div class="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold {attentionNeeded ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-200' : 'border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-800/70 dark:bg-brand-950/40 dark:text-brand-200'}">
+            <div class="inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold {attentionNeeded ? 'border-attention-200 bg-attention-50 text-attention-800 dark:border-attention-800/70 dark:bg-attention-950/40 dark:text-attention-200' : 'border-brand-200 bg-brand-50 text-brand-800 dark:border-brand-800/70 dark:bg-brand-950/40 dark:text-brand-200'}">
                 <span class="relative flex h-2 w-2" aria-hidden="true">
-                    <span class="absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping {attentionNeeded ? 'bg-amber-500' : 'bg-brand-500'}"></span>
-                    <span class="relative inline-flex h-2 w-2 rounded-full {attentionNeeded ? 'bg-amber-600 dark:bg-amber-400' : 'bg-brand-600 dark:bg-brand-400'}"></span>
+                    <span class="absolute inline-flex h-full w-full rounded-full opacity-60 motion-safe:animate-ping {attentionNeeded ? 'bg-attention-500' : 'bg-brand-500'}"></span>
+                    <span class="relative inline-flex h-2 w-2 rounded-full {attentionNeeded ? 'bg-attention-600 dark:bg-attention-400' : 'bg-brand-600 dark:bg-brand-400'}"></span>
                 </span>
                 {startupActive
                     ? $_('auth.status_starting_badge', { default: 'Starting' })
@@ -184,7 +181,7 @@
                                 aria-valuenow={startupProgress}
                             >
                                 <div
-                                    class="h-full w-full origin-left transform-gpu rounded-full motion-safe:transition-transform motion-safe:duration-300 {startupFailed ? 'bg-amber-500 dark:bg-amber-400' : 'bg-brand-600 dark:bg-brand-400'}"
+                                    class="h-full w-full origin-left transform-gpu rounded-full motion-safe:transition-transform motion-safe:duration-300 {startupFailed ? 'bg-attention-500 dark:bg-attention-400' : 'bg-brand-600 dark:bg-brand-400'}"
                                     style={`transform: scaleX(${startupProgress / 100})`}
                                 ></div>
                             </div>

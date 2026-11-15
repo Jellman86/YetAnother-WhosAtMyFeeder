@@ -1,10 +1,10 @@
 {
-  "audio_history": "Sfoglia i rilevamenti BirdNET-Go salvati e l'attività solo audio.",
+  "audio_history": "I richiami sentiti da BirdNET-Go, per specie e fonte.",
   "about": "Versione, changelog, collaboratori e link al supporto.",
-  "dashboard": "Rilevamenti in tempo reale, attività recente e salute della mangiatoia a colpo d'occhio.",
+  "dashboard": "Le ultime 24 ore alla tua mangiatoia e tutto ciò che aspetta una tua decisione.",
   "events": "Sfoglia, filtra e gestisci ogni visita classificata.",
   "add_observation": "Classifica una foto o un video, verifica gli indizi e aggiungilo alla cronologia.",
-  "notifications": "Avvisi, promemoria e job attivi in background.",
+  "notifications": "Visite, avvisi e attività in background, dalle più recenti.",
   "settings": "Connessioni, classificazione, integrazioni e personalizzazione.",
-  "species": "Classifica, totali e dettagli tassonomici degli uccelli avvistati."
+  "species": "Quali uccelli vengono di più, quanto spesso e quando."
 }

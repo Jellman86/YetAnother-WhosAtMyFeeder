@@ -1,5 +1,5 @@
 {
-  "title": "Keyboard Shortcuts",
+  "title": "Keyboard shortcuts",
   "navigation": "Navigation",
   "actions": "Actions",
   "open_panel": "Open shortcuts panel",
@@ -8,6 +8,9 @@
   "go_species": "Go to Leaderboard",
   "go_notifications": "Go to Notifications",
   "go_settings": "Go to Settings",
-  "close_modal": "Close modal",
-  "refresh": "Refresh page"
+  "close_modal": "Close the dialog",
+  "refresh": "Refresh page",
+  "previous_day": "Previous day",
+  "next_day": "Next day",
+  "all_days": "Show every day"
 }

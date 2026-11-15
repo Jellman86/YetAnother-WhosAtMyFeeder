@@ -75,8 +75,8 @@ const COUNT_BEFORE_INVARIANT_WORD = new Set([
 ]);
 
 const COUNT_BEFORE_WORD = /\{count\}\s+[\p{L}{]/u;
-/** "sighting(s)", "Tag(e)", "giorno(i)": a word that guesses at its own plural beside a placeholder. */
-const BRACKETED_PLURAL = /\p{L}\((?:s|e|en|i)\)/u;
+/** "sighting(s)", "Tag(e)", "giorno(i)", "обнаружен(а)": a word that guesses at its own plural or gender. */
+const BRACKETED_PLURAL = /\p{L}\((?:s|es|e|en|n|i|x|а|ы|и|ов|ей)\)/u;
 
 type Ast = ReturnType<ReturnType<typeof getMessageFormatter>['getAst']>;
 type AstElement = Ast[number];
@@ -151,10 +151,10 @@ describe('counted strings', () => {
         expect(fixed).toEqual([]);
     });
 
-    it('never guess at a plural with brackets beside a placeholder', () => {
+    it('never guess at a plural or a gender with brackets, beside a placeholder or not', () => {
         for (const [localeName, messages] of LOCALES) {
             const guessed = leaves(messages)
-                .filter(([, value]) => /\{\w+[},]/.test(value) && BRACKETED_PLURAL.test(value))
+                .filter(([, value]) => BRACKETED_PLURAL.test(value))
                 .map(([key, value]) => `${localeName} ${key}: ${value}`);
             expect(guessed).toEqual([]);
         }

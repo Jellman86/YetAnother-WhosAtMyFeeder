@@ -926,7 +926,7 @@
     "bot_username": "机器人名称",
     "test_notification": "发送测试通知",
     "test_sending": "发送中…",
-    "bot_placeholder": "YA-WAMF Bird Bot",
+    "bot_placeholder": "YA-WAMF bot",
     "test_needs": "请输入 Webhook 地址以发送测试。"
   },
   "pushover": {

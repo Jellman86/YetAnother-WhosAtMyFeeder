@@ -55,7 +55,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
         </svg>
         {#if !compact}
-            <span class="text-xs font-bold uppercase tracking-wider">{languageNames[currentLocaleValue || 'en'] || 'English'}</span>
+            <span class="text-xs font-bold">{languageNames[currentLocaleValue || 'en'] || 'English'}</span>
         {/if}
     </button>
 
@@ -86,7 +86,7 @@
                     </button>
                 {/each}
                 {#if languageError}
-                    <p class="px-3 py-2 text-xs font-medium leading-5 text-amber-700 dark:text-amber-300" role="alert">
+                    <p class="px-3 py-2 text-xs font-medium leading-5 text-attention-700 dark:text-attention-300" role="alert">
                         {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
                     </p>
                 {/if}

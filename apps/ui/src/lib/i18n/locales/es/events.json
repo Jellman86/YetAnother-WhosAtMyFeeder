@@ -48,7 +48,7 @@
     "confidence": "Confianza"
   },
   "empty_title": "Sin eventos todavía",
-  "empty_desc": "Ejecuta un backfill o espera nuevas detecciones.",
+  "empty_desc": "Las visitas aparecen aquí cuando tus cámaras identifican aves. Para traer eventos antiguos de Frigate, ejecuta una importación desde Ajustes → Datos.",
   "load_failed": "No se pudieron cargar las visitas. Tu historial no ha cambiado.",
   "bulk_tag_partial": "{count, plural, one {# evento seleccionado no se actualizó.} other {# eventos seleccionados no se actualizaron.}}",
   "bulk_delete_confirm": "¿Eliminar {count, plural, one {# detección} other {# detecciones}}? Esta acción no se puede deshacer.",
@@ -57,9 +57,7 @@
   "bulk_delete_failed": "Error al eliminar: {message}",
   "bulk_reclassify_success": "{count, plural, one {Se puso en cola # detección para análisis de video.} other {Se pusieron en cola # detecciones para análisis de video.}}",
   "bulk_reclassify_partial": "En cola: {queued}; no se pudieron poner en cola: {failed}.",
-  "classification_legend": "Fuentes de clasificación: Manual, Vídeo, Instantánea",
   "timeline_scope": "Días en esta página",
-  "timeline_keyboard_hint": "Teclado de línea de tiempo: [ día anterior, ] día siguiente, 0 restablecer",
   "row_open": "Abrir {species}",
   "row_select": "Seleccionar {species}",
   "row_below_threshold": "Por debajo del umbral de identificación",
@@ -139,5 +137,6 @@
   "count_unavailable": "Recuento no disponible",
   "results_loading": "Cargando resultados…",
   "selection_count": "{count, plural, =0 {Ninguna captura seleccionada} one {# captura seleccionada} other {# capturas seleccionadas}}",
-  "settings_unavailable": "No se pudieron cargar tus ajustes, así que el Explorador no sabe qué visitantes mostrar. No se ha cambiado nada. Vuelve a intentarlo en un momento."
+  "settings_unavailable": "No se pudieron cargar tus ajustes, así que el Explorador no sabe qué visitantes mostrar. No se ha cambiado nada. Vuelve a intentarlo en un momento.",
+  "bulk_tag_applied": "{species} asignada a {count, plural, one {# registro} other {# registros}}"
 }

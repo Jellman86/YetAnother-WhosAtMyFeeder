@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
   "reclassify_no_result": "Es wurde kein ausreichend zuverlässiges Ergebnis gefunden. Die bestehende Bestimmung wurde beibehalten.",
-  "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",
+  "reclassify_failed": "Die Neuklassifizierung lief nicht: {message}. Versuche es im Datensatz erneut.",
   "hide_failed": "Dieser Besuch konnte nicht ausgeblendet werden: {message}",
   "delete_failed": "Dieser Besuch konnte nicht gelöscht werden: {message}",
   "settings_saved": "Einstellungen erfolgreich gespeichert!",
@@ -58,7 +58,7 @@
   "window_label": "Heute",
   "count_events": "{count, plural, one {Ereignis} other {Ereignisse}}",
   "count_unread": "ungelesen",
-  "owner_only": "Betreiber",
+  "owner_only": "Nur für dich sichtbar",
   "empty_title": "Bisher ist nichts passiert",
   "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, und Hintergrundarbeiten während sie laufen. Neueste zuerst.",
   "empty_action": "Feldprotokoll öffnen",

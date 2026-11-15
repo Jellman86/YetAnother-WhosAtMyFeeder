@@ -1,6 +1,6 @@
 {
-  "boundary_title": "Etwas ist schiefgelaufen",
-  "boundary_subtitle": "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut oder kontaktiere den Support, wenn das Problem weiterhin besteht.",
+  "boundary_title": "Diese Seite funktioniert nicht mehr",
+  "boundary_subtitle": "Ein Teil der Seite ist auf einen Fehler gestoßen, von dem er sich nicht erholen konnte. Verlauf und Einstellungen sind unverändert. Lade die Seite neu; tritt der Fehler erneut auf, kopiere die Fehlerdetails in ein GitHub-Issue.",
   "show_details": "Fehlerdetails anzeigen",
   "try_again": "Erneut versuchen",
   "copy_details": "Fehlerdetails kopieren",

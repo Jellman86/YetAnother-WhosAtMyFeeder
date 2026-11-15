@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from '../DialogCloseButton.svelte';
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fade } from 'svelte/transition';
@@ -101,9 +102,7 @@
                         <span class="text-slate-700 dark:text-slate-200">· {stepName(step.id)}</span>
                     </span>
                     {#if canExit}
-                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus-ring dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
-                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
+                        <DialogCloseButton label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()} />
                     {:else}
                         <button
                             type="button"
@@ -131,7 +130,7 @@
         </div>
 
         {#if skipConfirming}
-            <div class="border-b border-slate-200 bg-amber-50/70 px-6 py-4 dark:border-slate-700 dark:bg-amber-950/20" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
+            <div class="border-b border-slate-200 bg-attention-50/70 px-6 py-4 dark:border-slate-700 dark:bg-attention-950/20" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
                 <p id="skip-setup-title" class="text-sm font-bold text-slate-900 dark:text-white">
                     {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
                 </p>

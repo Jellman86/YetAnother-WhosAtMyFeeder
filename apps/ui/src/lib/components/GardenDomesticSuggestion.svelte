@@ -35,7 +35,7 @@
         </p>
         <div class="flex flex-wrap gap-2">
             <a href={toAppPath('/settings/beta')} class="btn btn-secondary inline-flex min-h-11 items-center px-3 text-xs">
-                {$_('garden.domestic_birds.suggestion_open', { default: 'Open Domestic birds you keep' })}
+                {$_('garden.domestic_birds.suggestion_open', { default: 'Open “Domestic birds you keep”' })}
             </a>
             <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={notNow}>
                 {$_('garden.domestic_birds.suggestion_dismiss', { default: 'Not now' })}

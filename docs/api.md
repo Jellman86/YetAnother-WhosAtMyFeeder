@@ -340,6 +340,16 @@ records the human confirmation but preserves the stored display, scientific and 
 does not create correction feedback. A different species returns `status: "updated"` after the
 canonical taxonomy and manual tag have been committed.
 
+A request may also carry `expected_category_name`: the stored identification (`category_name`) the
+owner was shown, as the review queue sends it. The change then applies only while the detection
+still carries that identification, checked in the same conditional `UPDATE`, so a correction made
+elsewhere in the meantime is never overwritten. Otherwise the answer is `409` with
+`detail: {"code": "identification_changed", "message": "This visit was changed elsewhere. It now
+reads …", "current": {"display_name", "category_name", "scientific_name", "common_name",
+"manual_tagged"}}` and nothing is written. The OpenAPI schema declares this body as
+`IdentificationChangedResponse`, so generated clients type it. Without the field, the last write wins as before; the
+record's own species picker and `PATCH /api/events/bulk/manual-tag` do not send it.
+
 Event rows and `GET /api/events/{event_id}/classification-status` expose
 `video_classification_input_source` when YA-WAMF knows which representation produced the retained
 analysis result. Current video values are `full_frame`, `frigate_hint_crop`, `model_crop`, or

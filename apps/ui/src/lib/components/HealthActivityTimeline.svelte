@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import VisitCaptures from './VisitCaptures.svelte';
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
@@ -126,14 +127,14 @@
                                 <span class="font-semibold text-brand-700 dark:text-brand-300">
                                     {$_('jobs.errors_activity_recorded', { default: 'Recorded visit' })}
                                 </span>
-                                <span aria-hidden="true">·</span>
+                                <Separator />
                                 <span>{visit.camera}</span>
                                 {#if naming.secondary}
-                                    <span aria-hidden="true">·</span>
+                                    <Separator />
                                     <span class="italic">{naming.secondary}</span>
                                 {/if}
                                 {#if visit.audioConfirmed}
-                                    <span aria-hidden="true">·</span>
+                                    <Separator />
                                     <span class="font-medium text-brand-700 dark:text-brand-300">
                                         {$_('detection.fact_heard_yes', { default: 'matching call' })}
                                     </span>
@@ -198,7 +199,7 @@
                             <p class="flex flex-wrap items-center gap-x-1.5 text-2xs font-medium leading-4 {isFault ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-400'}">
                                 {#if isFault}
                                     <span class="font-semibold">{$_('jobs.errors_activity_fault', { default: 'Pipeline fault' })}</span>
-                                    <span aria-hidden="true">·</span>
+                                    <Separator />
                                     <span>{$_(`jobs.errors_drop_reason.${drop.reason}`, { default: reasonFallback(drop.reason) })}</span>
                                 {:else}
                                     {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {

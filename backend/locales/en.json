@@ -48,7 +48,8 @@
       "wildlife_model_unavailable": "Wildlife model not available. Please download it first.",
       "reclassification_failed": "Reclassification failed",
       "video_analysis_paused": "Video analysis is temporarily paused after repeated inference failures. Try again later.",
-      "video_analysis_capacity": "Video analysis is at capacity. Try again after the current jobs finish."
+      "video_analysis_capacity": "Video analysis is at capacity. Try again after the current jobs finish.",
+      "identification_changed": "This visit was changed elsewhere. It now reads {species}."
     },
     "species": {
       "unknown_bird": "Unknown Bird",

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import { fetchCameraStatuses } from '../api';
     import type { CameraStatusResponse, Detection } from '../api';
     import type { DetectionVisit } from '../utils/visit-grouping';
@@ -186,7 +187,7 @@
             {#if conditions.latest.weather_condition}
                 <span>{conditions.latest.weather_condition}</span>
             {/if}
-            <span aria-hidden="true">·</span>
+            <Separator />
             <span>
                 {$_('dashboard.desk.temperature_span', {
                     values: {

@@ -71,13 +71,13 @@
                         {$_(`about.outbound.${item.key}_desc`)}
                     </dd>
                     <dd
-                        class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold uppercase tracking-wider {item.on
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                        class="col-start-2 row-span-2 row-start-1 shrink-0 rounded-sm px-1.5 py-0.5 text-3xs font-bold {item.on
+                            ? 'bg-success-100 text-success-800 dark:bg-success-950/50 dark:text-success-300'
                             : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}"
                     >
                         {item.on
-                            ? $_('about.pipeline.enabled', { default: 'enabled' })
-                            : $_('about.pipeline.off', { default: 'off' })}
+                            ? $_('common.enabled', { default: 'Enabled' })
+                            : $_('common.disabled', { default: 'Disabled' })}
                     </dd>
                 </div>
             {/each}

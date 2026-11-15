@@ -63,7 +63,7 @@
   "audio_context_empty": "Nenhuma detecção de áudio próxima",
   "audio_context_suppressed": "Foi detectado áudio próximo, mas em um microfone que não está associado a esta câmera. Altere o mapeamento de sensores nas Configurações para incluí-lo.",
   "common_name_override": "Nome comum",
-  "common_name_override_edit": "Editar nome",
+  "common_name_override_edit": "Alterar o nome comum",
   "common_name_override_reset": "Usar nome do provedor",
   "common_name_override_saved": "Nome comum atualizado",
   "common_name_override_cleared": "Nome comum do provedor restaurado",
@@ -150,11 +150,11 @@
   "video_analysis": {
     "queued": "Análise de vídeo na fila",
     "preparing": "A preparar a análise de vídeo",
-    "title": "Análise Profunda de Vídeo",
+    "title": "Análise de vídeo",
     "match": "{score}% Combinação",
     "verified_desc": "Sustentado por observações ao longo do vídeo.",
-    "in_progress": "Análise de Vídeo em andamento…",
-    "failed_title": "Falha na Análise de Vídeo",
+    "in_progress": "Análise de vídeo em andamento…",
+    "failed_title": "Falha na análise de vídeo",
     "errors": {
       "clip_unavailable": "Clipe indisponível. Usando análise de snapshot.",
       "clip_invalid": "Formato de clipe inválido. Usando análise de snapshot.",
@@ -286,8 +286,8 @@
     "unchanged_reason_out_of_range": "O modelo indicou uma espécie que o eBird nunca registou na sua região, por isso a identificação existente foi mantida."
   },
   "ai": {
-    "insight": "Insight do Naturalista IA",
-    "ask": "Perguntar ao Naturalista IA",
+    "insight": "Insight do naturalista IA",
+    "ask": "Perguntar ao naturalista IA",
     "analyzing": "Analisando comportamento…",
     "regenerating": "Regenerando…",
     "regenerate": "Regenerar Análise",
@@ -296,7 +296,7 @@
     "conversation_loading": "Carregando conversa…",
     "conversation_empty": "Ainda não há conversa. Faça uma pergunta de acompanhamento para a IA.",
     "conversation_placeholder": "Faça uma pergunta de acompanhamento…",
-    "conversation_error": "A conversa falhou. Tente novamente.",
+    "conversation_error": "A IA não respondeu. Verifique o fornecedor e a chave em Configurações → IA e pergunte novamente.",
     "assistant": "Assistente",
     "user": "Você",
     "send": "Enviar",
@@ -414,7 +414,7 @@
   "audio_pause": "Pausar clipe de áudio",
   "audio_play": "Reproduzir clipe de áudio",
   "audio_seek_spectrogram_aria": "Clique para ir a um ponto do clipe de áudio",
-  "audio_spectrogram_unavailable": "Espectrograma indisponível para esta correspondência",
+  "audio_spectrogram_unavailable": "Não há espectrograma deste canto. Ainda assim pode ser reproduzido.",
   "manual_upload": "Adicionado por upload",
   "search_species": "Procurar espécie",
   "species_updated": "Espécie atualizada",
@@ -474,7 +474,6 @@
     "recording": "Identificado a partir da ave seguida pelo Frigate no fotograma da gravação",
     "snapshot": "Identificado a partir da ave seguida pelo Frigate na captura",
     "crop": "Identificado a partir de um recorte da ave",
-    "unknown": "A origem da identificação não foi registada",
     "original": "Identificação original"
   },
   "frame_scan": {
@@ -495,5 +494,6 @@
   "move_to_garden_failed": "Não foi possível mover este registro para o Jardim: {message}",
   "domestic_bird_declared": "Esta é uma ave do tipo {bird}, uma ave doméstica que você cria. Mova-a para o Jardim para registrá-la como animal do jardim. Este registro de ave é ocultado, não excluído.",
   "move_to_garden": "Mover para o Jardim",
-  "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área."
+  "range_fallback": "Filtro de área: o modelo disse primeiro {original} ({score}%), que o eBird nunca registou em {region}, por isso manteve-se a resposta seguinte dentro da área.",
+  "audio_context_all": "Todos os cantos ouvidos em torno desta visita"
 }

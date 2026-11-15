@@ -1,10 +1,10 @@
 {
-  "boundary_title": "Something went wrong",
-  "boundary_subtitle": "An unexpected error occurred. Please try again or contact support if the problem persists.",
+  "boundary_title": "This page stopped working",
+  "boundary_subtitle": "Part of the page hit an error it could not recover from. Your history and settings are unchanged. Reload the page; if it happens again, copy the error details into a GitHub issue.",
   "show_details": "Show error details",
-  "try_again": "Try Again",
-  "copy_details": "Copy Error Details",
+  "try_again": "Try again",
+  "copy_details": "Copy error details",
   "copied": "Copied",
-  "reload_page": "Reload Page",
+  "reload_page": "Reload page",
   "deploy_refresh_required": "YA-WAMF was updated while this tab was open. Refresh the page to load the latest build."
 }

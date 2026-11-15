@@ -2,7 +2,7 @@
   "title": "Tableau de bord",
   "live_feed": "Flux en direct",
   "showing_last_3_days": "Affichage des 3 derniers jours",
-  "no_detections": "Aucune détection pour le moment",
+  "no_detections": "Aucune visite au cours des dernières 24 heures.",
   "waiting_first_visitor": "Aucune visite ces dernières 24 heures. Les nouvelles visites apparaîtront ici dès leur arrivée.",
   "discovery_feed": "Fil de découverte",
   "see_full_history": "Voir l'historique complet",
@@ -23,7 +23,7 @@
     "audio": "Audio"
   },
   "histogram": {
-    "title": "Pulse d’activité",
+    "title": "Activité",
     "visits_per_hour": "Visites par heure, dernières 24 heures",
     "peak": "Pic à {time}, {count, plural, one {# visite} other {# visites}}",
     "now": "maintenant",
@@ -72,12 +72,12 @@
     "places": "{count, plural, one {# lieu} other {# lieux}}"
   },
   "day_bar": {
-    "birds_found": "oiseaux repérés",
+    "birds_found": "Oiseaux repérés",
     "birds_scope": "Sur {count, plural, one {# capture analysée} other {# captures analysées}} ; des oiseaux peuvent être manqués",
-    "visits": "visites",
-    "unresolved": "non résolues",
-    "calls_heard": "chants entendus",
-    "cross_confirmed": "confirmés par les deux",
+    "visits": "Visites",
+    "unresolved": "Non résolues",
+    "calls_heard": "Chants entendus",
+    "cross_confirmed": "Confirmés par les deux",
     "reconnecting": "Reconnexion…",
     "window": "Dernières 24 heures",
     "loading": "chargement en cours",

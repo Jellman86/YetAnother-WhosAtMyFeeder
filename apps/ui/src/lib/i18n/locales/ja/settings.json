@@ -926,7 +926,7 @@
     "bot_username": "ボット名",
     "test_notification": "テスト通知を送信",
     "test_sending": "送信中…",
-    "bot_placeholder": "YA-WAMF Bird Bot",
+    "bot_placeholder": "YA-WAMF bot",
     "test_needs": "テストを送信するには Webhook URL を入力してください。"
   },
   "pushover": {

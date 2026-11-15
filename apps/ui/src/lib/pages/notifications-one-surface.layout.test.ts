@@ -37,7 +37,7 @@ describe('one notifications surface', () => {
         expect(banner).toContain('resetVideoCircuit()');
         expect(banner).toContain('jobs.circuit_open_message');
         // Amber is reserved for work that needs a person, and it must not be the only signal.
-        expect(banner).toContain('border-amber-200/80');
+        expect(banner).toContain('border-attention-200/80');
         expect(banner).toContain('role="alert"');
         for (const button of banner.match(/<button\b[\s\S]*?>/g) ?? []) {
             expect(button).toContain('min-h-11');

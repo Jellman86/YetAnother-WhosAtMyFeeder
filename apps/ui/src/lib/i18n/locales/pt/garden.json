@@ -232,7 +232,7 @@
       "quail": "Codornas"
     },
     "suggestion": "Parece uma ave doméstica: {birds}. Se você as cria, adicione-as em Aves domésticas que você cria para registrá-las como animais do jardim, não como aves selvagens.",
-    "suggestion_open": "Abrir Aves domésticas que você cria",
+    "suggestion_open": "Abrir “Aves domésticas que você cria”",
     "suggestion_dismiss": "Agora não"
   },
   "automatic_animal_below_threshold_dismissed": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Movido para Descartados; volte-o para revisão se quiser nomeá-lo você mesmo.",

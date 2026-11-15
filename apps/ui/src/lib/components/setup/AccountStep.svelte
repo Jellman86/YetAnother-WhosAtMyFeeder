@@ -59,7 +59,7 @@
     onContinue={save}
 >
     {#if alreadyConfigured}
-        <div class="rounded-md bg-accent-50 p-3 text-sm text-accent-800 dark:bg-accent-900/20 dark:text-accent-200">
+        <div class="rounded-md bg-brand-50 p-3 text-sm text-brand-900 dark:bg-brand-950/30 dark:text-brand-100">
             {$_('setup.account.already', { default: 'Authentication is already configured. Manage it in Settings → Security.' })}
         </div>
     {:else}

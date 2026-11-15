@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Video non disponibile - usato snapshot",
   "reclassify_no_result": "Non è stato trovato alcun risultato affidabile. L’identificazione esistente è stata mantenuta.",
-  "reclassify_failed": "Riclassificazione fallita: {message}",
+  "reclassify_failed": "La riclassificazione non è stata eseguita: {message}. Riprova dalla scheda.",
   "hide_failed": "Impossibile nascondere questa visita: {message}",
   "delete_failed": "Impossibile eliminare questa visita: {message}",
   "settings_saved": "Impostazioni salvate con successo!",
@@ -58,7 +58,7 @@
   "window_label": "Oggi",
   "count_events": "{count, plural, one {evento} other {eventi}}",
   "count_unread": "non letti",
-  "owner_only": "proprietario",
+  "owner_only": "Lo vedi solo tu",
   "empty_title": "Non è ancora successo nulla",
   "empty_body": "Le visite compaiono qui appena il classificatore le nomina, e le attività in background mentre sono in corso. Prima le più recenti.",
   "empty_action": "Apri il diario di campo",

@@ -56,7 +56,7 @@
     "video": "Vídeo",
     "image": "Foto",
     "title": "Buscando la mejor evidencia",
-    "body": "El clasificador de producción compara fotogramas y recortes. Puedes salir de esta página; el borrador se restaurará al volver.",
+    "body": "YA-WAMF está comparando los fotogramas y los recortes de aves que encontró. Puedes salir de esta página; tu borrador volverá cuando regreses.",
     "progress": "Progreso del análisis",
     "failed_title": "Análisis detenido de forma segura",
     "failed_body": "El archivo original sigue guardado. Vuelve a intentarlo cuando el modelo esté disponible.",

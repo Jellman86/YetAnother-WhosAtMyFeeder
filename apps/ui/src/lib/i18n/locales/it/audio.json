@@ -9,9 +9,9 @@
   },
   "stat": {
     "heard": "Ascoltate",
-    "heard_sub": "Rilevamenti BirdNET visualizzati",
+    "heard_sub": "Rilevamenti BirdNET-Go in questo periodo",
     "species": "Specie",
-    "species_sub": "Specie identificate dall'audio",
+    "species_sub": "Sentite in questo periodo",
     "peak_hour": "Ora di punta",
     "peak_hour_sub": "{count, plural, one {# rilevamento} other {# rilevamenti}}",
     "no_activity": "Nessuna attività per ora",
@@ -28,7 +28,9 @@
     "species": "Specie",
     "source": "Fonte",
     "min_confidence": "Confidenza minima",
-    "changed": "Filtri modificati. Applica per aggiornare l’elenco."
+    "changed": "Filtri modificati. Applica per aggiornare l’elenco.",
+    "species_placeholder": "Qualsiasi specie",
+    "source_placeholder": "Qualsiasi fonte"
   },
   "top_species": "Specie più ascoltate",
   "card": {
@@ -38,10 +40,10 @@
   },
   "history": {
     "title": "Cronologia rilevamenti",
-    "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
+    "sub": "Ogni richiamo segnalato da BirdNET-Go, separato dalle visite delle telecamere.",
     "empty": "Nessun rilevamento BirdNET corrisponde a questi filtri.",
     "showing": "Visualizzati {from}-{to} di {total}",
-    "hide": "Nascondi localmente",
+    "hide": "Nascondi in YA-WAMF",
     "undo": "Annulla",
     "hidden_message": "Rilevamento audio nascosto.",
     "local_only": "Nascondere rimuove una voce dalla cronologia YA-WAMF e dalle future corrispondenze audio. BirdNET-Go resta invariato; le eliminazioni non vengono sincronizzate automaticamente."

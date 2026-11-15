@@ -1,4 +1,5 @@
 <script lang="ts">
+    import DialogCloseButton from './DialogCloseButton.svelte';
     /**
      * One Garden capture opened from the Explorer, in the record's shape: the photograph with
      * the animal crop takes the larger half, the decisions the smaller one.
@@ -69,7 +70,8 @@
         /** Photos dismissed together, for the page to offer Undo. */
         ongroupdismissed?: (ids: string[], skipped: number, restoreMode?: 'review') => void;
         /** Plays the capture's Frigate clip, as its card and row do. */
-        onplay?: (capture: GardenCapture) => void;
+        /** The capture and its title, so the player can be titled by the animal. */
+        onplay?: (capture: GardenCapture, title: string) => void;
     }
     let { capture, group = [capture], groupKind = 'position', groupTotal = group.length, groupOffset = 0, groupLoading = false, groupError = null, onpage, onclose, onchanged, onselect, ongroupdismissed, onplay }: Props = $props();
 
@@ -321,7 +323,7 @@
         const message = action === 'confirm'
             ? $_('garden.photo_confirmed', { default: 'Photo confirmed.' })
             : action === 'dismiss'
-              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals, Dismissed.' })
+              ? $_('garden.explorer.dismissed', { default: 'Capture dismissed. Find it under Garden animals › Dismissed.' })
               : $_('garden.photo_restored', { default: 'Photo returned to review.' });
         // Similar photos stay; saying so keeps one decision from reading as the whole stack's.
         const remaining = groupTotal > 1 && action !== 'restore'
@@ -440,15 +442,7 @@
         tabindex="-1"
         data-garden-capture-modal
     >
-        <button
-            type="button"
-            class="absolute right-4 top-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-xs transition-colors hover:bg-black/60 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
-            onclick={onclose}
-            disabled={saving}
-            aria-label={$_('common.close', { default: 'Close' })}
-        >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+        <DialogCloseButton tone="media" class="absolute right-4 top-4 z-40" onclick={onclose} disabled={saving} />
 
         <div class="flex flex-1 flex-col overflow-y-auto overscroll-contain lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:overflow-hidden">
             <div class="flex min-h-0 shrink-0 flex-col bg-slate-950 lg:shrink lg:overflow-y-auto lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60" data-garden-capture-media>
@@ -475,7 +469,7 @@
                         {#if outline && !cropStyle}
                             {@const box = outline.box}
                             {@const frame = outline.size}
-                            <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${frame[0]} ${frame[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-capture-box>
+                            <svg class="pointer-events-none absolute inset-0 h-full w-full text-evidence" viewBox={`0 0 ${frame[0]} ${frame[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-capture-box>
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="black" stroke-width="4" vector-effect="non-scaling-stroke" />
                                 <rect x={box[0] * frame[0]} y={box[1] * frame[1]} width={box[2] * frame[0]} height={box[3] * frame[1]} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
                             </svg>
@@ -501,19 +495,15 @@
                     {/if}
                     <div class="absolute left-3 top-3 z-30"><GardenExplorerMarker overlay /></div>
                 </div>
-                <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 pb-5 pt-4">
-                    <!-- On a phone the rail's title sits right under the picture, so this would say it twice. -->
-                    <div class="flex flex-wrap items-center justify-between gap-3">
-                        <div class="hidden min-w-0 flex-1 sm:block">
-                            <h2 id="garden-capture-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{title}</h2>
-                            <p class="mt-2 text-3xs font-semibold text-white/80">{formatDateTime(capture.observed_at)} &middot; {capture.camera}</p>
-                        </div>
+                <!-- The rail names the animal and gives the time; the band under the photograph holds only actions. -->
+                <div class="relative flex shrink-0 flex-col gap-3 bg-slate-950 px-5 {canPlay ? 'pb-5 pt-4' : ''}">
+                    <div class="flex flex-wrap items-center justify-end gap-3">
                         {#if canPlay}
                             <button
                                 type="button"
                                 class="btn btn-secondary min-h-11 shrink-0 gap-2 px-3 text-xs"
                                 disabled={saving}
-                                onclick={() => onplay?.(capture)}
+                                onclick={() => onplay?.(capture, title)}
                                 aria-label={$_('garden.explorer.play_clip', { values: { name: title }, default: 'Play clip of {name}' })}
                                 data-garden-capture-play
                             >
@@ -580,7 +570,7 @@
                             />
                         {/if}
                         <div class="min-w-0">
-                            <p class="text-3xs font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400">
+                            <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                                 {view.nameState === 'confirmed'
                                     ? viewer === 'owner'
                                         ? $_('detection.identified_by_you', { default: 'Identified by you' })
@@ -591,7 +581,7 @@
                                         ? $_('garden.explorer.suggested_as', { default: 'Suggested as' })
                                         : $_('garden.explorer.eyebrow_capture', { default: 'Garden capture' })}
                             </p>
-                            <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
+                            <h3 id="garden-capture-title" class="font-display text-2xl font-bold text-slate-900 dark:text-white">{title}</h3>
                             {#if view.name && capture.scientific_name && capture.scientific_name !== view.name}
                                 <p class="text-xs italic text-slate-600 dark:text-slate-400" data-garden-scientific-name>{capture.scientific_name}</p>
                             {/if}
@@ -690,7 +680,7 @@
 
                 {#if referenceName && (speciesInfoLoading || speciesInfo || speciesInfoError)}
                     <section class="space-y-2" data-garden-species-info>
-                        <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-400">
+                        <h4 class="text-xs font-semibold text-slate-600 dark:text-slate-400">
                             {$_('garden.explorer.about_species', { default: 'About {species}', values: { species: title } })}
                         </h4>
                         {#if speciesInfoLoading}

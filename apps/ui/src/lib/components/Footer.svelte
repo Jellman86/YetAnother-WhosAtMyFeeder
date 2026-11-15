@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import BrandMark from './BrandMark.svelte';
     import { onMount } from 'svelte';
     import { _, json } from 'svelte-i18n';
@@ -83,9 +84,9 @@
                     </svg>
                 {$_('common.github', { default: 'GitHub' })}
             </a>
-            <span aria-hidden="true" class="text-slate-400 dark:text-slate-500">·</span>
+            <Separator />
             <span>{$_('common.mit_license', { default: 'MIT License' })}</span>
-            <span aria-hidden="true" class="text-slate-400 dark:text-slate-500">·</span>
+            <Separator />
             <span>&copy; {year} Jellman86</span>
         </div>
         <!-- Its own row below 1920px, so it never narrows the fact; in the row from there. -->

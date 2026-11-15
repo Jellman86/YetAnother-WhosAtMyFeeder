@@ -61,7 +61,7 @@ describe('detection card full-visit fetch wiring', () => {
 
     it('lets active video analysis take over the card chrome and border', () => {
         expect(detectionCardSource).toContain("let analysisActive = $derived(!!reclassifyProgress);");
-        expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30");
+        expect(detectionCardSource).toContain("{analysisActive ? 'border-2 border-brand-500 ring-2 ring-brand-500/30");
         expect(detectionCardSource).toContain('{#if analysisActive && reclassifyProgress}');
         expect(detectionCardSource).toContain('absolute inset-0 z-50 pointer-events-none rounded-2xl overflow-hidden');
         expect(detectionCardSource).toContain("import DetectionCardAnalysisOverlay from './DetectionCardAnalysisOverlay.svelte'");

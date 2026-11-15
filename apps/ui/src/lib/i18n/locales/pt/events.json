@@ -10,7 +10,7 @@
     "start_date": "De",
     "end_date": "Até",
     "all_species": "Todas as Espécies",
-    "all_cameras": "Todas as Câmeras",
+    "all_cameras": "Todas as câmeras",
     "audio_confirmed": "Correspondências de áudio",
     "audio_confirmed_only": "Somente confirmados por áudio",
     "favorites": "Favoritos",
@@ -48,7 +48,7 @@
     "confidence": "Confiança"
   },
   "empty_title": "Nenhum evento ainda",
-  "empty_desc": "Faça backfill ou aguarde novas detecções para vê-las aqui.",
+  "empty_desc": "As visitas aparecem aqui quando as câmeras identificam aves. Para trazer eventos antigos do Frigate, execute uma recuperação em Configurações → Dados.",
   "load_failed": "Não foi possível carregar as visitas. Seu histórico não foi alterado.",
   "bulk_tag_partial": "{count, plural, one {# evento selecionado não foi atualizado.} other {# eventos selecionados não foram atualizados.}}",
   "bulk_delete_confirm": "Excluir {count, plural, one {# detecção} other {# detecções}}? Esta ação não pode ser desfeita.",
@@ -57,9 +57,7 @@
   "bulk_delete_failed": "Falha ao excluir: {message}",
   "bulk_reclassify_success": "{count, plural, one {# detecção enfileirada para análise de vídeo.} other {# detecções enfileiradas para análise de vídeo.}}",
   "bulk_reclassify_partial": "{queued} enfileiradas; falha ao enfileirar {failed}.",
-  "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo",
   "timeline_scope": "Dias nesta página",
-  "timeline_keyboard_hint": "Teclado da linha do tempo: [ dia anterior, ] próximo dia, 0 redefinir",
   "row_open": "Abrir {species}",
   "row_select": "Selecionar {species}",
   "row_below_threshold": "Abaixo do limiar de identificação",
@@ -139,5 +137,6 @@
   "count_unavailable": "Contagem indisponível",
   "results_loading": "Carregando resultados…",
   "selection_count": "{count, plural, =0 {Nenhuma captura selecionada} one {# captura selecionada} other {# capturas selecionadas}}",
-  "settings_unavailable": "Não foi possível carregar suas configurações, então Explorar não sabe quais visitantes mostrar. Nada foi alterado. Tente novamente em instantes."
+  "settings_unavailable": "Não foi possível carregar suas configurações, então Explorar não sabe quais visitantes mostrar. Nada foi alterado. Tente novamente em instantes.",
+  "bulk_tag_applied": "{species} atribuída a {count, plural, one {# registo} other {# registos}}"
 }

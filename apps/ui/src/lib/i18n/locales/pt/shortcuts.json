@@ -1,5 +1,5 @@
 {
-  "title": "Atalhos de Teclado",
+  "title": "Atalhos de teclado",
   "navigation": "Navegacao",
   "actions": "Acoes",
   "open_panel": "Abrir painel de atalhos",
@@ -7,7 +7,10 @@
   "go_events": "Ir para Eventos",
   "go_species": "Ir para Ranking",
   "go_settings": "Ir para Configurações",
-  "close_modal": "Fechar modal",
+  "close_modal": "Fechar a caixa de diálogo",
   "refresh": "Atualizar página",
-  "go_notifications": "Ir para Notificações"
+  "go_notifications": "Ir para Notificações",
+  "previous_day": "Dia anterior",
+  "next_day": "Dia seguinte",
+  "all_days": "Mostrar todos os dias"
 }

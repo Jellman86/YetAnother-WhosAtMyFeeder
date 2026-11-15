@@ -339,14 +339,14 @@
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-700 dark:text-red-400' };
         if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-600 dark:text-slate-400' };
         const n = e.images_compared;
-        if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-success-700 dark:text-success-300' };
         if (typeof e.detection_match_rate === 'number' && n) {
-            return { label: `⚠ ${Math.round(e.detection_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
+            return { label: `⚠ ${Math.round(e.detection_match_rate * n)}/${n}`, cls: 'text-attention-600 dark:text-attention-400' };
         }
         if (typeof e.top1_match_rate === 'number' && n) {
-            return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
+            return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-attention-600 dark:text-attention-400' };
         }
-        return { label: '✓ runs', cls: 'text-accent-600 dark:text-accent-400' };
+        return { label: '✓ runs', cls: 'text-success-700 dark:text-success-300' };
     }
 
     // Present the compatibility run through the shared DiagnosticDialog: one stage
@@ -575,8 +575,8 @@
         />
 
         {#if autoVideoClassification && videoCircuitOpen}
-            <div role="alert" class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-slate-700 dark:text-slate-200">
-                <p class="mb-2 text-sm font-semibold text-amber-700 dark:text-amber-300">
+            <div role="alert" class="rounded-2xl border border-attention-500/30 bg-attention-500/10 p-4 text-slate-700 dark:text-slate-200">
+                <p class="mb-2 text-sm font-semibold text-attention-700 dark:text-attention-300">
                     {$_('settings.video_circuit.title')}
                 </p>
                 <p class="text-sm font-bold leading-relaxed">{$_('settings.video_circuit.message', { values: { failures: videoCircuitFailures } })}</p>
@@ -587,7 +587,7 @@
         {/if}
 
         {#if classifierStatus?.fallback_reason || classifierStatus?.model_config_warnings?.length || classifierStatus?.openvino_model_compile_ok === false}
-            <div role="alert" class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm font-bold text-amber-800 dark:text-amber-200">
+            <div role="alert" class="rounded-2xl border border-attention-500/30 bg-attention-500/10 p-4 text-sm font-bold text-attention-800 dark:text-attention-200">
                 {#if classifierStatus.fallback_reason}
                     {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
                 {:else if classifierStatus.model_config_warnings?.length}
@@ -697,7 +697,7 @@
                             <span class="block">
                                 {names.primary}
                                 {#if alreadyBlocked}
-                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-300">
+                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-300">
                                         {$_('common.added', { default: 'Added' })}
                                     </span>
                                 {/if}
@@ -849,7 +849,7 @@
                         </p>
                     {/if}
                     {#if configuredProviderUnavailable}
-                        <p role="status" class="border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                        <p role="status" class="border-l-2 border-attention-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
                             {$_('settings.detection.provider_saved_unavailable', {
                                 values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
                                 default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
@@ -881,7 +881,7 @@
                     </div>
                     {#if compatError}<p role="alert" class="text-xs font-bold text-red-700 dark:text-red-400">{compatError}</p>{/if}
                     {#if runtimeRefreshFailed}
-                        <p role="alert" class="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        <p role="alert" class="text-xs font-bold text-attention-700 dark:text-attention-300">
                             {$_('settings.detection.runtime_refresh_failed', { default: 'The check finished, but YA-WAMF could not read the runtime it is now using. Reload the page to see the current provider.' })}
                         </p>
                     {/if}
@@ -1014,7 +1014,7 @@
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
                         {#if showCudaDiagnostics}
-                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
+                            <span class="inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-bold {(classifierStatus.cuda_available ?? false) ? 'bg-success-500/10 text-success-700 dark:text-success-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-attention-500/10 text-attention-700 dark:text-attention-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
                                 {#if classifierStatus.cuda_available}
                                     {$_('settings.detection.cuda_available')}
                                 {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
@@ -1055,7 +1055,7 @@
                         {/if}
                     </div>
                     {#if classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'}
-                        <div role="alert" class="flex items-start gap-2 border-l-2 border-amber-400 py-1 pl-3 text-xs font-medium leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                        <div role="alert" class="flex items-start gap-2 border-l-2 border-attention-400 py-1 pl-3 text-xs font-medium leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
                             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z" />
                                 <path d="M12 9v4M12 17h.01" />
@@ -1077,58 +1077,58 @@
                         ({$_('settings.detection.personalization_min_tags', { default: 'min' })} {classifierStatus.personalization_min_feedback_tags ?? 20})
                     </p>
                     {#if classifierStatus.fallback_reason}
-                        <p class="text-xs font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
+                        <p class="text-xs font-bold text-attention-700 dark:text-attention-300">{$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}</p>
                     {/if}
                     {#if classifierStatus.model_config_warnings?.length}
                         {#each classifierStatus.model_config_warnings as modelConfigWarning}
-                            <p class="text-xs font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
+                            <p class="text-xs font-bold text-attention-700 dark:text-attention-300">{$_('settings.detection.model_config_warning', { default: 'Model config warning:' })} {modelConfigWarning}</p>
                         {/each}
                     {/if}
                     {#if classifierStatus.cuda_probe_error}
-                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
-                            <div class="text-sm font-semibold text-amber-700 dark:text-amber-300">CUDA diagnostics</div>
-                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">
+                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3">
+                            <div class="text-sm font-semibold text-attention-700 dark:text-attention-300">CUDA diagnostics</div>
+                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 <p><span class="font-bold">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
                                 <p><span class="font-bold">{$_('settings.detection.probe_error', { default: 'Probe error:' })}</span> {classifierStatus.cuda_probe_error}</p>
                             </div>
                         </div>
                     {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
-                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3 space-y-2">
-                            <p class="text-sm font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
-                            <p class="break-all text-xs font-medium text-amber-900 dark:text-amber-100">
+                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3 space-y-2">
+                            <p class="text-sm font-semibold text-attention-700 dark:text-attention-300">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
+                            <p class="break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 {$_('settings.detection.openvino_compile_failure_detail', { default: 'Active model' })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
                                 {#if classifierStatus.openvino_model_compile_device}({classifierStatus.openvino_model_compile_device}){/if}
                             </p>
-                            <p class="text-xs font-medium text-amber-900 dark:text-amber-100">
+                            <p class="text-xs font-medium text-attention-900 dark:text-attention-100">
                                 Automatic fallback is active: <code>{classifierStatus.inference_backend || 'unknown'}</code> / <code>{classifierStatus.active_provider || 'unknown'}</code>
                             </p>
                             {#if hasOpenvinoOpIncompatibility}
-                                <p class="text-xs font-medium text-amber-900 dark:text-amber-100">OpenVINO reported unsupported ONNX operators for this model/runtime:</p>
+                                <p class="text-xs font-medium text-attention-900 dark:text-attention-100">OpenVINO reported unsupported ONNX operators for this model/runtime:</p>
                                 <div class="flex flex-wrap gap-1">
                                     {#each openvinoUnsupportedOps as op}
-                                        <span class="inline-flex items-center rounded-md border border-amber-300/70 bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">{op}</span>
+                                        <span class="inline-flex items-center rounded-md border border-attention-300/70 bg-attention-100 px-2 py-0.5 text-xs font-bold text-attention-800 dark:border-attention-700/60 dark:bg-attention-900/40 dark:text-attention-200">{op}</span>
                                     {/each}
                                 </div>
                             {/if}
-                            <p class="text-xs font-medium text-amber-900 dark:text-amber-100">
+                            <p class="text-xs font-medium text-attention-900 dark:text-attention-100">
                                 Next steps: switch to <code>eva02_large_inat21</code> for OpenVINO, or keep this model and set provider to <code>{recommendedFallbackProvider}</code>.
                             </p>
                             {#if classifierStatus.openvino_model_compile_error}
                                 <details class="group pt-1">
-                                    <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 text-sm font-semibold text-amber-700 focus-ring dark:text-amber-300">
+                                    <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 text-sm font-semibold text-attention-700 focus-ring dark:text-attention-300">
                                         <svg class="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                                         {$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}
                                     </summary>
-                                    <p class="mt-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">{classifierStatus.openvino_model_compile_error}</p>
+                                    <p class="mt-1 break-all text-xs font-medium text-attention-900 dark:text-attention-100">{classifierStatus.openvino_model_compile_error}</p>
                                 </details>
                             {/if}
                         </div>
                     {/if}
                     {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
-                        <div class="rounded-2xl border border-amber-200/80 dark:border-amber-700/40 bg-amber-50/80 dark:bg-amber-950/20 p-3">
-                            <div class="text-sm font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
-                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">
+                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3">
+                            <div class="text-sm font-semibold text-attention-700 dark:text-attention-300">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
+                            <div class="mt-2 space-y-1 break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 {#if classifierStatus.openvino_version}<p><span class="font-bold">Version:</span> {classifierStatus.openvino_version}</p>{/if}
                                 {#if classifierStatus.openvino_import_path}<p><span class="font-bold">Import:</span> <code>{classifierStatus.openvino_import_path}</code></p>{/if}
                                 <p><span class="font-bold">/dev/dri:</span> {classifierStatus.dev_dri_present ? 'present' : 'missing'}{#if classifierStatus.dev_dri_entries?.length} (<code>{classifierStatus.dev_dri_entries.join(', ')}</code>){/if}</p>
@@ -1150,7 +1150,7 @@
                     </h3>
                     <div class="mt-2 overflow-x-auto">
                         <table class="w-full text-xs">
-                            <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
+                            <thead class="border-b border-slate-200 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-400">
                                 <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}<th class="text-left px-2">{compatProviderLabel(dev)}</th>{/each}</tr>
                             </thead>
                             <tbody>

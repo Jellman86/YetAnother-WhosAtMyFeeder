@@ -1,4 +1,5 @@
 import type { Detection, ReviewQueueResponse } from '../api';
+import { isUnknownBirdLabel } from './count-scene';
 import { needsReview } from './visit-grouping';
 
 /** Why a detection is asking for a person: no species at all, a shaky score, or a
@@ -24,6 +25,17 @@ export function reviewReasonMessage(reason: ReviewReason, sightings: number): Re
         return { key: 'dashboard.review_queue.reason_unknown_species', default: 'Unknown species' };
     }
     return { key: 'dashboard.review_queue.reason_low_score', default: 'Below the naming threshold' };
+}
+
+/**
+ * The species a queued visit can be confirmed as in one step: the model's own name, whenever it
+ * gave one. A visit with no species has nothing to confirm, so the owner picks one instead.
+ */
+export function reviewSuggestion(detection: Detection, reason: ReviewReason): string | null {
+    if (reason === 'unknown_species') return null;
+    const name = (detection.display_name ?? '').trim();
+    if (!name || isUnknownBirdLabel(name)) return null;
+    return name;
 }
 
 export interface ReviewQueue {

@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
   "reclassify_no_result": "信頼できる結果が得られなかったため、既存の識別結果を維持しました。",
-  "reclassify_failed": "再分類に失敗しました: {message}",
+  "reclassify_failed": "再分類は実行されませんでした: {message}。記録からもう一度お試しください。",
   "hide_failed": "この訪問を非表示にできませんでした: {message}",
   "delete_failed": "この訪問を削除できませんでした: {message}",
   "settings_saved": "設定を正常に保存しました！",
@@ -58,7 +58,7 @@
   "window_label": "今日",
   "count_events": "{count, plural, other {件}}",
   "count_unread": "未読",
-  "owner_only": "管理者",
+  "owner_only": "あなたにのみ表示",
   "empty_title": "まだ何も起きていません",
   "empty_body": "分類器が名前を付けた訪問と、実行中のバックグラウンド処理が、新しいものから順にここに表示されます。",
   "empty_action": "フィールドログを開く",

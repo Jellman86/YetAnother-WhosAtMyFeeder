@@ -1,12 +1,12 @@
 {
   "title": "Painel",
-  "live_feed": "Ao Vivo",
+  "live_feed": "Ao vivo",
   "showing_last_3_days": "Mostrando últimos 3 dias",
-  "no_detections": "Nenhuma detecção ainda",
+  "no_detections": "Nenhuma visita nas últimas 24 horas.",
   "waiting_first_visitor": "Nenhuma visita nas últimas 24 horas. Novas visitas aparecem aqui assim que chegam.",
-  "discovery_feed": "Feed de Descobertas",
+  "discovery_feed": "Feed de descobertas",
   "see_full_history": "Ver histórico completo",
-  "audio_confirmations": "Confirmações de Áudio",
+  "audio_confirmations": "Confirmações de áudio",
   "hero": {
     "just_discovered": "Acabou de ser detectado",
     "one_hour_ago": "há 1 hora",
@@ -23,7 +23,7 @@
     "audio": "Áudio"
   },
   "histogram": {
-    "title": "Pulso de atividade",
+    "title": "Atividade",
     "visits_per_hour": "Visitas por hora, últimas 24 horas",
     "peak": "Mais movimento às {time}, {count, plural, one {# visita} other {# visitas}}",
     "now": "agora",
@@ -72,12 +72,12 @@
     "places": "{count, plural, one {# local} other {# locais}}"
   },
   "day_bar": {
-    "birds_found": "aves encontradas",
+    "birds_found": "Aves encontradas",
     "birds_scope": "Em {count, plural, one {# captura analisada} other {# capturas analisadas}}; algumas aves podem não ser detectadas",
-    "visits": "visitas",
-    "unresolved": "por resolver",
-    "calls_heard": "cantos ouvidos",
-    "cross_confirmed": "confirmados por ambos",
+    "visits": "Visitas",
+    "unresolved": "Por resolver",
+    "calls_heard": "Cantos ouvidos",
+    "cross_confirmed": "Confirmados por ambos",
     "reconnecting": "A reconectar…",
     "window": "Últimas 24 horas",
     "loading": "ainda carregando",

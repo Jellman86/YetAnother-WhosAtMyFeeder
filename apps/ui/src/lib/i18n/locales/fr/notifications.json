@@ -1,7 +1,7 @@
 {
   "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
   "reclassify_no_result": "Aucun résultat suffisamment fiable n’a été trouvé. L’identification actuelle a été conservée.",
-  "reclassify_failed": "Échec de la reclasification : {message}",
+  "reclassify_failed": "Le reclassement n’a pas eu lieu : {message}. Réessayez depuis la fiche.",
   "hide_failed": "Impossible de masquer cette visite : {message}",
   "delete_failed": "Impossible de supprimer cette visite : {message}",
   "settings_saved": "Paramètres enregistrés avec succès !",
@@ -58,7 +58,7 @@
   "window_label": "Aujourd'hui",
   "count_events": "{count, plural, one {événement} other {événements}}",
   "count_unread": "non lus",
-  "owner_only": "propriétaire",
+  "owner_only": "Visible par vous seul",
   "empty_title": "Rien ne s'est encore produit",
   "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, et les tâches en arrière-plan pendant leur exécution. La plus récente en premier.",
   "empty_action": "Ouvrir le journal de terrain",

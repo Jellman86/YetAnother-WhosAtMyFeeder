@@ -45,7 +45,7 @@
             {@const box = capture.motion_source.box_xywh}
             <div class="relative aspect-video w-full max-h-48 rounded-lg bg-surface-raised">
                 <img src={withAuthParams(capture.snapshot_url)} alt={$_('garden.photo_alt', { default: 'Animal capture from {camera}', values: { camera: capture.camera } })} class="absolute inset-0 h-full w-full object-contain rounded-lg" />
-                <svg class="pointer-events-none absolute inset-0 h-full w-full text-amber-400" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-check-input>
+                <svg class="pointer-events-none absolute inset-0 h-full w-full text-evidence" viewBox={`0 0 ${size[0]} ${size[1]}`} preserveAspectRatio="xMidYMid meet" aria-hidden="true" data-garden-check-input>
                     <rect x={Math.trunc(box[0] * size[0])} y={Math.trunc(box[1] * size[1])} width={Math.trunc(box[2] * size[0])} height={Math.trunc(box[3] * size[1])} fill="none" stroke="black" stroke-width="4" vector-effect="non-scaling-stroke" />
                     <rect x={Math.trunc(box[0] * size[0])} y={Math.trunc(box[1] * size[1])} width={Math.trunc(box[2] * size[0])} height={Math.trunc(box[3] * size[1])} fill="none" stroke="currentColor" stroke-width="2" vector-effect="non-scaling-stroke" />
                 </svg>

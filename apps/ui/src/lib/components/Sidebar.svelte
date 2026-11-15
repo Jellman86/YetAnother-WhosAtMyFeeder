@@ -159,7 +159,8 @@
         {#each navSections as section, sectionIndex}
             <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
-                    <div class="eyebrow px-3 pb-2">
+                    <!-- Headed like the Settings rail's groups, so the two navigations read as one. -->
+                    <div class="px-3 pb-1 text-sm font-semibold text-slate-900 dark:text-white">
                         {section.label}
                     </div>
                 {/if}
@@ -257,7 +258,7 @@
                 </div>
             {:else if authStore.isGuest}
                 <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-line-soft bg-surface-raised p-2">
-                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
@@ -267,7 +268,7 @@
                         {$_('auth.public_view')}
                     </div>
                     <button
-                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-400 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
+                        class="btn btn-ghost min-h-11 min-w-11 focus-ring rounded-lg p-2 text-slate-600 transition hover:bg-brand-50 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-brand-900/30 dark:hover:text-brand-300"
                         onclick={() => authStore.requestLogin()}
                         title={$_('auth.login')}
                         aria-label={$_('auth.login')}

@@ -173,7 +173,7 @@
         <div class="flex flex-wrap gap-2">
             {#if isOwner}
                 <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/settings/health')}>
-                    {$_('settings.tabs.health')} · {$_('jobs.errors_export_title')}
+                    {$_('settings.data.open_diagnostics', { default: 'Open Health' })}
                 </button>
             {/if}
             <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
@@ -198,12 +198,6 @@
             >
                 {$_(`notifications.filter_${name}`)}
                 <span class="tabular-nums text-3xs text-slate-600 dark:text-slate-400">{counts[name]}</span>
-                {#if isOwnerOnlyFilter(name)}
-                    <svg class="h-2.5 w-2.5 text-slate-500 dark:text-slate-400" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                        <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
-                        <path d="M5.8 7V5.2a2.2 2.2 0 014.4 0V7" />
-                    </svg>
-                {/if}
             </button>
         {/each}
     </div>
@@ -238,7 +232,7 @@
     {:else}
         <div class="card-base p-4 sm:p-5">
             {#each groups as group (group.key)}
-                <h3 class="mb-1 mt-5 text-3xs font-bold uppercase tracking-[0.14em] text-slate-600 first:mt-0 dark:text-slate-400">
+                <h3 class="mb-1 mt-5 text-3xs font-bold text-slate-600 first:mt-0 dark:text-slate-400">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
                 <ol class="ml-1">
@@ -354,13 +348,9 @@
                                             ? formatDateTime(item.timestamp)
                                             : formatTime(item.timestamp)}</span>
                                         {#if isOwnerOnlyItem(item)}
-                                            <span class="inline-flex items-center gap-1 rounded-sm border border-slate-200 px-1.5 py-px uppercase tracking-wider dark:border-slate-700">
-                                                <svg class="h-2 w-2" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                                    <rect x="3.5" y="7" width="9" height="6" rx="1.5" />
-                                                    <path d="M5.8 7V5.2a2.2 2.2 0 014.4 0V7" />
-                                                </svg>
-                                                {$_('notifications.owner_only', { default: 'owner' })}
-                                            </span>
+                                            <!-- Said in words, because visitors never see this item; a padlock and a shouted
+                                                 "owner" on a page only the owner reads explained nothing. -->
+                                            <span class="font-sans">{$_('notifications.owner_only', { default: 'Only you see this' })}</span>
                                         {/if}
                                     </p>
                                     {#if canOpen(item) || isStoppedJob(item)}

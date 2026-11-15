@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     /**
      * One Garden capture as a tile in the Explorer's card grid, in a visit card's shape: the
      * photograph with its time and score, then the subject. The marker on the photograph says
@@ -21,7 +22,8 @@
     let { capture, visit, scope, onopen, oncapture, onplay }: {
         capture: GardenCapture;
         /** Plays the capture's Frigate clip, as a bird card's play control does. */
-        onplay?: (capture: GardenCapture) => void;
+        /** The capture and the name it is shown under, so the player can be titled by the animal. */
+        onplay?: (capture: GardenCapture, title: string) => void;
         /** The stay or position stack this capture leads, opened together. */
         visit?: GardenVisit;
         scope?: GardenCaptureScope;
@@ -100,7 +102,7 @@
                 <!-- Above the card's open control, so it plays the clip rather than opening the record. -->
                 <button
                     type="button"
-                    onclick={(event) => { event.stopPropagation(); onplay?.(capture); }}
+                    onclick={(event) => { event.stopPropagation(); onplay?.(capture, text.title); }}
                     aria-label={$_('detection.play_video', { values: { species: text.title } })}
                     class="relative z-20 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/75 text-white shadow-lg transition-colors duration-200 hover:bg-brand-700/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-white"
                     data-garden-card-play
@@ -124,7 +126,7 @@
         </div>
         <div class="mt-auto flex items-center gap-1.5 flex-wrap text-2xs font-medium text-slate-600 dark:text-slate-400">
             <span>{day}</span>
-            <span class="text-slate-300 dark:text-slate-500">&middot;</span>
+            <Separator />
             <span class="wrap-break-word">{capture.camera}</span>
         </div>
     </div>

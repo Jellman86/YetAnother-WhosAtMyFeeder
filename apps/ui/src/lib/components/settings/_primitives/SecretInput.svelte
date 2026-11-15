@@ -68,7 +68,7 @@
             aria-hidden="false"
         >
             <span
-                class="inline-flex items-center gap-1 rounded-full border border-accent-200/80 bg-accent-50 px-2 py-0.5 text-3xs font-bold uppercase tracking-widest text-accent-700 dark:border-accent-500/40 dark:bg-accent-900/20 dark:text-accent-300"
+                class="inline-flex items-center gap-1 rounded-full border border-success-200/80 bg-success-50 px-2 py-0.5 text-3xs font-bold text-success-800 dark:border-success-500/40 dark:bg-success-900/20 dark:text-success-200"
             >
                 <svg class="h-2.5 w-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />

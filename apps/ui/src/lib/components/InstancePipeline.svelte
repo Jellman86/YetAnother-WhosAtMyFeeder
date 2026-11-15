@@ -78,13 +78,13 @@
         return () => controller.abort();
     });
 
-    const unknown = $_('about.pipeline.unknown', { default: 'unknown' });
+    const unknown = $_('about.pipeline.unknown', { default: 'Unknown' });
     const noReading = $_('about.pipeline.no_reading', { default: 'no reading from here' });
     // Steps with no health endpoint to probe. Saying so beats an empty space that reads as a fault.
-    const notChecked = $_('about.pipeline.not_checked', { default: 'not checked' });
+    const notChecked = $_('about.pipeline.not_checked', { default: 'Not checked' });
     // Readings the backend reserves for the owner. Guests see whose reading it is,
     // not an "unknown" that looks like a fault in a healthy install.
-    const ownerOnly = $_('about.pipeline.owner_only', { default: 'owner only' });
+    const ownerOnly = $_('about.pipeline.owner_only', { default: 'Owner only' });
     const ownerOnlyDetail = $_('about.pipeline.owner_only_detail', {
         default: 'reading visible to the owner'
     });
@@ -110,7 +110,7 @@
             // The camera list failing is not a reading; Frigate measured as not answering is.
             const frigateDown = serviceConnectionsStore.connections?.frigate.state === 'unreachable';
             return frigateDown
-                ? { detail: noReading, state: $_('about.pipeline.offline', { default: 'offline' }), tone: 'off' as Tone }
+                ? { detail: noReading, state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' as Tone }
                 : { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         }
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
@@ -123,8 +123,8 @@
             }),
             state:
                 cameras.length > 0 && online === cameras.length
-                    ? $_('about.pipeline.online', { default: 'online' })
-                    : $_('about.pipeline.degraded', { default: 'check' }),
+                    ? $_('about.pipeline.online', { default: 'Online' })
+                    : $_('about.pipeline.degraded', { default: 'Check' }),
             tone: (cameras.length > 0 && online === cameras.length ? 'ok' : 'off') as Tone
         };
     });
@@ -136,9 +136,9 @@
         const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
         const reading = pipelineClassifierState(classifier);
         const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
-            loaded: { state: $_('about.pipeline.loaded', { default: 'loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'loads on first detection' }), tone: 'off' },
-            check: { state: $_('about.pipeline.degraded', { default: 'check' }), tone: 'off' },
+            loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
+            standby: { state: $_('about.pipeline.standby', { default: 'Loads on first detection' }), tone: 'off' },
+            check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
             unknown: { state: unknown, tone: 'unknown' }
         };
         return {
@@ -153,9 +153,9 @@
     const mqttSummary = $derived.by((): { state: string; tone: Tone } => {
         if (isGuestView) return { state: ownerOnly, tone: 'off' };
         const state = serviceConnectionsStore.connections?.mqtt.state;
-        if (state === 'connected') return { state: $_('about.pipeline.online', { default: 'online' }), tone: 'ok' };
+        if (state === 'connected') return { state: $_('about.pipeline.online', { default: 'Online' }), tone: 'ok' };
         if (state === 'disconnected' || state === 'not_configured' || state === 'stopped') {
-            return { state: $_('about.pipeline.offline', { default: 'offline' }), tone: 'off' };
+            return { state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' };
         }
         return { state: notChecked, tone: 'unknown' };
     });
@@ -188,8 +188,8 @@
             kind: 'optional',
             detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
             state: birdnetEnabled
-                ? $_('about.pipeline.enabled', { default: 'enabled' })
-                : $_('about.pipeline.off', { default: 'off' }),
+                ? $_('about.pipeline.enabled', { default: 'Enabled' })
+                : $_('about.pipeline.off', { default: 'Off' }),
             tone: (birdnetEnabled ? 'ok' : 'off') as Tone
         },
         {
@@ -212,8 +212,8 @@
             state: isGuestView
                 ? ownerOnly
                 : notificationsEnabled
-                  ? $_('about.pipeline.enabled', { default: 'enabled' })
-                  : $_('about.pipeline.off', { default: 'off' }),
+                  ? $_('about.pipeline.enabled', { default: 'Enabled' })
+                  : $_('about.pipeline.off', { default: 'Off' }),
             tone: (isGuestView ? 'off' : notificationsEnabled ? 'ok' : 'off') as Tone
         },
         {
@@ -221,14 +221,14 @@
             kind: 'external',
             detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
             state: detectionsStore.connected
-                ? $_('about.pipeline.streaming', { default: 'streaming' })
-                : $_('about.pipeline.offline', { default: 'offline' }),
+                ? $_('about.pipeline.streaming', { default: 'Streaming' })
+                : $_('about.pipeline.offline', { default: 'Offline' }),
             tone: (detectionsStore.connected ? 'ok' : 'off') as Tone
         }
     ]);
 
     function toneClass(tone: Tone): string {
-        if (tone === 'ok') return 'text-emerald-700 dark:text-emerald-300';
+        if (tone === 'ok') return 'text-success-700 dark:text-success-300';
         if (tone === 'off') return 'text-slate-600 dark:text-slate-400';
         return 'text-slate-600 dark:text-slate-400';
     }
@@ -262,7 +262,7 @@
                 {/if}
                 {#if step.state}
                     <!-- Seven narrow cards at a large text size: a word breaks rather than being cut by the card. -->
-                    <span class="relative block text-3xs font-bold uppercase tracking-[0.12em] wrap-anywhere {toneClass(step.tone)}">
+                    <span class="relative block text-3xs font-bold wrap-anywhere {toneClass(step.tone)}">
                         {step.state}
                     </span>
                 {/if}

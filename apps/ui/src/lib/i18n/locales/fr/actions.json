@@ -1,10 +1,10 @@
 {
   "confirm_delete": "Supprimer toute cette visite de {species} ? L'enregistrement et ses médias quittent l'historique définitivement. Masquer conserve l'enregistrement.",
   "play_video": "Lire la vidéo",
-  "deep_reclassify": "Reclassification profonde",
-  "manual_tag": "Étiquette manuelle",
+  "deep_reclassify": "Reclasser l’instantané",
+  "manual_tag": "Choisir l’espèce",
   "reclassify": "Reclassifier",
-  "species_info": "Infos sur l'espèce",
+  "species_info": "Détails de l’espèce",
   "delete_detection": "Supprimer cette visite définitivement",
   "hide_detection": "Masquer la détection",
   "unhide_detection": "Afficher la détection",

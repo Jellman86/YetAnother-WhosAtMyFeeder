@@ -95,7 +95,7 @@
                                 <span class="min-w-0 wrap-break-word">{choice.camera}</span>
                             </span>
                             {#if choice.missing}
-                                <span class="block text-xs font-semibold text-amber-700 dark:text-amber-300" data-setup-camera-missing>{$_('setup.cameras.not_in_frigate', { default: 'Frigate has no camera with this name, so it will never see a bird.' })}</span>
+                                <span class="block text-xs font-semibold text-attention-700 dark:text-attention-300" data-setup-camera-missing>{$_('setup.cameras.not_in_frigate', { default: 'Frigate has no camera with this name, so it will never see a bird.' })}</span>
                             {/if}
                         </label>
                     {/each}
@@ -112,7 +112,7 @@
             <div>
                 <label for="setup-cameras" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.cameras.list', { default: 'Cameras (comma-separated)' })}</label>
                 <input id="setup-cameras" type="text" placeholder="feeder, nestbox" bind:value={camerasText} class="input-base mt-1" />
-                <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300" role="status" data-setup-camera-unread>{$_('setup.cameras.list_unread', { default: "Frigate's camera list could not be read, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera." })}</p>
+                <p class="mt-1 text-xs font-semibold text-attention-700 dark:text-attention-300" role="status" data-setup-camera-unread>{$_('setup.cameras.list_unread', { default: "Frigate's camera list could not be read, so these names cannot be checked. A name that does not match exactly never sees a bird. Leave this empty to watch every camera." })}</p>
                 <button type="button" class="btn btn-secondary mt-2 min-h-11 px-4" disabled={retrying} onclick={retryFrigate}>{$_('setup.cameras.retry', { default: "Read Frigate's cameras again" })}</button>
             </div>
         {/if}

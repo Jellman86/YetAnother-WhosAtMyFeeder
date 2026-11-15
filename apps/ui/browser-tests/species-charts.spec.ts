@@ -34,9 +34,12 @@ const captures = (count: number) => Array.from({ length: count }, (_, index) => 
 }));
 
 let capturedImage: string | null;
+// Set by a test that wants every wall picture to fail, as a missing showcase file would.
+let showcaseFails = false;
 test.beforeEach(async ({ page }) => {
     capturedImage = null;
     wallCaptures = [];
+    showcaseFails = false;
     await page.route(url => url.pathname.startsWith('/api/'), async route => {
         const url = new URL(route.request().url());
         const path = url.pathname;
@@ -68,7 +71,8 @@ test.beforeEach(async ({ page }) => {
         } else if (path === '/api/events') {
             await route.fulfill({ json: wallCaptures });
         } else if (path.startsWith('/api/about/showcase/') && path.endsWith('.jpg')) {
-            await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
+            if (showcaseFails && Number(path.match(/wall-(\d+)/)?.[1] ?? -1) % 3 === 0) await route.fulfill({ status: 404, contentType: 'text/plain', body: 'gone' });
+            else await route.fulfill({ contentType: 'image/svg+xml', body: pixel });
         } else if (path.includes('/species/') && path.endsWith('/info')) {
             await route.fulfill({ json: {} });
         } else {
@@ -415,4 +419,33 @@ test('a bird kept from the Species page is not offered again while its reload fa
     await expect.poll(() => reloads).toBeGreaterThanOrEqual(1);
     await expect(page.locator('[data-spotlight-kept-bird]')).toHaveCount(0);
     expect(keeps).toEqual(['POST']);
+});
+
+test('a wall picture that fails keeps its cell, so nothing on the wall moves', async ({ page }) => {
+    const positions = () => page.locator('[data-capture-wall-tile]').evaluateAll(nodes => nodes.map(node => {
+        const box = node.getBoundingClientRect();
+        return `${node.getAttribute('data-capture-wall-tile')} ${Math.round(box.x)},${Math.round(box.y)} ${Math.round(box.width)}x${Math.round(box.height)}`;
+    }));
+    wallCaptures = captures(36);
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    const loaded = await positions();
+
+    // Every third picture is missing, as when Frigate has expired some snapshots.
+    showcaseFails = true;
+    await page.reload();
+    await expect(page.locator('[data-capture-wall-tile]').first()).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('[data-capture-wall-missing]').first()).toBeVisible();
+    expect(await positions()).toEqual(loaded);
+
+    // A missing picture is a neutral cell that names the bird, never a broken image.
+    const missing = page.locator('[data-capture-wall-tile]:has([data-capture-wall-missing])');
+    expect(await missing.count()).toBeGreaterThan(0);
+    await expect(missing.first().locator('[data-capture-wall-missing]')).toHaveText(/Robin|Dunnock|Wren/);
+    const broken = await page.locator('[data-capture-wall-grid] img').evaluateAll(images => images.filter(image =>
+        image instanceof HTMLImageElement && image.complete && image.naturalWidth === 0 && getComputedStyle(image).visibility !== 'hidden'
+    ).length);
+    expect(broken).toBe(0);
 });

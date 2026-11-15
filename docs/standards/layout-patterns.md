@@ -129,6 +129,17 @@ needs a person" (a flagged row, the review queue, a warning toast, a degraded su
 repaint `--accent-*` but must never define `--success-*` or `--attention-*`. Score and state code
 never names `accent-*` at all (`colour-language.layout.test.ts`).
 
+The palette is closed. Component code paints with brand, `success-*`, `attention-*`, rose (and the
+kit's red danger buttons) and slate, and nothing else: no `accent-*`, no raw `amber-*`, and no
+second accent such as indigo, sky or cyan to make a panel look distinct. A panel is told apart by
+its heading, not its tint. The few reasons to step outside are named, with their reason, in
+`PALETTE_EXCEPTIONS` (`colour-language.layout.test.ts`): a theme picker's swatches, categorical
+chart series that are always named, the rain band on the activity chart, and the orange
+missing-upstream mark. An outline drawn on a photograph (a counted bird, the chosen crop, a
+detector's box) uses the one `evidence` colour, which holds against plumage and foliage in every
+theme. `attention-*` itself is allowed only in the components listed in `ATTENTION_COMPONENTS`,
+each with the work it waits on, so a new screen cannot reach for amber without saying why.
+
 Work in flight needs nobody, so a running or queued job takes the brand colour, not amber. A
 reported status (healthy, running, degraded, failed, unknown) takes its tone and its translated,
 sentence-case label from `utils/status-tone.ts`: brand for running, amber for attention, rose for a
@@ -263,6 +274,11 @@ slim bar: subject, camera, time, close
   frame strip                    confirm / pick a different species / score again
                                  supporting analysis, facts, then Details
 ```
+
+The rail's "Identified as" heading names the bird once and titles the dialog. The photograph does
+not repeat the name, the common-name control is an action ("Change the common name") rather than a
+second statement of it, and a missing classification source is left unsaid rather than reported as
+"not recorded". The species route is one secondary button; Confirm is the only primary action.
 
 The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
 the photograph peeks at it with the chosen crop outlined and labeled. Other distinct retained crop
@@ -577,7 +593,18 @@ The product's voice is dry, first person where a person is speaking, and underst
 sets it: *"A personal project built with AI-assisted coding... I saw an opportunity to learn and
 build something better."*
 
-- **No em dashes.** Use a comma, a colon, a semicolon or a full stop.
+- **No em dashes.** Use a comma, a colon, a semicolon or a full stop. The locale test covers all
+  nine languages and `dialog-close-and-copy.layout.test.ts` covers English fallbacks in the code.
+- **Sentence case.** Buttons, headings and labels capitalise their first word and names only:
+  "Clear history", "Test AI connection", "Keyboard shortcuts". Names are products (Frigate,
+  BirdNET-Go, eBird, iNaturalist, BirdWeather, Home Assistant, YA-WAMF), places, models, and the
+  app's own pages and tabs where a sentence cites them ("Settings → Connection"). The editorial
+  locale test fails a short Title Case label in English, Spanish, French, Italian, Portuguese and
+  Russian; German keeps its capitalised nouns, and Japanese and Chinese have no case.
+- An error states the cause and the next step. "This page stopped working … Reload the page; if it
+  happens again, copy the error details into a GitHub issue", never "Something went wrong".
+- A badge says something its surroundings do not. An owner-only page does not mark items "owner";
+  where it matters it says "Only you see this".
 - Name a control by its effect. "Identify", "Add House Sparrow", "Work through the queue".
 - Empty states say what is true and what is next: "Every visit in the last 24 hours has a species.
   Nothing waiting on you." Never a bare "No data".
@@ -621,8 +648,10 @@ build something better."*
   or gradient wash; `surface-raised` fills a well inside a panel. These tokens are set per mode and
   theme in `app.css`, so a component never names a theme. Gradients remain only where they do a
   job: a scrim that keeps a caption legible over a photo, a scroll fade, a loading shimmer.
-- **Labels and controls**: a small uppercase label with wide tracking (`.eyebrow`) names a group or
-  a window. Controls speak in sentence case; `app.css` holds every button to that.
+- **Labels and controls**: a small label (`.eyebrow`) names a group or a window. Like every control,
+  heading and label it is in sentence case at normal tracking: it stays below its heading by size,
+  weight and a muted ink, never by capitals. Nothing forces capitals with CSS
+  (`dialog-close-and-copy.layout.test.ts`), so a translated label reads as written.
 - **One object, one choice**: when one thing takes part in several subjects, as a camera can watch
   for birds and Garden animals, give it one row with one single-choice control that names the
   combinations (Off, Birds, Garden animals, Both). Options that belong to one subject appear under

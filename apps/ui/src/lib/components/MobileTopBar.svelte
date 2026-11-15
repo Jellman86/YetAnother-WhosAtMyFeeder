@@ -19,7 +19,7 @@
         onToggleTheme = () => undefined,
         theme = 'light',
         appTitle = '',
-        toggleMenuLabel = 'Toggle menu',
+        toggleMenuLabel = 'Menu',
         switchThemeLabel = 'Switch theme',
         menuOpen = false,
         menuControls

@@ -34,7 +34,8 @@ for (const [status, message] of [
         if (status !== 'observed') await expect(modal.getByRole('progressbar')).toHaveCount(0);
         else await expect(modal.getByRole('progressbar', { name: 'Video frames read' })).toBeVisible();
         if (status !== 'observed' && (page.viewportSize()?.width ?? 0) >= 640) {
-            await expect(modal.locator('[data-detection-media-title]')).toBeVisible();
+            // The rail heading names the bird; work in flight never hides it.
+            await expect(modal.locator('#detection-modal-title')).toBeVisible();
         }
         expect(errors).toEqual([]);
         if (status === 'pending') await page.screenshot({ path: testInfo.outputPath('queued-photograph.png'), fullPage: true });

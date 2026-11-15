@@ -232,7 +232,7 @@
       "quail": "Quaglie"
     },
     "suggestion": "Sembra un uccello domestico: {birds}. Se li allevi, aggiungili in Uccelli domestici che allevi per registrarli come animali del giardino, non come uccelli selvatici.",
-    "suggestion_open": "Apri Uccelli domestici che allevi",
+    "suggestion_open": "Apri “Uccelli domestici che allevi”",
     "suggestion_dismiss": "Non ora"
   },
   "automatic_animal_below_threshold_dismissed": "Animale rilevato, ma il punteggio di specie è sotto la soglia di denominazione. Spostato in Scartati; rimettilo da rivedere se vuoi nominarlo tu.",

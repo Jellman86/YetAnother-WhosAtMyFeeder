@@ -10,7 +10,7 @@
     "start_date": "Dal",
     "end_date": "Al",
     "all_species": "Tutte le Specie",
-    "all_cameras": "Tutte le Telecamere",
+    "all_cameras": "Tutte le telecamere",
     "audio_confirmed": "Corrispondenze audio",
     "audio_confirmed_only": "Solo confermati audio",
     "favorites": "Preferiti",
@@ -48,7 +48,7 @@
     "confidence": "Confidenza"
   },
   "empty_title": "Nessun evento ancora",
-  "empty_desc": "Esegui backfill o attendi nuovi rilevamenti per vederli qui.",
+  "empty_desc": "Le visite compaiono qui quando le telecamere identificano gli uccelli. Per importare eventi Frigate più vecchi, avvia un recupero da Impostazioni → Dati.",
   "load_failed": "Non è stato possibile caricare le visite. La tua cronologia è invariata.",
   "bulk_tag_partial": "{count, plural, one {# evento selezionato non è stato aggiornato.} other {# eventi selezionati non sono stati aggiornati.}}",
   "bulk_delete_confirm": "Eliminare {count, plural, one {# rilevamento} other {# rilevamenti}}? Questa azione non può essere annullata.",
@@ -57,9 +57,7 @@
   "bulk_delete_failed": "Eliminazione non riuscita: {message}",
   "bulk_reclassify_success": "{count, plural, one {Accodato # rilevamento per l’analisi video.} other {Accodati # rilevamenti per l’analisi video.}}",
   "bulk_reclassify_partial": "Accodati {queued}; impossibile accodarne {failed}.",
-  "classification_legend": "Fonti di classificazione: Manuale, Video, Istantanea",
   "timeline_scope": "Giorni in questa pagina",
-  "timeline_keyboard_hint": "Tastiera timeline: [ giorno precedente, ] giorno successivo, 0 reimposta",
   "row_open": "Apri {species}",
   "row_select": "Seleziona {species}",
   "row_below_threshold": "Sotto la soglia di denominazione",
@@ -139,5 +137,6 @@
   "count_unavailable": "Conteggio non disponibile",
   "results_loading": "Caricamento dei risultati…",
   "selection_count": "{count, plural, =0 {Nessuna acquisizione selezionata} one {# acquisizione selezionata} other {# acquisizioni selezionate}}",
-  "settings_unavailable": "Non è stato possibile caricare le impostazioni, quindi Esplora non sa quali visitatori mostrare. Non è stato modificato nulla. Riprova tra poco."
+  "settings_unavailable": "Non è stato possibile caricare le impostazioni, quindi Esplora non sa quali visitatori mostrare. Non è stato modificato nulla. Riprova tra poco.",
+  "bulk_tag_applied": "{species} assegnata a {count, plural, one {# record} other {# record}}"
 }

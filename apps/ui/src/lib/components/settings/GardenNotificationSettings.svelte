@@ -124,7 +124,7 @@
                 {#if delivery.length > 0}
                     <p class="text-xs text-slate-700 dark:text-slate-300" data-garden-delivery>{$_('settings.notifications.garden.bird_uses', { default: 'Sends to {channels}.', values: { channels: deliveryNames } })}</p>
                 {:else}
-                    <p class="text-xs text-amber-800 dark:text-amber-200" data-garden-delivery>{$_('settings.notifications.garden.bird_none', { default: 'No bird channel is switched on and configured, so no Garden alert can be sent. Switch one on above, or choose channels.' })}</p>
+                    <p class="text-xs text-attention-800 dark:text-attention-200" data-garden-delivery>{$_('settings.notifications.garden.bird_none', { default: 'No bird channel is switched on and configured, so no Garden alert can be sent. Switch one on above, or choose channels.' })}</p>
                 {/if}
             {:else}
                 <div class="flex flex-wrap gap-2" role="group" aria-label={$_('settings.notifications.garden.channels_label', { default: 'Garden delivery channels' })}>
@@ -135,9 +135,9 @@
                     {/each}
                 </div>
                 {#if channels.length === 0}
-                    <p class="text-xs text-amber-800 dark:text-amber-200" data-garden-delivery>{$_('settings.notifications.garden.choose_one', { default: 'Choose at least one channel to deliver Garden alerts.' })}</p>
+                    <p class="text-xs text-attention-800 dark:text-attention-200" data-garden-delivery>{$_('settings.notifications.garden.choose_one', { default: 'Choose at least one channel to deliver Garden alerts.' })}</p>
                 {:else if missingCredentials.length > 0}
-                    <p class="text-xs text-amber-800 dark:text-amber-200" data-garden-delivery>{$_('settings.notifications.garden.credentials', { default: 'No saved credentials for {channels}, so Garden alerts there will fail. Add them in the channel cards above.', values: { channels: missingNames } })}</p>
+                    <p class="text-xs text-attention-800 dark:text-attention-200" data-garden-delivery>{$_('settings.notifications.garden.credentials', { default: 'No saved credentials for {channels}, so Garden alerts there will fail. Add them in the channel cards above.', values: { channels: missingNames } })}</p>
                 {/if}
             {/if}
 

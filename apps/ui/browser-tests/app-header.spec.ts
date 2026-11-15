@@ -31,7 +31,7 @@ test('app headers fit 320px with 200% text after desktop resize', async ({ page 
     await expect(refresh).toBeVisible();
     await page.setViewportSize({ width: 320, height: 900 });
     await page.evaluate(() => document.documentElement.style.fontSize = '200%');
-    const menu = page.getByRole('button', { name: 'Toggle menu', exact: true });
+    const menu = page.getByRole('button', { name: 'Menu', exact: true });
     await expect(menu).toBeVisible();
     await expect.poll(() => page.locator('#main-content').evaluate(node => {
         const bounds = node.getBoundingClientRect();
@@ -172,7 +172,7 @@ test('the phone drawer is out of the tab order when closed and modal when open',
     await page.goto('/events');
     await expect(page.getByRole('heading', { level: 1, name: 'Explorer' })).toBeVisible();
 
-    const menu = page.getByRole('button', { name: 'Toggle menu', exact: true });
+    const menu = page.getByRole('button', { name: 'Menu', exact: true });
     const drawer = page.locator('#app-sidebar');
     await expect(menu).toHaveAttribute('aria-expanded', 'false');
     await expect(menu).toHaveAttribute('aria-controls', 'app-sidebar');

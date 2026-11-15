@@ -148,7 +148,7 @@ test('a record states its measured light level in the conditions row', async ({ 
     await openRecord(page, '?light=1240.5');
     const conditions = page.locator('[data-detection-weather-row]');
     await expect(conditions).toHaveCount(1);
-    await expect(conditions.locator('dd')).toHaveText('Cloudy 9.0°C · Cloud Cover 80% · Light 1,241 lx');
+    await expect(conditions.locator('dd')).toHaveText('Cloudy 9.0°C · Cloud cover 80% · Light 1,241 lx');
     if (shots) await conditions.screenshot({ path: `${shots}/record-conditions-light.png` });
 });
 

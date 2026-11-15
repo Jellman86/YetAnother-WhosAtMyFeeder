@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import type { Snippet } from 'svelte';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
@@ -219,7 +220,7 @@
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
                {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
-               {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
+               {analysisActive ? 'border-2 border-brand-500 ring-2 ring-brand-500/30 dark:border-brand-400 dark:ring-brand-400/25' : ''}
                {selectionMode && selected && !analysisActive ? 'border-2 border-brand-600 ring-2 ring-brand-500/60 dark:border-brand-400 dark:ring-brand-400/50' : ''}"
         style="animation-delay: {index * 40}ms"
     >
@@ -279,7 +280,7 @@
             <div class="absolute top-3 left-3 z-20 flex items-center gap-1.5">
                 {#if detection.is_favorite}
                     <BadgeHint
-                        class="w-7 h-7 rounded-full bg-amber-500/90 text-white flex items-center justify-center shadow-lg shadow-amber-500/30"
+                        class="w-7 h-7 rounded-full bg-brand-700/95 text-white flex items-center justify-center shadow-lg shadow-brand-700/30"
                         text={$_('detection.favorite', { default: 'Favorite' })}
                         label={$_('detection.favorite', { default: 'Favorite' })}
                     >
@@ -442,7 +443,7 @@
                         }}
                         aria-label="{$_('detection.retag', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
-                               hover:bg-amber-500 hover:text-white transition-all duration-200
+                               hover:bg-brand-700 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -488,15 +489,15 @@
                 {#if hasWeatherCondition}
                     {@const icon = weatherIcon(weatherConditionSummary)}
                     {#if icon === 'clear'}
-                        <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                     {:else if icon === 'rain' || icon === 'storm'}
-                        <svg class="w-4 h-4 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 13v4m-4-2v4m-4-2v2m1-8a5 5 0 119.584 1.245A4 4 0 0117 16H7a4 4 0 01-1-7.874" />
                         </svg>
                     {:else if icon === 'snow'}
-                        <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <svg class="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
                         </svg>
                     {:else if icon === 'fog'}
@@ -524,7 +525,7 @@
         <!-- Compact metadata line: date + camera -->
         <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-600 dark:text-slate-400 font-medium flex-wrap">
             <span>{formatDate(detection.detection_time)}</span>
-            <span class="text-slate-300 dark:text-slate-500">&middot;</span>
+            <Separator />
             <span class="wrap-break-word">{detection.camera_name}</span>
         </div>
     </div>

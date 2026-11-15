@@ -269,7 +269,7 @@
                 { label: $_('settings.data.due_for_deletion', { default: 'Due for deletion' }), val: fmtCount(dueForDeletion), highlight: dueForDeletion > 0 }
             ] as stat}
                 <div class="card-base rounded-2xl p-6 text-center">
-                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-amber-700 dark:text-amber-300' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
+                    <p class="text-2xl font-bold tracking-tight {stat.highlight ? 'text-attention-700 dark:text-attention-300' : 'text-slate-900 dark:text-white'}">{stat.val}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-1">{stat.label}</p>
                 </div>
             {/each}
@@ -306,7 +306,7 @@
                     onchange={(v) => (retentionDays = Number(v) || 0)}
                 />
                 {#if retentionNote}
-                    <p id="retention-deletion-note" class="text-sm font-semibold text-amber-800 dark:text-amber-200" role="status" data-retention-deletion-note>
+                    <p id="retention-deletion-note" class="text-sm font-semibold text-attention-800 dark:text-attention-200" role="status" data-retention-deletion-note>
                         {retentionNote}
                     </p>
                 {/if}
@@ -399,7 +399,7 @@
                 {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are always kept. The limits below decide for how long and how much space they use.' })}
             </p>
             {#if cacheStats && cacheStats.storage_available === false}
-                <p class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200" role="status" data-media-storage-unavailable>
+                <p class="rounded-2xl border border-attention-200 bg-attention-50 p-4 text-sm text-attention-800 dark:border-attention-800 dark:bg-attention-950/30 dark:text-attention-200" role="status" data-media-storage-unavailable>
                     {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
                 </p>
             {/if}
@@ -608,11 +608,11 @@
         title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
     >
-        <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/20 px-4 py-3 flex items-start gap-3">
-            <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <div class="rounded-2xl border border-attention-200 dark:border-attention-700/60 bg-attention-50 dark:bg-attention-950/20 px-4 py-3 flex items-start gap-3">
+            <svg class="w-4 h-4 text-attention-600 dark:text-attention-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <p class="text-xs font-bold leading-relaxed text-amber-800 dark:text-amber-200">
+            <p class="text-xs font-bold leading-relaxed text-attention-800 dark:text-attention-200">
                 {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
             </p>
         </div>
@@ -692,7 +692,7 @@
                         <div class="w-2 h-2 rounded-full bg-red-500"></div>
                         <p class="text-xs font-bold text-red-700 dark:text-red-300">{taxonomyStatus.error}</p>
                     {:else}
-                        <div class="w-2 h-2 rounded-full bg-accent-500"></div>
+                        <div class="w-2 h-2 rounded-full bg-brand-500"></div>
                         <p class="text-xs font-bold text-slate-600 dark:text-slate-300">{taxonomyStatus.message || taxonomyStatus.current_item}</p>
                     {/if}
                 </div>
@@ -725,8 +725,8 @@
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
-                <div class="rounded-2xl border border-amber-200 dark:border-amber-700/60 px-4 py-3">
-                    <p class="text-lg font-bold text-amber-600 dark:text-amber-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
+                <div class="rounded-2xl border border-attention-200 dark:border-attention-700/60 px-4 py-3">
+                    <p class="text-lg font-bold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
@@ -753,7 +753,7 @@
                             <div class="px-5 py-4 space-y-1">
                                 <div class="flex items-center justify-between gap-3">
                                     <p class="text-sm font-bold text-slate-900 dark:text-white truncate">{candidate.display_name || candidate.frigate_event}</p>
-                                    <span class="text-xs font-bold uppercase tracking-widest {candidate.status === 'repair_candidate' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
+                                    <span class="text-xs font-bold {candidate.status === 'repair_candidate' ? 'text-attention-600 dark:text-attention-400' : 'text-slate-600 dark:text-slate-400'}">{candidate.status.replace(/_/g, ' ')}</span>
                                 </div>
                                 <p class="text-xs text-slate-600 dark:text-slate-400 truncate">{candidate.frigate_event}</p>
                                 <div class="text-xs text-slate-600 dark:text-slate-300">
@@ -861,15 +861,15 @@
 
         {#if backfillResult}
             {#if backfillResult.message}
-                <p class="flex items-start gap-2 border-l-2 {backfilling ? 'border-brand-400 text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'border-amber-400 text-amber-800 dark:text-amber-200' : 'border-accent-400 text-slate-700 dark:text-slate-300'} py-1 pl-3 text-sm" aria-live="polite">
+                <p class="flex items-start gap-2 border-l-2 {backfilling ? 'border-brand-400 text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'border-attention-400 text-attention-800 dark:text-attention-200' : 'border-success-400 text-slate-700 dark:text-slate-300'} py-1 pl-3 text-sm" aria-live="polite">
                     {#if backfilling}{@render spinner()}{/if}
                     <span>{backfillResult.message}</span>
                 </p>
             {/if}
             <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-5 sm:divide-y-0">
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
-                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.updated)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.updated)}</dd></div>
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>
@@ -922,7 +922,7 @@
                 {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
                 <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
                     <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
-                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(weatherBackfillResult.updated)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.updated)}</dd></div>
                     <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
                     <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
                 </dl>
@@ -1001,15 +1001,15 @@
                     </div>
                 {/if}
                 {#if analysisStatus.circuit_open}
-                    <div class="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                    <div class="text-xs font-bold text-attention-700 dark:text-attention-300 flex items-center gap-1 bg-attention-500/10 p-2 rounded-lg border border-attention-500/20">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         {$_('settings.data.batch_analysis_circuit_open')}
                         {#if analysisStatus.open_until}
-                            <span class="ml-auto text-xs font-bold text-amber-600 dark:text-amber-300">{formatSafeTime(analysisStatus.open_until)}</span>
+                            <span class="ml-auto text-xs font-bold text-attention-600 dark:text-attention-300">{formatSafeTime(analysisStatus.open_until)}</span>
                         {/if}
                     </div>
                     {#if analysisStatus.failure_count !== undefined}
-                        <div class="text-xs font-bold text-amber-700 dark:text-amber-300">
+                        <div class="text-xs font-bold text-attention-700 dark:text-attention-300">
                             {$_('settings.data.batch_analysis_recent_failures', { default: 'Recent failures' })}: {analysisStatus.failure_count}
                         </div>
                     {/if}

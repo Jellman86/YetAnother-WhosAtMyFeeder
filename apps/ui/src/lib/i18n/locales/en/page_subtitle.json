@@ -1,10 +1,10 @@
 {
   "about": "Version, changelog, contributors, and support links.",
-  "dashboard": "Live detections, recent activity, and feeder health at a glance.",
+  "dashboard": "The last 24 hours at your feeder, and anything waiting on you.",
   "events": "Browse, filter, and manage every classified visit.",
   "add_observation": "Classify your own photo or video, review the evidence, and add it to your history.",
-  "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
-  "notifications": "Alerts, reminders, and active background jobs.",
+  "audio_history": "Calls BirdNET-Go has heard, by species and source.",
+  "notifications": "Visits, alerts and background work, newest first.",
   "settings": "Connections, classification, integrations, and personalization.",
-  "species": "Leaderboard, totals, and taxonomy details for the birds you have seen."
+  "species": "Which birds visit most, how often, and when."
 }
