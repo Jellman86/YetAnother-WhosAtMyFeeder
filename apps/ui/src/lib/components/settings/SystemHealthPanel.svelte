@@ -82,7 +82,7 @@
     const points = $derived(history?.points ?? []);
     const windowSeconds = $derived(history?.window_seconds ?? 1800);
     const latest = $derived(points.length > 0 ? points[points.length - 1] : null);
-    const cpuLabel = $derived($_('settings.system_health.legend_cpu', { default: 'CPU, whole host' }));
+    const cpuLabel = $derived($_('settings.system_health.legend_cpu', { default: 'CPU' }));
     const series = $derived(history ? chartSeries(history, cpuLabel) : []);
     const unreadable = $derived(history ? unreadableAccelerators(history) : []);
     const cpuSegments = $derived(seriesSegments(points, cpuLoad, windowSeconds));
@@ -450,16 +450,10 @@
                         </div>
                     {/if}
                     <!-- A table keeps its columns: when they cannot fit, as with enlarged text on a phone, it
-                         scrolls sideways within its own box instead of widening the page. The box is a
-                         named tab stop, so the keyboard can scroll what a finger can. -->
-                    <!-- svelte-ignore a11y_no_noninteractive_tabindex (a scrolling region with no focusable content must itself be focusable, WCAG 2.1.1) -->
-                    <div
-                        class="mt-3 overflow-x-auto rounded-sm focus-ring"
-                        role="region"
-                        tabindex="0"
-                        aria-labelledby="system-health-share-heading"
-                        data-system-health-table-scroll
-                    >
+                         scrolls sideways within its own box instead of widening the page. -->
+                    <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+                    <!-- When the columns cannot fit it scrolls on its own, so a keyboard must be able to reach it. -->
+                    <div class="mt-3 overflow-x-auto rounded-lg focus-ring" tabindex="0" role="region" aria-label={$_('settings.system_health.table_region', { default: 'Work by process' })} data-system-health-table-region>
                     <table class="w-full text-xs sm:text-sm" data-system-health-table>
                         <thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">
                             <tr>

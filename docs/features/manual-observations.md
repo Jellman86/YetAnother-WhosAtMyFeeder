@@ -102,5 +102,5 @@ still applying its default request limit. Allow up to 256 MiB specifically for
 25 MiB image and 250 MiB video limits unchanged; the extra proxy headroom covers multipart fields
 and headers. See [Reverse proxy configuration](../setup/reverse-proxy.md) for Nginx examples.
 
-For classifier or provider problems, use **Settings → Detection → Runtime diagnostics**. For model
+For classifier or provider problems, use **Settings → Models → Hardware → Runtime report**. For model
 comparison and hardware validation, see [Model evaluation](model-evaluation.md).

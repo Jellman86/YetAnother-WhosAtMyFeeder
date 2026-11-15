@@ -6,6 +6,7 @@ import speciesSource from '../pages/Species.svelte?raw';
 import settingsSource from '../pages/Settings.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
 import notificationsSource from '../pages/Notifications.svelte?raw';
+import healthSource from '../pages/Errors.svelte?raw';
 
 describe('routeIdFor', () => {
     it('names the page each address opens', () => {
@@ -16,7 +17,8 @@ describe('routeIdFor', () => {
         expect(routeIdFor('/observations/new')).toBe('add_observation');
         expect(routeIdFor('/audio')).toBe('audio_history');
         expect(routeIdFor('/notifications')).toBe('notifications');
-        expect(routeIdFor('/settings/health')).toBe('settings');
+        expect(routeIdFor('/settings/connection')).toBe('settings');
+        expect(routeIdFor('/system-health')).toBe('health');
         expect(routeIdFor('/diagnostics/model-eval')).toBe('model_evaluation');
         expect(routeIdFor('/about')).toBe('about');
     });
@@ -48,7 +50,8 @@ describe('routeOffersRefresh', () => {
             ['leaderboard', speciesSource],
             ['settings', settingsSource],
             ['about', aboutSource],
-            ['notifications', notificationsSource]
+            ['notifications', notificationsSource],
+            ['health', healthSource]
         ] as const;
         for (const [route, source] of pages) {
             expect(routeOffersRefresh(route), route).toBe(source.includes('pageRefreshAction.register('));

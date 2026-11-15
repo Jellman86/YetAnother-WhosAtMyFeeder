@@ -109,7 +109,7 @@
             // The camera list failing is not a reading; Frigate measured as not answering is.
             const frigateDown = serviceConnectionsStore.connections?.frigate.state === 'unreachable';
             return frigateDown
-                ? { detail: noReading, state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' as Tone }
+                ? { detail: noReading, state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' as Tone }
                 : { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         }
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
@@ -122,7 +122,7 @@
             }),
             state:
                 cameras.length > 0 && online === cameras.length
-                    ? $_('about.pipeline.online', { default: 'Online' })
+                    ? $_('status.state_connected', { default: 'Connected' })
                     : $_('about.pipeline.degraded', { default: 'Check' }),
             tone: (cameras.length > 0 && online === cameras.length ? 'ok' : 'off') as Tone
         };
@@ -147,14 +147,16 @@
         };
     });
 
+    const audioListening = $derived(serviceConnectionsStore.connections?.mqtt.state === 'connected');
+
     // The broker session as the server measured it; guests are not told, and an owner's
     // unread state stays "not checked" rather than borrowing a neighbour's green.
     const mqttSummary = $derived.by((): { state: string; tone: Tone } => {
         if (isGuestView) return { state: ownerOnly, tone: 'off' };
         const state = serviceConnectionsStore.connections?.mqtt.state;
-        if (state === 'connected') return { state: $_('about.pipeline.online', { default: 'Online' }), tone: 'ok' };
+        if (state === 'connected') return { state: $_('status.state_connected', { default: 'Connected' }), tone: 'ok' };
         if (state === 'disconnected' || state === 'not_configured' || state === 'stopped') {
-            return { state: $_('about.pipeline.offline', { default: 'Offline' }), tone: 'off' };
+            return { state: $_('status.state_not_connected', { default: 'Not connected' }), tone: 'off' };
         }
         return { state: notChecked, tone: 'unknown' };
     });
@@ -182,10 +184,13 @@
         {
             key: 'audio',
             detail: $_('about.pipeline.audio_detail', { default: 'BirdNET-Go correlation' }),
-            state: birdnetEnabled
-                ? $_('about.pipeline.enabled', { default: 'Enabled' })
-                : $_('about.pipeline.off', { default: 'Off' }),
-            tone: (birdnetEnabled ? 'ok' : 'off') as Tone
+            // The sidebar's own words for the same reading: on is only "Listening" while the broker is connected.
+            state: !birdnetEnabled
+                ? $_('status.state_off', { default: 'Off' })
+                : audioListening
+                  ? $_('status.state_listening', { default: 'Listening' })
+                  : $_('status.state_not_listening', { default: 'Not listening' }),
+            tone: (birdnetEnabled && audioListening ? 'ok' : 'off') as Tone
         },
         {
             key: 'store',
@@ -205,16 +210,16 @@
             state: isGuestView
                 ? ownerOnly
                 : notificationsEnabled
-                  ? $_('about.pipeline.enabled', { default: 'Enabled' })
-                  : $_('about.pipeline.off', { default: 'Off' }),
+                  ? $_('status.state_on', { default: 'On' })
+                  : $_('status.state_off', { default: 'Off' }),
             tone: (isGuestView ? 'off' : notificationsEnabled ? 'ok' : 'off') as Tone
         },
         {
             key: 'browser',
             detail: $_('about.pipeline.browser_detail', { default: 'live updates over SSE' }),
             state: detectionsStore.connected
-                ? $_('about.pipeline.streaming', { default: 'Streaming' })
-                : $_('about.pipeline.offline', { default: 'Offline' }),
+                ? $_('status.state_live', { default: 'Live' })
+                : $_('status.state_not_connected', { default: 'Not connected' }),
             tone: (detectionsStore.connected ? 'ok' : 'off') as Tone
         }
     ]);

@@ -1,17 +1,10 @@
 <script lang="ts">
-    interface Props {
-        /** The row of the host card that holds the live readout, in the card's own flow. */
-        readoutHost: HTMLElement | null;
-    }
-
-    let { readoutHost }: Props = $props();
-
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchSystemTelemetry } from '../api/system';
     import { telemetrySampleDelayMs } from '../app/public-refresh-budget';
     import { authStore } from '../stores/auth.svelte';
-    import { portal } from '../utils/portal';
+    import Separator from './Separator.svelte';
     import {
         appendTelemetrySample,
         telemetryPolyline,
@@ -29,8 +22,6 @@
 
     let current = $derived(history.at(-1));
     let cpuPoints = $derived(telemetryPolyline(history, 'cpu'));
-    let acceleratorPoints = $derived(telemetryPolyline(history, 'accelerator'));
-    let cpuArea = $derived(cpuPoints ? `0,100 ${cpuPoints} 100,100` : '');
 
     function displayPercent(value: number | null | undefined): string | null {
         return typeof value === 'number' ? `${Math.round(value)}%` : null;
@@ -108,60 +99,47 @@
     });
 </script>
 
+<!--
+    One muted line in the card's own flow: the readings as plain text, with a small trace of
+    recent CPU load beside them. It is not a link and never sits behind the status rows. The row
+    keeps its height before the first reading, so nothing below it moves when one arrives.
+-->
 <div
     bind:this={container}
     data-system-telemetry
-    class="pointer-events-none absolute inset-0 overflow-hidden rounded-xl"
-    aria-hidden="true"
+    class="mt-2 flex min-h-4 items-center justify-between gap-2 text-xs leading-4 text-slate-600 dark:text-slate-400"
 >
-    {#if cpuPoints}
-        <svg
-            viewBox="0 0 100 100"
-            preserveAspectRatio="none"
-            class="absolute inset-x-0 bottom-0 h-full w-full {stale ? 'opacity-50' : ''}"
-            data-telemetry-stale={stale}
-        >
-            <polygon
-                points={cpuArea}
-                fill="currentColor"
-                class="text-brand-700 opacity-[0.07] dark:text-brand-400 dark:opacity-[0.09]"
-            />
-            <polyline
-                points={cpuPoints}
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.25"
-                vector-effect="non-scaling-stroke"
-                class="text-brand-700 opacity-20 dark:text-brand-400 dark:opacity-25"
-            />
-            {#if acceleratorPoints}
-                <polyline
-                    points={acceleratorPoints}
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.1"
-                    vector-effect="non-scaling-stroke"
-                    class="text-indigo-500 opacity-20 dark:text-indigo-400 dark:opacity-25"
-                />
-            {/if}
-        </svg>
-    {/if}
-
-    <!-- Moved into the host's row rather than placed over the card: text placed by offset has no
-         way to make room when the words around it grow. -->
-    {#if current && readoutHost}
-        <div use:portal={readoutHost} class="pointer-events-none flex flex-wrap items-center gap-x-2 text-3xs font-semibold leading-4 tabular-nums">
+    {#if current}
+        <p class="min-w-0 tabular-nums" data-telemetry-readout data-telemetry-stale={stale}>
             {#if stale}
-                <span class="text-slate-600 dark:text-slate-400">{$_('system_telemetry.last_reading', { default: 'Last reading' })}</span>
+                <span>{$_('system_telemetry.last_reading', { default: 'Last reading' })}:</span>
             {/if}
             {#if currentCpuPercent}
-                <span class="text-brand-700 dark:text-brand-300">CPU {currentCpuPercent}</span>
+                <span class="whitespace-nowrap">CPU {currentCpuPercent}</span>
+            {/if}
+            {#if currentCpuPercent && currentAcceleratorPercent}
+                <Separator />
             {/if}
             {#if currentAcceleratorPercent}
-                <span class="text-indigo-700 dark:text-indigo-300">
-                    {current.acceleratorLabel ?? ''} {currentAcceleratorPercent}
-                </span>
+                <span class="whitespace-nowrap">{current.acceleratorLabel ?? ''} {currentAcceleratorPercent}</span>
             {/if}
-        </div>
+        </p>
+        {#if cpuPoints}
+            <svg
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                class="h-4 w-12 shrink-0 {stale ? 'opacity-50' : ''}"
+                aria-hidden="true"
+                data-telemetry-trace
+            >
+                <polyline
+                    points={cpuPoints}
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    vector-effect="non-scaling-stroke"
+                />
+            </svg>
+        {/if}
     {/if}
 </div>

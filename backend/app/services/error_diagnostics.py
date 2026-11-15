@@ -1,7 +1,8 @@
 from copy import deepcopy
 import os
+import re
 import time
-from collections import Counter, deque
+from collections import Counter, OrderedDict
 from datetime import datetime, timezone
 from threading import Lock
 from typing import Any
@@ -16,6 +17,15 @@ DIAGNOSTICS_HISTORY_MAX_EVENTS = max(
 )
 
 _ALLOWED_SEVERITIES = {"info", "warning", "error", "critical"}
+
+# Event ids, counts and durations vary between repeats of one fault; the words do not.
+_VARYING_TOKEN = re.compile(r"\S*\d\S*")
+
+GroupKey = tuple[str, str, str, str, str]
+
+
+def _message_template(message: str) -> str:
+    return _VARYING_TOKEN.sub("#", message)
 
 
 def _normalize_string(value: Any, fallback: str = "") -> str:
@@ -37,13 +47,19 @@ def _normalize_optional_dict(value: Any) -> dict[str, Any] | None:
 
 
 class ErrorDiagnosticsHistory:
-    """Bounded in-memory diagnostics history for operator-visible error bundles."""
+    """Bounded in-memory diagnostics history for operator-visible error bundles.
+
+    Repeats of one fault (same source, component, reason code, severity and message
+    template) are one entry carrying `count`, `first_seen` and `last_seen`. A flood of one
+    fault therefore neither fills the history nor pushes other faults out of it.
+    """
 
     def __init__(
         self, max_events: int = DIAGNOSTICS_HISTORY_MAX_EVENTS, *, secret_provider: Callable[[], Sequence[str]] = tuple
     ):
         self._capacity = max(1, int(max_events))
-        self._events: deque[dict[str, Any]] = deque(maxlen=self._capacity)
+        # Newest entry last; a repeat moves its entry to the end.
+        self._events: OrderedDict[GroupKey, dict[str, Any]] = OrderedDict()
         self._lock = Lock()
         self._counter = 0
         self._secret_provider = secret_provider
@@ -71,7 +87,19 @@ class ErrorDiagnosticsHistory:
             }
         # Bound payload fields separately so a large context cannot remove the
         # event's machine-readable identity or correlation fields.
-        machine_fields = {"id", "timestamp", "source", "component", "stage", "reason_code", "severity", "worker_pool"}
+        machine_fields = {
+            "id",
+            "timestamp",
+            "source",
+            "component",
+            "stage",
+            "reason_code",
+            "severity",
+            "worker_pool",
+            "count",
+            "first_seen",
+            "last_seen",
+        }
         return {
             key: redact_diagnostic(value, () if key in machine_fields else secrets or ())
             for key, value in record.items()
@@ -121,10 +149,18 @@ class ErrorDiagnosticsHistory:
         normalized_snapshot_ref = _normalize_string(snapshot_ref) or None
 
         secrets = self._secrets()
+        group_key: GroupKey = (
+            normalized_source,
+            normalized_component,
+            normalized_reason,
+            _normalize_severity(severity),
+            _message_template(normalized_message),
+        )
         with self._lock:
             self._counter += 1
+            earlier = self._events.pop(group_key, None)
             record = {
-                "id": f"diag:{int(time.time() * 1000)}:{self._counter}",
+                "id": earlier["id"] if earlier else f"diag:{int(time.time() * 1000)}:{self._counter}",
                 "timestamp": now_iso,
                 "source": normalized_source,
                 "component": normalized_component,
@@ -139,9 +175,14 @@ class ErrorDiagnosticsHistory:
                 "worker_pool": normalized_worker_pool,
                 "runtime_recovery": normalized_runtime_recovery,
                 "snapshot_ref": normalized_snapshot_ref,
+                "count": (earlier["count"] if earlier else 0) + 1,
+                "first_seen": earlier["first_seen"] if earlier else now_iso,
+                "last_seen": now_iso,
             }
             sanitized = self._sanitized(record, secrets)
-            self._events.appendleft(sanitized)
+            self._events[group_key] = sanitized
+            while len(self._events) > self._capacity:
+                self._events.popitem(last=False)
             return deepcopy(sanitized)
 
     def snapshot(
@@ -158,7 +199,7 @@ class ErrorDiagnosticsHistory:
         severity_filter = _normalize_string(severity).lower()
 
         with self._lock:
-            events = list(self._events)
+            events = list(reversed(self._events.values()))
 
         def _matches(record: dict[str, Any]) -> bool:
             if source_filter and str(record.get("source", "")).lower() != source_filter:
@@ -180,6 +221,7 @@ class ErrorDiagnosticsHistory:
             "captured_at": datetime.now(timezone.utc).isoformat(),
             "capacity": self._capacity,
             "total_events": len(events),
+            "total_occurrences": sum(int(record.get("count", 1)) for record in events),
             "filtered_events": len(filtered),
             "returned_events": len(returned),
             "severity_counts": dict(severity_counts),

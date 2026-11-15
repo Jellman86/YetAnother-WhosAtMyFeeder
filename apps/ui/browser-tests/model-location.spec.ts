@@ -35,11 +35,16 @@ for (const width of [1280, 390]) {
             return route.fulfill({ json: {} });
         });
         await page.goto('/browser-tests/settings-backfill.html');
-        if (width < 1024) await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption('detection');
-        else await page.getByRole('link', { name: 'Detection', exact: true }).click();
+        const openTab = async (tab: 'detection' | 'models', name: string) => {
+            if (width < 1024) await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption(tab);
+            else await page.getByRole('link', { name, exact: true }).click();
+        };
+        // An unsaved edit in Detection, then the model's location guidance in Models.
+        await openTab('detection', 'Detection');
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toHaveValue('0.6');
         await slider.fill('0.75');
+        await openTab('models', 'Models');
         const location = page.getByRole('link', { name: 'Open location settings', exact: true });
         await expect(location).toBeVisible();
         await expect(location).toHaveAttribute('href', '/settings/integrations');
@@ -51,11 +56,10 @@ for (const width of [1280, 390]) {
         await location.click();
         if (width < 768) {
             await expect(page.getByRole('combobox', { name: 'Settings section', exact: true })).toHaveValue('integrations');
-            await page.getByRole('combobox', { name: 'Settings section', exact: true }).selectOption('detection');
         } else {
             await expect(page.getByRole('link', { name: 'Integrations', exact: true })).toHaveAttribute('aria-current', 'page');
-            await page.getByRole('link', { name: 'Detection', exact: true }).click();
         }
+        await openTab('detection', 'Detection');
         await expect(slider).toHaveValue('0.75');
         expect(settingsReads).toBe(readsBeforeLink);
         expect(errors).toEqual([]);

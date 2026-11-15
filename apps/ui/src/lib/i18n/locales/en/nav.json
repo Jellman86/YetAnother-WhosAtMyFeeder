@@ -18,5 +18,6 @@
   "events": "Events",
   "notifications": "Notifications",
   "species": "Species",
-  "navigation": "Primary navigation"
+  "navigation": "Primary navigation",
+  "health": "Health"
 }

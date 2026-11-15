@@ -36,7 +36,7 @@
     "purge_button": "Limpar registros antigos",
     "purge_confirm": "Excluir permanentemente {count, plural, one {# detecção} other {# detecções}} e o áudio do BirdNET-Go com mais de {days} dias? Os favoritos e as visitas mais recentes mantidas de cada espécie permanecem. Esta ação não pode ser desfeita.",
     "cleaning": "A limpar…",
-    "auto_cleanup_note": "A limpeza automática é executada no arranque e, depois, a cada 24 horas",
+    "auto_cleanup_note": "A limpeza é executada quando o YA-WAMF inicia e depois a cada 24 horas.",
     "cache_title": "Fotos e vídeo",
     "cache_clips": "Manter cópias dos clipes de eventos do Frigate",
     "cache_high_quality_event_snapshot_jpeg_quality": "Qualidade JPEG da captura HQ",
@@ -202,7 +202,7 @@
     "bird_scan_standard": "Padrão",
     "bird_scan_intensive": "Intensiva",
     "cache_clips_help": "O Frigate já os guarda. As cópias sobrevivem se o Frigate os apagar, cada uma com cerca do tamanho do clipe.",
-    "cache_always_kept": "As fotos, os clipes de visita completa e as pré-visualizações são sempre mantidos. Os limites abaixo definem por quanto tempo e quanto espaço eles ocupam.",
+    "cache_always_kept": "Fotos, clipes de visitas completas e prévias são mantidos até que um dos limites abaixo os remova.",
     "cache_unavailable": "Não é possível gravar na pasta de mídia, então fotos e vídeo não estão sendo mantidos. Verifique as permissões da pasta; as verificações do sistema mostram o erro.",
     "cache_high_quality_storage_note": "Cada visita também guarda quadros em resolução total, muitas vezes de vários MB; defina um limite de armazenamento se o espaço for pouco.",
     "automatic_multi_bird_scan": "Encontrar aves adicionais automaticamente",
@@ -219,7 +219,14 @@
     "retention_shrink_kept": "Os favoritos são mantidos. O áudio do BirdNET-Go e os registros de animais do jardim mais antigos também são excluídos.",
     "retention_confirm_title": "Excluir o histórico antigo?",
     "retention_confirm_button": "Salvar e excluir {count, plural, one {# detecção} other {# detecções}}",
-    "retention_confirm_uncounted": "Salvar e excluir o histórico antigo"
+    "retention_confirm_uncounted": "Salvar e excluir o histórico antigo",
+    "history_summary": "{count, plural, one {# registro} other {# registros}}, o mais antigo de {oldest}.",
+    "history_summary_empty": "Ainda não há registros.",
+    "history_due": "{count, plural, one {# é mais antigo} other {# são mais antigos}} que o período salvo e {count, plural, one {será excluído} other {serão excluídos}} na próxima limpeza.",
+    "missing_media_title": "Quando o Frigate perde uma visita",
+    "missing_media_desc": "O Frigate apaga eventos antigos no seu próprio ritmo. Aqui se decide o que o YA-WAMF mantém quando um deles some.",
+    "maintenance_jobs_title": "Tarefas ao mesmo tempo",
+    "maintenance_jobs_desc": "As tarefas acima são executadas uma de cada vez, para nunca disputarem com a identificação de aves."
   },
   "security": {
     "title": "Segurança",
@@ -244,13 +251,11 @@
     "connection": "Conexão",
     "detection": "Detecção",
     "notifications": "Notificações",
-    "health": "Saúde",
     "integrations": "Integrações",
     "data": "Dados",
     "security": "Segurança",
     "appearance": "Aparência",
     "accessibility": "Acessibilidade",
-    "debug": "Debug",
     "enrichment": "Enriquecimento",
     "ai": "IA",
     "groups": {
@@ -264,15 +269,11 @@
     "skip_to_content": "Ir para as configurações",
     "section_label": "Seção de configurações",
     "navigation_label": "Seções de configurações",
-    "unsaved_note": "Tem alterações não salvas"
+    "unsaved_note": "Tem alterações não salvas",
+    "models": "Modelos",
+    "maintenance": "Manutenção"
   },
   "debug": {
-    "title": "Ferramentas de debug",
-    "subtitle": "Interruptores extras para testes e diagnóstico.",
-    "model_eval_title": "Ferramenta de avaliação de modelos",
-    "model_eval_desc": "Avalie os classificadores instalados com imagens de aves verificadas taxonomicamente. Os artefatos são salvos em /config/yawamf-eval/.",
-    "model_eval_action_desc": "Execute testes de precisão, latência e coerência em todos os modelos instalados. Apenas para o proprietário.",
-    "model_eval_open": "Abrir",
     "llm_prompts_title": "Modelos de prompt LLM",
     "llm_prompts_subtitle": "Personalize a estrutura Markdown e o tom para análise de IA e conversas.",
     "llm_prompt_style_label": "Estilo de prompt",
@@ -285,8 +286,8 @@
     "llm_prompt_conversation_hint": "Tokens: {species}, {analysis}, {history}, {question}, {language_note}",
     "llm_prompt_chart": "Prompt de análise de gráfico",
     "llm_prompt_chart_hint": "Tokens: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-    "strict_non_finite_output": "Tratamento estrito de saídas não finitas",
-    "strict_non_finite_output_desc": "Rejeita um resultado que o modelo não conseguiu calcular e reinicia o modelo, para que nada seja salvo dele. Desative apenas ao depurar o modelo."
+    "strict_non_finite_output": "Descartar resultados que o modelo não conseguiu calcular",
+    "strict_non_finite_output_desc": "Ativado, um resultado que não é um número é descartado e o modelo é reiniciado. Desative apenas enquanto investiga uma falha do modelo."
   },
   "ai": {
     "usage_title": "Painel de uso de IA",
@@ -507,7 +508,7 @@
     "disabled": "Desativado",
     "needs_ebird": "Não exibido: precisa de uma chave de API do eBird",
     "ebird_hint": "Avistamentos próximos, sazonalidade e raridade aparecem nas páginas de espécies quando o eBird está ativado com uma chave de API.",
-    "open_ebird": "Configurar eBird"
+    "open_ebird": "Ir para o eBird"
   },
   "auth": {
     "title": "Autenticação",
@@ -851,16 +852,15 @@
     "instance_url_placeholder": "https://feeder.example.com",
     "link_opens": "O link da notificação abre",
     "link_opens_yawamf": "Este YA-WAMF",
-    "link_opens_yawamf_desc": "A detecção na página Detecções, com o clipe, as capturas e a identificação.",
+    "link_opens_yawamf_desc": "A visita em Explorar, com clipe, instantâneos e identificação.",
     "link_opens_yawamf_req": "Usa o endereço da instância acima.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "O mesmo objeto seguido na página Explore do Frigate.",
-    "link_opens_frigate_req": "Requer o Frigate 0.15 ou mais recente e a URL pública do Frigate nas configurações de Integrações.",
+    "link_opens_frigate_req": "Requer o Frigate 0.15 ou mais recente e a URL pública do Frigate, definida em Configurações → Conexão.",
     "link_frigate_url_missing": "A URL pública do Frigate não está definida; as notificações não terão link até que ela seja definida.",
-    "link_open_integrations": "Abrir configurações de integrações",
-    "link_preview_telegram": "Botão do Telegram",
+    "link_preview_telegram": "Link no botão do Telegram:",
     "link_preview_others": "O título do Discord, o Pushover e o e-mail usam o mesmo endereço.",
-    "link_preview_none": "nenhum link é enviado",
+    "link_preview_none": "nenhum ainda, então as mensagens do Telegram não têm botão.",
     "sentence": {
       "chip_context": "({setting})",
       "lead": "Avise-me sobre",
@@ -880,15 +880,13 @@
       "species_all_but": "{count, plural, one {todas menos # espécie} other {todas menos # espécies}}",
       "species_only": "{count, plural, one {apenas # espécie} other {apenas # espécies}}",
       "species_jump": "Filtro de espécies: {summary}. Ir para o filtro de espécies.",
-      "channels_none": "em nenhum destino ainda",
-      "channels_hint": "Escolha para onde vão as mensagens.",
-      "channel_needs_setup": "requer configuração",
-      "destinations": "Destinos",
+      "channels_none": "nenhum canal ainda",
       "channel_discord": "Discord",
       "channel_pushover": "Pushover",
       "channel_telegram": "Telegram",
       "channel_email": "E-mail",
-      "confidence_chip_audio": "{value}% de certeza e ouvidas"
+      "confidence_chip_audio": "{value}% de certeza e ouvidas",
+      "channels_jump": "Canais: {channels}. Ir para os canais."
     },
     "test_channel": "Canal",
     "test_failed": "Não foi possível enviar a mensagem de teste.",
@@ -903,15 +901,15 @@
       "enabled_help": "Um alerta por visita quando um animal é nomeado automaticamente ou você aceita a espécie. Entra em vigor quando você salva as alterações.",
       "send_to": "Enviar alertas do jardim para",
       "use_bird": "Usar meus canais de aves",
-      "use_bird_help": "Os canais acima que estão ativados e configurados.",
+      "use_bird_help": "Os canais de Notificações que estão ligados e configurados.",
       "choose": "Escolher canais",
       "choose_help": "Usa as credenciais salvas; os interruptores de aves podem ficar desligados.",
       "bird_uses": "Envia para {channels}.",
-      "bird_none": "Nenhum canal de aves está ativado e configurado, então nenhum alerta do jardim pode ser enviado. Ative um acima ou escolha canais.",
+      "bird_none": "Nenhum canal de aves está ligado e configurado, então nenhum alerta do jardim pode ser enviado. Ligue um em Notificações ou escolha canais aqui.",
       "channels_label": "Canais de entrega do jardim",
       "channel": "Alertas do jardim via {channel}",
       "choose_one": "Escolha pelo menos um canal para os alertas do jardim.",
-      "credentials": "Não há credenciais salvas para {channels}, então os alertas do jardim falharão ali. Adicione-as no cartão do canal acima.",
+      "credentials": "Não há credenciais salvas para {channels}, então os alertas do jardim falharão ali. Adicione-as em Notificações.",
       "include_photo": "Incluir a foto",
       "include_photo_help": "Anexa o recorte salvo do animal ou, se não houver, a foto da captura. Só animais confirmados são enviados, então é uma foto que você ou a verificação automática aceitou. Só texto se nenhuma foto puder ser lida.",
       "privacy": "Envia o nome do animal, a câmera, a hora do avistamento e, se escolhido, a foto para esses serviços. O link abre esta captura aqui; um visitante só pode abri-la enquanto o acesso público a compartilhar.",
@@ -919,7 +917,10 @@
       "status": "Tentativas de entrega salvas. Aceitas pelo canal: {sent}. Falhas: {failed}. Não confirmadas: {unknown}. Ignoradas: {skipped}.",
       "status_after_apply": "O status de entrega aparece quando o jardim estiver ativado e salvo.",
       "refresh": "Atualizar status de entrega"
-    }
+    },
+    "garden_elsewhere": "Os alertas de animais do jardim são definidos em Animais do jardim, nas Funções beta. São enviados pelos canais acima.",
+    "garden_open": "Abrir alertas do jardim",
+    "link_open_connection": "Abrir Conexão"
   },
   "discord": {
     "title": "Notificações Discord",
@@ -996,20 +997,20 @@
     "resolving": "A pesquisar…"
   },
   "danger": {
-    "title": "Ações que não podem ser desfeitas",
-    "subtitle": "Ações destrutivas",
-    "reset_desc": "Repor a base de dados elimina permanentemente TODAS as detecções, limpa a cache de média e remove todos os favoritos arquivados. Não é possível anular.",
-    "reset_button": "Resetar banco de dados e cache",
+    "title": "Excluir dados",
+    "subtitle": "Cada uma destas ações exclui algo para sempre. Todas pedem confirmação antes de agir.",
+    "reset_desc": "Exclui todas as detecções, todas as fotos e clipes em cache e todos os favoritos arquivados.",
+    "reset_button": "Excluir todo o histórico",
     "resetting": "Resetando…",
-    "confirm": "PERIGO: isto elimina TODAS as detecções, limpa a cache de média e remove todos os favoritos arquivados. Não é possível anular. Tem a certeza?",
-    "clear_feedback_button": "Limpar dados de personalização",
-    "clear_feedback_desc": "Limpar o feedback de personalização apagará todas as correções manuais de etiquetas que a IA usa para ajustar os níveis de confiança. Isso fará o classificador voltar à precisão básica.",
-    "clear_feedback_hint": "Isso não exclui detecções nem mídia. O reordenamento voltará a aprender à medida que você fizer novas correções manuais.",
+    "confirm": "Excluir {count, plural, one {# detecção} other {as # detecções}}, todas as fotos e clipes em cache e todos os favoritos arquivados? Não é possível desfazer.",
+    "clear_feedback_button": "Excluir correções",
+    "clear_feedback_desc": "O YA-WAMF usa as espécies que você corrigiu para ajustar suas pontuações em cada câmera. Excluir as correções volta às pontuações do próprio modelo.",
+    "clear_feedback_hint": "Detecções e fotos permanecem. Novas correções reiniciam o ajuste.",
     "clearing_feedback": "Limpando…",
-    "clear_feedback_confirm": "Tens a certeza de que queres limpar todos os dados de re-ranking personalizado? Isto reverte a IA para a sua precisão de base e não pode ser desfeito.",
-    "feedback_title": "Dados de personalização",
+    "clear_feedback_confirm": "Excluir suas correções de identificação? As pontuações voltam às do modelo, e detecções e fotos permanecem. Não é possível desfazer.",
+    "feedback_title": "Suas correções de identificação",
     "favorites_title": "Favoritos",
-    "reset_title": "Banco de dados e cache de mídia"
+    "reset_title": "Todas as detecções e suas mídias"
   },
   "detection": {
     "fine_tuning": "Ajuste fino",
@@ -1099,14 +1100,12 @@
     "model_manager_crop_policy_automatic_desc": "O YA-WAMF usa a política de recorte testada para este modelo. Não há nada a ajustar ao mudar de modelo.",
     "model_manager_runtime_health": "Estado do runtime",
     "model_manager_image_preparation": "Preparação da imagem",
-    "model_manager_detector_missing": "Transferência necessária",
+    "model_manager_detector_missing": "Ainda não foi baixado. O botão de download fica abaixo das opções.",
     "model_manager_lineup_title": "Linha de modelos por níveis",
     "model_manager_lineup_desc": "Os modelos recomendados aparecem primeiro. As opções avançadas permanecem ocultas até você abri-las.",
     "model_manager_hide_advanced": "Ocultar modelos avançados",
     "model_manager_show_advanced": "Mostrar modelos avançados ({count})",
     "model_manager_count": "{count} visíveis",
-    "model_manager_advanced_hidden": "Os modelos avançados ficam ocultos por padrão. Mostre-os quando precisar das opções ONNX maiores.",
-    "model_manager_active": "ATIVO",
     "model_manager_recommended_for": "Recomendado para",
     "model_manager_notes": "Observações",
     "model_manager_architecture": "Arquitetura",
@@ -1118,7 +1117,6 @@
     "model_manager_host_verification": "A verificação do host OpenVINO é mostrada para o modelo ONNX ativo.",
     "model_manager_downloading": "Baixando…",
     "model_manager_redownloading": "Baixando novamente…",
-    "model_manager_currently_active": "Atualmente ativo",
     "model_manager_activating": "Ativando…",
     "model_manager_activate": "Ativar",
     "model_manager_redownload": "Baixar novamente",
@@ -1167,7 +1165,6 @@
     "model_manager_provider_unavailable_suffix": "Indisponível",
     "model_manager_provider_fallback_suffix": "Fallback",
     "model_manager_provider_fallback_title": "Fallback automático na ordem apresentada",
-    "model_manager_tier_cpu_only": "Somente CPU",
     "model_manager_scope_birds_only": "Somente aves",
     "model_manager_scope_wildlife_wide": "Fauna ampla",
     "model_manager_provider_cpu": "CPU",
@@ -1335,7 +1332,13 @@
     "bird_finder_recommended_running": "A verificar {devices}. A CPU continua disponível durante a verificação.",
     "bird_finder_recommended_unchecked": "CPU até {devices} passarem uma verificação aqui. Ainda não há acelerador recomendado.",
     "bird_finder_recommended_waiting": "A aguardar fotografias guardadas de aves para voltar a verificar {devices}. A CPU continua disponível.",
-    "model_manager_card_on_disk": "Neste host"
+    "model_manager_card_on_disk": "Neste host",
+    "models_elsewhere": "Qual modelo nomeia a espécie, e o hardware em que roda, escolhe-se em Modelos.",
+    "models_open": "Abrir Modelos",
+    "band_model_missing": "Ainda não está instalado. Baixe-o abaixo.",
+    "model_manager_in_use": "Em uso",
+    "model_manager_show_catalogue": "Escolher outro modelo",
+    "model_manager_hide_catalogue": "Ocultar os outros modelos"
   },
   "llm": {
     "title": "Análises de IA",
@@ -1377,7 +1380,7 @@
     "description": "O que esta máquina está fazendo e quanto disso vem deste aplicativo.",
     "window": "Últimos 30 minutos, amostrados a cada 5 s",
     "legend": "Séries",
-    "legend_cpu": "CPU, máquina inteira",
+    "legend_cpu": "CPU",
     "cpu_now": "CPU agora",
     "accelerator_now": "{label} agora",
     "memory_now": "Esta aplicação em memória",
@@ -1417,7 +1420,8 @@
     "not_measured": "Não medido",
     "measurement_gap": "Não há leitura de utilização para esta amostra. As linhas dos processos abaixo mostram o acelerador carregado; esta lacuna não comprova uma mudança para a CPU.",
     "unreadable_nvidia": "{label} está presente, mas o seu controlador não publica nenhum contador de utilização que um contentor consiga ler.",
-    "unreadable_accelerator": "{label} está presente, mas o seu contador não é legível a partir de dentro do contentor."
+    "unreadable_accelerator": "{label} está presente, mas o seu contador não é legível a partir de dentro do contentor.",
+    "table_region": "Carga por processo"
   },
   "text_size": {
     "label": "Tamanho do texto",
@@ -1531,7 +1535,8 @@
     "garden_fact_motion_on": "Ligadas em {cameras}",
     "garden_fact_unreadable": "Não foi possível ler. Atualize para tentar novamente.",
     "garden_fact_saved_crops": "Recortes guardados",
-    "garden_fact_saved_crops_value": "{count, plural, one {# recorte} other {# recortes}} de {limit, number}"
+    "garden_fact_saved_crops_value": "{count, plural, one {# recorte} other {# recortes}} de {limit, number}",
+    "garden_channels_open": "Configurar canais em Notificações"
   },
   "native_revalidation": {
     "title": "Verificar perfil em quarentena",
@@ -1692,5 +1697,11 @@
     "notifications_email_gmail_client_secret": "Segredo de cliente do Gmail",
     "notifications_email_outlook_client_secret": "Segredo de cliente do Outlook",
     "notifications_email_smtp_password": "Senha SMTP"
+  },
+  "models": {
+    "testing_title": "Testar os modelos",
+    "testing_desc": "Compare os modelos instalados em fotos que você já confirmou.",
+    "testing_action": "A avaliação de modelos executa cada modelo instalado nessas fotos e mostra quantas vezes acerta e quanto tempo leva.",
+    "testing_open": "Abrir a avaliação de modelos"
   }
 }

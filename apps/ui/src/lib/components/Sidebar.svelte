@@ -11,6 +11,8 @@
     import LanguageSelector from './LanguageSelector.svelte';
     import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
     import { trapFocus } from '../utils/focus-trap';
+    import { incidentWorkspaceStore } from '../stores/incident_workspace.svelte';
+    import { healthAttention, openHealthItems } from '../utils/system-status';
 
     onMount(() => {
         updateStatusStore.load();
@@ -23,7 +25,8 @@
         isMobile?: boolean;
         mobileSidebarOpen?: boolean;
         onMobileClose?: () => void;
-        status?: import('svelte').Snippet;
+        /** The status rows; the argument says whether the sidebar is the icon rail. */
+        status?: import('svelte').Snippet<[boolean]>;
     } = $props();
 
     let asideEl = $state<HTMLElement | null>(null);
@@ -49,7 +52,27 @@
 
     // The icon rail is a desktop layout; a phone drawer always shows its labels.
     let collapsed = $derived(layoutStore.sidebarCollapsed && !isMobile);
-    let readoutRow = $state<HTMLElement | null>(null);
+    const health = $derived(healthAttention(
+        authStore.showSettings
+            ? openHealthItems(incidentWorkspaceStore.workspacePayload?.connections ?? null, incidentWorkspaceStore.currentIssues.length)
+            : null
+    ));
+    const issuesLabel = $derived(
+        $_('status.issues_need_attention', {
+            values: { count: health.count },
+            default: '{count, plural, one {# issue needs attention} other {# issues need attention}}'
+        })
+    );
+    const healthLinkName = $derived(
+        health.needsAttention
+            ? `${$_('status.open_health', { default: 'System health' })}: ${issuesLabel}`
+            : $_('status.open_health', { default: 'System health' })
+    );
+
+    function openHealth(event: MouseEvent): void {
+        event.preventDefault();
+        navigateAndClose('/system-health');
+    }
     let accountInitial = $derived((authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase());
     // The picture is fetched with the owner's credentials; a guest or signed-out viewer has none.
     $effect(() => {
@@ -64,8 +87,6 @@
         icon: string;
         section: NavSection;
         requiresAuth?: boolean;
-        /** Left out while false: a page for a feature this installation does not have. */
-        available?: boolean;
     };
 
     type NavGroup = {
@@ -74,24 +95,19 @@
         items: NavItem[];
     };
 
-    const audioHistoryAvailable = $derived(
-        (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
-    );
-
     const allNavItems = $derived.by((): NavItem[] => ([
         { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', section: 'observe' },
         { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', section: 'observe' },
         { path: '/observations/new', label: $_('nav.add_observation', { default: 'Add observation' }), icon: 'M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4', section: 'observe', requiresAuth: true },
         { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', section: 'observe' },
-        // The listening history exists only where BirdNET-Go is connected and the reader may see it.
-        { path: '/audio', label: $_('nav.audio_history', { default: 'Audio history' }), icon: 'M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4', section: 'observe', available: audioHistoryAvailable },
         { path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', section: 'manage', requiresAuth: true },
+        { path: '/system-health', label: $_('nav.health', { default: 'Health' }), icon: 'M3 12h4l3-8 4 16 3-8h4', section: 'manage', requiresAuth: true },
         { path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', section: 'manage' },
     ]));
 
     const navSections = $derived.by((): NavGroup[] => {
         const visibleItems = allNavItems.filter(item =>
-            (!item.requiresAuth || authStore.showSettings) && item.available !== false
+            (!item.requiresAuth || authStore.showSettings)
         );
         return [
             { id: 'observe', label: $_('nav.observe'), items: visibleItems.filter(item => item.section === 'observe') },
@@ -197,46 +213,67 @@
         {/each}
     </nav>
 
-    {#if !collapsed}
-        <!-- The card names the owner's System health; a guest cannot reach it, so for a guest there is no
-             link. The link is the words at the foot of the card and its hit area is stretched over the
-             card, so its name is exactly what it shows. The tiles sit above that area: each is a live
-             status with its own tooltip, not part of the link's name. -->
-        <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
+    <!-- System status is a plain list on a neutral surface: measured states in words, one muted
+         line of resource readings, and the way to System health. Only the owner can reach Health,
+         so a guest gets no link. The link asks for attention only for issues Health lists as open,
+         read from the same store, so the two always agree. -->
+    <div data-sidebar-status class="shrink-0 border-t border-line-soft p-3 [@media(max-height:42rem)]:hidden">
+        {#if collapsed}
+            <section class="flex flex-col items-center gap-1" aria-label={$_('status.title')} data-sidebar-status-card>
+                {@render status?.(true)}
+                {#if authStore.showSettings}
+                    <a
+                        href="/system-health"
+                        class="focus-ring relative grid h-11 w-11 place-items-center rounded-lg text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                        title={healthLinkName}
+                        data-sidebar-status-link
+                        data-health-attention={health.needsAttention}
+                        onclick={openHealth}
+                    >
+                        <span class="sr-only">{healthLinkName}</span>
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M3 12h4l2-6 4 12 2-6h6" />
+                        </svg>
+                        {#if health.needsAttention}
+                            <span class="absolute right-1.5 top-1.5 h-2 w-2 rotate-45 bg-attention-600 dark:bg-attention-400" aria-hidden="true"></span>
+                        {/if}
+                    </a>
+                {/if}
+            </section>
+        {:else}
             <section
-                class="relative overflow-hidden rounded-xl border border-line-soft bg-surface-raised p-3 transition-colors has-[a:hover]:border-brand-400/70 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-focus"
+                class="rounded-xl border border-line-soft bg-surface-raised p-3"
                 aria-labelledby="sidebar-status-title"
                 data-sidebar-status-card
             >
-                <SystemTelemetryGraph readoutHost={readoutRow} />
-                <div class="relative">
-                    <p id="sidebar-status-title" class="eyebrow mb-2">
-                        {$_('status.title')}
-                    </p>
-                    <div class="relative z-20">
-                        {@render status?.()}
-                    </div>
-                    <!-- A row of its own for the live CPU and accelerator readout, which the graph
-                         draws into it: in the flow, so it cannot run over the tiles or the link. -->
-                    <div class="mt-1 min-h-4" aria-hidden="true" bind:this={readoutRow}></div>
-                    {#if authStore.showSettings}
-                        <a
-                            href="/settings/health"
-                            class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors after:absolute after:-inset-3 after:z-10 hover:text-brand-700 focus-visible:text-brand-700 focus-visible:outline-hidden dark:hover:text-brand-300 dark:focus-visible:text-brand-300"
-                            data-sidebar-status-link
-                            onclick={(event) => {
-                                event.preventDefault();
-                                navigateAndClose('/settings/health');
-                            }}
-                        >
+                <h2 id="sidebar-status-title" class="mb-2 text-xs font-semibold leading-4 text-slate-700 dark:text-slate-300">
+                    {$_('status.title')}
+                </h2>
+                {@render status?.(false)}
+                <SystemTelemetryGraph />
+                {#if authStore.showSettings}
+                    <a
+                        href="/system-health"
+                        class="focus-ring -mx-1 mt-2 flex min-h-7 flex-wrap items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-slate-700 transition-colors hover:text-brand-700 dark:text-slate-300 dark:hover:text-brand-300"
+                        data-sidebar-status-link
+                        data-health-attention={health.needsAttention}
+                        onclick={openHealth}
+                    >
+                        {#if health.needsAttention}
+                            <span class="flex items-center gap-2 text-attention-800 dark:text-attention-300" data-health-issues>
+                                <span class="h-2 w-2 shrink-0 rotate-45 bg-attention-600 dark:bg-attention-400" aria-hidden="true"></span>
+                                {issuesLabel}
+                            </span>
+                        {/if}
+                        <span class="ml-auto flex items-center gap-1">
                             {$_('status.open_health', { default: 'System health' })}
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                        </a>
-                    {/if}
-                </div>
+                        </span>
+                    </a>
+                {/if}
             </section>
-        </div>
-    {/if}
+        {/if}
+    </div>
 
     <div class="shrink-0 border-t border-line-soft p-3">
         {#if !collapsed}

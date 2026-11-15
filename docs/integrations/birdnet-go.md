@@ -97,7 +97,7 @@ By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy 
 ## Audio history and visual matches
 
 The dashboard's **Heard** card summarizes persisted calls for the selected day and opens
-Audio history, which is also in the sidebar under **Observe** while BirdNET-Go is connected. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
+Audio History. The [Explorer](../features/explorer.md) can also show heard-only call bouts:
 turn **Heard calls** on in Explorer for that device. Repeated calls are grouped, and matched calls
 can appear with the corresponding seen visit rather than as duplicate cards. Audio-only
 calls do not become visual captures or inflate camera counts.

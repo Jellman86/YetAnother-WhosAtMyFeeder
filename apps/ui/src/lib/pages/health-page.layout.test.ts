@@ -7,18 +7,22 @@ import errorsSource from './Errors.svelte?raw';
 import sidebarSource from '../components/Sidebar.svelte?raw';
 import enSettings from '../i18n/locales/en/settings.json';
 import enStatus from '../i18n/locales/en/status.json';
-import { canonicalSettingsPath, settingsTabFromRoute } from '../settings/settings-route';
+import { SETTINGS_TAB_ORDER } from '../settings/settings-route';
 
 const en = { settings: enSettings, status: enStatus };
 
-describe('settings health tab', () => {
-    it('exposes diagnostics as a Health settings tab instead of a separate errors page', () => {
-        expect(settingsTabFromRoute('/settings/health')).toBe('health');
-        expect(canonicalSettingsPath('/settings/health', '')).toBeNull();
-        expect(tabsSource).toContain('settings.tabs.health');
-        expect(settingsSource).toContain("activeTab === 'health'");
+describe('Health page', () => {
+    it('is a page of its own under Manage, not a Settings tab, and old addresses land on it', () => {
+        expect(SETTINGS_TAB_ORDER).not.toContain('health');
+        expect(tabsSource).not.toContain('settings.tabs.health');
+        expect(settingsSource).not.toContain("activeTab === 'health'");
+        expect(settingsSource).not.toContain('Errors.svelte');
+        expect(appSource).toContain("routeId === 'health'");
+        expect(appSource).toContain("import('./lib/pages/Errors.svelte')");
+        // Bookmarks to the tab and to the older errors page both open the page.
+        expect(appSource).toContain("path === '/settings/health'");
         expect(appSource).toContain("path === '/settings/errors'");
-        expect(appSource).not.toContain("currentRoute.startsWith('/settings/errors')");
+        expect(sidebarSource).toContain("path: '/system-health'");
     });
 
     it('opens on what the host is doing, with this app named and the rest an honest remainder', () => {
@@ -64,18 +68,33 @@ describe('settings health tab', () => {
         // The remainder is a row of its own, hatched as well as grey, and says why it has no name.
         expect(panelSource).toContain("other_host: 'system-health-hatched'");
         expect(en.settings.system_health.role_other_host_note).toContain('Cannot be named');
-        expect(sidebarSource).toContain("navigateAndClose('/settings/health')");
+        expect(sidebarSource).toContain("navigateAndClose('/system-health')");
         // Only the owner gets the link; its name is the words it shows, not a label over the whole card.
-        expect(sidebarSource).toMatch(/\{#if authStore\.showSettings\}\s*<a\s+href="\/settings\/health"/);
+        expect(sidebarSource).toMatch(/\{#if authStore\.showSettings\}\s*<a\s+href="\/system-health"/);
         expect(sidebarSource).not.toMatch(/data-sidebar-status-link[\s\S]{0,200}aria-label|aria-label[^\n]*\n\s*data-sidebar-status-link/);
         expect(en.status.open_health).toBe('System health');
     });
 
-    it('lets the keyboard reach the process table when it scrolls sideways', () => {
-        // WCAG 2.1.1: a scrolling box with no focusable content is a named tab stop of its own.
-        expect(panelSource).toMatch(
-            /class="mt-3 overflow-x-auto rounded-sm focus-ring"\s+role="region"\s+tabindex="0"\s+aria-labelledby="system-health-share-heading"/
-        );
-        expect(panelSource).toContain('<h3 id="system-health-share-heading"');
+    it('counts open problems from the one reading that sets the verdict, so the two always agree', () => {
+        // Open incidents join the connection problems in the verdict card; the panel below holds
+        // only what is over, so it can never say "0 open" beside a degraded verdict.
+        expect(errorsSource).toContain('let openItems = $derived(');
+        expect(errorsSource).toContain('{#each openItems as item (item.key)}');
+        expect(errorsSource).toContain('data-health-earlier-incidents');
+        expect(errorsSource).not.toContain('data-health-current-issues');
+        expect(errorsSource).not.toMatch(/\.length\.toLocaleString\(\)\} (open|events)/);
+        // Nothing open is called healthy only when nothing is open.
+        expect(errorsSource).toContain('withOpenIncidents(healthVerdict(');
+        // One time line under the verdict; no second "Updated just now" beside it.
+        expect(errorsSource).not.toContain('refreshedAgoText()');
+        // The button says what it clears.
+        expect(en.settings).toBeTruthy();
+    });
+
+    it('names each chart line once and lets a keyboard reach the table when it scrolls', () => {
+        // The scope note follows the line's name, so the name itself does not repeat it.
+        expect(en.settings.system_health.legend_cpu).toBe('CPU');
+        expect(panelSource).toMatch(/overflow-x-auto[^>]*tabindex="0"/);
+        expect(panelSource).toContain('data-system-health-table-region');
     });
 });

@@ -12,13 +12,13 @@ holding unsaved changes is marked "unsaved" in both. **Setup wizard** is a butto
 
 | Group | Sections | What lives there |
 |---|---|---|
-| **Feeder pipeline** | Connection, Detection | Where events come from, and how they are identified. |
+| **Feeder pipeline** | Connection, Detection, Models | Where events come from, the rules for naming a species, and the models and hardware that do it. |
 | **Intelligence & sharing** | Integrations, AI, Notifications | Other services YA-WAMF talks to, where species pages get their information, and what it sends out. |
-| **Operations** | Health, Security, Data, Beta features | Running it: diagnostics, access, retention and telemetry, and features still being tested. |
+| **Operations** | Security, Data, Maintenance, Beta features | Running it: access and telemetry, what is kept, repair jobs and deletions, and features still being tested. |
 | **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
 
-A **Debug** section appears alongside them when debug UI is enabled (see
-[Debug section](#debug-section)).
+**Health** is a page of its own under **Manage** in the sidebar, not a Settings section: it reports
+on the system and has nothing to save (see [Health](#health)).
 
 Edits wait in one draft across every tab. While anything differs from what is saved, a bar
 at the bottom of the page counts the changes and names their tabs, with **Discard changes**
@@ -88,24 +88,32 @@ migration:
 
 ## Detection
 
-How a snapshot becomes a species. The page opens with a status line (model, runtime, workers,
-health), then puts the everyday decisions first and the rest after them:
+The rules for accepting an identification. Which model runs, and on what hardware, is set in
+[Models](#models):
 
-- **Accepting an identification**: the two confidence sliders, **Bird model region** and
-  **Personalized re-ranking**.
+- **Accepting an identification**: the two confidence sliders and **Personalized re-ranking**.
 - **Blocked labels**.
 - **Range filter**: optional, needs a location and an eBird key.
-- **Models**: the **Identification model**, which names the species, and the **Bird finder**,
+- **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel
+  trust, sublabel write-back and automatic video analysis.
+
+## Models
+
+Which models identify birds and on what hardware. The page opens with a status line naming the
+model in use as its card does (model, runtime, workers, health), then:
+
+- **Models**: **Bird model region**, then the **Identification model** in use, which names the
+  species, with **Choose another model** opening the full list, and the **Bird finder**,
   which locates birds in the frame so YA-WAMF can crop and count them. Each model card states
   its download size (or that it is already on this host), its memory and whether it covers birds
   only or wider wildlife. Only the active, installed or broken models carry a badge.
 - **Hardware** (starts closed, and opens on its own when the runtime has something to report,
   when you follow the status line's health link, or when a save refuses a value inside it): **Inference provider**, **Check devices on this
   host**, and the folded **Memory and isolation** and **Runtime report** sections.
-- **Frigate and video** (starts closed, and opens when a save refuses a value inside it): sublabel trust, sublabel write-back and automatic video
-  analysis.
+- **Testing the models** (starts closed): a link to **Model evaluation**, and, with the debug
+  interface on, **Discard results the model could not compute**.
 
-![Settings → Detection: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
+![Settings → Models: the status line, then the Models card with the identification model lineup and the two bird finder choices, each showing download size, estimated RAM and the device it runs on](../images/settings-detection.png)
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -238,7 +246,7 @@ on the leaderboard.
 
 Where alerts go, and which detections earn one.
 
-![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
+![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on no channel yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
 
 The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
 of **any species** on **Discord*** — and each highlighted part is a control.
@@ -259,7 +267,8 @@ See [Notifications](../features/notifications.md) for per-platform setup.
 
 ## Health
 
-Inspect system load, service health, frame decisions, inference and naming sources,
+**Health** is its own page, under **Manage** in the sidebar (older links to Settings → Health open
+it). Inspect system load, service health, frame decisions, inference and naming sources,
 or download a support bundle. **System** shows the last thirty minutes of load and
 YA-WAMF process usage; unrelated processes are grouped as **Other on this host**.
 Accelerator labels state whether usage covers this app or the whole device.
@@ -316,8 +325,10 @@ needs.
 
 ## Data
 
-Retention, caching, imports, telemetry (what leaves this installation, and only when switched
-on; see [Telemetry](../features/telemetry.md)), and the actions that cannot be undone.
+What YA-WAMF keeps and for how long: retention, photos and video, what happens when Frigate
+loses a visit, and the configuration backup. Repair and fill-in jobs, and the actions that delete
+history, are in [Maintenance](#maintenance). Telemetry, what leaves this installation, is in
+Security (see [Telemetry](../features/telemetry.md)).
 
 ![Settings → Data with retention controls and Photos and video settings for locally kept media, Frigate event-clip copies and storage limits](../images/settings-data.png)
 
@@ -327,26 +338,24 @@ on; see [Telemetry](../features/telemetry.md)), and the actions that cannot be u
   container last started. Choosing a shorter window (or any window after **Keep Everything**)
   shows, under the picker, how many detections the next cleanup would delete, and **Save
   changes** asks once more (**Save and delete _N_ detections**) before saving it. Cancelling
-  saves nothing. The stat tiles above show the saved policy: **Retention** and **Due for deletion**
-  change only after you apply. **Purge Old Records** runs the same cleanup now, after asking with the
+  saves nothing. The sentence above the picker states the saved history: how many records, the
+  oldest, and how many are due for deletion; it changes only after you apply. **Purge Old Records** runs the same cleanup now, after asking with the
   number of detections it will remove; while it has nothing to do, the line beneath it says why.
   Cleanup **permanently deletes** visual detections, hidden ones included, and BirdNET-Go audio
   older than the window. Purged history cannot be recovered. Favourited
   detections stay. The optional per-species minimum also protects the newest configured
   number of detections per species and their photographs from age cleanup; its default
   is `0`, so there is no species floor until you set one. It does not protect clips.
-  **Danger Zone** lists one action per row, narrowest first, each with its consequence beside
-  its button: **Clear Personalization Data**, **Delete All Favorites**, then **Reset Database &
-  Cache**.
-  The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
-  Frigate and what to do when upstream media has gone.
+  **When Frigate loses a visit** holds what to do when upstream media has gone and the periodic
+  re-check against Frigate; **Run media integrity scan now** shows in red only while the chosen
+  policy deletes local data.
   A failed event lookup is reported as an unsuccessful check, not missing media. Timeouts,
   authentication errors, server errors and unusable responses preserve the saved state for a
   later retry. A manual scan can clear an earlier missing flag only after confirming the media.
   Automatic missing-media deletion checks favourites in its final database decision. A favourite
   accepted before that decision keeps its detection and cached photos, even if a scan is running.
 - **Photos and video** — photographs, full-visit clips and previews are YA-WAMF's own record and are
-  always kept, within the retention and size limits; Frigate may delete its copies much sooner.
+  kept until a retention or size limit removes them; Frigate may delete its copies much sooner.
   **Keep copies of Frigate's event clips** is the one choice, because Frigate already holds those.
   If the media folder cannot be written, the card, system checks and `/health` say so. On upgrade
   from a build with retired media switches off, best-available snapshots and possibly
@@ -409,7 +418,13 @@ on; see [Telemetry](../features/telemetry.md)), and the actions that cannot be u
   `MEDIA_CACHE__BIRD_SCAN_MODE=standard|intensive`,
   `MEDIA_CACHE__PER_SPECIES_MAXIMUM=0..10000`, and `MEDIA_CACHE__MAX_SIZE_MB=0..1048576`.
   Models, backups, and archived favourites do not count towards the ordinary cache budget.
-- **Missed Detections** — import bird events Frigate still retains, over a day, week, month, or a
+
+## Maintenance
+
+Jobs that repair or fill in the history, and the actions that delete it. Every button here acts
+straight away; only **Run automatically (daily)** and **Jobs at once** wait for **Save changes**.
+
+- **Missed detections** — import bird events Frigate still retains, over a day, week, month, or a
   custom range. Import is idempotent by Frigate event ID, so running it twice is safe.
   Photo requests are saved when the memory queue is full and recovered after a restart. A finished
   detection import can still have photo work pending in Jobs. Saved counters survive a restart;
@@ -429,16 +444,20 @@ on; see [Telemetry](../features/telemetry.md)), and the actions that cannot be u
   `DB_PRE_MIGRATION_BACKUP_RETENTION` to keep more. At least one restore point is always kept,
   and manual backups are never removed.
 
-> **These actions permanently delete data.** **Reset Database & Cache** permanently deletes
-> *every* detection and clears the media cache; **Clear Personalization Data** deletes every
+**Delete data** (a closed card at the end of the tab) lists one action per row, narrowest first,
+each with its consequence beside its button: **Delete corrections**, **Delete all favourites**,
+then **Delete all history**. Only these buttons are red.
+
+> **These actions permanently delete data.** **Delete all history** permanently deletes
+> *every* detection and clears the media cache; **Delete corrections** deletes every
 > manual correction the re-ranker learned from. Both ask first in YA-WAMF's own confirmation
 > dialog, and neither can be undone. There
 > is no automatic backup tied to these actions. Take a backup of `/data` and `/config` before
 > using them; migration restore points may not contain your latest history.
 
-### Maintenance concurrency
+### Jobs at once
 
-`maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
+**Jobs at once** (a closed card) sets `maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
 kind may overlap — backfill, weather backfill, video classification, taxonomy repair, timezone
 repair, and analyse-unknowns each get that many slots. Different kinds already run
 independently, subject to `maintenance.total_max_concurrent` (default `3`) across all kinds.
@@ -486,14 +505,16 @@ Optional developer tools, hidden unless you enable them:
 - Config file: `"system": { "debug_ui_enabled": true }`
 - Compose: `DEBUG_UI_ENABLED=true`
 
-This reveals a **Debug** section in the Settings navigation, holding things like the
-iNaturalist preview toggle and the LLM prompt editors.
+This adds a troubleshooting switch, **Discard results the model could not compute**, to
+**Settings → Models → Testing the models**, and shows the iNaturalist submission preview in a
+detection's details. The **Model evaluation** page is linked from the same card for every owner.
 
 
 ## Garden notifications
 
-Garden alerts are off by default and are set up under **Settings → Notifications**,
-in the **Garden animals** section shown while the Garden beta is on. They follow
+Garden alerts are off by default and are set with the rest of Garden, under
+**Settings → Beta features → Garden animals → Alerts**; Notifications links there while the beta
+is on. The channels themselves are set up once, in Notifications. They follow
 the bird channels that are switched on and configured, or channels you choose;
 save with **Save changes**. See
 [Garden notifications](../features/garden-animals.md#send-garden-notifications)

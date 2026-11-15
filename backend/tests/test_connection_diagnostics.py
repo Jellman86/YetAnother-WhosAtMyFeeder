@@ -142,3 +142,28 @@ async def test_birdnet_ingest_diagnostic_reports_failed_persistence(client, monk
 
     assert response.status_code == 502
     assert response.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_birdnet_url_check_names_the_cause_not_the_exception_class(client, monkeypatch):
+    class _Refusing:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, url, timeout):
+            raise httpx.ConnectError("[Errno -2] Name or service not known", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda **_: _Refusing())
+
+    response = await client.get("/api/settings/birdnet/reachability", params={"url": "http://birdnet.invalid:8080"})
+
+    assert response.status_code == 502
+    message = response.json()["message"]
+    assert "ConnectError" not in message
+    # The error names a host that does not resolve, so that is the cause given, with its code.
+    assert response.json()["cause"] == "host_not_found"
+    assert "was not found" in message
+    assert "Check the address for BirdNET-Go" in message

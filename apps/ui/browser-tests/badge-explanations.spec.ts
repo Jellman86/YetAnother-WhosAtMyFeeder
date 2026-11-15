@@ -29,7 +29,7 @@ test('card status explanations are reachable above the record action and dismiss
 test('confidence and full-visit badges explain themselves on keyboard focus without playing', async ({ page }) => {
     await open(page);
     const card = page.locator('[data-surface="card-A"]');
-    await card.getByRole('button', { name: '80%', exact: true }).focus();
+    await card.getByRole('button', { name: 'Identification confidence: 80%.' }).focus();
     await expect(page.getByRole('tooltip')).toHaveText('Identification confidence: 80%.', { timeout: 2000 });
     await page.keyboard.press('Escape');
     await card.locator('[aria-label="Full visit clip ready"]').focus();
@@ -45,7 +45,7 @@ test('confidence and full-visit badges explain themselves on keyboard focus with
 
 test('a pinned explanation closes when its badge scrolls out of the viewport', async ({ page }) => {
     await open(page);
-    await page.locator('[data-surface="card-A"]').getByRole('button', { name: '80%', exact: true }).click();
+    await page.locator('[data-surface="card-A"]').getByRole('button', { name: 'Identification confidence: 80%.' }).click();
     await expect(page.getByRole('tooltip')).toBeVisible();
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await expect(page.getByRole('tooltip')).toHaveCount(0, { timeout: 2000 });
@@ -63,7 +63,7 @@ test('capture badge explanations escape clipping and close with their scrolling 
     await page.goto('/browser-tests/visits.html?floating=1');
     await page.locator('[data-fixture-visit] [data-visit-captures-toggle]').click();
     const panel = page.locator('[data-fixture-visit] [data-visit-captures-floating]');
-    const badge = panel.getByRole('button', { name: '95%', exact: true }).nth(2);
+    const badge = panel.getByRole('button', { name: 'Identification confidence: 95%.' }).nth(2);
     await badge.click();
     await expect(page.getByRole('tooltip')).toBeVisible();
     await page.keyboard.press('Escape');

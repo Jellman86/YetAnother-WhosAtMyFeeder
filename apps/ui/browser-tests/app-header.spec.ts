@@ -132,7 +132,7 @@ test('each owner page has one h1, named as its navigation item, and a tab title 
     expect(await headingOnes(page)).toEqual(['Last 24 hours']);
     await expect(page.locator('main > header').getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
     await expect(page).toHaveTitle('Dashboard · YA-WAMF');
-    await expect(page.locator('[data-status-tile="alerts"]')).toHaveCount(1);
+    await expect(page.locator('[data-status-row="alerts"]')).toHaveCount(1);
 });
 
 test('a visitor gets one named h1 per page and no guess about notifications', async ({ page }) => {
@@ -143,8 +143,8 @@ test('a visitor gets one named h1 per page and no guess about notifications', as
     expect(await headingOnes(page)).toEqual(['Explorer']);
     // None of the owner's page controls appear for a visitor.
     await expect(page.locator('main > header button')).toHaveCount(0);
-    await expect(page.locator('[data-status-tile="live"]')).toHaveCount(1);
-    await expect(page.locator('[data-status-tile="alerts"]')).toHaveCount(0);
+    await expect(page.locator('[data-status-row="feed"]')).toHaveCount(1);
+    await expect(page.locator('[data-status-row="alerts"]')).toHaveCount(0);
 
     await page.goto('/');
     await expect(page.locator('[data-dashboard-day-bar]')).toBeVisible();

@@ -18,7 +18,7 @@ The run detail provides **summary.json**, **runtime.json**, and **confusions.csv
 buttons. Downloads use your current owner session and save the file in your browser; a failed or
 expired session shows an error on the page. Sign in again if access has expired.
 
-A compatibility check started from **Settings → Detection** or the setup wizard also appears in
+A compatibility check started from **Settings → Models** or the setup wizard also appears in
 the run history. It checks providers but does not score accuracy, so the page labels it
 **Compatibility check only** and shows each model's best validated provider, that provider's
 median inference time, and the providers that passed. It shows no accuracy columns and no mean or
@@ -90,7 +90,7 @@ Each row is `(expected_taxa, expected_common, predicted_taxa, predicted_common, 
 
 - A run temporarily changes the active model and provider and can compete with live detections.
   Schedule it for a quiet period, let it finish or cancel it through the UI, then check the restored
-  model and actual worker provider in **Settings → Detection**. Do not reset your database to
+  model and actual worker provider in **Settings → Models**. Do not reset your database to
   recover from a diagnostic run. Backfill can revisit available Frigate events without duplicating
   event IDs, but cannot recreate footage Frigate has already removed.
 - Only one run at a time. Starting a second run while one is in progress returns 409 Conflict.

@@ -38,12 +38,16 @@ class BackendDiagnosticEventResponse(BaseModel):
     worker_pool: str | None = None
     runtime_recovery: dict[str, Any] | None = None
     snapshot_ref: str | None = None
+    count: int = Field(1, description="How many times this fault was recorded; repeats share one entry.")
+    first_seen: str | None = Field(None, description="When the first occurrence was recorded.")
+    last_seen: str | None = Field(None, description="When the newest occurrence was recorded; equals `timestamp`.")
 
 
 class BackendDiagnosticsSnapshotResponse(BaseModel):
     captured_at: str
     capacity: int
-    total_events: int
+    total_events: int = Field(description="Distinct entries held, after repeats are grouped.")
+    total_occurrences: int = Field(0, description="Recorded occurrences across every entry held.")
     filtered_events: int
     returned_events: int
     severity_counts: dict[str, int]

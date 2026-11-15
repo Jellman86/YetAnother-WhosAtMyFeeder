@@ -36,7 +36,7 @@
     "purge_button": "Purger les anciens enregistrements",
     "purge_confirm": "Supprimer définitivement {count, plural, one {# détection} other {# détections}} et l'audio BirdNET-Go de plus de {days} jours ? Les favoris et les visites récentes conservées de chaque espèce restent. Cette action est irréversible.",
     "cleaning": "Nettoyage…",
-    "auto_cleanup_note": "Le nettoyage automatique s’exécute au démarrage, puis toutes les 24 heures",
+    "auto_cleanup_note": "Le nettoyage s’exécute au démarrage de YA-WAMF, puis toutes les 24 heures.",
     "cache_title": "Photos et vidéos",
     "cache_clips": "Garder des copies des clips d'événements Frigate",
     "cache_high_quality_event_snapshot_jpeg_quality": "Qualité JPEG de l’instantané HQ",
@@ -202,7 +202,7 @@
     "bird_scan_standard": "Standard",
     "bird_scan_intensive": "Intensif",
     "cache_clips_help": "Frigate les conserve déjà. Les copies survivent à leur suppression par Frigate, chacune à peu près de la taille du clip.",
-    "cache_always_kept": "Les photos, les clips de visite complète et les aperçus sont toujours conservés. Les limites ci-dessous fixent leur durée et l'espace qu'ils occupent.",
+    "cache_always_kept": "Les photos, les clips de visite complète et les aperçus sont conservés jusqu’à ce qu’une des limites ci-dessous les retire.",
     "cache_unavailable": "Le dossier des médias n'est pas accessible en écriture, donc aucune photo ni vidéo n'est conservée. Vérifiez les droits du dossier ; les vérifications système affichent l'erreur.",
     "cache_high_quality_storage_note": "Chaque visite conserve alors aussi des images en pleine résolution, souvent plusieurs Mo. Fixez une limite de stockage si l’espace manque.",
     "automatic_multi_bird_scan": "Chercher automatiquement d’autres oiseaux",
@@ -219,7 +219,14 @@
     "retention_shrink_kept": "Les favoris sont conservés. L’audio BirdNET-Go et les fiches d’animaux du jardin plus anciens sont aussi supprimés.",
     "retention_confirm_title": "Supprimer l’historique ancien ?",
     "retention_confirm_button": "Enregistrer et supprimer {count, plural, one {# détection} other {# détections}}",
-    "retention_confirm_uncounted": "Enregistrer et supprimer l’historique ancien"
+    "retention_confirm_uncounted": "Enregistrer et supprimer l’historique ancien",
+    "history_summary": "{count, plural, one {# enregistrement} other {# enregistrements}}, le plus ancien du {oldest}.",
+    "history_summary_empty": "Aucun enregistrement pour l’instant.",
+    "history_due": "{count, plural, one {# est plus ancien} other {# sont plus anciens}} que la période enregistrée et {count, plural, one {partira} other {partiront}} au prochain nettoyage.",
+    "missing_media_title": "Quand Frigate perd une visite",
+    "missing_media_desc": "Frigate supprime les anciens événements selon son propre calendrier. Ceci décide de ce que YA-WAMF garde quand l’un d’eux a disparu.",
+    "maintenance_jobs_title": "Tâches simultanées",
+    "maintenance_jobs_desc": "Les tâches ci-dessus s’exécutent une par une, pour ne jamais concurrencer l’identification des oiseaux."
   },
   "security": {
     "title": "Sécurité",
@@ -244,13 +251,11 @@
     "connection": "Connexion",
     "detection": "Détection",
     "notifications": "Notifications",
-    "health": "Santé",
     "integrations": "Intégrations",
     "data": "Données",
     "security": "Sécurité",
     "appearance": "Apparence",
     "accessibility": "Accessibilité",
-    "debug": "Debug",
     "enrichment": "Enrichissement",
     "ai": "IA",
     "groups": {
@@ -264,15 +269,11 @@
     "skip_to_content": "Aller aux paramètres",
     "section_label": "Section des paramètres",
     "navigation_label": "Sections des paramètres",
-    "unsaved_note": "Contient des modifications non enregistrées"
+    "unsaved_note": "Contient des modifications non enregistrées",
+    "models": "Modèles",
+    "maintenance": "Entretien"
   },
   "debug": {
-    "title": "Outils de débogage",
-    "subtitle": "Interrupteurs supplémentaires pour tests et diagnostic.",
-    "model_eval_title": "Outil d’évaluation des modèles",
-    "model_eval_desc": "Évaluez les classificateurs installés avec des images d’oiseaux vérifiées sur le plan taxonomique. Les artefacts sont stockés dans /config/yawamf-eval/.",
-    "model_eval_action_desc": "Exécutez des tests de précision, de latence et de cohérence sur chaque modèle installé. Réservé au propriétaire.",
-    "model_eval_open": "Ouvrir",
     "llm_prompts_title": "Modèles de prompt LLM",
     "llm_prompts_subtitle": "Personnalisez la structure Markdown et le ton pour l'analyse IA et les conversations.",
     "llm_prompt_style_label": "Style de prompt",
@@ -285,8 +286,8 @@
     "llm_prompt_conversation_hint": "Jetons : {species}, {analysis}, {history}, {question}, {language_note}",
     "llm_prompt_chart": "Prompt d'analyse de graphique",
     "llm_prompt_chart_hint": "Jetons : {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-    "strict_non_finite_output": "Gestion stricte des sorties non finies",
-    "strict_non_finite_output_desc": "Rejette un résultat que le modèle n’a pas pu calculer et redémarre le modèle, pour que rien n’en soit enregistré. Désactivez-le uniquement pour déboguer le modèle."
+    "strict_non_finite_output": "Écarter les résultats que le modèle n’a pas pu calculer",
+    "strict_non_finite_output_desc": "Activé, un résultat qui n’est pas un nombre est écarté et le modèle redémarre. Ne le désactivez que pendant que vous examinez une panne du modèle."
   },
   "ai": {
     "usage_title": "Tableau de bord d'utilisation de l'IA",
@@ -507,7 +508,7 @@
     "disabled": "Désactivé",
     "needs_ebird": "Non affiché : nécessite une clé d’API eBird",
     "ebird_hint": "Les observations proches, la saisonnalité et la rareté apparaissent sur les pages d’espèces dès qu’eBird est activé avec une clé d’API.",
-    "open_ebird": "Configurer eBird"
+    "open_ebird": "Aller à eBird"
   },
   "auth": {
     "title": "Authentification",
@@ -851,16 +852,15 @@
     "instance_url_placeholder": "https://feeder.example.com",
     "link_opens": "Le lien de la notification ouvre",
     "link_opens_yawamf": "Ce YA-WAMF",
-    "link_opens_yawamf_desc": "La détection sur la page Détections, avec son clip, ses captures et son identification.",
+    "link_opens_yawamf_desc": "La visite dans l’Explorateur, avec son clip, ses instantanés et son identification.",
     "link_opens_yawamf_req": "Utilise l'adresse de l'instance ci-dessus.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Le même objet suivi dans la page Explore de Frigate.",
-    "link_opens_frigate_req": "Nécessite Frigate 0.15 ou plus récent et l'URL publique de Frigate dans les réglages Intégrations.",
+    "link_opens_frigate_req": "Nécessite Frigate 0.15 ou plus récent et l’URL publique de Frigate, à régler dans Paramètres → Connexion.",
     "link_frigate_url_missing": "L'URL publique de Frigate n'est pas définie ; les notifications ne contiendront aucun lien tant qu'elle ne l'est pas.",
-    "link_open_integrations": "Ouvrir les réglages intégrations",
-    "link_preview_telegram": "Bouton Telegram",
+    "link_preview_telegram": "Lien du bouton Telegram :",
     "link_preview_others": "Le titre Discord, Pushover et l'e-mail utilisent la même adresse.",
-    "link_preview_none": "aucun lien n'est envoyé",
+    "link_preview_none": "aucun pour l’instant, donc les messages Telegram n’ont pas de bouton.",
     "sentence": {
       "chip_context": "({setting})",
       "lead": "Préviens-moi des",
@@ -879,16 +879,14 @@
       "species_any": "toutes les espèces",
       "species_all_but": "{count, plural, one {toutes les espèces sauf #} other {toutes les espèces sauf #}}",
       "species_only": "{count, plural, one {seulement # espèce} other {seulement # espèces}}",
-      "species_jump": "Filtre d'espèces : {summary}. Aller au filtre d'espèces.",
-      "channels_none": "nulle part pour l'instant",
-      "channels_hint": "Choisissez où vont les messages.",
-      "channel_needs_setup": "à configurer",
-      "destinations": "Destinations",
+      "species_jump": "Filtre d’espèces : {summary}. Aller au filtre d’espèces.",
+      "channels_none": "aucun canal pour l’instant",
       "channel_discord": "Discord",
       "channel_pushover": "Pushover",
       "channel_telegram": "Telegram",
       "channel_email": "E-mail",
-      "confidence_chip_audio": "{value} % et entendues"
+      "confidence_chip_audio": "{value} % et entendues",
+      "channels_jump": "Canaux : {channels}. Aller aux canaux."
     },
     "test_channel": "Canal",
     "test_failed": "Le message de test n’a pas pu être envoyé.",
@@ -903,15 +901,15 @@
       "enabled_help": "Une alerte par visite lorsqu’un animal est nommé automatiquement ou que vous acceptez son espèce. Prend effet lorsque vous enregistrez les modifications.",
       "send_to": "Envoyer les alertes du jardin vers",
       "use_bird": "Utiliser mes canaux oiseaux",
-      "use_bird_help": "Les canaux ci-dessus qui sont activés et configurés.",
+      "use_bird_help": "Les canaux de Notifications activés et configurés.",
       "choose": "Choisir les canaux",
       "choose_help": "Utilise les identifiants enregistrés ; leurs interrupteurs oiseaux peuvent rester désactivés.",
       "bird_uses": "Envoie vers {channels}.",
-      "bird_none": "Aucun canal oiseaux n’est activé et configuré, donc aucune alerte du jardin ne peut partir. Activez-en un ci-dessus ou choisissez des canaux.",
+      "bird_none": "Aucun canal d’oiseaux n’est activé et configuré, donc aucune alerte du jardin ne peut partir. Activez-en un dans Notifications, ou choisissez des canaux ici.",
       "channels_label": "Canaux du jardin",
       "channel": "Alertes du jardin via {channel}",
       "choose_one": "Choisissez au moins un canal pour les alertes du jardin.",
-      "credentials": "Aucun identifiant enregistré pour {channels}, donc les alertes du jardin y échoueront. Ajoutez-les dans la carte du canal ci-dessus.",
+      "credentials": "Aucun identifiant enregistré pour {channels}, donc les alertes du jardin y échoueront. Ajoutez-les dans Notifications.",
       "include_photo": "Joindre la photo",
       "include_photo_help": "Joint le recadrage enregistré de l’animal, ou la photo de la capture s’il n’y en a pas. Seuls les animaux confirmés partent, donc c’est une photo que vous ou la vérification automatique avez acceptée. Texte seul si aucune photo n’est lisible.",
       "privacy": "Envoie le nom de l’animal, la caméra, l’heure de l’observation et, si vous le choisissez, la photo à ces services. Le lien ouvre cette capture ici ; un visiteur ne peut l’ouvrir que tant que l’accès public la partage.",
@@ -919,7 +917,10 @@
       "status": "Essais enregistrés. Acceptés par le canal : {sent}. Échecs : {failed}. Non confirmés : {unknown}. Ignorés : {skipped}.",
       "status_after_apply": "L’état d’envoi apparaît une fois le jardin activé et enregistré.",
       "refresh": "Actualiser l’état de livraison"
-    }
+    },
+    "garden_elsewhere": "Les alertes Animaux du jardin se règlent avec Animaux du jardin, dans Fonctions bêta. Elles passent par les canaux ci-dessus.",
+    "garden_open": "Ouvrir les alertes du jardin",
+    "link_open_connection": "Ouvrir Connexion"
   },
   "discord": {
     "title": "Notifications Discord",
@@ -996,20 +997,20 @@
     "resolving": "Recherche…"
   },
   "danger": {
-    "title": "Actions irréversibles",
-    "subtitle": "Actions destructrices",
-    "reset_desc": "Réinitialiser la base supprimera définitivement TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible.",
-    "reset_button": "Réinitialiser BDD & cache",
+    "title": "Supprimer des données",
+    "subtitle": "Chacune de ces actions supprime quelque chose définitivement. Chacune demande confirmation avant d’agir.",
+    "reset_desc": "Supprime toutes les détections, toutes les photos et clips en cache et tous les favoris archivés.",
+    "reset_button": "Supprimer tout l’historique",
     "resetting": "Réinitialisation…",
-    "confirm": "DANGER : cela supprimera TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible. Confirmer ?",
-    "clear_feedback_button": "Effacer les données de personnalisation",
-    "clear_feedback_desc": "Effacer les retours de personnalisation supprimera toutes les corrections manuelles d’étiquettes que l’IA utilise pour ajuster les scores de confiance. Cela ramènera le classificateur à sa précision de base.",
-    "clear_feedback_hint": "Cela ne supprime ni les détections ni les médias. Le reranking recommencera à apprendre au fur et à mesure de vos nouvelles corrections manuelles.",
+    "confirm": "Supprimer {count, plural, one {# détection} other {les # détections}}, toutes les photos et clips en cache et tous les favoris archivés ? Impossible d’annuler.",
+    "clear_feedback_button": "Supprimer les corrections",
+    "clear_feedback_desc": "YA-WAMF se sert des espèces que vous avez corrigées pour ajuster ses scores caméra par caméra. Supprimer les corrections le ramène aux scores du modèle.",
+    "clear_feedback_hint": "Les détections et les photos restent. De nouvelles corrections relancent l’ajustement.",
     "clearing_feedback": "Effacement…",
-    "clear_feedback_confirm": "Voulez-vous vraiment effacer toutes les données de re-classement personnalisé ? L'IA reviendra à sa précision de base et l'opération est irréversible.",
-    "feedback_title": "Données de personnalisation",
+    "clear_feedback_confirm": "Supprimer vos corrections d’identification ? Les scores reviennent à ceux du modèle ; les détections et les photos restent. Impossible d’annuler.",
+    "feedback_title": "Vos corrections d’identification",
     "favorites_title": "Favoris",
-    "reset_title": "Base de données et cache média"
+    "reset_title": "Toutes les détections et leurs médias"
   },
   "detection": {
     "fine_tuning": "Réglage fin",
@@ -1099,14 +1100,12 @@
     "model_manager_crop_policy_automatic_desc": "YA-WAMF utilise la politique de recadrage testée pour ce modèle. Aucun réglage n’est nécessaire lors d’un changement de modèle.",
     "model_manager_runtime_health": "État du moteur",
     "model_manager_image_preparation": "Préparation de l’image",
-    "model_manager_detector_missing": "Téléchargement requis",
+    "model_manager_detector_missing": "Pas encore téléchargé. Le bouton de téléchargement se trouve sous les choix.",
     "model_manager_lineup_title": "Gamme de modèles par niveaux",
     "model_manager_lineup_desc": "Les modèles recommandés sont affichés en premier. Les options avancées restent masquées tant que vous ne les ouvrez pas.",
     "model_manager_hide_advanced": "Masquer les modèles avancés",
     "model_manager_show_advanced": "Afficher les modèles avancés ({count})",
     "model_manager_count": "{count} visibles",
-    "model_manager_advanced_hidden": "Les modèles avancés sont masqués par défaut. Affichez-les lorsque vous avez besoin des options ONNX les plus lourdes.",
-    "model_manager_active": "ACTIF",
     "model_manager_recommended_for": "Recommandé pour",
     "model_manager_notes": "Notes",
     "model_manager_architecture": "Architecture",
@@ -1118,7 +1117,6 @@
     "model_manager_host_verification": "La vérification OpenVINO de l’hôte s’affiche pour le modèle ONNX actif.",
     "model_manager_downloading": "Téléchargement en cours…",
     "model_manager_redownloading": "Nouveau téléchargement en cours…",
-    "model_manager_currently_active": "Actif actuellement",
     "model_manager_activating": "Activation…",
     "model_manager_activate": "Activer",
     "model_manager_redownload": "Télécharger à nouveau",
@@ -1167,7 +1165,6 @@
     "model_manager_provider_unavailable_suffix": "Indisponible",
     "model_manager_provider_fallback_suffix": "Secours",
     "model_manager_provider_fallback_title": "Basculement automatique dans l’ordre affiché",
-    "model_manager_tier_cpu_only": "CPU uniquement",
     "model_manager_scope_birds_only": "Oiseaux uniquement",
     "model_manager_scope_wildlife_wide": "Faune élargie",
     "model_manager_provider_cpu": "CPU",
@@ -1335,7 +1332,13 @@
     "bird_finder_recommended_running": "Vérification de {devices} en cours. Le CPU reste disponible pendant la vérification.",
     "bird_finder_recommended_unchecked": "CPU jusqu’à ce que {devices} réussissent la vérification ici. Aucun accélérateur recommandé pour le moment.",
     "bird_finder_recommended_waiting": "En attente de photos d’oiseaux enregistrées pour revérifier {devices}. Le CPU reste disponible.",
-    "model_manager_card_on_disk": "Sur cet hôte"
+    "model_manager_card_on_disk": "Sur cet hôte",
+    "models_elsewhere": "Le modèle qui nomme l’espèce, et le matériel qui le fait tourner, se choisissent dans Modèles.",
+    "models_open": "Ouvrir Modèles",
+    "band_model_missing": "Pas encore installé. Téléchargez-le ci-dessous.",
+    "model_manager_in_use": "Utilisé",
+    "model_manager_show_catalogue": "Choisir un autre modèle",
+    "model_manager_hide_catalogue": "Masquer les autres modèles"
   },
   "llm": {
     "title": "Analyses IA",
@@ -1377,7 +1380,7 @@
     "description": "Ce que fait cette machine, et quelle part revient à cette application.",
     "window": "30 dernières minutes, mesurées toutes les 5 s",
     "legend": "Séries",
-    "legend_cpu": "CPU, machine entière",
+    "legend_cpu": "CPU",
     "cpu_now": "CPU maintenant",
     "accelerator_now": "{label} maintenant",
     "memory_now": "Cette application en mémoire",
@@ -1417,7 +1420,8 @@
     "not_measured": "Non mesuré",
     "measurement_gap": "Aucune mesure d’utilisation pour cet échantillon. Les lignes des processus ci-dessous indiquent leur accélérateur chargé ; cette absence ne prouve pas un basculement vers le processeur.",
     "unreadable_nvidia": "{label} est présent, mais son pilote ne publie aucun compteur d’utilisation lisible depuis un conteneur.",
-    "unreadable_accelerator": "{label} est présent, mais son compteur n’est pas lisible depuis le conteneur."
+    "unreadable_accelerator": "{label} est présent, mais son compteur n’est pas lisible depuis le conteneur.",
+    "table_region": "Charge par processus"
   },
   "text_size": {
     "label": "Taille du texte",
@@ -1531,7 +1535,8 @@
     "garden_fact_motion_on": "Activées pour {cameras}",
     "garden_fact_unreadable": "Lecture impossible. Actualisez pour réessayer.",
     "garden_fact_saved_crops": "Recadrages enregistrés",
-    "garden_fact_saved_crops_value": "{count, plural, one {# recadrage} other {# recadrages}} sur {limit, number}"
+    "garden_fact_saved_crops_value": "{count, plural, one {# recadrage} other {# recadrages}} sur {limit, number}",
+    "garden_channels_open": "Configurer les canaux dans Notifications"
   },
   "native_revalidation": {
     "title": "Vérifier le profil en quarantaine",
@@ -1692,5 +1697,11 @@
     "notifications_email_gmail_client_secret": "Secret client Gmail",
     "notifications_email_outlook_client_secret": "Secret client Outlook",
     "notifications_email_smtp_password": "Mot de passe SMTP"
+  },
+  "models": {
+    "testing_title": "Tester les modèles",
+    "testing_desc": "Comparez les modèles installés sur des photos que vous avez déjà confirmées.",
+    "testing_action": "L’évaluation des modèles fait passer chaque modèle installé sur ces photos et montre combien de fois il a raison et en combien de temps.",
+    "testing_open": "Ouvrir l’évaluation des modèles"
   }
 }

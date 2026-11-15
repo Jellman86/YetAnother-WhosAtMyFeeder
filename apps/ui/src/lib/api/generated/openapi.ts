@@ -256,9 +256,12 @@ export interface components {
     component: string;
     context?: Record<string, unknown> | null;
     correlation_key?: string | null;
+    count?: number;
     event_id?: string | null;
+    first_seen?: string | null;
     id: string;
     job_id?: string | null;
+    last_seen?: string | null;
     message: string;
     reason_code: string;
     runtime_recovery?: Record<string, unknown> | null;
@@ -278,6 +281,7 @@ export interface components {
     returned_events: number;
     severity_counts: Record<string, number>;
     total_events: number;
+    total_occurrences?: number;
 };
     BackfillFocusedDiagnosticsResponse: {
     failed_jobs: Array<Record<string, unknown>>;
@@ -584,6 +588,7 @@ export interface components {
     active_model_candidate_providers?: Array<string>;
     active_model_estimated_ram_mb?: number | null;
     active_model_id?: string | null;
+    active_model_installed?: boolean | null;
     active_model_validated_providers?: Array<string>;
     active_provider?: string;
     available_providers?: Array<string>;
@@ -597,6 +602,7 @@ export interface components {
     dev_dri_entries?: Array<string>;
     dev_dri_present?: boolean;
     effective_model_id?: string | null;
+    effective_model_name?: string | null;
     enabled?: boolean;
     error?: string | null;
     fallback_reason?: string | null;

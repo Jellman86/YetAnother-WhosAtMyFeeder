@@ -276,9 +276,9 @@
             {#if isOwner}
                 <!-- Three actions, three weights: a link elsewhere, the everyday action, and the one that empties the list. -->
                 <a
-                    href={toAppPath('/settings/health')}
+                    href={toAppPath('/system-health')}
                     class="focus-ring inline-flex min-h-11 items-center rounded-sm px-1 text-xs font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
-                    onclick={(event) => { if (onNavigate) { event.preventDefault(); onNavigate('/settings/health'); } }}
+                    onclick={(event) => { if (onNavigate) { event.preventDefault(); onNavigate('/system-health'); } }}
                 >
                     {$_('settings.data.open_diagnostics', { default: 'Open Health' })}
                 </a>

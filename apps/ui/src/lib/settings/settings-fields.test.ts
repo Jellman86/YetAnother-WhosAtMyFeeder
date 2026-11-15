@@ -1,18 +1,52 @@
 import { describe, expect, it } from 'vitest';
-import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldTab, summarizeUnsaved } from './settings-fields';
+import { RUNTIME_DISCLOSURES } from './runtime-problem';
+import { changedFields, firstRefusedField, settingsFieldPlace, settingsFieldPlaces, settingsFieldTab, summarizeUnsaved } from './settings-fields';
+
+// Every Settings tab's markup, to check each refused field's place against what is really there.
+const settingsMarkup = import.meta.glob<string>(['../components/settings/*.svelte', '../pages/Settings.svelte'], {
+    query: '?raw',
+    import: 'default',
+    eager: true
+});
+
+/** The file that holds an element with this id, written as an attribute or as a string constant. */
+function fileWithId(id: string): string | null {
+    const attribute = new RegExp(`id="${id}"`);
+    const constant = new RegExp(`['"]${id}['"]`);
+    return Object.entries(settingsMarkup).find(([, source]) => attribute.test(source) || constant.test(source))?.[0] ?? null;
+}
 
 describe('where a saved setting lives', () => {
     it('names the tab that shows each field, preferring an exact entry over a family prefix', () => {
         expect(settingsFieldTab('frigate_url')).toBe('connection');
         expect(settingsFieldTab('mqtt_port')).toBe('connection');
         expect(settingsFieldTab('notifications_discord_webhook_url')).toBe('notifications');
-        expect(settingsFieldTab('garden_notifications_enabled')).toBe('notifications');
+        // Garden's alerts are set with the rest of Garden.
+        expect(settingsFieldTab('garden_notifications_enabled')).toBe('beta');
         expect(settingsFieldTab('garden_cameras')).toBe('connection');
         expect(settingsFieldTab('garden_naming_threshold')).toBe('beta');
         expect(settingsFieldTab('inaturalist_default_latitude')).toBe('integrations');
         expect(settingsFieldTab('llm_api_key')).toBe('ai');
         expect(settingsFieldTab('media_cache_max_size_mb')).toBe('data');
         expect(settingsFieldTab('enrichment_sightings_source')).toBe('integrations');
+    });
+
+    it('keeps identification rules in Detection and everything about the models in Models', () => {
+        for (const field of ['classification_threshold', 'classification_min_confidence', 'blocked_species', 'range_filter_enabled', 'trust_frigate_sublabel', 'auto_video_classification', 'video_classification_frames', 'personalized_rerank_enabled']) {
+            expect(settingsFieldTab(field), field).toBe('detection');
+        }
+        for (const field of ['inference_provider', 'image_execution_mode', 'live_worker_count', 'background_worker_count', 'bird_crop_detector_model_id', 'bird_model_region_override', 'strict_non_finite_output']) {
+            expect(settingsFieldTab(field), field).toBe('models');
+        }
+    });
+
+    it('keeps what is kept in Data, repair jobs in Maintenance, and what leaves the install in Security', () => {
+        expect(settingsFieldTab('retention_days')).toBe('data');
+        expect(settingsFieldTab('frigate_missing_behavior')).toBe('data');
+        expect(settingsFieldTab('auto_purge_missing_clips')).toBe('data');
+        expect(settingsFieldTab('maintenance_max_concurrent')).toBe('maintenance');
+        expect(settingsFieldTab('auto_analyze_unknowns')).toBe('maintenance');
+        expect(settingsFieldTab('telemetry_enabled')).toBe('security');
     });
 
     it('has no home for a field Settings never shows', () => {
@@ -63,5 +97,33 @@ describe('which refused field is shown first', () => {
         expect(firstRefusedField(['llm_model', 'mqtt_port'], 'ai')).toBe('llm_model');
         expect(firstRefusedField(['llm_model', 'garden_naming_threshold', 'mqtt_port'], 'security')).toBe('mqtt_port');
         expect(firstRefusedField([], 'connection')).toBeNull();
+    });
+});
+
+describe('where a refused field is shown', () => {
+    it('names, for every field, an input and closed sections that exist in the same tab\'s markup', () => {
+        const problems: string[] = [];
+        for (const [field, place] of settingsFieldPlaces()) {
+            const inputFile = fileWithId(place.inputId);
+            if (!inputFile) {
+                problems.push(`${field}: no element with id ${place.inputId}`);
+                continue;
+            }
+            for (const disclosure of place.disclosures ?? []) {
+                const source = settingsMarkup[inputFile];
+                // The runtime sections take their ids from one shared list (runtime-problem.ts).
+                const shared = (RUNTIME_DISCLOSURES as readonly string[]).indexOf(disclosure);
+                const named = new RegExp(`id="${disclosure}"|['"]${disclosure}['"]`).test(source)
+                    || (shared >= 0 && source.includes(`RUNTIME_DISCLOSURES[${shared}]`));
+                if (!named) {
+                    problems.push(`${field}: section ${disclosure} is not in ${inputFile}, which holds ${place.inputId}`);
+                }
+            }
+        }
+        expect(problems).toEqual([]);
+    });
+
+    it('opens Maintenance\'s closed Jobs at once card for a refused concurrency', () => {
+        expect(settingsFieldPlace('maintenance_max_concurrent')?.disclosures).toEqual(['maintenance-concurrency']);
     });
 });

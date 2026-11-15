@@ -140,10 +140,6 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
         families: ['amber', 'blue', 'teal', 'violet'],
         reason: 'categorical CPU-share series, chosen for colour-vision separation and always named; a series is not a state'
     },
-    'components/SystemTelemetryGraph.svelte': {
-        families: ['indigo'],
-        reason: 'the accelerator line is a second chart series beside the brand CPU line, and is named beside its reading'
-    },
     'pages/Species.svelte': {
         families: ['sky'],
         reason: 'the precipitation overlay draws rain as a sky band on the activity chart, and its legend matches it'
@@ -178,6 +174,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/BackendStatusScreen.svelte': 'start-up that needs the owner',
     'components/CameraStatus.svelte': 'some cameras offline',
     'components/ConnectionStatus.svelte': 'the camera feed is down or degraded',
+    'components/Sidebar.svelte': 'open issues on System health that need the owner',
     'components/DiagnosticDialog.svelte': 'a diagnostic step that warned',
     'components/JobCircuitBanner.svelte': 'background work paused after repeated failures',
     'components/GlobalProgress.svelte': 'a job that is blocked',
@@ -198,8 +195,10 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/settings/AuthenticationSettings.svelte': 'an access setting that leaves the instance exposed',
     'components/settings/CameraWatchRow.svelte': 'a camera Frigate does not know',
     'components/settings/ConnectionSettings.svelte': 'a camera list that could not be read',
-    'components/settings/DataSettings.svelte': 'records due for deletion and repairs to review',
-    'components/settings/DetectionSettings.svelte': 'a model or device setting that cannot run as chosen',
+    'components/settings/DataSettings.svelte': 'records due for deletion and a media folder that cannot be written',
+    'components/settings/MaintenanceSettings.svelte': 'repairs to review and analysis paused after failures',
+    'components/settings/DetectionSettings.svelte': 'video checks paused after repeated failures',
+    'components/settings/ModelSettings.svelte': 'a model or device setting that cannot run as chosen',
     'components/settings/DetectionStatusBand.svelte': 'a fallback model or device in use',
     'components/settings/GardenBetaSettings.svelte': 'a Garden step still to do',
     'components/settings/GardenNotificationSettings.svelte': 'Garden alerts that cannot be delivered',

@@ -8,6 +8,7 @@ from structlog.testing import capture_logs
 
 from app.config import settings
 from app.services.frigate_client import FrigateClient
+from app.services.frigate_readiness import FrigateReadinessGate
 
 SECRET_URLS = {
     "userinfo": ("https://feeder-user:hunter2-pass@frigate.example.test:8443", ("feeder-user", "hunter2-pass")),
@@ -47,8 +48,14 @@ async def test_frigate_client_failure_logs_keep_url_credentials_out(monkeypatch,
             raise httpx.ConnectError(text, request=request)
         raise RuntimeError(text)
 
+    async def frigate_answers() -> bool:
+        return True
+
     client = FrigateClient()
     client._client = httpx.AsyncClient(transport=httpx.MockTransport(refuse))
+    # One read failing while Frigate answers is the case that logs the error text. A Frigate
+    # that is down altogether is reported once, without it (see test_frigate_readiness.py).
+    client.readiness = FrigateReadinessGate(frigate_answers)
     try:
         with capture_logs() as records:
             await CALLS[call](client, tmp_path)

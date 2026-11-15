@@ -132,6 +132,12 @@
     // Read with the workspace, so the verdict and the cards come from one measurement.
     let connections = $derived(workspacePayload?.connections ?? null);
     let problems = $derived(connectionProblems(connections));
+    // Everything open, from the one workspace reading: the failed connections, then any incident
+    // not yet resolved. The verdict card lists these, so a count elsewhere can never disagree.
+    let openItems = $derived([
+        ...problems.map((problem) => ({ key: problem, problem, incident: null })),
+        ...currentIssues.map((incident) => ({ key: `incident:${incident.id}`, problem: null, incident }))
+    ]);
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
@@ -144,7 +150,6 @@
     let refreshing = $state(false);
     let clearing = $state(false);
     let refreshError = $state('');
-    let lastRefreshedAt = $state<number | null>(null);
 
     let workspaceCapturedAt = $derived.by(() => {
         const raw = workspacePayload?.backend_diagnostics?.captured_at;
@@ -194,7 +199,6 @@
                 const result = await fetchVisits({ ...window, limit: 25, requestKey: 'health:visits' });
                 serverVisits = result.visits.map((visit) => fromServerVisit(visit, window));
             } else serverVisits = [];
-            lastRefreshedAt = Date.now();
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Failed to refresh incident workspace';
             refreshError = message;
@@ -336,7 +340,14 @@
 
     /** The hero's verdict: never healthy while the broker or Frigate is down or unread. */
     function verdict(): string {
-        return healthVerdict(overallStatus(), connections);
+        return withOpenIncidents(healthVerdict(overallStatus(), connections));
+    }
+
+    /** An open incident is never shown beside a healthy verdict. */
+    function withOpenIncidents(status: string): string {
+        if (currentIssues.length === 0) return status;
+        const value = status.toLowerCase();
+        return value === 'ok' || value === 'healthy' ? 'degraded' : status;
     }
 
     /** One short item per failed connection: what is wrong, then what to do. */
@@ -698,14 +709,6 @@
         if (!eventId) return;
         onNavigate?.(`/events?event=${encodeURIComponent(eventId)}`);
     }
-
-    function refreshedAgoText(): string | null {
-        if (!lastRefreshedAt) return null;
-        const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
-        if (diff < 10) return $_('jobs.errors_updated_just_now', { default: 'Updated just now' });
-        if (diff < 60) return $_('jobs.errors_updated_seconds', { values: { count: diff }, default: `Updated ${diff}s ago` });
-        return $_('jobs.errors_updated_minutes', { values: { count: Math.floor(diff / 60) }, default: `Updated ${Math.floor(diff / 60)}m ago` });
-    }
 </script>
 
 <div class="space-y-6">
@@ -713,20 +716,16 @@
          detail behind the verdict. What happened follows as its own card. -->
     <SystemHealthPanel>
         {#snippet headerActions()}
-            <div class="flex flex-wrap items-center justify-end gap-2">
-                <!-- Its place is held before the first reading, so the header does not rewrap when it arrives. -->
-                <span class="text-xs text-slate-600 dark:text-slate-400 {refreshedAgoText() ? '' : 'invisible'}" aria-hidden={refreshedAgoText() ? undefined : 'true'}>
-                    {refreshedAgoText() ?? $_('jobs.errors_updated_just_now', { default: 'Updated just now' })}
-                </span>
-                <button
-                    type="button"
-                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
-                    onclick={clearWorkspace}
-                    disabled={clearing || refreshing}
-                >
-                    {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear Live Errors' })}
-                </button>
-            </div>
+            <button
+                type="button"
+                class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
+                onclick={clearWorkspace}
+                disabled={clearing || refreshing}
+                aria-describedby="health-clear-effect"
+            >
+                {clearing ? $_('jobs.errors_clearing', { default: 'Clearing…' }) : $_('jobs.errors_clear', { default: 'Clear error history' })}
+            </button>
+            <span id="health-clear-effect" class="sr-only">{$_('jobs.errors_clear_effect', { default: 'Removes recorded errors and incidents now. Live checks carry on.' })}</span>
         {/snippet}
 
         {#snippet status()}
@@ -737,14 +736,21 @@
                     </span>
                     <div class="min-w-0 flex-1 wrap-break-word">
                         <h3 class="font-display text-lg font-bold text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h3>
-                        {#if problems.length > 0}
+                        {#if openItems.length > 0}
                             <ul class="mt-1 space-y-2" data-health-problems>
-                                {#each problems as problem (problem)}
-                                    {@const item = problemItem(problem)}
-                                    <li class="wrap-break-word text-sm" data-health-problem={problem}>
-                                        <p class="font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
-                                        <p class="text-slate-600 dark:text-slate-300">{item.next}</p>
-                                    </li>
+                                {#each openItems as item (item.key)}
+                                    {#if item.problem}
+                                        {@const text = problemItem(item.problem)}
+                                        <li class="wrap-break-word text-sm" data-health-problem={item.problem}>
+                                            <p class="font-semibold text-slate-800 dark:text-slate-100">{text.title}</p>
+                                            <p class="text-slate-600 dark:text-slate-300">{text.next}</p>
+                                        </li>
+                                    {:else if item.incident}
+                                        <li class="wrap-break-word text-sm" data-health-open-incident>
+                                            <p class="font-semibold text-slate-800 dark:text-slate-100">{item.incident.title}</p>
+                                            <p class="text-slate-600 dark:text-slate-300">{item.incident.summary}</p>
+                                        </li>
+                                    {/if}
                                 {/each}
                             </ul>
                         {:else}
@@ -1127,65 +1133,36 @@
         {/if}
     </section>
 
-    <!-- ── Current Issues + Recent Diagnostics ────────────────────── -->
+    <!-- ── Earlier incidents + backend warnings ────────────────────── -->
     <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
-        <section class="panel" data-health-current-issues>
-            <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div class="min-w-0">
-                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
-                </div>
-                <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{currentIssues.length.toLocaleString()} open</span>
+        <section class="panel" data-health-earlier-incidents>
+            <div class="mb-4 min-w-0">
+                <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.earlier_incidents_title', { default: 'Earlier incidents' })}</h2>
+                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.earlier_incidents_desc', { default: 'Problems that have since cleared. What is open now is listed with the system status above.' })}</p>
             </div>
-            <div class="space-y-3">
-                {#if currentIssues.length === 0}
-                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.current_issues_empty', { default: 'No current incidents detected.' })}</p>
-                {:else}
-                    {#each currentIssues as incident (incident.id)}
-                        <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
-                                    {statusLabel(incident.status)}
-                                </span>
-                                <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
-                            </div>
-                            <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{incident.summary}</p>
-                        </article>
+            {#if recentIncidents.length === 0}
+                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.earlier_incidents_empty', { default: 'Nothing has cleared since the error history was last cleared.' })}</p>
+            {:else}
+                <ul class="divide-y divide-line-soft">
+                    {#each recentIncidents.slice(0, 6) as incident (incident.id)}
+                        <li class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
+                            <p class="min-w-0 flex-1 basis-48 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
+                            <span class="text-xs tabular-nums text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                        </li>
                     {/each}
-                {/if}
-
-                {#if recentIncidents.length > 0}
-                    <div class="pt-3">
-                        <h4 class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
-                        <div class="mt-3 space-y-2">
-                            {#each recentIncidents.slice(0, 4) as incident (incident.id)}
-                                <article class="rounded-xl border border-line-soft bg-surface-raised/60 px-4 py-3">
-                                    <div class="flex items-center justify-between gap-2">
-                                        <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-bold ${toneClass(incident.severity)}`} title={incident.status}>
-                                            {statusLabel(incident.status)}
-                                        </span>
-                                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
-                                    </div>
-                                    <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
-                                </article>
-                            {/each}
-                        </div>
-                    </div>
-                {/if}
-            </div>
+                </ul>
+            {/if}
         </section>
 
         <section class="panel" data-health-backend-diagnostics>
             <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h2>
-                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
+                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('jobs.errors_backend_diagnostics_title', { default: 'Backend warnings and errors' })}</h2>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_backend_diagnostics_desc', { default: 'The newest the backend has recorded since the error history was last cleared.' })}</p>
                 </div>
-                <span class="shrink-0 rounded-full border border-line px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">{backendEvents.length.toLocaleString()} events</span>
             </div>
             {#if backendEvents.length === 0}
-                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">{$_('jobs.errors_empty', { default: 'None recorded.' })}</p>
             {:else}
                 <div class="space-y-3">
                     {#each backendEvents.slice(0, 8) as event (event.id)}
@@ -1202,6 +1179,19 @@
                                 <span class="text-xs font-semibold opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{event.message}</p>
+                            {#if (event.count ?? 1) > 1 && event.first_seen && event.last_seen}
+                                <!-- The backend keeps repeats of one fault as one entry; this says how often and over what span. -->
+                                <p class="mt-1 text-xs tabular-nums opacity-80" data-diagnostic-repeats>
+                                    {$_('jobs.errors_repeated', {
+                                        values: {
+                                            count: (event.count ?? 1).toLocaleString(),
+                                            first: formatDateTime(Date.parse(event.first_seen)),
+                                            last: formatDateTime(Date.parse(event.last_seen))
+                                        },
+                                        default: '×{count}, first {first}, last {last}'
+                                    })}
+                                </p>
+                            {/if}
                             {#if event.event_id || event.correlation_key}
                                 <p class="mt-2 text-xs opacity-80">
                                     {#if event.event_id}<span>Event {event.event_id}</span>{/if}

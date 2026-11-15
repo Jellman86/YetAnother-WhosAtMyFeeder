@@ -1064,6 +1064,8 @@ The status separates packaging, hardware availability, and the active model sess
 | `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
 | `active_model_id` | Model saved in persistent configuration. Its files may be unavailable after an image or storage change. |
 | `effective_model_id` | Model whose files and preprocessing contract the current runtime actually resolved, including the bundled MobileNet fallback. |
+| `effective_model_name` | That model's name as the model list shows it, or `null` when it has no registry entry. Settings names the model in use with it. |
+| `active_model_installed` | Whether that model's weights are on disk. `false` when the configured model and the bundled fallback are both missing, so nothing can identify birds until a model is downloaded; `null` when it could not be resolved. |
 | `runtime` | Active TFLite implementation (`litert`, `tflite-runtime`, `tensorflow`, or `unavailable`); ONNX session details remain in `inference_backend`. |
 | `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
 | `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
@@ -1480,6 +1482,13 @@ The callback exception grants no owner role and does not expand cookie authentic
   (2,048 characters per string, 64 items per collection, depth eight and 512 nodes
   per payload field); truncation is marked. Source/correlation fields remain present.
   Failed redaction-context lookup drops details rather than interrupting ingestion.
+  Repeats of one fault are one entry: events with the same `source`, `component`,
+  `reason_code` and `severity`, whose messages differ only in tokens containing digits
+  (event ids, counts, durations), share an entry carrying `count`, `first_seen` and
+  `last_seen`. `timestamp` equals `last_seen`, `id` stays the first occurrence's, and the
+  other fields are the newest occurrence's. `total_events` counts entries;
+  `total_occurrences` counts every recorded occurrence held. The same shape is used for
+  `backend_diagnostics.events` in the workspace and bundle responses.
 
 - `GET /api/diagnostics/workspace` — focused video failure candidates include
   warning, error and critical events, excluding circuit summaries and successful
@@ -1491,7 +1500,7 @@ The callback exception grants no owner role and does not expand cookie authentic
   circuit cannot override a newer failure. CPU recovery events identify their
   worker pool at the top level.
 - `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
-  payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
+  payload; this is what **Health → Diagnostics export** downloads. `limit` is `1`–`1000`
   (default `200`). Each request gathers fresh server health, classifier, queues and
   bounded recent diagnostics even when no local UI error exists. The response includes
   `generated_at`, `schema_version` and `server.startup_instance_id` to identify its capture.
@@ -1506,7 +1515,7 @@ The callback exception grants no owner role and does not expand cookie authentic
   The workspace also carries `connections`, in the shape of `GET /api/diagnostics/connections`,
   measured before `health` so the two agree.
 - `GET /api/diagnostics/connections` — the broker session and Frigate's API as last measured, for
-  Settings → Health and the sidebar's live tile. `mqtt` has `state` (`connecting`, `connected`,
+  the Health page and the sidebar's live tile. `mqtt` has `state` (`connecting`, `connected`,
   `disconnected`, `not_configured`, `stopped`), `server`, `port`, `connected_since`,
   `last_attempt_at`, `last_failure_at` and `last_error` (the broker client's own words). `frigate`
   has `state` (`reachable`, `unreachable`, `unchecked`), `url`, `checked_at`, `last_success_at`,
