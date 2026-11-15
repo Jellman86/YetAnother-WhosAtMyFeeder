@@ -12,6 +12,7 @@
         groupNotifications,
         isOwnerOnlyFilter,
         isStoppedJob,
+        showsProgress,
         progressOf,
         toneOf
     } from '../utils/notification-timeline';
@@ -185,6 +186,13 @@
         </div>
     </div>
 
+    {#if isOwner && items.some(isOwnerOnlyItem)}
+        <!-- Said once for the page, in words: marking it on every row was most of the rows. -->
+        <p class="text-xs text-slate-600 dark:text-slate-400" data-notifications-owner-note>
+            {$_('notifications.owner_only_note', { default: 'Background jobs, health and system events are shown only to you, not to visitors.' })}
+        </p>
+    {/if}
+
     <!-- Chips rather than tabs: a failed job belongs in the same list as everything else. -->
     <div class="flex flex-wrap gap-2" role="group" aria-label={$_('notifications.filter_group', { default: 'Filter notifications' })}>
         {#each visibleFilters as name (name)}
@@ -331,27 +339,22 @@
                                     {:else if item.message}
                                         <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{item.message}</p>
                                     {/if}
-                                    {#if progress}
+                                    {#if progress && showsProgress(item)}
                                         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                             <!-- Brand, not the amber gradient this used to run: a job in flight needs nobody. -->
                                             <div class="h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-slate-400 dark:bg-slate-500' : 'bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></div>
                                         </div>
-                                        <p class="mt-1 flex justify-between font-mono text-3xs text-slate-600 dark:text-slate-400">
+                                        <p class="mt-1 flex justify-between text-3xs tabular-nums text-slate-600 dark:text-slate-400">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
                                             <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
                                         </p>
                                     {/if}
-                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-3xs text-slate-600 dark:text-slate-400">
+                                    <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-3xs tabular-nums text-slate-600 dark:text-slate-400">
                                         <!-- The group heading already carries the day, so repeating
                                              the full date on every row is noise. -->
                                         <span>{group.key === 'older' || group.key === 'yesterday'
                                             ? formatDateTime(item.timestamp)
                                             : formatTime(item.timestamp)}</span>
-                                        {#if isOwnerOnlyItem(item)}
-                                            <!-- Said in words, because visitors never see this item; a padlock and a shouted
-                                                 "owner" on a page only the owner reads explained nothing. -->
-                                            <span class="font-sans">{$_('notifications.owner_only', { default: 'Only you see this' })}</span>
-                                        {/if}
                                     </p>
                                     {#if canOpen(item) || isStoppedJob(item)}
                                         <div class="mt-2 flex flex-wrap gap-2">

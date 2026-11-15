@@ -10,7 +10,7 @@
     interface Props {
         title: string;
         subtitle?: string;
-        // Small label above the title. Defaults to the product name.
+        // Optional small label above the title, for a caller with context the title lacks.
         eyebrow?: string;
         // The ordered checks. Callers own the truth: a stage only becomes
         // `passed`/`failed` when its check actually resolved that way.
@@ -35,7 +35,7 @@
     let {
         title,
         subtitle,
-        eyebrow = 'YA-WAMF',
+        eyebrow,
         stages,
         busy = false,
         result = null,
@@ -119,6 +119,25 @@
         };
     });
 
+    // The rows already state each outcome. A summary earns its place only when it says something
+    // they do not: that everything passed, a message of its own, or a hint about what to do next.
+    const summaryAddsSomething = $derived.by(() => {
+        if (!result) return false;
+        if (result.ok || result.hint) return true;
+        const said = result.message.trim();
+        const perStageCount = diagnosticHeadline(result, displayStages) !== result.message;
+        const repeatsFailures = stages.filter((stage) => stage.state === 'failed').every((stage) => said.includes(stage.label));
+        return !perStageCount && !repeatsFailures;
+    });
+
+    function stateWord(state: DiagnosticStageState): string {
+        if (state === 'passed') return $_('common.diagnostic_state_passed', { default: 'Passed' });
+        if (state === 'failed') return $_('common.diagnostic_state_failed', { default: 'Failed' });
+        if (state === 'warning') return $_('common.diagnostic_state_warning', { default: 'Passed with a warning' });
+        if (state === 'skipped') return $_('common.diagnostic_state_skipped', { default: 'Not run' });
+        return '';
+    }
+
     function handleKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') onClose();
     }
@@ -153,7 +172,9 @@
         <div class="space-y-4 bg-surface-raised px-6 py-5">
             <div class="flex items-start justify-between gap-4">
                 <div class="space-y-1">
-                    <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{eyebrow}</p>
+                    {#if eyebrow}
+                        <p class="text-xs font-semibold text-brand-700 dark:text-brand-300">{eyebrow}</p>
+                    {/if}
                     <h2 id="diagnostic-title" class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                         {title}
                     </h2>
@@ -192,6 +213,8 @@
                                 <h3 class="text-sm font-bold text-slate-900 dark:text-white">{stage.label}</h3>
                                 {#if stage.state === 'running'}
                                     <span class="text-3xs font-bold text-brand-700 dark:text-brand-300">{runningLabel ?? $_('common.testing', { default: 'Testing' })}</span>
+                                {:else if stateWord(stage.state)}
+                                    <span class="text-xs font-semibold {stage.state === 'failed' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-300'}" data-diagnostic-stage-state={stage.state}>{stateWord(stage.state)}</span>
                                 {/if}
                             </div>
                             {#if stage.state !== 'pending'}
@@ -202,8 +225,8 @@
                 {/each}
             </ol>
 
-            {#if result && resultShown}
-                <div data-diagnostic-result class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-attention-200 bg-attention-50 text-attention-900 dark:border-attention-900/60 dark:bg-attention-950/20 dark:text-attention-100'}">
+            {#if result && resultShown && summaryAddsSomething}
+                <div data-diagnostic-result class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/20 dark:text-red-100'}">
                     <p class="font-bold">{diagnosticHeadline(result, displayStages)}</p>
                     {#if result.hint}
                         <p class="mt-1 text-sm">{result.hint}</p>
@@ -216,13 +239,14 @@
             {/if}
         </div>
 
+        {#if onRetry}
         <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4 dark:border-slate-700" data-diagnostic-actions>
-            <button type="button" class="btn btn-ghost min-h-11 px-4 py-2.5" onclick={onClose}>{closeLabel ?? $_('common.close', { default: 'Close' })}</button>
-            {#if onRetry}
-                <button type="button" class="btn btn-primary min-h-11 px-5 py-2.5" disabled={busy} onclick={onRetry}>
-                    {busy ? (runningLabel ?? $_('common.testing', { default: 'Testing' })) : (retryLabel ?? $_('common.test', { default: 'Test' }))}
-                </button>
-            {/if}
+            <button type="button" class="btn btn-primary min-h-11 px-5 py-2.5" disabled={busy} onclick={onRetry}>
+                {busy
+                    ? (runningLabel ?? $_('common.testing', { default: 'Testing' }))
+                    : result ? $_('common.test_again', { default: 'Test again' }) : (retryLabel ?? $_('common.test', { default: 'Test' }))}
+            </button>
         </div>
+        {/if}
     </div>
 </div>

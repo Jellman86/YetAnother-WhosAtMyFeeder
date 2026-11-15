@@ -58,7 +58,6 @@
   "window_label": "今天",
   "count_events": "{count, plural, other {条}}",
   "count_unread": "未读",
-  "owner_only": "仅你可见",
   "empty_title": "目前还没有任何动静",
   "empty_body": "分类器识别出的访客，以及正在运行的后台任务，都会按从新到旧的顺序显示在这里。",
   "empty_action": "打开观察日志",
@@ -69,5 +68,6 @@
   "bell_unread": "{title}，{count} 条未读",
   "filter_group": "筛选通知",
   "count_unread_unit": "{count, plural, other {未读}}",
-  "cleared": "{count, plural, other {已清除 # 条通知。}}"
+  "cleared": "{count, plural, other {已清除 # 条通知。}}",
+  "owner_only_note": "后台任务、健康状态和系统事件只对你显示，访客看不到。"
 }

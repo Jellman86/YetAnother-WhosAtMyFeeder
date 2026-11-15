@@ -66,8 +66,8 @@ async def test_frigate_diagnostic_rejects_unsafe_url_override(client):
 @pytest.mark.asyncio
 async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_password(client, monkeypatch):
     settings.frigate.mqtt_password = "stored-password"
-    test_connection = AsyncMock(return_value=True)
-    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.test_connection", test_connection)
+    test_connection = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", test_connection)
 
     response = await client.post(
         "/api/settings/mqtt/test-publish",
@@ -87,6 +87,27 @@ async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_pass
         username="birder",
         password="stored-password",
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cause", "said"),
+    [
+        ("host_not_found", "The host name in mqtt.invalid:1883 was not found"),
+        ("refused", "Nothing answered at mqtt.invalid:1883"),
+        ("not_authorised", "refused the user name or password"),
+    ],
+)
+async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeypatch, cause, said):
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", AsyncMock(return_value=cause))
+
+    response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
+
+    assert response.status_code == 502
+    message = response.json()["message"]
+    assert said in message
+    assert "Check" in message
+    assert "logs" not in message.lower()
 
 
 @pytest.mark.asyncio

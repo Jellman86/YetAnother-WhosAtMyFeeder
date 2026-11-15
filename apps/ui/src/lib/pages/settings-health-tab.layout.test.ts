@@ -70,4 +70,12 @@ describe('settings health tab', () => {
         expect(sidebarSource).not.toMatch(/data-sidebar-status-link[\s\S]{0,200}aria-label|aria-label[^\n]*\n\s*data-sidebar-status-link/);
         expect(en.status.open_health).toBe('System health');
     });
+
+    it('lets the keyboard reach the process table when it scrolls sideways', () => {
+        // WCAG 2.1.1: a scrolling box with no focusable content is a named tab stop of its own.
+        expect(panelSource).toMatch(
+            /class="mt-3 overflow-x-auto rounded-sm focus-ring"\s+role="region"\s+tabindex="0"\s+aria-labelledby="system-health-share-heading"/
+        );
+        expect(panelSource).toContain('<h3 id="system-health-share-heading"');
+    });
 });

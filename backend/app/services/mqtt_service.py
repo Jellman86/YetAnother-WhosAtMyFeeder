@@ -11,6 +11,7 @@ from typing import Literal
 from aiomqtt import Client, MqttError
 from app.config import settings
 from app.utils.frigate import is_ingest_label
+from app.services.connection_failure import ConnectionFailure, classify_connection_failure
 from app.services.connection_tracking import MqttConnectionTracker
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.service_connections import announce_service_connections_changed
@@ -1020,15 +1021,15 @@ class MQTTService:
                 await asyncio.sleep(delay)
                 self._increase_backoff()
 
-    async def test_connection(
+    async def diagnose_connection(
         self,
         *,
         server: str,
         port: int,
         username: str | None = None,
         password: str | None = None,
-    ) -> bool:
-        """Open an isolated MQTT session and prove it can publish.
+    ) -> ConnectionFailure | None:
+        """Open an isolated MQTT session and prove it can publish; None when it did, else the cause.
 
         Diagnostics must not depend on the daemon's existing connection: a user
         may be testing edited host or credential values before a restart. The
@@ -1056,7 +1057,7 @@ class MQTTService:
                             }
                         ),
                     )
-            return True
+            return None
         except (MqttError, OSError, TimeoutError) as exc:
             log.warning(
                 "MQTT diagnostic connection failed",
@@ -1064,7 +1065,7 @@ class MQTTService:
                 port=port,
                 error_type=type(exc).__name__,
             )
-            return False
+            return classify_connection_failure(exc)
 
     async def publish(self, topic: str, payload: dict | str) -> bool:
         """Publish a message to a specific topic."""

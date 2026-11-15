@@ -25,18 +25,23 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
 
 - **Shell:** `rounded-2xl`, `max-w-2xl`, `bg-surface`, `border border-white/10`, `shadow-2xl`,
   on a `fixed inset-0` dimmed + `backdrop-blur-sm` scrim.
-- **Header band:** `bg-surface-raised`, so it follows the active theme. A `YA-WAMF` eyebrow in
-  `text-xs font-semibold text-brand-700` (dark: `text-brand-300`), the product name as written and
-  never tracked-out capitals, then a
-  `text-2xl font-bold` title and a calm `text-sm` subtitle.
+- **Header band:** `bg-surface-raised`, so it follows the active theme: a `text-2xl font-bold`
+  title, a calm `text-sm` subtitle, and the one close button every dialog uses. There is no
+  product-name eyebrow; a caller may pass an `eyebrow` only when it adds context the title lacks.
 - **Progress:** a row of equal-width segments — brand for passed, amber for warnings,
   red for failed, pulsing brand for the running step, slate for pending/skipped. A visually-hidden
   `role="progressbar"` mirrors it for assistive tech.
 - **Checklist:** one bordered container with `divide-y` rows — **not** a stack of
   separate cards. Each row is a small status disc (number → ✓ / ! / –) plus a
-  bold label and a plain-language message. A passed disc is success green.
-- **Footer:** `border-t`, right-aligned, using the shared button kit (`btn` +
-  `btn-ghost` / `btn-primary`) with a `min-h-11` (44px) target.
+  bold label, the outcome in a word (Passed, Failed, Passed with a warning, Not run), and a
+  plain-language message. The word matters: a failed and a warned row share a disc and would
+  otherwise differ only by colour. A passed disc is success green.
+- **Summary:** drawn under the checklist only when it says something the rows do not: that
+  every check passed, a message of its own, or a hint. A failure summary is red like its row,
+  never amber, which is kept for work that needs a person.
+- **Footer:** `border-t`, right-aligned, one `btn btn-primary` with a `min-h-11` (44px) target
+  that runs the test. Once a run has finished it reads "Test again". Closing is the header's
+  button alone, so the dialog has one close control in the tab order.
 
 ## 3. The behaviour
 
@@ -54,7 +59,9 @@ This is the depth behind [`CLAUDE.md`](../../CLAUDE.md) §5. When this page and
   (Frigate's API and the MQTT broker) all run with `{ independent: true }`, because marking one
   "not run because an earlier step failed" would claim a dependency that is not there. A failure
   colours its row, and states the cause and next step in
-  plain language (Nielsen #9) — not an error code. Warning and skipped outcomes
+  plain language (Nielsen #9) — not an error code, an exception class or "check logs". The
+  backend reads the cause from the error (`app/services/connection_failure.py`: host not found,
+  nothing listening, no answer in time, credentials refused) and says what to check. Warning and skipped outcomes
   remain terminal but must not be promoted to a pass or produce a green summary.
 - **Keyboard & focus:** `Escape` closes, focus is trapped while open, and body
   scroll is locked. `trapFocus` alone returns focus to the opener on close; the dialog does not

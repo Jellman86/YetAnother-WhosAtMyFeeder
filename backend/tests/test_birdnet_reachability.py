@@ -105,3 +105,21 @@ async def test_reachability_fails_when_unreachable(client, monkeypatch):
     resp = await client.get("/api/settings/birdnet/reachability")
     assert resp.status_code == 502, resp.text
     assert resp.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+async def test_reachability_failure_names_the_cause_not_an_exception_class(client, monkeypatch):
+    settings.frigate.birdnet_url = "http://birdnet.invalid:8080"
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.get.side_effect = httpx.ConnectError("[Errno -2] Name or service not known")
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda *_args, **_kwargs: mock_client)
+
+    resp = await client.get("/api/settings/birdnet/reachability")
+
+    assert resp.status_code == 502
+    message = resp.json()["message"]
+    assert "was not found" in message
+    assert "Check the address for BirdNET-Go" in message
+    assert "ConnectError" not in message

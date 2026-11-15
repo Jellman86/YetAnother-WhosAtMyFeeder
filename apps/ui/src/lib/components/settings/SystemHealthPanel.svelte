@@ -424,7 +424,7 @@
             {#if rows.length > 0}
                 <div class="border-t border-slate-200/70 pt-5 dark:border-slate-700/50" data-system-health-share>
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
-                        <h3 class="font-display text-base font-bold text-slate-900 dark:text-white">
+                        <h3 id="system-health-share-heading" class="font-display text-base font-bold text-slate-900 dark:text-white">
                             {$_('settings.system_health.share_title', { default: 'Resource use right now' })}
                         </h3>
                         {#if latest?.cpu_percent !== null && latest?.cpu_percent !== undefined}
@@ -450,8 +450,15 @@
                         </div>
                     {/if}
                     <!-- A table keeps its columns: when they cannot fit, as with enlarged text on a phone, it
-                         scrolls sideways within its own box instead of widening the page. -->
-                    <div class="mt-3 overflow-x-auto">
+                         scrolls sideways within its own box instead of widening the page. The box is a
+                         named tab stop, so the keyboard can scroll what a finger can. -->
+                    <div
+                        class="mt-3 overflow-x-auto rounded-sm focus-ring"
+                        role="region"
+                        tabindex="0"
+                        aria-labelledby="system-health-share-heading"
+                        data-system-health-table-scroll
+                    >
                     <table class="w-full text-xs sm:text-sm" data-system-health-table>
                         <thead class="text-xs font-semibold text-slate-700 dark:text-slate-200">
                             <tr>

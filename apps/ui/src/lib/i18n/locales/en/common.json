@@ -67,5 +67,10 @@
   "checks_passed": "All {total} checks passed.",
   "check_passed": "The check passed.",
   "map_your_location": "Your location",
-  "map_sighting": "Sighting location"
+  "map_sighting": "Sighting location",
+  "test_again": "Test again",
+  "diagnostic_state_passed": "Passed",
+  "diagnostic_state_failed": "Failed",
+  "diagnostic_state_warning": "Passed with a warning",
+  "diagnostic_state_skipped": "Not run"
 }

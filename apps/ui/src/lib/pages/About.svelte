@@ -5,6 +5,7 @@
     import InstancePipeline from '../components/InstancePipeline.svelte';
     import InstanceSummary from '../components/InstanceSummary.svelte';
     import PrivacySummary from '../components/PrivacySummary.svelte';
+    import ProjectNotes from '../components/ProjectNotes.svelte';
     import { onMount } from 'svelte';
     import { fetchCommunityStats, fetchEvents, fetchFeederPortrait } from '../api';
     import type { Detection, FeederPortrait as FeederPortraitData } from '../api';
@@ -306,6 +307,8 @@
             </section>
         </div>
     </section>
+
+    <ProjectNotes />
 </div>
 
 {#if selectedEvent}

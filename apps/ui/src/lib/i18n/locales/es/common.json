@@ -67,5 +67,10 @@
   "checks_passed": "Las {total} comprobaciones se superaron.",
   "check_passed": "La comprobación se superó.",
   "map_your_location": "Tu ubicación",
-  "map_sighting": "Lugar del avistamiento"
+  "map_sighting": "Lugar del avistamiento",
+  "test_again": "Probar de nuevo",
+  "diagnostic_state_passed": "Superada",
+  "diagnostic_state_failed": "Fallida",
+  "diagnostic_state_warning": "Superada con un aviso",
+  "diagnostic_state_skipped": "No ejecutada"
 }

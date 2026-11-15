@@ -67,5 +67,10 @@
   "checks_passed": "全部 {total} 项检查均已通过。",
   "check_passed": "检查已通过。",
   "map_your_location": "您的位置",
-  "map_sighting": "观察地点"
+  "map_sighting": "观察地点",
+  "test_again": "再次测试",
+  "diagnostic_state_passed": "已通过",
+  "diagnostic_state_failed": "未通过",
+  "diagnostic_state_warning": "通过但有警告",
+  "diagnostic_state_skipped": "未运行"
 }

@@ -1,9 +1,12 @@
 {
+  "title": "Sobre este projeto",
+  "built_with_ai": "Construído com ajuda de IA, e com muita tentativa e erro",
   "did_you_know": "Você sabia?",
+  "another_fact": "Mostrar outro facto",
   "bird_facts": [
     "Beija-flores conseguem pairar de forma sustentada em ar parado e voar para trás",
     "Corvos-americanos lembraram durante anos os rostos usados como máscaras pelos seus captores",
-    "O Trinta-réis-ártico migra mais de 44.000 milhas anualmente - a maior migração de qualquer pássaro",
+    "O Trinta-réis-ártico migra mais de 44.000 milhas anualmente, a maior migração de qualquer pássaro",
     "Corujas não conseguem mover seus globos oculares, por isso giram a cabeça até 270 graus",
     "O Falcão-peregrino pode mergulhar a velocidades acima de 240 mph, tornando-o o animal mais rápido da Terra",
     "Corvos podem imitar a fala humana e muitos sons do seu ambiente",
@@ -16,7 +19,6 @@
     "O albatroz-errante tem a maior envergadura de qualquer pássaro vivo, até 11,8 pés",
     "O crânio do pica-pau funciona como um martelo rígido, não como amortecedor; as cargas cerebrais medidas ficaram abaixo dos limiares estimados de concussão",
     "Andorinhões-pretos podem permanecer no ar cerca de dez meses entre épocas de reprodução",
-    "Pássaros não são reais - são drones de vigilância do governo (supostamente)",
     "Os gansos não têm dentes; as bordas serrilhadas do bico e as papilas da língua voltadas para trás ajudam a agarrar o alimento",
     "Mais vale um pássaro na mão do que dois voando",
     "Pinguins são apenas galinhas formais vestidas para uma festa de gala",
@@ -31,6 +33,5 @@
     "Os piscos-de-peito-ruivo exibem o peito laranja-avermelhado em demonstrações territoriais perante rivais",
     "As aves têm uma terceira pálpebra translúcida que percorre o olho de lado para espalhar lágrimas e protegê-lo",
     "Tudo o que aparece no seu comedouro decidiu discretamente que o pessoal é você"
-  ],
-  "built_with_ai": "Construído com ajuda de IA, e com muita tentativa e erro"
+  ]
 }
