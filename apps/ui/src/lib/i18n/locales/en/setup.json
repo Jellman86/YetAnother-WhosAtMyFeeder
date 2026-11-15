@@ -26,7 +26,6 @@
     "mqtt_username": "Username",
     "mqtt_password": "Password",
     "mqtt_password_saved": "A saved password will be kept unless you enter a replacement.",
-    "continue_hint": "Settings are saved. You can continue and fix the connection later, but detections won't flow until Frigate is reachable.",
     "description": "YA-WAMF reads detections from Frigate over MQTT and fetches snapshots from its API. Point it at both, then test.",
     "frigate_auth_hint": "If your Frigate requires a sign-in, set FRIGATE_AUTH_TOKEN in the environment YA-WAMF starts with, restart it, then test again.",
     "frigate_auth_link": "Environment variables",
@@ -36,7 +35,12 @@
     "mqtt_fail": "Could not reach the MQTT broker",
     "mqtt_port": "Port",
     "mqtt_server": "MQTT broker",
-    "save_test": "Save & test connection"
+    "save_test": "Save & test connection",
+    "blocked": "Save and test the connection to continue, or choose “Set up later”.",
+    "later": "Set up later",
+    "later_note": "No Frigate or broker to hand? Choose “Set up later”. Until both are connected under Settings → Connection, no visits arrive, no photos or clips can be fetched, and the cameras step cannot list your cameras.",
+    "check_frigate": "Frigate API",
+    "check_mqtt": "MQTT broker"
   },
   "cameras": {
     "title": "Cameras & detection",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "Classifier model & hardware",
-    "description": "YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.",
+    "description": "YA-WAMF comes with a small model that runs on any CPU. Choose that or a larger one, download it here if needed, then check that it runs on this machine before continuing.",
     "download_required": "Download and verify this model here before validating it on this hardware.",
     "download_timeout": "The download is taking longer than expected. Check the connection and try again.",
     "validation_timeout": "Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.",
@@ -92,7 +96,13 @@
     "readiness_retry": "The check finished, but model readiness could not be refreshed. Retrying; you can leave this step and return later.",
     "best_provider": "Best validated provider: {provider}, {ms} ms per image",
     "best_provider_without_timing": "Best validated provider: {provider}",
-    "failed_providers": "Failed: {providers}"
+    "failed_providers": "Failed: {providers}",
+    "blocked_downloading": "Continue is available when the download finishes.",
+    "blocked_no_model": "Choose a model to continue, or skip this step to keep the model in use now.",
+    "blocked_download": "Download this model to continue, or skip this step to keep the model in use now.",
+    "blocked_check": "Check this model on this hardware to continue, or skip this step to keep the model in use now.",
+    "blocked_location": "Enter the feeder’s latitude and longitude to continue, or leave both empty.",
+    "blocked_provider": "This host does not have the chosen device. Choose another, or Auto, to continue."
   },
   "quality": {
     "title": "Best available snapshots",
@@ -118,7 +128,6 @@
     "enable_help": "Existing detections are updated only when classification quality improves; saved audio and weather context is preserved.",
     "range": "History window",
     "import_continue": "Import & continue",
-    "continue_without": "Continue without importing",
     "job_title": "Detection history import",
     "job_starting": "Scanning Frigate event history",
     "audio_note": "Frigate history can restore visual detections and snapshots, but it cannot recreate BirdNET-Go audio that was not already stored."
@@ -175,10 +184,11 @@
     "cover_cameras": "Pick your cameras",
     "cover_connect": "Connect Frigate & MQTT",
     "cover_integrations": "Turn on integrations",
-    "cover_model": "Validate the model on your hardware",
-    "description": "Let's get your feeder online. This takes a few minutes, optional choices can be skipped, and you can re-run it any time from the Settings navigation.",
+    "cover_model": "Check the model runs on this machine",
+    "description": "This takes a few minutes. Optional choices can be skipped, and you can run setup again at any time from Settings.",
     "start": "Get started",
-    "title": "Welcome to YA-WAMF"
+    "title": "Set up YA-WAMF",
+    "covers": "Setup will ask you to:"
   },
   "working": "Working…",
   "skip_step": "Skip step",
@@ -192,8 +202,15 @@
     "model": "Model",
     "quality": "Snapshots",
     "integrations": "Integrations",
-    "history": "History",
-    "telemetry": "Usage stats",
+    "history": "Extras",
     "review": "Review"
+  },
+  "blocked": {
+    "loading": "Continue is available once the current settings have loaded.",
+    "load_failed": "The current settings could not be loaded, so nothing here can be saved. Use “Retry loading settings” above."
+  },
+  "extras": {
+    "title": "Optional extras",
+    "description": "Two choices before you finish. Both are off unless you turn them on, and both can be changed later in Settings."
   }
 }

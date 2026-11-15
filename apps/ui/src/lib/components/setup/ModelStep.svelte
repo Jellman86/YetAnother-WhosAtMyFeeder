@@ -11,6 +11,7 @@
         fetchResolvedModelFamilies,
         getVisibleTieredModelLineup,
         selectSetupModelId,
+        setupModelOptions,
         summarizeModelMetadata,
         type ClassifierStatus,
         type DownloadProgress,
@@ -35,6 +36,7 @@
         type InferenceProvider,
     } from '../../settings/inference-providers';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
     import { usesSavedFeederLocation } from '../../pages/models/model_location_input';
     import { feederCoordinates, regionMessage, validationRecommendation } from './model-choices';
@@ -83,6 +85,7 @@
     let verified = $derived(status?.host_device_eligibility?.verified_providers ?? []);
     let progressPct = $derived(progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0);
     let installedIds = $derived(new Set(installedModels.map((model) => model.id)));
+    let modelOptions = $derived(setupModelOptions(availableModels, installedModels));
     let selectedInstalledModel = $derived(installedModels.find((model) => model.id === selectedModelId) ?? null);
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
     let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
@@ -148,6 +151,21 @@
         && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
     );
     let canSave = $derived(loadState === 'ready' && selectedModelReady && locationValid && !configuredProviderUnavailable && !validating && !downloading && !savingRegion);
+    // The first thing standing between this step and Continue, in the order a person would meet it.
+    let blockedReason = $derived.by(() => {
+        const loading = loadBlockedReason(loadState, $_);
+        if (loading) return loading;
+        if (downloading) return $_('setup.model.blocked_downloading', { default: 'Continue is available when the download finishes.' });
+        // The running check says this itself, beside its progress.
+        if (validating) return '';
+        if (savingRegion) return $_('setup.blocked.loading', { default: 'Continue is available once the current settings have loaded.' });
+        if (!selectedModelId) return $_('setup.model.blocked_no_model', { default: 'Choose a model to continue, or skip this step to keep the model in use now.' });
+        if (needsDownload) return $_('setup.model.blocked_download', { default: 'Download this model to continue, or skip this step to keep the model in use now.' });
+        if (!selectedModelReady) return $_('setup.model.blocked_check', { default: 'Check this model on this hardware to continue, or skip this step to keep the model in use now.' });
+        if (!locationValid) return $_('setup.model.blocked_location', { default: 'Enter the feeder’s latitude and longitude to continue, or leave both empty.' });
+        if (configuredProviderUnavailable) return $_('setup.model.blocked_provider', { default: 'This host does not have the chosen device. Choose another, or Auto, to continue.' });
+        return '';
+    });
 
     async function load(): Promise<void> {
         loadState = 'loading';
@@ -482,10 +500,11 @@
 <WizardStepLayout
     title={$_('setup.model.title', { default: 'Classifier model & hardware' })}
     description={$_('setup.model.description', {
-        default: 'YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.'
+        default: 'YA-WAMF comes with a small model that runs on any CPU. Choose that or a larger one, download it here if needed, then check that it runs on this machine before continuing.'
     })}
     showSkip
     canContinue={canSave}
+    {blockedReason}
     busy={saving}
     onContinue={save}
 >
@@ -493,7 +512,7 @@
         <div>
             <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
             <select id="setup-model-id" bind:value={selectedModelId} onchange={(event) => resetValidationResult(event.currentTarget.value)} disabled={validating || downloading || saving} class="select-base mt-1">
-                {#each availableModels as model (model.id)}
+                {#each modelOptions as model (model.id)}
                     <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ` · ${$_('common.download_required', { default: 'Download required' })}`}</option>
                 {/each}
             </select>

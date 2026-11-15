@@ -26,7 +26,6 @@
     "mqtt_username": "Usuário",
     "mqtt_password": "Senha",
     "mqtt_password_saved": "A senha salva será mantida, a menos que você digite outra.",
-    "continue_hint": "As configurações foram salvas. Você pode continuar e corrigir a conexão depois, mas as detecções não chegarão até que o Frigate esteja acessível.",
     "description": "O YA-WAMF lê as detecções do Frigate via MQTT e obtém os snapshots pela API dele. Informe os dois e depois teste.",
     "frigate_auth_hint": "Se o seu Frigate exigir início de sessão, defina FRIGATE_AUTH_TOKEN no ambiente com que o YA-WAMF arranca, reinicie-o e teste novamente.",
     "frigate_auth_link": "Variáveis de ambiente",
@@ -36,7 +35,12 @@
     "mqtt_port": "Porta",
     "mqtt_server": "Broker MQTT",
     "save_test": "Salvar e testar conexão",
-    "frigate_ok": "Conectado ao Frigate {version}"
+    "frigate_ok": "Conectado ao Frigate {version}",
+    "blocked": "Guarde e teste a ligação para continuar, ou escolha «Configurar mais tarde».",
+    "later": "Configurar mais tarde",
+    "later_note": "Não tem o Frigate ou o broker à mão? Escolha «Configurar mais tarde». Até que ambos estejam ligados em Definições → Ligação, não chegam visitas, não é possível obter fotos nem clipes, e o passo das câmaras não consegue listar as suas câmaras.",
+    "check_frigate": "API do Frigate",
+    "check_mqtt": "Broker MQTT"
   },
   "cameras": {
     "title": "Câmeras e detecção",
@@ -54,7 +58,7 @@
   },
   "model": {
     "title": "Modelo de classificação e hardware",
-    "description": "O YA-WAMF inclui uma alternativa leve para CPU. Escolha um modelo, transfira-o aqui se necessário e valide o caminho exato da imagem e do hardware antes de continuar.",
+    "description": "O YA-WAMF inclui um modelo pequeno que funciona em qualquer CPU. Escolha esse ou um maior, transfira-o aqui se necessário e verifique se funciona nesta máquina antes de continuar.",
     "download_required": "Transfira e verifique este modelo aqui antes de o validar neste hardware.",
     "download_timeout": "O download está demorando mais do que o esperado. Verifique a conexão e tente novamente.",
     "validation_timeout": "A validação do hardware ultrapassou 30 minutos. Ela ainda pode estar terminando em Diagnóstico; verifique o status antes de iniciar outra execução.",
@@ -92,7 +96,13 @@
     "readiness_retry": "A verificação terminou, mas não foi possível atualizar o estado do modelo. Nova tentativa em curso; pode sair deste passo e voltar mais tarde.",
     "best_provider": "Melhor fornecedor validado: {provider}, {ms} ms por imagem",
     "best_provider_without_timing": "Melhor fornecedor validado: {provider}",
-    "failed_providers": "Falharam: {providers}"
+    "failed_providers": "Falharam: {providers}",
+    "blocked_downloading": "Pode continuar quando a transferência terminar.",
+    "blocked_no_model": "Escolha um modelo para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_download": "Transfira este modelo para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_check": "Verifique este modelo neste hardware para continuar, ou ignore este passo para manter o modelo em uso agora.",
+    "blocked_location": "Introduza a latitude e a longitude do comedouro para continuar, ou deixe ambas vazias.",
+    "blocked_provider": "Este anfitrião não tem o dispositivo escolhido. Escolha outro, ou Automático, para continuar."
   },
   "quality": {
     "title": "Melhores snapshots disponíveis",
@@ -118,7 +128,6 @@
     "enable_help": "As detecções só são atualizadas quando a classificação melhora; áudio e meteorologia são preservados.",
     "range": "Período do histórico",
     "import_continue": "Importar e continuar",
-    "continue_without": "Continuar sem importar",
     "job_title": "Importação do histórico",
     "job_starting": "A pesquisar o histórico do Frigate",
     "audio_note": "O histórico do Frigate restaura detecções visuais e snapshots, mas não recria o áudio do BirdNET-Go que ainda não tinha sido salvo."
@@ -175,10 +184,11 @@
     "cover_cameras": "Escolher suas câmeras",
     "cover_connect": "Conectar Frigate e MQTT",
     "cover_integrations": "Ativar integrações",
-    "cover_model": "Validar o modelo no seu hardware",
-    "description": "Vamos colocar seu comedouro online. Isso leva alguns minutos, as escolhas opcionais podem ser puladas e você pode executar o assistente novamente a qualquer momento pela navegação de Configurações.",
+    "cover_model": "Verificar se o modelo funciona nesta máquina",
+    "description": "Demora alguns minutos. As opções facultativas podem ser ignoradas e pode repetir a configuração a qualquer momento nas Definições.",
     "start": "Começar",
-    "title": "Bem-vindo ao YA-WAMF"
+    "title": "Configurar o YA-WAMF",
+    "covers": "A configuração vai pedir-lhe para:"
   },
   "working": "Processando…",
   "skip_step": "Ignorar passo",
@@ -192,8 +202,15 @@
     "model": "Modelo",
     "quality": "Instantâneos",
     "integrations": "Integrações",
-    "history": "Histórico",
-    "telemetry": "Estatísticas de uso",
+    "history": "Opcionais",
     "review": "Revisão"
+  },
+  "blocked": {
+    "loading": "Pode continuar assim que as definições atuais forem carregadas.",
+    "load_failed": "Não foi possível carregar as definições atuais, por isso nada pode ser guardado aqui. Use «Tentar carregar as definições novamente» acima."
+  },
+  "extras": {
+    "title": "Extras opcionais",
+    "description": "Duas escolhas antes de terminar. Ambas ficam desligadas a menos que as ligue, e ambas podem ser alteradas mais tarde nas Definições."
   }
 }

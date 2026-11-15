@@ -19,8 +19,6 @@
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v4H4m12-4v4h4M8 20v-4H4m12 4v-4h4" /><rect x="8" y="8" width="8" height="8" rx="2" /></svg>
     {:else if step === 'history'}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M7 3v4m10-4v4M5 11h14v9H5Z" /><path d="m9 15 2 2 4-4" /></svg>
-    {:else if step === 'telemetry'}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20V10m7 10V4m7 16v-7" /></svg>
     {:else}
         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" /></svg>
     {/if}

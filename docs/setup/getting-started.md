@@ -98,7 +98,12 @@ For **Feeder location**, enter both coordinates or leave both empty; zero is val
 These are the same saved coordinates used in [Location settings](configuration.md#integrations).
 Integrated models need no separate `labels.txt`.
 
-**Continue** saves each section; **Skip step** leaves its remaining choices unsaved.
+**Continue** saves each section; **Skip step** leaves its remaining choices unsaved. When
+**Continue** cannot be pressed, the line above it says why. If Frigate or the broker is not
+running yet, choose **Set up later** on the connection step: until both are connected under
+**Settings → Connection**, no visits arrive, no photos or clips can be fetched, and the cameras
+step cannot list your cameras. The last step before the review, **Optional extras**, asks the two
+optional questions together: importing what Frigate still holds, and sharing anonymous usage stats.
 Leaving a hardware check does not cancel it or undo coordinates already saved.
 Reopen **Settings → Setup wizard** later to review individual sections.
 

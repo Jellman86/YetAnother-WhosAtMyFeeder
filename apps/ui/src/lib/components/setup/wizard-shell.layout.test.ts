@@ -10,9 +10,9 @@ import appSource from '../../../App.svelte?raw';
 import camerasStepSource from './CamerasStep.svelte?raw';
 import connectionStepSource from './ConnectionStep.svelte?raw';
 import integrationsStepSource from './IntegrationsStep.svelte?raw';
-import telemetryStepSource from './TelemetryStep.svelte?raw';
 import historyStepSource from './HistoryStep.svelte?raw';
 import accountStepSource from './AccountStep.svelte?raw';
+import welcomeStepSource from './WelcomeStep.svelte?raw';
 import { WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
 import enSetup from '../../i18n/locales/en/setup.json';
 
@@ -136,8 +136,7 @@ describe('setup wizard wiring', () => {
             connectionStepSource,
             modelStepSource,
             qualityStepSource,
-            integrationsStepSource,
-            telemetryStepSource
+            integrationsStepSource
         ]) {
             expect(source).toContain('<WizardLoadState');
             expect(source).toContain("loadState === 'ready'");
@@ -169,5 +168,33 @@ describe('setup wizard wiring', () => {
         expect(historyStepSource).toContain('importHistory = $state(false)');
         expect(historyStepSource).toContain("route: '/jobs'");
         expect(historyStepSource).toContain('cannot recreate BirdNET-Go audio');
+    });
+
+    it('says why Continue is disabled, and ties the reason to the button', () => {
+        expect(wizardStepLayoutSource).toContain('data-setup-continue-blocked');
+        expect(wizardStepLayoutSource).toContain("aria-describedby={blocked ? 'setup-continue-blocked' : undefined}");
+        for (const source of [camerasStepSource, connectionStepSource, modelStepSource, qualityStepSource, integrationsStepSource]) {
+            expect(source).toMatch(/blockedReason/);
+        }
+    });
+
+    it('offers an honest way past a Frigate that is not up yet', () => {
+        expect(connectionStepSource).toContain("skipLabel={$_('setup.connection.later'");
+        expect(connectionStepSource).toContain('data-setup-connection-later');
+        // The note names what waits on the connection, rather than a vague "fix it later".
+        expect(en.setup.connection.later_note).toMatch(/no visits arrive, no photos or clips can be fetched/);
+    });
+
+    it('asks the two optional closing questions on one screen', () => {
+        expect(WIZARD_STEPS.map((step) => step.id)).not.toContain('telemetry');
+        expect(WIZARD_STEPS).toHaveLength(9);
+        expect(historyStepSource).toContain("updateSettings({ telemetry_enabled: shareUsage })");
+        // A choice that never loaded is never written over the stored one.
+        expect(historyStepSource).toContain("if (usageLoad === 'ready')");
+    });
+
+    it('lists what setup covers as text, not as tiles that look like buttons', () => {
+        expect(welcomeStepSource).toContain('data-setup-welcome-covers');
+        expect(welcomeStepSource).not.toContain('SetupStepIcon');
     });
 });

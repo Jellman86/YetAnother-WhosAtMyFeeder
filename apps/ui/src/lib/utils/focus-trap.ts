@@ -28,7 +28,10 @@ export function trapFocus(element: HTMLElement): () => void {
         if (released || !element.isConnected || activeTraps.at(-1) !== trap) return;
         if (element.contains(document.activeElement)) return;
         const focusable = getFocusableElements();
-        const initialFocus = focusable.find(candidate => candidate.hasAttribute('autofocus')) ?? focusable[0] ?? element;
+        // A dialog may name where reading starts (its heading, say). Without that the first control
+        // takes focus, which in a guided flow can be the one that abandons it.
+        const initialFocus = element.querySelector<HTMLElement>('[data-initial-focus]')
+            ?? focusable.find(candidate => candidate.hasAttribute('autofocus')) ?? focusable[0] ?? element;
         initialFocus.focus();
     }, 50);
 

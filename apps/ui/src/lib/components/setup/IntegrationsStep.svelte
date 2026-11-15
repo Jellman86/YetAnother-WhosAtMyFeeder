@@ -7,6 +7,7 @@
     import { runSequentialDiagnostic, type DiagnosticResult, type DiagnosticStage, type DiagnosticStep } from '../../utils/diagnostic-runner';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import { loadBlockedReason } from './continue-blocked';
     import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     type IntegrationId = 'birdnet' | 'ebird' | 'inaturalist' | 'birdweather' | 'ai';
@@ -126,6 +127,7 @@
     })}
     showSkip
     canContinue={loadState === 'ready'}
+    blockedReason={loadBlockedReason(loadState, $_)}
     {busy}
     onContinue={save}
 >

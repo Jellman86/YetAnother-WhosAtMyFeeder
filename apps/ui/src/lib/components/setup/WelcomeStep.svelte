@@ -1,7 +1,6 @@
 <script lang="ts">
     import { _, locale } from 'svelte-i18n';
     import WizardStepLayout from './WizardStepLayout.svelte';
-    import SetupStepIcon from './SetupStepIcon.svelte';
     import { setAppLocale } from '../../i18n';
 
     const supportedLocales = [
@@ -29,26 +28,27 @@
     let covers = $derived([
         { id: 'connection', label: $_('setup.welcome.cover_connect', { default: 'Connect Frigate & MQTT' }) },
         { id: 'cameras', label: $_('setup.welcome.cover_cameras', { default: 'Pick your cameras' }) },
-        { id: 'model', label: $_('setup.welcome.cover_model', { default: 'Validate the model on your hardware' }) },
+        { id: 'model', label: $_('setup.welcome.cover_model', { default: 'Check the model runs on this machine' }) },
         { id: 'integrations', label: $_('setup.welcome.cover_integrations', { default: 'Turn on integrations' }) }
     ]);
 </script>
 
 <WizardStepLayout
-    title={$_('setup.welcome.title', { default: 'Welcome to YA-WAMF' })}
+    title={$_('setup.welcome.title', { default: 'Set up YA-WAMF' })}
     description={$_('setup.welcome.description', {
-        default: "Let's get your feeder online. This takes a few minutes, optional choices can be skipped, and you can re-run it any time from the Settings navigation."
+        default: 'This takes a few minutes. Optional choices can be skipped, and you can run setup again at any time from Settings.'
     })}
     showBack={false}
     continueLabel={$_('setup.welcome.start', { default: 'Get started' })}
 >
-    <div class="grid grid-cols-2 gap-2">
-        {#each covers as item}
-            <div class="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/40 dark:text-slate-200">
-                <SetupStepIcon step={item.id} />
-                <span>{item.label}</span>
-            </div>
-        {/each}
+    <!-- What setup will ask for, as a plain list: tiles here looked like buttons and did nothing. -->
+    <div>
+        <p class="text-sm font-semibold text-slate-900 dark:text-white">{$_('setup.welcome.covers', { default: 'Setup will ask you to:' })}</p>
+        <ul class="mt-1 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-200" data-setup-welcome-covers>
+            {#each covers as item (item.id)}
+                <li>{item.label}</li>
+            {/each}
+        </ul>
     </div>
 
     <div class="space-y-2">

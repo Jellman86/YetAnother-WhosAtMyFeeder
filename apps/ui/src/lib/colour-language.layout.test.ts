@@ -208,7 +208,6 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/setup/WelcomeStep.svelte': 'a first-run problem',
     'components/setup/WizardShell.svelte': 'skipping setup',
     'components/setup/CamerasStep.svelte': 'a camera Frigate does not know',
-    'components/setup/ConnectionStep.svelte': 'a connection test that failed',
     'components/setup/ModelStep.svelte': 'a model or device that cannot run as chosen',
     'components/setup/ReviewStep.svelte': 'a setup step that still needs attention'
 };

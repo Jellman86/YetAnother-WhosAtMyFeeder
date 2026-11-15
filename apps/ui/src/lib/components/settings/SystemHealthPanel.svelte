@@ -452,6 +452,7 @@
                     <!-- A table keeps its columns: when they cannot fit, as with enlarged text on a phone, it
                          scrolls sideways within its own box instead of widening the page. The box is a
                          named tab stop, so the keyboard can scroll what a finger can. -->
+                    <!-- svelte-ignore a11y_no_noninteractive_tabindex (a scrolling region with no focusable content must itself be focusable, WCAG 2.1.1) -->
                     <div
                         class="mt-3 overflow-x-auto rounded-sm focus-ring"
                         role="region"

@@ -97,7 +97,8 @@ const DIALOGS: DialogCase[] = [
             const dialog = page.getByRole('dialog');
             await expect(dialog.locator('#diagnostic-title')).toBeVisible();
             await expect(dialog.locator('[data-diagnostic-actions] button').last()).toBeEnabled(READY);
-            await expect(dialog.locator('[data-diagnostic-result]')).toBeVisible(READY);
+            // No test request is answered, so every stage ends on its own stated failure.
+            await expect(dialog.locator('[data-diagnostic-stage-state="failed"]').first()).toBeVisible(READY);
         }
     },
     {

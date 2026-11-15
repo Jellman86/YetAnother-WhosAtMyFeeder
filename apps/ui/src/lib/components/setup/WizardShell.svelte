@@ -16,7 +16,6 @@
     import QualityStep from './QualityStep.svelte';
     import IntegrationsStep from './IntegrationsStep.svelte';
     import HistoryStep from './HistoryStep.svelte';
-    import TelemetryStep from './TelemetryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
     import SetupStepIcon from './SetupStepIcon.svelte';
 
@@ -177,8 +176,6 @@
                         <IntegrationsStep />
                     {:else if step.id === 'history'}
                         <HistoryStep />
-                    {:else if step.id === 'telemetry'}
-                        <TelemetryStep />
                     {:else if step.id === 'review'}
                         <ReviewStep />
                     {/if}
