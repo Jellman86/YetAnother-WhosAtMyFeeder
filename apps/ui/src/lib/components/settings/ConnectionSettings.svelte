@@ -717,21 +717,22 @@
                 </ul>
             {/if}
         {#if Object.values(cameraRoles).includes('nest')}
-                <div class="flex flex-wrap items-center justify-between gap-3" data-nest-dedupe>
-                    <div class="min-w-0 flex-1">
-                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                <!-- A settings row like the rest; the field may narrow so enlarged text never pushes it out. -->
+                <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-nest-dedupe>
+                    <div class="min-w-0">
+                        <p class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
                     </div>
-                    <div class="flex items-center gap-1 shrink-0">
+                    <div class="flex min-w-0 items-center gap-2">
                         <input
                             type="number"
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="input-base w-24 text-right tabular-nums"
+                            class="input-base w-24 min-w-0 text-right tabular-nums"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
-                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                        <span class="shrink-0 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
                     </div>
                 </div>
             {/if}

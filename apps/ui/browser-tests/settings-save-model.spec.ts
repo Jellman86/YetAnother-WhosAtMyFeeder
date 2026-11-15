@@ -54,7 +54,7 @@ test('the save bar counts the changes, names their tabs, and Discard restores ev
     await page.locator('#mqtt-server').fill('broker.lan');
     await page.locator('#frigate-url').fill('http://frigate.lan:5000');
     await tabLink(page, 'AI').click();
-    await page.getByRole('button', { name: 'Claude', exact: true }).click();
+    await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(page.locator('#llm-model')).toHaveValue('claude-opus-4-8');
 
     // Frigate URL and MQTT broker on Connection; provider and the model it brings on AI.
@@ -153,12 +153,18 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 1440, height: 900 
     });
 }
 
+// The Garden thresholds are sliders and cannot leave their range, so the server does the refusing.
 test('a value refused here opens its tab and puts focus on it, wherever Save was pressed', async ({ page }) => {
-    const harness = await openSettings(page);
+    await openSettings(page, {}, {
+        refuseWrite: () => ({
+            status: 422,
+            json: { detail: [{ type: 'less_than_equal', loc: ['body', 'garden_naming_threshold'], msg: 'Input should be less than or equal to 0.95', ctx: { le: 0.95 } }] }
+        })
+    });
     await tabLink(page, 'Beta features').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    const naming = page.getByRole('spinbutton', { name: 'Naming threshold' });
-    await naming.fill('100');
+    const naming = page.getByRole('slider', { name: 'How sure before an animal is named' });
+    await naming.fill('0.97');
     await tabLink(page, 'Connection').click();
     await expect(page.locator('#mqtt-server')).toBeVisible();
 
@@ -166,7 +172,6 @@ test('a value refused here opens its tab and puts focus on it, wherever Save was
     await expect(tabLink(page, 'Beta features')).toHaveAttribute('aria-current', 'page');
     await expect(naming).toBeFocused();
     await expect(naming).toHaveAttribute('aria-invalid', 'true');
-    expect(harness.writes).toEqual([]);
 });
 
 test('a value the server refuses opens its tab and puts focus on it', async ({ page }) => {
@@ -214,11 +219,16 @@ test('a stored secret still shows as stored after its field is typed in and clea
 });
 
 test('a refused value inside a collapsed section opens that section and focuses the value', async ({ page }) => {
-    const harness = await openSettings(page);
+    await openSettings(page, {}, {
+        refuseWrite: () => ({
+            status: 422,
+            json: { detail: [{ type: 'less_than_equal', loc: ['body', 'garden_naming_threshold'], msg: 'Input should be less than or equal to 0.95', ctx: { le: 0.95 } }] }
+        })
+    });
     await tabLink(page, 'Beta features').click();
     await page.getByRole('switch', { name: 'Garden animals' }).click();
-    const naming = page.getByRole('spinbutton', { name: 'Naming threshold' });
-    await naming.fill('100');
+    const naming = page.getByRole('slider', { name: 'How sure before an animal is named' });
+    await naming.fill('0.97');
     const section = page.getByRole('button', { name: 'Automatic checks and naming' });
     await expect(section).toHaveAttribute('aria-expanded', 'true');
     await section.click();
@@ -229,7 +239,7 @@ test('a refused value inside a collapsed section opens that section and focuses 
     await expect(section).toHaveAttribute('aria-expanded', 'true');
     await expect(naming).toBeVisible();
     await expect(naming).toBeFocused();
-    expect(harness.writes).toEqual([]);
+    await expect(naming).toHaveAttribute('aria-invalid', 'true');
 });
 
 test('a refused value inside a collapsed Advanced section on another tab opens it and focuses the value', async ({ page }) => {

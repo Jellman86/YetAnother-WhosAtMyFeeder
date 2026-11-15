@@ -9,6 +9,7 @@ import integrationSource from './IntegrationSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
 import telemetrySource from './TelemetrySettings.svelte?raw';
+// @ts-expect-error -- node:fs resolves at runtime, not in the app tsconfig
 import { readFileSync } from 'node:fs';
 
 const appCss = readFileSync(new URL('../../../app.css', import.meta.url), 'utf8');

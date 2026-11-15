@@ -23,7 +23,7 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
     await expect(page.locator('#llm-api-key')).toHaveValue('');
     await expect(unsavedChanges(page)).toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Claude', exact: true }).click();
+    await page.getByRole('combobox', { name: /^Provider/ }).selectOption({ label: 'Claude' });
     await expect(model).toHaveValue('claude-opus-4-8');
     await expect(unsavedChanges(page)).toBeVisible();
 

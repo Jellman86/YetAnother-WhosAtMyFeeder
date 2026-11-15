@@ -98,7 +98,7 @@
         <!-- Each choice's word sits beside its select, and above it when enlarged text leaves no room. -->
         <div class="min-w-0 space-y-2">
             <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
-                <span class="w-24 shrink-0" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</span>
+                <span class="w-24 max-w-full shrink-0" aria-hidden="true">{$_('settings.cameras.watch_for_label', { default: 'Watch for' })}</span>
                 <select
                     class="select-base min-h-11 min-w-0 flex-1 basis-40"
                     aria-label={$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })}
@@ -114,7 +114,7 @@
             </label>
             {#if watchesBirds}
                 <label class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600 dark:text-slate-400" data-camera-role>
-                    <span class="w-24 shrink-0" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
+                    <span class="w-24 max-w-full shrink-0" aria-hidden="true">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
                     <select
                         class="select-base min-h-11 min-w-0 flex-1 basis-40"
                         aria-label={$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })}

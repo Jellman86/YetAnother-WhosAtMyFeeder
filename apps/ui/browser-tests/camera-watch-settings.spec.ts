@@ -218,12 +218,23 @@ for (const width of [320, 393]) {
         const list = page.locator('[data-camera-list]');
         await expect(watchFor(page, 'patio')).toBeVisible();
         for (const row of await list.locator('[data-camera-watch]').all()) {
+            // Name whatever sticks out past the row, so a failure says what to fix.
+            const outside = await row.evaluate(node => {
+                const edge = node.getBoundingClientRect().right + 1;
+                return [...node.querySelectorAll<HTMLElement>('*')]
+                    .filter(element => element.getBoundingClientRect().right > edge)
+                    .map(element => `${element.tagName.toLowerCase()}.${element.className.toString().split(' ').slice(0, 3).join('.')}`);
+            });
+            expect(outside).toEqual([]);
             expect(await row.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
         }
         for (const target of await list.locator('[data-camera-watch] select, [data-camera-watch] button:not([role="switch"])').all()) {
             const box = await target.boundingBox();
             expect(box && box.height >= 44 && box.x >= 0 && box.x + box.width <= width).toBe(true);
         }
+        await expect.poll(() => page.evaluate(() => [...document.querySelectorAll<HTMLElement>('main *')]
+            .filter(element => element.getBoundingClientRect().right > innerWidth + 1)
+            .map(element => `${element.tagName.toLowerCase()}.${element.className.toString().split(' ').slice(0, 3).join('.')}`))).toEqual([]);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     });
 }

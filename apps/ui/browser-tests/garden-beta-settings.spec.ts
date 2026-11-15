@@ -96,7 +96,7 @@ test('Connection chooses Garden cameras per camera, while Garden-only settings s
     const patio = watchFor(page, 'patio');
     await expect(patio.locator('option')).toHaveText(['Off', 'Birds', 'Garden animals', 'Both']);
     await expect(page.getByLabel('Frigate animal labels', { exact: true })).toHaveCount(0);
-    await expect(page.getByRole('spinbutton', { name: 'Animal proposal threshold' })).toHaveCount(0);
+    await expect(page.getByRole('slider', { name: 'How sure before an animal is suggested' })).toHaveCount(0);
 });
 
 test('Garden cameras chosen in Connection save with Beta settings without touching the bird role', async ({ page }) => {
@@ -112,7 +112,7 @@ test('Garden cameras chosen in Connection save with Beta settings without touchi
     const garden = page.locator('[data-garden-beta-settings]');
     await expect(garden.locator('[data-garden-camera-summary]')).toContainText('Watching patio for Garden animals.');
     await garden.getByLabel('Frigate animal labels', { exact: true }).fill('cat, dog, squirrel');
-    await garden.getByRole('spinbutton', { name: 'Animal proposal threshold' }).fill('64');
+    await garden.getByRole('slider', { name: 'How sure before an animal is suggested' }).fill('0.64');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
 
     await expect.poll(() => writes.length).toBe(1);
@@ -121,10 +121,10 @@ test('Garden cameras chosen in Connection save with Beta settings without touchi
         garden_cameras: ['patio'],
         garden_motion_cameras: ['patio'],
         garden_labels: ['cat', 'dog', 'squirrel'],
-        garden_motion_confidence: 0.64,
         cameras: ['patio', 'front'],
         camera_roles: { patio: 'nest' }
     });
+    expect(writes[0].garden_motion_confidence as number).toBeCloseTo(0.64, 6);
 });
 
 test('switching Garden off hides its settings and keeps them for later', async ({ page }) => {
@@ -156,29 +156,34 @@ for (const [calibrated, shown, up] of [[0.63, '63', '64'], [0.625, '62.5', '62.6
     test(`a calibrated ${calibrated} proposal threshold shows as ${shown}% and steps at its own precision`, async ({ page }) => {
         const { writes } = await openSettings(page, { garden_motion_confidence: calibrated });
         await openBeta(page);
-        const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
-        await expect(threshold).toHaveValue(shown);
+        const threshold = page.getByRole('slider', { name: 'How sure before an animal is suggested' });
+        await expect(threshold).toHaveAttribute('aria-valuetext', `${shown}%`);
         expect(await threshold.evaluate((input: HTMLInputElement) => ({ valid: input.checkValidity(), stepMismatch: input.validity.stepMismatch }))).toEqual({ valid: true, stepMismatch: false });
         await threshold.press('ArrowUp');
-        await expect(threshold).toHaveValue(up);
+        await expect(threshold).toHaveAttribute('aria-valuetext', `${up}%`);
         await threshold.press('ArrowDown');
-        await expect(threshold).toHaveValue(shown);
+        await expect(threshold).toHaveAttribute('aria-valuetext', `${shown}%`);
         await threshold.press('ArrowUp');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect.poll(() => writes.length).toBe(1);
-        expect(writes[0].garden_motion_confidence).toBe(calibrated === 0.63 ? 0.64 : 0.626);
+        expect(writes[0].garden_motion_confidence as number).toBeCloseTo(calibrated === 0.63 ? 0.64 : 0.626, 6);
     });
 }
 
-for (const outside of ['49', '96', '']) {
-    test(`a proposal threshold of "${outside}" is explained and nothing is saved`, async ({ page }) => {
+// A slider cannot leave its range, so a value the server would refuse is never offered.
+for (const [name, low, high] of [['How sure before an animal is suggested', '50%', '95%'], ['How sure before an animal is named', '70%', '99%']] as const) {
+    test(`"${name}" stays between ${low} and ${high}`, async ({ page }) => {
         const { writes } = await openSettings(page);
         await openBeta(page);
-        const threshold = page.getByRole('spinbutton', { name: 'Animal proposal threshold' });
-        await threshold.fill(outside);
-        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await expect(threshold).toHaveAttribute('aria-invalid', 'true');
-        await expect(page.locator('[data-field-error="garden_motion_confidence"]')).toHaveText('Enter a value from 50% to 95%.');
+        const threshold = page.getByRole('slider', { name });
+        await threshold.press('Home');
+        await expect(threshold).toHaveAttribute('aria-valuetext', low);
+        await threshold.press('ArrowDown');
+        await expect(threshold).toHaveAttribute('aria-valuetext', low);
+        await threshold.press('End');
+        await expect(threshold).toHaveAttribute('aria-valuetext', high);
+        await threshold.press('ArrowUp');
+        await expect(threshold).toHaveAttribute('aria-valuetext', high);
         expect(writes).toEqual([]);
     });
 }
@@ -188,34 +193,24 @@ test('automatic naming is on at 0.80 by default and both choices save with the p
     await openBeta(page);
     const garden = page.locator('[data-garden-beta-settings]');
     const naming = garden.getByRole('switch', { name: 'Name animals automatically' });
-    const threshold = garden.getByRole('spinbutton', { name: 'Naming threshold' });
+    const threshold = garden.getByRole('slider', { name: 'How sure before an animal is named' });
     await expect(naming).toHaveAttribute('aria-checked', 'true');
-    await expect(threshold).toHaveValue('80');
-    await threshold.fill('90');
+    await expect(threshold).toHaveAttribute('aria-valuetext', '80%');
+    await threshold.fill('0.9');
+    await expect(threshold).toHaveAttribute('aria-valuetext', '90%');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(1);
-    expect(writes[0]).toMatchObject({ garden_automatic_naming: true, garden_naming_threshold: 0.9 });
+    expect(writes[0]).toMatchObject({ garden_automatic_naming: true });
+    expect(writes[0].garden_naming_threshold as number).toBeCloseTo(0.9, 6);
 
     await naming.click();
     await expect(threshold).toHaveCount(0);
     await expect(garden.getByText('Every animal waits in Needs review for you to confirm and name it.')).toBeVisible();
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => writes.length).toBe(2);
-    expect(writes[1]).toMatchObject({ garden_automatic_naming: false, garden_naming_threshold: 0.9 });
+    expect(writes[1]).toMatchObject({ garden_automatic_naming: false });
+    expect(writes[1].garden_naming_threshold as number).toBeCloseTo(0.9, 6);
 });
-
-for (const outside of ['69', '100']) {
-    test(`a naming threshold of ${outside}% is explained and nothing is saved`, async ({ page }) => {
-        const { writes } = await openSettings(page);
-        await openBeta(page);
-        const threshold = page.getByRole('spinbutton', { name: 'Naming threshold' });
-        await threshold.fill(outside);
-        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
-        await expect(threshold).toHaveAttribute('aria-invalid', 'true');
-        await expect(page.locator('[data-field-error="garden_naming_threshold"]')).toHaveText('Enter a value from 70% to 99%.');
-        expect(writes).toEqual([]);
-    });
-}
 
 test('a switched-off Garden states what it needs without asking the Garden API or offering downloads', async ({ page }) => {
     const { gardenRequests } = await openSettings(page, { beta_garden_animals: false });
@@ -656,9 +651,9 @@ test('switching Garden on reveals its sections and the setup it still needs', as
     await page.getByRole('switch', { name: 'Garden animals' }).click();
 
     await expect(page.locator('[data-garden-beta-off-note]')).toHaveCount(0);
-    const headings = page.locator('[data-garden-beta-settings] h4');
+    const headings = page.locator('[data-garden-beta-settings] h3');
     await expect(headings).toHaveText(['Still to set up', 'Cameras', 'Automatic checks and naming', 'Models', 'Domestic birds you keep None', 'Alerts Off', 'Where captures go']);
-    const expanded = page.locator('[data-beta-section] h4 button');
+    const expanded = page.locator('[data-beta-section] h3 button');
     await expect(expanded).toHaveCount(6);
     expect(await expanded.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-expanded')))).toEqual(['true', 'true', 'false', 'false', 'false', 'false']);
 
