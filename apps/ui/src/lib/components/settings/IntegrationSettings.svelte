@@ -232,7 +232,8 @@
         }
         steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
         steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
-        bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages));
+        // Each check stands alone: a missing URL never stops the MQTT or pipeline checks from running.
+        bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages), { independent: true });
         bnRunning = false;
     }
 
@@ -497,36 +498,18 @@
     const buttonSecondaryClass = 'btn btn-secondary min-h-11 px-6 py-3';
 </script>
 
-{#snippet birdnetIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h-2" /></svg>
-{/snippet}
-{#snippet inatIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.52-4.48 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6" /></svg>
-{/snippet}
-{#snippet ebirdIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
-{/snippet}
-{#snippet birdweatherIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.6A3.5 3.5 0 0 0 6 19Z" /></svg>
-{/snippet}
-{#snippet locationIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>
-{/snippet}
 
-<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
-    <SettingsCard accent iconSnippet={birdnetIcon} title={$_('settings.integrations.birdnet.title')}>
-        <SettingsRow
-            labelId="setting-birdnet-enabled"
-            label={$_('settings.integrations.birdnet.title')}
-            description={$_('settings.integrations.birdnet.toggle_label')}
-        >
+<div class="space-y-8">
+    <SettingsCard title={$_('settings.integrations.birdnet.title')} description={$_('settings.integrations.birdnet.toggle_label')} titleId="integration-birdnet-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={birdnetEnabled}
-                labelledBy="setting-birdnet-enabled"
+                labelledBy="integration-birdnet-title"
                 srLabel={$_('settings.integrations.birdnet.title')}
                 onchange={(v) => (birdnetEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if birdnetEnabled}
         <SettingsRow
@@ -579,15 +562,17 @@
             />
         </SettingsRow>
 
-        <button
-            type="button"
-            onclick={runBirdNetDiagnostic}
-            disabled={bnRunning}
-            aria-label={$_('settings.integrations.birdnet.test_button')}
-            class="w-full {buttonPrimaryClass}"
-        >
-            {bnRunning ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
-        </button>
+        <div>
+            <button
+                type="button"
+                onclick={runBirdNetDiagnostic}
+                disabled={bnRunning}
+                aria-label={$_('settings.integrations.birdnet.test_button')}
+                class="w-full sm:w-auto {buttonPrimaryClass}"
+            >
+                {bnRunning ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
+            </button>
+        </div>
 
         <AdvancedSection
             id="integrations-birdnet-advanced"
@@ -654,11 +639,11 @@
                                     bind:value={cameraAudioMapping[camera]}
                                     placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
                                     aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-focus outline-hidden"
+                                    class="input-base min-h-11 w-full"
                                 />
                                 <select
                                     aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50"
+                                    class="select-base min-h-11 w-full"
                                     disabled={birdnetMappingOptions.length === 0}
                                     onchange={(event) => {
                                         const select = event.currentTarget;
@@ -680,7 +665,7 @@
                                     aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                                 >
                                     {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-800/80 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-xs font-mono font-bold text-brand-700 dark:text-brand-200">
+                                        <span class="inline-flex max-w-full items-center gap-1.5 text-xs text-brand-700 dark:text-brand-200">
                                             <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
@@ -712,11 +697,11 @@
                             {/if}
                         </div>
                         {#if loadingBirdnetSources}
-                            <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 ">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
                         {:else if birdnetSourcesError}
-                            <p class="text-xs text-rose-700 dark:text-rose-300 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
+                            <p class="text-xs text-rose-700 dark:text-rose-300 ">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
                         {:else if birdnetSourceOptions.length === 0}
-                            <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 ">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
                             <ul class="max-h-56 overflow-y-auto">
                                 {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
@@ -752,19 +737,16 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={inatIcon} title={$_('settings.integrations.inaturalist.title')}>
-        <SettingsRow
-            labelId="setting-inat-enabled"
-            label={$_('settings.integrations.inaturalist.title')}
-            description={$_('settings.integrations.inaturalist.toggle_label')}
-        >
+    <SettingsCard title={$_('settings.integrations.inaturalist.title')} description={$_('settings.integrations.inaturalist.toggle_label')} titleId="integration-inaturalist-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={inaturalistEnabled}
-                labelledBy="setting-inat-enabled"
+                labelledBy="integration-inaturalist-title"
                 srLabel={$_('settings.integrations.inaturalist.title')}
                 onchange={(v) => (inaturalistEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if inaturalistEnabled}
         <SettingsRow
@@ -915,19 +897,16 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={ebirdIcon} title={$_('settings.integrations.ebird.title')}>
-        <SettingsRow
-            labelId="setting-ebird-enabled"
-            label={$_('settings.integrations.ebird.title')}
-            description={$_('settings.integrations.ebird.toggle_label')}
-        >
+    <SettingsCard title={$_('settings.integrations.ebird.title')} description={$_('settings.integrations.ebird.toggle_label')} titleId="integration-ebird-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={ebirdEnabled}
-                labelledBy="setting-ebird-enabled"
+                labelledBy="integration-ebird-title"
                 srLabel={$_('settings.integrations.ebird.title')}
                 onchange={(v) => (ebirdEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if ebirdEnabled}
         <SettingsRow
@@ -971,7 +950,7 @@
                     bind:value={ebirdExportFrom}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_from_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="input-base w-full disabled:cursor-not-allowed disabled:opacity-50"
                 />
             </SettingsRow>
             <SettingsRow
@@ -985,11 +964,11 @@
                     bind:value={ebirdExportTo}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_to_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="input-base w-full disabled:cursor-not-allowed disabled:opacity-50"
                 />
             </SettingsRow>
         </div>
-        <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 ">{$_('settings.integrations.ebird.export_range_help')}</p>
         {#if ebirdExportRangeError}
             <p class="text-xs text-rose-700 dark:text-rose-300 font-bold">{ebirdExportRangeError}</p>
         {/if}
@@ -1010,11 +989,11 @@
                 }
             }}
             disabled={exportingEbirdCsv || !!ebirdExportRangeError}
-            class="w-full {buttonPrimaryClass}"
+            class="w-full sm:w-auto {buttonPrimaryClass}"
         >
             {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
         </button>
-        <p class="text-xs text-slate-600 dark:text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
 
         <AdvancedSection
             id="integrations-ebird-advanced"
@@ -1093,19 +1072,16 @@
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.birdweather.title')}>
-        <SettingsRow
-            labelId="setting-birdweather-enabled"
-            label={$_('settings.integrations.birdweather.title')}
-            description={$_('settings.integrations.birdweather.toggle_label')}
-        >
+    <SettingsCard title={$_('settings.integrations.birdweather.title')} description={$_('settings.integrations.birdweather.toggle_label')} titleId="integration-birdweather-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={birdweatherEnabled}
-                labelledBy="setting-birdweather-enabled"
+                labelledBy="integration-birdweather-title"
                 srLabel={$_('settings.integrations.birdweather.title')}
                 onchange={(v) => (birdweatherEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if birdweatherEnabled}
         <SettingsRow
@@ -1129,26 +1105,23 @@
             onclick={runBirdWeatherDiagnostic}
             disabled={bwRunning || (!birdweatherStationToken && !birdweatherStationTokenSaved)}
             aria-label={$_('settings.integrations.birdweather.test_button')}
-            class="w-full {buttonPrimaryClass}"
+            class="w-full sm:w-auto {buttonPrimaryClass}"
         >
             {bwRunning ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
         </button>
         {/if}
     </SettingsCard>
 
-    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}>
-        <SettingsRow
-            labelId="setting-ha-weather-enabled"
-            label={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
-            description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })}
-        >
+    <SettingsCard title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })} description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })} titleId="integration-ha-weather-title">
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={haWeatherEnabled}
-                labelledBy="setting-ha-weather-enabled"
+                labelledBy="integration-ha-weather-title"
                 srLabel={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
                 onchange={(v) => (haWeatherEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
 
         {#if haWeatherEnabled}
         <SettingsRow
@@ -1253,17 +1226,15 @@
             onclick={runHaWeatherDiagnostic}
             disabled={hawRunning || !haWeatherBaseUrl || (!haWeatherAccessToken && !haWeatherAccessTokenSaved)}
             aria-label={$_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
-            class="w-full {buttonPrimaryClass}"
+            class="w-full sm:w-auto {buttonPrimaryClass}"
         >
             {hawRunning ? $_('settings.integrations.ha_weather.test_loading', { default: 'Fetching…' }) : $_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
         </button>
         {/if}
     </SettingsCard>
 
-    <div class="md:col-span-2">
+    <div>
         <SettingsCard
-            accent
-            iconSnippet={locationIcon}
             title={$_('settings.location.title')}
             description={$_('settings.location.desc')}
         >
@@ -1328,16 +1299,16 @@
             {/if}
 
             {#if mapPoint}
-                <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
+                <div class="flex items-center gap-2 text-xs">
                     <span class="text-sm font-semibold text-slate-700 shrink-0 dark:text-slate-200">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
                     {#if geocodeLoading}
-                        <span class="text-slate-600 dark:text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
+                        <span class="text-slate-600 dark:text-slate-400 ">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
                     {:else if geocodeError}
                         <span class="text-rose-700 dark:text-rose-300 font-bold">{$_('settings.location.resolve_error', { default: 'Lookup failed' })}</span>
                     {:else if geocodePlace}
                         <span class="font-bold text-slate-700 dark:text-slate-200 truncate">{geocodePlace}</span>
                     {:else}
-                        <span class="text-slate-600 dark:text-slate-400 italic font-bold">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
+                        <span class="text-slate-600 dark:text-slate-400 ">{$_('settings.location.resolve_empty', { default: 'No place name available for these coordinates' })}</span>
                     {/if}
                 </div>
             {/if}

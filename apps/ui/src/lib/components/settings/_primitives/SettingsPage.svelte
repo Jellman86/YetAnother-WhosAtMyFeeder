@@ -72,6 +72,37 @@
         ` ${$_('settings.save_bar.conflict_choice_for', { values: { field: label }, default: 'for {field}' })}`;
 
     const showSaveBar = $derived((unsaved.count > 0 || Boolean(restoredNotice) || conflicts.length > 0) && !loading && !loadFailure);
+
+    // The bar is stuck to the bottom of the window, so a control focused or scrolled to beneath it
+    // would be hidden (WCAG 2.4.11). The page reserves the bar's measured height at the bottom of
+    // the scroll area while it shows; the browser then keeps a focused control above it.
+    let saveBar = $state<HTMLElement | null>(null);
+    $effect(() => {
+        const bar = saveBar;
+        if (!bar) return;
+        const root = document.documentElement;
+        const reserve = () => {
+            root.style.scrollPaddingBottom = `${Math.ceil(bar.getBoundingClientRect().height) + 16}px`;
+        };
+        reserve();
+        const observer = new ResizeObserver(reserve);
+        observer.observe(bar);
+        // A control that is already in the window counts as visible even under the bar, so the
+        // browser would not move it; this moves it up instead.
+        const keepClear = (event: FocusEvent) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement) || bar.contains(target)) return;
+            const barTop = bar.getBoundingClientRect().top;
+            const bottom = target.getBoundingClientRect().bottom;
+            if (bottom > barTop - 8) window.scrollBy({ top: bottom - barTop + 16 });
+        };
+        document.addEventListener('focusin', keepClear);
+        return () => {
+            observer.disconnect();
+            document.removeEventListener('focusin', keepClear);
+            root.style.scrollPaddingBottom = '';
+        };
+    });
 </script>
 
 <!-- The shell sets the width; a narrower column here sat inside the full-width header. The page is
@@ -121,14 +152,16 @@
                     {@render tabs()}
                 </div>
             {/if}
-            <div class="min-w-0 flex-1 space-y-6">
-                <div id={contentId} class="space-y-6 focus:outline-hidden" tabindex="-1" data-settings-content>
+            <!-- One readable column of rows (48rem), however wide the window. -->
+            <div class="min-w-0 max-w-3xl flex-1 space-y-6">
+                <div id={contentId} class="space-y-8 focus:outline-hidden" tabindex="-1" data-settings-content>
                     {@render children()}
                 </div>
                 {#if showSaveBar}
                     <!-- In the page's flow and stuck to the bottom of the screen: it always sits after the last
                          setting, so it can never cover one, and it follows the column's width. -->
                     <section
+                        bind:this={saveBar}
                         class="save-bar sticky bottom-0 z-30 rounded-t-2xl border border-b-0 border-line-soft bg-surface px-4 py-3 sm:px-5"
                         aria-labelledby="settings-save-bar-title"
                         data-settings-save-bar
@@ -157,6 +190,10 @@
                                             onclick={() => onOpenTab?.(tab.id)}
                                         >{tab.label}</button>
                                     {/each}
+                                </p>
+                                <!-- Said where it matters, once something is waiting: what waits and what does not. -->
+                                <p class="text-xs text-slate-600 dark:text-slate-400" data-settings-save-rule>
+                                    {$_('settings.save_rule', { default: 'Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.' })}
                                 </p>
                                 {/if}
                                 {#if conflicts.length > 0}

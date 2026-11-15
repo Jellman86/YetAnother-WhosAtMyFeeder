@@ -618,14 +618,15 @@
     }
 </script>
 
-<div class="space-y-6">
+<!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
+<div class="space-y-6 wrap-anywhere">
     {#if loading}
         <div class="flex min-h-32 items-center justify-center" role="status">
-            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent motion-reduce:animate-none" aria-hidden="true"></div>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
         </div>
     {:else if error}
-        <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
+        <div class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">
             {error}
         </div>
     {:else}
@@ -685,7 +686,7 @@
                             {#each modelGroups as group (group.category)}
                                 <div>
                                     <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{group.info.label}</p>
-                                    <ul class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line-soft">
+                                    <ul class="divide-y divide-line-soft">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
                                             {@const cardSelected = selectedModelId === modelOption.id}
@@ -734,7 +735,7 @@
                                 }
                             }
                         }}
-                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
+                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center text-sm font-semibold text-slate-600 transition-colors hover:text-brand-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus dark:text-slate-300 dark:hover:text-brand-300"
                     >
                         {showAdvancedModels
                             ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
@@ -762,7 +763,7 @@
                     <section aria-labelledby="selected-model-name" class="border-t border-slate-200 pt-6 dark:border-slate-700">
                         <div>
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                <div class="max-w-3xl">
+                                <div class="min-w-0 max-w-3xl">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <h3 id="selected-model-name" class="text-xl font-bold text-slate-900 dark:text-white">
                                             {model.name}
@@ -776,7 +777,7 @@
                                     <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
+                                    <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">
                                         {statusLabel(model.status)}
                                     </span>
                                 </div>
@@ -789,7 +790,7 @@
                                             ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
                                             : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
                                     </span>
-                                    <span class="inline-flex items-center gap-2 font-semibold">
+                                    <span class="inline-flex max-w-full flex-wrap items-center gap-2 font-semibold">
                                         <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-brand-500'}" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
@@ -854,14 +855,14 @@
                             {/if}
 
                             {#if model.recommended_threshold != null}
-                                <div class="mt-4 border-l-2 border-slate-300 pl-3 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                                <div class="mt-4 text-sm text-slate-600 dark:text-slate-300">
                                     {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
                                     <strong class="text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
                                 </div>
                             {/if}
 
                             {#if usesSavedFeederLocation(model)}
-                                <div class="mt-4 border-l-2 border-slate-300 pl-3 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                                <div class="mt-4 text-sm text-slate-600 dark:text-slate-300">
                                     <p class="font-semibold text-slate-900 dark:text-white">
                                         {$_('settings.detection.model_manager_location_title', { default: 'Uses your feeder location' })}
                                     </p>
@@ -879,11 +880,11 @@
                             {/if}
 
                             {#if installed && !ready}
-                                <div class="mt-4 rounded-xl border border-attention-200 bg-attention-50 p-3 text-sm font-semibold text-attention-800 dark:border-attention-800/60 dark:bg-attention-900/20 dark:text-attention-200" role="alert">
+                                <div class="mt-4 text-sm font-semibold text-attention-800 dark:text-attention-200" role="alert">
                                     {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to restore the missing species names or model configuration before activation.' })}
                                 </div>
                             {:else if installed && !active && !validated}
-                                <div class="mt-4 rounded-xl border border-brand-200 bg-brand-50 p-3 text-sm text-brand-900 dark:border-brand-800/60 dark:bg-brand-950/30 dark:text-brand-100">
+                                <div class="mt-4 text-sm text-brand-900 dark:text-brand-100">
                                     {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
                                 </div>
                             {/if}
@@ -906,7 +907,7 @@
                                     </p>
                                 </div>
 
-                                <dl class="grid gap-4 text-sm sm:grid-cols-2">
+                                <dl class="grid grid-cols-1 gap-4 text-sm wrap-break-word sm:grid-cols-2">
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
@@ -921,7 +922,7 @@
                                     <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
                                 {/if}
 
-                                <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
@@ -953,11 +954,11 @@
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         {#if dynamicProviderChips.length > 0}
                                             {#each dynamicProviderChips as chip}
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {chip.className}" title={chip.title}>{chip.label}</span>
+                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {chip.className}" title={chip.title}>{chip.label}</span>
                                             {/each}
                                         {:else}
                                             {#each getProviderSupport(model) as provider}
-                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">{providerLabel(provider)}</span>
+                                                <span class="max-w-full rounded-full border px-2.5 py-1 text-xs font-semibold wrap-break-word {FACT_CHIP}">{providerLabel(provider)}</span>
                                             {/each}
                                         {/if}
                                     </div>
@@ -983,7 +984,7 @@
                                 </div>
                             {:else}
                                 {#if download?.status === 'error' && download.error}
-                                    <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
+                                    <div class="text-sm font-semibold text-red-700 dark:text-red-300" role="alert">
                                         {download.error}
                                     </div>
                                 {/if}
@@ -1056,14 +1057,14 @@
                         <p id="bird-finder-desc" class="max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                             {$_('settings.detection.bird_finder_role', { default: 'Locates each bird in the camera frame so YA-WAMF can crop and count it. It does not name the species.' })}
                         </p>
-                        <div class="grid grid-cols-1 gap-3 *:min-w-0 sm:grid-cols-2">
+                        <div class="space-y-1 *:min-w-0">
                             {#each birdFinderOptions as option (option.choice)}
                                 {@const optionInstalled = isCropDetectorInstalled(option.model.id)}
                                 {@const device = birdFinderDevice(getInstalledModel(option.model.id), hostProviders, option.model)}
                                 {@const deviceNote = birdFinderDeviceNote(device, cropDetectorStatus?.device_check, option.model.id)}
                                 {@const devices = deviceList(device.accelerators)}
                                 {@const optionChosen = birdFinder === option.choice}
-                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-2xl border p-3 text-sm sm:p-4 has-focus-visible:ring-2 has-focus-visible:ring-focus {optionChosen ? 'model-card-selected border-brand-500 dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40'}">
+                                <label class="flex min-h-11 cursor-pointer gap-3 rounded-lg px-2 py-2 text-sm hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
                                     <input
                                         type="radio"
                                         name="bird-finder"
@@ -1079,7 +1080,7 @@
                                                     ? $_('settings.detection.bird_finder_wide', { default: 'Wide frame (RF-DETR Nano)' })
                                                     : $_('settings.detection.bird_finder_standard', { default: 'Standard (YOLOX-Tiny)' })}
                                             </span>
-                                            <span class="rounded-full border border-slate-300/70 px-2 py-0.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:text-slate-300">
+                                            <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">
                                                 {option.choice === 'rfdetr_nano'
                                                     ? $_('settings.detection.bird_finder_optional_badge', { default: 'Optional' })
                                                     : $_('settings.detection.bird_finder_default_badge', { default: 'Default' })}
@@ -1157,7 +1158,7 @@
                                         onclick={() => checkFinderDevices(chosenFinder.model.id)}
                                         disabled={deviceCheckRunning}
                                         aria-describedby="bird-finder-check-hint"
-                                        class="btn btn-secondary min-h-11 px-4"
+                                        class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
                                     >
                                         {deviceCheckRunning
                                             ? $_('settings.detection.compat_running', { default: 'Running…' })
@@ -1227,14 +1228,3 @@
         {/snippet}
     </DiagnosticDialog>
 {/if}
-
-<style>
-    /* The selected card is a recessed key in the brand tint; its border and
-       aria-pressed carry the selection, the tint only reinforces it. */
-    .model-card-selected {
-        background-color: rgb(var(--brand-50) / 0.9);
-    }
-    :global(.dark) .model-card-selected {
-        background-color: rgb(var(--brand-950) / 0.55);
-    }
-</style>

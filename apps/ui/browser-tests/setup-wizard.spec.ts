@@ -367,7 +367,7 @@ async function openRerun(page: Page, fake: FakeBackend): Promise<string[]> {
 
 const continueButton = (page: Page) => wizard(page).getByRole('button', { name: 'Continue', exact: true });
 const modelSelect = (page: Page) => wizard(page).getByLabel('Model', { exact: true });
-const providerSelect = (page: Page) => wizard(page).getByLabel('Inference provider', { exact: true });
+const providerSelect = (page: Page) => wizard(page).getByLabel('Device', { exact: true });
 const latitude = (page: Page) => wizard(page).getByLabel('Latitude', { exact: true });
 const longitude = (page: Page) => wizard(page).getByLabel('Longitude', { exact: true });
 const validateButton = (page: Page) => wizard(page).getByRole('button', { name: 'Validate on my hardware' });

@@ -5,7 +5,7 @@ test('cache limits and scanning use the existing settings controls without overf
     await page.goto('/browser-tests/media-settings.html');
     await page.getByRole('spinbutton', { name: /^Most visits per species with photos and video/ }).fill('50');
     await page.getByRole('spinbutton', { name: /^Storage limit \(MiB\)/ }).fill('2048');
-    await page.getByRole('button', { name: 'Advanced Snapshot quality', exact: true }).click();
+    await page.getByRole('button', { name: /^Show advanced options.*Snapshot quality/ }).click();
     await page.getByRole('combobox', { name: 'Bird scanning effort', exact: true }).selectOption('standard');
     await expect(page.getByRole('status', { name: 'Selected cache settings' })).toHaveText('50 / 2048 / standard');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -21,8 +21,8 @@ test('cache limits and scanning use the existing settings controls without overf
     await card.screenshot({ path: testInfo.outputPath('media-settings.png') });
     await page.evaluate(() => document.documentElement.classList.add('theme-bluetit', 'dark'));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    // The blue tit dark panel and ground tokens from app.css.
-    await expect(card).toHaveCSS('background-color', 'rgb(11, 19, 34)');
+    // The blue tit dark panel and ground tokens from app.css; the section's rows sit on its card.
+    await expect(card.locator('[data-settings-section-body]')).toHaveCSS('background-color', 'rgb(11, 19, 34)');
     await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(5, 10, 20)');
     await card.screenshot({ path: testInfo.outputPath('media-settings-dark.png'), animations: 'disabled' });
 });

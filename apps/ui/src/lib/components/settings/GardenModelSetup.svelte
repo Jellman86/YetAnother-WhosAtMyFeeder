@@ -94,7 +94,7 @@
     <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_models_help', { default: 'Garden uses its own models, separate from your bird model. A download only adds a verified file. It saves no settings and starts no checks.' })}</p>
 
     {#if !savedEnabled}
-        <p class="rounded-xl border border-dashed border-line-soft p-3 text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
+        <p class="text-sm text-slate-600 dark:text-slate-300" role="status" data-garden-models-apply>
             {$_('settings.beta.garden_models_apply', { default: 'Save changes to switch Garden on. Model status and downloads then appear here.' })}
         </p>
     {:else}
@@ -102,15 +102,15 @@
             <p class="text-sm text-slate-600 dark:text-slate-400" role="status">{$_('settings.beta.garden_models_loading', { default: 'Checking Garden models…' })}</p>
         {:else}
             {#if loadError !== null}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{loadError}</p>
+                <p class="text-sm" role="alert">{loadError}</p>
             {/if}
             {#if identification?.error}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{identification.error}</p>
+                <p class="text-sm" role="alert">{identification.error}</p>
             {:else if identification && !identification.catalogue_ready}
-                <p class="rounded-xl border border-line-soft p-3 text-sm" role="alert">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
+                <p class="text-sm" role="alert">{$_('garden.catalogue_unavailable', { default: 'Garden species data is unavailable. Check the application startup diagnostics.' })}</p>
             {/if}
 
-            <ul class="divide-y divide-line-soft rounded-xl border border-line-soft">
+            <ul class="divide-y divide-line-soft">
                 {#each rows as row (row.role)}
                     {@const busyHere = downloading === row.role}
                     <li class="space-y-2 p-3" data-garden-model={row.role} aria-labelledby={`garden-model-${row.role}`}>

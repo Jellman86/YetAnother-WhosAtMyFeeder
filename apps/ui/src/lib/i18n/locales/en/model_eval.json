@@ -162,7 +162,7 @@
     "running_reason": "One evaluation runs at a time. Stop this one to start another.",
     "stop": "Stop evaluation",
     "title": "Start an evaluation",
-    "what": "Each installed model names photos of birds whose species is already confirmed, so you can compare how often each is right and how fast."
+    "what": "Each installed model names reference photos of known species, so you can compare how often each is right and how fast."
   },
   "stopped": {
     "finder_needs_provider_check": "A bird finder can only be checked for providers. Run the check from Settings → Models.",

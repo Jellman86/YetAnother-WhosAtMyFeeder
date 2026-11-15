@@ -383,3 +383,14 @@ describe('the way into model evaluation', () => {
         expect(copy).not.toMatch(/Settings → (Detection|Debug)/);
     });
 });
+
+describe('says where the test photos come from', () => {
+    it('names reference photos of known species from public collections, never photos the owner confirmed', () => {
+        for (const key of ['model_eval.start.what', 'settings.models.testing_desc']) {
+            expect(english[key], key).toMatch(/reference photos of known species/);
+            expect(english[key], key).not.toMatch(/confirmed/);
+        }
+        expect(english['settings.models.testing_desc']).toMatch(/from iNaturalist and Wikimedia Commons\.$/);
+        expect(modelSettingsSource).toContain("default: 'Compare the installed models on reference photos of known species from iNaturalist and Wikimedia Commons.'");
+    });
+});

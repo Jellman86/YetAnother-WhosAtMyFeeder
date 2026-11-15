@@ -162,7 +162,7 @@
     "running_reason": "Só uma avaliação roda por vez. Interrompa esta para iniciar outra.",
     "stop": "Interromper avaliação",
     "title": "Iniciar uma avaliação",
-    "what": "Cada modelo instalado nomeia fotos de aves cuja espécie já está confirmada, para você comparar com que frequência cada um acerta e com que rapidez."
+    "what": "Cada modelo instalado nomeia fotos de referência de espécies conhecidas, para você comparar com que frequência cada um acerta e com que rapidez."
   },
   "stopped": {
     "finder_needs_provider_check": "Um localizador de aves só pode ser verificado por provedor. Inicie a verificação em Configurações → Modelos.",

@@ -110,7 +110,7 @@
     async function handleClearUsage() {
         const confirmed = await confirmAction({
             title: $_('settings.ai.clear_usage', { default: 'Clear history' }),
-            message: $_('settings.ai.clear_usage_confirm', { default: 'Are you sure you want to clear AI usage history? This cannot be undone.' }),
+            message: $_('settings.ai.clear_usage_confirm', { default: 'Clear the AI usage history? The counts and costs so far are deleted and cannot be brought back.' }),
             confirmLabel: $_('settings.ai.clear_usage', { default: 'Clear history' })
         });
         if (!confirmed) {
@@ -149,28 +149,21 @@
     const buttonSecondaryClass = 'btn btn-secondary min-h-11 px-6 py-3';
 </script>
 
-<div class="space-y-6">
+<div class="space-y-8">
     {#snippet usageActions()}
         <button
             type="button"
             onclick={handleClearUsage}
             disabled={clearingUsage || !usage?.calls}
-            class="min-h-11 px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-200 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="btn btn-secondary min-h-11 px-4 text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 active:scale-[0.99] transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
             {clearingUsage ? $_('common.clearing', { default: 'Clearing…' }) : $_('settings.ai.clear_usage', { default: 'Clear history' })}
         </button>
     {/snippet}
 
-    {#snippet aiIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3M7 7h10v10H7V7Zm3 3h4v4h-4v-4Z" />
-        </svg>
-    {/snippet}
 
     <SettingsCard
-        accent
         title={$_('settings.ai.connection_title', { default: 'AI provider' })}
-        iconSnippet={aiIcon}
     >
         <SettingsRow
             labelId="setting-llm-enabled"
@@ -241,7 +234,7 @@
                     oninput={(event) => onchange({ llmModel: event.currentTarget.value })}
                     placeholder={getRecommendedLlmModel(draft.llmProvider)}
                     aria-label={$_('settings.llm.model')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden transition-all"
+                    class="input-base w-full"
                 />
             {:else}
                 <SettingsSelect
@@ -258,6 +251,7 @@
             type="button"
             onclick={runConnectionTest}
             disabled={testRunning || (!draft.llmApiKey && !draft.llmApiKeySaved)}
+            aria-describedby={!draft.llmApiKey && !draft.llmApiKeySaved ? 'ai-test-needs-key' : undefined}
             class="w-full {buttonPrimaryClass}"
         >
             {testRunning ? $_('settings.llm.test_loading') : $_('settings.llm.test_connection')}
@@ -265,8 +259,7 @@
 
         {#if !draft.llmApiKey && !draft.llmApiKeySaved}
         <div class="border-t border-line-soft pt-4 text-xs text-slate-600 dark:text-slate-300">
-            <p class="font-bold mb-2 text-slate-700 dark:text-slate-200">{$_('settings.ai.provider_info_title', { default: 'Cloud AI Providers' })}</p>
-            <p class="leading-relaxed">{$_('settings.ai.provider_info_desc', { default: 'YA-WAMF uses cloud LLMs for behavioral analysis and natural language interactions. You will need your own API key from the provider.' })}</p>
+            <p id="ai-test-needs-key" class="mb-2 text-sm text-slate-700 dark:text-slate-200">{$_('settings.ai.test_needs_key', { default: 'Add an API key from your provider to test the connection. Each provider issues its own:' })}</p>
             <div class="mt-3 grid grid-cols-2 gap-2">
                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_gemini_key', { default: 'Get Google Gemini Key →' })}</a>
                 <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-brand-600 dark:text-brand-400 hover:underline focus:outline-hidden focus:ring-2 focus:ring-focus rounded-sm">{$_('settings.llm.get_openai_key', { default: 'Get OpenAI Key →' })}</a>
@@ -376,80 +369,81 @@
             </SettingsRow>
         </AdvancedSection>
         {/if}
-    </SettingsCard>
+        <!-- Usage is history, not a setting: kept with the provider, closed until wanted. -->
+        <AdvancedSection
+            id="ai-usage"
+            title={$_('settings.ai.usage_title', { default: 'AI Usage' })}
+            description={$_('settings.ai.usage_subtitle', { default: 'Last 30 days consumption' })}
+        >
+            <div class="flex justify-end">{@render usageActions()}</div>
+            {#if loadingUsage}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                    <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
+                </div>
+            {:else if usage}
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">{usage.calls.toLocaleString()}</p>
+                    </div>
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
+                        <p class="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
+                    </div>
+                    <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
+                        <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
+                        <p class="text-2xl font-bold text-slate-900 dark:text-white">
+                            ${formatEstimatedCost(usage.estimated_cost_usd)}
+                            <span class="text-xs ml-1 font-semibold text-slate-600 dark:text-slate-300">USD</span>
+                        </p>
+                        {#if !usage.pricing_configured}
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
+                        {/if}
+                    </div>
+                </div>
 
-    <AdvancedSection
-        id="ai-usage"
-        title={$_('settings.ai.usage_title', { default: 'AI Usage' })}
-        description={$_('settings.ai.usage_subtitle', { default: 'Last 30 days consumption' })}
-    >
-        <div class="flex justify-end">{@render usageActions()}</div>
-        {#if loadingUsage}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 animate-pulse">
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-                <div class="h-24 rounded-2xl bg-slate-100 dark:bg-slate-800/50"></div>
-            </div>
-        {:else if usage}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_calls', { default: 'API Requests' })}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{usage.calls.toLocaleString()}</p>
-                </div>
-                <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.total_tokens', { default: 'Tokens Consumed' })}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{formatTokens(usage.total_tokens)}</p>
-                    <p class="text-xs font-bold text-slate-600 dark:text-slate-400 mt-1">{formatTokens(usage.input_tokens)} in / {formatTokens(usage.output_tokens)} out</p>
-                </div>
-                <div class="{metricCardClass} bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50">
-                    <p class="text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.ai.estimated_cost', { default: 'Estimated Cost' })}</p>
-                    <p class="text-2xl font-bold text-slate-900 dark:text-white">
-                        ${formatEstimatedCost(usage.estimated_cost_usd)}
-                        <span class="text-xs ml-1 font-semibold text-slate-600 dark:text-slate-300">USD</span>
-                    </p>
-                    {#if !usage.pricing_configured}
-                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">{$_('settings.ai.pricing_not_configured', { default: 'Configure pricing below for accuracy' })}</p>
-                    {/if}
-                </div>
-            </div>
-
-            {#if usage.breakdown.length > 0}
-                <div class="overflow-hidden rounded-2xl border border-slate-100 dark:border-slate-700/50">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-50 dark:bg-slate-900/60 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                            <tr>
-                                <th class="px-4 py-3">{$_('settings.ai.table_model', { default: 'Model' })}</th>
-                                <th class="px-4 py-3">{$_('settings.ai.table_feature', { default: 'Feature' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_calls', { default: 'Calls' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_tokens', { default: 'Tokens' })}</th>
-                                <th class="px-4 py-3 text-right">{$_('settings.ai.table_cost', { default: 'Cost' })}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
-                            {#each usage.breakdown as item}
-                                <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
-                                    <td class="px-4 py-3 font-bold">
-                                        <span class="opacity-50 font-bold text-xs mr-1">{item.provider}</span>
-                                        {item.model}
-                                    </td>
-                                    <td class="px-4 py-3 capitalize">{item.feature}</td>
-                                    <td class="px-4 py-3 text-right">{item.calls}</td>
-                                    <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
-                                    <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">${formatEstimatedCost(item.estimated_cost_usd)}</td>
+                {#if usage.breakdown.length > 0}
+                    <div>
+                        <table class="w-full text-left text-xs">
+                            <thead class="bg-slate-50 dark:bg-slate-900/60 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                                <tr>
+                                    <th class="px-4 py-3">{$_('settings.ai.table_model', { default: 'Model' })}</th>
+                                    <th class="px-4 py-3">{$_('settings.ai.table_feature', { default: 'Feature' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_calls', { default: 'Calls' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_tokens', { default: 'Tokens' })}</th>
+                                    <th class="px-4 py-3 text-right">{$_('settings.ai.table_cost', { default: 'Cost' })}</th>
                                 </tr>
-                            {/each}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 dark:divide-slate-700/50">
+                                {#each usage.breakdown as item}
+                                    <tr class="text-slate-700 dark:text-slate-300 transition-colors hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
+                                        <td class="px-4 py-3 font-bold">
+                                            <span class="opacity-50 font-bold text-xs mr-1">{item.provider}</span>
+                                            {item.model}
+                                        </td>
+                                        <td class="px-4 py-3 capitalize">{item.feature}</td>
+                                        <td class="px-4 py-3 text-right">{item.calls}</td>
+                                        <td class="px-4 py-3 text-right font-mono">{formatTokens(item.total_tokens)}</td>
+                                        <td class="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">${formatEstimatedCost(item.estimated_cost_usd)}</td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                {/if}
+            {:else}
+                <div class="text-center">
+                    <p class="text-sm font-bold text-slate-600 dark:text-slate-400">
+                        {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
+                    </p>
                 </div>
             {/if}
-        {:else}
-            <div class="p-12 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700/50">
-                <p class="text-sm font-bold text-slate-600 dark:text-slate-400">
-                    {usageLoadError ?? $_('settings.ai.no_usage_data', { default: 'No AI usage recorded yet.' })}
-                </p>
-            </div>
-        {/if}
-    </AdvancedSection>
+        </AdvancedSection>
+    </SettingsCard>
+
 </div>
 
 {#if testModalOpen}

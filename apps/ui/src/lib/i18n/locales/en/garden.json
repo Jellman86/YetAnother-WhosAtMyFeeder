@@ -62,8 +62,8 @@
   "photo_count": "Photo {index} of {count}",
   "next_photo": "Next photo",
   "group_dismiss": "{count, plural, one {Dismiss remaining # photo} other {Dismiss remaining # photos}}",
-  "confidence": "Animal proposal threshold",
-  "confidence_help": "From 50% to 95%. Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.",
+  "confidence": "How sure before an animal is suggested",
+  "confidence_help": "A motion photo becomes a suggestion for you to review only when the check is at least this sure. Higher means fewer suggestions, and more animals missed.",
   "photo_confirmed": "Photo confirmed.",
   "photo_restored": "Photo returned to review.",
   "group_remaining": "Other photos in this group still need review.",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "Animal detected, but its species score is below the naming threshold. Moved to Dismissed; return it to review if you want to name it yourself.",
   "automatic_bird_camera": "Bird, handled by bird detection on this camera. Moved to Dismissed; return this photo to review if it is not a bird.",
   "automatic_wild_bird": "Wild bird. Turn on birds for this camera to record it. Moved to Dismissed; return this photo to review if the check is wrong.",
-  "motion_unreadable": "{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept."
+  "motion_unreadable": "{count, plural, one {# recording} other {# recordings}} could not be read on {camera} in the last hour and {count, plural, one {was} other {were}} skipped. No photo was kept.",
+  "confidence_low": "More suggestions",
+  "confidence_high": "Fewer suggestions",
+  "naming_low": "Names more",
+  "naming_high": "Names fewer"
 }

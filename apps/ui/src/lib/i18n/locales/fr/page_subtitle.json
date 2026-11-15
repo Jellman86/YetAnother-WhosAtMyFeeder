@@ -5,8 +5,21 @@
   "events": "Parcourez, filtrez et gérez chaque visite classifiée.",
   "add_observation": "Classez votre photo ou vidéo, vérifiez les indices et ajoutez-la à votre historique.",
   "notifications": "Visites, alertes et tâches de fond, les plus récentes d’abord.",
-  "settings": "Connexions, identification, intégrations et personnalisation.",
   "species": "Quels oiseaux viennent le plus, à quelle fréquence et quand.",
   "health": "Si YA-WAMF fonctionne, ce que fait la machine et ce qui s’est passé.",
+  "settings_tab": {
+    "connection": "D’où viennent les événements : Frigate, son broker MQTT et les caméras surveillées.",
+    "detection": "Quelle certitude il faut pour nommer une visite, et ce qui n’est jamais enregistré.",
+    "models": "Quels modèles trouvent et nomment les oiseaux, et le matériel qui les fait tourner.",
+    "integrations": "Les autres services que YA-WAMF lit ou alimente, et votre lieu.",
+    "ai": "Un fournisseur d’IA facultatif qui décrit ce que faisait un oiseau.",
+    "notifications": "Quand vous êtes prévenu d’une visite, et par quels canaux.",
+    "security": "Qui peut ouvrir YA-WAMF, ce que voient les invités et ce qui quitte cette installation.",
+    "data": "Ce qui est conservé, combien de temps, et une sauvegarde de ces réglages.",
+    "maintenance": "Les tâches qui réparent ou complètent l’historique, et sa suppression.",
+    "beta": "Fonctions encore en test. Chacune reste désactivée jusqu’à ce que vous l’activiez, et peut changer ou disparaître. La désactiver garde ce qu’elle a déjà enregistré.",
+    "appearance": "L’apparence de YA-WAMF et la façon dont il nomme les oiseaux.",
+    "accessibility": "Contraste, police de lecture, animations et annonces vocales."
+  },
   "model_evaluation": "À quelle fréquence chaque modèle installé nomme correctement un oiseau, et à quelle vitesse."
 }

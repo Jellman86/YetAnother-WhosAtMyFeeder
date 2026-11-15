@@ -13,6 +13,7 @@ import betaSectionSource from './BetaSection.svelte?raw';
 import gardenServiceSource from './garden-service-status.svelte.ts?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
+import enPageSubtitles from '../../i18n/locales/en/page_subtitle.json';
 import enSettings from '../../i18n/locales/en/settings.json';
 
 const en = { settings: enSettings };
@@ -28,18 +29,20 @@ describe('Garden animals is a beta feature', () => {
         expect(settingsSource).toContain("saved: s.beta_garden_animals ?? false");
     });
 
-    it('lists beta features as cards under one plain-language intro', () => {
+    it('lists beta features as cards under the tab\'s one line, said once', () => {
         const beta = settingsSource.slice(settingsSource.indexOf("{#if activeTab === 'beta'}"), settingsSource.indexOf("{#if activeTab === 'debug'}"));
-        expect(beta).toContain('data-beta-intro');
+        // The page header's line for the tab is the intro; the page does not repeat it.
+        expect(beta).not.toContain('data-beta-intro');
+        expect(beta).not.toContain('settings.beta.intro');
         expect(beta).toContain('data-beta-feature-list');
         expect(beta).toMatch(/<li>\s*<LazyRoute loader=\{loadGardenBetaSettings\}[^\n]*\s*\{#snippet content\(GardenBetaSettings\)\}\s*<GardenBetaSettings/);
         expect(gardenBetaSource).toContain('<BetaFeatureCard');
-        expect(en.settings.beta.intro).toMatch(/off until you turn it on/);
-        expect(en.settings.beta.intro).toMatch(/keeps what it has already recorded/);
+        expect(enPageSubtitles.settings_tab.beta).toMatch(/off until you turn it on/);
+        expect(enPageSubtitles.settings_tab.beta).toMatch(/keeps what it has already recorded/);
     });
 
     it('shows a feature\'s settings only while it is on, and what off means while it is off', () => {
-        expect(betaCardSource).toMatch(/\{#if enabled\}\s*\{@render children\(\)\}\s*\{:else\}\s*\{@render off\(\)\}/);
+        expect(betaCardSource).toMatch(/\{#if enabled\}\s*\{@render children\(\)\}\s*\{:else\}\s*<div>\{@render off\(\)\}<\/div>/);
         expect(betaCardSource).toContain('data-beta-status');
         expect(betaCardSource).toContain('{#if attention}<span class="attention-dot" aria-hidden="true"></span>{/if}');
     });
@@ -53,7 +56,7 @@ describe('Garden animals is a beta feature', () => {
         expect(gardenBetaSource.match(/<BetaSection id="garden-section-(cameras|checks)"[^>]*openByDefault>/g)).toHaveLength(2);
         expect(betaSectionSource).toContain('useDisclosure(() => ({ id, openByDefault }))');
         // A heading that is the disclosure button, hidden rather than unmounted when closed.
-        expect(betaSectionSource).toMatch(/<h4>\s*<button/);
+        expect(betaSectionSource).toMatch(/<h3>\s*<button/);
         expect(betaSectionSource).toContain('aria-expanded={open}');
         expect(betaSectionSource).toContain('hidden={!open}');
         expect(betaSectionSource).toContain('min-h-11');
@@ -110,11 +113,14 @@ describe('Garden animals is a beta feature', () => {
         expect(settingsSource).toContain('gardenBeta={betaGardenAnimals}');
     });
 
-    it('shows its thresholds as percentages through the settings primitives', () => {
-        expect(gardenBetaSource).toContain('value={thresholdPercentText(motionConfidence)}');
-        expect(gardenBetaSource).toContain('oninput={(value) => (motionConfidence = percentToThreshold(value))}');
-        expect(gardenBetaSource).toContain('value={thresholdPercentText(namingThreshold)}');
-        expect(gardenBetaSource).toContain('oninput={(value) => (namingThreshold = percentToThreshold(value))}');
+    it('moves its thresholds with the shared slider, shown as percentages, like Detection', () => {
+        expect(gardenBetaSource).toContain('bind:value={motionConfidence}');
+        expect(gardenBetaSource).toContain('bind:value={namingThreshold}');
+        expect(gardenBetaSource).toContain('display={(value) => `${thresholdPercentText(value)}%`}');
+        // Both sliders move one percentage point a step. A calibrated saved value such as 0.6385722
+        // is kept as saved until the slider moves, and a step never shrinks to its precision.
+        expect(gardenBetaSource.match(/step=\{0\.01\}/g)).toHaveLength(2);
+        expect(gardenBetaSource).not.toContain('gardenThresholdPercentStep');
         expect(gardenBetaSource).not.toMatch(/<input\b/);
     });
 

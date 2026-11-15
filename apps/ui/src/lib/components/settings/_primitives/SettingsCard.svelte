@@ -5,86 +5,69 @@
     interface Props {
         title: string;
         description?: string;
-        // Optional vector/brand icon rendered in the leading tile. Structural
-        // emoji are intentionally unsupported so card hierarchy stays stable
-        // across operating systems and locales.
-        iconSnippet?: Snippet;
-        // Trailing controls rendered next to the header (e.g. "Test connection",
-        // "Clear history").  Kept in the header so every card has the same
-        // top-level affordance position.
+        // Trailing controls beside the heading, such as the switch for the whole section.
         actions?: Snippet;
-        // When true the leading icon tile is tinted teal to give a card a light
-        // brand accent. Off by default (slate tile). The header itself stays plain
-        // either way — no gradient band.
-        accent?: boolean;
         /**
-         * Advanced cards start closed: the heading becomes a button that shows the card's body.
+         * Sections that start closed: the heading becomes a button that shows the body.
          * The id names the body for aria-controls.
          */
         collapsible?: boolean;
-        /** Whether a collapsible card starts open, until someone opens or closes it. */
+        /** Whether a collapsible section starts open, until someone opens or closes it. */
         openByDefault?: boolean;
         id?: string;
+        /** The heading's id, so a switch in the header can be named by the section's own title. */
+        titleId?: string;
         children: Snippet;
     }
 
-    let { title, description, iconSnippet, actions, accent = false, collapsible = false, openByDefault = false, id, children }: Props = $props();
+    let { title, description, actions, collapsible = false, openByDefault = false, id, titleId, children }: Props = $props();
+
+    const uid = $props.id();
+    const headingId = $derived(titleId ?? `${id ?? uid}-title`);
 
     // With an id, the Settings page holds the open state, so it survives leaving the tab and the
-    // page can open the card that holds a refused field.
+    // page can open the section that holds a refused field.
     const disclosure = useDisclosure(() => ({ id, openByDefault }));
     const open = $derived(disclosure.open);
-    function toggle(): void {
-        disclosure.toggle();
-    }
-    const bodyId = $derived(id ? `${id}-body` : undefined);
+    const bodyId = $derived(`${id ?? uid}-body`);
     const showBody = $derived(!collapsible || open);
 </script>
 
-<section class="card-base overflow-hidden" {id}>
-    <!-- The actions sit beside the title while it keeps at least 10rem, and wrap under it when it
-         would not, as with enlarged text on a phone. -->
-    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-5 pb-4 md:px-6 md:pt-6">
-        <div class="flex min-w-0 flex-1 basis-40 items-start gap-3">
-            {#if iconSnippet}
-                <div class="mt-0.5 shrink-0 {accent ? 'text-brand-700 dark:text-brand-300' : 'text-slate-600 dark:text-slate-400'}">
-                    {@render iconSnippet()}
-                </div>
-            {/if}
-            <div class="min-w-0">
-                <!-- Cards are the sections of a tab, directly under the page heading. -->
-                <h2 class="font-display text-lg font-semibold text-slate-900 dark:text-white">
-                    {#if collapsible}
-                        <button
-                            type="button"
-                            class="focus-ring flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left"
-                            aria-expanded={open}
-                            aria-controls={bodyId}
-                            onclick={toggle}
-                        >
-                            <span class="min-w-0 wrap-break-word">{title}</span>
-                            <svg class="h-4 w-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform motion-reduce:transition-none {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-                        </button>
-                    {:else}
-                        {title}
-                    {/if}
-                </h2>
-                {#if description}
-                    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                        {description}
-                    </p>
+<!-- A section is a plain heading over one card of rows: no icon, no band, nothing boxed inside.
+     The actions sit beside the heading while it keeps at least 12rem, and wrap under it when not;
+     the header's right inset matches the card's, so a section switch ends where row switches do. -->
+<section class="space-y-3" {id} aria-labelledby={headingId} data-settings-section>
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pl-1 pr-4 md:pr-6">
+        <div class="min-w-0 flex-1 basis-48">
+            <h2 id={headingId} class="text-lg font-semibold text-slate-900 dark:text-white">
+                {#if collapsible}
+                    <button
+                        type="button"
+                        class="focus-ring flex min-h-11 max-w-full items-center gap-2 rounded-lg text-left"
+                        aria-expanded={open}
+                        aria-controls={bodyId}
+                        onclick={() => disclosure.toggle()}
+                    >
+                        <span class="min-w-0 wrap-break-word">{title}</span>
+                        <svg class="h-4 w-4 shrink-0 text-slate-600 transition-transform motion-reduce:transition-none dark:text-slate-400 {open ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                    </button>
+                {:else}
+                    {title}
                 {/if}
-            </div>
+            </h2>
+            {#if description}
+                <p class="mt-1 max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
+            {/if}
         </div>
         {#if actions}
-            <div class="max-w-full shrink-0">
+            <div class="flex min-h-11 max-w-full shrink-0 items-center">
                 {@render actions()}
             </div>
         {/if}
     </header>
 
     {#if showBody}
-        <div id={bodyId} class="space-y-4 px-5 pb-5 md:px-6 md:pb-6">
+        <div id={bodyId} class="card-base settings-section-body" data-settings-section-body>
             {@render children()}
         </div>
     {/if}

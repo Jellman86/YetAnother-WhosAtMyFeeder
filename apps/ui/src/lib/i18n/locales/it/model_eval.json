@@ -162,7 +162,7 @@
     "running_reason": "Si esegue una sola valutazione alla volta. Interrompi questa per avviarne un'altra.",
     "stop": "Interrompi valutazione",
     "title": "Avvia una valutazione",
-    "what": "Ogni modello installato dà un nome a foto di uccelli la cui specie è già confermata, così puoi confrontare quanto spesso ciascuno ha ragione e con quale velocità."
+    "what": "Ogni modello installato dà un nome a foto di riferimento di specie note, così puoi confrontare quanto spesso ciascuno ha ragione e con quale velocità."
   },
   "stopped": {
     "finder_needs_provider_check": "Un rilevatore di uccelli può essere verificato solo per provider. Avvia la verifica da Impostazioni → Modelli.",

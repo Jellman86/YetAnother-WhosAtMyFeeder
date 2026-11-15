@@ -60,13 +60,13 @@
 <SettingsCard title={$_('settings.telemetry.title')} description={$_('settings.telemetry.desc')}>
     <SettingsRow
         labelId="setting-telemetry"
-        label={$_('settings.telemetry.title')}
+        label={$_('settings.telemetry.usage_title', { default: 'Anonymous usage statistics' })}
         description={$_('settings.telemetry.appreciation_tooltip')}
     >
         <SettingsToggle
             checked={telemetryEnabled}
             labelledBy="setting-telemetry"
-            srLabel={$_('settings.telemetry.title')}
+            srLabel={$_('settings.telemetry.usage_title', { default: 'Anonymous usage statistics' })}
             onchange={(v) => (telemetryEnabled = v)}
         />
     </SettingsRow>
@@ -85,7 +85,7 @@
     </SettingsRow>
 
     {#if telemetryEnabled || telemetryHealthEnabled}
-        <div class="border-t border-line-soft pt-4 animate-in fade-in slide-in-from-top-2">
+        <div class="animate-in fade-in slide-in-from-top-2">
             <p class="text-sm font-semibold text-slate-700 mb-3 dark:text-slate-200">{$_('settings.telemetry.transparency')}</p>
             <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                 <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
@@ -113,7 +113,7 @@
                     </div>
                 </div>
             {/if}
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">{$_('settings.telemetry.privacy_notice')}</p>
             <a
                 href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
                 target="_blank"

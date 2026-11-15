@@ -161,7 +161,7 @@
     >
         {#if taxonomyStatus}
             {#if taxonomyStatus.is_running}
-                <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-700 dark:text-brand-300">
+                <div class="flex items-center justify-between gap-3 text-brand-700 dark:text-brand-300">
                     <span class="text-sm font-semibold">{taxonomyStatus.message || taxonomyStatus.current_item || $_('settings.data.taxonomy_repairing')}</span>
                     <span class="text-xs font-bold">{taxonomyStatus.processed} / {taxonomyStatus.total}</span>
                 </div>
@@ -178,16 +178,18 @@
             {/if}
         {/if}
 
-        <button
-            type="button"
-            onclick={handleStartTaxonomySync}
-            disabled={taxonomyStatus?.is_running || syncingTaxonomy}
-            aria-label={$_('settings.data.taxonomy_run_button')}
-            class={buttonNeutralClass}
-        >
-            {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
-            {$_('settings.data.taxonomy_run_button')}
-        </button>
+        <div>
+            <button
+                type="button"
+                onclick={handleStartTaxonomySync}
+                disabled={taxonomyStatus?.is_running || syncingTaxonomy}
+                aria-label={$_('settings.data.taxonomy_run_button')}
+                class={buttonNeutralClass}
+            >
+                {#if syncingTaxonomy || taxonomyStatus?.is_running}{@render spinner()}{/if}
+                {$_('settings.data.taxonomy_run_button')}
+            </button>
+        </div>
     </SettingsCard>
 
     <SettingsCard
@@ -200,30 +202,30 @@
 
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
-                <div class="rounded-2xl border border-attention-200 dark:border-attention-700/60 px-4 py-3">
+                <div class="text-attention-800 dark:text-attention-200">
                     <p class="text-lg font-bold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
-                <div class="rounded-2xl border border-red-200 dark:border-red-700/60 px-4 py-3">
+                <div>
                     <p class="text-lg font-bold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
-                <div class="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div>
                     <div class="border-t border-line-soft pt-4 px-5 border-b">
                         <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
@@ -247,13 +249,13 @@
             {/if}
         {/if}
 
-        <div class="flex flex-col md:flex-row gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
                 type="button"
                 onclick={handlePreviewTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair}
                 aria-label={$_('settings.data.timezone_repair_preview_button', { default: 'Scan for timezone issues' })}
-                class="flex-1 {buttonNeutralClass}"
+                class={buttonNeutralClass}
             >
                 {previewingTimezoneRepair
                     ? $_('settings.data.timezone_repair_preview_loading', { default: 'Scanning...' })
@@ -264,7 +266,7 @@
                 onclick={handleApplyTimezoneRepair}
                 disabled={previewingTimezoneRepair || applyingTimezoneRepair || timezoneRepairCandidates === 0}
                 aria-label={$_('settings.data.timezone_repair_apply_button', { default: 'Apply timezone repair' })}
-                class="flex-1 {buttonNeutralClass}"
+                class={buttonNeutralClass}
             >
                 {applyingTimezoneRepair
                     ? $_('settings.data.timezone_repair_apply_loading', { default: 'Repairing...' })
@@ -340,7 +342,7 @@
 
         {#if backfillResult}
             {#if backfillResult.message}
-                <p class="flex items-start gap-2 border-l-2 {backfilling ? 'border-brand-400 text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'border-attention-400 text-attention-800 dark:text-attention-200' : 'border-success-400 text-slate-700 dark:text-slate-300'} py-1 pl-3 text-sm" aria-live="polite">
+                <p class="flex items-start gap-2 {backfilling ? 'text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'text-attention-800 dark:text-attention-200' : 'text-slate-700 dark:text-slate-300'} text-sm" aria-live="polite">
                     {#if backfilling}{@render spinner()}{/if}
                     <span>{backfillResult.message}</span>
                 </p>
@@ -353,7 +355,7 @@
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
-                <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
+                <div>
                     <p class="text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.data.backfill_skipped_breakdown')}</p>
                     <div class="grid grid-cols-1 gap-2">
                         {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}
@@ -368,7 +370,7 @@
                 </div>
             {/if}
             {#if backfillResult.error_reasons && Object.keys(backfillResult.error_reasons).length > 0}
-                <div class="border-l-2 border-rose-400 py-1 pl-3">
+                <div>
                     <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
                     <div class="space-y-1.5">
                         {#each Object.entries(backfillResult.error_reasons) as [reason, count]}
@@ -382,16 +384,18 @@
             {/if}
         {/if}
 
-        <button
-            type="button"
-            onclick={handleBackfill}
-            disabled={backfilling || weatherBackfilling || !backfillCustomValid}
-            aria-label={$_('settings.data.backfill_scan_button')}
-            class={buttonNeutralClass}
-        >
-            {#if backfilling}{@render spinner()}{/if}
-            {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
-        </button>
+        <div>
+            <button
+                type="button"
+                onclick={handleBackfill}
+                disabled={backfilling || weatherBackfilling || !backfillCustomValid}
+                aria-label={$_('settings.data.backfill_scan_button')}
+                class={buttonNeutralClass}
+            >
+                {#if backfilling}{@render spinner()}{/if}
+                {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
+            </button>
+        </div>
 
         <AdvancedSection
             id="data-backfill-weather"
@@ -406,7 +410,7 @@
                     <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
                 </dl>
                 {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
-                    <div class="border-l-2 border-rose-400 py-1 pl-3">
+                    <div>
                         <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
                         {#each Object.entries(weatherBackfillResult.error_reasons) as [reason, count]}
                             <div class="flex items-center justify-between gap-3 text-xs">
@@ -438,16 +442,18 @@
             {$_('settings.data.batch_analysis_long_desc')}
         </p>
 
-        <button
-            type="button"
-            onclick={handleAnalyzeUnknowns}
-            disabled={analyzingUnknowns}
-            aria-label={$_('settings.data.batch_analysis_button')}
-            class={buttonNeutralClass}
-        >
-            {#if analyzingUnknowns}{@render spinner()}{/if}
-            {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
-        </button>
+        <div>
+            <button
+                type="button"
+                onclick={handleAnalyzeUnknowns}
+                disabled={analyzingUnknowns}
+                aria-label={$_('settings.data.batch_analysis_button')}
+                class={buttonNeutralClass}
+            >
+                {#if analyzingUnknowns}{@render spinner()}{/if}
+                {analyzingUnknowns ? $_('settings.data.batch_analysis_queueing') : $_('settings.data.batch_analysis_button')}
+            </button>
+        </div>
 
         <SettingsRow
             labelId="setting-auto-analyze"
@@ -475,12 +481,12 @@
                     <span>{$_('settings.data.batch_analysis_active')}: {analysisStatus.active}</span>
                 </div>
                 {#if analysisStatus.maintenance_status_message}
-                    <div class="text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <div class="text-xs text-slate-700 dark:text-slate-200">
                         {analysisStatus.maintenance_status_message}
                     </div>
                 {/if}
                 {#if analysisStatus.circuit_open}
-                    <div class="text-xs font-bold text-attention-700 dark:text-attention-300 flex items-center gap-1 bg-attention-500/10 p-2 rounded-lg border border-attention-500/20">
+                    <div class="text-xs flex items-center gap-1 text-attention-800 dark:text-attention-200">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         {$_('settings.data.batch_analysis_circuit_open')}
                         {#if analysisStatus.open_until}
@@ -530,7 +536,7 @@
         openByDefault={resettingDatabase || clearingFavorites || clearingFeedback}
     >
         <!-- One block per action, narrowest reach first, each consequence beside its own button. -->
-        <ul class="@container divide-y divide-red-500/15 rounded-2xl border-2 border-red-500/20 bg-red-500/5" data-danger-actions>
+        <ul class="@container divide-y divide-red-500/15" data-danger-actions>
             <li class="flex flex-col gap-3 p-4 @xl:flex-row @xl:items-center @xl:justify-between @xl:gap-6" data-danger-action="feedback">
                 <div class="min-w-0 space-y-1">
                     <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.danger.feedback_title', { default: 'Personalization data' })}</h3>

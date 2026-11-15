@@ -62,8 +62,8 @@
   "photo_count": "Foto {index} de {count}",
   "next_photo": "Próxima foto",
   "group_dismiss": "{count, plural, one {Descartar a # foto restante} other {Descartar as # fotos restantes}}",
-  "confidence": "Limiar de propostas de animais",
-  "confidence_help": "De 50% a 95%. Valores mais altos reduzem propostas, mas podem perder animais. Aplica-se apenas a novas fotos de movimento; a deteção de aves e a proteção de pessoas não mudam.",
+  "confidence": "Certeza antes de sugerir um animal",
+  "confidence_help": "Uma foto de movimento só vira sugestão para você revisar quando a verificação tem pelo menos essa certeza. Mais alto significa menos sugestões e mais animais perdidos.",
   "photo_confirmed": "Foto confirmada.",
   "photo_restored": "Foto devolvida para revisão.",
   "group_remaining": "As outras fotos deste grupo ainda precisam de revisão.",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "Animal detectado, mas a pontuação de espécie está abaixo do limite de nomeação. Movido para Descartados; volte-o para revisão se quiser nomeá-lo você mesmo.",
   "automatic_bird_camera": "Ave, tratada pela detecção de aves nesta câmera. Movida para Descartadas; devolva a foto para revisão se não for uma ave.",
   "automatic_wild_bird": "Ave selvagem. Ative aves nesta câmera para registrá-la. Movida para Descartadas; devolva a foto para revisão se a verificação estiver errada.",
-  "motion_unreadable": "{count, plural, one {# gravação não pôde ser lida} other {# gravações não puderam ser lidas}} em {camera} na última hora e {count, plural, one {foi ignorada} other {foram ignoradas}}. Nenhuma foto foi mantida."
+  "motion_unreadable": "{count, plural, one {# gravação não pôde ser lida} other {# gravações não puderam ser lidas}} em {camera} na última hora e {count, plural, one {foi ignorada} other {foram ignoradas}}. Nenhuma foto foi mantida.",
+  "confidence_low": "Mais sugestões",
+  "confidence_high": "Menos sugestões",
+  "naming_low": "Nomeia mais",
+  "naming_high": "Nomeia menos"
 }

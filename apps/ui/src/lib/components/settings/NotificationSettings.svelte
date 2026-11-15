@@ -20,6 +20,8 @@
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testNotification } from '../../api/maintenance';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import SettingsRow from './_primitives/SettingsRow.svelte';
+    import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import NotificationPolicySentence from './NotificationPolicySentence.svelte';
     import { policyChannels } from '../../settings/notification-policy';
@@ -293,6 +295,9 @@
 
     const speciesFilterSectionId = 'notification-species-filter-section';
     const channelsSectionId = 'notification-channels';
+    // What the cooldown goes back to when switched on again; ten minutes the first time.
+    // svelte-ignore state_referenced_locally
+    let lastCooldownMinutes = $state(notifyCooldownMinutes > 0 ? notifyCooldownMinutes : 10);
 
     const speciesFilterCount = $derived(
         filterSpeciesEntries.length +
@@ -392,13 +397,9 @@
 </script>
 
 <div class="space-y-6">
-    {#snippet notificationsIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>
-    {/snippet}
 
     <!-- Global Notification Filters -->
-    <SettingsCard accent iconSnippet={notificationsIcon} title={$_('settings.notifications.global_filters')}>
-        <div class="space-y-6">
+    <SettingsCard title={$_('settings.notifications.global_filters')}>
             <!-- Delivery policy as one sentence; every slot is editable in place -->
             <NotificationPolicySentence
                 mode={notifyMode}
@@ -416,85 +417,112 @@
                 {channelsSectionId}
             />
 
-            <div class="flex items-center justify-between gap-4">
-                <div>
-                    <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                    <span class="block text-xs text-slate-600 dark:text-slate-400 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+            <!-- Off is zero minutes: a switch says so instead of asking for "0 to disable". -->
+            <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-notification-cooldown>
+                <div class="min-w-0">
+                    <span id="notification-cooldown-label" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                    <span class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_desc')}</span>
                 </div>
-                <div class="flex items-center gap-2">
-                    <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        bind:value={notifyCooldownMinutes}
-                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
-                        aria-label={$_('settings.notifications.cooldown')}
+                <div class="min-w-0 space-y-3">
+                    <SettingsToggle
+                        checked={notifyCooldownMinutes > 0}
+                        labelledBy="notification-cooldown-label"
+                        srLabel={$_('settings.notifications.cooldown')}
+                        onchange={(on) => (notifyCooldownMinutes = on ? lastCooldownMinutes : 0)}
                     />
-                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_unit')}</span>
+                    {#if notifyCooldownMinutes > 0}
+                        <div class="flex flex-wrap items-center gap-2">
+                            <input
+                                id="notification-cooldown-minutes"
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={notifyCooldownMinutes}
+                                oninput={(event) => {
+                                    const minutes = Math.max(1, Math.floor(Number(event.currentTarget.value) || 1));
+                                    notifyCooldownMinutes = minutes;
+                                    lastCooldownMinutes = minutes;
+                                }}
+                                onblur={(event) => {
+                                    // Show what will be saved: whole minutes, at least one.
+                                    event.currentTarget.value = String(notifyCooldownMinutes);
+                                }}
+                                class="input-base min-h-11 w-24"
+                                aria-labelledby="notification-cooldown-label notification-cooldown-unit"
+                            />
+                            <span id="notification-cooldown-unit" class="text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.cooldown_unit')}</span>
+                        </div>
+                    {/if}
                 </div>
             </div>
 
             <!-- Notification Language -->
-            <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <label for="notification-language" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.notifications.notification_language')}</label>
-                        <p id="notification-language-desc" class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.notifications.notification_language_desc')}</p>
-                    </div>
-                    <select
-                        id="notification-language"
-                        bind:value={notificationLanguage}
-                        aria-describedby="notification-language-desc"
-                        class="select-base min-w-36"
-                    >
-                        <option value="en">English</option>
-                        <option value="es">Español</option>
-                        <option value="fr">Français</option>
-                        <option value="de">Deutsch</option>
-                        <option value="ja">日本語</option>
-                        <option value="zh">中文</option>
-                        <option value="ru">Русский</option>
-                        <option value="pt">Português</option>
-                        <option value="it">Italiano</option>
-                    </select>
+            <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                <div class="min-w-0">
+                    <label for="notification-language" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.notification_language')}</label>
+                    <p id="notification-language-desc" class="mt-1 max-w-prose text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.notification_language_desc')}</p>
                 </div>
+                <select
+                    id="notification-language"
+                    bind:value={notificationLanguage}
+                    aria-describedby="notification-language-desc"
+                    class="select-base min-h-11 w-full"
+                >
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh">中文</option>
+                    <option value="ru">Русский</option>
+                    <option value="pt">Português</option>
+                    <option value="it">Italiano</option>
+                </select>
             </div>
 
             <!-- Instance address: where notifications link back to -->
-            <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <label for="notification-instance-url" class="block text-sm font-semibold text-slate-700 mb-1 dark:text-slate-200">{$_('settings.notifications.instance_url')}</label>
-                <p id="notification-instance-url-hint" class="mb-2 text-sm text-slate-600 dark:text-slate-300">{$_('settings.notifications.instance_url_desc')}</p>
-                <input
-                    id="notification-instance-url"
-                    type="url"
-                    bind:value={instanceUrl}
-                    placeholder={$_('settings.notifications.instance_url_placeholder')}
-                    aria-describedby={instanceUrlRefusal ? 'notification-instance-url-hint notification-instance-url-error' : 'notification-instance-url-hint'}
-                    aria-invalid={instanceUrlRefusal && !instanceUrlRefusal.conflict ? 'true' : undefined}
-                    class="input-base w-full"
-                />
-                <FieldRefusal id="notification-instance-url-error" refusal={instanceUrlRefusal} />
+            <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                <div class="min-w-0">
+                    <label for="notification-instance-url" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.instance_url')}</label>
+                    <p id="notification-instance-url-hint" class="mt-1 max-w-prose text-sm text-slate-600 dark:text-slate-400">{$_('settings.notifications.instance_url_desc')}</p>
+                </div>
+                <div class="min-w-0">
+                    <input
+                        id="notification-instance-url"
+                        type="url"
+                        bind:value={instanceUrl}
+                        placeholder={$_('settings.notifications.instance_url_placeholder')}
+                        aria-describedby={instanceUrlRefusal ? 'notification-instance-url-hint notification-instance-url-error' : 'notification-instance-url-hint'}
+                        aria-invalid={instanceUrlRefusal && !instanceUrlRefusal.conflict ? 'true' : undefined}
+                        class="input-base min-h-11 w-full"
+                    />
+                    <FieldRefusal id="notification-instance-url-error" refusal={instanceUrlRefusal} />
+                </div>
             </div>
 
             <!-- Where the notification link opens -->
-            <div class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30">
-                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.link_opens')}</h3>
-                <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {linkTarget === 'yawamf' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
-                        <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+            <div>
+                <h3 class="mb-3 text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.link_opens')}</h3>
+                <div class="space-y-1" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
+                    <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
+                        <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+                        </span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {linkTarget === 'frigate' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
-                        <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_desc')}</span>
-                        <span class="mt-1 block text-xs leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                    <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
+                        <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_desc')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                        </span>
                     </label>
                 </div>
                 {#if frigateUrlMissing}
-                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-attention-400/70 bg-attention-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-attention-900/20 dark:text-slate-200" role="status">
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm text-attention-800 dark:text-attention-200" role="status">
                         <span>{$_('settings.notifications.link_frigate_url_missing')}</span>
                         <button type="button" class="btn btn-ghost text-xs" onclick={onOpenConnection}>{$_('settings.notifications.link_open_connection', { default: 'Open Connection' })}</button>
                     </div>
@@ -505,7 +533,7 @@
                         {#if linkPreview}
                             <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
                         {:else}
-                            <span class="italic text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_none')}</span>
+                            <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_none')}</span>
                         {/if}
                     </div>
                     <span class="text-slate-600 dark:text-slate-400">{$_('settings.notifications.link_preview_others')}</span>
@@ -513,42 +541,48 @@
             </div>
 
             <!-- Species Filter -->
-            <div id={speciesFilterSectionId} class="pt-4 border-t border-brand-200/50 dark:border-brand-700/30 scroll-mt-24">
-                <h3 class="text-sm font-semibold text-slate-700 mb-4 dark:text-slate-200">{$_('settings.notifications.species_filter')}</h3>
-                <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'none' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
-                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_none_desc')}</span>
+            <div id={speciesFilterSectionId} class="scroll-mt-24">
+                <h3 class="mb-3 text-base font-medium text-slate-900 dark:text-white">{$_('settings.notifications.species_filter')}</h3>
+                <div class="space-y-1" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
+                    <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
+                        <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_none_desc')}</span>
+                        </span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'blacklist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
-                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                    <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
+                        <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                        </span>
                     </label>
-                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition focus-within:ring-2 focus-within:ring-focus focus-within:ring-offset-2 focus-within:ring-offset-surface {filterSpeciesMode === 'whitelist' ? 'border-brand-400 bg-brand-100/70 dark:bg-brand-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
-                        <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
-                        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
-                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                    <label class="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-raised has-focus-visible:ring-2 has-focus-visible:ring-focus">
+                        <input class="mt-1 h-4 w-4 shrink-0 accent-brand-600" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
+                        <span class="min-w-0">
+                            <span class="block text-sm font-medium text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
+                            <span class="mt-0.5 block text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                        </span>
                     </label>
                 </div>
 
                 {#if filterSpeciesMode !== 'none'}
-                    <div class="mt-5 rounded-2xl border border-brand-200/60 bg-white/60 p-4 dark:border-brand-700/30 dark:bg-slate-900/30">
+                    <div class="mt-5">
                         <label for="notification-species-search" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{speciesFilterListTitle}</label>
                         <input
                             id="notification-species-search"
                             bind:value={speciesSearchQuery}
                             placeholder={$_('settings.notifications.species_filter_search_placeholder')}
                             aria-label={$_('settings.notifications.species_filter_search_placeholder')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                            class="input-base w-full"
                         />
                         {#if speciesSearchLoading}
-                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('common.loading')}</p>
+                            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('common.loading')}</p>
                         {:else if speciesSearchError}
                             <p class="mt-2 text-xs font-bold text-red-700 dark:text-red-300">{speciesSearchError}</p>
                         {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
-                            <p class="mt-2 text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
+                            <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
                         {/if}
 
                         {#if speciesSearchResults.length > 0}
@@ -583,7 +617,7 @@
                                 </span>
                             {/each}
                             {#if filterSpeciesEntries.length === 0 && legacySpeciesWhitelist.length === 0}
-                                <p class="text-xs font-bold text-slate-600 dark:text-slate-400 italic">{$_('settings.notifications.no_species_filter')}</p>
+                                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.no_species_filter')}</p>
                             {/if}
                         </div>
 
@@ -609,20 +643,20 @@
                     </div>
                 {/if}
             </div>
-        </div>
+
     </SettingsCard>
 
-    <div id={channelsSectionId} class="grid scroll-mt-24 grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
-        <!-- Discord -->
-        <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {discordEnabled ? 'mb-6' : ''}">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028 14.09 14.09 0 001.226-1.994.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-                        </svg>
-                    </div>
-                    <h3 id="discord-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.discord.title')}</h3>
+    <!-- One surface for every channel: a row each, its switch on the right, its fields inside the row while on. -->
+    <SettingsCard
+        id={channelsSectionId}
+        title={$_('settings.notifications.channels_title', { default: 'Channels' })}
+        description={$_('settings.notifications.channels_desc', { default: 'Where alerts go. Turn a channel on to set it up.' })}
+    >
+        <div data-notification-channel="discord">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="discord-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.discord.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.discord.desc', { default: 'Posts each alert to a Discord channel through its webhook.' })}</p>
                 </div>
                 <SettingsToggle
                     checked={discordEnabled}
@@ -633,36 +667,40 @@
             </div>
 
             {#if discordEnabled}
-            <div class="space-y-4 flex-1">
-                <div>
-                    <label for="discord-webhook" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.discord.webhook_url')}</label>
-                    <SecretInput
-                        id="discord-webhook"
-                        type="text"
-                        value={discordWebhook}
-                        saved={discordWebhookSaved}
-                        emptyPlaceholder={$_('settings.discord.webhook_placeholder')}
-                        ariaLabel={$_('settings.discord.webhook_url')}
-                        oninput={(v) => (discordWebhook = v)}
-                    />
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="discord-webhook" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.discord.webhook_url')}</label>
+                    <div class="min-w-0">
+                        <SecretInput
+                            id="discord-webhook"
+                            type="text"
+                            value={discordWebhook}
+                            saved={discordWebhookSaved}
+                            emptyPlaceholder={$_('settings.discord.webhook_placeholder')}
+                            ariaLabel={$_('settings.discord.webhook_url')}
+                            oninput={(v) => (discordWebhook = v)}
+                        />
+                    </div>
                 </div>
-                <div>
-                    <label for="discord-botname" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.discord.bot_username')}</label>
-                    <input
-                        id="discord-botname"
-                        type="text"
-                        bind:value={discordBotName}
-                        placeholder={$_('settings.discord.bot_placeholder')}
-                        aria-label={$_('settings.discord.bot_username')}
-                        class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                    />
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="discord-botname" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.discord.bot_username')}</label>
+                    <div class="min-w-0">
+                        <input
+                            id="discord-botname"
+                            type="text"
+                            bind:value={discordBotName}
+                            placeholder={$_('settings.discord.bot_placeholder')}
+                            aria-label={$_('settings.discord.bot_username')}
+                            class="input-base w-full"
+                        />
+                    </div>
                 </div>
                 <button
                     type="button"
                     onclick={runDiscordTest}
                     disabled={ntRunning || !discordReady}
                     aria-describedby={discordReady ? undefined : 'discord-test-reason'}
-                    class="btn btn-primary min-h-11 w-full px-4 py-3"
+                    class="btn btn-secondary min-h-11 px-4"
                 >
                     {$_('settings.discord.test_notification')}
                 </button>
@@ -671,16 +709,13 @@
                 {/if}
             </div>
             {/if}
-        </section>
+        </div>
 
-        <!-- Pushover -->
-        <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {pushoverEnabled ? 'mb-6' : ''}">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                    </div>
-                    <h3 id="pushover-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.pushover.title')}</h3>
+        <div data-notification-channel="pushover">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="pushover-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.pushover.desc', { default: 'Sends each alert to your phone through the Pushover app.' })}</p>
                 </div>
                 <SettingsToggle
                     checked={pushoverEnabled}
@@ -691,37 +726,41 @@
             </div>
 
             {#if pushoverEnabled}
-            <div class="space-y-4 flex-1">
-                <div>
-                    <label for="pushover-userkey" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.user_key')}</label>
-                    <SecretInput
-                        id="pushover-userkey"
-                        type="text"
-                        value={pushoverUserKey}
-                        saved={pushoverUserSaved}
-                        emptyPlaceholder={$_('settings.pushover.user_key_placeholder')}
-                        ariaLabel={$_('settings.pushover.user_key')}
-                        oninput={(v) => (pushoverUserKey = v)}
-                    />
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="pushover-userkey" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.user_key')}</label>
+                    <div class="min-w-0">
+                        <SecretInput
+                            id="pushover-userkey"
+                            type="text"
+                            value={pushoverUserKey}
+                            saved={pushoverUserSaved}
+                            emptyPlaceholder={$_('settings.pushover.user_key_placeholder')}
+                            ariaLabel={$_('settings.pushover.user_key')}
+                            oninput={(v) => (pushoverUserKey = v)}
+                        />
+                    </div>
                 </div>
-                <div>
-                    <label for="pushover-apitoken" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.api_token')}</label>
-                    <SecretInput
-                        id="pushover-apitoken"
-                        type="text"
-                        value={pushoverApiToken}
-                        saved={pushoverTokenSaved}
-                        emptyPlaceholder={$_('settings.pushover.api_token_placeholder')}
-                        ariaLabel={$_('settings.pushover.api_token')}
-                        oninput={(v) => (pushoverApiToken = v)}
-                    />
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="pushover-apitoken" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.api_token')}</label>
+                    <div class="min-w-0">
+                        <SecretInput
+                            id="pushover-apitoken"
+                            type="text"
+                            value={pushoverApiToken}
+                            saved={pushoverTokenSaved}
+                            emptyPlaceholder={$_('settings.pushover.api_token_placeholder')}
+                            ariaLabel={$_('settings.pushover.api_token')}
+                            oninput={(v) => (pushoverApiToken = v)}
+                        />
+                    </div>
                 </div>
                 <button
                     type="button"
                     onclick={runPushoverTest}
                     disabled={ntRunning || !pushoverReady}
                     aria-describedby={pushoverReady ? undefined : 'pushover-test-reason'}
-                    class="btn btn-primary min-h-11 w-full px-4 py-3"
+                    class="btn btn-secondary min-h-11 px-4"
                 >
                     {$_('settings.pushover.test_notification')}
                 </button>
@@ -733,48 +772,47 @@
                     id="notifications-pushover-advanced"
                     title={$_('settings.pushover.advanced_title', { default: 'Priority & device targeting' })}
                 >
-                    <div>
-                        <label for="pushover-priority" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.priority')}</label>
-                        <select
-                            id="pushover-priority"
-                            bind:value={pushoverPriority}
-                            aria-label={$_('settings.pushover.priority')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        >
-                            <option value={-2}>{$_('settings.pushover.priority_lowest')}</option>
-                            <option value={-1}>{$_('settings.pushover.priority_low')}</option>
-                            <option value={0}>{$_('settings.pushover.priority_normal')}</option>
-                            <option value={1}>{$_('settings.pushover.priority_high')}</option>
-                            <option value={2}>{$_('settings.pushover.priority_emergency')}</option>
-                        </select>
+                    <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                        <label for="pushover-priority" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.priority')}</label>
+                        <div class="min-w-0">
+                            <select
+                                id="pushover-priority"
+                                bind:value={pushoverPriority}
+                                aria-label={$_('settings.pushover.priority')}
+                                class="input-base w-full"
+                            >
+                                <option value={-2}>{$_('settings.pushover.priority_lowest')}</option>
+                                <option value={-1}>{$_('settings.pushover.priority_low')}</option>
+                                <option value={0}>{$_('settings.pushover.priority_normal')}</option>
+                                <option value={1}>{$_('settings.pushover.priority_high')}</option>
+                                <option value={2}>{$_('settings.pushover.priority_emergency')}</option>
+                            </select>
+                        </div>
                     </div>
-                    <div>
-                        <label for="pushover-device" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.pushover.device')}</label>
-                        <input
-                            id="pushover-device"
-                            type="text"
-                            bind:value={pushoverDevice}
-                            placeholder={$_('settings.pushover.device_placeholder')}
-                            aria-label={$_('settings.pushover.device')}
-                            class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-focus outline-hidden transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                        />
-                        <p class="mt-1.5 text-xs text-slate-600 dark:text-slate-400 ml-1">{$_('settings.pushover.device_hint')}</p>
+                    <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                        <label for="pushover-device" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.pushover.device')}</label>
+                        <div class="min-w-0">
+                            <input
+                                id="pushover-device"
+                                type="text"
+                                bind:value={pushoverDevice}
+                                placeholder={$_('settings.pushover.device_placeholder')}
+                                aria-label={$_('settings.pushover.device')}
+                                class="input-base min-h-11 w-full"
+                            />
+                            <p class="mt-1.5 text-xs text-slate-600 dark:text-slate-400 ml-1">{$_('settings.pushover.device_hint')}</p>
+                        </div>
                     </div>
                 </AdvancedSection>
             </div>
             {/if}
-        </section>
+        </div>
 
-        <!-- Telegram -->
-        <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {telegramEnabled ? 'mb-6' : ''}">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.161c-.18 1.897-.962 6.502-1.359 8.627-.168.9-.5 1.201-.82 1.23-.697.064-1.226-.461-1.901-.903-1.056-.693-1.653-1.124-2.678-1.8-1.185-.781-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.831-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                        </svg>
-                    </div>
-                    <h3 id="telegram-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.telegram.title')}</h3>
+        <div data-notification-channel="telegram">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="telegram-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.telegram.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.telegram.desc', { default: 'Sends each alert to a Telegram chat through your bot.' })}</p>
                 </div>
                 <SettingsToggle
                     checked={telegramEnabled}
@@ -785,36 +823,40 @@
             </div>
 
             {#if telegramEnabled}
-            <div class="space-y-4 flex-1">
-                <div>
-                    <label for="telegram-bottoken" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.telegram.bot_token')}</label>
-                    <SecretInput
-                        id="telegram-bottoken"
-                        value={telegramBotToken}
-                        saved={telegramTokenSaved}
-                        emptyPlaceholder={$_('settings.telegram.bot_token_placeholder')}
-                        ariaLabel={$_('settings.telegram.bot_token')}
-                        oninput={(v) => (telegramBotToken = v)}
-                    />
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="telegram-bottoken" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.telegram.bot_token')}</label>
+                    <div class="min-w-0">
+                        <SecretInput
+                            id="telegram-bottoken"
+                            value={telegramBotToken}
+                            saved={telegramTokenSaved}
+                            emptyPlaceholder={$_('settings.telegram.bot_token_placeholder')}
+                            ariaLabel={$_('settings.telegram.bot_token')}
+                            oninput={(v) => (telegramBotToken = v)}
+                        />
+                    </div>
                 </div>
-                <div>
-                    <label for="telegram-chatid" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.telegram.chat_id')}</label>
-                    <SecretInput
-                        id="telegram-chatid"
-                        type="text"
-                        value={telegramChatId}
-                        saved={telegramChatIdSaved}
-                        emptyPlaceholder={$_('settings.telegram.chat_id_placeholder')}
-                        ariaLabel={$_('settings.telegram.chat_id')}
-                        oninput={(v) => (telegramChatId = v)}
-                    />
+                <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                    <label for="telegram-chatid" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.telegram.chat_id')}</label>
+                    <div class="min-w-0">
+                        <SecretInput
+                            id="telegram-chatid"
+                            type="text"
+                            value={telegramChatId}
+                            saved={telegramChatIdSaved}
+                            emptyPlaceholder={$_('settings.telegram.chat_id_placeholder')}
+                            ariaLabel={$_('settings.telegram.chat_id')}
+                            oninput={(v) => (telegramChatId = v)}
+                        />
+                    </div>
                 </div>
                 <button
                     type="button"
                     onclick={runTelegramTest}
                     disabled={ntRunning || !telegramReady}
                     aria-describedby={telegramReady ? undefined : 'telegram-test-reason'}
-                    class="btn btn-primary min-h-11 w-full px-4 py-3"
+                    class="btn btn-secondary min-h-11 px-4"
                 >
                     {$_('settings.telegram.test_notification')}
                 </button>
@@ -823,18 +865,13 @@
                 {/if}
             </div>
             {/if}
-        </section>
+        </div>
 
-        <!-- Email -->
-        <section class="card-base rounded-2xl p-8 flex flex-col">
-            <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {emailEnabled ? 'mb-6' : ''}">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="w-10 h-10 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                    <h3 id="email-channel-label" class="min-w-0 break-words text-xl font-bold text-slate-900 dark:text-white tracking-tight">{$_('settings.email.title')}</h3>
+        <div data-notification-channel="email">
+            <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                    <h3 id="email-channel-label" class="text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.title')}</h3>
+                    <p class="mt-1 max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.email.desc', { default: 'Sends each alert by email, from Gmail, Outlook or your own mail server.' })}</p>
                 </div>
                 <SettingsToggle
                     checked={emailEnabled}
@@ -845,29 +882,19 @@
             </div>
 
             {#if emailEnabled}
-            <div class="space-y-4 flex-1">
+            <div class="settings-stack mt-4 border-t border-line-soft pt-4">
                 <!-- Auth Mode Selector -->
-                <div>
-                    <div id="email-auth-mode-label" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.auth_mode')}</div>
-                    <div class="flex gap-2" role="group" aria-labelledby="email-auth-mode-label">
-                        <button
-                            onclick={() => emailUseOAuth = true}
-                            aria-label={$_('settings.email.oauth')}
-                            aria-pressed={emailUseOAuth}
-                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {emailUseOAuth ? 'bg-brand-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
-                        >
-                            {$_('settings.email.oauth')}
-                        </button>
-                        <button
-                            onclick={() => emailUseOAuth = false}
-                            aria-label={$_('settings.email.smtp')}
-                            aria-pressed={!emailUseOAuth}
-                            class="flex-1 px-4 py-2 rounded-xl text-sm font-bold transition-all {!emailUseOAuth ? 'bg-brand-700 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300'}"
-                        >
-                            {$_('settings.email.smtp')}
-                        </button>
-                    </div>
-                </div>
+                <SettingsRow labelId="email-auth-mode-label" label={$_('settings.email.auth_mode')}>
+                    <SettingsSegmented
+                        value={emailUseOAuth ? 'oauth' : 'smtp'}
+                        labelledBy="email-auth-mode-label"
+                        onchange={(mode) => (emailUseOAuth = mode === 'oauth')}
+                        options={[
+                            { value: 'oauth', label: $_('settings.email.oauth') },
+                            { value: 'smtp', label: $_('settings.email.smtp') }
+                        ]}
+                    />
+                </SettingsRow>
 
                 {#if emailUseOAuth}
                     <!-- OAuth App Credentials -->
@@ -887,7 +914,7 @@
                                     bind:value={emailGmailClientId}
                                     placeholder={$_('settings.email.gmail_client_id_placeholder')}
                                     aria-label={$_('settings.email.gmail_client_id')}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                    class="input-base w-full"
                                 />
                             </div>
                             <div>
@@ -913,7 +940,7 @@
                                     bind:value={emailOutlookClientId}
                                     placeholder={$_('settings.email.outlook_client_id_placeholder')}
                                     aria-label={$_('settings.email.outlook_client_id')}
-                                    class="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-sm"
+                                    class="input-base w-full"
                                 />
                             </div>
                             <div>
@@ -949,7 +976,7 @@
                                 }}
                                 aria-label={$_('settings.email.connect_gmail')}
                                 disabled={connectingGmail || connectingOutlook || disconnectingEmailOAuth}
-                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-400 text-sm font-bold transition-all"
+                                class="flex-1 text-sm transition-all"
                             >
                                 {connectingGmail ? $_('common.testing') : $_('settings.email.connect_gmail')}
                             </button>
@@ -968,7 +995,7 @@
                                 }}
                                 aria-label={$_('settings.email.connect_outlook')}
                                 disabled={connectingOutlook || connectingGmail || disconnectingEmailOAuth}
-                                class="flex-1 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-brand-500 dark:hover:border-brand-400 text-sm font-bold transition-all"
+                                class="flex-1 text-sm transition-all"
                             >
                                 {connectingOutlook ? $_('common.testing') : $_('settings.email.connect_outlook')}
                             </button>
@@ -1002,97 +1029,99 @@
                 {:else}
                     <!-- SMTP Section -->
                     <div class="space-y-3">
-                        <div>
-                            <label for="smtp-host" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_host')}</label>
-                            <input
-                                id="smtp-host"
-                                type="text"
-                                bind:value={emailSmtpHost}
-                                placeholder={$_('settings.email.smtp_host_placeholder')}
-                                aria-label={$_('settings.email.smtp_host')}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                            />
-                        </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label for="smtp-port" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_port')}</label>
+                        <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                            <label for="smtp-host" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.smtp_host')}</label>
+                            <div class="min-w-0">
                                 <input
-                                    id="smtp-port"
-                                    type="number"
-                                    bind:value={emailSmtpPort}
-                                    aria-label={$_('settings.email.smtp_port')}
-                                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
+                                    id="smtp-host"
+                                    type="text"
+                                    bind:value={emailSmtpHost}
+                                    placeholder={$_('settings.email.smtp_host_placeholder')}
+                                    aria-label={$_('settings.email.smtp_host')}
+                                    class="input-base w-full"
                                 />
                             </div>
-                            <div class="flex items-end">
-                                <label for="smtp-tls" class="flex items-center gap-2 px-4 py-3">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                                <label for="smtp-port" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.smtp_port')}</label>
+                                <div class="min-w-0">
                                     <input
-                                        id="smtp-tls"
-                                        type="checkbox"
-                                        bind:checked={emailSmtpUseTls}
-                                        class="rounded-sm"
+                                        id="smtp-port"
+                                        type="number"
+                                        bind:value={emailSmtpPort}
+                                        aria-label={$_('settings.email.smtp_port')}
+                                        class="input-base w-full"
                                     />
-                                    <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.smtp_use_tls')}</span>
-                                </label>
+                                </div>
+                            </div>
+                            <div class="flex items-end">
+                                <div class="flex min-h-11 items-center justify-between gap-3 w-full">
+                                    <span id="smtp-tls-label" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.email.smtp_use_tls')}</span>
+                                    <SettingsToggle checked={emailSmtpUseTls} labelledBy="smtp-tls-label" srLabel={$_('settings.email.smtp_use_tls')} onchange={(value) => (emailSmtpUseTls = value)} />
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <label for="smtp-username" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_username')}</label>
-                            <input
-                                id="smtp-username"
-                                type="text"
-                                bind:value={emailSmtpUsername}
-                                aria-label={$_('settings.email.smtp_username')}
-                                class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                            />
+                        <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                            <label for="smtp-username" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.smtp_username')}</label>
+                            <div class="min-w-0">
+                                <input
+                                    id="smtp-username"
+                                    type="text"
+                                    bind:value={emailSmtpUsername}
+                                    aria-label={$_('settings.email.smtp_username')}
+                                    class="input-base w-full"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label for="smtp-password" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.smtp_password')}</label>
-                            <SecretInput
-                                id="smtp-password"
-                                value={emailSmtpPassword}
-                                saved={emailSmtpPasswordSaved}
-                                ariaLabel={$_('settings.email.smtp_password')}
-                                oninput={(v) => (emailSmtpPassword = v)}
-                            />
+                        <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                            <label for="smtp-password" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.smtp_password')}</label>
+                            <div class="min-w-0">
+                                <SecretInput
+                                    id="smtp-password"
+                                    value={emailSmtpPassword}
+                                    saved={emailSmtpPasswordSaved}
+                                    ariaLabel={$_('settings.email.smtp_password')}
+                                    oninput={(v) => (emailSmtpPassword = v)}
+                                />
+                            </div>
                         </div>
                     </div>
                 {/if}
 
                 <!-- Common Email Settings -->
                 <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
-                    <div>
-                        <label for="email-from" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.from_email')}</label>
-                        <input
-                            id="email-from"
-                            type="email"
-                            bind:value={emailFromEmail}
-                            placeholder={$_('settings.email.from_email_placeholder')}
-                            aria-label={$_('settings.email.from_email')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label for="email-to" class="block text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.email.to_email')}</label>
-                        <input
-                            id="email-to"
-                            type="email"
-                            bind:value={emailToEmail}
-                            placeholder={$_('settings.email.to_email_placeholder')}
-                            aria-label={$_('settings.email.to_email')}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        />
-                    </div>
-                    <div>
-                        <label for="email-include-snapshot" class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
+                    <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                        <label for="email-from" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.from_email')}</label>
+                        <div class="min-w-0">
                             <input
-                                id="email-include-snapshot"
-                                type="checkbox"
-                                bind:checked={emailIncludeSnapshot}
-                                class="rounded-sm"
+                                id="email-from"
+                                type="email"
+                                bind:value={emailFromEmail}
+                                placeholder={$_('settings.email.from_email_placeholder')}
+                                aria-label={$_('settings.email.from_email')}
+                                class="input-base w-full"
                             />
-                            <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.include_snapshot')}</span>
-                        </label>
+                        </div>
+                    </div>
+                    <div class="settings-row space-y-2 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row>
+                        <label for="email-to" class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.email.to_email')}</label>
+                        <div class="min-w-0">
+                            <input
+                                id="email-to"
+                                type="email"
+                                bind:value={emailToEmail}
+                                placeholder={$_('settings.email.to_email_placeholder')}
+                                aria-label={$_('settings.email.to_email')}
+                                class="input-base w-full"
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flex min-h-11 items-center justify-between gap-3 ">
+                                    <span id="email-include-snapshot-label" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.email.include_snapshot')}</span>
+                                    <SettingsToggle checked={emailIncludeSnapshot} labelledBy="email-include-snapshot-label" srLabel={$_('settings.email.include_snapshot')} onchange={(value) => (emailIncludeSnapshot = value)} />
+                                </div>
                     </div>
                 </div>
 
@@ -1101,15 +1130,10 @@
                     title={$_('settings.email.advanced_title', { default: 'Delivery timing & dashboard link' })}
                 >
                     <div>
-                        <label for="email-only-on-end" class="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl cursor-pointer">
-                            <input
-                                id="email-only-on-end"
-                                type="checkbox"
-                                bind:checked={emailOnlyOnEnd}
-                                class="rounded-sm"
-                            />
-                            <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
-                        </label>
+                        <div class="flex min-h-11 items-center justify-between gap-3 ">
+                                    <span id="email-only-on-end-label" class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.email.only_on_end')}</span>
+                                    <SettingsToggle checked={emailOnlyOnEnd} labelledBy="email-only-on-end-label" srLabel={$_('settings.email.only_on_end')} onchange={(value) => (emailOnlyOnEnd = value)} />
+                                </div>
                         <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                 </AdvancedSection>
@@ -1119,7 +1143,7 @@
                     onclick={runEmailTest}
                     disabled={ntRunning || !emailReady}
                     aria-describedby={emailReady ? undefined : 'email-test-reason'}
-                    class="btn btn-primary min-h-11 w-full px-4 py-3"
+                    class="btn btn-secondary min-h-11 px-4"
                 >
                     {$_('settings.email.test_email')}
                 </button>
@@ -1128,8 +1152,8 @@
                 {/if}
             </div>
             {/if}
-        </section>
-    </div>
+        </div>
+    </SettingsCard>
 
     {#if gardenBeta}
         <!-- Garden alerts are set with the rest of Garden; their channels are the ones set up here. -->

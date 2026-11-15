@@ -93,7 +93,7 @@ const DIALOGS: DialogCase[] = [
         // A real test flow: the fixture answers no test request, so the checklist ends on its failure summary.
         name: 'the connection test dialog', path: '/settings/connection', scope: '[role="dialog"]',
         open: async (page) => {
-            await page.getByRole('button', { name: /^test connection$/i }).first().click(READY);
+            await page.getByRole('button', { name: /^test frigate and mqtt$/i }).first().click(READY);
             const dialog = page.getByRole('dialog');
             await expect(dialog.locator('#diagnostic-title')).toBeVisible();
             await expect(dialog.locator('[data-diagnostic-actions] button').last()).toBeEnabled(READY);

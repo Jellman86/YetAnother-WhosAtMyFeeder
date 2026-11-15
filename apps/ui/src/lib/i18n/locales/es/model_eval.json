@@ -162,7 +162,7 @@
     "running_reason": "Solo se ejecuta una evaluación a la vez. Detén esta para iniciar otra.",
     "stop": "Detener evaluación",
     "title": "Iniciar una evaluación",
-    "what": "Cada modelo instalado nombra fotos de aves cuya especie ya está confirmada, para que puedas comparar con qué frecuencia acierta cada uno y con qué rapidez."
+    "what": "Cada modelo instalado nombra fotos de referencia de especies conocidas, para que puedas comparar con qué frecuencia acierta cada uno y con qué rapidez."
   },
   "stopped": {
     "finder_needs_provider_check": "Un buscador de aves solo se puede comprobar por proveedores. Inicia la comprobación desde Ajustes → Modelos.",

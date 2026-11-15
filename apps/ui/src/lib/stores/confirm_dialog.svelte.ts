@@ -12,9 +12,15 @@ export interface ConfirmRequest {
     /** Names the safe answer when "Cancel" would misread, e.g. "Stay" on a leave prompt. Defaults to Cancel. */
     cancelLabel?: string;
     tone?: ConfirmTone;
+    /**
+     * A second way forward beside the confirm button, such as "Save and leave". It runs with the
+     * question closed (it may ask one of its own), and the answer is whether it worked out.
+     */
+    alternative?: { label: string; run: () => Promise<boolean> };
 }
 
-interface PendingConfirmation extends Required<ConfirmRequest> {
+interface PendingConfirmation extends Required<Omit<ConfirmRequest, 'alternative'>> {
+    alternative?: ConfirmRequest['alternative'];
     resolve: (confirmed: boolean) => void;
 }
 
@@ -33,6 +39,22 @@ class ConfirmDialogStore {
         const pending = this.current;
         this.current = null;
         pending?.resolve(confirmed);
+    }
+
+    async runAlternative(): Promise<void> {
+        const pending = this.current;
+        if (!pending?.alternative) return;
+        this.current = null;
+        let worked = false;
+        try {
+            worked = await pending.alternative.run();
+        } catch {
+            // The alternative reports its own failure (a save says why in the save bar); here it
+            // only means "do not go ahead", so the page stays.
+            worked = false;
+        } finally {
+            pending.resolve(worked);
+        }
     }
 }
 

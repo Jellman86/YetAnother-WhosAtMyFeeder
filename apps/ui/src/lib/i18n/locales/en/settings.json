@@ -226,7 +226,7 @@
     "missing_media_title": "When Frigate loses a visit",
     "missing_media_desc": "Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.",
     "maintenance_jobs_title": "Jobs at once",
-    "maintenance_jobs_desc": "The jobs above run one at a time, so they never compete with bird identification."
+    "maintenance_jobs_desc": "By default each kind of job above runs one at a time, which keeps it from competing with bird identification."
   },
   "security": {
     "title": "Security",
@@ -240,12 +240,16 @@
     "mqtt_title": "The broker Frigate publishes its events to. YA-WAMF listens there for new detections.",
     "simulating": "Simulating…",
     "advanced_title": "Tuning",
-    "full_visit_advanced_title": "Full-visit clips (from recordings)"
+    "full_visit_advanced_title": "Full-visit clips",
+    "mqtt_host": "Address",
+    "mqtt_section": "MQTT broker",
+    "mqtt_where": "Address and port"
   },
   "common": {
     "save_error": "Failed to save settings",
-    "advanced": "Advanced",
-    "advanced_default_title": "Advanced options"
+    "show_advanced": "Show advanced options",
+    "hide_advanced": "Hide advanced options",
+    "set_outside": "{value} (set outside Settings)"
   },
   "tabs": {
     "connection": "Connection",
@@ -271,7 +275,9 @@
     "navigation_label": "Settings sections",
     "unsaved_note": "Has unsaved changes",
     "models": "Models",
-    "maintenance": "Maintenance"
+    "maintenance": "Maintenance",
+    "refused": "needs a fix",
+    "refused_note": "Has a value the last save refused"
   },
   "debug": {
     "llm_prompts_title": "LLM prompt templates",
@@ -298,12 +304,10 @@
     "pricing_not_configured": "Set prices under Pricing and prompt templates for an accurate cost.",
     "no_usage_data": "No AI usage recorded yet.",
     "clear_usage": "Clear history",
-    "clear_usage_confirm": "Are you sure you want to clear AI usage history? This cannot be undone.",
+    "clear_usage_confirm": "Clear the AI usage history? The counts and costs so far are deleted and cannot be brought back.",
     "clear_usage_success": "AI usage history cleared.",
     "clear_usage_error": "Failed to clear usage history.",
     "connection_title": "AI provider",
-    "provider_info_title": "Cloud AI providers",
-    "provider_info_desc": "YA-WAMF uses cloud LLMs for behavioural analysis and natural language interactions. You will need your own API key from the provider.",
     "prompts_title": "Prompt templates",
     "prompts_subtitle": "Customise the behaviour of AI features",
     "pricing_title": "Cost estimation",
@@ -337,7 +341,8 @@
     "test_network_error": "The diagnostic request could not reach YA-WAMF.",
     "advanced_title": "Pricing & prompt templates",
     "prompt_style_desc": "Choosing a style replaces the three templates below with its wording. Save changes keeps it.",
-    "prompt_style_custom": "Your own wording"
+    "prompt_style_custom": "Your own wording",
+    "test_needs_key": "Add an API key from your provider to test the connection. Each provider issues its own:"
   },
   "integrations": {
     "birdnet": {
@@ -511,8 +516,8 @@
     "open_ebird": "Go to eBird"
   },
   "auth": {
-    "title": "Authentication",
-    "desc": "Require a login for full access.",
+    "title": "Sign-in",
+    "desc": "Ask for a username and password before anyone can see everything or change settings.",
     "enable": "Enable authentication",
     "enable_desc": "Protect settings and admin actions behind a login",
     "username": "Admin username",
@@ -540,11 +545,12 @@
     "avatar_remove": "Remove picture",
     "avatar_saving": "Saving…",
     "avatar_too_large": "That file is over 8 MB. Choose a smaller picture.",
-    "avatar_failed": "That file could not be used as a picture. Try a JPEG or PNG."
+    "avatar_failed": "That file could not be used as a picture. Try a JPEG or PNG.",
+    "off_status": "Sign-in is off, so anyone who can open this address can see everything and change every setting."
   },
   "public_access": {
     "title": "Public access",
-    "desc": "Allow read-only access without login.",
+    "desc": "Lets visitors see detections without signing in. They can never change settings.",
     "enable": "Enable public access",
     "enable_desc": "Guests can view detections without logging in",
     "show_camera_names": "Show camera names",
@@ -574,7 +580,8 @@
     "location_approximate": "Approximate",
     "location_approximate_sub": "About 10 km. The safe default.",
     "location_exact": "Exact",
-    "location_exact_sub": "The configured coordinates as-is."
+    "location_exact_sub": "The configured coordinates as-is.",
+    "needs_auth": "Guest access only means something once sign-in is on: until then, everyone already has full access. Turn on sign-in first."
   },
   "accessibility": {
     "title": "Accessibility options",
@@ -585,7 +592,8 @@
     "reduced_motion": "Reduced motion",
     "reduced_motion_desc": "Stops animations and transitions. Your device's reduce-motion setting is always followed as well.",
     "live_announcements": "Live announcements",
-    "live_announcements_desc": "Announce new detections with screen reader alerts."
+    "live_announcements_desc": "Announce new detections with screen reader alerts.",
+    "scope": "These apply to everyone who uses this install, guests included, once you save. Until then they show here as a preview."
   },
   "frigate": {
     "title": "Frigate NVR",
@@ -651,6 +659,8 @@
     "test_title": "Frigate & MQTT connection test",
     "recording_frame_delay": "Initial identification delay (seconds)",
     "recording_frame_delay_desc": "Wait 1 to 120 seconds after the first snapshot moment. Use the latest tracked snapshot metadata received during that wait. Identification and notifications arrive later. This does not wait for every event to end or reclassify saved detections.",
+    "test_connection_both": "Test Frigate and MQTT",
+    "test_again": "Test again",
     "stage_frigate_next": "Check the Frigate server URL on this tab, and that Frigate is running.",
     "stage_mqtt_next": "Check the broker address, port and sign-in on this tab."
   },
@@ -659,7 +669,6 @@
     "none_found": "No cameras found",
     "syncing": "Scanning…",
     "preview_close": "Close preview",
-    "preview": "Preview {camera}",
     "preview_label": "Camera preview for {camera}",
     "preview_live": "Live",
     "preview_loading": "Loading preview…",
@@ -669,10 +678,10 @@
     "nest_dedupe_label": "Nest dedupe window",
     "nest_dedupe_unit": "min",
     "role_feeder": "Feeder",
-    "role_feeder_help": "Feeder cam: every Frigate event is treated as a fresh visit (default).",
+    "role_feeder_help": "Feeder: each Frigate event is a visit of its own.",
     "role_label": "Role",
     "role_nest": "Nest",
-    "role_nest_help": "Nest box cam: collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.",
+    "role_nest_help": "Nest box: a bird that stays in view counts once per window below instead of once per event, so a sitting parent does not flood the feed.",
     "preview_needs_url": "Enter the Frigate URL above to preview a camera.",
     "watch_desc": "Choose which Frigate cameras are watched for birds.",
     "watch_desc_garden": "Choose what each Frigate camera is watched for: birds, Garden animals or both.",
@@ -693,10 +702,14 @@
     "mode_both": "Both",
     "role_group": "{camera}: bird role",
     "blocked_last_bird_camera": "At least one camera must watch for birds, so birds stay on for this camera.",
-    "blocked_camera_list_unread": "Every camera watches for birds. Sync cameras from Frigate before turning birds off for one camera."
+    "blocked_camera_list_unread": "Every camera watches for birds. Sync cameras from Frigate before turning birds off for one camera.",
+    "sync_help": "The list comes from Frigate. Sync again after adding a camera there.",
+    "preview_show": "Preview",
+    "preview_hide": "Hide preview"
   },
   "telemetry": {
     "title": "Telemetry",
+    "usage_title": "Anonymous usage statistics",
     "desc": "Optional, anonymous usage telemetry to help improve YA-WAMF. Disabled by default.",
     "transparency": "Transparency: what we send",
     "install_id": "Installation ID",
@@ -737,7 +750,7 @@
   },
   "email": {
     "title": "Email notifications",
-    "desc": "Send email alerts for bird detections",
+    "desc": "Sends each alert by email, from Gmail, Outlook or your own mail server.",
     "enable": "Enable email notifications",
     "auth_mode": "Authentication mode",
     "oauth": "OAuth (Recommended)",
@@ -824,7 +837,7 @@
     "video_fallback_timeout_desc": "Optional extra wait time. YA-WAMF will never wait less than the auto-derived video pipeline minimum.",
     "video_fallback_seconds": "seconds",
     "cooldown": "Notification cooldown",
-    "cooldown_desc": "Minimum time between notifications in minutes (0 to disable).",
+    "cooldown_desc": "After an alert, wait this long before sending another.",
     "cooldown_unit": "minutes",
     "enable_notify_hint": "Notifications are currently off. Enable \"Notify on new detections\" or \"Notify on updates\" to send any alerts.",
     "min_confidence_label": "Notification minimum confidence: {value}%",
@@ -920,10 +933,13 @@
     },
     "garden_elsewhere": "Garden animal alerts are set with Garden animals, in Beta features. They send through the channels above.",
     "garden_open": "Open Garden alerts",
-    "link_open_connection": "Open Connection"
+    "link_open_connection": "Open Connection",
+    "channels_title": "Channels",
+    "channels_desc": "Where alerts go. Turn a channel on to set it up."
   },
   "discord": {
     "title": "Discord notifications",
+    "desc": "Posts each alert to a Discord channel through its webhook.",
     "webhook_url": "Webhook URL",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "Bot username",
@@ -934,6 +950,7 @@
   },
   "pushover": {
     "title": "Pushover notifications",
+    "desc": "Sends each alert to your phone through the Pushover app.",
     "user_key": "User key",
     "user_key_placeholder": "Your Pushover user key",
     "api_token": "API token",
@@ -954,6 +971,7 @@
   },
   "telegram": {
     "title": "Telegram notifications",
+    "desc": "Sends each alert to a Telegram chat through your bot.",
     "bot_token": "Bot token",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "Chat ID",
@@ -1020,7 +1038,7 @@
     "min_confidence_floor": "Minimum confidence floor",
     "floor_capture_all": "Capture all",
     "floor_reject_unsure": "Reject unsure",
-    "floor_help": "Events below this floor are ignored completely. Events between floor and threshold are saved as \"Unknown Bird\".",
+    "floor_help": "Below this score, a photo is not kept at all. Between the two, the visit is kept as Unknown bird for you to name.",
     "trust_frigate": "Trust Frigate sublabels",
     "trust_frigate_desc": "Skip internal classification if Frigate identified species",
     "write_frigate_sublabel": "Write labels back to Frigate",
@@ -1046,18 +1064,18 @@
     "naming_scientific_sub": "Only show scientific names. Hides common names.",
     "blocked_labels": "Blocked labels",
     "ignored_by_discovery": "Ignored by discovery",
-    "blocked_species_picker_desc": "Search for a species or other taxon to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Cached detections and legacy raw labels still apply until you remove them.",
+    "blocked_species_picker_desc": "A blocked species is never saved as a visit. Search by common or scientific name; blocking a family or genus blocks every species in it. Older labels, listed apart, still apply until you remove them.",
     "blocked_species_placeholder": "Search taxa to block",
     "no_blocked_species_results": "No matching species found.",
     "block_exact_label": "Block \"{label}\" exactly as written",
     "blocked_species_structured": "Blocked species",
-    "blocked_species_legacy": "Legacy raw labels",
+    "blocked_species_legacy": "Older labels",
     "no_blocked_labels": "No labels blocked yet.",
     "blocked_labels_placeholder": "e.g. background",
     "blocked_label_remove": "Remove {label} from blocked list",
     "naming_select_label": "Select {mode} naming style",
-    "inference_provider": "Inference provider",
-    "inference_provider_desc": "Only providers included in this image, detected on this host, and supported by the active model are shown.",
+    "inference_provider": "Device",
+    "inference_provider_desc": "Lists only the devices this image includes, this host has and the model in use supports.",
     "gpu_setup_docs": "GPU setup & diagnostics guide",
     "provider_auto": "Auto (recommended)",
     "provider_runtime_order": "Current runtime order: {order}",
@@ -1074,23 +1092,23 @@
     "inference_backend_label": "Backend",
     "provider_fallback_reason": "Fallback:",
     "model_config_warning": "Model config warning:",
-    "execution_mode": "Execution mode",
+    "execution_mode": "Isolation",
     "execution_mode_desc": "Isolated workers, the default, restart safely if a classification stalls or crashes; each worker holds its own copy of the model. In-process shares one copy inside the app: less memory, less isolation.",
     "execution_mode_worker_plan": "Resolved for this install: {live} live and {background} background worker processes, each with its own copy of the model.",
     "execution_mode_worker_ram": "The active model is estimated at {each} MB per copy, about {total} MB across the workers.",
-    "mode_subprocess": "Subprocess (Isolated)",
-    "mode_in_process": "In-Process (Shared RAM)",
+    "mode_subprocess": "Separate worker processes (recommended)",
+    "mode_in_process": "Inside the app (less memory)",
     "model_lineup_eyebrow": "Tiered model lineup",
     "model_lineup_title": "Start with the recommended lineup",
     "model_lineup_description": "Recommended models are ordered first and fit the broadest range of hardware and feeders.",
     "model_lineup_advanced_note": "Advanced models are hidden by default because they usually need more RAM, run slower, or cover broader wildlife taxonomies than most installs need.",
     "region_override_title": "Bird model region",
-    "region_override_desc": "Auto uses your configured country. Manual override always wins.",
+    "region_override_desc": "Some models come in regional versions. Auto follows the country in your location; choose one to override it.",
     "region_override_auto": "Auto",
     "region_override_eu": "Europe",
     "region_override_na": "North America",
-    "personalized_rerank": "Personalised re-ranking",
-    "personalized_rerank_desc": "Use manual tags to adapt ranking per camera and model. Disable to use base model scores only.",
+    "personalized_rerank": "Learn from my corrections",
+    "personalized_rerank_desc": "Uses the species you corrected to adjust scores for each camera and model. Off uses the model's own scores.",
     "video_max_concurrent": "Video concurrency",
     "video_max_concurrent_label": "Max concurrent video jobs",
     "video_concurrency_best_practice_in_process": "In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.",
@@ -1258,8 +1276,8 @@
     "band_native_restart": "Restart the container to release the stalled runtime.",
     "band_worker_fallback": "Workers failing: classifying in-process",
     "band_worker_fallback_detail": "Isolated workers keep dying during model load; detections continue in the main process.",
-    "compat_all_hint": "Download and test every registry model, not just installed ones (slower).",
-    "compat_all_models": "test all models",
+    "compat_all_hint": "Downloads each one first, so the check takes much longer.",
+    "compat_all_models": "Also test models that are not installed",
     "compat_card_title": "Device compatibility",
     "compat_model": "Model",
     "compat_note_baseline": "CPU baseline",
@@ -1338,7 +1356,8 @@
     "band_model_missing": "Not on this install yet. Download it below.",
     "model_manager_in_use": "In use",
     "model_manager_show_catalogue": "Choose another model",
-    "model_manager_hide_catalogue": "Hide the other models"
+    "model_manager_hide_catalogue": "Hide the other models",
+    "threshold_help": "At or above this score, a visit is saved under the species name."
   },
   "llm": {
     "title": "AI insights",
@@ -1440,8 +1459,8 @@
     "garden_animals_desc": "Collects cats, foxes and other non-bird visitors from cameras you choose, for you to review.",
     "garden_motion_toggle": "Collect motion review photos on {camera}",
     "garden_naming_off": "Every animal waits in Needs review for you to confirm and name it.",
-    "garden_naming_threshold_help": "From 70% to 99%. Higher values automatically name fewer animals and dismiss more low-confidence photos. Person checks are unchanged.",
-    "garden_naming_threshold": "Naming threshold",
+    "garden_naming_threshold_help": "At or above this, an animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.",
+    "garden_naming_threshold": "How sure before an animal is named",
     "garden_naming": "Name animals automatically",
     "garden_requirements": "Needs Frigate cameras that track animals or keep motion recordings. Garden downloads its own models only when you ask: 224 MB for automatic checks, plus optional 224 MB and 101 MB models. Your bird model is not changed.",
     "garden_models_help": "Garden uses its own models, separate from your bird model. A download only adds a verified file. It saves no settings and starts no checks.",
@@ -1494,7 +1513,6 @@
     "garden_domestic_birds_none": "None yet. Chickens and other birds you keep are treated as wild birds.",
     "garden_domestic_birds_add": "Add a domestic bird",
     "garden_domestic_birds_choose": "Choose a bird",
-    "intro": "Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.",
     "learn_more": "Learn more",
     "status_off": "Off",
     "status_off_after_apply": "Off after you save",
@@ -1621,6 +1639,7 @@
     "level_county": "County",
     "level_state": "State or province",
     "level_country": "Country",
+    "how_toggle": "How the range filter decides",
     "how_title": "What happens to a bird outside the range",
     "how_fallback": "If the model's top answer has never been recorded in your region, its next answer that has been recorded, and still clears your confidence threshold, is used instead. The record keeps a note of what the model said first.",
     "how_skip": "If no answer qualifies, the detection is not recorded. It is listed below and in the activity log, so a genuine rarity can still be recorded by hand.",
@@ -1664,7 +1683,8 @@
   "leave": {
     "title": "Leave without saving?",
     "message": "{count, plural, one {# change} other {# changes}} in {tabs} will be lost.",
-    "confirm": "Leave without saving"
+    "confirm": "Leave without saving",
+    "save_and_leave": "Save and leave"
   },
   "field_errors": {
     "frigate_url": "Start the address with http:// or https://, for example http://frigate:5000.",
@@ -1700,8 +1720,14 @@
   },
   "models": {
     "testing_title": "Testing the models",
-    "testing_desc": "Compare the installed models on photos you have already confirmed.",
+    "testing_desc": "Compare the installed models on reference photos of known species from iNaturalist and Wikimedia Commons.",
     "testing_action": "Model evaluation runs every installed model on those photos and shows how often each is right and how long it takes.",
     "testing_open": "Open model evaluation"
-  }
+  },
+  "save_rule": "Changes to settings wait until you choose Save changes. Buttons such as Test, Run and Download act straight away.",
+  "appearance": {
+    "typography_title": "Fonts and colours",
+    "scope": "Theme, text size and language change at once on this device. The rest apply to everyone who uses this install once you save."
+  },
+  "theme_scope": "Changes at once, on this device only."
 }

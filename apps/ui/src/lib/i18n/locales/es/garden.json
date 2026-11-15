@@ -62,8 +62,8 @@
   "photo_count": "Foto {index} de {count}",
   "next_photo": "Foto siguiente",
   "group_dismiss": "{count, plural, one {Descartar la # foto restante} other {Descartar las # fotos restantes}}",
-  "confidence": "Umbral de propuestas de animales",
-  "confidence_help": "Del 50 % al 95 %. Los valores altos reducen propuestas pero pueden omitir animales. Solo se aplica a nuevas fotos de movimiento; la detección de aves y la protección de personas no cambian.",
+  "confidence": "Seguridad necesaria para sugerir un animal",
+  "confidence_help": "Una foto de movimiento se convierte en sugerencia para revisar solo si la comprobación tiene al menos esta seguridad. Más alto significa menos sugerencias y más animales pasados por alto.",
   "photo_confirmed": "Foto confirmada.",
   "photo_restored": "Foto devuelta a revisión.",
   "group_remaining": "Las demás fotos de este grupo aún necesitan revisión.",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "Animal detectado, pero la puntuación de especie está por debajo del umbral de nombre. Movido a Descartados; devuélvelo a revisión si quieres nombrarlo tú.",
   "automatic_bird_camera": "Ave, gestionada por la detección de aves en esta cámara. Movida a Descartadas; devuelve la foto a revisión si no es un ave.",
   "automatic_wild_bird": "Ave silvestre. Activa las aves en esta cámara para registrarla. Movida a Descartadas; devuelve la foto a revisión si la comprobación es errónea.",
-  "motion_unreadable": "{count, plural, one {# grabación no se pudo leer} other {# grabaciones no se pudieron leer}} en {camera} en la última hora y se {count, plural, one {omitió} other {omitieron}}. No se guardó ninguna foto."
+  "motion_unreadable": "{count, plural, one {# grabación no se pudo leer} other {# grabaciones no se pudieron leer}} en {camera} en la última hora y se {count, plural, one {omitió} other {omitieron}}. No se guardó ninguna foto.",
+  "confidence_low": "Más sugerencias",
+  "confidence_high": "Menos sugerencias",
+  "naming_low": "Nombra más",
+  "naming_high": "Nombra menos"
 }

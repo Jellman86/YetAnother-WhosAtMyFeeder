@@ -105,9 +105,9 @@
     });
 
     const chipClass =
-        'inline-flex items-baseline gap-1.5 rounded-xl border border-brand-300 bg-brand-50 px-3 py-1 font-bold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-brand-500 dark:border-brand-700/70 dark:bg-brand-950/60 dark:text-brand-200 dark:hover:bg-brand-900/60';
+        'focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-slate-100 px-3 font-semibold text-slate-900 transition-colors hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700';
     const linkClass =
-        'focus-ring min-h-11 rounded-sm font-bold text-brand-800 underline decoration-2 underline-offset-4 hover:text-brand-900 dark:text-brand-200 dark:hover:text-brand-100';
+        'focus-ring min-h-11 rounded-sm font-semibold text-brand-700 underline underline-offset-4 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200';
     const popoverClass =
         'absolute left-0 top-full z-20 mt-2 w-72 rounded-2xl border border-line-soft bg-surface p-3 text-left shadow-xl';
 
@@ -131,11 +131,11 @@
                 class="block w-full rounded-xl px-3 py-2 text-left transition-colors hover:bg-surface-raised {mode === preset ? 'bg-brand-50 dark:bg-brand-950/60' : ''}"
             >
                 <span class="block text-sm font-bold text-slate-900 dark:text-white">{$_(presetSentenceKey(preset))}</span>
-                <span class="mt-0.5 block text-xs font-bold text-slate-600 dark:text-slate-400">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
+                <span class="mt-0.5 block text-xs text-slate-600 dark:text-slate-400">{$_(`settings.notifications.mode_${preset}_desc`)}</span>
             </button>
             {#if preset === 'final' && mode === 'final'}
                 <div class="flex items-center gap-2 px-3 pb-2 pt-1">
-                    <label for="policy-video-fallback" class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_timeout')}</label>
+                    <label for="policy-video-fallback" class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_timeout')}</label>
                     <input
                         id="policy-video-fallback"
                         type="number"
@@ -143,20 +143,20 @@
                         step="5"
                         value={videoFallbackTimeout}
                         oninput={(event) => onVideoFallbackChange(Number(event.currentTarget.value))}
-                        class="w-20 rounded-xl border border-slate-200 bg-white px-2 py-1.5 text-xs font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                        class="input-base w-24"
                     />
-                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_seconds')}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.notifications.video_fallback_seconds')}</span>
                 </div>
             {/if}
         {/each}
         {#if mode === 'custom'}
-            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs font-bold text-slate-600 dark:text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
+            <p class="mt-1 border-t border-slate-200 px-3 pt-2 text-xs text-slate-600 dark:text-slate-400 dark:border-slate-700">{$_('settings.notifications.sentence.custom_hint')}</p>
         {/if}
     </div>
 {/snippet}
 
 <div bind:this={container} class="relative">
-    <div class="flex flex-wrap items-center gap-x-2 gap-y-2.5 text-lg font-bold text-slate-700 dark:text-slate-200">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-2 text-base text-slate-700 dark:text-slate-200">
         {#if mode === 'silent'}
             <span>{$_('settings.notifications.sentence.silent_lead')}</span>
             <span class="relative inline-block">

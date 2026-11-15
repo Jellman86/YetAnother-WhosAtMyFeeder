@@ -62,8 +62,8 @@
   "photo_count": "写真{index} / {count}",
   "next_photo": "次の写真",
   "group_dismiss": "{count, plural, other {残りの写真#枚を却下}}",
-  "confidence": "動物候補のしきい値",
-  "confidence_help": "50% から 95% まで。値を上げると候補は減りますが、動物を見逃す可能性があります。新しい動体写真だけに適用され、鳥の検出と人物のプライバシー確認は変わりません。",
+  "confidence": "動物を提案するまでの確かさ",
+  "confidence_help": "チェックの確かさがこの値以上のときだけ、動きの写真が確認用の提案になります。高くすると提案は減り、見逃す動物は増えます。",
   "photo_confirmed": "写真を確認しました。",
   "photo_restored": "写真を確認待ちに戻しました。",
   "group_remaining": "このグループの他の写真は引き続き確認が必要です。",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "動物は検出されましたが、種のスコアが命名しきい値未満です。「却下」に移動しました。自分で名前を付けたい場合は「確認に戻す」で戻せます。",
   "automatic_bird_camera": "鳥です。このカメラでは鳥の検出が扱います。「却下」に移動しました。鳥でない場合は写真を確認に戻してください。",
   "automatic_wild_bird": "野鳥です。記録するには、このカメラで鳥を有効にしてください。「却下」に移動しました。チェックが誤っている場合は写真を確認に戻してください。",
-  "motion_unreadable": "過去 1 時間に {camera} で {count, plural, other {# 件の録画}}を読み取れず、スキップしました。写真は保存されていません。"
+  "motion_unreadable": "過去 1 時間に {camera} で {count, plural, other {# 件の録画}}を読み取れず、スキップしました。写真は保存されていません。",
+  "confidence_low": "提案を増やす",
+  "confidence_high": "提案を減らす",
+  "naming_low": "多く名付ける",
+  "naming_high": "名付けを減らす"
 }

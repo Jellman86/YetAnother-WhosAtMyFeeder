@@ -4,15 +4,17 @@ import connectionSettingsSource from './ConnectionSettings.svelte?raw';
 import rowSource from './CameraWatchRow.svelte?raw';
 
 describe('Connection camera selection semantics', () => {
-    it('keeps the watch choice and preview as separate native controls', () => {
+    it('keeps the watch choice, the role and preview as separate native controls on one compact row', () => {
         expect(rowSource).not.toContain('role="button"');
         expect(rowSource).not.toContain('role="presentation"');
-        expect(rowSource).toContain('role="radiogroup"');
-        expect(rowSource).toContain('type="radio"');
+        // One single-choice control per camera, named by its combinations (layout-patterns §6).
+        expect(rowSource).toContain('data-camera-watch-select');
+        expect(rowSource.match(/<select\b/g)).toHaveLength(2);
         expect(rowSource).toContain('aria-expanded={previewOpen}');
         expect(connectionSettingsSource).toContain('previewOpen={previewVisible && previewCamera === row.camera}');
-        expect(rowSource).toContain('min-h-11');
-        expect(rowSource).toContain('h-11 w-11');
+        expect(rowSource).toContain('select-base min-h-11');
+        // A row, not a card inside the card.
+        expect(rowSource).not.toMatch(/<li[^>]*rounded-xl border/);
     });
 
     it('names each camera in its controls', () => {
@@ -21,24 +23,24 @@ describe('Connection camera selection semantics', () => {
         expect(rowSource).toContain("$_('settings.cameras.watch_for', { default: '{camera}: watch for', values: { camera } })");
         expect(rowSource).toContain("$_('settings.cameras.role_group', { default: '{camera}: bird role', values: { camera } })");
         expect(rowSource).toContain("$_('settings.beta.garden_motion_toggle', { default: 'Collect motion review photos on {camera}', values: { camera } })");
-        expect(rowSource).toContain("$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })");
+        expect(rowSource).toContain('<span class="sr-only"> {camera}</span>');
     });
 
     it('says why a choice is unavailable, next to the choice', () => {
-        expect(rowSource).toContain('disabled={blocked}');
+        expect(rowSource).toContain('disabled={!!row.blocked[option.value]}');
         expect(rowSource).toContain('data-camera-watch-reason');
         expect(rowSource).toContain("aria-describedby={blockReasons.length > 0 ? `${uid}-reason` : undefined}");
     });
 
-    it('marks the chosen option by shape and weight as well as colour', () => {
-        expect(rowSource).toContain('{#if checked}');
-        expect(rowSource).toContain('line-through');
+    it('shows the chosen option as the select value, never by colour', () => {
+        expect(rowSource).toContain('value={row.mode}');
+        expect(rowSource).toContain("value={row.role ?? 'feeder'}");
     });
 
     it('keeps a configured camera Frigate no longer lists, flagged in words', () => {
         expect(rowSource).toContain("row.presence === 'missing'");
         expect(rowSource).toContain('data-camera-missing');
-        expect(rowSource).toContain('bg-attention-500');
+        expect(rowSource).toContain('attention-dot');
     });
 
     it('says why Preview is unavailable without a Frigate URL', () => {

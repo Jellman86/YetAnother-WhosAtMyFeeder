@@ -22,8 +22,12 @@ on the system and has nothing to save (see [Health](#health)).
 
 Edits wait in one draft across every tab. While anything differs from what is saved, a bar
 at the bottom of the page counts the changes and names their tabs, with **Discard changes**
-(puts every saved value back) and **Save changes**. Choosing another page, reloading or closing
-the tab with unsaved changes asks first; moving between tabs keeps them. Back and Forward are not
+(puts every saved value back) and **Save changes**. The bar also says that settings wait for
+**Save changes**, while buttons such as Test, Run and Download act straight away.
+While the bar shows, the page keeps a focused control above it. Choosing another page with unsaved
+changes asks first, offering **Save and leave** (it leaves only once the save goes through) as well
+as **Leave without saving**; reloading or closing the tab asks too, and moving between tabs keeps
+them. A tab holding a refused value is marked **needs a fix** in the navigation. Back and Forward are not
 held up: the unsaved changes are kept in memory and put back when you return to Settings, with a
 line saying so. Passwords and keys are never kept; that line names any you need to type again.
 Kept changes belong to the session that made them: signing out, an expired session or another
@@ -122,14 +126,14 @@ model in use as its card does (model, runtime, workers, health), then:
 | **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
 | **Write Labels Back to Frigate** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
 | **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
-| **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
+| **Device** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
 | **Finder device** | `Automatic` | Device preference for the accurate finder, separate from identification. Only current validated accelerator choices can be selected. An unavailable saved choice uses CPU; **Save changes** saves the preference. |
 | **Bird finder** | `Standard (YOLOX-Tiny)` | Which detector locates birds before they are identified and counted. **Wide frame (RF-DETR Nano)** is optional. Like every other field on the page, a change is saved by **Save changes**. |
-| **Execution Mode** | `Subprocess` | `Subprocess` runs inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
+| **Isolation** | `Separate worker processes` | Separate worker processes run inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
 | **Models** | — | Download, validate, and activate identification models, and download the bird finders. Activating a model takes effect at once; it is not part of **Save changes**. |
 | **Runtime report** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
 | **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
-| **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
+| **Learn from my corrections** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
 | **Range filter** | Disabled | Set aside new automatic identifications of species eBird has never recorded in your region, falling back to the model's best in-range answer. Needs a location and an eBird API key; fails open when the list is missing or stale. See [Range filter](../features/range-filter.md). |
 | **Finest region** | `County` | The finest eBird region the range filter uses. An approximate location uses a state list and a country alone uses the country list. |
 
@@ -257,7 +261,7 @@ of **any species** on **Discord*** — and each highlighted part is a control.
 | **Minimum confidence** | `0.7` | Only notify at or above this score. Raise it to reduce alerts for lower-confidence identifications. |
 | **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species within the configured correlation window. |
 | **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
-| **Notification cooldown** | `0` minutes | Minimum gap between notifications. `0` disables the cooldown. |
+| **Notification cooldown** | Off | A switch; when on, the minutes to wait after an alert before sending another (saved as `0` when off). |
 | **Notification language** | English | The language used in message text, independent of the UI language. |
 | **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
 | **Notification link opens** | This YA-WAMF | `This YA-WAMF` opens the detection here; `Frigate` opens the tracked object in Frigate's Explore page via **Public Frigate URL** under **Connection** (Frigate 0.15+). |

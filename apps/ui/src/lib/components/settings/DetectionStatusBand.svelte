@@ -60,7 +60,7 @@
      is four calm facts, and only trouble grows words. -->
 <div
     role="status"
-    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-line-soft bg-surface-raised p-4 lg:grid-cols-4"
+    class="relative grid grid-cols-2 gap-4 wrap-break-word lg:grid-cols-4"
 >
     <button
         type="button"
@@ -95,9 +95,9 @@
         {:else if runtimePlanned}
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
         {:else if providerVerified}
-            <span class="inline-flex items-center gap-1 text-xs font-semibold text-success-700 dark:text-success-300">
+            <span class="text-xs font-semibold wrap-break-word text-success-700 dark:text-success-300">
                 {$_('settings.detection.band_verified')}
-                <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3.5 3.5L13 4.5" /></svg>
+                <svg class="inline h-3 w-3 align-baseline" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3.5 3.5L13 4.5" /></svg>
             </span>
         {:else}
             <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.band_unverified')}</span>

@@ -80,3 +80,28 @@ for (const width of [320, 393]) {
         });
     });
 }
+
+test('a control reached with Tab is never hidden under the save bar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openConnectionSettings(page);
+    await page.locator('#mqtt-server').fill('broker.lan');
+    const bar = page.locator('[data-settings-save-bar]');
+    await expect(bar).toBeVisible();
+    await page.locator('#frigate-url').focus();
+    const hidden: string[] = [];
+    for (let step = 0; step < 40; step += 1) {
+        await page.keyboard.press('Tab');
+        const overlap = await page.evaluate(() => {
+            const focused = document.activeElement as HTMLElement | null;
+            const barElement = document.querySelector('[data-settings-save-bar]');
+            // After the last stop focus leaves the page and falls back to <body>: nothing is hidden then.
+            if (!focused || focused === document.body || !barElement || barElement.contains(focused)) return null;
+            const box = focused.getBoundingClientRect();
+            if (box.height === 0) return null;
+            const name = focused.id || `${focused.tagName.toLowerCase()}.${focused.className.toString().split(' ').slice(0, 4).join('.')} "${(focused.textContent ?? '').trim().slice(0, 24)}"`;
+            return box.bottom > barElement.getBoundingClientRect().top + 1 ? name : null;
+        });
+        if (overlap) hidden.push(overlap);
+    }
+    expect(hidden).toEqual([]);
+});

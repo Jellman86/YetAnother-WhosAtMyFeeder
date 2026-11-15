@@ -156,32 +156,29 @@
     }
 </script>
 
-{#snippet authIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" /></svg>
-{/snippet}
-{#snippet publicAccessIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3.5 9h17M3.5 15h17M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" /></svg>
-{/snippet}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+<div class="space-y-8">
     <SettingsCard
-        accent
-        iconSnippet={authIcon}
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
+        titleId="security-auth-title"
     >
-        <SettingsRow
-            labelId="setting-auth-enabled"
-            label={$_('settings.auth.enable')}
-            description={$_('settings.auth.enable_desc')}
-        >
+        <!-- The card's own switch, named by its title, so the title is not repeated as a row below it. -->
+        {#snippet actions()}
             <SettingsToggle
                 checked={authEnabled}
-                labelledBy="setting-auth-enabled"
-                srLabel={$_('settings.auth.enable')}
+                labelledBy="security-auth-title"
+                srLabel={$_('settings.auth.title')}
                 onchange={(v) => (authEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
+        {#if !authEnabled}
+            <!-- What "off" means, said plainly: the address is the only lock. -->
+            <p class="flex items-start gap-2 text-sm text-attention-800 dark:text-attention-200" role="status" data-auth-off-status>
+                <span class="attention-dot mt-2" aria-hidden="true"></span>
+                {$_('settings.auth.off_status', { default: 'Sign-in is off, so anyone who can open this address can see everything and change every setting.' })}
+            </p>
+        {/if}
 
         {#if authEnabled && authStore.isAuthenticated}
             <SettingsRow
@@ -299,7 +296,7 @@
                 />
             </SettingsRow>
 
-            <div class="rounded-2xl border border-attention-200/70 bg-attention-50/80 px-4 py-3 text-xs font-bold text-attention-900 dark:border-attention-500/40 dark:bg-attention-900/20 dark:text-attention-200">
+            <div class="text-xs text-attention-800 dark:text-attention-200">
                 {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
             </div>
 
@@ -326,7 +323,7 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold rounded-2xl transition-all focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-focus disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="btn btn-secondary min-h-11 px-4"
                         >
                             {$_('common.add')}
                         </button>
@@ -352,16 +349,16 @@
                             </span>
                         {/each}
                         {#if trustedProxyHosts.length === 0}
-                            <p class="text-xs font-bold text-slate-600 dark:text-slate-400 italic">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
+                            <p class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.auth.trusted_proxies_empty', { default: 'No trusted proxies configured (all proxies trusted).' })}</p>
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
-                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-xs text-slate-600 dark:text-slate-400">
+                        <div class="flex flex-col gap-2 text-xs text-slate-600 dark:text-slate-400">
                             <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-brand-700 text-white text-sm font-semibold"
+                                class="btn btn-secondary min-h-11 self-start px-3"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>
@@ -374,23 +371,26 @@
     </SettingsCard>
 
     <SettingsCard
-        accent
-        iconSnippet={publicAccessIcon}
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
+        titleId="security-public-title"
     >
-        <SettingsRow
-            labelId="setting-public-enabled"
-            label={$_('settings.public_access.enable')}
-            description={$_('settings.public_access.enable_desc')}
-        >
+        {#snippet actions()}
+            <!-- Without sign-in it cannot be turned on, but one already on can always be turned off. -->
             <SettingsToggle
                 checked={publicAccessEnabled}
-                labelledBy="setting-public-enabled"
-                srLabel={$_('settings.public_access.enable')}
+                labelledBy="security-public-title"
+                describedBy={authEnabled ? undefined : 'security-public-needs-auth'}
+                disabled={!authEnabled && !publicAccessEnabled}
+                srLabel={$_('settings.public_access.title')}
                 onchange={(v) => (publicAccessEnabled = v)}
             />
-        </SettingsRow>
+        {/snippet}
+        {#if !authEnabled}
+            <p id="security-public-needs-auth" class="text-sm text-slate-600 dark:text-slate-300" data-public-needs-auth>
+                {$_('settings.public_access.needs_auth', { default: 'Guest access only means something once sign-in is on: until then, everyone already has full access. Turn on sign-in first.' })}
+            </p>
+        {/if}
 
         {#if publicAccessEnabled}
             <SettingsRow

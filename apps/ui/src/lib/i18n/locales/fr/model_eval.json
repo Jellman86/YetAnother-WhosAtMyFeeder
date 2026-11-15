@@ -162,7 +162,7 @@
     "running_reason": "Une seule évaluation s'exécute à la fois. Arrêtez celle-ci pour en lancer une autre.",
     "stop": "Arrêter l'évaluation",
     "title": "Lancer une évaluation",
-    "what": "Chaque modèle installé nomme des photos d'oiseaux dont l'espèce est déjà confirmée, pour comparer à quelle fréquence chacun a raison et à quelle vitesse."
+    "what": "Chaque modèle installé nomme des photos de référence d’espèces connues, pour comparer à quelle fréquence chacun a raison et à quelle vitesse."
   },
   "stopped": {
     "finder_needs_provider_check": "Un détecteur d'oiseaux ne peut être vérifié que par fournisseur. Lancez la vérification depuis Paramètres → Modèles.",

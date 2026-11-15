@@ -138,3 +138,12 @@ describe('the About pipeline', () => {
         expect(pipelineSource).not.toContain("about.pipeline.not_loaded");
     });
 });
+
+describe('the page header', () => {
+    it('never squeezes the title to nothing: the actions wrap below it when they do not fit beside it', () => {
+        expect(pageHeaderSource).toContain('flex flex-wrap items-start justify-between');
+        expect(pageHeaderSource).toContain('page-title-block min-w-0 flex-1 basis-32');
+        expect(pageHeaderSource).toContain('basis-full order-last');
+        expect(pageHeaderSource).not.toContain('page-header-grid');
+    });
+});

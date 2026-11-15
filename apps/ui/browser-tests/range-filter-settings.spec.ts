@@ -55,6 +55,12 @@ test('before it is switched on, the preview shows what would be set aside and th
     await expect(preview.locator('[data-range-filter-preview-seen]')).toContainText('6 detections');
     await expect(preview.locator('[data-range-filter-preview-total]')).toContainText('The current model can name 803 species');
     await expect(preview).toContainText('Northern Cardinal');
+    // The rules sit behind a plain disclosure, closed at first.
+    const how = card(page).getByRole('button', { name: 'How the range filter decides' });
+    await expect(how).toHaveAttribute('aria-expanded', 'false');
+    await expect(card(page)).not.toContainText('its next answer that has been recorded');
+    await how.click();
+    await expect(how).toHaveAttribute('aria-expanded', 'true');
     await expect(card(page)).toContainText('its next answer that has been recorded');
 
     const toggle = card(page).getByRole('switch', { name: 'Check new detections against your region' });
@@ -78,7 +84,7 @@ test('with no location the switch is disabled with the reason and a way to set o
     await card(page).getByRole('button', { name: 'Set location' }).click();
     await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
     // With an automatic location the coordinates are hidden, so the Manual choice that reveals them takes focus.
-    await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div button[aria-pressed="false"]'))).toBeFocused();
+    await expect(page.locator('#location-lat').or(page.locator('#setting-location-mode + div input[type="radio"]:not(:checked)'))).toBeFocused();
 });
 
 test('without an eBird key it names the missing key and that BirdNET-Go alone never filters', async ({ page }) => {
@@ -87,11 +93,12 @@ test('without an eBird key it names the missing key and that BirdNET-Go alone ne
     await expect(panel(page)).toContainText('Not filtering');
     await expect(panel(page)).toContainText('Add an eBird API key to use range filtering.');
     await expect(panel(page)).toContainText('on its own it filters nothing');
-    await expect(panel(page)).toHaveClass(/attention/);
+    // Work that needs a person is marked by the kit's amber dot beside the words, not a tinted box.
+    await expect(panel(page).locator('[data-range-filter-chip] .attention-dot')).toHaveCount(1);
     await card(page).getByRole('button', { name: 'Add eBird key' }).click();
     await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
     // eBird is off in this fixture, so its switch, the step that reveals the key field, takes focus.
-    await expect(page.locator('[aria-labelledby="setting-ebird-enabled"]')).toBeFocused();
+    await expect(page.getByRole('switch', { name: 'eBird' })).toBeFocused();
 });
 
 test('an approximate location says a state list is used, and a country alone says so too', async ({ page }) => {
