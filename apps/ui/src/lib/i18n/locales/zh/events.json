@@ -48,7 +48,7 @@
     "confidence": "置信度"
   },
   "empty_title": "暂无事件",
-  "empty_desc": "当摄像头识别出鸟类时，到访会显示在这里。要导入较早的 Frigate 事件，请在“设置 → 数据”中运行回填。",
+  "empty_desc": "当摄像头识别出鸟类时，到访会显示在这里。要导入较早的 Frigate 事件，请在“设置 → 维护”中运行回填。",
   "load_failed": "无法加载到访记录。您的历史记录没有变化。",
   "bulk_tag_partial": "{count, plural, other {# 个已选事件未能更新。}}",
   "bulk_delete_confirm": "{count, plural, other {删除 # 条检测？此操作无法撤销。}}",

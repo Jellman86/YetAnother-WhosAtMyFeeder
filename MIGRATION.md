@@ -31,11 +31,11 @@ workflow instead. See [Unraid](docs/setup/unraid.md) and
 
 1. Wait for the container health check, then open the dashboard.
 2. Confirm your saved cameras, recent detections and photographs are present.
-3. Open **Settings → Detection → Runtime diagnostics**. Check the image family,
+3. Open **Settings → Models → Runtime diagnostics**. Check the image family,
    selected provider, actual active provider and any fallback reason.
 4. If model/runtime/hardware validation is stale, let automatic recovery finish or
    run the model compatibility check. Compatibility is not a species-accuracy score.
-5. Check **Settings → Health** and the **Jobs** page for failed or waiting work.
+5. Check the **Health** and **Jobs** pages for failed or waiting work.
    Network errors during a switch/router outage do not by themselves prove a model fault.
 
 Unsuffixed image tags remain the full compatibility image. Optional `-cpu`,
@@ -76,7 +76,7 @@ Updating does not automatically replace your selected classifier. The October mo
 require an application build containing their integration; published model files alone
 cannot enable them in an older image.
 
-Use **Settings → Detection → Model Manager** to download, validate and activate a model.
+Use **Settings → Models** to download, validate and activate a model.
 Registered classifier outputs are held in the species catalogue and bound to the
 model checksum, so integrated downloads need no separate `labels.txt`. Custom and
 legacy label-file fallback remains available. Do not replace a live species database

@@ -88,7 +88,7 @@ That is a timeline view rather than a combined ranking; see [Explore and review 
 
 ## Taxonomy Repair
 If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
-**Settings → Data**. It scans your whole history and normalises every label against iNaturalist.
+**Settings → Maintenance**. It scans your whole history and normalises every label against iNaturalist.
 It rewrites names only; it never deletes a detection.
 
 
@@ -140,7 +140,7 @@ alongside the model artifact and output index that produced them.
 
 ### What diagnostics tell you
 
-The **Naming Sources** card under **Settings → Health** reports:
+The **Naming Sources** card on the **Health** page reports:
 
 - **Catalogue species** — how many identities the active release holds.
 - **Model output classes with no catalogue identity** — outputs that keep their original label text

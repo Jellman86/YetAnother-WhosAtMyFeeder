@@ -67,7 +67,7 @@
     "config_backup_invalid_json": "選択したファイルは有効なJSONではありません。",
     "config_backup_import_error": "設定のバックアップをインポートできませんでした",
     "diagnostics_title": "診断",
-    "diagnostics_desc": "バックエンド状態、グループ化されたインシデント、サポート用バンドルを含むヘルスタブを開きます。",
+    "diagnostics_desc": "バックエンド状態、グループ化されたインシデント、サポート用バンドルを含む稼働状況ページを開きます。",
     "open_diagnostics": "ヘルスを開く",
     "taxonomy_title": "タクソノミー修復",
     "taxonomy_desc": "学名と一般名を関連付ける",

@@ -5,7 +5,7 @@
  * while the tab is hidden and reads once when it is shown again.
  */
 export const REFRESH_CADENCE_MS = {
-    /** The sidebar's decorative CPU line. Settings > Health holds the detailed chart. */
+    /** The sidebar's decorative CPU line. The Health page holds the detailed chart. */
     sidebarTelemetry: 15_000,
     /** Camera reachability changes when a camera or Frigate goes down, not second by second. */
     cameraHealth: 60_000,
@@ -23,9 +23,9 @@ export const REFRESH_CADENCE_MS = {
     /** The Dashboard's accelerator warning, and the faster rate while a one-off check is running. */
     providerWarning: 60_000,
     providerWarningChecking: 15_000,
-    /** Settings > Detection: the runtime line under the model picker. */
+    /** Settings > Models: the runtime line under the model picker. */
     classifierRuntime: 15_000,
-    /** Settings > Health: the backend keeps the whole window, so a slower read loses no samples. */
+    /** The Health page: the backend keeps the whole window, so a slower read loses no samples. */
     systemLoadHistory: 15_000
 } as const;
 

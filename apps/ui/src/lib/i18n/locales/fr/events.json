@@ -48,7 +48,7 @@
     "confidence": "Confiance"
   },
   "empty_title": "Aucun événement pour le moment",
-  "empty_desc": "Les visites apparaissent ici quand vos caméras identifient des oiseaux. Pour récupérer d’anciens événements Frigate, lancez un rattrapage depuis Paramètres → Données.",
+  "empty_desc": "Les visites apparaissent ici quand vos caméras identifient des oiseaux. Pour récupérer d’anciens événements Frigate, lancez un rattrapage depuis Paramètres → Entretien.",
   "load_failed": "Les visites n’ont pas pu être chargées. Votre historique est inchangé.",
   "bulk_tag_partial": "{count, plural, one {# événement sélectionné n’a pas été mis à jour.} other {# événements sélectionnés n’ont pas été mis à jour.}}",
   "bulk_delete_confirm": "Supprimer {count, plural, one {# détection} other {# détections}} ? Cette action est irréversible.",

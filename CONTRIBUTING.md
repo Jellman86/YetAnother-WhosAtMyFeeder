@@ -96,7 +96,7 @@ Bugs are tracked as GitHub issues. Please include:
 - backend logs (`docker compose -f docker-compose.monolith.yml logs yawamf`, or
   `docker compose logs yawamf-backend` for the legacy split deployment),
 - browser console errors for UI issues,
-- a fresh support bundle from **Settings → Health** when requested, reviewed for private details before sharing. Include the running build and what happened around the failure; a healthy later capture cannot prove an earlier incident did not occur.
+- a fresh support bundle from the **Health** page when requested, reviewed for private details before sharing. Include the running build and what happened around the failure; a healthy later capture cannot prove an earlier incident did not occur.
 
 ## Security Issues
 

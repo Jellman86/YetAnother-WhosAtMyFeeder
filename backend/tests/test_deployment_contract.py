@@ -83,7 +83,7 @@ def test_unraid_template_keeps_provider_selection_in_app_and_documents_flavors()
     for tag in ("latest-cpu", "latest-intel", "latest-cuda"):
         assert tag in requirements
         assert f"`{tag}`" in guide
-    assert "Settings → Detection" in requirements
+    assert "Settings → Models" in requirements
 
     assert "CLASSIFICATION__INFERENCE_PROVIDER" in guide
     assert "overrides the in-app value" in guide

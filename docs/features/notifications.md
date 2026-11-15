@@ -84,8 +84,8 @@ it announces, at `<address>/events?event=<id>`:
 **Notification link opens** chooses the target. **This YA-WAMF** (the default) opens the detection
 as above. **Frigate** opens the same tracked object in Frigate's Explore page instead, at
 `<Frigate public URL>/explore?event_id=<id>`, using the public URL saved under
-**Settings → Integrations**; it needs Frigate 0.15 or newer. With Frigate chosen and no public URL
-saved, notifications carry no link and the settings card says so, with a shortcut to Integrations.
+**Settings → Connection**; it needs Frigate 0.15 or newer. With Frigate chosen and no public URL
+saved, notifications carry no link and the settings card says so, with a shortcut to Connection.
 A preview line under the choice shows the exact address the next notification will carry.
 
 Either address must start with `http://` or `https://`; saving one without a scheme is refused

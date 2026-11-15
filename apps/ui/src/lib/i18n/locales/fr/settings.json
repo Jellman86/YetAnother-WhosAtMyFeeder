@@ -67,7 +67,7 @@
     "config_backup_invalid_json": "Le fichier sélectionné n'est pas un JSON valide.",
     "config_backup_import_error": "Impossible d'importer la sauvegarde de la configuration",
     "diagnostics_title": "Diagnostics",
-    "diagnostics_desc": "Ouvre l’onglet Santé avec l’état du backend, les incidents groupés et les lots de support.",
+    "diagnostics_desc": "Ouvre la page État : état du backend, incidents groupés et lots de support.",
     "open_diagnostics": "Ouvrir santé",
     "taxonomy_title": "Réparation taxonomique",
     "taxonomy_desc": "Associer les noms scientifiques et communs",

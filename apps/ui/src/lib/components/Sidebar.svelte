@@ -63,10 +63,10 @@
             default: '{count, plural, one {# issue needs attention} other {# issues need attention}}'
         })
     );
+    // Said before the count, so the link is named "System health: 2 issues need attention".
+    const healthLinkPrefix = $derived(`${$_('status.open_health', { default: 'System health' })}: `);
     const healthLinkName = $derived(
-        health.needsAttention
-            ? `${$_('status.open_health', { default: 'System health' })}: ${issuesLabel}`
-            : $_('status.open_health', { default: 'System health' })
+        health.needsAttention ? `${healthLinkPrefix}${issuesLabel}` : $_('status.open_health', { default: 'System health' })
     );
 
     function openHealth(event: MouseEvent): void {
@@ -252,23 +252,27 @@
                 {@render status?.(false)}
                 <SystemTelemetryGraph />
                 {#if authStore.showSettings}
+                    <!-- One line, one control: with issues open the count is the link's wording and
+                         "System health" is said before it for a screen reader; with none open the
+                         link is just "System health". -->
                     <a
                         href="/system-health"
-                        class="focus-ring -mx-1 mt-2 flex min-h-7 flex-wrap items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-slate-700 transition-colors hover:text-brand-700 dark:text-slate-300 dark:hover:text-brand-300"
+                        class="focus-ring -mx-1 mt-2 flex min-h-7 items-center justify-between gap-x-2 rounded-md border-t border-line-soft px-1 pt-2 text-xs font-semibold leading-4 text-slate-700 transition-colors hover:text-brand-700 dark:text-slate-300 dark:hover:text-brand-300"
                         data-sidebar-status-link
                         data-health-attention={health.needsAttention}
                         onclick={openHealth}
                     >
                         {#if health.needsAttention}
-                            <span class="flex items-center gap-2 text-attention-800 dark:text-attention-300" data-health-issues>
+                            <span class="flex min-w-0 items-center gap-2 text-attention-800 dark:text-attention-300">
                                 <span class="h-2 w-2 shrink-0 rotate-45 bg-attention-600 dark:bg-attention-400" aria-hidden="true"></span>
-                                {issuesLabel}
+                                <span class="min-w-0">
+                                    <span class="sr-only">{healthLinkPrefix}</span><span data-health-issues>{issuesLabel}</span>
+                                </span>
                             </span>
+                        {:else}
+                            <span class="ml-auto">{$_('status.open_health', { default: 'System health' })}</span>
                         {/if}
-                        <span class="ml-auto flex items-center gap-1">
-                            {$_('status.open_health', { default: 'System health' })}
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                        </span>
+                        <svg class="h-3 w-3 shrink-0" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" data-health-chevron><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </a>
                 {/if}
             </section>

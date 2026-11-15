@@ -67,7 +67,7 @@
     "config_backup_invalid_json": "所选文件不是有效的 JSON。",
     "config_backup_import_error": "无法导入配置备份",
     "diagnostics_title": "诊断",
-    "diagnostics_desc": "打开健康标签页，查看后端状态、分组事件和支持包。",
+    "diagnostics_desc": "打开运行状况页面，查看后端状态、分组事件和支持包。",
     "open_diagnostics": "打开健康",
     "taxonomy_title": "分类学修复",
     "taxonomy_desc": "关联学名与常用名",

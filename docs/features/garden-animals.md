@@ -288,7 +288,7 @@ Garden is not using it for a run of checks. On CPU the process stays loaded for 
 without a check. Either way it stops as soon as bird work is waiting, when the model or device
 changes, and after 500 checks; memory use has not been measured for this beta. Checks you start from a Garden capture in the Explorer use the device you choose there and
 fail rather than silently switch devices. Automatic naming and species suggestions need a
-country in **Settings → Location**; the view says when it is missing.
+country in **Settings → Integrations → Location**; the view says when it is missing.
 
 If bird classification recovers successfully on its isolated CPU fallback, Garden
 can use idle periods again. The bird pipeline remains visibly degraded and its
@@ -467,7 +467,7 @@ you still make the review decision. Bird work retains priority.
 
 To request a species suggestion, open a confirmed animal in the Explorer:
 
-1. Set a recognised country name or ISO code in **Settings → Location**. Filtering
+1. Set a recognised country name or ISO code in **Settings → Integrations → Location**. Filtering
    runs locally; coordinates are not sent to the model.
 2. Choose a garden model, about **224 MB** per variant, and download it under
    **Settings → Beta features → Garden animals → Models** if the capture's record says it is missing. The default
@@ -526,7 +526,7 @@ dismissed automatically again. A name the catalogue cannot bind waits in **Needs
 only when its score reached the threshold. The configured
 species threshold is authoritative;
 a separate coarse presence floor does not prevent an otherwise qualifying animal name.
-Without a recognised country in **Settings → Location**, or a catalogue identity, the
+Without a recognised country in **Settings → Integrations → Location**, or a catalogue identity, the
 capture stays pending with the missing requirement explained. Failed checks stay pending
 and retry after five minutes; failures are never treated as low confidence. Person evidence anywhere in the top results
 removes the capture. Turn automatic naming off to review and name every animal yourself.

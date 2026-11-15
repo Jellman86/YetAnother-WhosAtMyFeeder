@@ -48,7 +48,7 @@
     "confidence": "Konfidenz"
   },
   "empty_title": "Noch keine Ereignisse",
-  "empty_desc": "Besuche erscheinen hier, sobald deine Kameras Vögel erkennen. Um ältere Frigate-Ereignisse zu übernehmen, starte einen Abgleich unter Einstellungen → Daten.",
+  "empty_desc": "Besuche erscheinen hier, sobald deine Kameras Vögel erkennen. Um ältere Frigate-Ereignisse zu übernehmen, starte einen Abgleich unter Einstellungen → Wartung.",
   "load_failed": "Die Besuche konnten nicht geladen werden. Ihr Verlauf ist unverändert.",
   "bulk_tag_partial": "{count, plural, one {# ausgewähltes Ereignis wurde nicht aktualisiert.} other {# ausgewählte Ereignisse wurden nicht aktualisiert.}}",
   "bulk_delete_confirm": "{count, plural, one {# Erkennung} other {# Erkennungen}} löschen? Dies kann nicht rückgängig gemacht werden.",

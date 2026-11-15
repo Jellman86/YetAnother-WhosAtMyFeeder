@@ -48,7 +48,7 @@
     "confidence": "Confiança"
   },
   "empty_title": "Nenhum evento ainda",
-  "empty_desc": "As visitas aparecem aqui quando as câmeras identificam aves. Para trazer eventos antigos do Frigate, execute uma recuperação em Configurações → Dados.",
+  "empty_desc": "As visitas aparecem aqui quando as câmeras identificam aves. Para trazer eventos antigos do Frigate, execute uma recuperação em Configurações → Manutenção.",
   "load_failed": "Não foi possível carregar as visitas. Seu histórico não foi alterado.",
   "bulk_tag_partial": "{count, plural, one {# evento selecionado não foi atualizado.} other {# eventos selecionados não foram atualizados.}}",
   "bulk_delete_confirm": "Excluir {count, plural, one {# detecção} other {# detecções}}? Esta ação não pode ser desfeita.",

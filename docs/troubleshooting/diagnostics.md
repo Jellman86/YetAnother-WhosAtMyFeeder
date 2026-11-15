@@ -1,11 +1,11 @@
 # Troubleshooting & Diagnostics
 
-If detections or integrations are misbehaving, start at **Settings → Health**. It reports live
+If detections or integrations are misbehaving, start at the **Health** page, under **Manage** in the sidebar. It reports live
 system status, what happened to every recent frame and why it was or was not recorded, inference
 health, where your species names come from, and it is where you capture a diagnostics bundle to
 attach to a bug report.
 
-![Settings → Health showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
+![The Health page showing System Status and a What happened timeline with recorded, filtered and fault legend entries and two recorded visits](../images/settings-health.png)
 
 The **MQTT** and **Frigate** cards under **Subsystem detail** report the connections every detection
 depends on, as measured: whether the broker session is up (and, when it is not, the address, the last
@@ -25,9 +25,10 @@ The sidebar's **System status** list follows the same readings, in words:
 | **Audio** | **Listening**, **Not listening**, **Off** | Audio detections arrive through the broker, so it is **Listening** only while the broker session is up. |
 | **Alerts** | **On**, **Off** | Whether notifications are switched on. |
 
-Under the rows is the current CPU and accelerator load, and the **System health** link. The link
-reads **2 issues need attention** (with the number) only while the System health page lists open items in its
-verdict (a failed connection or an unresolved incident); the two always count the same thing.
+Under the rows is the current CPU and accelerator load, and one line that opens the Health page. It
+reads **System health** while nothing is open, and **2 issues need attention** (with the number) while
+the Health page lists open items in its verdict (a failed connection or an unresolved incident); the
+two always count the same thing.
 
 ## Repeated faults are one entry
 
@@ -49,7 +50,7 @@ is otherwise answering is still logged as a warning.
 
 ## Capture current evidence for a report
 
-1. Sign in as the owner and open **Settings → Health**. The **Health · Diagnostics export** link
+1. Sign in as the owner and open the **Health** page. The **Health · Diagnostics export** link
    under **Notifications → Jobs** takes you to the same page.
 2. Expand **Diagnostics export** and add the approximate time, camera, action and expected result
    in the notes. Include recent network or camera changes when relevant.
@@ -216,7 +217,7 @@ If step 5 fails, the most common cause is editing one path but mounting a differ
 ## ⚡ Inference acceleration diagnostics
 
 YA-WAMF exposes image, runtime, and device diagnostics under
-**Settings → Detection → Runtime diagnostics** and at
+**Settings → Models → Runtime diagnostics** and at
 `GET /api/classifier/status`.
 
 ### What to check first (UI)
@@ -376,7 +377,7 @@ If a backfill reports repeated classifier-unavailable errors, YA-WAMF stops afte
 consecutive failures instead of consuming the rest of the range. "Classifier busy" results are
 admission pressure (video snapshot fallbacks share the same background capacity), so they
 neither count towards those three nor reset them; ten busy results in a row still stop the job.
-The result keeps the number of events already processed, so you can check **Settings → Health**,
+The result keeps the number of events already processed, so you can check the **Health** page,
 restart the container if an in-process runtime is still stalled, and rerun the same range
 safely. Existing events are not duplicated; a better classification can update an existing
 detection.
@@ -389,7 +390,7 @@ classification slot. Once admitted, the work keeps its slot until completion or
 the existing lease cleanup; cancellation does not interrupt native inference or
 make its capacity immediately available.
 
-After native-runtime recovery, **Settings → Detection** shows the actual execution mode and
+After native-runtime recovery, **Settings → Models** shows the actual execution mode and
 whether isolated workers have resumed classification. Restart advice remains visible because
 switching to workers cannot release a native thread that is still stalled in the parent process.
 Model changes reload the workers without cleaning up the model that the stalled thread may use.
@@ -528,7 +529,7 @@ CPU results are kept even if the accelerator fails, but that failed accelerator
 is not selected or reloaded. A CPU-selected configuration, an already-current
 accelerator or a consumed attempt does not trigger this startup check.
 
-For an already-saved partial result, use **Settings → Detection → Run
+For an already-saved partial result, use **Settings → Models → Run
 compatibility check** and inspect Intel CPU's result. Leave **test all models**
 off to avoid downloading and testing the entire registry. This check still tests
 installed models and temporarily changes the active model, so run it when the
