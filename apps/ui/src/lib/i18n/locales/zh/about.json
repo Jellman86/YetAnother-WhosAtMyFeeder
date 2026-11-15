@@ -45,7 +45,7 @@
     "no_reading": "无法从此处读取",
     "owner_only": "仅所有者",
     "owner_only_detail": "仅所有者可见的读数",
-    "standby": "首次检测时加载"
+    "standby": "尚未加载"
   },
   "storage": {
     "title": "存储了什么",

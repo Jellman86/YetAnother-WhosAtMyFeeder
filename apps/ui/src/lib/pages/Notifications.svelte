@@ -376,24 +376,25 @@
                                     <span class="h-2.5 w-2.5 rounded-full border-2 {TONE_DOT[tone]}"></span>
                                 </span>
                             </span>
-                            <div class="flex min-w-0 items-start gap-1 py-1">
+                            <div class="min-w-0 py-1">
                                 {#if canOpen(item)}
                                     <button
                                         type="button"
-                                        class="focus-ring flex min-h-11 min-w-0 flex-1 items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
+                                        class="focus-ring flex min-h-11 w-full min-w-0 items-start gap-3 rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800/70"
                                         onclick={() => openItem(item)}
                                         data-notification-row="link"
                                     >
                                         {@render rowBody(item, group.key, tone, true)}
                                     </button>
                                 {:else}
-                                    <div class="flex min-h-11 min-w-0 flex-1 items-start gap-3 px-2 py-2" data-notification-row="plain">
+                                    <div class="flex min-h-11 w-full min-w-0 items-start gap-3 px-2 py-2" data-notification-row="plain">
                                         {@render rowBody(item, group.key, tone, false)}
                                     </div>
                                 {/if}
                                 {#if isStoppedJob(item)}
-                                    <!-- A stopped job is a record; the owner decides when it has been seen. -->
-                                    <button type="button" class="btn btn-ghost focus-ring min-h-11 shrink-0 px-2 text-xs" onclick={() => notificationCenter.remove(item.id)}>
+                                    <!-- Under the words it belongs to, indented past the icon, so every row's time and
+                                         chevron stay in one column. A stopped job is a record; the owner decides when it has been seen. -->
+                                    <button type="button" class="btn btn-ghost focus-ring ml-11 min-h-11 px-2 text-xs" onclick={() => notificationCenter.remove(item.id)} data-notification-dismiss>
                                         {$_('notifications.dismiss_action')}
                                     </button>
                                 {/if}

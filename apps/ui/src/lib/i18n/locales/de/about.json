@@ -45,7 +45,7 @@
     "no_reading": "von hier aus keine Messung",
     "owner_only": "Nur Besitzer",
     "owner_only_detail": "Messwert nur für den Besitzer sichtbar",
-    "standby": "Lädt bei der ersten Erkennung"
+    "standby": "Noch nicht geladen"
   },
   "storage": {
     "title": "Was gespeichert wird",

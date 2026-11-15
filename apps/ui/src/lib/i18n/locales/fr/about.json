@@ -45,7 +45,7 @@
     "no_reading": "aucune lecture depuis ici",
     "owner_only": "Propriétaire uniquement",
     "owner_only_detail": "relevé visible par le propriétaire",
-    "standby": "Se charge à la première détection"
+    "standby": "Pas encore chargé"
   },
   "storage": {
     "title": "Ce qui est stocké",

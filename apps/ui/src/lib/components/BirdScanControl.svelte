@@ -168,8 +168,8 @@
             {/if}
         </div>
     {/if}
-    <!-- Disabled reads as disabled by losing its border and fill, not by fading its words. -->
-    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-transparent disabled:bg-transparent disabled:text-slate-600 disabled:opacity-100 disabled:shadow-none dark:disabled:text-slate-400"
+    <!-- Disabled reads as disabled: a flat grey fill, muted words and no hover, with the reason in the line beside it. -->
+    <button type="button" class="btn btn-secondary min-h-11 min-w-11 max-w-full gap-2 px-3 text-sm focus-ring disabled:border-slate-200 disabled:bg-slate-200/70 disabled:text-slate-500 disabled:opacity-100 disabled:shadow-none disabled:hover:bg-slate-200/70 dark:disabled:border-slate-700 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:hover:bg-slate-800"
         aria-busy={active || view.pending}
         disabled={disabled || view.pending || active || !candidateId || !mediaRevision || !view.response?.available || view.readError}
         onclick={() => { void controller?.start(scanStatus === 'completed' || scanStatus === 'failed'); }}>

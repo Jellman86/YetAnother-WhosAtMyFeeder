@@ -202,6 +202,23 @@ test('the record is walked by keyboard in the order it is read', async ({ page }
     const confirmTop = (await modal.locator('[data-detection-confirm]').boundingBox())!.y;
     expect(confirmTop).toBeLessThan((await referenceText.boundingBox())!.y);
 
+    // More actions is a list drawn whole under its trigger at desktop width: every row is on screen
+    // inside the list's own box and can be clicked. The scrolling column once squashed the list.
+    await modal.locator('[data-detection-more-actions]').click();
+    const panel = modal.locator('[data-detection-more-actions-panel]');
+    const rows = panel.getByRole('button');
+    expect(await rows.count()).toBeGreaterThanOrEqual(3);
+    const panelBox = (await panel.boundingBox())!;
+    for (const row of await rows.all()) {
+        await expect(row).toBeVisible();
+        const rowBox = (await row.boundingBox())!;
+        expect(rowBox.y).toBeGreaterThanOrEqual(panelBox.y - 1);
+        expect(rowBox.y + rowBox.height).toBeLessThanOrEqual(panelBox.y + panelBox.height + 1);
+    }
+    await modal.locator('[data-detection-delete]').click({ trial: true });
+    await modal.locator('[data-detection-more-actions]').click();
+    await expect(panel).toHaveCount(0);
+
     // Walk every stop in the details column and record where each one is drawn.
     await modal.locator('[data-dialog-close]').focus();
     const stops: { name: string; top: number; column: boolean }[] = [];

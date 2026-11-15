@@ -87,7 +87,10 @@ describe('Notifications timeline layout', () => {
     it('keeps the rail unbroken between rows and capped at the outer dots', () => {
         // Vertical padding lives on the content column, not the row: as a grid item the rail's
         // box stopped at the row's padding and the line broke between every entry.
-        expect(source).toContain('class="flex min-w-0 items-start gap-1 py-1"');
+        expect(source).toContain('class="min-w-0 py-1"');
+        // Dismiss sits under the words, never beside the chevron, so the time and chevron column holds.
+        expect(source.indexOf('data-notification-dismiss')).toBeGreaterThan(source.indexOf('data-notification-row="plain"'));
+        expect(source).toContain('ml-11 min-h-11 px-2 text-xs');
         expect(source).toContain("? 'top-7 bottom-0'");
         expect(source).toContain("? 'top-0 h-7'");
         expect(source).toContain('{#if group.items.length > 1}');

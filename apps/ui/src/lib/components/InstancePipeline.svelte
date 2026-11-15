@@ -8,6 +8,7 @@
     import { serviceConnectionsStore } from '../stores/service_connections.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { describeRuntime } from '../utils/instance-facts';
     import { pipelineClassifierState, type PipelineClassifierState } from '../utils/pipeline-classifier-state';
     import { _ } from 'svelte-i18n';
 
@@ -23,8 +24,8 @@
         detail: string;
         state: string | null;
         tone: Tone;
-        /** The detail is a literal identifier, such as a model id, not words. */
-        identifier?: boolean;
+        /** A muted second line under the detail, such as the runtime a model runs on. */
+        note?: string | null;
     }
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
@@ -131,18 +132,19 @@
     const classifierSummary = $derived.by(() => {
         if (classifierFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         if (!classifier) return { detail: '…', state: null, tone: 'unknown' as Tone };
-        const model = classifier.effective_model_id ?? classifier.active_model_id ?? '—';
-        const provider = classifier.active_provider ?? classifier.inference_backend ?? '';
+        // The model's own name, as the Models tab shows it. Its file id belongs in the issue report.
+        const modelName = classifier.effective_model_name?.trim() || null;
+        const runtime = describeRuntime(classifier)?.runtime ?? null;
         const reading = pipelineClassifierState(classifier);
         const states: Record<PipelineClassifierState, { state: string; tone: Tone }> = {
             loaded: { state: $_('about.pipeline.loaded', { default: 'Loaded' }), tone: 'ok' },
-            standby: { state: $_('about.pipeline.standby', { default: 'Loads on first detection' }), tone: 'off' },
+            standby: { state: $_('about.pipeline.standby', { default: 'Not loaded yet' }), tone: 'off' },
             check: { state: $_('about.pipeline.degraded', { default: 'Check' }), tone: 'off' },
             unknown: { state: unknown, tone: 'unknown' }
         };
         return {
-            detail: provider ? `${model} · ${provider}` : String(model),
-            identifier: true,
+            detail: modelName ?? runtime ?? noReading,
+            note: modelName ? runtime : null,
             ...states[reading]
         };
     });
@@ -177,7 +179,7 @@
         {
             key: 'classifier',
             detail: classifierSummary.detail,
-            identifier: 'identifier' in classifierSummary,
+            note: 'note' in classifierSummary ? classifierSummary.note : null,
             state: classifierSummary.state,
             tone: classifierSummary.tone
         },
@@ -234,14 +236,6 @@
     function toneDot(tone: Tone): string {
         return tone === 'ok' ? 'bg-success-500' : 'border border-slate-400 dark:border-slate-500';
     }
-
-    /**
-     * An identifier breaks between its parts. Each part is its own box, so it breaks inside only
-     * when it alone is wider than the card, as at a very large text size.
-     */
-    function parts(detail: string): string[] {
-        return detail.split(' · ');
-    }
 </script>
 
 <div class="space-y-4" data-about-pipeline>
@@ -274,14 +268,11 @@
                 <span class="relative mt-0.5 block text-sm font-semibold text-slate-900 wrap-anywhere dark:text-white">
                     {$_(`about.pipeline.${step.key}`)}
                 </span>
-                {#if step.identifier}
-                    <span class="relative mt-0.5 block font-mono text-2xs leading-snug text-slate-600 dark:text-slate-400" data-pipeline-identifier>
-                        {#each parts(step.detail) as part, position (position)}{#if position > 0}{' · '}{/if}<span class="inline-block max-w-full align-top wrap-anywhere">{part}</span>{/each}
-                    </span>
-                {:else}
-                    <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
-                        {step.detail}
-                    </span>
+                <span class="relative mt-0.5 block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400">
+                    {step.detail}
+                </span>
+                {#if step.note}
+                    <span class="relative block text-2xs leading-snug text-slate-600 wrap-anywhere dark:text-slate-400" data-pipeline-note>{step.note}</span>
                 {/if}
             </li>
         {/each}

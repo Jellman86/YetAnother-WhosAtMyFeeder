@@ -45,7 +45,7 @@
     "no_reading": "ここからは取得できません",
     "owner_only": "オーナーのみ",
     "owner_only_detail": "オーナーにのみ表示される情報",
-    "standby": "最初の検出時に読み込み"
+    "standby": "まだ読み込まれていません"
   },
   "storage": {
     "title": "保存される内容",

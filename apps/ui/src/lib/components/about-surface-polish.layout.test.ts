@@ -13,11 +13,12 @@ describe('About surface polish', () => {
         expect(aboutSource).toMatch(/<a href=\{credit\.href\}[^>]*class="inline-flex min-h-11 items-center/);
     });
 
-    it('prints the classifier model id whole: an identifier breaks between its parts, never inside one', () => {
-        expect(pipelineSource).toContain("identifier: true");
-        expect(pipelineSource).toContain("return detail.split(' · ');");
-        expect(pipelineSource).toMatch(/data-pipeline-identifier[\s\S]{0,200}<span class="inline-block max-w-full align-top wrap-anywhere">\{part\}<\/span>/);
-        expect(pipelineSource).not.toContain('break-all');
+    it('names the model as the Models tab does, with its runtime as a muted second line', () => {
+        // A file id such as mobilenet_v2_birds ran past the card; ids belong in the issue report only.
+        expect(pipelineSource).toContain('classifier.effective_model_name');
+        expect(pipelineSource).not.toMatch(/effective_model_id|active_model_id|font-mono|break-all/);
+        expect(pipelineSource).toContain('data-pipeline-note');
+        expect(en.about.pipeline.standby).toBe('Not loaded yet');
     });
 
     it('draws every step as the same card, with its state as a dot and a word', () => {

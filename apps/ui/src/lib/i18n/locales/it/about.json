@@ -45,7 +45,7 @@
     "no_reading": "nessuna lettura da qui",
     "owner_only": "Solo proprietario",
     "owner_only_detail": "lettura visibile al proprietario",
-    "standby": "Si carica al primo rilevamento"
+    "standby": "Non ancora caricato"
   },
   "storage": {
     "title": "Cosa memorizza",

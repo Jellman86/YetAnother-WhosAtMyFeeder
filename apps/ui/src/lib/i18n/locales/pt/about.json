@@ -45,7 +45,7 @@
     "no_reading": "sem leitura a partir daqui",
     "owner_only": "Apenas proprietário",
     "owner_only_detail": "leitura visível ao proprietário",
-    "standby": "Carrega na primeira deteção"
+    "standby": "Ainda não carregado"
   },
   "storage": {
     "title": "O que é armazenado",
