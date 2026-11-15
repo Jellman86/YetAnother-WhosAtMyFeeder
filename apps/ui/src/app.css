@@ -591,7 +591,7 @@ html[data-theme='dark'] {
 }
 
 @utility settings-section-body {
-  @apply divide-y divide-line-soft px-5 md:px-6;
+  @apply divide-y divide-line-soft px-4 md:px-6;
 
   & > * {
     @apply py-4;

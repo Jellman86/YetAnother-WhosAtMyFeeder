@@ -37,7 +37,7 @@
      The actions sit beside the heading while it keeps at least 12rem, and wrap under it when not;
      the header's right inset matches the card's, so a section switch ends where row switches do. -->
 <section class="space-y-3" {id} aria-labelledby={headingId} data-settings-section>
-    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pl-1 pr-5 md:pr-6">
+    <header class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 pl-1 pr-4 md:pr-6">
         <div class="min-w-0 flex-1 basis-48">
             <h2 id={headingId} class="text-lg font-semibold text-slate-900 dark:text-white">
                 {#if collapsible}

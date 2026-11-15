@@ -77,6 +77,8 @@ function cameraFields(payload: Settings | undefined): Settings {
 async function apply(page: Page, harness: Harness, count: number): Promise<Settings> {
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => harness.writes.length).toBe(count);
+    // Wait for the saved settings to come back, so the next edit is not made under the reload.
+    await expect(page.locator('[data-settings-save-bar]')).toHaveCount(0);
     return cameraFields(harness.writes[count - 1]);
 }
 

@@ -388,7 +388,8 @@
     });
 </script>
 
-<div class="space-y-6">
+<!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
+<div class="space-y-6 wrap-anywhere">
 
     <NativeProfileRevalidation />
 
@@ -514,7 +515,7 @@
                         {/if}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex min-h-11 max-w-full items-center gap-3">
+                        <span class="inline-flex min-h-11 max-w-full flex-wrap items-center gap-3">
                             <SettingsToggle
                                 checked={compatAllModels}
                                 disabled={compatRunning}
@@ -527,7 +528,7 @@
                                 <span class="block text-xs text-slate-600 dark:text-slate-400">{$_('settings.detection.compat_all_hint', { default: 'Downloads each one first, so the check takes much longer.' })}</span>
                             </span>
                         </span>
-                        <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
+                        <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2 whitespace-normal">
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
                     </div>
@@ -611,7 +612,7 @@
                         description={$_('settings.detection.worker_counts_desc', { default: 'Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the classifier workers restart.' })}
                         layout="stacked"
                     >
-                        <div class="grid grid-cols-2 gap-3">
+                        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <label class="flex flex-col gap-1.5">
                                 <span class="text-xs font-bold text-slate-600 dark:text-slate-400">{$_('settings.detection.worker_counts_live', { default: 'Live' })}</span>
                                 <input
@@ -839,7 +840,7 @@
             {#if onopenmodelevaluation}
                 <a
                     href="/diagnostics/model-eval"
-                    class="btn btn-secondary min-h-11 shrink-0 px-4"
+                    class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
                     onclick={(event) => { event.preventDefault(); onopenmodelevaluation?.(); }}
                 >
                     {$_('settings.models.testing_open', { default: 'Open model evaluation' })}

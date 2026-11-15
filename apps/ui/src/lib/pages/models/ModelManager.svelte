@@ -618,7 +618,8 @@
     }
 </script>
 
-<div class="space-y-6">
+<!-- At the narrowest widths with enlarged text a long word may break, rather than push the page sideways. -->
+<div class="space-y-6 wrap-anywhere">
     {#if loading}
         <div class="flex min-h-32 items-center justify-center" role="status">
             <div class="h-8 w-8 animate-spin"></div>
@@ -789,7 +790,7 @@
                                             ? $_('settings.detection.model_manager_planned_runtime', { default: 'Planned runtime' })
                                             : $_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
                                     </span>
-                                    <span class="inline-flex items-center gap-2 font-semibold">
+                                    <span class="inline-flex max-w-full flex-wrap items-center gap-2 font-semibold">
                                         <span class="h-2 w-2 rounded-full {runtimePlanned ? 'bg-slate-400' : 'bg-brand-500'}" aria-hidden="true"></span>
                                         {providerLabel(classifierStatus.active_provider)}
                                     </span>
@@ -921,7 +922,7 @@
                                     <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{model.notes}</p>
                                 {/if}
 
-                                <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                <dl class="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
                                         <dt class="font-semibold text-slate-600 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
                                         <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
