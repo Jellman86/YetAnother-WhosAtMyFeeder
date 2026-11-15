@@ -1714,7 +1714,7 @@
   },
   "models": {
     "testing_title": "Testar os modelos",
-    "testing_desc": "Compare os modelos instalados em fotos que você já confirmou.",
+    "testing_desc": "Compare os modelos instalados em fotos de referência de espécies conhecidas do iNaturalist e do Wikimedia Commons.",
     "testing_action": "A avaliação de modelos executa cada modelo instalado nessas fotos e mostra quantas vezes acerta e quanto tempo leva.",
     "testing_open": "Abrir a avaliação de modelos"
   },

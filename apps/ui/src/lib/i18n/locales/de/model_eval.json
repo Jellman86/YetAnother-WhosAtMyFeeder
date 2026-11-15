@@ -162,7 +162,7 @@
     "running_reason": "Es läuft immer nur eine Bewertung. Beenden Sie diese, um eine neue zu starten.",
     "stop": "Bewertung beenden",
     "title": "Bewertung starten",
-    "what": "Jedes installierte Modell benennt Fotos von Vögeln, deren Art bereits bestätigt ist. So können Sie vergleichen, wie oft jedes richtig liegt und wie schnell es ist."
+    "what": "Jedes installierte Modell benennt Referenzfotos bekannter Arten. So können Sie vergleichen, wie oft jedes richtig liegt und wie schnell es ist."
   },
   "stopped": {
     "finder_needs_provider_check": "Ein Vogelfinder kann nur auf Anbieter geprüft werden. Starten Sie die Prüfung unter Einstellungen → Modelle.",

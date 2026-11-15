@@ -830,7 +830,7 @@
         collapsible
         id="models-testing"
         title={$_('settings.models.testing_title', { default: 'Testing the models' })}
-        description={$_('settings.models.testing_desc', { default: 'Compare the installed models on photos you have already confirmed.' })}
+        description={$_('settings.models.testing_desc', { default: 'Compare the installed models on reference photos of known species from iNaturalist and Wikimedia Commons.' })}
     >
         <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-300">

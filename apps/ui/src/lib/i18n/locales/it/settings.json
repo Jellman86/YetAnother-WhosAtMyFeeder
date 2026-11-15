@@ -1714,7 +1714,7 @@
   },
   "models": {
     "testing_title": "Provare i modelli",
-    "testing_desc": "Confronta i modelli installati su foto che hai già confermato.",
+    "testing_desc": "Confronta i modelli installati su foto di riferimento di specie note da iNaturalist e Wikimedia Commons.",
     "testing_action": "La valutazione dei modelli esegue ogni modello installato su quelle foto e mostra quante volte ha ragione e quanto impiega.",
     "testing_open": "Apri la valutazione dei modelli"
   },

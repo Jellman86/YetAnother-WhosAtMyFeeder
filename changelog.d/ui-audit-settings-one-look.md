@@ -22,3 +22,6 @@
   "Test Frigate and MQTT" and sits after both, and Sync cameras sits with the cameras.
 - **The BirdNET-Go test runs every check** even when the URL check fails, since the MQTT and
   pipeline checks do not depend on it.
+- **Model testing says where its photos come from.** Models and Model evaluation now say the
+  models are compared on reference photos of known species from iNaturalist and Wikimedia
+  Commons, not on photos you confirmed.

@@ -1714,7 +1714,7 @@
   },
   "models": {
     "testing_title": "モデルのテスト",
-    "testing_desc": "確認済みの写真で、インストール済みのモデルを比較します。",
+    "testing_desc": "iNaturalist と Wikimedia Commons の、種がわかっている参照写真で、インストール済みのモデルを比較します。",
     "testing_action": "モデル評価は、インストール済みの各モデルをそれらの写真で実行し、正解率と所要時間を表示します。",
     "testing_open": "モデル評価を開く"
   },

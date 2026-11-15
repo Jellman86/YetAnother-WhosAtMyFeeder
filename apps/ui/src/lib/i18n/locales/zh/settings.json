@@ -1714,7 +1714,7 @@
   },
   "models": {
     "testing_title": "测试模型",
-    "testing_desc": "用您已确认的照片比较已安装的模型。",
+    "testing_desc": "用来自 iNaturalist 和 Wikimedia Commons 的已知物种参考照片比较已安装的模型。",
     "testing_action": "模型评估会用这些照片运行每个已安装的模型，显示各自的准确次数和耗时。",
     "testing_open": "打开模型评估"
   },
