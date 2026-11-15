@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalSettingsPath, settingsTabFromRoute, settingsTabPath } from './settings-route';
+import { canonicalSettingsPath, SETTINGS_TAB_ORDER, settingsTabFromRoute, settingsTabPath } from './settings-route';
 
 describe('settingsTabFromRoute', () => {
     it.each([
@@ -10,9 +10,8 @@ describe('settingsTabFromRoute', () => {
         ['/settings/notifications', 'notifications'],
         ['/settings/notifications/', 'notifications'],
         ['/settings/data/retention', 'data'],
-        ['/settings/errors', 'health'],
-        ['/settings/errors/recent', 'health'],
-        ['/settings/health', 'health'],
+        ['/settings/models', 'models'],
+        ['/settings/maintenance', 'maintenance'],
         ['/settings/not-a-tab', 'connection'],
         ['/events', 'connection']
     ] as const)('shows %s as the %s tab', (route, tab) => {
@@ -27,8 +26,6 @@ describe('canonicalSettingsPath', () => {
         ['/settings', 'notifications', '/settings/notifications'],
         ['/settings/', 'security', '/settings/security'],
         ['/settings', 'not-a-tab', '/settings/connection'],
-        ['/settings/errors', '', '/settings/health'],
-        ['/settings/errors/recent', '', '/settings/health'],
         ['/settings/not-a-tab', '', '/settings/connection'],
         ['/settings/ai/', '', '/settings/ai']
     ])('rewrites the legacy or loose address %s#%s to %s', (pathname, hash, canonical) => {
@@ -40,18 +37,30 @@ describe('canonicalSettingsPath', () => {
         ['/settings/beta', 'detection'],
         ['/settings/data/retention', ''],
         ['/events', 'notifications'],
+        ['/system-health', ''],
         ['/', '']
     ])('leaves %s#%s alone', (pathname, hash) => {
         expect(canonicalSettingsPath(pathname, hash)).toBeNull();
     });
 
     it('treats every canonical tab address as already canonical and showing that tab', () => {
-        const tabs = ['connection', 'detection', 'notifications', 'health', 'integrations', 'ai', 'security', 'data', 'appearance', 'accessibility', 'beta', 'debug'] as const;
-        for (const tab of tabs) {
+        for (const tab of SETTINGS_TAB_ORDER) {
             const path = settingsTabPath(tab);
             expect(canonicalSettingsPath(path, '')).toBeNull();
             expect(settingsTabFromRoute(path)).toBe(tab);
         }
+    });
+
+    it('has one tab per job: models apart from detection, maintenance apart from data, and no status pages', () => {
+        expect(SETTINGS_TAB_ORDER).toEqual([
+            'connection', 'detection', 'models',
+            'integrations', 'ai', 'notifications',
+            'security', 'data', 'maintenance', 'beta',
+            'appearance', 'accessibility'
+        ]);
+        // Health is a page of its own, and Debug's two settings moved into Models.
+        expect(SETTINGS_TAB_ORDER).not.toContain('health');
+        expect(SETTINGS_TAB_ORDER).not.toContain('debug');
     });
 
     it('sends the retired Enrichment address to Integrations, where its summary now lives', () => {
@@ -62,8 +71,20 @@ describe('canonicalSettingsPath', () => {
         expect(canonicalSettingsPath('/settings/enrichment/', '')).toBe('/settings/integrations');
     });
 
+    it('sends the retired Debug address to Models, which now holds its settings', () => {
+        expect(canonicalSettingsPath('/settings/debug', '')).toBe('/settings/models');
+        expect(settingsTabFromRoute('/settings/debug')).toBe('models');
+        expect(canonicalSettingsPath('/settings', 'debug')).toBe('/settings/models');
+    });
+
+    it('sends every older Health address, hash or path, to the Health page', () => {
+        for (const [pathname, hash] of [['/settings', 'health'], ['/settings/', 'health'], ['/settings', 'errors'], ['/settings/health', ''], ['/settings/health/', ''], ['/settings/errors', ''], ['/settings/errors/recent', '']]) {
+            expect(canonicalSettingsPath(pathname, hash), `${pathname}#${hash}`).toBe('/system-health');
+        }
+    });
+
     it('settles every rewrite in one step', () => {
-        for (const [pathname, hash] of [['/settings', 'ai'], ['/settings/errors', ''], ['/settings/unknown/', ''], ['/settings/', '']]) {
+        for (const [pathname, hash] of [['/settings', 'ai'], ['/settings/debug', ''], ['/settings/unknown/', ''], ['/settings/', '']]) {
             const canonical = canonicalSettingsPath(pathname, hash);
             expect(canonical).not.toBeNull();
             expect(canonicalSettingsPath(canonical ?? '', '')).toBeNull();

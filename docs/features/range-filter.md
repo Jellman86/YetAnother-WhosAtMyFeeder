@@ -47,7 +47,7 @@ The location and the eBird key are the ones already set under **Settings → Int
    confidence threshold and every other rule (blocked species, the non-bird guard). The record's
    technical details say what the model said first.
 2. If no answer qualifies, the detection is not recorded. It is listed under **Recently set
-   aside** in the card and in the activity log under **Settings → Health** as *Not recorded,
+   aside** in the card and in the activity log on the **Health** page as *Not recorded,
    never seen in your eBird region*. A genuine vagrant can still be recorded by hand with
    **Add observation**, while Frigate keeps the clip.
 

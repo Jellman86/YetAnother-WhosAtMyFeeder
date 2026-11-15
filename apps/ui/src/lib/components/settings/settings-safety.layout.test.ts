@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import dataSource from './DataSettings.svelte?raw';
+import maintenanceSource from './MaintenanceSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
 import settingsPageSource from '../../pages/Settings.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
@@ -7,11 +8,12 @@ import enSettings from '../../i18n/locales/en/settings.json';
 const en = { settings: enSettings };
 
 describe('history retention', () => {
-    it('shows the saved policy in the stat tiles, in plain words', () => {
-        expect(dataSource).toContain("val: savedRetentionDays === 0 ? '∞'");
-        expect(dataSource).toContain("settings.data.due_for_deletion");
+    it('states the saved history in one sentence, in words, instead of stat tiles', () => {
+        expect(dataSource).toContain('data-history-summary');
+        expect(dataSource).toContain("settings.data.history_due");
+        expect(dataSource).not.toContain("'∞'");
         expect(dataSource).not.toContain('pending_gc');
-        expect(en.settings.data.due_for_deletion).toBe('Due for deletion');
+        expect(dataSource).not.toContain('grid grid-cols-2 md:grid-cols-4');
     });
 
     it('warns under the picker, and links the warning to it, when a choice deletes history', () => {
@@ -36,20 +38,35 @@ describe('history retention', () => {
 
 describe('the Danger Zone', () => {
     it('gives each action its own block, ordered by reach, with its consequence beside its button', () => {
-        const order = ['feedback', 'favorites', 'reset'].map((action) => dataSource.indexOf(`data-danger-action="${action}"`));
+        const order = ['feedback', 'favorites', 'reset'].map((action) => maintenanceSource.indexOf(`data-danger-action="${action}"`));
         expect(order.every((at) => at > -1)).toBe(true);
         expect([...order].sort((a, b) => a - b)).toEqual(order);
         for (const action of ['feedback', 'favorites', 'reset']) {
-            expect(dataSource).toContain(`aria-describedby="danger-${action}-consequence"`);
+            expect(maintenanceSource).toContain(`aria-describedby="danger-${action}-consequence"`);
         }
     });
 
-    it('uses the kit danger buttons, solid only for the reset', () => {
-        expect(dataSource).not.toContain('buttonAmberClass');
-        expect(dataSource).toContain("const buttonDangerSolidClass = 'btn btn-danger-solid");
-        const reset = dataSource.slice(dataSource.indexOf('data-danger-action="reset"'));
+    it('uses the kit danger buttons, solid only for the reset, and red only where something is deleted', () => {
+        expect(maintenanceSource).not.toContain('buttonAmberClass');
+        expect(maintenanceSource).toContain("const buttonDangerSolidClass = 'btn btn-danger-solid");
+        const reset = maintenanceSource.slice(maintenanceSource.indexOf('data-danger-action="reset"'));
         expect(reset).toContain('{buttonDangerSolidClass}');
-        expect(dataSource.match(/\{buttonDangerSolidClass\}/g)).toHaveLength(1);
+        expect(maintenanceSource.match(/\{buttonDangerSolidClass\}/g)).toHaveLength(1);
+        // Repairs and the integrity scan change nothing for good, so they are not red; the scan
+        // turns red only while the chosen policy deletes local data.
+        const repairs = maintenanceSource.slice(0, maintenanceSource.indexOf('id="data-danger"'));
+        expect(repairs).not.toMatch(/buttonDanger(Outline|Solid)Class\}/);
+        expect(dataSource).toContain("class={frigateMissingBehavior === 'delete' ? buttonDangerOutlineClass : buttonNeutralClass}");
+    });
+
+    it('asks in a calm sentence that states the effect and the count', () => {
+        for (const key of ['confirm', 'clear_feedback_confirm', 'reset_desc']) {
+            const value = (en.settings.danger as Record<string, string>)[key];
+            expect(value, key).not.toMatch(/DANGER|\bALL\b|Are you sure/);
+        }
+        expect(en.settings.danger.confirm).toContain('{count');
+        // The disclosure says what it holds once; its description adds something new.
+        expect(en.settings.danger.subtitle).not.toBe('Destructive actions');
     });
 });
 

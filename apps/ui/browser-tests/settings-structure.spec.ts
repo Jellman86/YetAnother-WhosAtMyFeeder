@@ -45,35 +45,37 @@ test.describe('on a wide screen', () => {
         await expect(rail(page).getByRole('link', { name: 'Detection', exact: true })).not.toContainText('unsaved');
     });
 
-    test('telemetry lives with Data, and Integrations ends with the species information sources', async ({ page }) => {
+    test('telemetry lives with Security, and Integrations ends with the species information sources', async ({ page }) => {
         await openSettings(page, { ebird_enabled: false, enrichment_sightings_source: 'disabled' });
         await expect(page.getByText('Anonymous usage', { exact: false }).first()).toHaveCount(0);
-        await rail(page).getByRole('link', { name: 'Data', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Security', exact: true }).click();
         await expect(page.getByRole('switch', { name: /telemetry/i }).first()).toBeVisible();
 
         await rail(page).getByRole('link', { name: 'Integrations', exact: true }).click();
         const sources = page.locator('[data-enrichment-summary]');
         await expect(sources).toContainText('Not shown: needs an eBird API key');
-        await page.getByRole('button', { name: 'Set up eBird', exact: true }).click();
+        // The summary links to eBird's own switch rather than offering a second way to turn it on.
+        await page.getByRole('button', { name: 'Go to eBird', exact: true }).click();
         await expect(page.locator('[aria-labelledby="setting-ebird-enabled"]')).toBeFocused();
         await expect(saveBar(page)).toHaveCount(0);
     });
 
-    test('Detection leads with the confidence sliders; Hardware and Frigate options start closed', async ({ page }) => {
+    test('Detection leads with the confidence sliders, and the models and hardware are their own tab', async ({ page }) => {
         await openSettings(page);
         await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
         const slider = page.locator('#confidence-threshold-slider');
         await expect(slider).toBeVisible();
-        const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
         const frigate = page.getByRole('button', { name: 'Frigate and video', exact: true });
-        await expect(hardware).toHaveAttribute('aria-expanded', 'false');
         await expect(frigate).toHaveAttribute('aria-expanded', 'false');
-        const sliderBox = await slider.boundingBox();
-        const hardwareBox = await hardware.boundingBox();
-        expect((sliderBox?.y ?? 0)).toBeLessThan(hardwareBox?.y ?? 0);
+        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveCount(0);
         await frigate.click();
         await expect(frigate).toHaveAttribute('aria-expanded', 'true');
         await expect(page.getByRole('switch', { name: /Frigate/ }).first()).toBeVisible();
+
+        await page.getByRole('button', { name: 'Open Models', exact: true }).click();
+        await expect(rail(page).getByRole('link', { name: 'Models', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(page.getByRole('button', { name: 'Hardware', exact: true })).toHaveAttribute('aria-expanded', 'false');
+        await expect(page.locator('#bird-model-region-override')).toBeVisible();
     });
 });
 
@@ -133,6 +135,24 @@ test.describe('a refused value inside a closed card', () => {
     });
 });
 
+test.describe('a refused value inside a closed card', () => {
+    test.use({ viewport: { width: 1440, height: 900 } });
+
+    test('opens Maintenance and its Jobs at once card for a refused concurrency, and focuses the field', async ({ page }) => {
+        await openSettings(page, {}, {
+            refuseWrite: () => ({
+                status: 422,
+                json: { detail: [{ type: 'less_than_equal', loc: ['body', 'maintenance_max_concurrent'], msg: 'Input should be less than or equal to 8', ctx: { le: 8 } }] }
+            })
+        });
+        await page.locator('#mqtt-server').fill('broker.lan');
+        await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await expect(rail(page).getByRole('link', { name: 'Maintenance', exact: true })).toHaveAttribute('aria-current', 'page');
+        await expect(page.getByRole('button', { name: 'Jobs at once', exact: true })).toHaveAttribute('aria-expanded', 'true');
+        await expect(page.locator('#maintenance-max-concurrent')).toBeFocused();
+    });
+});
+
 test.describe('the runtime report, after it was closed and the tab left', () => {
     test.use({ viewport: { width: 1440, height: 900 } });
     const report = (page: Page) => page.getByRole('button', { name: /Runtime report/ });
@@ -145,7 +165,7 @@ test.describe('the runtime report, after it was closed and the tab left', () => 
         await expect(report(page)).toHaveAttribute('aria-expanded', 'false');
         await rail(page).getByRole('link', { name: 'Connection', exact: true }).click();
         await expect(page.locator('#mqtt-server')).toBeVisible();
-        await rail(page).getByRole('link', { name: 'Detection', exact: true }).click();
+        await rail(page).getByRole('link', { name: 'Models', exact: true }).click();
     }
 
     test('the health link opens Hardware and the report, whatever was remembered', async ({ page }) => {

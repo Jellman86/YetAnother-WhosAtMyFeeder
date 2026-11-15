@@ -22,9 +22,7 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
     import NotificationPolicySentence from './NotificationPolicySentence.svelte';
-    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
-    import type { GardenNotificationChannel } from '../../api/garden';
-    import type { PolicyChannel } from '../../settings/notification-policy';
+    import { policyChannels } from '../../settings/notification-policy';
     import FieldRefusal from './_primitives/FieldRefusal.svelte';
     import { settingsFieldErrorLookup } from '../../settings/field-error-context';
 
@@ -112,15 +110,11 @@
         instanceUrl = $bindable(''),
         linkTarget = $bindable<NotificationLinkTarget>('yawamf'),
         frigateExternalUrl = '',
-        onOpenIntegrations = () => {},
+        onOpenConnection = () => {},
 
-        // Garden animals (beta)
+        // Garden animals (beta): its alerts are set in Garden; this tab only links there.
         gardenBeta = false,
-        gardenStatusAvailable = false,
-        gardenNotificationsEnabled = $bindable(false),
-        gardenUseBirdChannels = $bindable(true),
-        gardenNotificationChannels = $bindable<GardenNotificationChannel[]>([]),
-        gardenIncludePhoto = $bindable(true),
+        onOpenGarden,
 
         // Functions
         sendTestEmail,
@@ -180,15 +174,12 @@
         instanceUrl: string;
         linkTarget: NotificationLinkTarget;
         frigateExternalUrl?: string;
-        onOpenIntegrations?: () => void;
+        /** Opens Connection, where the Frigate public URL is set. */
+        onOpenConnection?: () => void;
         /** Whether the Garden beta is on, as the page holds it. */
         gardenBeta?: boolean;
-        /** Whether the saved settings have Garden on, so its delivery status can be read. */
-        gardenStatusAvailable?: boolean;
-        gardenNotificationsEnabled?: boolean;
-        gardenUseBirdChannels?: boolean;
-        gardenNotificationChannels?: GardenNotificationChannel[];
-        gardenIncludePhoto?: boolean;
+        /** Opens Garden's alerts in Beta features. */
+        onOpenGarden?: () => void;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
@@ -301,51 +292,24 @@
     }
 
     const speciesFilterSectionId = 'notification-species-filter-section';
+    const channelsSectionId = 'notification-channels';
 
     const speciesFilterCount = $derived(
         filterSpeciesEntries.length +
             (filterSpeciesMode === 'whitelist' ? legacySpeciesWhitelist.length : 0)
     );
 
-    const policyChannels = $derived<PolicyChannel[]>([
-        {
-            id: 'discord',
-            label: $_('settings.notifications.sentence.channel_discord'),
-            enabled: discordEnabled,
-            configured: Boolean(discordWebhook || discordWebhookSaved),
-        },
-        {
-            id: 'pushover',
-            label: $_('settings.notifications.sentence.channel_pushover'),
-            enabled: pushoverEnabled,
-            configured:
-                Boolean(pushoverUserKey || pushoverUserSaved) &&
-                Boolean(pushoverApiToken || pushoverTokenSaved),
-        },
-        {
-            id: 'telegram',
-            label: $_('settings.notifications.sentence.channel_telegram'),
-            enabled: telegramEnabled,
-            configured:
-                Boolean(telegramBotToken || telegramTokenSaved) &&
-                Boolean(telegramChatId || telegramChatIdSaved),
-        },
-        {
-            id: 'email',
-            label: $_('settings.notifications.sentence.channel_email'),
-            enabled: emailEnabled,
-            configured: emailUseOAuth
-                ? Boolean(emailConnectedEmail)
-                : Boolean(emailSmtpHost && emailToEmail),
-        },
-    ]);
-
-    function togglePolicyChannel(id: PolicyChannel['id'], enabled: boolean) {
-        if (id === 'discord') discordEnabled = enabled;
-        else if (id === 'pushover') pushoverEnabled = enabled;
-        else if (id === 'telegram') telegramEnabled = enabled;
-        else emailEnabled = enabled;
-    }
+    const policyChannelList = $derived(
+        policyChannels(
+            {
+                discord: { enabled: discordEnabled, webhook: discordWebhook, webhookSaved: discordWebhookSaved },
+                pushover: { enabled: pushoverEnabled, user: pushoverUserKey, userSaved: pushoverUserSaved, token: pushoverApiToken, tokenSaved: pushoverTokenSaved },
+                telegram: { enabled: telegramEnabled, token: telegramBotToken, tokenSaved: telegramTokenSaved, chatId: telegramChatId, chatIdSaved: telegramChatIdSaved },
+                email: { enabled: emailEnabled, useOAuth: emailUseOAuth, connectedEmail: emailConnectedEmail, smtpHost: emailSmtpHost, toEmail: emailToEmail }
+            },
+            (id) => $_(`settings.notifications.sentence.channel_${id}`)
+        )
+    );
 
     function setSpeciesFilterMode(mode: NotificationSpeciesFilterMode) {
         filterSpeciesMode = mode;
@@ -448,8 +412,8 @@
                 speciesMode={filterSpeciesMode}
                 speciesCount={speciesFilterCount}
                 speciesSectionId={speciesFilterSectionId}
-                channels={policyChannels}
-                onChannelToggle={togglePolicyChannel}
+                channels={policyChannelList}
+                {channelsSectionId}
             />
 
             <div class="flex items-center justify-between gap-4">
@@ -532,7 +496,7 @@
                 {#if frigateUrlMissing}
                     <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-attention-400/70 bg-attention-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-attention-900/20 dark:text-slate-200" role="status">
                         <span>{$_('settings.notifications.link_frigate_url_missing')}</span>
-                        <button type="button" class="btn btn-ghost text-xs" onclick={onOpenIntegrations}>{$_('settings.notifications.link_open_integrations')}</button>
+                        <button type="button" class="btn btn-ghost text-xs" onclick={onOpenConnection}>{$_('settings.notifications.link_open_connection', { default: 'Open Connection' })}</button>
                     </div>
                 {/if}
                 <div class="mt-4 grid gap-1 text-xs">
@@ -648,7 +612,7 @@
         </div>
     </SettingsCard>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+    <div id={channelsSectionId} class="grid scroll-mt-24 grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
         <!-- Discord -->
         <section class="card-base rounded-2xl p-8 flex flex-col">
             <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 {discordEnabled ? 'mb-6' : ''}">
@@ -1168,14 +1132,15 @@
     </div>
 
     {#if gardenBeta}
-        <GardenNotificationSettings
-            bind:enabled={gardenNotificationsEnabled}
-            bind:useBirdChannels={gardenUseBirdChannels}
-            bind:channels={gardenNotificationChannels}
-            bind:includePhoto={gardenIncludePhoto}
-            birdChannels={policyChannels}
-            statusAvailable={gardenStatusAvailable}
-        />
+        <!-- Garden alerts are set with the rest of Garden; their channels are the ones set up here. -->
+        <p class="px-1 text-sm text-slate-600 dark:text-slate-300" data-garden-alerts-elsewhere>
+            {$_('settings.notifications.garden_elsewhere', { default: 'Garden animal alerts are set with Garden animals, in Beta features. They send through the channels above.' })}
+            {#if onOpenGarden}
+                <button type="button" class="focus-ring min-h-11 rounded-sm font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200" onclick={onOpenGarden}>
+                    {$_('settings.notifications.garden_open', { default: 'Open Garden alerts' })}
+                </button>
+            {/if}
+        </p>
     {/if}
 </div>
 

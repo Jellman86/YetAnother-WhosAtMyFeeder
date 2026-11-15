@@ -13,8 +13,7 @@ follow `ui-ux.md`.
 ## 1. The rules that produced these screens
 
 Capture status, time and confidence badges use `BadgeHint` for explanations on
-hover, keyboard focus and tap. A badge that shows words is named by those words and the
-explanation is its description; `label` names a badge that is only an icon. Existing action buttons use the `explanation`
+hover, keyboard focus and tap. Existing action buttons use the `explanation`
 action so their click keeps its original effect. Escape closes the explanation
 before its enclosing panel; scrolling a badge out of view closes its explanation.
 Keep badges above the card's record-opening overlay. The orange missing-upstream
@@ -193,37 +192,20 @@ Four shapes cover the app. Pick one; do not blend them.
 
 Explorer's filter rail orders filters by how often they change. Choices set once and
 left (**Visitors**, **Show**) are compact switches that explain only the chosen option
-beneath them. **Visitors** has three names of unequal length, so its options take a line each:
-equal segments with whole words in every language and text size. **When** follows, always open. The species list shows the eight most
+beneath them. **When** follows, always open. The species list shows the eight most
 recorded species, plus any chosen one, then **Show all N species**. One search box
 (`ExplorerSearch`, a combobox) finds species, groups, cameras, days and record IDs. It is a page
-control, not a filter: on a desktop it starts the Explorer's header row, before the view switch,
-and stays when the rail is hidden; on a phone it heads the rail, above the results
-and beside the **Filters** button. The count has a line of its own at every width (beneath the
-header row on a desktop, above the search on a phone): it arrives after the page is drawn and
-its length depends on what was found, so nothing shares its row that a longer count could wrap.
-A figure that would be zero is left out of the count rather than stated. The header row holds the
-page's controls on a desktop (**Heard calls**, the rail toggle, **Cards**/**List**,
-**Multi-select**); below Tailwind's `lg` the view switch sits beside the **Filters** button and
-the two used less often open with the filters under **View**, each control written once and
-placed by the same `MediaQuery`. Leaving selection is **Done** on the selection bar. The listening
-history is a sidebar item, not a second audio button in this row. The first read's placeholders
-and the results are separate panes (`{#key}` on the first-load state), so a day strip or notice
-that arrives above the results moves nothing already drawn; the day strip is shown only for a page
-that spans more than one day, each day as its name and a plain count. Cards and rows take their
-place without an entrance animation: a fade leaves every word under contrast while it runs. The page mounts it once and places it with a `MediaQuery` at
+control, not a filter: on a desktop it starts the Explorer's header row, before the count and the
+view switch, and stays when the rail is hidden; on a phone it heads the rail, above the results
+and beside the **Filters** button. The page mounts it once and places it with a `MediaQuery` at
 Tailwind's `lg`. Each result is one line where the panel allows (name, italic other name, a
 `.taxon-rank` label, the count at the end), in a panel as wide as the box; the active result takes
 `.choice-active` and a return arrow saying what **Enter** does. Cameras and **Only** stay in native
 collapsible sections, initially closed, and their summaries name what is chosen inside. A chosen
 row is `.choice-active` with a check, so it reads by weight and shape as well as tint. Only the rail
 scrolls, never a list inside it. Applied filters stay
-visible as removable tokens, with **Clear all** beside the rail's title. Phones, and a desktop
-with the rail hidden, use the same ordering behind the Filters button, which opens them as a modal
-sheet in the app's dialog pattern: portalled, named **Filters**, focus moved in and held by
-`trapFocus`, the page scroll locked, closed by **Close**, Escape or a press on the dimmed page,
-with focus returned to the Filters button. Filters still act at once; the sheet has no Apply. The
-filters are written once (a snippet) and drawn in the rail or the sheet. A switch and its token use one name per option (the
+visible as removable tokens, with **Clear all** beside the rail's title. Phones use the
+same ordering behind the Filters button. A switch and its token use one name per option (the
 subject is **Garden animals**, as Settings names it), and a custom window's token names its
 dates ("1 Oct to 28 Oct") under visible **From** and **To** labels. **Cameras** lists the cameras
 of the chosen visitors and shows a count only where one was measured for them: bird counts under

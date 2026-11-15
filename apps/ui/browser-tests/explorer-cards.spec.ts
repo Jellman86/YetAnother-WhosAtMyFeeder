@@ -57,7 +57,7 @@ async function expectOneOutline(item: Locator) {
     expect(await item.evaluate(node => getComputedStyle(node).borderTopWidth)).toBe('0px');
     expect(await item.evaluate(node => getComputedStyle(node).boxShadow)).toBe('none');
     for (const radius of await radii(frame)) expect(radius).toBeGreaterThan(8);
-    // Measure both edges together, once the card has been laid out.
+    // Measure both edges together and wait for the card's entrance animation to settle.
     await expect.poll(() => item.evaluate(node => {
         const frame = node.querySelector('[data-detection-card]');
         if (!frame) return Infinity;

@@ -26,7 +26,11 @@
     } = $props();
 
     const loaded = $derived(classifierStatus?.loaded ?? false);
-    const modelValue = $derived(classifierStatus?.active_model_id ?? null);
+    // The name the model's card carries; the configured id can be a bare file name.
+    const modelValue = $derived(
+        classifierStatus?.effective_model_name ?? classifierStatus?.effective_model_id ?? classifierStatus?.active_model_id ?? null
+    );
+    const modelMissing = $derived(classifierStatus?.active_model_installed === false);
     const labelsCount = $derived(classifierStatus?.labels_count ?? 0);
     const providerVerified = $derived(
         Boolean(
@@ -69,11 +73,18 @@
         </span>
         <!-- Subprocess workers load the model on first use, so "not loaded yet"
              is a normal idle state, never a warning. -->
-        <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
-            {loaded || labelsCount > 0
-                ? $_('settings.detection.band_species_count', { values: { count: labelsCount } })
-                : $_('settings.detection.band_not_loaded')}
-        </span>
+        {#if modelMissing}
+            <span class="flex items-start gap-1.5 text-xs font-semibold text-attention-800 dark:text-attention-200" data-band-model-missing>
+                <span class="attention-dot mt-1.5" aria-hidden="true"></span>
+                {$_('settings.detection.band_model_missing', { default: 'Not on this install yet. Download it below.' })}
+            </span>
+        {:else}
+            <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                {loaded || labelsCount > 0
+                    ? $_('settings.detection.band_species_count', { values: { count: labelsCount } })
+                    : $_('settings.detection.band_not_loaded')}
+            </span>
+        {/if}
     </button>
 
     <div class="relative flex flex-col gap-0.5">

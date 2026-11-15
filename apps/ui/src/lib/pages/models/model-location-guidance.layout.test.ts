@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import modelManagerSource from './ModelManager.svelte?raw';
-import detectionSettingsSource from '../../components/settings/DetectionSettings.svelte?raw';
+import modelSettingsSource from '../../components/settings/ModelSettings.svelte?raw';
 import settingsSource from '../Settings.svelte?raw';
 import enSettings from '../../i18n/locales/en/settings.json';
 
@@ -37,7 +37,7 @@ describe('Model Manager location guidance', () => {
         // modified clicks fall through to the browser (new tab, etc.).
         expect(modelManagerSource).toContain('event.metaKey');
         expect(modelManagerSource).toContain('onopenlocationsettings();');
-        expect(detectionSettingsSource).toMatch(/<ModelManager[^>]*\{onopenlocationsettings\}\s*\/>/);
+        expect(modelSettingsSource).toMatch(/<ModelManager[^>]*\{onopenlocationsettings\}\s*\/>/);
         // Both the model guidance and the range filter land on the location field itself.
         expect(settingsSource).toContain("onopenlocationsettings={() => openIntegrationField('#location-lat'");
         expect(settingsSource).toContain("handleTabChange('integrations');");

@@ -5,6 +5,7 @@ import os
 import structlog
 import uuid
 import random
+import socket
 import time
 from datetime import datetime, timezone
 from typing import Literal
@@ -42,6 +43,37 @@ MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS = max(
     30.0,
     float(os.getenv("MQTT_HANDLER_WAIT_EXHAUSTION_HEALTH_WINDOW_SECONDS", "120")),
 )
+
+
+MqttFailureCause = Literal["unresolved", "refused", "timeout", "auth", "unreachable", "failed"]
+
+# MQTT 3.1.1 and 5 reason codes that mean the broker turned the credentials away.
+_AUTH_REASON_CODES = frozenset({4, 5, 134, 135})
+
+
+def mqtt_failure_cause(error: BaseException) -> MqttFailureCause:
+    """What stopped a diagnostic MQTT session, read from the error and the errors it wraps.
+
+    The test reports this in words with the thing to change, so it never asks anyone to read logs.
+    """
+    seen: set[int] = set()
+    current: BaseException | None = error
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, socket.gaierror):
+            return "unresolved"
+        if isinstance(current, ConnectionRefusedError):
+            return "refused"
+        if isinstance(current, TimeoutError):
+            return "timeout"
+        reason = getattr(current, "rc", None)
+        reason_value = getattr(reason, "value", reason)
+        if isinstance(reason_value, int) and reason_value in _AUTH_REASON_CODES:
+            return "auth"
+        if isinstance(current, OSError):
+            return "unreachable"
+        current = current.__cause__ or current.__context__
+    return "failed"
 
 
 class MQTTService:
@@ -1020,15 +1052,15 @@ class MQTTService:
                 await asyncio.sleep(delay)
                 self._increase_backoff()
 
-    async def test_connection(
+    async def diagnose_connection(
         self,
         *,
         server: str,
         port: int,
         username: str | None = None,
         password: str | None = None,
-    ) -> bool:
-        """Open an isolated MQTT session and prove it can publish.
+    ) -> MqttFailureCause | None:
+        """Open an isolated MQTT session and prove it can publish; None, or what stopped it.
 
         Diagnostics must not depend on the daemon's existing connection: a user
         may be testing edited host or credential values before a restart. The
@@ -1056,7 +1088,7 @@ class MQTTService:
                             }
                         ),
                     )
-            return True
+            return None
         except (MqttError, OSError, TimeoutError) as exc:
             log.warning(
                 "MQTT diagnostic connection failed",
@@ -1064,7 +1096,7 @@ class MQTTService:
                 port=port,
                 error_type=type(exc).__name__,
             )
-            return False
+            return mqtt_failure_cause(exc)
 
     async def publish(self, topic: str, payload: dict | str) -> bool:
         """Publish a message to a specific topic."""

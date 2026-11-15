@@ -2,9 +2,11 @@
     /**
      * Garden animals as one card on Settings → Beta features. The switch stages the beta in the
      * page draft; its settings appear only while it is on, grouped into sections in the order
-     * setup runs, with anything still left to do stated above them. Cameras are chosen once, with
-     * their bird role, in Connection, and alerts with their channels in Notifications; this card
-     * only summarises both. Daily review is in the Explorer.
+     * setup runs, with anything still left to do stated above them. Everything Garden decides is
+     * set here, alerts included. Which cameras it watches stays one choice per camera, with the
+     * camera's bird role, in Connection, so a camera is never set two ways; this card summarises it.
+     * The channels alerts go through are set up once, in Notifications. Daily review is in the
+     * Explorer.
      */
     import { tick } from 'svelte';
     import { _, locale } from 'svelte-i18n';
@@ -16,6 +18,9 @@
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import GardenCollectionStatus from './GardenCollectionStatus.svelte';
+    import GardenNotificationSettings from './GardenNotificationSettings.svelte';
+    import type { GardenNotificationChannel } from '../../api/garden';
+    import type { PolicyChannel } from '../../settings/notification-policy';
     import { GardenServiceStatus } from './garden-service-status.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
     import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from '../../utils/garden-threshold';
@@ -35,8 +40,12 @@
         labels: string;
         motionConfidence: number;
         automaticNaming: boolean;
-        /** Whether Garden alerts are on, as the page holds it; they are set up in Notifications. */
         notificationsEnabled?: boolean;
+        notificationsUseBirdChannels?: boolean;
+        notificationChannels?: GardenNotificationChannel[];
+        notificationsIncludePhoto?: boolean;
+        /** The bird channels as the page holds them, which Garden alerts can follow. */
+        birdChannels?: PolicyChannel[];
         namingThreshold: number;
         /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
         domesticBirds?: DomesticBirdKey[];
@@ -45,7 +54,7 @@
         onNavigate?: (path: string) => void;
         /** Opens Connection at its camera list. */
         onOpenCameras?: () => void;
-        /** Opens Notifications, where Garden alerts are set up. */
+        /** Opens Notifications, where the channels are set up. */
         onOpenNotifications?: () => void;
         /** Opens Integrations at the location, which gives Garden its country. */
         onOpenLocation?: () => void;
@@ -58,7 +67,11 @@
         labels = $bindable('cat, dog'),
         motionConfidence = $bindable(0.5),
         automaticNaming = $bindable(true),
-        notificationsEnabled = false,
+        notificationsEnabled = $bindable(false),
+        notificationsUseBirdChannels = $bindable(true),
+        notificationChannels = $bindable<GardenNotificationChannel[]>([]),
+        notificationsIncludePhoto = $bindable(true),
+        birdChannels = [],
         namingThreshold = $bindable(0.8),
         domesticBirds = $bindable([]),
         savedMotionConfidence,
@@ -379,18 +392,19 @@
                 title={$_('settings.beta.garden_section_alerts', { default: 'Alerts' })}
                 hint={notificationsEnabled ? $_('settings.beta.status_on', { default: 'On' }) : $_('settings.beta.status_off', { default: 'Off' })}
             >
-                <div class="flex flex-wrap items-center justify-between gap-3" data-garden-alerts-summary>
-                    <p class="min-w-0 flex-1 basis-56 text-sm text-slate-700 dark:text-slate-300">
-                        {notificationsEnabled
-                            ? $_('settings.beta.garden_alerts_on', { default: 'Garden alerts are on. They are set up in Notifications, with their channels.' })
-                            : $_('settings.beta.garden_alerts_off', { default: 'Garden alerts are off. Turn them on in Notifications, with their channels.' })}
-                    </p>
-                    {#if onOpenNotifications}
-                        <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
-                            {$_('settings.beta.garden_alerts_open', { default: 'Set up alerts' })}
-                        </button>
-                    {/if}
-                </div>
+                <GardenNotificationSettings
+                    bind:enabled={notificationsEnabled}
+                    bind:useBirdChannels={notificationsUseBirdChannels}
+                    bind:channels={notificationChannels}
+                    bind:includePhoto={notificationsIncludePhoto}
+                    {birdChannels}
+                    statusAvailable={savedEnabled}
+                />
+                {#if onOpenNotifications}
+                    <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
+                        {$_('settings.beta.garden_channels_open', { default: 'Set up channels in Notifications' })}
+                    </button>
+                {/if}
             </BetaSection>
 
             <BetaSection id="garden-section-outcomes" title={$_('settings.beta.garden_outcomes', { default: 'Where captures go' })}>
