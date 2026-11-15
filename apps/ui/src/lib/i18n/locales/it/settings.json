@@ -67,7 +67,7 @@
     "config_backup_invalid_json": "Il file selezionato non è un JSON valido.",
     "config_backup_import_error": "Impossibile importare il backup della configurazione",
     "diagnostics_title": "Diagnostica",
-    "diagnostics_desc": "Apre la scheda Salute con stato del backend, incidenti raggruppati e pacchetti di supporto.",
+    "diagnostics_desc": "Apre la pagina Stato: stato del backend, incidenti raggruppati e pacchetti di supporto.",
     "open_diagnostics": "Apri salute",
     "taxonomy_title": "Riparazione tassonomica",
     "taxonomy_desc": "Collega nomi scientifici e comuni",

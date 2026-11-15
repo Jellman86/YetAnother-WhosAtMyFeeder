@@ -184,7 +184,7 @@ with the broker down, Frigate events is amber and Audio says "Not listening" in 
 card is a neutral surface with nothing drawn behind it; resource readings are one muted line of
 text with tabular numbers. Its System health link counts open issues from the same store the Health
 page lists them from, and says nothing about issues when none is open. The icon rail shows the same
-rows as icons named by the same words. Settings → Health follows the same rule: its verdict is never healthy while the broker
+rows as icons named by the same words. The Health page follows the same rule: its verdict is never healthy while the broker
 or Frigate is down, and its MQTT and Frigate cards lead with the connection state, not queue load.
 
 ### 1.6 Show the evidence at the size the decision needs

@@ -278,7 +278,7 @@ YA-WAMF process usage; unrelated processes are grouped as **Other on this host**
 Accelerator labels state whether usage covers this app or the whole device.
 An unreadable counter is reported explicitly.
 
-![Settings → Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
+![Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
 
 This is the first place to look when detections stop arriving or the interface feels slow. See
 [Diagnostics & Logs](../troubleshooting/diagnostics.md).

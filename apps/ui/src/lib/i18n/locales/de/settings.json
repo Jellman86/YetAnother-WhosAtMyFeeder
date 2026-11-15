@@ -67,7 +67,7 @@
     "config_backup_invalid_json": "Die ausgewählte Datei ist kein gültiges JSON.",
     "config_backup_import_error": "Konfigurationssicherung konnte nicht importiert werden",
     "diagnostics_title": "Diagnose",
-    "diagnostics_desc": "Öffnet den Zustand-Tab mit Backend-Status, gruppierten Vorfällen und Support-Paketen.",
+    "diagnostics_desc": "Öffnet die Seite Zustand mit Backend-Status, gruppierten Vorfällen und Support-Paketen.",
     "open_diagnostics": "Zustand öffnen",
     "taxonomy_title": "Taxonomie-Reparatur",
     "taxonomy_desc": "Wissenschaftliche und gebräuchliche Namen verknüpfen",

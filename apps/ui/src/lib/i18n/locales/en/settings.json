@@ -74,7 +74,7 @@
     "config_backup_invalid_json": "The selected file is not valid JSON.",
     "config_backup_import_error": "Failed to import configuration backup",
     "diagnostics_title": "Diagnostics",
-    "diagnostics_desc": "Open the Health tab for backend status, grouped incidents, and support bundles.",
+    "diagnostics_desc": "Open the Health page for backend status, grouped incidents, and support bundles.",
     "open_diagnostics": "Open Health",
     "taxonomy_title": "Taxonomy repair",
     "taxonomy_desc": "Connect scientific and common names",
