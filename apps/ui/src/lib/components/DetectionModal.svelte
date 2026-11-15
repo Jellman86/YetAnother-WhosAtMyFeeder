@@ -95,6 +95,7 @@
     import { findMatchingFullFrameCandidate, findScanFrameCandidate, sameFrameCropCandidates } from '../utils/detection-evidence';
     import { intersectVisibleViewport } from '../utils/visible-viewport';
     import { SCORE_FILL, scoreBand } from '../utils/score-tone';
+    import { explainArchiveFailure } from '../utils/archive-failure';
     import { moveDetectionToGarden } from '../api/events';
     import { fetchGardenDomesticBirds } from '../api/garden';
     import GardenDomesticSuggestion from './GardenDomesticSuggestion.svelte';
@@ -536,6 +537,31 @@
                 return '';
         }
     });
+    // A failed copy says what was not kept, why and what to do, not just "Archive failed".
+    const archiveFailure = $derived.by(() => {
+        if (archiveState !== 'failed') return null;
+        const explained = explainArchiveFailure(archiveStatus ?? {});
+        const lost = {
+            both: $_('detection.archive_failed_both', { default: "This favourite's own copy of its photo and clip could not be saved." }),
+            photo: $_('detection.archive_failed_photo', { default: "This favourite's own copy of its photo could not be saved." }),
+            clip: $_('detection.archive_failed_clip', { default: "This favourite's own copy of its clip could not be saved." })
+        }[explained.lost];
+        const cause = {
+            frigate_unreachable: $_('detection.archive_cause.frigate_unreachable', { default: 'Frigate could not be reached. Check that Frigate is running and its address in Settings → Connection.' }),
+            frigate_timeout: $_('detection.archive_cause.frigate_timeout', { default: 'Frigate did not answer in time. Check that Frigate is running and not overloaded.' }),
+            frigate_refused: $_('detection.archive_cause.frigate_refused', { default: "Frigate refused YA-WAMF's request. Check the Frigate access settings in Settings → Connection." }),
+            frigate_error: $_('detection.archive_cause.frigate_error', { default: 'Frigate answered with an error of its own. Check its logs.' }),
+            clip_cut_short: $_('detection.archive_cause.clip_cut_short', { default: 'The clip download was cut short.' }),
+            disk_full: $_('detection.archive_cause.disk_full', { default: 'The disk that holds the data folder is full. Free some space.' }),
+            disk_error: $_('detection.archive_cause.disk_error', { default: 'The data folder could not be written to. Check that it exists and YA-WAMF may write to it.' }),
+            unknown: $_('detection.archive_cause.unknown', { default: 'The cause was not recorded.' })
+        }[explained.cause];
+        const retry = explained.retryAt !== null
+            ? $_('detection.archive_retry_scheduled', { values: { at: formatDateTime(explained.retryAt) }, default: 'YA-WAMF tries again by itself at {at}. The visit stays in your history either way.' })
+            : $_('detection.archive_retry_spent', { default: 'YA-WAMF has stopped trying by itself. The visit stays in your history either way.' });
+        return { lost, cause, retry };
+    });
+
     async function handleArchiveRetry() {
         if (!detection || archiveRetrying) return;
         archiveRetrying = true;
@@ -686,7 +712,9 @@
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
     const audioFactValue = $derived.by(() => {
         if (effectiveAudioConfirmed) {
-            return effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+            // The one place the matching call is stated; the audio section below shows its evidence.
+            const species = effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+            return effectiveAudioScore ? `${species} · ${Math.round(effectiveAudioScore * 100)}%` : species;
         }
         if (audioContextLoading) return $_('common.loading');
         if (audioContextError || !audioContextLoaded) return $_('common.unavailable');
@@ -3018,18 +3046,25 @@
                 {/if}
             </dl>
 
-            {#if detection.is_favorite && archiveLabel}
+            {#if detection.is_favorite && archiveFailure}
+                <!-- What was not kept, why, and what to do, in words: the heading carries the state, not its colour. -->
+                <div class="space-y-1 rounded-xl border border-line-soft px-3 py-2.5 text-sm" data-detection-archive-state="failed" aria-live="polite">
+                    <p class="font-semibold text-rose-700 dark:text-rose-300">{archiveFailure.lost}</p>
+                    <p class="text-slate-700 dark:text-slate-200" data-detection-archive-cause>{archiveFailure.cause}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{archiveFailure.retry}</p>
+                    {#if hasOwnerDetectionActions}
+                        <button type="button" class="btn btn-secondary mt-1 min-h-11 px-3 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
+                            {$_('detection.archive_retry_now', { default: 'Try again now' })}
+                        </button>
+                    {/if}
+                </div>
+            {:else if detection.is_favorite && archiveLabel}
                 <!-- A status of the record, so it is said here in words and never drawn over the photograph. -->
                 <p class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-700 dark:text-slate-200" data-detection-archive-state={archiveState} aria-live="polite">
                     {#if archiveState === 'pending'}
                         <span class="inline-block h-3 w-3 rounded-full border-2 border-current border-t-transparent motion-safe:animate-spin" aria-hidden="true"></span>
                     {/if}
                     <span>{archiveLabel}</span>
-                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
-                        <button type="button" class="btn btn-ghost min-h-11 px-2 text-xs" disabled={archiveRetrying} onclick={() => { void handleArchiveRetry(); }}>
-                            {$_('detection.archive_retry', { default: 'Try again' })}
-                        </button>
-                    {/if}
                 </p>
             {/if}
 
@@ -3173,19 +3208,17 @@
                         <div class="min-w-0">
                             <p class="text-3xs font-semibold text-slate-600 dark:text-slate-400">
                                 {effectiveAudioConfirmed
-                                    ? $_('detection.audio_match')
+                                    ? $_('detection.audio_match_evidence', { default: 'The matching call' })
                                     : $_('detection.audio_context')}
                             </p>
-                            <p class="text-sm font-bold text-slate-700 dark:text-slate-200 wrap-break-word">
-                                {effectiveAudioConfirmed
-                                    ? (effectiveAudioSpecies || $_('detection.birdnet_confirmed'))
-                                    : (audioNearbySummary
+                            <!-- A match is stated once, in the facts above with its score; here it is only the evidence. -->
+                            {#if !effectiveAudioConfirmed}
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 wrap-break-word">
+                                    {audioNearbySummary
                                         ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
-                                        : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
-                                {#if effectiveAudioScore && effectiveAudioConfirmed}
-                                    <span class="ml-1 opacity-60">({(effectiveAudioScore * 100).toFixed(0)}%)</span>
-                                {/if}
-                            </p>
+                                        : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' })}
+                                </p>
+                            {/if}
                         </div>
                     </div>
                     {#if matchedSpectrogramUrl}
@@ -3285,8 +3318,8 @@
                                 <figcaption class="px-3 py-1.5 flex items-center justify-between gap-3 text-3xs font-bold text-slate-200 bg-slate-900/60 backdrop-blur-xs">
                                     <span class="wrap-break-word">{matchedAudioEntry.species}</span>
                                     <span class="flex items-center gap-2 shrink-0">
-                                        <span class="opacity-70">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
-                                        <span class="opacity-60">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
+                                        <span class="text-slate-200">{(matchedAudioEntry.confidence * 100).toFixed(0)}%</span>
+                                        <span class="text-slate-300">{formatAudioOffset(matchedAudioEntry.offset_seconds)}</span>
                                     </span>
                                 </figcaption>
                             {/if}

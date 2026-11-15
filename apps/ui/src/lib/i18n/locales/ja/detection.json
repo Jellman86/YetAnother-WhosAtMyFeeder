@@ -501,5 +501,22 @@
   "reference_read_more_on": "{source}で続きを読む",
   "reference_read_more": "続きを読む",
   "reference_source": "出典: {source}",
-  "reference_conservation": "保全状況: {status}"
+  "reference_conservation": "保全状況: {status}",
+  "archive_failed_both": "このお気に入りの写真とクリップの保存用コピーを保存できませんでした。",
+  "archive_failed_photo": "このお気に入りの写真の保存用コピーを保存できませんでした。",
+  "archive_failed_clip": "このお気に入りのクリップの保存用コピーを保存できませんでした。",
+  "archive_cause": {
+    "frigate_unreachable": "Frigate に接続できませんでした。Frigate が動作していること、および 設定 → 接続 のアドレスを確認してください。",
+    "frigate_timeout": "Frigate が時間内に応答しませんでした。Frigate が動作していて過負荷でないことを確認してください。",
+    "frigate_refused": "Frigate が YA-WAMF の要求を拒否しました。設定 → 接続 の Frigate のアクセス設定を確認してください。",
+    "frigate_error": "Frigate が自身のエラーを返しました。Frigate のログを確認してください。",
+    "clip_cut_short": "クリップのダウンロードが途中で切れました。",
+    "disk_full": "データフォルダのあるディスクがいっぱいです。空き容量を作ってください。",
+    "disk_error": "データフォルダに書き込めませんでした。フォルダが存在し、YA-WAMF に書き込み権限があることを確認してください。",
+    "unknown": "原因は記録されていません。"
+  },
+  "archive_retry_scheduled": "YA-WAMF は {at} に自動で再試行します。いずれにしても訪問は履歴に残ります。",
+  "archive_retry_spent": "YA-WAMF は自動での再試行を終了しました。いずれにしても訪問は履歴に残ります。",
+  "archive_retry_now": "今すぐ再試行",
+  "audio_match_evidence": "一致した鳴き声"
 }

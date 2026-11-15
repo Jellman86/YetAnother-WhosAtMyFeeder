@@ -501,5 +501,22 @@
   "reference_read_more_on": "Ler mais em {source}",
   "reference_read_more": "Ler mais",
   "reference_source": "Fonte: {source}",
-  "reference_conservation": "Estado de conservação: {status}"
+  "reference_conservation": "Estado de conservação: {status}",
+  "archive_failed_both": "Não foi possível guardar a cópia própria da foto e do clipe deste favorito.",
+  "archive_failed_photo": "Não foi possível guardar a cópia própria da foto deste favorito.",
+  "archive_failed_clip": "Não foi possível guardar a cópia própria do clipe deste favorito.",
+  "archive_cause": {
+    "frigate_unreachable": "Não foi possível contactar o Frigate. Verifique se o Frigate está a funcionar e o endereço em Definições → Ligação.",
+    "frigate_timeout": "O Frigate não respondeu a tempo. Verifique se o Frigate está a funcionar e não está sobrecarregado.",
+    "frigate_refused": "O Frigate recusou o pedido do YA-WAMF. Verifique o acesso ao Frigate em Definições → Ligação.",
+    "frigate_error": "O Frigate respondeu com um erro próprio. Consulte os registos dele.",
+    "clip_cut_short": "A transferência do clipe foi interrompida.",
+    "disk_full": "O disco da pasta de dados está cheio. Liberte espaço.",
+    "disk_error": "Não foi possível escrever na pasta de dados. Verifique se existe e se o YA-WAMF pode escrever nela.",
+    "unknown": "A causa não foi registada."
+  },
+  "archive_retry_scheduled": "O YA-WAMF tenta de novo sozinho às {at}. A visita fica no seu histórico de qualquer forma.",
+  "archive_retry_spent": "O YA-WAMF deixou de tentar sozinho. A visita fica no seu histórico de qualquer forma.",
+  "archive_retry_now": "Tentar novamente agora",
+  "audio_match_evidence": "O canto correspondente"
 }

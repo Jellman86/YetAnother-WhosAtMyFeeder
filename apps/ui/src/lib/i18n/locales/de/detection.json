@@ -501,5 +501,22 @@
   "reference_read_more_on": "Mehr lesen bei {source}",
   "reference_read_more": "Mehr lesen",
   "reference_source": "Quelle: {source}",
-  "reference_conservation": "Schutzstatus: {status}"
+  "reference_conservation": "Schutzstatus: {status}",
+  "archive_failed_both": "Die eigene Kopie von Foto und Clip dieses Favoriten konnte nicht gespeichert werden.",
+  "archive_failed_photo": "Die eigene Kopie des Fotos dieses Favoriten konnte nicht gespeichert werden.",
+  "archive_failed_clip": "Die eigene Kopie des Clips dieses Favoriten konnte nicht gespeichert werden.",
+  "archive_cause": {
+    "frigate_unreachable": "Frigate war nicht erreichbar. Prüfen Sie, ob Frigate läuft, und seine Adresse unter Einstellungen → Verbindung.",
+    "frigate_timeout": "Frigate hat nicht rechtzeitig geantwortet. Prüfen Sie, ob Frigate läuft und nicht überlastet ist.",
+    "frigate_refused": "Frigate hat die Anfrage von YA-WAMF abgelehnt. Prüfen Sie die Frigate-Zugangsdaten unter Einstellungen → Verbindung.",
+    "frigate_error": "Frigate hat mit einem eigenen Fehler geantwortet. Prüfen Sie dessen Protokolle.",
+    "clip_cut_short": "Der Download des Clips wurde abgebrochen.",
+    "disk_full": "Der Datenträger mit dem Datenordner ist voll. Geben Sie Speicherplatz frei.",
+    "disk_error": "In den Datenordner konnte nicht geschrieben werden. Prüfen Sie, ob er existiert und YA-WAMF darin schreiben darf.",
+    "unknown": "Die Ursache wurde nicht festgehalten."
+  },
+  "archive_retry_scheduled": "YA-WAMF versucht es um {at} selbst erneut. Der Besuch bleibt in jedem Fall in Ihrem Verlauf.",
+  "archive_retry_spent": "YA-WAMF versucht es nicht mehr selbst. Der Besuch bleibt in jedem Fall in Ihrem Verlauf.",
+  "archive_retry_now": "Jetzt erneut versuchen",
+  "audio_match_evidence": "Der passende Ruf"
 }

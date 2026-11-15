@@ -501,5 +501,22 @@
   "reference_read_more_on": "在 {source} 阅读更多",
   "reference_read_more": "阅读更多",
   "reference_source": "来源：{source}",
-  "reference_conservation": "保护状况：{status}"
+  "reference_conservation": "保护状况：{status}",
+  "archive_failed_both": "无法保存此收藏的照片和片段副本。",
+  "archive_failed_photo": "无法保存此收藏的照片副本。",
+  "archive_failed_clip": "无法保存此收藏的片段副本。",
+  "archive_cause": {
+    "frigate_unreachable": "无法连接 Frigate。请检查 Frigate 是否正在运行，以及 设置 → 连接 中的地址。",
+    "frigate_timeout": "Frigate 未及时响应。请检查 Frigate 是否正在运行且未过载。",
+    "frigate_refused": "Frigate 拒绝了 YA-WAMF 的请求。请检查 设置 → 连接 中的 Frigate 访问设置。",
+    "frigate_error": "Frigate 返回了自身的错误。请查看它的日志。",
+    "clip_cut_short": "片段下载中途中断。",
+    "disk_full": "存放数据文件夹的磁盘已满。请释放一些空间。",
+    "disk_error": "无法写入数据文件夹。请检查它是否存在，以及 YA-WAMF 是否有写入权限。",
+    "unknown": "未记录原因。"
+  },
+  "archive_retry_scheduled": "YA-WAMF 会在 {at} 自动重试。无论如何，这次到访都会保留在历史记录中。",
+  "archive_retry_spent": "YA-WAMF 已停止自动重试。无论如何，这次到访都会保留在历史记录中。",
+  "archive_retry_now": "立即重试",
+  "audio_match_evidence": "匹配的鸣声"
 }
