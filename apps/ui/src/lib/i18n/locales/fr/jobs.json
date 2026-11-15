@@ -120,6 +120,7 @@
   "errors_active_incidents_desc": "Incidents actifs nécessitant une attention.",
   "errors_backend_diagnostics_title": "Diagnostics récents du backend",
   "errors_backend_diagnostics_desc": "Derniers avertissements et erreurs de l’instantané de l’espace de travail backend.",
+  "errors_repeated": "×{count}, première fois {first}, dernière fois {last}",
   "errors_no_startup_warnings": "Aucun avertissement de démarrage capturé dans l’instantané actuel de l’espace de travail.",
   "errors_unknown_warning": "Avertissement inconnu",
   "errors_download_snapshot_title": "Télécharger l’instantané actuel",

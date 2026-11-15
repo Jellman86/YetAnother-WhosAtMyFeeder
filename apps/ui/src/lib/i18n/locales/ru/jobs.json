@@ -120,6 +120,7 @@
   "errors_active_incidents_desc": "Активные инциденты, требующие внимания.",
   "errors_backend_diagnostics_title": "Последние диагностики бэкенда",
   "errors_backend_diagnostics_desc": "Последние предупреждения и ошибки из снимка рабочей области бэкенда.",
+  "errors_repeated": "×{count}, впервые {first}, в последний раз {last}",
   "errors_no_startup_warnings": "Предупреждения при запуске не зафиксированы в текущем снимке.",
   "errors_unknown_warning": "Неизвестное предупреждение",
   "errors_download_snapshot_title": "Скачать текущий снимок",

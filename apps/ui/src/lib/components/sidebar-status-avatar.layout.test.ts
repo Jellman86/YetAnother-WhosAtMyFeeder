@@ -8,23 +8,35 @@ import enStatus from '../i18n/locales/en/status.json';
 
 const en = { settings: enSettings, status: enStatus };
 
-describe('the sidebar status tiles', () => {
-    it('shows icon tiles with one-word names instead of sentences', () => {
-        expect(statusSource).toContain("grid {tiles.length === 3 ? 'grid-cols-3' : 'grid-cols-2'}");
-        expect(statusSource).toContain('data-status-tiles');
-        expect(en.status.tile_live).toBe('Live');
-        expect(en.status.tile_audio).toBe('Audio');
-        expect(en.status.tile_alerts).toBe('Alerts');
+describe('the sidebar status list', () => {
+    it('is a list of rows that say each state in words', () => {
+        expect(statusSource).toContain('data-status-list');
+        expect(statusSource).toContain('data-status-label');
+        expect(statusSource).toContain('data-status-state');
+        expect(en.status.row_feed).toBe('Frigate events');
+        expect(en.status.row_audio).toBe('Audio');
+        expect(en.status.row_alerts).toBe('Alerts');
+        expect(en.status.state_live).toBe('Live');
+        expect(en.status.state_waiting).toBe('Waiting for events');
+        expect(en.status.state_not_connected).toBe('Not connected');
+        expect(en.status.state_listening).toBe('Listening');
+        expect(en.status.state_off).toBe('Off');
     });
 
-    it('never says on or off by colour alone', () => {
-        // Off or down is a slash through the icon and its own word, as well as a colour.
-        expect(statusSource).toContain('{#if tile.slashed}<path d="M4 4l16 16" />{/if}');
-        expect(en.status.tile_no_events).toBe('No events');
-        expect(en.status.tile_connected).toBe('Connected');
-        // The full sentence is the tooltip and the screen-reader text.
-        expect(statusSource).toContain('title={`${tile.name}: ${tile.state}`}');
-        expect(statusSource).toContain('<span class="sr-only">{tile.name}: {tile.state}</span>');
+    it('never says a state by colour alone', () => {
+        // Working, needs a person, and off each have their own dot shape as well as a colour.
+        expect(statusSource).toMatch(/ok: 'rounded-full bg-success-/);
+        expect(statusSource).toMatch(/attention: 'rotate-45 bg-attention-/);
+        expect(statusSource).toMatch(/neutral: 'rounded-full border-2 /);
+        // The full sentence is the tooltip; the icon rail names each icon with the same words.
+        expect(statusSource).toContain('title={say(row.detail)}');
+        expect(statusSource).toContain('<span class="sr-only">{say(row.label)}: {say(row.state)}</span>');
+    });
+
+    it('is one live region whose rows are read whole', () => {
+        expect(statusSource.match(/role="status"/g) ?? []).toHaveLength(1);
+        expect(statusSource).not.toContain('animate-');
+        expect(statusSource.match(/aria-atomic="true"/g) ?? []).toHaveLength(2);
     });
 });
 

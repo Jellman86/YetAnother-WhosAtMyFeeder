@@ -71,6 +71,7 @@ def mock_frigate_client():
     client = MagicMock()
     client.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
     client.download_clip_to_file = AsyncMock(return_value=(True, None))
+    client.readiness.wait_until_ready = AsyncMock(return_value=True)
     return client
 
 
@@ -201,6 +202,7 @@ class TestAutoVideoClassifierService:
         mock_frigate = MagicMock()
         mock_frigate.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
         mock_frigate.download_clip_to_file = AsyncMock(return_value=(False, "clip_not_found"))
+        mock_frigate.readiness.wait_until_ready = AsyncMock(return_value=True)
 
         with (
             patch("app.services.auto_video_classifier_service.settings") as mock_settings,

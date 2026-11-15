@@ -1670,6 +1670,12 @@
             ],
             "title": "Correlation Key"
           },
+          "count": {
+            "default": 1,
+            "description": "How many times this fault was recorded; repeats share one entry.",
+            "title": "Count",
+            "type": "integer"
+          },
           "event_id": {
             "anyOf": [
               {
@@ -1680,6 +1686,18 @@
               }
             ],
             "title": "Event Id"
+          },
+          "first_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the first occurrence was recorded.",
+            "title": "First Seen"
           },
           "id": {
             "title": "Id",
@@ -1695,6 +1713,18 @@
               }
             ],
             "title": "Job Id"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the newest occurrence was recorded; equals `timestamp`.",
+            "title": "Last Seen"
           },
           "message": {
             "title": "Message",
@@ -1820,7 +1850,14 @@
             "type": "object"
           },
           "total_events": {
+            "description": "Distinct entries held, after repeats are grouped.",
             "title": "Total Events",
+            "type": "integer"
+          },
+          "total_occurrences": {
+            "default": 0,
+            "description": "Recorded occurrences across every entry held.",
+            "title": "Total Occurrences",
             "type": "integer"
           }
         },

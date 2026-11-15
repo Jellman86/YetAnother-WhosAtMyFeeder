@@ -120,6 +120,7 @@
   "errors_active_incidents_desc": "Incidentes activos que necesitan atención.",
   "errors_backend_diagnostics_title": "Diagnósticos recientes del backend",
   "errors_backend_diagnostics_desc": "Advertencias y errores más recientes del snapshot del workspace del backend.",
+  "errors_repeated": "×{count}, primera vez {first}, última vez {last}",
   "errors_no_startup_warnings": "No se capturaron advertencias de inicio en el snapshot actual del workspace.",
   "errors_unknown_warning": "Advertencia desconocida",
   "errors_download_snapshot_title": "Descargar snapshot actual",

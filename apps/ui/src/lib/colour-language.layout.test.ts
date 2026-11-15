@@ -140,10 +140,6 @@ const PALETTE_EXCEPTIONS: Record<string, { families: string[]; reason: string }>
         families: ['amber', 'blue', 'teal', 'violet'],
         reason: 'categorical CPU-share series, chosen for colour-vision separation and always named; a series is not a state'
     },
-    'components/SystemTelemetryGraph.svelte': {
-        families: ['indigo'],
-        reason: 'the accelerator line is a second chart series beside the brand CPU line, and is named beside its reading'
-    },
     'pages/Species.svelte': {
         families: ['sky'],
         reason: 'the precipitation overlay draws rain as a sky band on the activity chart, and its legend matches it'
@@ -182,6 +178,7 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/BackendStatusScreen.svelte': 'start-up that needs the owner',
     'components/CameraStatus.svelte': 'some cameras offline',
     'components/ConnectionStatus.svelte': 'the camera feed is down or degraded',
+    'components/Sidebar.svelte': 'open issues on System health that need the owner',
     'components/DiagnosticDialog.svelte': 'a diagnostic step that warned',
     'components/JobCircuitBanner.svelte': 'background work paused after repeated failures',
     'components/GlobalProgress.svelte': 'a job that is blocked',

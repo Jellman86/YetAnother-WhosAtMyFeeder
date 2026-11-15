@@ -120,6 +120,7 @@
   "errors_active_incidents_desc": "需要关注的活跃事件。",
   "errors_backend_diagnostics_title": "最近后端诊断",
   "errors_backend_diagnostics_desc": "来自后端工作区快照的最新警告和错误。",
+  "errors_repeated": "×{count}，首次 {first}，最近 {last}",
   "errors_no_startup_warnings": "当前工作区快照中没有捕获到启动警告。",
   "errors_unknown_warning": "未知警告",
   "errors_download_snapshot_title": "下载当前快照",

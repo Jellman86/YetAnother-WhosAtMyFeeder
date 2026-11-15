@@ -120,6 +120,7 @@
   "errors_active_incidents_desc": "注意が必要なアクティブなインシデント。",
   "errors_backend_diagnostics_title": "最近のバックエンド診断",
   "errors_backend_diagnostics_desc": "バックエンドワークスペーススナップショットからの最新の警告とエラー。",
+  "errors_repeated": "×{count}、初回 {first}、最新 {last}",
   "errors_no_startup_warnings": "現在のワークスペーススナップショットに起動時警告は記録されていません。",
   "errors_unknown_warning": "不明な警告",
   "errors_download_snapshot_title": "現在のスナップショットをダウンロード",
