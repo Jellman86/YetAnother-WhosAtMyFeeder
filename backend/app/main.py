@@ -1300,7 +1300,7 @@ def build_health_payload() -> dict[str, object]:
 @app.get("/health")
 async def health_check(response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store, max-age=0"
-    return build_health_payload()
+    return await asyncio.to_thread(build_health_payload)
 
 
 @app.get("/ready", response_model=ReadinessResponse)

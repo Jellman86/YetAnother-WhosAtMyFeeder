@@ -1,4 +1,4 @@
-"""One bounded recovery attempt for the bird finder's previously verified accelerators.
+"""Bounded recovery checks for the bird finder's previously verified accelerators.
 
 Device evidence is bound to the kernel, drivers and inference packages, so a
 host or image update makes it stale. The identification model re-checks its own
@@ -6,13 +6,16 @@ accelerator once after such a change; without the same step the bird finder
 silently stayed on the CPU after every update until an owner re-ran the check.
 
 Previously checked accelerators and an explicitly saved accelerator are checked
-once per runtime. Failed checks never authorize accelerator use.
+per runtime and preference, with capped retries for inconclusive attempts. Failed
+checks never authorize accelerator use.
 """
 
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from collections.abc import Callable
 import json
 from pathlib import Path
 from typing import Any, Literal, Self
@@ -63,6 +66,8 @@ class BirdFinderCheckResult(BaseModel):
 
 class BirdFinderCheckStatus(BirdFinderCheckResult):
     last_result: BirdFinderCheckResult | None = None
+    attempt_count: int = 0
+    next_retry_at: str | None = None
 
 
 def selected_finder() -> tuple[str, str | None] | None:
@@ -114,8 +119,11 @@ def _read_ledger() -> dict[str, Any]:
     path = _ledger_path()
     if not path.exists():
         return {}
-    # An unreadable ledger cannot safely promise an at-most-once attempt.
-    return json.loads(path.read_text(encoding="utf-8"))
+    # An unreadable ledger cannot safely enforce bounded retries.
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Invalid finder revalidation ledger")
+    return data
 
 
 def _write_ledger_entry(key: str, status: dict[str, Any]) -> None:
@@ -126,50 +134,108 @@ def _write_ledger_entry(key: str, status: dict[str, Any]) -> None:
     validation._write_json_atomic(path, attempts)
 
 
+def photo_set_signature(photos: list[str]) -> str:
+    rows = []
+    for name in sorted(set(photos)):
+        try:
+            stat = Path(name).stat()
+            rows.append((name, stat.st_size, stat.st_mtime_ns))
+        except OSError:
+            rows.append((name, None, None))
+    return validation._identity_digest({"photos": rows})
+
+
+def retry_due(entry: dict[str, Any], *, photo_signature: str, now: datetime) -> bool:
+    """Only a completed comparison consumes a runtime/preference context."""
+    state = entry.get("state")
+    code = entry.get("reason_code")
+    if state == "succeeded" or (state == "failed" and code == "mismatch"):
+        return False
+    if code == "no_positive_baseline":
+        return entry.get("photo_signature") != photo_signature
+    count = int(entry.get("attempt_count") or 1)
+    if count >= 3:
+        return False
+    try:
+        checked = datetime.fromisoformat(str(entry.get("checked_at") or "").replace("Z", "+00:00"))
+        checked = checked.replace(tzinfo=timezone.utc) if checked.tzinfo is None else checked
+    except ValueError:
+        return False
+    delay = timedelta(hours=1 if count == 1 else 4)
+    if entry.get("next_retry_at"):
+        try:
+            deadline = datetime.fromisoformat(str(entry["next_retry_at"]).replace("Z", "+00:00"))
+            deadline = deadline.replace(tzinfo=timezone.utc) if deadline.tzinfo is None else deadline
+            return now >= deadline
+        except ValueError:
+            return False
+    return now >= checked + delay
+
+
+@dataclass(frozen=True)
+class PreparedFinderCheck:
+    status: BirdFinderCheckStatus
+    key: str | None = None
+    providers: tuple[str, ...] = ()
+    attempt_count: int = 0
+    photo_signature: str = ""
+
+
 class BirdFinderRevalidation:
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self._status = BirdFinderCheckStatus()
         self._lock = asyncio.Lock()
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._last_ledger_warning: datetime | None = None
 
     def status(self) -> dict[str, Any]:
         return self._status.model_dump()
 
-    def _prepare(self, model_id: str, artifact: str | None) -> tuple[str, list[str]] | None:
+    def _publish(self, **fields: Any) -> None:
+        # Status readers also run in diagnostic worker threads. Publish one
+        # complete immutable snapshot instead of mutating shared fields.
+        self._status = self._status.model_copy(update=fields)
+
+    def _prepare(self, model_id: str, artifact: str | None, *, photos: list[str] | None = None) -> PreparedFinderCheck:
         attempts = _read_ledger()
         matching = [
-            (key, entry)
-            for key, entry in attempts.items()
-            if entry.get("model_id") == model_id and entry.get("artifact_sha256", artifact) == artifact
+            entry
+            for entry in attempts.values()
+            if isinstance(entry, dict)
+            and entry.get("model_id") == model_id
+            and entry.get("artifact_sha256", artifact) == artifact
         ]
+        status = BirdFinderCheckStatus()
         if matching:
-            _, latest = max(matching, key=lambda item: str(item[1].get("checked_at") or ""))
-            self._status = BirdFinderCheckStatus.model_validate(latest)
+            latest = max(matching, key=lambda entry: str(entry.get("checked_at") or ""))
+            status = BirdFinderCheckStatus.model_validate(latest)
             signatures = latest.get("runtime_signatures") or {}
-            self._status.runtime_current = bool(signatures) and all(
+            status.runtime_current = bool(signatures) and all(
                 signature == validation.current_provider_runtime_signature(provider)
                 for provider, signature in signatures.items()
             )
-            if self._status.last_result is not None:
-                self._status.last_result.runtime_current = self._status.runtime_current and (
-                    self._status.state != "running" or self._status.last_result.runtime_current
+            if status.last_result is not None:
+                status.last_result.runtime_current = status.runtime_current and (
+                    status.state != "running" or status.last_result.runtime_current
                 )
-            if self._status.state == "running":
-                self._status.state = "interrupted"
-                self._status.reason_code = "interrupted"
-                self._status.reason = "The previous check was interrupted. Check devices for this finder to retry."
+            if status.state == "running":
+                status.state, status.reason_code = "interrupted", "interrupted"
+                status.reason = (
+                    "The previous check was interrupted. Check devices for this finder to retry."
+                    if status.attempt_count >= 3
+                    else "The previous check was interrupted. A bounded automatic retry will follow."
+                )
         data = validation._read_current_eligibility_payload()
         previous = [str(provider) for provider in (data.get("models") or {}).get(model_id) or []]
         previous.extend(
             provider
-            for _, entry in matching
+            for entry in matching
             for provider in entry.get("requested_providers", entry.get("providers") or [])
         )
         current = validation.host_eligible_providers(model_id, artifact_sha256=artifact)
         packaged = validation.packaged_inference_providers(validation.get_image_flavor())
         preference = settings.classification.bird_crop_inference_provider
         if preference != "auto":
-            # A failed check may have erased all historical passing eligibility.
-            # The owner's explicit preference still deserves one bounded check.
             previous = [provider for provider in previous if provider in {"cpu", "intel_cpu", preference}]
             if preference in ACCELERATED_PROVIDERS:
                 previous.append(preference)
@@ -178,51 +244,67 @@ class BirdFinderRevalidation:
         if model_id == RFDETR_FINDER and preference in {"auto", "intel_npu", "intel_gpu"}:
             preferred = "intel_gpu" if preference == "intel_gpu" else "intel_npu"
             if preferred in current:
-                return None
+                return PreparedFinderCheck(status)
             previous.extend(provider for provider in ("intel_npu", "intel_gpu") if provider in packaged)
         stale = stale_accelerators(previous, current, packaged)
         if not stale:
-            return None
-        retest = sorted({"cpu", *stale} | ({"intel_cpu"} & set(previous) & set(packaged)))
+            return PreparedFinderCheck(status)
+        providers = sorted({"cpu", *stale} | ({"intel_cpu"} & set(previous) & set(packaged)))
         key = validation._identity_digest(
             {
                 "model": model_id,
                 "artifact": artifact,
-                "comparison_policy": 2,
+                "preference": preference,
+                "comparison_policy": 3,
                 "runtime": {
                     provider: validation.current_provider_runtime_signature(provider)
                     for provider in sorted({"cpu"} | (set(previous) & ACCELERATED_PROVIDERS & set(packaged)))
                 },
             }
         )
+        photo_signature = photo_set_signature(photos or [])
+        count = 1
         if key in attempts:
-            self._status = BirdFinderCheckStatus.model_validate(attempts[key])
-            self._status.runtime_current = True
-            if self._status.state == "running":
-                self._status.state = "interrupted"
-                self._status.reason_code = "interrupted"
-                self._status.reason = "The previous check was interrupted. Check devices for this finder to retry."
-            return None
-        return key, retest
+            entry = attempts[key]
+            status = BirdFinderCheckStatus.model_validate(entry)
+            status.runtime_current = True
+            if status.state == "running":
+                status.state, status.reason_code = "interrupted", "interrupted"
+                status.reason = (
+                    "The previous check was interrupted. Check devices for this finder to retry."
+                    if status.attempt_count >= 3
+                    else "The previous check was interrupted. A bounded automatic retry will follow."
+                )
+            if not retry_due(
+                entry | {"reason_code": status.reason_code}, photo_signature=photo_signature, now=self._clock()
+            ):
+                return PreparedFinderCheck(status)
+            count = 1 if status.reason_code == "no_positive_baseline" else int(entry.get("attempt_count") or 1) + 1
+        return PreparedFinderCheck(status, key, tuple(providers), count, photo_signature)
 
     async def run(self) -> None:
         async with self._lock:
-            key: str | None = None
+            prepared: PreparedFinderCheck | None = None
             result: dict[str, Any] = {}
-            runtime_signatures: dict[str, str] = {}
-            artifact: str | None = None
+            metadata: dict[str, Any] = {}
             try:
                 finder = await asyncio.to_thread(selected_finder)
                 if finder is None:
                     return
                 model_id, artifact = finder
-                preference = settings.classification.bird_crop_inference_provider
-                prepared = await asyncio.to_thread(self._prepare, model_id, artifact)
-                if prepared is None:
+                if validation.crop_validation_lock(model_id).locked():
                     return
-                prepared_key, providers = prepared
-                accelerators = [provider for provider in providers if provider in ACCELERATED_PROVIDERS]
+                preference = settings.classification.bird_crop_inference_provider
                 photos = await asyncio.to_thread(recent_bird_photos)
+                prepared = await asyncio.to_thread(self._prepare, model_id, artifact, photos=photos)
+                self._status = prepared.status
+                if prepared.key is None:
+                    return
+                providers = list(prepared.providers)
+                accelerators = [provider for provider in providers if provider in ACCELERATED_PROVIDERS]
+                previous_result = self._status.last_result
+                if self._status.checked_at and self._status.state not in {"idle", "waiting", "running"}:
+                    previous_result = BirdFinderCheckResult.model_validate(self.status())
                 if not photos:
                     self._status = BirdFinderCheckStatus(
                         state="waiting",
@@ -230,37 +312,33 @@ class BirdFinderRevalidation:
                         model_id=model_id,
                         providers=accelerators,
                         reason="No saved bird photos to compare devices on yet. The check waits for saved photos.",
-                        last_result=self._status.last_result
-                        or (BirdFinderCheckResult.model_validate(self.status()) if self._status.checked_at else None),
+                        last_result=previous_result,
                     )
+                    prepared = None
                     return
-                key = prepared_key
-                last_result = self._status.last_result
-                if self._status.state in {"succeeded", "failed", "superseded", "interrupted"}:
-                    last_result = BirdFinderCheckResult.model_validate(self.status())
-                runtime_signatures = {
-                    provider: validation.current_provider_runtime_signature(provider) for provider in providers
+                if validation.crop_validation_lock(model_id).locked():
+                    prepared = None
+                    return
+                metadata = {
+                    "artifact_sha256": artifact,
+                    "requested_providers": accelerators,
+                    "photo_signature": prepared.photo_signature,
+                    "attempt_count": prepared.attempt_count,
+                    "runtime_signatures": {
+                        provider: validation.current_provider_runtime_signature(provider) for provider in providers
+                    },
                 }
                 self._status = BirdFinderCheckStatus(
                     state="running",
                     reason_code="driver_changed",
-                    last_result=last_result,
                     model_id=model_id,
                     providers=accelerators,
+                    checked_at=self._clock().isoformat(),
+                    attempt_count=prepared.attempt_count,
                     reason="The inference runtime changed. Re-checking this finder's accelerators once on saved bird photos.",
-                    checked_at=datetime.now(timezone.utc).isoformat(),
+                    last_result=previous_result,
                 )
-                await asyncio.to_thread(
-                    _write_ledger_entry,
-                    key,
-                    self.status()
-                    | {
-                        "artifact_sha256": artifact,
-                        "runtime_signatures": runtime_signatures,
-                        "requested_providers": accelerators,
-                    },
-                )
-
+                await asyncio.to_thread(_write_ledger_entry, prepared.key, self.status() | metadata)
                 from app.services.bird_finder_health import RFDETR_FINDER
 
                 if model_id == RFDETR_FINDER:
@@ -269,25 +347,30 @@ class BirdFinderRevalidation:
                     )
                 else:
                     result = await sweep_crop_model_devices(model_id, image_paths=photos, only_providers=set(providers))
-                checked_providers = {entry.get("provider") for entry in result.get("providers") or []}
-                runtime_signatures = {
-                    provider: signature
-                    for provider, signature in runtime_signatures.items()
-                    if provider in checked_providers
-                }
-                self._status.providers = [
-                    entry["provider"]
-                    for entry in result.get("providers") or []
-                    if entry.get("provider") in ACCELERATED_PROVIDERS
-                ]
-
+                self._publish(
+                    providers=[
+                        entry["provider"]
+                        for entry in result.get("providers") or []
+                        if entry.get("provider") in ACCELERATED_PROVIDERS
+                    ]
+                )
                 if (
                     await asyncio.to_thread(selected_finder) != finder
                     or settings.classification.bird_crop_inference_provider != preference
                 ):
-                    self._status.state = "superseded"
-                    self._status.reason_code = "superseded"
-                    self._status.reason = "The bird finder changed while the check ran; no result was applied."
+                    self._publish(
+                        state="superseded",
+                        reason_code="superseded",
+                        reason="The bird finder changed while the check ran; no result was applied.",
+                    )
+                    return
+                baseline = result.get("baseline_status")
+                if baseline == "unavailable":
+                    self._publish(
+                        state="failed",
+                        reason_code="unfinished",
+                        reason="The CPU baseline could not finish, so accelerator agreement was not checked. Previous evidence is unchanged.",
+                    )
                     return
                 current = await asyncio.to_thread(
                     validation.host_eligible_providers, model_id, artifact_sha256=artifact
@@ -296,13 +379,14 @@ class BirdFinderRevalidation:
                     validation.host_provider_validation_results, model_id, artifact_sha256=artifact
                 )
                 checked = {entry["provider"] for entry in result.get("providers") or []}
+                if baseline == "no_positive":
+                    checked = {"cpu"}
                 eligible = list(
                     dict.fromkeys(
                         [provider for provider in current if provider not in checked]
                         + list(result.get("eligible_providers") or [])
                     )
                 )
-                best = result.get("best") or {}
                 await asyncio.to_thread(
                     validation.write_eligibility_entry,
                     model_id,
@@ -314,6 +398,7 @@ class BirdFinderRevalidation:
                 saved = await asyncio.to_thread(validation.host_eligible_providers, model_id, artifact_sha256=artifact)
                 if set(saved) != set(eligible):
                     raise RuntimeError("Could not persist finder provider validation")
+                best = result.get("best") or {}
                 await asyncio.to_thread(
                     validation.write_validation_record,
                     model_id,
@@ -325,66 +410,99 @@ class BirdFinderRevalidation:
                 )
                 _reset_in_process_finder()
                 usable_accelerators = ACCELERATED_PROVIDERS if model_id == RFDETR_FINDER else set(accelerators)
-                if usable_accelerators & set(eligible):
-                    self._status.state = "succeeded"
-                    self._status.reason_code = (
-                        "gpu_recovery"
-                        if model_id == RFDETR_FINDER and "intel_npu" not in eligible and "intel_gpu" in eligible
-                        else "passed"
+                if baseline == "no_positive" or any(
+                    entry.get("baseline_has_birds") is False for entry in result.get("providers") or []
+                ):
+                    self._publish(
+                        state="failed",
+                        reason_code="no_positive_baseline",
+                        reason="The CPU found no admitted birds in the saved photos, so accelerator agreement could not be checked. Previous accelerator evidence is unchanged.",
                     )
-                    self._status.reason = (
-                        "The NPU did not pass; the finder uses its verified GPU from the next frame."
-                        if model_id == RFDETR_FINDER and "intel_npu" not in eligible and "intel_gpu" in eligible
-                        else "The finder has current passing accelerator evidence and uses it from the next frame."
+                elif usable_accelerators & set(eligible):
+                    gpu_recovery = model_id == RFDETR_FINDER and "intel_npu" not in eligible and "intel_gpu" in eligible
+                    self._publish(
+                        state="succeeded",
+                        reason_code="gpu_recovery" if gpu_recovery else "passed",
+                        reason="The NPU did not pass; the finder uses its verified GPU from the next frame."
+                        if gpu_recovery
+                        else "The finder has current passing accelerator evidence and uses it from the next frame.",
                     )
                 else:
-                    self._status.state = "failed"
-                    self._status.reason_code = (
-                        "no_positive_baseline"
-                        if any(entry.get("baseline_has_birds") is False for entry in result.get("providers") or [])
-                        else "mismatch"
+                    entries = [
+                        entry
+                        for entry in result.get("providers") or []
+                        if entry.get("provider") in ACCELERATED_PROVIDERS
+                    ]
+                    mismatch = bool(entries) and all(
+                        entry.get("comparison_mismatch", entry.get("ok") is False and not entry.get("error"))
+                        for entry in entries
                     )
-                    self._status.reason = (
-                        "The accelerators did not match the CPU on saved bird photos, so the finder stays on the CPU."
+                    self._publish(
+                        state="failed",
+                        reason_code="mismatch" if mismatch else "unfinished",
+                        reason="The accelerators did not match the CPU on saved bird photos, so the finder stays on the CPU."
+                        if mismatch
+                        else "The automatic finder check could not finish. A bounded automatic retry will follow.",
                     )
             except asyncio.CancelledError:
-                self._status.state = "interrupted"
-                self._status.reason_code = "interrupted"
-                self._status.reason = "The check was interrupted. Check devices for this finder to retry."
+                self._publish(
+                    state="interrupted",
+                    reason_code="interrupted",
+                    reason="The check was interrupted. A bounded automatic retry will follow.",
+                )
                 raise
             except Exception as exc:
-                self._status.state = "failed"
-                self._status.reason_code = "unfinished"
-                self._status.reason = (
-                    "The automatic finder check could not finish. Check devices for this finder to retry."
+                self._publish(
+                    state="failed",
+                    reason_code="unfinished",
+                    reason="The automatic finder check could not finish. A bounded automatic retry will follow.",
                 )
-                log.warning("bird_finder_revalidation_failed", error=str(exc))
+                now = self._clock()
+                if self._last_ledger_warning is None or now - self._last_ledger_warning >= timedelta(hours=1):
+                    self._last_ledger_warning = now
+                    log.warning("bird_finder_revalidation_failed", error_type=type(exc).__name__)
             finally:
-                if key is not None:
-                    if self._status.state != "running":
-                        self._status.last_result = BirdFinderCheckResult.model_validate(self.status())
+                if prepared is not None and prepared.key is not None and metadata:
+                    next_retry = None
+                    if (
+                        self._status.reason_code in {"unfinished", "interrupted", "superseded"}
+                        and prepared.attempt_count < 3
+                    ):
+                        next_retry = (
+                            self._clock() + timedelta(hours=1 if prepared.attempt_count == 1 else 4)
+                        ).isoformat()
+                    if (
+                        self._status.reason_code in {"unfinished", "interrupted", "superseded"}
+                        and prepared.attempt_count >= 3
+                    ):
+                        reason = (self._status.reason or "").replace(" A bounded automatic retry will follow.", "")
+                        self._publish(
+                            reason=f"{reason} Automatic retry limit reached. Check devices for this finder to retry."
+                        )
+                    self._publish(
+                        next_retry_at=next_retry, last_result=BirdFinderCheckResult.model_validate(self.status())
+                    )
                     log.info(
                         "bird_finder_revalidation_result",
                         model_id=self._status.model_id,
-                        providers=self._status.providers,
                         outcome=self._status.state,
-                        reason=self._status.reason,
                         reason_code=self._status.reason_code,
-                        checked_at=self._status.checked_at,
+                        providers=self._status.providers,
+                        attempt_count=prepared.attempt_count,
                         box_diff=[
                             {
                                 field: entry.get(field)
                                 for field in (
                                     "provider",
                                     "ok",
-                                    "compiles",
                                     "finite",
+                                    "compiles",
                                     "baseline_has_birds",
                                     "baseline_boxes",
                                     "provider_boxes",
                                     "matched_boxes",
+                                    "ignored_boundary_boxes",
                                     "worst_box_iou",
-                                    "images_compared",
                                     "error",
                                 )
                             }
@@ -392,18 +510,9 @@ class BirdFinderRevalidation:
                         ],
                     )
                     try:
-                        await asyncio.to_thread(
-                            _write_ledger_entry,
-                            key,
-                            self.status()
-                            | {
-                                "artifact_sha256": artifact,
-                                "runtime_signatures": runtime_signatures,
-                                "requested_providers": accelerators,
-                            },
-                        )
-                    except (OSError, ValueError) as exc:
-                        log.warning("bird_finder_revalidation_outcome_write_failed", error=str(exc))
+                        await asyncio.to_thread(_write_ledger_entry, prepared.key, self.status() | metadata)
+                    except (OSError, ValueError):
+                        log.warning("bird_finder_revalidation_outcome_write_failed", model_id=self._status.model_id)
 
 
 def _reset_in_process_finder() -> None:

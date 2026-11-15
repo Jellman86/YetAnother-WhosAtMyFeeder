@@ -29,6 +29,10 @@ class _ProbeCropService(BirdCropService):
         super().__init__(**kwargs)
         self.outputs: list[np.ndarray] = []
 
+    @staticmethod
+    def _merge_duplicate_boxes(candidates: list[dict[str, Any]], iou_threshold: float = 0.6) -> list[dict[str, Any]]:
+        return BirdCropService._merge_duplicate_boxes(candidates, iou_threshold, retain_groups=True)
+
     def run_detector_outputs(self, model: Any, image: Image.Image) -> tuple[list[Any], dict[str, float]]:
         outputs, transform = super().run_detector_outputs(model, image)
         self.outputs.extend(np.asarray(output) for output in outputs)
@@ -40,11 +44,17 @@ def _admitted_detections(
 ) -> list[dict[str, Any]]:
     # Apply exactly the same selection floor and geometry rules to every box on
     # both providers. Multi-bird checks must not depend on which score ranks first.
-    return [
-        detection
-        for candidate in candidates
-        if (detection := _top_detection(service, [candidate], image, tier=tier)) is not None
-    ]
+    admitted = []
+    for candidate in candidates:
+        detection = _top_detection(service, [candidate], image, tier=tier)
+        if detection is not None:
+            detection["alternatives"] = [
+                alternate
+                for item in candidate.get("comparison_alternatives", [])
+                if (alternate := _top_detection(service, [item], image, tier=tier)) is not None
+            ]
+            admitted.append(detection)
+    return admitted
 
 
 def _summarize_outputs(outputs: list[np.ndarray]) -> dict[str, Any]:
@@ -202,6 +212,16 @@ def probe_provider(provider: str, model_id: str, image_paths: list[str]) -> dict
                     "kind": "negative" if label.startswith("negative_") else "real",
                     "top_detection": max(admitted, key=lambda detection: detection["confidence"], default=None),
                     "detections": admitted,
+                    "score_threshold": max(
+                        float((model.get("detector_config") or {}).get("min_confidence") or 0),
+                        float(
+                            (
+                                service.get_classification_candidate_crop_policy()
+                                if tier == "accurate"
+                                else service.get_effective_crop_policy(tier)
+                            )["confidence_threshold"]
+                        ),
+                    ),
                     "detection_count": len(candidates),
                 }
             )

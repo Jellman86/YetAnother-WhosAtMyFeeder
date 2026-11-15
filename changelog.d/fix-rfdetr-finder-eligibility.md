@@ -5,6 +5,11 @@
   retains historical failures with their date and runtime freshness, and finder
   checks log box differences for diagnosis.
 - RF-DETR now prefers NPU, then a verified GPU, before CPU. Automatic checks try
-  GPU if NPU fails and stop early when NPU passes. Any RF-DETR CPU use produces a
-  structured warning and an actionable Health incident counted in System status.
-  CPU detector threads and provider-check priority are bounded to reduce load.
+  GPU if NPU fails and stop early when NPU passes. Unchosen RF-DETR CPU use on
+  hosts offering an Intel accelerator produces a structured warning and an actionable
+  Health incident counted in System status. Only disposable provider probes cap CPU
+  threads and run at reduced priority. Interrupted or unfinished checks retry with
+  capped backoff; inconclusive checks preserve previous passing evidence.
+- Finder checks tolerate score-floor jitter and full-frame/tile NMS survivor swaps.
+  Settings uses stable failure codes and completed execution evidence, including
+  verified GPU recovery when the saved NPU cannot run the model.

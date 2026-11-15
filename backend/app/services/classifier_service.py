@@ -2997,8 +2997,17 @@ class ClassifierService:
 
         provider_selector = getattr(self._bird_crop_service, "_provider_for_tier", None)
         planned_provider = provider_selector("accurate") if callable(provider_selector) else "cpu"
+        crop_detector_status["active_provider"] = latest_execution.provider if latest_execution else None
+        crop_detector_status["planned_provider"] = planned_provider
+        packaged = packaged_inference_providers(get_image_flavor())
+        capabilities = self._accel_caps_for_read()
+        available_accelerators = {
+            provider
+            for provider, node in (("intel_npu", "dev_accel_present"), ("intel_gpu", "dev_dri_present"))
+            if provider in packaged and (capabilities.get(f"{provider}_available") or capabilities.get(node))
+        }
         crop_detector_status["cpu_fallback"] = finder_cpu_problem(
-            crop_detector_status, planned_provider=planned_provider
+            crop_detector_status, planned_provider=planned_provider, available_accelerators=available_accelerators
         )
         return crop_detector_status
 
@@ -3012,7 +3021,7 @@ class ClassifierService:
         effective_runtime_recovery = self._effective_runtime_recovery(supervisor_metrics)
         finder_health = self._crop_detector_status(supervisor_metrics)["cpu_fallback"]
         identity = (
-            (finder_health["model_id"], finder_health["provider"], finder_health["reason"])
+            (finder_health["model_id"], finder_health["provider"], finder_health.get("reason_code"))
             if finder_health["active"]
             else None
         )

@@ -894,7 +894,8 @@ async def test_a_failed_run_writes_its_code_and_keeps_the_exception_out_of_the_s
 
 
 @pytest.mark.asyncio
-async def test_aborted_crop_sweep_preserves_a_current_cpu_pass(tmp_path, monkeypatch):
+@pytest.mark.parametrize("outcome", ["crash", "unavailable", "no_positive"])
+async def test_inconclusive_crop_sweep_preserves_all_current_passes(tmp_path, monkeypatch, outcome):
     from app.services import model_validation
     from unittest.mock import AsyncMock
 
@@ -902,13 +903,25 @@ async def test_aborted_crop_sweep_preserves_a_current_cpu_pass(tmp_path, monkeyp
     monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
     finder = "bird_crop_detector_accurate_rfdetr_nano"
     model_validation.write_eligibility_entry(finder, ["cpu", "intel_npu"], image_flavor="intel", artifact_sha256="abc")
-    monkeypatch.setattr(
-        model_validation, "sweep_crop_model_devices", AsyncMock(side_effect=RuntimeError("probe failed"))
+    model_validation.write_validation_record(
+        finder, provider="intel_npu", ok=True, reason="previous pass", artifact_sha256="abc"
     )
+    probe = (
+        AsyncMock(side_effect=RuntimeError("probe failed"))
+        if outcome == "crash"
+        else AsyncMock(
+            return_value={
+                "baseline_status": outcome,
+                "eligible_providers": ["cpu"] if outcome == "no_positive" else [],
+                "providers": [],
+            }
+        )
+    )
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", probe)
     runner = ModelEvalRunner()
     monkeypatch.setattr(runner, "_emit", AsyncMock())
     await runner._device_sweep(
         "run-1", tmp_path, [], [SimpleNamespace(id=finder, metadata=SimpleNamespace(sha256="abc"))]
     )
-    assert model_validation.host_eligible_providers(finder, artifact_sha256="abc") == ["cpu"]
+    assert set(model_validation.host_eligible_providers(finder, artifact_sha256="abc")) == {"cpu", "intel_npu"}
     assert model_validation.read_validation_record(finder)["validated"] is True

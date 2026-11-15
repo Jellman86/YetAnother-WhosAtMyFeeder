@@ -895,6 +895,7 @@ class ModelEvalRunner:
         """
         from app.services.model_validation import (
             host_eligible_providers,
+            host_provider_validation_results,
             sweep_crop_model_devices,
             sweep_model_devices,
             write_eligibility_entry,
@@ -1054,24 +1055,6 @@ class ModelEvalRunner:
                     error=str(exc),
                 )
                 crop_matrix[model.id] = {"error": "provider_sweep_failed"}
-                current = await asyncio.to_thread(host_eligible_providers, model.id, artifact_sha256=artifact_sha256)
-                cpu_fallback = ["cpu"] if "cpu" in current else []
-                await asyncio.to_thread(
-                    write_eligibility_entry,
-                    model.id,
-                    cpu_fallback,
-                    run_id=run_id,
-                    image_flavor=image_flavor,
-                    artifact_sha256=artifact_sha256,
-                )
-                await asyncio.to_thread(
-                    write_validation_record,
-                    model.id,
-                    provider="cpu",
-                    ok=bool(cpu_fallback),
-                    reason="crop provider sweep failed",
-                    artifact_sha256=artifact_sha256,
-                )
                 continue
             image_flavor = str(result.get("image_flavor") or image_flavor)
             per_provider = {
@@ -1090,14 +1073,29 @@ class ModelEvalRunner:
                 "best_discovered_provider": (result.get("best_discovered") or {}).get("provider"),
                 "devices": per_provider,
             }
+            if result.get("baseline_status") == "unavailable":
+                crop_matrix[model.id]["inconclusive"] = True
+                continue
             eligible = list(result.get("eligible_providers") or [])
+            provider_results = list(result.get("providers") or [])
+            if result.get("baseline_status") == "no_positive":
+                artifact = result.get("artifact_sha256") or artifact_sha256
+                previous = await asyncio.to_thread(host_eligible_providers, model.id, artifact_sha256=artifact)
+                previous_results = await asyncio.to_thread(
+                    host_provider_validation_results, model.id, artifact_sha256=artifact
+                )
+                eligible = list(dict.fromkeys([*previous, *eligible]))
+                provider_results = list(previous_results.values()) + [
+                    entry for entry in provider_results if entry.get("provider") == "cpu"
+                ]
+                crop_matrix[model.id]["inconclusive"] = True
             await asyncio.to_thread(
                 write_eligibility_entry,
                 model.id,
                 eligible,
                 run_id=run_id,
                 image_flavor=image_flavor,
-                provider_results=list(result.get("providers") or []),
+                provider_results=provider_results,
                 artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
             await asyncio.to_thread(

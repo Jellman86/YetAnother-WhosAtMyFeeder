@@ -754,3 +754,50 @@ def test_crop_box_matching_keeps_confidence_agreement_as_a_separate_gate(delta):
         [{"image": "bird", "detections": [dict(box, confidence=0.8 + delta)]}],
     )
     assert result["agrees"] is (delta <= 0.03)
+
+
+@pytest.mark.parametrize("score, agrees", [(0.021, True), (0.05, False), (0.2, False)])
+def test_unmatched_boxes_only_disagree_above_the_score_tolerance_band(score, agrees):
+    left = [{"image": "bird", "detections": [{"normalized_box": [0.1, 0.1, 0.4, 0.4], "confidence": score}]}]
+    right = [{"image": "bird", "detections": [{"normalized_box": [0.1, 0.1, 0.4, 0.4], "confidence": 0.019}]}]
+    assert mv._compare_crop_detections(left, right)["agrees"] is agrees
+    assert mv._compare_crop_detections(right, left)["agrees"] is agrees
+
+
+def test_comparison_matches_nms_survivor_groups_without_lowering_localization_iou():
+    full = {"normalized_box": [0.1, 0.1, 0.5, 0.5], "confidence": 0.81}
+    cut = {"normalized_box": [0.2, 0.1, 0.5, 0.5], "confidence": 0.80}
+    cpu = dict(full, alternatives=[full, cut])
+    npu = dict(cut, confidence=0.81, alternatives=[dict(full, confidence=0.80), dict(cut, confidence=0.81)])
+    assert mv._normalized_box_iou(full["normalized_box"], cut["normalized_box"]) < 0.85
+    assert (
+        mv._compare_crop_detections([{"image": "bird", "detections": [cpu]}], [{"image": "bird", "detections": [npu]}])[
+            "agrees"
+        ]
+        is True
+    )
+
+
+def test_probe_retains_actual_nms_suppression_groups():
+    from scripts.probe_crop_model_provider import _ProbeCropService
+
+    boxes = [{"box": [10, 10, 50, 50], "confidence": 0.81}, {"box": [20, 10, 50, 50], "confidence": 0.80}]
+    groups = _ProbeCropService._merge_duplicate_boxes(boxes)
+    assert len(groups) == 1
+    assert len(groups[0]["comparison_alternatives"]) == 2
+
+
+def test_nms_alternatives_do_not_hide_a_strong_confidence_regression():
+    def row(score):
+        return {
+            "image": "bird",
+            "detections": [
+                {
+                    "normalized_box": [0.1, 0.1, 0.5, 0.5],
+                    "confidence": score,
+                    "alternatives": [{"normalized_box": [0.1, 0.1, 0.5, 0.5], "confidence": 0.4}],
+                }
+            ],
+        }
+
+    assert not mv._compare_crop_detections([row(0.9)], [row(0.7)])["agrees"]

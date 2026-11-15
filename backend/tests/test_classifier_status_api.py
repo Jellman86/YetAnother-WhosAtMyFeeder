@@ -556,3 +556,46 @@ async def test_rfdetr_cpu_fallback_degrades_health_and_records_actionable_diagno
     assert "NPU and GPU failed" in events[0]["message"]
     await client.get("/health")
     assert history.snapshot()["events"][0]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_health_file_reads_run_off_the_event_loop(client, monkeypatch):
+    import threading
+    import app.main as main_module
+
+    loop_thread = threading.get_ident()
+    threads = []
+
+    def health():
+        threads.append(threading.get_ident())
+        return {"status": "ok"}
+
+    monkeypatch.setattr(main_module, "build_health_payload", health)
+    response = await client.get("/health")
+    assert response.status_code == 200
+    assert threads and threads[0] != loop_thread
+
+
+@pytest.mark.asyncio
+async def test_cpu_incident_identity_uses_reason_code_instead_of_reason_sentence(client, monkeypatch):
+    from app.services import error_diagnostics
+
+    history = error_diagnostics.ErrorDiagnosticsHistory()
+    monkeypatch.setattr(error_diagnostics, "error_diagnostics_history", history)
+    problem = {
+        "active": True,
+        "model_id": "bird_crop_detector_accurate_rfdetr_nano",
+        "provider": "cpu",
+        "reason_code": "unfinished",
+        "reason": "First wording",
+        "action": "Check devices",
+    }
+    monkeypatch.setattr(
+        classifier_router.classifier_service, "_crop_detector_status", lambda _: {"cpu_fallback": problem}
+    )
+    monkeypatch.setattr(classifier_router.classifier_service, "_finder_cpu_warning", None, raising=False)
+    await client.get("/health")
+    problem["reason"] = "Different wording for the same condition"
+    await client.get("/health")
+    assert len(history.snapshot()["events"]) == 1
+    assert history.snapshot()["events"][0]["count"] == 1

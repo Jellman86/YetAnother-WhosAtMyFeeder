@@ -373,3 +373,204 @@ def test_legacy_finder_results_have_stable_reason_codes(state, reason, expected)
     status = recovery.BirdFinderCheckStatus(state=state, reason=reason).model_dump()
     assert status["reason_code"] == expected
     assert status["reason"] == reason
+
+
+@pytest.mark.parametrize(
+    "code, state, due",
+    [
+        ("mismatch", "failed", False),
+        ("passed", "succeeded", False),
+        ("unfinished", "failed", True),
+        ("interrupted", "running", True),
+        ("superseded", "superseded", True),
+    ],
+)
+def test_only_conclusive_results_consume_a_runtime_attempt(code, state, due):
+    from datetime import datetime, timezone
+
+    entry = {"state": state, "reason_code": code, "checked_at": "2026-11-15T00:00:00+00:00", "attempt_count": 1}
+    assert recovery.retry_due(entry, photo_signature="same", now=datetime(2026, 11, 15, 2, tzinfo=timezone.utc)) is due
+
+
+def test_inconclusive_retry_backoff_is_capped_and_photo_changes_are_distinct():
+    from datetime import datetime, timezone
+
+    now = datetime(2026, 11, 15, 2, tzinfo=timezone.utc)
+    entry = {"state": "failed", "reason_code": "unfinished", "checked_at": now.isoformat(), "attempt_count": 1}
+    assert not recovery.retry_due(entry, photo_signature="same", now=now)
+    entry.update(checked_at="2026-11-14T00:00:00Z", attempt_count=3)
+    assert not recovery.retry_due(entry, photo_signature="same", now=now)
+    entry.update(reason_code="no_positive_baseline", photo_signature="old")
+    assert recovery.retry_due(entry, photo_signature="new", now=now)
+    assert not recovery.retry_due(entry, photo_signature="old", now=now)
+
+
+@pytest.mark.asyncio
+async def test_unavailable_cpu_baseline_keeps_previous_evidence_and_is_inconclusive(environment, monkeypatch):
+    monkeypatch.setattr(
+        validation,
+        "current_provider_runtime_signature",
+        lambda provider: "old-cpu" if provider == "cpu" else f"new-{provider}",
+    )
+    before = (validation._eval_root() / validation.ELIGIBILITY_FILENAME).read_bytes()
+    environment.return_value = {
+        "baseline_status": "unavailable",
+        "eligible_providers": [],
+        "providers": [{"provider": "cpu", "ok": False, "finite": False}],
+        "image_flavor": "intel",
+    }
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    assert runner.status()["reason_code"] == "unfinished"
+    assert (validation._eval_root() / validation.ELIGIBILITY_FILENAME).read_bytes() == before
+    assert "cpu" in validation.host_eligible_providers(FINDER, artifact_sha256="abc")
+
+
+@pytest.mark.asyncio
+async def test_no_positive_baseline_retries_only_after_photos_change(environment, monkeypatch):
+    environment.return_value = {
+        "baseline_status": "no_positive",
+        "eligible_providers": ["cpu"],
+        "providers": [
+            {"provider": "cpu", "ok": True},
+            {"provider": "intel_npu", "ok": False, "baseline_has_birds": False},
+        ],
+        "image_flavor": "intel",
+    }
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    assert runner.status()["reason_code"] == "no_positive_baseline"
+    assert "did not match" not in runner.status()["reason"]
+    await runner.run()
+    assert environment.await_count == 1
+    monkeypatch.setattr(recovery, "recent_bird_photos", lambda: ["/photos/new.jpg"])
+    await runner.run()
+    assert environment.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_owner_crop_sweep_prevents_concurrent_automatic_probe(environment):
+    async with validation.crop_validation_lock(FINDER):
+        await recovery.BirdFinderRevalidation().run()
+    environment.assert_not_awaited()
+
+
+def test_preparation_does_not_publish_status_from_its_worker_thread(environment):
+    recovery._write_ledger_entry(
+        "old",
+        {
+            "state": "failed",
+            "model_id": FINDER,
+            "providers": ["intel_npu"],
+            "reason": "The accelerator did not match the CPU.",
+            "checked_at": "2026-11-12T00:00:00Z",
+        },
+    )
+    runner = recovery.BirdFinderRevalidation()
+    before = runner.status()
+    runner._prepare(FINDER, "abc", photos=["/photos/a.jpg"])
+    assert runner.status() == before
+
+
+@pytest.mark.asyncio
+async def test_preference_changes_get_a_fresh_attempt_after_superseded(environment, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu")
+
+    async def changed(*args, **kwargs):
+        settings.classification.bird_crop_inference_provider = "intel_gpu"
+        return {"eligible_providers": ["cpu"], "providers": []}
+
+    environment.side_effect = changed
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    assert runner.status()["state"] == "superseded"
+    environment.side_effect = None
+    await runner.run()
+    assert environment.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_unfinished_checks_retry_after_backoff_across_restarts_and_stop_at_three(environment):
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 11, 15, tzinfo=timezone.utc)
+    environment.side_effect = RuntimeError("probe failed")
+    runner = recovery.BirdFinderRevalidation(clock=lambda: now)
+    await runner.run()
+    assert runner.status()["attempt_count"] == 1
+    assert runner.status()["next_retry_at"] == (now + timedelta(hours=1)).isoformat()
+    now += timedelta(minutes=59)
+    await recovery.BirdFinderRevalidation(clock=lambda: now).run()
+    assert environment.await_count == 1
+    now += timedelta(minutes=2)
+    runner = recovery.BirdFinderRevalidation(clock=lambda: now)
+    await runner.run()
+    assert runner.status()["attempt_count"] == 2
+    now += timedelta(hours=3)
+    await recovery.BirdFinderRevalidation(clock=lambda: now).run()
+    assert environment.await_count == 2
+    now += timedelta(hours=2)
+    runner = recovery.BirdFinderRevalidation(clock=lambda: now)
+    await runner.run()
+    assert runner.status()["attempt_count"] == 3
+    assert runner.status()["next_retry_at"] is None
+    assert "Check devices" in runner.status()["reason"]
+    assert "retry will follow" not in runner.status()["reason"]
+    now += timedelta(days=1)
+    await recovery.BirdFinderRevalidation(clock=lambda: now).run()
+    assert environment.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_corrupt_ledger_warning_is_rate_limited(environment, monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from unittest.mock import Mock
+
+    now = datetime(2026, 11, 15, tzinfo=timezone.utc)
+    recovery._ledger_path().write_text("not json")
+    warning = Mock()
+    monkeypatch.setattr(recovery.log, "warning", warning)
+    runner = recovery.BirdFinderRevalidation(clock=lambda: now)
+    await runner.run()
+    await runner.run()
+    assert warning.call_count == 1
+    now += timedelta(hours=1)
+    await runner.run()
+    assert warning.call_count == 2
+
+
+def test_retry_uses_the_reported_deadline_after_a_slow_probe():
+    from datetime import datetime, timezone
+
+    entry = {
+        "state": "failed",
+        "reason_code": "unfinished",
+        "attempt_count": 1,
+        "checked_at": "2026-11-15T00:00:00Z",
+        "next_retry_at": "2026-11-15T01:05:00Z",
+    }
+    assert not recovery.retry_due(entry, photo_signature="same", now=datetime(2026, 11, 15, 1, 2, tzinfo=timezone.utc))
+
+
+@pytest.mark.asyncio
+async def test_no_positive_panel_preserves_a_current_gpu_without_calling_the_new_check_successful(
+    environment, monkeypatch
+):
+    monkeypatch.setattr(
+        validation, "current_provider_runtime_signature", lambda p: f"new-{p}" if p == "intel_npu" else f"old-{p}"
+    )
+    environment.return_value = {
+        "baseline_status": "no_positive",
+        "eligible_providers": ["cpu"],
+        "providers": [
+            {"provider": "cpu", "ok": True},
+            {"provider": "intel_npu", "ok": False, "baseline_has_birds": False},
+        ],
+    }
+    runner = recovery.BirdFinderRevalidation()
+    await runner.run()
+    assert runner.status()["reason_code"] == "no_positive_baseline"
+    assert "intel_gpu" in validation.host_eligible_providers(FINDER, artifact_sha256="abc")
+    assert "stays on the CPU" not in runner.status()["reason"]

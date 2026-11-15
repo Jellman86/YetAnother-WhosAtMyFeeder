@@ -42,6 +42,7 @@ def test_video_multi_crop_does_not_escalate_detector_misses(monkeypatch):
 
 @pytest.mark.parametrize("provider", ["cpu", "cuda"])
 def test_crop_session_preloads_packaged_libraries_only_before_cuda(monkeypatch, tmp_path, provider):
+    monkeypatch.setenv("YAWAMF_CROP_PROBE_THREADS", "2")
     calls = []
 
     class FakeSession:
@@ -967,3 +968,17 @@ def test_saved_rfdetr_prefers_npu_and_recovers_on_verified_gpu(monkeypatch, elig
 def test_probe_provider_override_remains_independent_of_saved_finder_choice(monkeypatch):
     monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", "intel_npu", raising=False)
     assert BirdCropService(provider_override="cpu")._provider_for_tier("accurate") == "cpu"
+
+
+def test_production_cpu_crops_keep_runtime_thread_defaults(monkeypatch, tmp_path):
+    monkeypatch.delenv("YAWAMF_CROP_PROBE_THREADS", raising=False)
+    options = types.SimpleNamespace(intra_op_num_threads=0, inter_op_num_threads=0)
+    session = types.SimpleNamespace(get_providers=lambda: ["CPUExecutionProvider"])
+    service = BirdCropService()
+    monkeypatch.setattr(
+        service,
+        "_import_onnxruntime",
+        lambda: types.SimpleNamespace(SessionOptions=lambda: options, InferenceSession=lambda *args, **kwargs: session),
+    )
+    service._create_native_session(tmp_path / "model.onnx", provider="cpu", model_id="bird_crop_detector")
+    assert options.intra_op_num_threads == options.inter_op_num_threads == 0

@@ -1209,12 +1209,22 @@ not current passing device evidence. `last_result` retains the most recent compl
 check, with the same fields and its own `runtime_current` flag, while a new check
 is running or waiting for photos. Legacy ledger results without runtime identity
 are reported as historical. None of these status fields authorizes a device;
-selection still requires current provider eligibility.
+selection still requires current provider eligibility. `attempt_count` and
+`next_retry_at` describe capped automatic retries: inconclusive checks retry after
+one hour then four hours, up to three attempts per context. A missing positive CPU
+baseline waits for a changed saved photo set instead.
 
-`crop_detector.cpu_fallback` reports `active`, `model_id`, `provider`, `reason`
-and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics
+`crop_detector.active_provider` is the provider from its most recent completed
+execution, or null before an execution. `planned_provider` is the current selection
+for the next load; `last_execution` includes the provider, devices and timestamp of
+actual inference. RF-DETR's saved NPU preference can therefore report GPU in use.
+
+`crop_detector.cpu_fallback` reports `active`, `model_id`, `provider`, `reason_code`,
+`reason` and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics
 workspace expose the same condition as `ml.bird_finder`; an active condition
-degrades health and records a `bird_finder` / `rfdetr_cpu_fallback` warning.
+degrades health and records a `bird_finder` / `rfdetr_cpu_fallback` warning only
+when an Intel accelerator is packaged and present and the saved preference is not
+CPU. Incident identity uses model, provider and stable reason code.
 The Health incident and System status attention count resolve when that condition
 clears. RF-DETR prefers a verified NPU, then GPU, before CPU; its saved NPU
 preference permits a verified GPU recovery route.

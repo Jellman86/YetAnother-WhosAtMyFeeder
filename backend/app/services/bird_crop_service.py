@@ -113,7 +113,7 @@ class _OpenVINODetectorSession:
                 pass
 
         config: dict[str, str] = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
-        if self.device == "CPU":
+        if self.device == "CPU" and os.environ.get("YAWAMF_CROP_PROBE_THREADS"):
             config["INFERENCE_NUM_THREADS"] = "2"
         if is_gpu:
             # The detector outputs include large intermediate activations. Avoid
@@ -227,7 +227,7 @@ class BirdCropService:
         self._last_executions: dict[str, dict[str, Any]] = {}
         self._active_providers: dict[str, str] = {}
         self._provider_fallbacks: dict[str, str | None] = {}
-        self._cpu_warning: tuple[str, str] | None = None
+        self._cpu_warning: tuple[str, str, str] | None = None
         self._loaded_model_ids: dict[str, str] = {}
         self._loaded_provider_preferences: dict[str, str] = {}
 
@@ -1083,13 +1083,28 @@ class BirdCropService:
         from app.services.bird_finder_health import RFDETR_FINDER
 
         model_id = self._registry_model_id_for_tier(tier)
-        identity = (model_id, reason)
-        if model_id != RFDETR_FINDER or identity == self._cpu_warning:
+        identity = (model_id, "cpu", reason)
+        if (
+            model_id != RFDETR_FINDER
+            or identity == self._cpu_warning
+            or self.strict_provider
+            or settings.classification.bird_crop_inference_provider == "cpu"
+        ):
+            return
+        from app.utils.runtime_flavor import get_image_flavor, packaged_inference_providers
+
+        packaged = packaged_inference_providers(get_image_flavor())
+        if not any(
+            provider in packaged and os.path.isdir(node)
+            for provider, node in (("intel_npu", "/dev/accel"), ("intel_gpu", "/dev/dri"))
+        ):
             return
         self._cpu_warning = identity
         log.warning(
             "bird_finder_cpu_fallback",
             model_id=model_id,
+            provider="cpu",
+            reason_code=reason,
             reason=reason,
             action="Check devices for RF-DETR Nano in Settings; review NPU/GPU driver access and check results.",
         )
@@ -1176,8 +1191,9 @@ class BirdCropService:
             if normalized_provider == "cuda":
                 preload_packaged_cuda_libraries(ort)
             sess_options = ort.SessionOptions()
-            sess_options.intra_op_num_threads = 2
-            sess_options.inter_op_num_threads = 1
+            if os.environ.get("YAWAMF_CROP_PROBE_THREADS"):
+                sess_options.intra_op_num_threads = 2
+                sess_options.inter_op_num_threads = 1
             ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
             session = ort.InferenceSession(
                 str(model_path),
@@ -1456,13 +1472,19 @@ class BirdCropService:
         )
 
     @staticmethod
-    def _merge_duplicate_boxes(candidates: list[dict[str, Any]], iou_threshold: float = 0.6) -> list[dict[str, Any]]:
-        """Keep the strongest box where the full frame and a tile saw the same bird."""
+    def _merge_duplicate_boxes(
+        candidates: list[dict[str, Any]], iou_threshold: float = 0.6, *, retain_groups: bool = False
+    ) -> list[dict[str, Any]]:
+        """Keep the strongest box; probes may also retain its suppressed alternatives."""
         kept: list[dict[str, Any]] = []
         for item in sorted(candidates, key=lambda candidate: float(candidate.get("confidence") or 0.0), reverse=True):
-            box = item["box"]
-            if all(BirdCropService._box_iou(box, other["box"]) < iou_threshold for other in kept):
-                kept.append(item)
+            winner = next(
+                (other for other in kept if BirdCropService._box_iou(item["box"], other["box"]) >= iou_threshold), None
+            )
+            if winner is None:
+                kept.append(dict(item, comparison_alternatives=[item]) if retain_groups else item)
+            elif retain_groups:
+                winner["comparison_alternatives"].append(item)
         return kept
 
     @staticmethod

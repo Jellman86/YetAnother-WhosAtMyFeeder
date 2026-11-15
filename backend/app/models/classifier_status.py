@@ -60,6 +60,8 @@ class ClassifierCropDeviceCheckResult(_StatusSection):
 
 class ClassifierCropDeviceCheck(ClassifierCropDeviceCheckResult):
     last_result: ClassifierCropDeviceCheckResult | None = None
+    attempt_count: int = 0
+    next_retry_at: str | None = None
 
 
 class ClassifierFinderCPUFallback(_StatusSection):
@@ -68,9 +70,12 @@ class ClassifierFinderCPUFallback(_StatusSection):
     provider: str
     reason: str | None = None
     action: str | None = None
+    reason_code: str | None = None
 
 
 class ClassifierCropStatus(_StatusSection):
+    active_provider: str | None = None
+    planned_provider: str | None = None
     last_execution: InferenceExecution | None = None
     model_id: str = ""
     chosen_model_id: str = ""

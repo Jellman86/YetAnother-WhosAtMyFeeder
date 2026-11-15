@@ -69,18 +69,31 @@ def test_cpu_problem_reports_finder_reason_and_action_and_clears_on_accelerator(
             "fallback_reason": "runtime_failed",
         },
     }
-    problem = finder_cpu_problem(status, planned_provider="intel_npu")
+    problem = finder_cpu_problem(status, planned_provider="intel_npu", available_accelerators={"intel_npu"})
     assert problem["active"] is True
     assert problem["model_id"] == FINDER
     assert "runtime_failed" in problem["reason"]
     assert "Check devices" in problem["action"]
     status["last_execution"]["provider"] = "intel_gpu"
-    assert finder_cpu_problem(status, planned_provider="intel_npu")["active"] is False
+    assert (
+        finder_cpu_problem(status, planned_provider="intel_npu", available_accelerators={"intel_npu"})["active"]
+        is False
+    )
 
 
 def test_selected_cpu_is_a_problem_even_before_first_rfdetr_frame():
-    assert finder_cpu_problem({"model_id": FINDER, "healthy": True}, planned_provider="cpu")["active"] is True
-    assert finder_cpu_problem({"model_id": "yolox", "healthy": True}, planned_provider="cpu")["active"] is False
+    assert (
+        finder_cpu_problem(
+            {"model_id": FINDER, "healthy": True}, planned_provider="cpu", available_accelerators={"intel_npu"}
+        )["active"]
+        is True
+    )
+    assert (
+        finder_cpu_problem(
+            {"model_id": "yolox", "healthy": True}, planned_provider="cpu", available_accelerators={"intel_npu"}
+        )["active"]
+        is False
+    )
 
 
 @pytest.mark.asyncio
@@ -175,6 +188,36 @@ def test_cpu_health_explains_an_unusable_positive_baseline_without_changing_lega
             },
         },
         planned_provider="cpu",
+        available_accelerators={"intel_npu"},
     )
     assert problem["active"] is True
     assert "no admitted birds" in problem["reason"]
+
+
+@pytest.mark.parametrize("available, preference", [(set(), "auto"), ({"intel_npu"}, "cpu")])
+def test_cpu_only_hosts_and_explicit_cpu_choices_do_not_raise_finder_incidents(available, preference):
+    problem = finder_cpu_problem(
+        {"model_id": FINDER, "healthy": True, "requested_provider": preference},
+        planned_provider="cpu",
+        available_accelerators=available,
+    )
+    assert problem["active"] is False
+
+
+@pytest.mark.parametrize(
+    "flavor, preference, expect_warning", [("cpu", "auto", False), ("intel", "cpu", False), ("intel", "auto", True)]
+)
+def test_worker_cpu_warning_requires_an_offered_accelerator_and_non_cpu_preference(
+    monkeypatch, flavor, preference, expect_warning
+):
+    from app.services import bird_crop_service as crop
+
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", flavor)
+    monkeypatch.setattr(settings.classification, "bird_crop_inference_provider", preference)
+    monkeypatch.setattr(crop.os.path, "isdir", lambda path: path in {"/dev/accel", "/dev/dri"})
+    warning = Mock()
+    monkeypatch.setattr(crop.log, "warning", warning)
+    service = BirdCropService(accurate_model_id=FINDER)
+    service._warn_cpu_fallback("accurate", reason="accelerator_unavailable")
+    service._warn_cpu_fallback("accurate", reason="accelerator_unavailable")
+    assert warning.call_count == int(expect_warning)
