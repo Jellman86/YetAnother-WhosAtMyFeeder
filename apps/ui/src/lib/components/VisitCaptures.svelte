@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import { onDestroy, untrack, type Snippet } from 'svelte';
     import { _ } from 'svelte-i18n';
     import BadgeHint from './BadgeHint.svelte';
@@ -239,7 +240,7 @@
                                 {#if captureNotes.length > 0}
                                     <p class="flex flex-wrap items-baseline gap-x-1.5 text-2xs leading-4 text-slate-600 dark:text-slate-400">
                                         {#each captureNotes as note, index (note.text)}
-                                            {#if index > 0}<span aria-hidden="true">&middot;</span>{/if}
+                                            {#if index > 0}<Separator />{/if}
                                             <span class={note.emphasis ? 'font-medium text-brand-700 dark:text-brand-300' : ''}>{note.text}</span>
                                         {/each}
                                     </p>

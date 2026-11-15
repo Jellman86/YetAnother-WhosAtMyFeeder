@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../Separator.svelte';
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
@@ -578,7 +579,7 @@
                             {#each Object.entries(recordingClipCapability.ineligible_cameras) as [camera, reason]}
                                 <li>
                                     <span class="font-semibold text-slate-700 dark:text-slate-300">{camera}</span>
-                                    <span aria-hidden="true"> · </span>
+                                    <Separator />
                                     <span>{getRecordingCameraIssue(reason)}</span>
                                 </li>
                             {/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     /**
      * One Garden capture as a tile in the Explorer's card grid, in a visit card's shape: the
      * photograph with its time and score, then the subject. The marker on the photograph says
@@ -125,7 +126,7 @@
         </div>
         <div class="mt-auto flex items-center gap-1.5 flex-wrap text-2xs font-medium text-slate-600 dark:text-slate-400">
             <span>{day}</span>
-            <span class="text-slate-300 dark:text-slate-500">&middot;</span>
+            <Separator />
             <span class="wrap-break-word">{capture.camera}</span>
         </div>
     </div>

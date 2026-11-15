@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import type { Snippet } from 'svelte';
     import type { Detection } from '../api';
     import { getThumbnailUrl } from '../api';
@@ -524,7 +525,7 @@
         <!-- Compact metadata line: date + camera -->
         <div class="mt-auto flex items-center gap-1.5 text-2xs text-slate-600 dark:text-slate-400 font-medium flex-wrap">
             <span>{formatDate(detection.detection_time)}</span>
-            <span class="text-slate-300 dark:text-slate-500">&middot;</span>
+            <Separator />
             <span class="wrap-break-word">{detection.camera_name}</span>
         </div>
     </div>

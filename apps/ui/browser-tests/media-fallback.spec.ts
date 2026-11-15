@@ -71,3 +71,34 @@ test('no picture in the record shows its alt text or a broken-image glyph when i
     await page.waitForLoadState('networkidle');
     expect(await visibleFailures(page)).toEqual([]);
 });
+
+test('a plain picture with no placeholder of its own keeps its box and shows nothing broken when it fails', async ({ page }) => {
+    const box = async (fails: boolean) => {
+        await page.route('**/api/fixture/plain-picture.jpg', route => fails
+            ? route.fulfill({ status: 404, contentType: 'text/plain', body: 'gone' })
+            : route.fulfill({ contentType: 'image/svg+xml', body: pixel }));
+        await page.goto('/browser-tests/media-fallback.html');
+        const image = page.locator('[data-plain-picture] img');
+        await expect.poll(() => image.evaluate(node => (node as HTMLImageElement).complete)).toBe(true);
+        const rect = await image.boundingBox();
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+        return rect;
+    };
+    const loaded = await box(false);
+    const failed = await box(true);
+
+    const image = page.locator('[data-plain-picture] img');
+    await expect(image).toHaveAttribute('data-media-failed', '');
+    expect(await image.evaluate(node => getComputedStyle(node).visibility)).toBe('hidden');
+    // Same box: nothing on the page moves because a picture failed.
+    expect(failed?.width).toBe(loaded?.width);
+    expect(failed?.height).toBe(loaded?.height);
+    // Nothing of the failure is drawn: an element hidden this way paints neither its alt text nor the glyph.
+    const painted = await page.evaluate(() => {
+        const frame = document.querySelector('[data-plain-picture]');
+        const rect = frame?.getBoundingClientRect();
+        if (!rect) return null;
+        return document.elementsFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2).map(node => node.tagName);
+    });
+    expect(painted?.includes('IMG')).toBe(false);
+});

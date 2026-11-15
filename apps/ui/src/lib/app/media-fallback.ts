@@ -8,16 +8,26 @@
  * Error and load events do not bubble, so they are caught on the way down. A later successful load
  * of the same element, after its address changes, clears the mark.
  */
-export function installMediaFallback(root: Document): () => void {
+/** A picture, told by its tag rather than its class so the check holds in any realm. */
+function isPicture(target: EventTarget | null): target is HTMLImageElement {
+    if (typeof target !== 'object' || target === null) return false;
+    const element = target as { tagName?: unknown; toggleAttribute?: unknown };
+    return element.tagName === 'IMG' && typeof element.toggleAttribute === 'function';
+}
+
+export function installMediaFallback(root: Pick<Document, 'addEventListener' | 'removeEventListener'>): () => void {
     const mark = (event: Event): void => {
         const image = event.target;
-        if (!(image instanceof HTMLImageElement)) return;
+        if (!isPicture(image)) return;
         image.toggleAttribute('data-media-failed', event.type === 'error');
     };
-    root.addEventListener('error', mark, true);
-    root.addEventListener('load', mark, true);
+    // The options object rather than a bare `true`: some EventTarget implementations match a
+    // removal only by the same form, and the cleanup must always find its listeners.
+    const capture = { capture: true };
+    root.addEventListener('error', mark, capture);
+    root.addEventListener('load', mark, capture);
     return () => {
-        root.removeEventListener('error', mark, true);
-        root.removeEventListener('load', mark, true);
+        root.removeEventListener('error', mark, capture);
+        root.removeEventListener('load', mark, capture);
     };
 }

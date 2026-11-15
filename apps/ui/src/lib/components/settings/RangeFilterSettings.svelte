@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../Separator.svelte';
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import {
@@ -518,8 +519,8 @@
                             <span class="min-w-0 font-semibold text-slate-900 dark:text-white">{skip.label}</span>
                             <span class="text-xs tabular-nums text-slate-600 dark:text-slate-300">
                                 {$_('settings.range_filter.skips_score', { values: { score: Math.round(skip.score * 100) }, default: '{score}% confidence' })}
-                                {#if skip.detected_at}<span aria-hidden="true"> · </span><time datetime={skip.detected_at}>{formatDateTime(skip.detected_at)}</time>{/if}
-                                {#if skip.camera}<span aria-hidden="true"> · </span>{skip.camera}{/if}
+                                {#if skip.detected_at}<Separator /><time datetime={skip.detected_at}>{formatDateTime(skip.detected_at)}</time>{/if}
+                                {#if skip.camera}<Separator />{skip.camera}{/if}
                             </span>
                         </li>
                     {/each}

@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../components/Separator.svelte';
     import VisitCaptures from '../components/VisitCaptures.svelte';
     import HeardBandRow from '../components/HeardBandRow.svelte';
     import HeardBandCard from '../components/HeardBandCard.svelte';
@@ -2063,15 +2064,15 @@
                     : $_('visits.total_captures', { values: { count: totalCount }, default: '{count} captures' })}</span>
                 {/if}
                 {#if pane.count === 'measured' && gardenAwaitingCheck > 0 && authStore.hasOwnerAccess}
-                    <span aria-hidden="true">&middot;</span>
+                    <Separator />
                     <span data-garden-awaiting-check>{$_('garden.explorer.awaiting_check', { values: { count: gardenAwaitingCheck }, default: '{count, plural, one {# camera capture waiting for the automatic check} other {# camera captures waiting for the automatic check}}' })}</span>
                 {/if}
                 {#if pane.count === 'measured' && gardenInTimeline && gardenItems !== null}
-                    <span aria-hidden="true">&middot;</span>
+                    <Separator />
                     {$_('garden.explorer.count_on_page', { values: { count: shownGarden.length }, default: '{count, plural, one {# Garden visit on this page} other {# Garden visits on this page}}' })}
                 {/if}
                 {#if pane.count === 'measured' && heardActive && heardGroups !== null}
-                    <span aria-hidden="true">&middot;</span>
+                    <Separator />
                     {$_('events.heard.count_on_page', { values: { count: heardShownCalls }, default: '{count} calls heard on this page' })}
                 {/if}
             </div>

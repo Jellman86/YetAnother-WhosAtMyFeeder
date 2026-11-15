@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import DialogCloseButton from './DialogCloseButton.svelte';
     import ClassificationSource from './ClassificationSource.svelte';
     import { onDestroy, untrack } from 'svelte';
@@ -637,15 +638,15 @@
                             {/if}
                             <p class="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-2xs text-slate-400">
                                 <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span>{current.camera_name}</span>
-                                <span aria-hidden="true">&middot;</span>
+                                <Separator />
                                 <span class="font-semibold tabular-nums {SCORE_TEXT_ON_MEDIA[scoreBand(current.score)]}">
                                     <span class="sr-only">{$_('detection.confidence', { default: 'Confidence' })}</span>
                                     {Math.round((current.score ?? 0) * 100)}%
                                 </span>
                                 {#if current.weather_condition}
-                                    <span aria-hidden="true">&middot;</span>
+                                    <Separator />
                                     <span>{current.weather_condition}</span>
                                 {/if}
                             </p>

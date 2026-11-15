@@ -256,3 +256,27 @@ describe('one palette across the app', () => {
         }
     });
 });
+
+/**
+ * A "·" between two facts is drawn by the shared Separator alone. It takes its parent's ink, which
+ * already meets 4.5:1 wherever the text beside it does, rather than a lighter grey of its own
+ * (slate-300 and slate-400 dots measured 1.5:1 to 2.6:1 on light panels), and is hidden from
+ * screen readers, which would otherwise announce "dot" between every fact.
+ */
+describe('separator dots', () => {
+    const DOT = /<span\b[^>]*>\s*(?:·|&middot;|\{'\s*·\s*'\})\s*<\/span>/;
+
+    it('are drawn only by the shared Separator', () => {
+        const offenders = Object.entries(svelteSources)
+            .filter(([path, source]) => !path.endsWith('/Separator.svelte') && DOT.test(source))
+            .map(([path]) => relative(path));
+        expect(offenders).toEqual([]);
+    });
+
+    it('take the ink of the text they sit in and stay silent', () => {
+        const separator = Object.entries(svelteSources).find(([path]) => path.endsWith('/Separator.svelte'))?.[1] ?? '';
+        expect(separator).toContain('aria-hidden="true"');
+        expect(separator).not.toMatch(/\btext-(?:slate|gray|brand|success|attention|rose|red)-\d/);
+        expect(separator).not.toMatch(/\bopacity-\d/);
+    });
+});

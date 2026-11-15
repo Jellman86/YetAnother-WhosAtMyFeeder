@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from '../components/Separator.svelte';
     import CaptureWall from '../components/CaptureWall.svelte';
     import SpeciesChecks from '../components/SpeciesChecks.svelte';
     import SpeciesCheckSheet from '../components/SpeciesCheckSheet.svelte';
@@ -1884,7 +1885,7 @@
                             {#if item.subName}<span class="mt-0.5 block wrap-break-word text-xs italic text-slate-600 dark:text-slate-400">{item.subName}</span>{/if}
                             {#if unlikelyHere(item) && nearbyCheck}{@render unlikelyReason(nearbyCheck.radiusKm)}{/if}
                             <span class="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-slate-600 dark:text-slate-400">
-                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span class="hidden @sm:inline" aria-hidden="true">·</span>{/if}
+                                {#if evidence !== 'unknown'}<span class="inline-flex items-center gap-1 font-semibold {evidence === 'camera_only' || evidence === 'unconfirmed' ? '' : 'text-slate-700 dark:text-slate-200'}" data-leaderboard-evidence={evidence}>{@render evidenceGlyph(evidence)}{evidenceLabel(evidence)}</span><span class="hidden @sm:inline"><Separator /></span>{/if}
                                 <span title={formatDate(activityTimestampForMode(item, sourceMode))}>{formatRelative(activityTimestampForMode(item, sourceMode))}</span>
                             </span>
                         </span>

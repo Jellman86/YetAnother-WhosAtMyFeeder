@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     /**
      * One BirdNET-Go call at a size worth reading: its spectrogram, wide and stretched along time,
      * with the clip playing across it.
@@ -153,9 +154,9 @@
             {:else}
                 {$_('events.heard.strongest_call', { default: 'Strongest call' })}
                 <span class="font-semibold {heardConfidenceTone(confidence)}">{score}%</span>
-                <span aria-hidden="true">{' · '}</span>
+                <Separator spaced />
                 <time datetime={heardAt} class="tabular-nums">{formatTime(heardAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</time>
-                {#if sourceName}<span aria-hidden="true">{' · '}</span>{sourceName}{/if}
+                {#if sourceName}<Separator spaced />{sourceName}{/if}
             {/if}
         </span>
         {#if birdnetUrl}

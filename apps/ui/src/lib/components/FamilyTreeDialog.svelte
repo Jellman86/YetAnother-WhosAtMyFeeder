@@ -1,4 +1,5 @@
 <script lang="ts">
+    import Separator from './Separator.svelte';
     import { onMount, tick } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fetchTaxonChildren, type Taxon } from '../api/taxonomy';
@@ -522,7 +523,7 @@
                                     </span>
                                     {#if names.secondary || counts || heardHere(item.taxon)}
                                         <span class="truncate text-2xs leading-4 text-slate-600 dark:text-slate-400">
-                                            {#if names.secondary}<TaxonNameText name={names.secondary} />{/if}{#if names.secondary && counts}<span aria-hidden="true">{' · '}</span>{/if}{#if counts}<span class="tabular-nums" data-family-tree-counts>{counts}</span>{/if}{#if heardHere(item.taxon)}{#if names.secondary || counts}<span aria-hidden="true">{' · '}</span>{/if}<span data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</span>{/if}
+                                            {#if names.secondary}<TaxonNameText name={names.secondary} />{/if}{#if names.secondary && counts}<Separator spaced />{/if}{#if counts}<span class="tabular-nums" data-family-tree-counts>{counts}</span>{/if}{#if heardHere(item.taxon)}{#if names.secondary || counts}<Separator spaced />{/if}<span data-family-tree-heard>{$_('taxonomy.heard_word', { default: 'heard' })}</span>{/if}
                                         </span>
                                     {/if}
                                 </span>
