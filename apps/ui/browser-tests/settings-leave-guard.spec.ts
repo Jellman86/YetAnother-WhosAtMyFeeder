@@ -30,6 +30,11 @@ async function openOwnerShell(page: Page, start = '/settings/connection', saved:
             return route.fulfill({ json: { status: 'ok' } });
         }
         if (!signedIn) return route.fulfill({ status: 401, json: { detail: 'Not signed in' } });
+        // A save is kept, so the next read shows it, as the backend does.
+        if (path === '/api/settings' && route.request().method() === 'POST') {
+            saved = { ...saved, ...(route.request().postDataJSON() as Record<string, unknown>) };
+            return route.fulfill({ json: { status: 'updated' } });
+        }
         const responses: Record<string, unknown> = {
             '/api/settings': { frigate_url: 'http://frigate:5000', mqtt_server: 'mqtt', mqtt_port: 1883, mqtt_auth: false, cameras: ['patio'], ...saved },
             '/api/update-status': { update_available: false },
@@ -81,6 +86,21 @@ test('choosing another page with unsaved changes asks first; Cancel keeps the ed
 
     await dashboardLink(page).click();
     await leaveDialog(page).getByRole('button', { name: 'Leave without saving', exact: true }).click();
+    await expect.poll(() => pathname(page)).toBe('/');
+});
+
+test('Save and leave saves the changes, then goes where you chose', async ({ page }) => {
+    const posts: unknown[] = [];
+    page.on('request', (request) => {
+        if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/settings') posts.push(request.postDataJSON());
+    });
+    await openOwnerShell(page);
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await dashboardLink(page).click();
+    await expect(leaveDialog(page)).toBeVisible();
+    await leaveDialog(page).getByRole('button', { name: 'Save and leave', exact: true }).click();
+    await expect.poll(() => posts.length).toBe(1);
+    expect(posts[0]).toMatchObject({ mqtt_server: 'broker.lan' });
     await expect.poll(() => pathname(page)).toBe('/');
 });
 

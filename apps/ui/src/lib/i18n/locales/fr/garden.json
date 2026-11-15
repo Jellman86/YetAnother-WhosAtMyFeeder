@@ -62,8 +62,8 @@
   "photo_count": "Photo {index} sur {count}",
   "next_photo": "Photo suivante",
   "group_dismiss": "{count, plural, one {Écarter la # photo restante} other {Écarter les # photos restantes}}",
-  "confidence": "Seuil des propositions animales",
-  "confidence_help": "De 50 % à 95 %. Une valeur plus élevée réduit les propositions mais peut manquer des animaux. Concerne uniquement les nouvelles photos de mouvement ; la détection des oiseaux et la protection des personnes restent inchangées.",
+  "confidence": "Certitude avant de proposer un animal",
+  "confidence_help": "Une photo de mouvement ne devient une proposition à examiner que si la vérification est au moins aussi sûre. Plus haut veut dire moins de propositions, et plus d’animaux manqués.",
   "photo_confirmed": "Photo confirmée.",
   "photo_restored": "Photo remise à examiner.",
   "group_remaining": "Les autres photos de ce groupe restent à examiner.",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "Animal détecté, mais son score d’espèce est sous le seuil de nommage. Déplacé dans Rejetés ; remettez-le à vérifier si vous voulez le nommer vous-même.",
   "automatic_bird_camera": "Oiseau, pris en charge par la détection d’oiseaux sur cette caméra. Déplacé dans Rejetées ; remettez la photo à vérifier si ce n’est pas un oiseau.",
   "automatic_wild_bird": "Oiseau sauvage. Activez les oiseaux pour cette caméra pour l’enregistrer. Déplacé dans Rejetées ; remettez la photo à vérifier si la vérification est fausse.",
-  "motion_unreadable": "{count, plural, one {# enregistrement n’a pas pu être lu} other {# enregistrements n’ont pas pu être lus}} sur {camera} au cours de la dernière heure et {count, plural, one {a été ignoré} other {ont été ignorés}}. Aucune photo n’a été conservée."
+  "motion_unreadable": "{count, plural, one {# enregistrement n’a pas pu être lu} other {# enregistrements n’ont pas pu être lus}} sur {camera} au cours de la dernière heure et {count, plural, one {a été ignoré} other {ont été ignorés}}. Aucune photo n’a été conservée.",
+  "confidence_low": "Plus de propositions",
+  "confidence_high": "Moins de propositions",
+  "naming_low": "Nomme davantage",
+  "naming_high": "Nomme moins"
 }

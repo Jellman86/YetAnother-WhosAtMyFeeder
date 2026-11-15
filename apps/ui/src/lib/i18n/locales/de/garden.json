@@ -62,8 +62,8 @@
   "photo_count": "Foto {index} von {count}",
   "next_photo": "Nächstes Foto",
   "group_dismiss": "{count, plural, one {Verbleibendes # Foto verwerfen} other {Verbleibende # Fotos verwerfen}}",
-  "confidence": "Schwelle für Tiervorschläge",
-  "confidence_help": "Von 50 % bis 95 %. Höhere Werte reduzieren Vorschläge, können aber Tiere übersehen. Gilt nur für neue Bewegungsfotos; Vogelerkennung und Personenprüfung bleiben unverändert.",
+  "confidence": "Wie sicher, bevor ein Tier vorgeschlagen wird",
+  "confidence_help": "Ein Bewegungsfoto wird nur dann zum Vorschlag für Ihre Prüfung, wenn die Prüfung mindestens so sicher ist. Höher heißt weniger Vorschläge und mehr übersehene Tiere.",
   "photo_confirmed": "Foto bestätigt.",
   "photo_restored": "Foto wieder zur Prüfung vorgemerkt.",
   "group_remaining": "Andere Fotos in dieser Gruppe müssen noch geprüft werden.",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "Tier erkannt, aber der Artwert liegt unter dem Benennungsschwellenwert. Nach Verworfen verschoben; stelle es zur Prüfung zurück, wenn du es selbst benennen möchtest.",
   "automatic_bird_camera": "Vogel, wird auf dieser Kamera von der Vogelerkennung erfasst. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls es kein Vogel ist.",
   "automatic_wild_bird": "Wildvogel. Aktiviere Vögel für diese Kamera, um ihn zu erfassen. Nach Verworfen verschoben; stelle das Foto zur Prüfung zurück, falls die Prüfung falsch ist.",
-  "motion_unreadable": "{count, plural, one {# Aufnahme konnte} other {# Aufnahmen konnten}} in der letzten Stunde auf {camera} nicht gelesen werden und {count, plural, one {wurde} other {wurden}} übersprungen. Es wurde kein Foto behalten."
+  "motion_unreadable": "{count, plural, one {# Aufnahme konnte} other {# Aufnahmen konnten}} in der letzten Stunde auf {camera} nicht gelesen werden und {count, plural, one {wurde} other {wurden}} übersprungen. Es wurde kein Foto behalten.",
+  "confidence_low": "Mehr Vorschläge",
+  "confidence_high": "Weniger Vorschläge",
+  "naming_low": "Benennt mehr",
+  "naming_high": "Benennt weniger"
 }

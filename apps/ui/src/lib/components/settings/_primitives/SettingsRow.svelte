@@ -4,38 +4,36 @@
     interface Props {
         label: string;
         description?: string;
-        // When provided, used to associate the label with the control via
-        // aria-labelledby; required for switches/buttons that don't have a
-        // wrapping <label>.
         labelId?: string;
-        // Lets a control reference the description via aria-describedby.
         descriptionId?: string;
-        // Layout: side-by-side (default) puts the control on the right; stacked
-        // puts the control under the label/description (used for things that
-        // can't sensibly fit on one line, e.g. multi-button segmented controls).
-        layout?: 'inline' | 'stacked';
+        /**
+         * `inline` and `stacked` (the default and its old name): label and hint left, the control
+         * right from 768px, stacked on a phone. `block`: the control takes the row's full width
+         * under its label, for lists and anything wider than the control column.
+         */
+        layout?: 'inline' | 'stacked' | 'block';
         children: Snippet;
     }
 
     let { label, description, labelId, descriptionId, layout = 'inline', children }: Props = $props();
+    const wide = $derived(layout === 'block');
 </script>
 
 <!-- One row pattern for every setting: label, a hint that says what it does, then the control.
-     Rows are separated by a hairline inside their card, never boxed inside it. -->
+     The section's card draws the hairline between rows; a row never boxes itself. -->
 <div
-    class="settings-row border-t border-line-soft pt-4 first:border-t-0 first:pt-0
-           {layout === 'inline' ? 'flex items-center justify-between gap-4' : 'flex flex-col gap-3'}"
+    class="settings-row space-y-3 {wide ? '' : 'md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0'}"
     data-settings-row
 >
     <div id={labelId} class="min-w-0">
-        <span class="block text-sm font-semibold text-slate-900 dark:text-white">{label}</span>
+        <span class="block text-base font-medium text-slate-900 dark:text-white">{label}</span>
         {#if description}
-            <span id={descriptionId} class="mt-1 block text-sm leading-snug text-slate-600 dark:text-slate-300">
+            <span id={descriptionId} class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">
                 {description}
             </span>
         {/if}
     </div>
-    <div class="{layout === 'inline' ? 'shrink-0' : 'w-full'}">
+    <div class="min-w-0">
         {@render children()}
     </div>
 </div>

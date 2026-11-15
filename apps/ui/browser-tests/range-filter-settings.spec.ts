@@ -91,7 +91,7 @@ test('without an eBird key it names the missing key and that BirdNET-Go alone ne
     await card(page).getByRole('button', { name: 'Add eBird key' }).click();
     await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/integrations');
     // eBird is off in this fixture, so its switch, the step that reveals the key field, takes focus.
-    await expect(page.locator('[aria-labelledby="setting-ebird-enabled"]')).toBeFocused();
+    await expect(page.locator('[aria-labelledby="integration-ebird-title"]')).toBeFocused();
 });
 
 test('an approximate location says a state list is used, and a country alone says so too', async ({ page }) => {

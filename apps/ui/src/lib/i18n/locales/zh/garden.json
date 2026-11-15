@@ -62,8 +62,8 @@
   "photo_count": "第{index}张，共{count}张",
   "next_photo": "下一张照片",
   "group_dismiss": "{count, plural, other {忽略剩余的 # 张照片}}",
-  "confidence": "动物候选阈值",
-  "confidence_help": "从 50% 到 95%。较高的值会减少候选，但可能漏掉动物。仅适用于新的动态照片；鸟类检测和人物隐私检查不变。",
+  "confidence": "多大把握才建议一个动物",
+  "confidence_help": "只有当检查的把握至少达到这个值时，运动照片才会成为供您审核的建议。越高，建议越少，漏掉的动物也越多。",
   "photo_confirmed": "照片已确认。",
   "photo_restored": "照片已返回待审核。",
   "group_remaining": "此组中的其他照片仍需审核。",
@@ -238,5 +238,9 @@
   "automatic_animal_below_threshold_dismissed": "已检测到动物，但其物种分数低于命名阈值。已移至“已忽略”；如需自行命名，可将其返回审核。",
   "automatic_bird_camera": "鸟，由此摄像头上的鸟类检测处理。已移到“已忽略”；如果不是鸟，请将照片返回审核。",
   "automatic_wild_bird": "野鸟。要记录它，请为此摄像头开启鸟类检测。已移到“已忽略”；如果检查有误，请将照片返回审核。",
-  "motion_unreadable": "过去一小时内，{camera} 上有 {count, plural, other {# 段录像}}无法读取，已跳过。未保留任何照片。"
+  "motion_unreadable": "过去一小时内，{camera} 上有 {count, plural, other {# 段录像}}无法读取，已跳过。未保留任何照片。",
+  "confidence_low": "更多建议",
+  "confidence_high": "更少建议",
+  "naming_low": "命名更多",
+  "naming_high": "命名更少"
 }

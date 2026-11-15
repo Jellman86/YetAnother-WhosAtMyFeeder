@@ -387,12 +387,6 @@
 </script>
 
 <div class="space-y-6">
-    {#snippet engineIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M7.05 7.05l2.12 2.12m5.66 5.66 2.12 2.12m0-9.9-2.12 2.12m-5.66 5.66-2.12 2.12M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-    {/snippet}
-    {#snippet modelsIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Zm0 0v9m8-4.5L12 12 4 7.5" /></svg>
-    {/snippet}
 
     <NativeProfileRevalidation />
 
@@ -410,7 +404,7 @@
 
 
         {#if classifierStatus?.fallback_reason || classifierStatus?.model_config_warnings?.length || classifierStatus?.openvino_model_compile_ok === false}
-            <div role="alert" class="rounded-2xl border border-attention-500/30 bg-attention-500/10 p-4 text-sm font-bold text-attention-800 dark:text-attention-200">
+            <div role="alert" class="text-sm text-attention-800 dark:text-attention-200">
                 {#if classifierStatus.fallback_reason}
                     {$_('settings.detection.provider_fallback_reason', { default: 'Fallback:' })} {classifierStatus.fallback_reason}
                 {:else if classifierStatus.model_config_warnings?.length}
@@ -423,8 +417,6 @@
     </div>
 
     <SettingsCard
-        accent
-        iconSnippet={modelsIcon}
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
         description={$_('settings.detection.models_card_desc', { default: 'Two models work in turn. The bird finder locates each bird in the camera frame; the identification model names its species.' })}
     >
@@ -471,7 +463,6 @@
         collapsible
         id={HARDWARE_CARD_ID}
 
-        iconSnippet={engineIcon}
         title={$_('settings.detection.hardware_title', { default: 'Hardware' })}
         description={$_('settings.detection.hardware_desc', { default: 'Which device runs the models, and how much memory they may use. Auto picks the fastest device that passed the check on this host.' })}
     >
@@ -499,7 +490,7 @@
                         </p>
                     {/if}
                     {#if configuredProviderUnavailable}
-                        <p role="status" class="border-l-2 border-attention-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
+                        <p role="status" class="text-xs font-semibold leading-relaxed text-attention-800 dark:text-attention-200">
                             {$_('settings.detection.provider_saved_unavailable', {
                                 values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
                                 default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
@@ -510,7 +501,7 @@
             </SettingsRow>
 
             {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
-                <div class="space-y-3 rounded-2xl border border-line-soft bg-surface-raised px-4 py-3">
+                <div class="space-y-3">
                     <p class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.compat_panel_title', { default: 'Check devices on this host' })}</p>
                     <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{$_('settings.detection.compat_panel_desc', { default: 'Runs the installed models on each device this image can use and compares the results with the CPU. Graphics and NPU devices are used only after they pass here.' })}</p>
                     <p class="text-xs text-slate-600 dark:text-slate-400 leading-snug">
@@ -521,10 +512,19 @@
                         {/if}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400" title={$_('settings.detection.compat_all_hint', { default: 'Download and test every registry model, not just installed ones (slower).' })}>
-                            <input type="checkbox" bind:checked={compatAllModels} disabled={compatRunning} class="rounded-sm" />
-                            {$_('settings.detection.compat_all_models', { default: 'test all models' })}
-                        </label>
+                        <span class="inline-flex min-h-11 items-center gap-3">
+                            <SettingsToggle
+                                checked={compatAllModels}
+                                disabled={compatRunning}
+                                labelledBy="compat-all-models-label"
+                                srLabel={$_('settings.detection.compat_all_models', { default: 'Also test models that are not installed' })}
+                                onchange={(value) => (compatAllModels = value)}
+                            />
+                            <span class="min-w-0">
+                                <span id="compat-all-models-label" class="block text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.detection.compat_all_models', { default: 'Also test models that are not installed' })}</span>
+                                <span class="block text-xs text-slate-600 dark:text-slate-400">{$_('settings.detection.compat_all_hint', { default: 'Downloads each one first, so the check takes much longer.' })}</span>
+                            </span>
+                        </span>
                         <button type="button" onclick={() => runCompatCheck()} disabled={compatRunning} class="btn btn-primary min-h-11 max-w-full px-4 py-2">
                             {compatRunning ? $_('settings.detection.compat_running', { default: 'Running…' }) : $_('settings.detection.compat_run', { default: 'Run compatibility check' })}
                         </button>
@@ -625,7 +625,7 @@
                                         const raw = event.currentTarget.value.trim();
                                         liveWorkerCount = raw === '' ? null : Math.max(1, Math.min(8, Number(raw) || 1));
                                     }}
-                                    class="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                                    class="input-base w-full"
                                 />
                             </label>
                             <label class="flex flex-col gap-1.5">
@@ -643,7 +643,7 @@
                                         const raw = event.currentTarget.value.trim();
                                         backgroundWorkerCount = raw === '' ? null : Math.max(1, Math.min(4, Number(raw) || 1));
                                     }}
-                                    class="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                                    class="input-base w-full"
                                 />
                             </label>
                         </div>
@@ -705,7 +705,7 @@
                         {/if}
                     </div>
                     {#if classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'}
-                        <div role="alert" class="flex items-start gap-2 border-l-2 border-attention-400 py-1 pl-3 text-xs font-medium leading-relaxed text-attention-800 dark:border-attention-500 dark:text-attention-200">
+                        <div role="alert" class="flex items-start gap-2 text-xs font-medium leading-relaxed text-attention-800 dark:text-attention-200">
                             <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z" />
                                 <path d="M12 9v4M12 17h.01" />
@@ -735,7 +735,7 @@
                         {/each}
                     {/if}
                     {#if classifierStatus.cuda_probe_error}
-                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3">
+                        <div class="text-attention-800 dark:text-attention-200">
                             <div class="text-sm font-semibold text-attention-700 dark:text-attention-300">CUDA diagnostics</div>
                             <div class="mt-2 space-y-1 break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 <p><span class="font-bold">NVIDIA GPU:</span> {(classifierStatus.cuda_hardware_available ?? false) ? 'detected' : 'not detected'}</p>
@@ -744,7 +744,7 @@
                         </div>
                     {/if}
                     {#if classifierStatus.openvino_model_compile_ok === false}
-                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3 space-y-2">
+                        <div class="space-y-2 text-attention-800 dark:text-attention-200">
                             <p class="text-sm font-semibold text-attention-700 dark:text-attention-300">{$_('settings.detection.openvino_compile_failure', { default: 'OpenVINO model incompatibility on this host' })}</p>
                             <p class="break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 {$_('settings.detection.openvino_compile_failure_detail', { default: 'Active model' })}: <code>{classifierStatus.active_model_id || 'unknown'}</code>
@@ -757,7 +757,7 @@
                                 <p class="text-xs font-medium text-attention-900 dark:text-attention-100">OpenVINO reported unsupported ONNX operators for this model/runtime:</p>
                                 <div class="flex flex-wrap gap-1">
                                     {#each openvinoUnsupportedOps as op}
-                                        <span class="inline-flex items-center rounded-md border border-attention-300/70 bg-attention-100 px-2 py-0.5 text-xs font-bold text-attention-800 dark:border-attention-700/60 dark:bg-attention-900/40 dark:text-attention-200">{op}</span>
+                                        <span class="inline-flex items-center text-xs text-attention-800 dark:text-attention-200">{op}</span>
                                     {/each}
                                 </div>
                             {/if}
@@ -776,7 +776,7 @@
                         </div>
                     {/if}
                     {#if ((classifierStatus.openvino_available === false) || classifierStatus.openvino_gpu_probe_error) && (classifierStatus.openvino_import_error || classifierStatus.openvino_probe_error || classifierStatus.openvino_gpu_probe_error || classifierStatus.dev_dri_present !== undefined)}
-                        <div class="rounded-2xl border border-attention-200/80 dark:border-attention-700/40 bg-attention-50/80 dark:bg-attention-950/20 p-3">
+                        <div class="text-attention-800 dark:text-attention-200">
                             <div class="text-sm font-semibold text-attention-700 dark:text-attention-300">{$_('settings.detection.openvino_diagnostics', { default: 'OpenVINO diagnostics' })}</div>
                             <div class="mt-2 space-y-1 break-all text-xs font-medium text-attention-900 dark:text-attention-100">
                                 {#if classifierStatus.openvino_version}<p><span class="font-bold">Version:</span> {classifierStatus.openvino_version}</p>{/if}

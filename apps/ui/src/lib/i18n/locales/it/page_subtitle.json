@@ -5,7 +5,20 @@
   "events": "Sfoglia, filtra e gestisci ogni visita classificata.",
   "add_observation": "Classifica una foto o un video, verifica gli indizi e aggiungilo alla cronologia.",
   "notifications": "Visite, avvisi e attività in background, dalle più recenti.",
-  "settings": "Connessioni, identificazione, integrazioni e personalizzazione.",
   "species": "Quali uccelli vengono di più, quanto spesso e quando.",
-  "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo."
+  "health": "Se YA-WAMF funziona, cosa sta facendo il computer e cosa è successo.",
+  "settings_tab": {
+    "connection": "Da dove arrivano gli eventi: Frigate, il suo broker MQTT e le telecamere da osservare.",
+    "detection": "Quanto deve essere sicura un’identificazione per dare un nome a una visita, e cosa non viene mai salvato.",
+    "models": "Quali modelli trovano e nominano gli uccelli, e l’hardware su cui girano.",
+    "integrations": "Gli altri servizi da cui YA-WAMF legge o a cui invia dati, e la tua posizione.",
+    "ai": "Un fornitore di IA facoltativo che descrive cosa stava facendo un uccello.",
+    "notifications": "Quando vieni avvisato di una visita, e su quali canali.",
+    "security": "Chi può aprire YA-WAMF, cosa vedono gli ospiti e cosa esce da questa installazione.",
+    "data": "Cosa viene conservato, per quanto tempo, e un backup di queste impostazioni.",
+    "maintenance": "Attività che riparano o completano la cronologia, e la sua eliminazione.",
+    "beta": "Funzioni ancora in prova. Ognuna è spenta finché non la attivi, e può cambiare o essere rimossa. Spegnerla conserva ciò che ha già registrato.",
+    "appearance": "Come appare YA-WAMF e come nomina gli uccelli.",
+    "accessibility": "Contrasto, un carattere di lettura, movimento e aggiornamenti letti ad alta voce."
+  }
 }

@@ -22,14 +22,7 @@ export function gardenThresholdPercentStep(value: number | undefined, savedValue
     return 10 ** -(digits - 2);
 }
 
-/** The percentage for a number field; empty for a value that is not a number. */
+/** The percentage as shown beside a threshold; empty for a value that is not a number. */
 export function thresholdPercentText(value: number): string {
     return Number.isFinite(value) ? String(clean(value * 100)) : '';
-}
-
-/** The stored 0 to 1 value for a typed percentage; NaN when nothing usable was typed. */
-export function percentToThreshold(text: string): number {
-    if (text.trim() === '') return Number.NaN;
-    const percent = Number(text);
-    return Number.isFinite(percent) ? clean(percent / 100) : Number.NaN;
 }

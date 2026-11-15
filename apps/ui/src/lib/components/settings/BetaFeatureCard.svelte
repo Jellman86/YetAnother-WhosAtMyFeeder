@@ -32,19 +32,21 @@
     const nameId = $derived(`beta-${id}-name`);
 </script>
 
-<article class="card-base min-w-0" aria-labelledby={nameId} data-beta-feature={id}>
-    <header class="flex items-start justify-between gap-4 p-5 sm:p-6">
+<!-- Shaped like every Settings section: the heading, its description, status and switch above one
+     card of the feature's settings. -->
+<article class="min-w-0 space-y-3" aria-labelledby={nameId} data-beta-feature={id}>
+    <header class="flex items-start justify-between gap-4 pl-1 pr-5 md:pr-6">
         <div class="min-w-0 space-y-1">
-            <h3 id={nameId} class="font-display text-lg font-bold text-slate-900 dark:text-white">{name}</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-400">
+            <h2 id={nameId} class="text-lg font-semibold text-slate-900 dark:text-white">{name}</h2>
+            <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400">
                 {description}
                 {#if learnMoreHref}
-                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="focus-ring font-semibold text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
+                    <a href={learnMoreHref} target="_blank" rel="noopener noreferrer" class="focus-ring font-medium text-brand-700 underline underline-offset-2 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200">
                         {$_('settings.beta.learn_more', { default: 'Learn more' })}
                     </a>
                 {/if}
             </p>
-            <p class="flex items-center gap-2 pt-1 text-sm font-semibold text-slate-800 dark:text-slate-100" aria-live="polite" data-beta-status={attention ? 'attention' : 'calm'}>
+            <p class="flex items-center gap-2 pt-1 text-sm font-medium text-slate-800 dark:text-slate-100" aria-live="polite" data-beta-status={attention ? 'attention' : 'calm'}>
                 {#if attention}<span class="attention-dot" aria-hidden="true"></span>{/if}
                 <span class="min-w-0 wrap-break-word">{status}</span>
             </p>
@@ -53,11 +55,11 @@
             <SettingsToggle checked={enabled} labelledBy={nameId} srLabel={name} onchange={ontoggle} />
         </div>
     </header>
-    <div class="space-y-4 border-t border-line-soft px-5 pb-5 pt-4 sm:px-6 sm:pb-6" data-beta-feature-body={enabled ? 'on' : 'off'}>
+    <div class="card-base settings-section-body" data-beta-feature-body={enabled ? 'on' : 'off'}>
         {#if enabled}
             {@render children()}
         {:else}
-            {@render off()}
+            <div>{@render off()}</div>
         {/if}
     </div>
 </article>

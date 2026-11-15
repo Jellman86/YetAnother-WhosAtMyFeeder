@@ -21,24 +21,23 @@
     const contentId = $derived(id ? `${id}-content` : undefined);
 </script>
 
-<div class="rounded-2xl border border-dashed border-line">
+<!-- A plain text disclosure at the end of its section: no border, no chip. The group's own name
+     follows in muted text, so two on one tab can be told apart. -->
+<div data-advanced-section>
     <button
         type="button"
         aria-expanded={open}
         aria-controls={contentId}
         onclick={() => disclosure.toggle()}
-        class="focus-ring flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left"
+        class="focus-ring inline-flex min-h-11 max-w-full cursor-pointer items-center gap-1.5 rounded-md text-left text-sm font-medium text-brand-700 hover:text-brand-800 dark:text-brand-300 dark:hover:text-brand-200"
     >
-        <span class="flex min-w-0 flex-wrap items-center gap-2">
-            <span class="eyebrow rounded-md border border-line px-2 py-0.5">
-                {$_('settings.common.advanced', { default: 'Advanced' })}
-            </span>
-            <span class="min-w-0 wrap-break-word text-sm font-semibold text-slate-700 dark:text-slate-200">
-                {title ?? $_('settings.common.advanced_default_title', { default: 'Advanced options' })}
-            </span>
+        <span class="min-w-0 wrap-break-word">
+            {open
+                ? $_('settings.common.hide_advanced', { default: 'Hide advanced options' })
+                : $_('settings.common.show_advanced', { default: 'Show advanced options' })}{#if title}{' '}<span class="font-normal text-slate-600 dark:text-slate-400">({title})</span>{/if}
         </span>
         <svg
-            class="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-400 transition-transform duration-200 {open ? 'rotate-180' : ''}"
+            class="h-4 w-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none {open ? 'rotate-180' : ''}"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
             aria-hidden="true"
         >
@@ -46,9 +45,9 @@
         </svg>
     </button>
     {#if open}
-        <div id={contentId} class="space-y-4 px-4 pb-4 pt-1">
+        <div id={contentId} class="settings-subrows mt-2">
             {#if description}
-                <p class="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
+                <p class="max-w-prose text-sm leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
             {/if}
             {@render children()}
         </div>

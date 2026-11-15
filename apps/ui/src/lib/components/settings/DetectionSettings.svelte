@@ -184,18 +184,9 @@
 </script>
 
 <div class="space-y-6">
-    {#snippet blockedIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></svg>
-    {/snippet}
-    {#snippet acceptIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M4 12h7M4 18h4" /><path d="m14 15 2.5 2.5L21 13" /></svg>
-    {/snippet}
-    {#snippet frigateIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" /><path d="m16 10 5-3v10l-5-3" /></svg>
-    {/snippet}
 
     {#if autoVideoClassification && videoCircuitOpen}
-        <div role="alert" class="rounded-2xl border border-attention-500/30 bg-attention-500/10 p-4 text-slate-700 dark:text-slate-200">
+        <div role="alert" class="text-attention-800 dark:text-attention-200">
             <p class="mb-2 text-sm font-semibold text-attention-700 dark:text-attention-300">
                 {$_('settings.video_circuit.title')}
             </p>
@@ -207,7 +198,6 @@
     {/if}
 
     <SettingsCard
-        iconSnippet={acceptIcon}
         title={$_('settings.detection.acceptance_title', { default: 'Accepting an identification' })}
         description={$_('settings.detection.acceptance_desc', { default: 'How sure the identification model must be before a visit is saved under a species name.' })}
     >
@@ -215,6 +205,7 @@
             <SettingsSlider
                 id="confidence-threshold-slider"
                 label={$_('settings.detection.confidence_threshold')}
+                description={$_('settings.detection.threshold_help', { default: 'At or above this score, a visit is saved under the species name.' })}
                 bind:value={threshold}
                 min={0}
                 max={1}
@@ -240,13 +231,13 @@
         <div class="space-y-4">
             <SettingsRow
                 labelId="setting-personalized-rerank"
-                label={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
-                description={$_('settings.detection.personalized_rerank_desc', { default: 'Use manual tags to adapt ranking per camera and model. Disable to use base model scores only.' })}
+                label={$_('settings.detection.personalized_rerank', { default: 'Learn from my corrections' })}
+                description={$_('settings.detection.personalized_rerank_desc', { default: "Uses the species you corrected to adjust scores for each camera and model. Off uses the model's own scores." })}
             >
                 <SettingsToggle
                     checked={personalizedRerankEnabled}
                     labelledBy="setting-personalized-rerank"
-                    srLabel={$_('settings.detection.personalized_rerank', { default: 'Personalized re-ranking' })}
+                    srLabel={$_('settings.detection.personalized_rerank', { default: 'Learn from my corrections' })}
                     onchange={(v) => (personalizedRerankEnabled = v)}
                 />
             </SettingsRow>
@@ -262,123 +253,124 @@
         </p>
     {/if}
 
-    <SettingsCard accent iconSnippet={blockedIcon} title={$_('settings.detection.blocked_labels')}>
-        <p class="text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-400">
-            {$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
-        </p>
+    <SettingsCard
+        title={$_('settings.detection.blocked_labels')}
+        description={$_('settings.detection.blocked_species_picker_desc', { default: 'Search for a species to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Legacy raw labels still apply until you remove them.' })}
+    >
+        <div class="space-y-3">
+            <SettingsInput
+                id="blocked-species-search"
+                type="text"
+                value={blockedSpeciesSearchQuery}
+                placeholder={$_('settings.detection.blocked_species_placeholder', { default: 'Search species to block' })}
+                ariaLabel={$_('settings.detection.blocked_labels')}
+                oninput={(v) => (blockedSpeciesSearchQuery = v)}
+            />
 
-        <SettingsInput
-            id="blocked-species-search"
-            type="text"
-            value={blockedSpeciesSearchQuery}
-            placeholder={$_('settings.detection.blocked_species_placeholder', { default: 'Search species to block' })}
-            ariaLabel={$_('settings.detection.blocked_labels')}
-            oninput={(v) => (blockedSpeciesSearchQuery = v)}
-        />
-
-        {#if blockedSpeciesSearchQuery.trim()}
-            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40 shadow-xs">
-                <div class="max-h-64 overflow-y-auto p-1">
-                    {#each blockedSpeciesSearchResults as result}
-                        {@const names = getResultNames(result)}
-                        {@const alreadyBlocked = isSearchResultAlreadyBlocked(result)}
-                        <button
-                            type="button"
-                            onclick={() => addBlockedSpecies(result)}
-                            disabled={alreadyBlocked}
-                            class="focus-ring min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
-                        >
-                            <span class="block">
-                                {names.primary}
-                                {#if alreadyBlocked}
-                                    <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-300">
-                                        {$_('common.added', { default: 'Added' })}
-                                    </span>
+            {#if blockedSpeciesSearchQuery.trim()}
+                <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-white/60 dark:bg-slate-900/40 shadow-xs">
+                    <div class="max-h-64 overflow-y-auto p-1">
+                        {#each blockedSpeciesSearchResults as result}
+                            {@const names = getResultNames(result)}
+                            {@const alreadyBlocked = isSearchResultAlreadyBlocked(result)}
+                            <button
+                                type="button"
+                                onclick={() => addBlockedSpecies(result)}
+                                disabled={alreadyBlocked}
+                                class="focus-ring min-h-11 w-full cursor-pointer rounded-xl px-4 py-2.5 text-left text-sm font-medium transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-default disabled:opacity-60 dark:hover:bg-red-950/20 dark:hover:text-red-300 {alreadyBlocked ? 'bg-red-500/10 text-red-700 dark:text-red-300' : 'text-slate-700 dark:text-slate-200'}"
+                            >
+                                <span class="block">
+                                    {names.primary}
+                                    {#if alreadyBlocked}
+                                        <span class="ml-2 inline-flex items-center rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-bold text-red-700 dark:text-red-300">
+                                            {$_('common.added', { default: 'Added' })}
+                                        </span>
+                                    {/if}
+                                </span>
+                                {#if names.secondary}
+                                    <span class="block text-xs italic text-slate-600 dark:text-slate-400">{names.secondary}</span>
                                 {/if}
+                            </button>
+                        {/each}
+                        {#if blockedSpeciesSearchError}
+                            <p role="alert" class="px-4 py-4 text-sm font-medium text-red-700 dark:text-red-400">{blockedSpeciesSearchError}</p>
+                        {:else if blockedSpeciesSearchResults.length === 0}
+                            <p role="status" class="px-4 py-4 text-sm text-slate-600 dark:text-slate-400">
+                                {blockedSpeciesSearching ? $_('common.loading') : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
+                            </p>
+                        {/if}
+                        <!-- Search only offers what it can name, and some model
+                             labels carry no name it can find - the species on a
+                             detection card must always be blockable, so the typed
+                             text itself is offered as written (#311). -->
+                        {#if !blockedSpeciesSearching && blockedSpeciesSearchQuery.trim() && !blockedLabels.some((existing) => existing.toLowerCase() === blockedSpeciesSearchQuery.trim().toLowerCase())}
+                            <button
+                                type="button"
+                                onclick={() => addBlockedLabelText(blockedSpeciesSearchQuery)}
+                                data-blocked-label-escape-hatch
+                                class="focus-ring min-h-11 w-full cursor-pointer text-left text-sm font-medium transition-colors hover:text-red-600 dark:hover:text-red-300 text-red-700 dark:text-red-300"
+                            >
+                                {$_('settings.detection.block_exact_label', {
+                                    values: { label: blockedSpeciesSearchQuery.trim() },
+                                    default: 'Block"{label}" exactly as written'
+                                })}
+                            </button>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
+
+            {#if blockedSpecies.length > 0}
+                <div>
+                    <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}</p>
+                    <div class="flex flex-wrap gap-2">
+                        {#each blockedSpecies as entry}
+                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-red-50 pl-3 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
+                                {formatBlockedSpeciesLabel(entry)}
+                                <button
+                                    type="button"
+                                    onclick={() => removeBlockedSpecies(entry)}
+                                    aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
+                                    class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-700 dark:text-red-300 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
+                                >
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                        <path d="M6 6l12 12M18 6 6 18" />
+                                    </svg>
+                                </button>
                             </span>
-                            {#if names.secondary}
-                                <span class="block text-xs italic text-slate-600 dark:text-slate-400">{names.secondary}</span>
-                            {/if}
-                        </button>
-                    {/each}
-                    {#if blockedSpeciesSearchError}
-                        <p role="alert" class="px-4 py-4 text-sm font-medium text-red-700 dark:text-red-400">{blockedSpeciesSearchError}</p>
-                    {:else if blockedSpeciesSearchResults.length === 0}
-                        <p role="status" class="px-4 py-4 text-sm italic text-slate-600 dark:text-slate-400">
-                            {blockedSpeciesSearching ? $_('common.loading') : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
-                        </p>
-                    {/if}
-                    <!-- Search only offers what it can name, and some model
-                         labels carry no name it can find - the species on a
-                         detection card must always be blockable, so the typed
-                         text itself is offered as written (#311). -->
-                    {#if !blockedSpeciesSearching && blockedSpeciesSearchQuery.trim() && !blockedLabels.some((existing) => existing.toLowerCase() === blockedSpeciesSearchQuery.trim().toLowerCase())}
-                        <button
-                            type="button"
-                            onclick={() => addBlockedLabelText(blockedSpeciesSearchQuery)}
-                            data-blocked-label-escape-hatch
-                            class="focus-ring min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
-                        >
-                            {$_('settings.detection.block_exact_label', {
-                                values: { label: blockedSpeciesSearchQuery.trim() },
-                                default: 'Block"{label}" exactly as written'
-                            })}
-                        </button>
-                    {/if}
+                        {/each}
+                    </div>
                 </div>
-            </div>
-        {/if}
+            {/if}
 
-        {#if blockedSpecies.length > 0}
-            <div>
-                <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_structured', { default: 'Blocked species' })}</p>
-                <div class="flex flex-wrap gap-2">
-                    {#each blockedSpecies as entry}
-                        <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-red-200 bg-red-50 pl-3 text-xs font-bold text-red-700 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200">
-                            {formatBlockedSpeciesLabel(entry)}
-                            <button
-                                type="button"
-                                onclick={() => removeBlockedSpecies(entry)}
-                                aria-label={$_('settings.detection.blocked_label_remove', { values: { label: formatBlockedSpeciesLabel(entry) } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-red-700 dark:text-red-300 transition-colors hover:bg-red-100 hover:text-red-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-900/40 dark:hover:text-red-100"
-                            >
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                                    <path d="M6 6l12 12M18 6 6 18" />
-                                </svg>
-                            </button>
-                        </span>
-                    {/each}
+            {#if blockedLabels.length > 0}
+                <div>
+                    <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}</p>
+                    <div class="flex flex-wrap gap-2">
+                        {#each blockedLabels as label}
+                            <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                {label}
+                                <span class="rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('common.legacy', { default: 'Legacy' })}</span>
+                                <button
+                                    type="button"
+                                    onclick={() => removeLegacyBlockedLabel(label)}
+                                    aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
+                                    class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+                                >
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                                        <path d="M6 6l12 12M18 6 6 18" />
+                                    </svg>
+                                </button>
+                            </span>
+                        {/each}
+                    </div>
                 </div>
-            </div>
-        {/if}
+            {/if}
 
-        {#if blockedLabels.length > 0}
-            <div>
-                <p class="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.blocked_species_legacy', { default: 'Legacy raw labels' })}</p>
-                <div class="flex flex-wrap gap-2">
-                    {#each blockedLabels as label}
-                        <span class="group flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                            {label}
-                            <span class="rounded-full bg-slate-500/10 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{$_('common.legacy', { default: 'Legacy' })}</span>
-                            <button
-                                type="button"
-                                onclick={() => removeLegacyBlockedLabel(label)}
-                                aria-label={$_('settings.detection.blocked_label_remove', { values: { label } })}
-                                class="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 dark:hover:bg-red-950/30 dark:hover:text-red-300"
-                            >
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                                    <path d="M6 6l12 12M18 6 6 18" />
-                                </svg>
-                            </button>
-                        </span>
-                    {/each}
-                </div>
-            </div>
-        {/if}
-
-        {#if blockedSpecies.length === 0 && blockedLabels.length === 0}
-            <p class="text-xs font-bold italic text-slate-600 dark:text-slate-400">{$_('settings.detection.no_blocked_labels')}</p>
-        {/if}
+            {#if blockedSpecies.length === 0 && blockedLabels.length === 0}
+                <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.detection.no_blocked_labels')}</p>
+            {/if}
+        </div>
     </SettingsCard>
 
     <RangeFilterSettings
@@ -393,7 +385,6 @@
     <SettingsCard
         collapsible
         id="detection-frigate-video"
-        iconSnippet={frigateIcon}
         title={$_('settings.detection.frigate_video_title', { default: 'Frigate and video' })}
         description={$_('settings.detection.frigate_video_desc', { default: 'Whether to use labels Frigate already has, write YA-WAMF species back to Frigate, and check recorded clips after the snapshot.' })}
     >
@@ -489,7 +480,7 @@
                         />
                     </SettingsRow>
                 </div>
-                <p class="mt-2 text-xs italic text-slate-600 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
+                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
                 <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-400">
                     {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers. The models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
                 </p>

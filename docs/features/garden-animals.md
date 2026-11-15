@@ -377,7 +377,7 @@ The panel reports waiting, failures, the last attempted scan and the latest chec
 camera's remaining queue count and check time. A full queue can have further footage
 waiting in Frigate. Refresh the page to read the latest state.
 
-In **Settings → Beta features**, **Animal proposal threshold** adjusts Cedar's minimum animal
+In **Settings → Beta features**, **How sure before an animal is suggested** (a slider) adjusts Cedar's minimum animal
 score for new motion photos, shown as a percentage (50% by default, configurable from 50% to
 95%; saved as 0.5 to 0.95).
 A higher threshold reduces proposals but can miss small, distant or infrared animals;
@@ -510,7 +510,7 @@ animal presence. Dismissing animal presence also revokes its identification conf
 ## Automatic naming
 
 **Name animals automatically** in **Settings → Beta features** is on by default, with a
-**Naming threshold** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
+**How sure before an animal is named** of 80% (from 70% to 99%, saved as 0.7 to 0.99). When the automatic check finds an animal,
 it reads SpeciesNet's top result from the same detector-crop pass; no second model run is
 needed. If that result is a non-bird animal, or a [domestic bird you keep](#domestic-birds),
 scoring at or above the threshold, after the

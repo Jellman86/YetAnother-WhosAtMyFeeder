@@ -71,9 +71,11 @@ describe('the Danger Zone', () => {
 });
 
 describe('notification test buttons', () => {
-    it('use the kit primary button with a 44px target, not hand-rolled colours', () => {
+    it('use the kit secondary button with a 44px target, not hand-rolled colours', () => {
         expect(notificationSource).not.toMatch(/bg-(?:indigo|blue|sky)-500 hover:bg-/);
-        expect(notificationSource.match(/class="btn btn-primary min-h-11 w-full px-4 py-3"/g)).toHaveLength(4);
+        // A test is a secondary action; a section holds at most one primary.
+        expect(notificationSource.match(/class="btn btn-secondary min-h-11 px-4"/g)?.length).toBeGreaterThanOrEqual(4);
+        expect(notificationSource).not.toContain('btn-primary');
     });
 
     it('state why each test is unavailable', () => {

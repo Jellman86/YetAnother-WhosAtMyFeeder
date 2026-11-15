@@ -934,6 +934,10 @@
     const standingErrors = $derived(
         fieldErrors.length > 0 ? standingFieldErrors(fieldErrors, refusedPayload, buildSettingsPayload() as Record<string, unknown>) : []
     );
+    // Tabs holding a refused value, so the navigation can say which need a fix.
+    const refusedTabs = $derived(
+        [...new Set(standingErrors.map((error) => settingsFieldTab(error.field)).filter((tab): tab is SettingsTab => tab !== null))]
+    );
     provideSettingsFieldErrors({
         errorFor: (field) => standingErrors.find((error) => error.field === field)
             ?? (draftConflicts.some((conflict) => conflict.field === field)
@@ -979,7 +983,16 @@
                 default: '{count, plural, one {# change} other {# changes}} in {tabs} will be lost.'
             }),
             confirmLabel: $_('settings.leave.confirm', { default: 'Leave without saving' }),
-            tone: 'danger'
+            tone: 'danger',
+            // Leaves only once the save went through; a refused or conflicting save keeps the page,
+            // with its reasons in the save bar.
+            alternative: draftConflicts.length > 0 ? undefined : {
+                label: $_('settings.leave.save_and_leave', { default: 'Save and leave' }),
+                run: async () => {
+                    await saveSettings();
+                    return !isDirty && saveProblem === null;
+                }
+            }
         };
     }, () => {
         // Leaving was chosen over the unsaved work, so it is not kept for a return.
@@ -2872,7 +2885,7 @@
 </script>
 
 {#snippet pageTabs()}
-    <SettingsTabs {activeTab} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
+    <SettingsTabs {activeTab} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} refusedTabs={refusedTabs} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -2960,7 +2973,7 @@
                     onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
                     bind:rangeFilterEnabled
                     bind:rangeFilterRegionLevel
-                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')}
+                    onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="integration-ebird-title"]')}
                     onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                     onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
                     onopenmodels={() => handleTabChange('models')}
@@ -3138,7 +3151,7 @@
                     label={$_('settings.enrichment.title')}
                     props={{
                         ...enrichmentDraft,
-                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')
+                        onOpenEbird: () => openIntegrationField('#ebird-api-key', '[aria-labelledby="integration-ebird-title"]')
                     }}
                 />
             {/if}
@@ -3327,13 +3340,7 @@
             {#if activeTab === 'beta'}
                 <!-- One card per beta feature. A new feature is another <li> holding its own BetaFeatureCard. -->
                 <div class="space-y-4" data-beta-page>
-                    <header class="space-y-1 px-1" aria-labelledby="beta-page-title">
-                        <h2 id="beta-page-title" class="font-display text-xl font-bold text-slate-900 dark:text-white">{$_('settings.beta.title', { default: 'Beta features' })}</h2>
-                        <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400" data-beta-intro>
-                            {$_('settings.beta.intro', { default: 'Features still being tested. Each one is off until you turn it on, and may change or be removed. Turning a feature off keeps what it has already recorded. Switches here take effect when you save changes.' })}
-                        </p>
-                    </header>
-                    <ul class="space-y-4" aria-labelledby="beta-page-title" data-beta-feature-list>
+                    <ul class="space-y-4" aria-label={$_('settings.beta.title', { default: 'Beta features' })} data-beta-feature-list>
                         <li>
                             <LazyRoute loader={loadGardenBetaSettings} label={$_('settings.tabs.beta')}>
                             {#snippet content(GardenBetaSettings)}

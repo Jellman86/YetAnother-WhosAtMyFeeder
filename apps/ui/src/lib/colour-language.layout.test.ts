@@ -207,7 +207,6 @@ const ATTENTION_COMPONENTS: Record<string, string> = {
     'components/settings/DetectionSettings.svelte': 'video checks paused after repeated failures',
     'components/settings/ModelSettings.svelte': 'a model or device setting that cannot run as chosen',
     'components/settings/DetectionStatusBand.svelte': 'a fallback model or device in use',
-    'components/settings/GardenBetaSettings.svelte': 'a Garden step still to do',
     'components/settings/GardenNotificationSettings.svelte': 'Garden alerts that cannot be delivered',
     'components/settings/NotificationSettings.svelte': 'notifications with nowhere to go',
     'components/settings/RangeFilterSettings.svelte': 'a range filter that cannot run',

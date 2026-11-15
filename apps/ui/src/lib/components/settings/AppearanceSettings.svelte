@@ -26,16 +26,8 @@
         setLanguage: (lang: string) => void | Promise<void>;
     } = $props();
 
-    // Each choice previews itself: the "Aa" grows step by step, on the constrained type scale.
-    const TEXT_SIZES: { value: TextSize; sample: string }[] = [
-        { value: 'smallest', sample: 'text-sm' },
-        { value: 'smaller', sample: 'text-base' },
-        { value: 'standard', sample: 'text-lg' },
-        { value: 'large', sample: 'text-xl' },
-        { value: 'larger', sample: 'text-2xl' },
-        { value: 'extra_large', sample: 'text-3xl' },
-        { value: 'largest', sample: 'text-4xl' }
-    ];
+    // Smallest to largest, as the select lists them.
+    const TEXT_SIZES: readonly TextSize[] = ['smallest', 'smaller', 'standard', 'large', 'larger', 'extra_large', 'largest'];
 
     type NamingMode = 'standard' | 'hobbyist' | 'scientific';
 
@@ -52,14 +44,12 @@
     }
 </script>
 
-{#snippet appearanceIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.64 5.64l1.42 1.42m9.88 9.88 1.42 1.42m0-12.72-1.42 1.42M7.06 16.94l-1.42 1.42M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z" /></svg>
-{/snippet}
 
-<SettingsCard accent iconSnippet={appearanceIcon} title={$_('settings.tabs.appearance')}>
+<SettingsCard title={$_('settings.tabs.appearance')} description={$_('settings.appearance.scope', { default: 'Theme, text size and language change at once on this device. The rest apply to everyone who uses this install once you save.' })}>
     <SettingsRow
         labelId="setting-theme"
         label={$_('theme.title')}
+        description={$_('settings.theme_scope', { default: 'Changes at once, on this device only.' })}
         layout="stacked"
     >
         <SettingsSegmented
@@ -80,25 +70,22 @@
         description={$_('settings.text_size.desc', { default: 'Makes every page larger or smaller on this device only. Large displays still grow a little on top of it.' })}
         layout="stacked"
     >
-        <!-- Wraps by its own size, so the largest text still leaves each choice room on a phone. -->
-        <div class="grid grid-cols-[repeat(auto-fit,minmax(4rem,1fr))] gap-2" role="group" aria-labelledby="setting-text-size" data-text-size-options>
-            {#each TEXT_SIZES as size (size.value)}
-                {@const active = themeStore.textSize === size.value}
-                {@const name = $_(`settings.text_size.${size.value}`)}
-                <button
-                    type="button"
-                    aria-pressed={active}
-                    onclick={() => themeStore.setTextSize(size.value)}
-                    class="flex min-h-16 min-w-0 flex-col items-center justify-end gap-1.5 rounded-2xl border-2 px-1 pb-2.5 pt-2 transition-all duration-200 focus-ring {active
-                        ? 'border-brand-700 bg-brand-700 text-white shadow-lg shadow-brand-700/20'
-                        : 'border-slate-100 bg-white text-slate-700 hover:border-brand-500/30 dark:border-slate-700/50 dark:bg-slate-900/50 dark:text-slate-200'}"
-                    data-text-size={size.value}
-                >
-                    <span class="font-display font-bold leading-none {size.sample}" aria-hidden="true">Aa</span>
-                    <span class="max-w-full wrap-break-word text-center text-xs font-semibold leading-tight">{name}</span>
-                </button>
+        <!-- Seven sizes do not fit on one line, so they are a select; the page itself is the preview. -->
+        <select
+            id="text-size"
+            class="select-base min-h-11 w-full"
+            aria-labelledby="setting-text-size"
+            value={themeStore.textSize}
+            onchange={(event) => {
+                const chosen = TEXT_SIZES.find((size) => size === (event.currentTarget as HTMLSelectElement).value);
+                if (chosen) themeStore.setTextSize(chosen);
+            }}
+            data-text-size-options
+        >
+            {#each TEXT_SIZES as size (size)}
+                <option value={size}>{$_(`settings.text_size.${size}`)}</option>
             {/each}
-        </div>
+        </select>
     </SettingsRow>
 
     <SettingsRow
@@ -204,7 +191,7 @@
 
     <AdvancedSection
         id="appearance-typography-and-colour"
-        title={$_('settings.common.advanced_default_title', { default: 'Advanced options' })}
+        title={$_('settings.appearance.typography_title', { default: 'Fonts and colours' })}
     >
         <SettingsRow
             labelId="setting-font-theme"

@@ -226,7 +226,7 @@
     "missing_media_title": "Wenn Frigate einen Besuch verliert",
     "missing_media_desc": "Frigate löscht alte Ereignisse nach eigenem Zeitplan. Hier legen Sie fest, was YA-WAMF behält, wenn eines fehlt.",
     "maintenance_jobs_title": "Gleichzeitige Aufgaben",
-    "maintenance_jobs_desc": "Die Aufgaben oben laufen nacheinander, damit sie nie mit der Vogelbestimmung konkurrieren."
+    "maintenance_jobs_desc": "Standardmäßig läuft jede Art von Aufgabe oben einzeln, damit sie nicht mit der Vogelbestimmung konkurriert."
   },
   "security": {
     "title": "Sicherheit",
@@ -240,12 +240,15 @@
     "mqtt_title": "Der Broker, an den Frigate seine Ereignisse sendet. YA-WAMF empfängt dort neue Erkennungen.",
     "simulating": "Simulation läuft…",
     "advanced_title": "Feineinstellungen",
-    "full_visit_advanced_title": "Vollbesuch-Clips (aus Aufzeichnungen)"
+    "full_visit_advanced_title": "Vollbesuch-Clips (aus Aufzeichnungen)",
+    "mqtt_host": "Adresse",
+    "mqtt_section": "MQTT-Broker",
+    "mqtt_where": "Adresse und Port"
   },
   "common": {
     "save_error": "Einstellungen konnten nicht gespeichert werden",
-    "advanced": "Erweitert",
-    "advanced_default_title": "Erweiterte Optionen"
+    "show_advanced": "Erweiterte Optionen anzeigen",
+    "hide_advanced": "Erweiterte Optionen ausblenden"
   },
   "tabs": {
     "connection": "Verbindung",
@@ -271,7 +274,9 @@
     "navigation_label": "Einstellungsbereiche",
     "unsaved_note": "Enthält ungespeicherte Änderungen",
     "models": "Modelle",
-    "maintenance": "Wartung"
+    "maintenance": "Wartung",
+    "refused": "muss korrigiert werden",
+    "refused_note": "Enthält einen Wert, den das letzte Speichern abgelehnt hat"
   },
   "debug": {
     "llm_prompts_title": "LLM-Promptvorlagen",
@@ -298,12 +303,10 @@
     "pricing_not_configured": "Legen Sie unter Preise und Prompt-Vorlagen Preise fest, damit die Kosten stimmen.",
     "no_usage_data": "Noch keine KI-Nutzung erfasst.",
     "clear_usage": "Verlauf löschen",
-    "clear_usage_confirm": "Möchten Sie den KI-Nutzungsverlauf wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    "clear_usage_confirm": "KI-Nutzungsverlauf löschen? Die bisherigen Zahlen und Kosten werden gelöscht und lassen sich nicht wiederherstellen.",
     "clear_usage_success": "KI-Nutzungsverlauf gelöscht.",
     "clear_usage_error": "KI-Nutzungsverlauf konnte nicht gelöscht werden.",
     "connection_title": "KI-Anbieter",
-    "provider_info_title": "Cloud-KI-Anbieter",
-    "provider_info_desc": "YA-WAMF verwendet Cloud-LLMs für Verhaltensanalysen und natürliche Sprachinteraktionen. Sie benötigen einen eigenen API-Schlüssel vom jeweiligen Anbieter.",
     "prompts_title": "Prompt-Vorlagen",
     "prompts_subtitle": "Verhalten der KI-Funktionen anpassen",
     "pricing_title": "Kostenschätzung",
@@ -337,7 +340,8 @@
     "test_network_error": "Die Diagnoseanfrage konnte YA-WAMF nicht erreichen.",
     "advanced_title": "Preise & Prompt-Vorlagen",
     "prompt_style_desc": "Ein Stil ersetzt die drei Vorlagen unten durch seinen Wortlaut. „Änderungen speichern“ behält ihn.",
-    "prompt_style_custom": "Eigener Wortlaut"
+    "prompt_style_custom": "Eigener Wortlaut",
+    "test_needs_key": "Fügen Sie einen API-Schlüssel Ihres Anbieters hinzu, um die Verbindung zu testen. Jeder Anbieter vergibt eigene:"
   },
   "integrations": {
     "birdnet": {
@@ -511,8 +515,8 @@
     "open_ebird": "Zu eBird"
   },
   "auth": {
-    "title": "Authentifizierung",
-    "desc": "Login für vollen Zugriff erforderlich.",
+    "title": "Anmeldung",
+    "desc": "Fragt nach Benutzername und Passwort, bevor jemand alles sehen oder Einstellungen ändern kann.",
     "enable": "Authentifizierung aktivieren",
     "enable_desc": "Einstellungen und Admin-Aktionen schützen",
     "username": "Admin-Benutzername",
@@ -540,11 +544,12 @@
     "avatar_remove": "Bild entfernen",
     "avatar_saving": "Wird gespeichert…",
     "avatar_too_large": "Die Datei ist größer als 8 MB. Wähle ein kleineres Bild.",
-    "avatar_failed": "Diese Datei lässt sich nicht als Bild verwenden. Versuche ein JPEG oder PNG."
+    "avatar_failed": "Diese Datei lässt sich nicht als Bild verwenden. Versuche ein JPEG oder PNG.",
+    "off_status": "Die Anmeldung ist aus, daher kann jeder, der diese Adresse öffnen kann, alles sehen und jede Einstellung ändern."
   },
   "public_access": {
     "title": "Öffentlicher Zugriff",
-    "desc": "Schreibgeschützter Zugriff ohne Login.",
+    "desc": "Besucher sehen Erkennungen ohne Anmeldung. Einstellungen können sie nie ändern.",
     "enable": "Öffentlichen Zugriff aktivieren",
     "enable_desc": "Gäste können Erkennungen ohne Login sehen",
     "show_camera_names": "Kameranamen anzeigen",
@@ -574,7 +579,8 @@
     "location_approximate": "Ungefähr",
     "location_approximate_sub": "Etwa 10 km. Der sichere Standard.",
     "location_exact": "Genau",
-    "location_exact_sub": "Die konfigurierten Koordinaten unverändert."
+    "location_exact_sub": "Die konfigurierten Koordinaten unverändert.",
+    "needs_auth": "Gastzugriff ergibt erst mit eingeschalteter Anmeldung Sinn: bis dahin hat jeder vollen Zugriff. Schalten Sie zuerst die Anmeldung ein."
   },
   "accessibility": {
     "title": "Barrierefreiheit-Optionen",
@@ -585,7 +591,8 @@
     "reduced_motion": "Bewegung reduzieren",
     "reduced_motion_desc": "Beendet Animationen und Übergänge. Die Einstellung Ihres Geräts für reduzierte Bewegung wird immer zusätzlich beachtet.",
     "live_announcements": "Live-Ansagen",
-    "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen."
+    "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen.",
+    "scope": "Diese gelten nach dem Speichern für alle, die diese Installation nutzen, auch für Gäste. Bis dahin sehen Sie hier eine Vorschau."
   },
   "frigate": {
     "title": "Frigate NVR",
@@ -650,14 +657,15 @@
     "test_subtitle": "Prüft, ob die Frigate-API antwortet und der MQTT-Broker eine Veröffentlichung annimmt.",
     "test_title": "Verbindungstest Frigate & MQTT",
     "recording_frame_delay": "Verzögerung der ersten Bestimmung (Sekunden)",
-    "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu."
+    "recording_frame_delay_desc": "1 bis 120 Sekunden nach dem ersten Schnappschuss warten. Die neuesten währenddessen empfangenen Metadaten des verfolgten Schnappschusses werden verwendet. Bestimmung und Benachrichtigungen erfolgen später. Dies wartet nicht auf jedes Ereignisende und bestimmt gespeicherte Erkennungen nicht neu.",
+    "test_connection_both": "Frigate und MQTT testen",
+    "test_again": "Erneut testen"
   },
   "cameras": {
     "title": "Beobachtete Kameras",
     "none_found": "Keine Kameras gefunden",
     "syncing": "Scannen…",
     "preview_close": "Vorschau schließen",
-    "preview": "Vorschau von {camera}",
     "preview_failed": "Vorschau fehlgeschlagen",
     "preview_label": "Kameravorschau für {camera}",
     "preview_live": "Live",
@@ -667,10 +675,10 @@
     "nest_dedupe_label": "Dedupe-Fenster für Nestkameras",
     "nest_dedupe_unit": "Min.",
     "role_feeder": "Futterstelle",
-    "role_feeder_help": "Futterstellen-Kamera: Jedes Frigate-Ereignis wird als neuer Besuch behandelt (Standard).",
+    "role_feeder_help": "Futterstelle: Jedes Frigate-Ereignis ist ein eigener Besuch.",
     "role_label": "Rolle",
     "role_nest": "Nest",
-    "role_nest_help": "Nestkasten-Kamera: Wiederholte Erkennungen derselben Art werden in eine pro Dedupe-Fenster zusammengefasst, damit ein dauerhaft anwesender brütender Vogel den Feed nicht überschwemmt.",
+    "role_nest_help": "Nistkasten: Ein Vogel, der im Bild bleibt, zählt einmal pro Zeitfenster unten statt einmal pro Ereignis, damit ein brütender Altvogel den Feed nicht überschwemmt.",
     "preview_needs_url": "Geben Sie oben die Frigate-URL ein, um eine Kamera-Vorschau zu sehen.",
     "watch_desc": "Wähle, welche Frigate-Kameras auf Vögel beobachtet werden.",
     "watch_desc_garden": "Wähle, worauf jede Frigate-Kamera achtet: Vögel, Gartentiere oder beides.",
@@ -691,10 +699,14 @@
     "mode_both": "Beides",
     "role_group": "{camera}: Vogelrolle",
     "blocked_last_bird_camera": "Mindestens eine Kamera muss auf Vögel achten, daher bleiben Vögel für diese Kamera an.",
-    "blocked_camera_list_unread": "Jede Kamera achtet auf Vögel. Synchronisiere die Kameras aus Frigate, bevor du Vögel für eine Kamera ausschaltest."
+    "blocked_camera_list_unread": "Jede Kamera achtet auf Vögel. Synchronisiere die Kameras aus Frigate, bevor du Vögel für eine Kamera ausschaltest.",
+    "sync_help": "Die Liste kommt von Frigate. Synchronisieren Sie erneut, nachdem Sie dort eine Kamera hinzugefügt haben.",
+    "preview_show": "Vorschau",
+    "preview_hide": "Vorschau ausblenden"
   },
   "telemetry": {
     "title": "Telemetrie",
+    "usage_title": "Anonyme Nutzungsstatistik",
     "desc": "Optionale, anonyme Nutzungs-Telemetrie, um YA-WAMF zu verbessern. Standardmäßig deaktiviert.",
     "transparency": "Transparenz: Was wir senden",
     "install_id": "Installations-ID",
@@ -735,7 +747,7 @@
   },
   "email": {
     "title": "E-Mail-Benachrichtigungen",
-    "desc": "E-Mail-Benachrichtigungen für Vogelerkennungen senden",
+    "desc": "Sendet jede Benachrichtigung per E-Mail, über Gmail, Outlook oder Ihren eigenen Mailserver.",
     "enable": "E-Mail-Benachrichtigungen aktivieren",
     "auth_mode": "Authentifizierungsmodus",
     "oauth": "OAuth (Empfohlen)",
@@ -823,7 +835,7 @@
     "video_fallback_timeout_desc": "Optionale zusätzliche Wartezeit. YA-WAMF wartet nie kürzer als das automatisch berechnete Minimum der Video-Pipeline.",
     "video_fallback_seconds": "Sekunden",
     "cooldown": "Benachrichtigungs‑Abkühlzeit",
-    "cooldown_desc": "Mindestabstand zwischen Benachrichtigungen in Minuten (0 zum Deaktivieren).",
+    "cooldown_desc": "Nach einer Benachrichtigung so lange warten, bevor die nächste gesendet wird.",
     "cooldown_unit": "Minuten",
     "enable_notify_hint": "Benachrichtigungen sind derzeit deaktiviert. Aktivieren Sie \"Bei neuen Erkennungen benachrichtigen\" oder \"Bei Updates benachrichtigen\", um Warnungen zu senden.",
     "min_confidence_label": "Mindestvertrauen für Benachrichtigungen: {value}%",
@@ -922,6 +934,7 @@
   },
   "discord": {
     "title": "Discord-Benachrichtigungen",
+    "desc": "Sendet jede Benachrichtigung über den Webhook in einen Discord-Kanal.",
     "webhook_url": "Webhook-URL",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "Bot-Name",
@@ -932,6 +945,7 @@
   },
   "pushover": {
     "title": "Pushover-Benachrichtigungen",
+    "desc": "Sendet jede Benachrichtigung über die Pushover-App an Ihr Telefon.",
     "user_key": "Benutzerschlüssel",
     "user_key_placeholder": "Ihr Pushover-Benutzerschlüssel",
     "api_token": "API-Token",
@@ -952,6 +966,7 @@
   },
   "telegram": {
     "title": "Telegram-Benachrichtigungen",
+    "desc": "Sendet jede Benachrichtigung über Ihren Bot in einen Telegram-Chat.",
     "bot_token": "Bot-Token",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "Chat-ID",
@@ -1018,7 +1033,7 @@
     "min_confidence_floor": "Minimale Konfidenzuntergrenze",
     "floor_capture_all": "Alles erfassen",
     "floor_reject_unsure": "Unsichere ablehnen",
-    "floor_help": "Ereignisse unter dieser Untergrenze werden vollständig ignoriert. Ereignisse zwischen Untergrenze und Schwelle werden als \"Unbekannter Vogel\" gespeichert.",
+    "floor_help": "Unter diesem Wert wird ein Foto gar nicht behalten. Dazwischen bleibt der Besuch als Unbekannter Vogel, den Sie benennen können.",
     "trust_frigate": "Frigate-Sublabels vertrauen",
     "trust_frigate_desc": "Interne Klassifizierung überspringen, wenn Frigate die Art identifiziert hat",
     "write_frigate_sublabel": "Labels an Frigate zurückschreiben",
@@ -1055,9 +1070,9 @@
     "provider_saved_unavailable": "{provider} ist gespeichert, aber in diesem Image, auf diesem Host oder für das aktive Modell nicht verfügbar. Wählen Sie einen verfügbaren Anbieter oder Automatisch.",
     "provider_intel_cpu": "Intel-CPU (OpenVINO)",
     "provider_cpu": "CPU (ONNX Runtime)",
-    "inference_provider_desc": "Es werden nur Anbieter angezeigt, die in diesem Image enthalten, auf diesem Host erkannt und vom aktiven Modell unterstützt werden.",
+    "inference_provider_desc": "Zeigt nur Geräte, die dieses Image enthält, dieser Rechner hat und das verwendete Modell unterstützt.",
     "gpu_setup_docs": "Leitfaden für GPU-Einrichtung & Diagnose",
-    "inference_provider": "Inferenzanbieter",
+    "inference_provider": "Gerät",
     "auto_detected": "Automatisch erkannt",
     "active_provider_label": "Aktiv",
     "intel_gpu_status": "Intel-GPU",
@@ -1066,18 +1081,18 @@
     "provider_intel_gpu": "Intel-GPU (OpenVINO)",
     "selected_provider_label": "Ausgewählt",
     "openvino_status": "OpenVINO",
-    "execution_mode": "Ausführungsmodus",
+    "execution_mode": "Isolierung",
     "execution_mode_desc": "Isolierte Worker, der Standard, starten bei einem Absturz sicher neu; jeder Worker hält eine eigene Kopie des Modells. In-Prozess teilt eine Kopie in der App: weniger Speicher, weniger Isolation.",
     "execution_mode_worker_plan": "Für diese Installation aufgelöst: {live} Live- und {background} Hintergrund-Workerprozesse, jeder mit einer eigenen Kopie des Modells.",
     "execution_mode_worker_ram": "Das aktive Modell wird auf {each} MB pro Kopie geschätzt, insgesamt etwa {total} MB über alle Worker.",
-    "mode_subprocess": "Subprocess (Isoliert)",
-    "mode_in_process": "In-Process (Gemeinsamer RAM)",
+    "mode_subprocess": "Eigene Arbeitsprozesse (empfohlen)",
+    "mode_in_process": "In der App (weniger Speicher)",
     "model_lineup_eyebrow": "Gestaffelte Modellreihe",
     "model_lineup_title": "Mit der empfohlenen Reihe beginnen",
     "model_lineup_description": "Empfohlene Modelle werden zuerst angezeigt und passen auf die größte Bandbreite an Hardware und Futterstellen.",
     "model_lineup_advanced_note": "Erweiterte Modelle sind standardmäßig ausgeblendet, da sie meist mehr RAM benötigen, langsamer laufen oder breitere Wildtier-Taxonomien abdecken, als die meisten Installationen brauchen.",
-    "personalized_rerank": "Personalisierte Neugewichtung",
-    "personalized_rerank_desc": "Verwende manuelle Tags, um das Ranking pro Kamera und Modell anzupassen. Deaktivieren, um nur die Basismodell-Scores zu verwenden.",
+    "personalized_rerank": "Aus meinen Korrekturen lernen",
+    "personalized_rerank_desc": "Nutzt die Arten, die Sie korrigiert haben, um die Werte je Kamera und Modell anzupassen. Aus nutzt die Werte des Modells.",
     "video_max_concurrent": "Video-Parallelität",
     "video_max_concurrent_label": "Maximale gleichzeitige Video-Jobs",
     "video_concurrency_best_practice_in_process": "Der In-Process-Modus teilt sich eine gemeinsame Backend-Laufzeit. Empfohlen ist, die Video-Parallelität bei 1 zu belassen, außer Sie haben die Stabilität Ihrer Modell-Laufzeit unter paralleler Last ausdrücklich verifiziert.",
@@ -1178,12 +1193,12 @@
     "openvino_compile_failure_detail": "Dieses Modell kann auf dem aktuell ausgewählten OpenVINO-Gerät nicht kompiliert werden. YA-WAMF lässt das Modell installiert, führt die Inferenz aber über {fallback} aus.",
     "openvino_diagnostics": "OpenVINO-Diagnose",
     "region_override_title": "Vogelmodell-Region",
-    "region_override_desc": "Auto verwendet Ihr konfiguriertes Land. Manuelle Überschreibung hat immer Vorrang.",
+    "region_override_desc": "Manche Modelle gibt es in regionalen Fassungen. Automatisch folgt dem Land Ihres Standorts; wählen Sie eine, um das zu übergehen.",
     "region_override_auto": "Automatisch",
     "region_override_eu": "Europa",
     "region_override_na": "Nordamerika",
-    "blocked_species_legacy": "Legacy-Rohlabels",
-    "blocked_species_picker_desc": "Suche nach einer Art, um sie zuverlässig über gebräuchliche Namen, wissenschaftliche Namen und taxonomiebewusste Treffer hinweg zu blockieren. Legacy-Rohlabels gelten weiter, bis Sie sie entfernen.",
+    "blocked_species_legacy": "Ältere Bezeichnungen",
+    "blocked_species_picker_desc": "Eine gesperrte Art wird nie als Besuch gespeichert. Suchen Sie nach deutschem oder wissenschaftlichem Namen; eine gesperrte Familie oder Gattung sperrt jede Art darin. Ältere Bezeichnungen, getrennt aufgeführt, gelten weiter, bis Sie sie entfernen.",
     "blocked_species_placeholder": "Zu blockierende Art suchen",
     "blocked_species_structured": "Blockierte Arten",
     "model_manager_threshold_hint": "Empfohlener Konfidenzschwellenwert für dieses Modell:",
@@ -1256,8 +1271,8 @@
     "band_native_restart": "Starte den Container neu, um die blockierte Laufzeit freizugeben.",
     "band_worker_fallback": "Worker fallen aus: Klassifizierung im Hauptprozess",
     "band_worker_fallback_detail": "Isolierte Worker sterben beim Laden des Modells; Erkennungen laufen im Hauptprozess weiter.",
-    "compat_all_hint": "Jedes Modell aus dem Modellkatalog herunterladen und testen, nicht nur installierte (langsamer).",
-    "compat_all_models": "Alle Modelle testen",
+    "compat_all_hint": "Lädt jedes zuerst herunter, daher dauert die Prüfung deutlich länger.",
+    "compat_all_models": "Auch nicht installierte Modelle testen",
     "compat_card_title": "Gerätekompatibilität",
     "compat_model": "Modell",
     "compat_note_baseline": "CPU-Referenz",
@@ -1336,7 +1351,8 @@
     "band_model_missing": "Noch nicht installiert. Laden Sie es unten herunter.",
     "model_manager_in_use": "In Verwendung",
     "model_manager_show_catalogue": "Anderes Modell wählen",
-    "model_manager_hide_catalogue": "Andere Modelle ausblenden"
+    "model_manager_hide_catalogue": "Andere Modelle ausblenden",
+    "threshold_help": "Ab diesem Wert wird ein Besuch unter dem Artnamen gespeichert."
   },
   "llm": {
     "title": "KI-Einblicke",
@@ -1438,8 +1454,8 @@
     "garden_animals_desc": "Sammelt Katzen, Füchse und andere Besucher, die keine Vögel sind, von Kameras Ihrer Wahl zur Durchsicht.",
     "garden_motion_toggle": "Bewegungsfotos zur Prüfung sammeln auf {camera}",
     "garden_naming_off": "Jedes Tier wartet unter Zu prüfen, bis du es bestätigst und benennst.",
-    "garden_naming_threshold_help": "Von 70 % bis 99 %. Höhere Werte benennen weniger Tiere automatisch und verwerfen mehr unsichere Fotos. Personenprüfungen bleiben unverändert.",
-    "garden_naming_threshold": "Benennungsschwelle",
+    "garden_naming_threshold_help": "Ab diesem Wert wird ein Tier für Sie bestätigt und benannt. Darunter kommt sein Foto zu „Verworfen“, wo Sie es wiederherstellen können.",
+    "garden_naming_threshold": "Wie sicher, bevor ein Tier benannt wird",
     "garden_naming": "Tiere automatisch benennen",
     "garden_requirements": "Benötigt Frigate-Kameras, die Tiere verfolgen oder Bewegungsaufnahmen behalten. Der Garten lädt eigene Modelle nur auf Ihren Wunsch herunter: 224 MB für automatische Prüfungen sowie optionale Modelle mit 224 MB und 101 MB. Ihr Vogelmodell bleibt unverändert.",
     "garden_models_help": "Der Garten nutzt eigene Modelle, getrennt von Ihrem Vogelmodell. Ein Download fügt nur eine geprüfte Datei hinzu. Er speichert keine Einstellungen und startet keine Prüfungen.",
@@ -1492,7 +1508,6 @@
     "garden_domestic_birds_none": "Noch keine. Hühner und andere gehaltene Vögel werden als Wildvögel behandelt.",
     "garden_domestic_birds_add": "Hausvogel hinzufügen",
     "garden_domestic_birds_choose": "Vogel auswählen",
-    "intro": "Funktionen, die noch getestet werden. Jede ist aus, bis Sie sie einschalten, und kann sich ändern oder entfallen. Wenn Sie eine Funktion ausschalten, bleibt erhalten, was sie bereits aufgezeichnet hat. Schalter hier wirken, sobald Sie die Änderungen speichern.",
     "learn_more": "Mehr erfahren",
     "status_off": "Aus",
     "status_off_after_apply": "Aus nach dem Speichern",
@@ -1662,7 +1677,8 @@
   "leave": {
     "title": "Ohne Speichern verlassen?",
     "message": "{count, plural, one {# Änderung} other {# Änderungen}} in {tabs} gehen verloren.",
-    "confirm": "Ohne Speichern verlassen"
+    "confirm": "Ohne Speichern verlassen",
+    "save_and_leave": "Speichern und verlassen"
   },
   "field_errors": {
     "frigate_url": "Beginnen Sie die Adresse mit http:// oder https://, zum Beispiel http://frigate:5000.",
@@ -1701,5 +1717,11 @@
     "testing_desc": "Vergleichen Sie die installierten Modelle an Fotos, die Sie schon bestätigt haben.",
     "testing_action": "Die Modellbewertung lässt jedes installierte Modell über diese Fotos laufen und zeigt, wie oft es richtig liegt und wie lange es braucht.",
     "testing_open": "Modellbewertung öffnen"
-  }
+  },
+  "save_rule": "Änderungen an Einstellungen warten, bis Sie „Änderungen speichern“ wählen. Schaltflächen wie Testen, Ausführen und Herunterladen wirken sofort.",
+  "appearance": {
+    "typography_title": "Schriften und Farben",
+    "scope": "Design, Textgröße und Sprache ändern sich sofort auf diesem Gerät. Der Rest gilt nach dem Speichern für alle, die diese Installation nutzen."
+  },
+  "theme_scope": "Ändert sich sofort, nur auf diesem Gerät."
 }

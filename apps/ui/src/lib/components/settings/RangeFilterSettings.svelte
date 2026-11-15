@@ -264,12 +264,8 @@
     }
 </script>
 
-{#snippet rangeIcon()}
-    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10Z" /><circle cx="12" cy="11" r="2.2" /></svg>
-{/snippet}
 
 <SettingsCard
-    iconSnippet={rangeIcon}
     title={$_('settings.range_filter.title', { default: 'Range filter' })}
     description={$_('settings.range_filter.description', { default: 'Sets aside automatic identifications of birds eBird has never recorded in your region, so a European species is not named at a Californian feeder.' })}
 >
@@ -279,7 +275,6 @@
             aria-live="polite"
             data-range-filter-status
             data-state={status?.reason ?? (statusError ? 'error' : 'loading')}
-            class="rounded-2xl border p-4 {summary?.needsPerson ? 'border-attention-500/50 bg-attention-500/10' : 'border-line-soft bg-surface-raised/40'}"
         >
             {#if statusError && !status}
                 <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
@@ -292,26 +287,19 @@
                 <p class="text-sm text-slate-600 dark:text-slate-300">{$_('settings.range_filter.status_loading', { default: 'Loading the range filter status…' })}</p>
             {:else}
                 <div class="flex flex-wrap items-start gap-x-3 gap-y-2">
+                    <!-- The state in words; an amber dot only when it waits on a person. -->
                     <span
                         data-range-filter-chip
-                        class="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-bold {summary?.tone === 'filtering'
-                            ? 'border-success-500/40 bg-success-500/10 text-success-800 dark:text-success-200'
+                        class="inline-flex shrink-0 items-center gap-2 text-sm font-semibold {summary?.tone === 'filtering'
+                            ? 'text-success-800 dark:text-success-200'
                             : summary?.needsPerson
-                              ? 'border-attention-500/50 bg-attention-500/15 text-attention-900 dark:text-attention-100'
-                              : 'border-slate-300 bg-white/60 text-slate-700 dark:border-slate-600 dark:bg-slate-900/40 dark:text-slate-200'}"
+                              ? 'text-attention-800 dark:text-attention-200'
+                              : 'text-slate-700 dark:text-slate-200'}"
                     >
-                        {#if summary?.tone === 'filtering'}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 10.5 3 3 7-7" /></svg>
-                        {:else if summary?.tone === 'waiting'}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="10" r="7" /><path d="M10 6v4l2.5 1.5" /></svg>
-                        {:else if summary?.needsPerson}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 6v5M10 14h.01" /><circle cx="10" cy="10" r="7.5" /></svg>
-                        {:else}
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 10h10" /></svg>
-                        {/if}
+                        {#if summary?.needsPerson}<span class="attention-dot" aria-hidden="true"></span>{/if}
                         {chipLabel}
                     </span>
-                    <p class="min-w-0 flex-1 text-sm font-semibold leading-relaxed text-slate-900 dark:text-white" data-range-filter-headline>{headline}</p>
+                    <p class="min-w-0 flex-1 text-sm font-medium leading-relaxed text-slate-900 dark:text-white" data-range-filter-headline>{headline}</p>
                 </div>
                 {#if detail}
                     <p class="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{detail}</p>

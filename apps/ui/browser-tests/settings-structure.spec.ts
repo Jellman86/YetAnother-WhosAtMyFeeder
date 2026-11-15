@@ -56,7 +56,7 @@ test.describe('on a wide screen', () => {
         await expect(sources).toContainText('Not shown: needs an eBird API key');
         // The summary links to eBird's own switch rather than offering a second way to turn it on.
         await page.getByRole('button', { name: 'Go to eBird', exact: true }).click();
-        await expect(page.locator('[aria-labelledby="setting-ebird-enabled"]')).toBeFocused();
+        await expect(page.locator('[aria-labelledby="integration-ebird-title"]')).toBeFocused();
         await expect(saveBar(page)).toHaveCount(0);
     });
 

@@ -226,7 +226,7 @@
     "missing_media_title": "Quand Frigate perd une visite",
     "missing_media_desc": "Frigate supprime les anciens événements selon son propre calendrier. Ceci décide de ce que YA-WAMF garde quand l’un d’eux a disparu.",
     "maintenance_jobs_title": "Tâches simultanées",
-    "maintenance_jobs_desc": "Les tâches ci-dessus s’exécutent une par une, pour ne jamais concurrencer l’identification des oiseaux."
+    "maintenance_jobs_desc": "Par défaut, chaque type de tâche ci-dessus s’exécute un à la fois, pour ne pas concurrencer l’identification des oiseaux."
   },
   "security": {
     "title": "Sécurité",
@@ -240,12 +240,15 @@
     "mqtt_title": "Le broker auquel Frigate publie ses événements. YA-WAMF y écoute les nouvelles détections.",
     "simulating": "Simulation…",
     "advanced_title": "Réglage fin",
-    "full_visit_advanced_title": "Clips de visite complète (depuis les enregistrements)"
+    "full_visit_advanced_title": "Clips de visite complète (depuis les enregistrements)",
+    "mqtt_host": "Adresse",
+    "mqtt_section": "Broker MQTT",
+    "mqtt_where": "Adresse et port"
   },
   "common": {
     "save_error": "Impossible d’enregistrer les paramètres",
-    "advanced": "Avancé",
-    "advanced_default_title": "Options avancées"
+    "show_advanced": "Afficher les options avancées",
+    "hide_advanced": "Masquer les options avancées"
   },
   "tabs": {
     "connection": "Connexion",
@@ -271,7 +274,9 @@
     "navigation_label": "Sections des paramètres",
     "unsaved_note": "Contient des modifications non enregistrées",
     "models": "Modèles",
-    "maintenance": "Entretien"
+    "maintenance": "Entretien",
+    "refused": "à corriger",
+    "refused_note": "Contient une valeur refusée lors du dernier enregistrement"
   },
   "debug": {
     "llm_prompts_title": "Modèles de prompt LLM",
@@ -298,12 +303,10 @@
     "pricing_not_configured": "Indiquez les prix dans Tarifs et modèles d’invite pour un coût exact.",
     "no_usage_data": "Aucune utilisation de l'IA enregistrée pour le moment.",
     "clear_usage": "Effacer l'historique",
-    "clear_usage_confirm": "Voulez-vous vraiment effacer l'historique d'utilisation de l'IA ? Cette action est irréversible.",
+    "clear_usage_confirm": "Effacer l’historique d’utilisation de l’IA ? Les comptes et coûts jusqu’ici sont supprimés et ne peuvent pas être récupérés.",
     "clear_usage_success": "Historique d'utilisation de l'IA effacé.",
     "clear_usage_error": "Échec de l'effacement de l'historique d'utilisation.",
     "connection_title": "Fournisseur d’IA",
-    "provider_info_title": "Fournisseurs d'IA cloud",
-    "provider_info_desc": "YA-WAMF utilise des LLM cloud pour l'analyse comportementale et les interactions en langage naturel. Vous aurez besoin de votre propre clé API du fournisseur.",
     "prompts_title": "Modèles de prompts",
     "prompts_subtitle": "Personnaliser le comportement des fonctionnalités IA",
     "pricing_title": "Estimation des coûts",
@@ -337,7 +340,8 @@
     "test_network_error": "La requête de diagnostic n’a pas pu joindre YA-WAMF.",
     "advanced_title": "Tarification et modèles de prompt",
     "prompt_style_desc": "Choisir un style remplace les trois modèles ci-dessous par sa formulation. Enregistrer les modifications la conserve.",
-    "prompt_style_custom": "Votre propre formulation"
+    "prompt_style_custom": "Votre propre formulation",
+    "test_needs_key": "Ajoutez une clé d’API de votre fournisseur pour tester la connexion. Chaque fournisseur délivre la sienne :"
   },
   "integrations": {
     "birdnet": {
@@ -511,8 +515,8 @@
     "open_ebird": "Aller à eBird"
   },
   "auth": {
-    "title": "Authentification",
-    "desc": "Connexion requise pour l'accès complet.",
+    "title": "Connexion",
+    "desc": "Demande un nom d’utilisateur et un mot de passe avant que quiconque puisse tout voir ou changer les réglages.",
     "enable": "Activer l'authentification",
     "enable_desc": "Protéger les paramètres et actions admin",
     "username": "Nom d'utilisateur admin",
@@ -540,11 +544,12 @@
     "avatar_remove": "Retirer l’image",
     "avatar_saving": "Enregistrement…",
     "avatar_too_large": "Ce fichier dépasse 8 Mo. Choisissez une image plus petite.",
-    "avatar_failed": "Ce fichier ne peut pas servir d’image. Essayez un JPEG ou un PNG."
+    "avatar_failed": "Ce fichier ne peut pas servir d’image. Essayez un JPEG ou un PNG.",
+    "off_status": "La connexion est désactivée : quiconque peut ouvrir cette adresse peut tout voir et changer chaque réglage."
   },
   "public_access": {
     "title": "Accès public",
-    "desc": "Accès en lecture seule sans connexion.",
+    "desc": "Permet aux visiteurs de voir les détections sans se connecter. Ils ne peuvent jamais changer les réglages.",
     "enable": "Activer l'accès public",
     "enable_desc": "Les invités peuvent voir les détections",
     "show_camera_names": "Afficher les noms des caméras",
@@ -574,7 +579,8 @@
     "location_approximate": "Approximative",
     "location_approximate_sub": "Environ 10 km. Le choix sûr par défaut.",
     "location_exact": "Exacte",
-    "location_exact_sub": "Les coordonnées configurées telles quelles."
+    "location_exact_sub": "Les coordonnées configurées telles quelles.",
+    "needs_auth": "L’accès invité n’a de sens qu’une fois la connexion activée : d’ici là, tout le monde a déjà un accès complet. Activez d’abord la connexion."
   },
   "accessibility": {
     "title": "Options d'accessibilité",
@@ -585,7 +591,8 @@
     "reduced_motion": "Réduire les mouvements",
     "reduced_motion_desc": "Arrête les animations et les transitions. Le réglage de mouvement réduit de votre appareil est aussi toujours respecté.",
     "live_announcements": "Annonces en direct",
-    "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran."
+    "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran.",
+    "scope": "Ils s’appliquent à tous les utilisateurs de cette installation, invités compris, une fois enregistrés. D’ici là, ils s’affichent ici en aperçu."
   },
   "frigate": {
     "title": "Frigate NVR",
@@ -650,14 +657,15 @@
     "test_subtitle": "Vérifie que l’API Frigate répond et que le courtier MQTT accepte une publication.",
     "test_title": "Test de connexion Frigate et MQTT",
     "recording_frame_delay": "Délai de première identification (secondes)",
-    "recording_frame_delay_desc": "Attend de 1 à 120 secondes après la première image. Utilise les dernières métadonnées de suivi reçues pendant ce délai. Identification et notifications arrivent plus tard. Cela ne fait pas attendre la fin de chaque événement et ne reclasse pas les détections enregistrées."
+    "recording_frame_delay_desc": "Attend de 1 à 120 secondes après la première image. Utilise les dernières métadonnées de suivi reçues pendant ce délai. Identification et notifications arrivent plus tard. Cela ne fait pas attendre la fin de chaque événement et ne reclasse pas les détections enregistrées.",
+    "test_connection_both": "Tester Frigate et MQTT",
+    "test_again": "Tester à nouveau"
   },
   "cameras": {
     "title": "Caméras à surveiller",
     "none_found": "Aucune caméra trouvée",
     "syncing": "Numérisation…",
     "preview_close": "Fermer l’aperçu",
-    "preview": "Aperçu de {camera}",
     "preview_failed": "Échec de l’aperçu",
     "preview_label": "Aperçu caméra pour {camera}",
     "preview_live": "En direct",
@@ -667,10 +675,10 @@
     "nest_dedupe_label": "Fenêtre de déduplication du nid",
     "nest_dedupe_unit": "min",
     "role_feeder": "Mangeoire",
-    "role_feeder_help": "Caméra mangeoire : chaque événement Frigate est traité comme une nouvelle visite (par défaut).",
+    "role_feeder_help": "Mangeoire : chaque événement Frigate est une visite à part.",
     "role_label": "Rôle",
     "role_nest": "Nid",
-    "role_nest_help": "Caméra de nichoir : regroupe les détections répétées de la même espèce en une par fenêtre de déduplication pour qu'un oiseau nichant en continu n'inonde pas le flux.",
+    "role_nest_help": "Nichoir : un oiseau qui reste dans le champ compte une fois par fenêtre ci-dessous plutôt qu’une fois par événement, pour qu’un parent qui couve n’inonde pas le fil.",
     "preview_needs_url": "Saisissez l’URL de Frigate ci-dessus pour afficher l’aperçu d’une caméra.",
     "watch_desc": "Choisissez quelles caméras Frigate sont surveillées pour les oiseaux.",
     "watch_desc_garden": "Choisissez ce que surveille chaque caméra Frigate : oiseaux, animaux du jardin ou les deux.",
@@ -691,10 +699,14 @@
     "mode_both": "Les deux",
     "role_group": "{camera} : rôle pour les oiseaux",
     "blocked_last_bird_camera": "Au moins une caméra doit surveiller les oiseaux, donc les oiseaux restent activés pour cette caméra.",
-    "blocked_camera_list_unread": "Toutes les caméras surveillent les oiseaux. Synchronisez les caméras depuis Frigate avant de désactiver les oiseaux pour une caméra."
+    "blocked_camera_list_unread": "Toutes les caméras surveillent les oiseaux. Synchronisez les caméras depuis Frigate avant de désactiver les oiseaux pour une caméra.",
+    "sync_help": "La liste vient de Frigate. Synchronisez à nouveau après y avoir ajouté une caméra.",
+    "preview_show": "Aperçu",
+    "preview_hide": "Masquer l’aperçu"
   },
   "telemetry": {
     "title": "Télémétrie",
+    "usage_title": "Statistiques d’utilisation anonymes",
     "desc": "Télémétrie d’usage facultative et anonyme pour aider à améliorer YA-WAMF. Désactivée par défaut.",
     "transparency": "Transparence : ce que nous envoyons",
     "install_id": "ID d’installation",
@@ -735,7 +747,7 @@
   },
   "email": {
     "title": "Notifications par email",
-    "desc": "Envoyer des alertes par email pour les détections d'oiseaux",
+    "desc": "Envoie chaque alerte par e-mail, depuis Gmail, Outlook ou votre propre serveur de messagerie.",
     "enable": "Activer les Notifications par email",
     "auth_mode": "Mode d'Authentification",
     "oauth": "OAuth (Recommandé)",
@@ -823,7 +835,7 @@
     "video_fallback_timeout_desc": "Délai supplémentaire facultatif. YA-WAMF n’attendra jamais moins que le minimum calculé automatiquement par le pipeline vidéo.",
     "video_fallback_seconds": "secondes",
     "cooldown": "Délai entre notifications",
-    "cooldown_desc": "Temps minimum entre notifications en minutes (0 pour désactiver).",
+    "cooldown_desc": "Après une alerte, attendre ce délai avant d’en envoyer une autre.",
     "cooldown_unit": "minutes",
     "enable_notify_hint": "Les notifications sont actuellement désactivées. Activez « Notifier les nouvelles détections » ou « Notifier les mises à jour » pour envoyer des alertes.",
     "min_confidence_label": "Confiance minimale des notifications : {value}%",
@@ -922,6 +934,7 @@
   },
   "discord": {
     "title": "Notifications Discord",
+    "desc": "Publie chaque alerte dans un salon Discord via son webhook.",
     "webhook_url": "URL du webhook",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "Nom du bot",
@@ -932,6 +945,7 @@
   },
   "pushover": {
     "title": "Notifications Pushover",
+    "desc": "Envoie chaque alerte sur votre téléphone via l’application Pushover.",
     "user_key": "Clé utilisateur",
     "user_key_placeholder": "Votre clé utilisateur Pushover",
     "api_token": "Jeton API",
@@ -952,6 +966,7 @@
   },
   "telegram": {
     "title": "Notifications Telegram",
+    "desc": "Envoie chaque alerte dans une discussion Telegram via votre bot.",
     "bot_token": "Jeton du bot",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "ID du chat",
@@ -1018,7 +1033,7 @@
     "min_confidence_floor": "Seuil minimal de confiance",
     "floor_capture_all": "Tout capturer",
     "floor_reject_unsure": "Rejeter les incertains",
-    "floor_help": "Les événements sous ce seuil sont ignorés. Entre le seuil minimal et le seuil de confiance, ils sont marqués comme \"Oiseau inconnu\".",
+    "floor_help": "En dessous de ce score, la photo n’est pas gardée. Entre les deux, la visite est gardée comme Oiseau inconnu, à nommer par vous.",
     "trust_frigate": "Faire confiance aux sous-labels Frigate",
     "trust_frigate_desc": "Ignorer la classification interne si Frigate a identifié l'espèce",
     "write_frigate_sublabel": "Renvoyer les labels vers Frigate",
@@ -1055,9 +1070,9 @@
     "provider_saved_unavailable": "{provider} est enregistré, mais n’est pas disponible dans cette image, sur cet hôte ou pour le modèle actif. Choisissez un fournisseur disponible ou Automatique.",
     "provider_intel_cpu": "CPU Intel (OpenVINO)",
     "provider_cpu": "CPU (ONNX Runtime)",
-    "inference_provider_desc": "Seuls les fournisseurs inclus dans cette image, détectés sur cet hôte et pris en charge par le modèle actif sont affichés.",
+    "inference_provider_desc": "N’affiche que les appareils inclus dans cette image, présents sur cette machine et pris en charge par le modèle utilisé.",
     "gpu_setup_docs": "Guide de configuration et de diagnostic GPU",
-    "inference_provider": "Fournisseur d'inférence",
+    "inference_provider": "Appareil",
     "auto_detected": "Détecté automatiquement",
     "active_provider_label": "Actif",
     "intel_gpu_status": "GPU Intel",
@@ -1066,18 +1081,18 @@
     "provider_intel_gpu": "GPU Intel (OpenVINO)",
     "selected_provider_label": "Sélectionné",
     "openvino_status": "OpenVINO",
-    "execution_mode": "Mode d'exécution",
+    "execution_mode": "Isolement",
     "execution_mode_desc": "Les processus isolés, par défaut, redémarrent sans risque si une classification se bloque ; chaque processus détient sa propre copie du modèle. Le mode intégré partage une seule copie dans l'application : moins de mémoire, moins d'isolation.",
     "execution_mode_worker_plan": "Résolu pour cette installation : {live} processus de travail en direct et {background} en arrière-plan, chacun avec sa propre copie du modèle.",
     "execution_mode_worker_ram": "Le modèle actif est estimé à {each} Mo par copie, soit environ {total} Mo pour l'ensemble des processus.",
-    "mode_subprocess": "Subprocess (Isolé)",
-    "mode_in_process": "In-Process (RAM partagée)",
+    "mode_subprocess": "Processus de travail séparés (recommandé)",
+    "mode_in_process": "Dans l’application (moins de mémoire)",
     "model_lineup_eyebrow": "Gamme de modèles par niveaux",
     "model_lineup_title": "Commencez par la gamme recommandée",
     "model_lineup_description": "Les modèles recommandés apparaissent en premier et conviennent au plus large éventail de matériels et de mangeoires.",
     "model_lineup_advanced_note": "Les modèles avancés sont masqués par défaut car ils demandent généralement plus de RAM, sont plus lents ou couvrent des taxonomies de faune plus larges que nécessaire pour la plupart des installations.",
-    "personalized_rerank": "Reclassement personnalisé",
-    "personalized_rerank_desc": "Utilisez les étiquettes manuelles pour adapter le classement par caméra et par modèle. Désactivez cette option pour n’utiliser que les scores du modèle de base.",
+    "personalized_rerank": "Apprendre de mes corrections",
+    "personalized_rerank_desc": "Se sert des espèces que vous avez corrigées pour ajuster les scores par caméra et par modèle. Désactivé, les scores du modèle sont utilisés.",
     "video_max_concurrent": "Concurrence vidéo",
     "video_max_concurrent_label": "Nombre maximal de tâches vidéo simultanées",
     "video_concurrency_best_practice_in_process": "Le mode In-Process partage un seul runtime backend. La bonne pratique est de laisser la concurrence vidéo à 1, sauf si vous avez vérifié que votre runtime de modèle reste stable en charge simultanée.",
@@ -1178,12 +1193,12 @@
     "openvino_compile_failure_detail": "Ce modèle ne peut pas être compilé sur le périphérique OpenVINO actuellement sélectionné. YA-WAMF conservera le modèle installé, mais exécutera l’inférence sur {fallback}.",
     "openvino_diagnostics": "Diagnostic OpenVINO",
     "region_override_title": "Région du modèle de détection",
-    "region_override_desc": "Auto utilise votre pays configuré. La sélection manuelle a toujours priorité.",
+    "region_override_desc": "Certains modèles existent en versions régionales. Automatique suit le pays de votre lieu ; choisissez-en une pour le remplacer.",
     "region_override_auto": "Automatique",
     "region_override_eu": "Europe",
     "region_override_na": "Amérique du Nord",
-    "blocked_species_legacy": "Étiquettes brutes héritées",
-    "blocked_species_picker_desc": "Recherchez une espèce pour la bloquer de manière fiable sur les correspondances par nom commun, nom scientifique et taxonomie. Les étiquettes brutes héritées continuent de s’appliquer jusqu’à leur suppression.",
+    "blocked_species_legacy": "Anciennes étiquettes",
+    "blocked_species_picker_desc": "Une espèce bloquée n’est jamais enregistrée comme visite. Cherchez par nom commun ou scientifique ; bloquer une famille ou un genre bloque toutes ses espèces. Les anciennes étiquettes, listées à part, s’appliquent jusqu’à ce que vous les retiriez.",
     "blocked_species_placeholder": "Rechercher une espèce à bloquer",
     "blocked_species_structured": "Espèces bloquées",
     "model_manager_threshold_hint": "Seuil de confiance recommandé pour ce modèle :",
@@ -1256,8 +1271,8 @@
     "band_native_restart": "Redémarrez le conteneur pour libérer le moteur bloqué.",
     "band_worker_fallback": "Workers en échec : classification dans le processus principal",
     "band_worker_fallback_detail": "Les workers isolés meurent au chargement du modèle. Les détections continuent dans le processus principal.",
-    "compat_all_hint": "Télécharger et tester chaque modèle du catalogue, pas seulement ceux installés (plus lent).",
-    "compat_all_models": "tester tous les modèles",
+    "compat_all_hint": "Télécharge chacun d’abord, donc la vérification prend bien plus de temps.",
+    "compat_all_models": "Tester aussi les modèles non installés",
     "compat_card_title": "Compatibilité des appareils",
     "compat_model": "Modèle",
     "compat_note_baseline": "référence CPU",
@@ -1336,7 +1351,8 @@
     "band_model_missing": "Pas encore installé. Téléchargez-le ci-dessous.",
     "model_manager_in_use": "Utilisé",
     "model_manager_show_catalogue": "Choisir un autre modèle",
-    "model_manager_hide_catalogue": "Masquer les autres modèles"
+    "model_manager_hide_catalogue": "Masquer les autres modèles",
+    "threshold_help": "À partir de ce score, une visite est enregistrée sous le nom de l’espèce."
   },
   "llm": {
     "title": "Analyses IA",
@@ -1438,8 +1454,8 @@
     "garden_animals_desc": "Collecte chats, renards et autres visiteurs qui ne sont pas des oiseaux depuis les caméras choisies, pour que vous les examiniez.",
     "garden_motion_toggle": "Collecter des photos de mouvement à vérifier sur {camera}",
     "garden_naming_off": "Chaque animal attend dans À vérifier que vous le confirmiez et le nommiez.",
-    "garden_naming_threshold_help": "De 70 % à 99 %. Une valeur plus élevée nomme automatiquement moins d’animaux et rejette davantage de photos peu sûres. Les vérifications de personnes restent inchangées.",
-    "garden_naming_threshold": "Seuil de nommage",
+    "garden_naming_threshold_help": "À partir de ce seuil, l’animal est confirmé et nommé pour vous. En dessous, sa photo part dans Écartés, d’où vous pouvez la rétablir.",
+    "garden_naming_threshold": "Certitude avant de nommer un animal",
     "garden_naming": "Nommer les animaux automatiquement",
     "garden_requirements": "Nécessite des caméras Frigate qui suivent les animaux ou conservent des enregistrements de mouvement. Le jardin télécharge ses propres modèles uniquement à votre demande : 224 Mo pour les vérifications automatiques, plus des modèles facultatifs de 224 Mo et 101 Mo. Votre modèle d’oiseaux ne change pas.",
     "garden_models_help": "Le jardin utilise ses propres modèles, distincts de votre modèle d’oiseaux. Un téléchargement ajoute seulement un fichier vérifié. Il n’enregistre aucun réglage et ne lance aucune vérification.",
@@ -1492,7 +1508,6 @@
     "garden_domestic_birds_none": "Aucun pour l’instant. Les poules et les autres oiseaux que vous élevez sont traités comme des oiseaux sauvages.",
     "garden_domestic_birds_add": "Ajouter un oiseau domestique",
     "garden_domestic_birds_choose": "Choisir un oiseau",
-    "intro": "Fonctions encore en test. Chacune reste désactivée tant que vous ne l’activez pas, et peut changer ou disparaître. Désactiver une fonction conserve ce qu’elle a déjà enregistré. Les interrupteurs ici prennent effet lorsque vous enregistrez les modifications.",
     "learn_more": "En savoir plus",
     "status_off": "Désactivé",
     "status_off_after_apply": "Désactivé après enregistrement",
@@ -1662,7 +1677,8 @@
   "leave": {
     "title": "Quitter sans enregistrer ?",
     "message": "{count, plural, one {# modification} other {# modifications}} dans {tabs} seront perdues.",
-    "confirm": "Quitter sans enregistrer"
+    "confirm": "Quitter sans enregistrer",
+    "save_and_leave": "Enregistrer et quitter"
   },
   "field_errors": {
     "frigate_url": "Commencez l’adresse par http:// ou https://, par exemple http://frigate:5000.",
@@ -1701,5 +1717,11 @@
     "testing_desc": "Comparez les modèles installés sur des photos que vous avez déjà confirmées.",
     "testing_action": "L’évaluation des modèles fait passer chaque modèle installé sur ces photos et montre combien de fois il a raison et en combien de temps.",
     "testing_open": "Ouvrir l’évaluation des modèles"
-  }
+  },
+  "save_rule": "Les changements de réglages attendent que vous choisissiez Enregistrer les modifications. Les boutons comme Tester, Lancer et Télécharger agissent tout de suite.",
+  "appearance": {
+    "typography_title": "Polices et couleurs",
+    "scope": "Le thème, la taille du texte et la langue changent tout de suite sur cet appareil. Le reste s’applique à tous les utilisateurs de cette installation une fois enregistré."
+  },
+  "theme_scope": "Change tout de suite, sur cet appareil seulement."
 }

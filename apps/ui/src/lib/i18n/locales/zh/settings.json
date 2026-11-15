@@ -226,7 +226,7 @@
     "missing_media_title": "当 Frigate 丢失一次到访时",
     "missing_media_desc": "Frigate 会按自己的计划删除旧事件。这里决定事件消失后 YA-WAMF 保留什么。",
     "maintenance_jobs_title": "同时运行的任务",
-    "maintenance_jobs_desc": "上面的任务一次只运行一个，因此不会与鸟类识别争用资源。"
+    "maintenance_jobs_desc": "默认情况下，上面每种任务一次只运行一个，以免与鸟类识别争用资源。"
   },
   "security": {
     "title": "安全",
@@ -240,12 +240,15 @@
     "mqtt_title": "Frigate 发布事件的代理服务器。YA-WAMF 在此接收新的检测。",
     "simulating": "模拟中…",
     "advanced_title": "调优",
-    "full_visit_advanced_title": "完整到访剪辑（来自录像）"
+    "full_visit_advanced_title": "完整到访剪辑（来自录像）",
+    "mqtt_host": "地址",
+    "mqtt_section": "MQTT 代理",
+    "mqtt_where": "地址和端口"
   },
   "common": {
     "save_error": "无法保存设置",
-    "advanced": "高级",
-    "advanced_default_title": "高级选项"
+    "show_advanced": "显示高级选项",
+    "hide_advanced": "隐藏高级选项"
   },
   "tabs": {
     "connection": "连接",
@@ -271,7 +274,9 @@
     "navigation_label": "设置分区列表",
     "unsaved_note": "有未保存的更改",
     "models": "模型",
-    "maintenance": "维护"
+    "maintenance": "维护",
+    "refused": "需要修改",
+    "refused_note": "含有上次保存时被拒绝的值"
   },
   "debug": {
     "llm_prompts_title": "LLM 提示模板",
@@ -298,12 +303,10 @@
     "pricing_not_configured": "在“价格与提示模板”中设置价格，费用才准确。",
     "no_usage_data": "尚无 AI 使用记录。",
     "clear_usage": "清除历史记录",
-    "clear_usage_confirm": "确定要清除 AI 使用历史吗？此操作无法撤销。",
+    "clear_usage_confirm": "清除 AI 使用记录？到目前为止的次数和费用会被删除，且无法恢复。",
     "clear_usage_success": "AI 使用历史已清除。",
     "clear_usage_error": "清除使用历史失败。",
     "connection_title": "AI 服务商",
-    "provider_info_title": "云端 AI 提供商",
-    "provider_info_desc": "YA-WAMF 使用云端 LLM 进行行为分析和自然语言交互。你需要使用提供商的 API 密钥。",
     "prompts_title": "提示词模板",
     "prompts_subtitle": "自定义 AI 功能行为",
     "pricing_title": "成本估算",
@@ -337,7 +340,8 @@
     "test_network_error": "诊断请求无法连接到 YA-WAMF。",
     "advanced_title": "价格与提示词模板",
     "prompt_style_desc": "选择一种风格会用它的措辞替换下面的三个模板。选择“保存更改”后生效。",
-    "prompt_style_custom": "自定义措辞"
+    "prompt_style_custom": "自定义措辞",
+    "test_needs_key": "添加您的服务商提供的 API 密钥以测试连接。每家服务商单独签发："
   },
   "integrations": {
     "birdnet": {
@@ -511,8 +515,8 @@
     "open_ebird": "前往 eBird"
   },
   "auth": {
-    "title": "身份验证",
-    "desc": "完全访问需要登录。",
+    "title": "登录",
+    "desc": "在任何人查看全部内容或更改设置之前，要求输入用户名和密码。",
     "enable": "启用身份验证",
     "enable_desc": "保护设置和管理员操作",
     "username": "管理员用户名",
@@ -540,11 +544,12 @@
     "avatar_remove": "移除图片",
     "avatar_saving": "正在保存…",
     "avatar_too_large": "文件超过 8 MB，请选择更小的图片。",
-    "avatar_failed": "这个文件无法用作图片，请试试 JPEG 或 PNG。"
+    "avatar_failed": "这个文件无法用作图片，请试试 JPEG 或 PNG。",
+    "off_status": "登录已关闭，因此任何能打开此地址的人都可以查看全部内容并更改所有设置。"
   },
   "public_access": {
     "title": "公开访问",
-    "desc": "无需登录的只读访问。",
+    "desc": "让访客无需登录即可查看检测记录。他们永远无法更改设置。",
     "enable": "启用公开访问",
     "enable_desc": "访客可查看检测结果",
     "show_camera_names": "显示摄像头名称",
@@ -574,7 +579,8 @@
     "location_approximate": "大致",
     "location_approximate_sub": "约 10 公里。安全的默认值。",
     "location_exact": "精确",
-    "location_exact_sub": "按配置的坐标原样使用。"
+    "location_exact_sub": "按配置的坐标原样使用。",
+    "needs_auth": "访客访问只有在开启登录后才有意义：在此之前，所有人都已拥有完全访问权限。请先开启登录。"
   },
   "accessibility": {
     "title": "辅助功能选项",
@@ -585,7 +591,8 @@
     "reduced_motion": "减少动态效果",
     "reduced_motion_desc": "停止动画和过渡效果。也始终遵循设备的“减少动态效果”设置。",
     "live_announcements": "实时播报",
-    "live_announcements_desc": "使用屏幕阅读器播报新的检测。"
+    "live_announcements_desc": "使用屏幕阅读器播报新的检测。",
+    "scope": "保存后，对使用此安装的所有人（包括访客）生效。在此之前，这里显示的是预览。"
   },
   "frigate": {
     "title": "Frigate NVR",
@@ -650,14 +657,15 @@
     "test_subtitle": "检查 Frigate API 是否响应，以及 MQTT 代理是否接受发布。",
     "test_title": "Frigate 与 MQTT 连接测试",
     "recording_frame_delay": "首次识别延迟（秒）",
-    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。"
+    "recording_frame_delay_desc": "从首张快照起等待1至120秒，并使用等待期间收到的最新跟踪快照元数据。识别和通知会延后。这不会等待每个事件结束，也不会重新分类已保存的检测。",
+    "test_connection_both": "测试 Frigate 和 MQTT",
+    "test_again": "再次测试"
   },
   "cameras": {
     "title": "要监视的摄像头",
     "none_found": "未发现摄像头",
     "syncing": "扫描中…",
     "preview_close": "关闭预览",
-    "preview": "预览 {camera}",
     "preview_failed": "预览失败",
     "preview_label": "{camera} 的摄像头预览",
     "preview_live": "实时",
@@ -667,10 +675,10 @@
     "nest_dedupe_label": "巢箱去重窗口",
     "nest_dedupe_unit": "分钟",
     "role_feeder": "喂食器",
-    "role_feeder_help": "喂食器摄像头：每个 Frigate 事件视为一次全新到访（默认）。",
+    "role_feeder_help": "喂食器：每个 Frigate 事件都是一次单独的到访。",
     "role_label": "角色",
     "role_nest": "巢箱",
-    "role_nest_help": "巢箱摄像头：将同一物种的重复检测合并为每个去重窗口一次,避免持续在巢的鸟刷屏。",
+    "role_nest_help": "巢箱：一直在画面中的鸟按下方的时间窗计一次，而不是每个事件计一次，这样孵卵的亲鸟不会刷屏。",
     "preview_needs_url": "请先在上方输入 Frigate 地址，才能预览摄像头。",
     "watch_desc": "选择哪些 Frigate 摄像头用于监视鸟类。",
     "watch_desc_garden": "选择每个 Frigate 摄像头监视的对象：鸟类、花园动物或两者。",
@@ -691,10 +699,14 @@
     "mode_both": "两者",
     "role_group": "{camera}：鸟类角色",
     "blocked_last_bird_camera": "至少要有一个摄像头监视鸟类，因此此摄像头会继续监视鸟类。",
-    "blocked_camera_list_unread": "所有摄像头都在监视鸟类。在为某个摄像头关闭鸟类监视之前，请先从 Frigate 同步摄像头。"
+    "blocked_camera_list_unread": "所有摄像头都在监视鸟类。在为某个摄像头关闭鸟类监视之前，请先从 Frigate 同步摄像头。",
+    "sync_help": "列表来自 Frigate。在那里添加摄像头后请再次同步。",
+    "preview_show": "预览",
+    "preview_hide": "隐藏预览"
   },
   "telemetry": {
     "title": "遥测",
+    "usage_title": "匿名使用统计",
     "desc": "可选的匿名使用遥测，用于帮助改进 YA-WAMF。默认关闭。",
     "transparency": "透明度：我们发送的内容",
     "install_id": "安装 ID",
@@ -735,7 +747,7 @@
   },
   "email": {
     "title": "电子邮件通知",
-    "desc": "发送鸟类检测电子邮件警报",
+    "desc": "通过电子邮件发送每条通知，可使用 Gmail、Outlook 或您自己的邮件服务器。",
     "enable": "启用电子邮件通知",
     "auth_mode": "认证模式",
     "oauth": "OAuth（推荐）",
@@ -823,7 +835,7 @@
     "video_fallback_timeout_desc": "可选的额外等待时间。YA-WAMF 的等待时间绝不会短于根据视频流程自动计算出的最小值。",
     "video_fallback_seconds": "秒",
     "cooldown": "通知冷却",
-    "cooldown_desc": "通知之间的最小间隔（分钟，0 为禁用）。",
+    "cooldown_desc": "发送一条提醒后，等待这么久再发送下一条。",
     "cooldown_unit": "分钟",
     "enable_notify_hint": "通知当前已关闭。启用“新检测时通知”或“更新时通知”即可发送提醒。",
     "min_confidence_label": "通知最低置信度：{value}%",
@@ -922,6 +934,7 @@
   },
   "discord": {
     "title": "Discord 通知",
+    "desc": "通过 Webhook 将每条通知发布到 Discord 频道。",
     "webhook_url": "Webhook URL",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "机器人名称",
@@ -932,6 +945,7 @@
   },
   "pushover": {
     "title": "Pushover 通知",
+    "desc": "通过 Pushover 应用将每条通知发送到您的手机。",
     "user_key": "用户密钥",
     "user_key_placeholder": "你的 Pushover 用户密钥",
     "api_token": "API 令牌",
@@ -952,6 +966,7 @@
   },
   "telegram": {
     "title": "Telegram 通知",
+    "desc": "通过您的机器人将每条通知发送到 Telegram 聊天。",
     "bot_token": "机器人令牌",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "聊天 ID",
@@ -1018,7 +1033,7 @@
     "min_confidence_floor": "最低置信度下限",
     "floor_capture_all": "全部保留",
     "floor_reject_unsure": "拒绝不确定项",
-    "floor_help": "低于该下限的事件会被完全忽略。介于下限和阈值之间的事件会保存为“Unknown Bird”。",
+    "floor_help": "低于此分数的照片不会保留。介于两者之间时，到访会以“未知鸟类”保留，供您命名。",
     "trust_frigate": "信任 Frigate 子标签",
     "trust_frigate_desc": "如果 Frigate 已识别物种，则跳过内部分类",
     "write_frigate_sublabel": "回写标签到 Frigate",
@@ -1055,9 +1070,9 @@
     "provider_saved_unavailable": "已保存 {provider}，但它在此镜像、此主机或当前模型上不可用。请选择可用的提供程序或自动。",
     "provider_intel_cpu": "Intel CPU（OpenVINO）",
     "provider_cpu": "CPU (ONNX Runtime)",
-    "inference_provider_desc": "仅显示此镜像中包含、此主机上检测到且当前模型支持的提供程序。",
+    "inference_provider_desc": "仅列出此镜像包含、此主机具备且当前模型支持的设备。",
     "gpu_setup_docs": "GPU 设置与诊断指南",
-    "inference_provider": "推理提供程序",
+    "inference_provider": "设备",
     "auto_detected": "已自动检测",
     "active_provider_label": "当前生效",
     "intel_gpu_status": "Intel GPU",
@@ -1066,18 +1081,18 @@
     "provider_intel_gpu": "Intel GPU（OpenVINO）",
     "selected_provider_label": "已选择",
     "openvino_status": "OpenVINO",
-    "execution_mode": "执行模式",
+    "execution_mode": "隔离",
     "execution_mode_desc": "默认的隔离工作进程在分类卡死或崩溃时可安全重启;每个工作进程持有自己的模型副本。进程内模式在应用内共享一份副本:内存更少,隔离也更弱。",
     "execution_mode_worker_plan": "此安装解析结果：{live} 个实时工作进程和 {background} 个后台工作进程，每个都持有模型的独立副本。",
     "execution_mode_worker_ram": "当前模型估计每个副本约占 {each} MB，所有工作进程合计约 {total} MB。",
-    "mode_subprocess": "Subprocess（隔离）",
-    "mode_in_process": "In-Process（共享 RAM）",
+    "mode_subprocess": "独立的工作进程（推荐）",
+    "mode_in_process": "在应用内（内存更少）",
     "model_lineup_eyebrow": "分层模型阵容",
     "model_lineup_title": "先从推荐阵容开始",
     "model_lineup_description": "推荐模型会优先显示，并且最适合最广泛的硬件与喂食器场景。",
     "model_lineup_advanced_note": "高级模型默认隐藏，因为它们通常需要更多内存、运行更慢，或覆盖比大多数安装环境更广的野生动物分类范围。",
-    "personalized_rerank": "个性化重排",
-    "personalized_rerank_desc": "使用手动标签按摄像头和模型调整排序。禁用后将仅使用基础模型分数。",
+    "personalized_rerank": "从我的更正中学习",
+    "personalized_rerank_desc": "根据您更正过的物种，为每个摄像头和模型调整评分。关闭时使用模型自身的评分。",
     "video_max_concurrent": "视频并发数",
     "video_max_concurrent_label": "最大并发视频任务数",
     "video_concurrency_best_practice_in_process": "In-Process 模式会共享同一个后端运行时。除非你已经验证模型运行时在重叠负载下依然稳定，否则最佳实践是将视频并发数保持为 1。",
@@ -1178,12 +1193,12 @@
     "openvino_compile_failure_detail": "该模型无法在当前选定的 OpenVINO 设备上编译。YA-WAMF 会保留已安装模型，但改为通过 {fallback} 运行推理。",
     "openvino_diagnostics": "OpenVINO 诊断",
     "region_override_title": "鸟类模型区域",
-    "region_override_desc": "自动使用您配置的国家。手动选择始终优先。",
+    "region_override_desc": "部分模型有地区版本。自动会跟随您位置中的国家；选择一个即可覆盖。",
     "region_override_auto": "自动",
     "region_override_eu": "欧洲",
     "region_override_na": "北美",
-    "blocked_species_legacy": "旧版原始标签",
-    "blocked_species_picker_desc": "搜索一个物种，以便在常用名、学名和分类匹配中可靠地屏蔽它。旧版原始标签会继续生效，直到你将其移除。",
+    "blocked_species_legacy": "旧标签",
+    "blocked_species_picker_desc": "被屏蔽的物种永远不会保存为到访。可按通用名或学名搜索；屏蔽一个科或属会屏蔽其中的所有物种。单独列出的旧标签在您删除之前仍然有效。",
     "blocked_species_placeholder": "搜索要屏蔽的物种",
     "blocked_species_structured": "已屏蔽物种",
     "model_manager_threshold_hint": "此模型的推荐置信度阈值：",
@@ -1256,8 +1271,8 @@
     "band_native_restart": "请重启容器以释放卡住的运行环境。",
     "band_worker_fallback": "工作进程故障：正在主进程中分类",
     "band_worker_fallback_detail": "隔离的工作进程在加载模型时不断崩溃；检测在主进程中继续进行。",
-    "compat_all_hint": "下载并测试模型列表中的所有模型，不仅限于已安装的模型（较慢）。",
-    "compat_all_models": "测试所有模型",
+    "compat_all_hint": "会先下载每个模型，因此检查耗时更长。",
+    "compat_all_models": "也测试未安装的模型",
     "compat_card_title": "设备兼容性",
     "compat_model": "模型",
     "compat_note_baseline": "CPU 基准",
@@ -1336,7 +1351,8 @@
     "band_model_missing": "尚未安装。请在下方下载。",
     "model_manager_in_use": "使用中",
     "model_manager_show_catalogue": "选择其他模型",
-    "model_manager_hide_catalogue": "隐藏其他模型"
+    "model_manager_hide_catalogue": "隐藏其他模型",
+    "threshold_help": "达到或超过此分数，到访会以物种名称保存。"
   },
   "llm": {
     "title": "AI 洞察",
@@ -1438,8 +1454,8 @@
     "garden_animals_desc": "从你选择的摄像头收集猫、狐狸等非鸟类访客，供你审核。",
     "garden_motion_toggle": "在 {camera} 收集待审核的移动照片",
     "garden_naming_off": "每个动物都会留在“待审核”中，等你确认并命名。",
-    "garden_naming_threshold_help": "从 70% 到 99%。值越高，自动命名的动物越少，被忽略的低置信度照片越多。人物检查不变。",
-    "garden_naming_threshold": "命名阈值",
+    "garden_naming_threshold_help": "达到或超过此值，动物会被确认并自动命名。低于此值，照片会进入“已忽略”，您可以从那里恢复。",
+    "garden_naming_threshold": "多大把握才为动物命名",
     "garden_naming": "自动为动物命名",
     "garden_requirements": "需要能追踪动物或保留运动录像的 Frigate 摄像头。花园只在你要求时下载自己的模型：自动检查需要 224 MB，另有可选的 224 MB 和 101 MB 模型。你的鸟类模型不会改变。",
     "garden_models_help": "花园使用独立于鸟类模型的专用模型。下载只会添加一个经过校验的文件，不会保存设置，也不会开始检查。",
@@ -1492,7 +1508,6 @@
     "garden_domestic_birds_none": "暂无。鸡和您饲养的其他鸟会被当作野鸟处理。",
     "garden_domestic_birds_add": "添加家禽",
     "garden_domestic_birds_choose": "选择一种鸟",
-    "intro": "仍在测试的功能。每项功能在你开启前都是关闭的，并且可能更改或移除。关闭某项功能会保留它已记录的内容。这里的开关在保存更改后生效。",
     "learn_more": "了解更多",
     "status_off": "关闭",
     "status_off_after_apply": "保存后关闭",
@@ -1662,7 +1677,8 @@
   "leave": {
     "title": "不保存就离开？",
     "message": "{tabs} 中的 {count, plural, other {# 项更改}}将会丢失。",
-    "confirm": "不保存就离开"
+    "confirm": "不保存就离开",
+    "save_and_leave": "保存并离开"
   },
   "field_errors": {
     "frigate_url": "地址需以 http:// 或 https:// 开头，例如 http://frigate:5000。",
@@ -1701,5 +1717,11 @@
     "testing_desc": "用您已确认的照片比较已安装的模型。",
     "testing_action": "模型评估会用这些照片运行每个已安装的模型，显示各自的准确次数和耗时。",
     "testing_open": "打开模型评估"
-  }
+  },
+  "save_rule": "设置的更改会等到您选择“保存更改”后才生效。测试、运行和下载等按钮会立即执行。",
+  "appearance": {
+    "typography_title": "字体和颜色",
+    "scope": "主题、文字大小和语言会在此设备上立即更改。其余设置保存后，对使用此安装的所有人生效。"
+  },
+  "theme_scope": "立即更改，仅限此设备。"
 }

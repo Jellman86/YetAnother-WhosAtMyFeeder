@@ -43,3 +43,27 @@ describe('in-app confirmation', () => {
         confirmDialog.answer(false);
     });
 });
+
+describe('a question with a second way forward', () => {
+    it('closes the question, runs the alternative and answers with its outcome', async () => {
+        let ran = 0;
+        const answer = confirmAction({
+            title: 'Leave without saving?', message: '2 changes will be lost.', confirmLabel: 'Leave without saving',
+            alternative: { label: 'Save and leave', run: async () => { ran += 1; return true; } }
+        });
+        expect(confirmDialog.current?.alternative?.label).toBe('Save and leave');
+        await confirmDialog.runAlternative();
+        expect(ran).toBe(1);
+        expect(confirmDialog.current).toBeNull();
+        await expect(answer).resolves.toBe(true);
+    });
+
+    it('answers no when the alternative did not work out, so the page stays', async () => {
+        const answer = confirmAction({
+            title: 'Leave without saving?', message: 'm', confirmLabel: 'Leave without saving',
+            alternative: { label: 'Save and leave', run: async () => false }
+        });
+        await confirmDialog.runAlternative();
+        await expect(answer).resolves.toBe(false);
+    });
+});

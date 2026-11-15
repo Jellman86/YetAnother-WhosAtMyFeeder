@@ -486,7 +486,7 @@ off with update checks, and absent rather than zero when unknown.
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 | `ActivityHeatmap` | A weekday by hour grid that reads a slot on hover, tap or arrow keys, with hour and day totals in its margins | Rely on native `title` tooltips; they arrive late and never on touch |
-| `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**: Off, Birds, Garden animals or Both as native radios, then the bird role or motion photos for whichever subject is on | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
+| `CameraWatchRow` | One Frigate camera in **Settings → Connection → Cameras to watch**, shaped as a settings row: the camera's name and Preview on the left; "Watch for" (Off, Birds, Garden animals or Both, as one select) and, while it watches birds, its role (select) in the control column; motion photos below while it watches Garden animals | Add a second camera list for one subject elsewhere; link to this list and summarise instead |
 | `BetaFeatureCard` | One feature on **Settings → Beta features**: name, one-line description, its switch (staged, applied with the page), a worded status line with an amber dot only when the owner must act, its settings only while on, and what off means while off | Add a feature's settings outside its card, or invent a beta feature to fill the list |
 | `BetaSection` | A collapsible group of one beta feature's settings: the heading is the disclosure button, and a closed section stays mounted but hidden so a download or status read inside keeps running | Nest cards inside it; sections are separated by hairlines |
 
@@ -660,7 +660,19 @@ build something better."*
 - **Selection**: a selected route, tab or option is a recessed key in the brand tint with a lit
   icon. Never a coloured bar on one edge. A chosen row in a list of choices uses the kit's
   `.choice-active` (brand tint, medium weight, a lit check or other icon); hover stays a neutral
-  wash and keyboard focus a ring, so the three never read as one.
+  wash and keyboard focus a ring, so the three never read as one. A segmented control in a
+  settings row is the one exception: a neutral track with the chosen segment raised and set
+  semibold, no brand fill and no tick (`SettingsSegmented`). Four or more options, or options that
+  need a sentence each, become a select or a radio list instead.
+- **Settings rows**: every Settings tab is a column of sections no wider than `max-w-3xl`. A
+  section is a plain `h2` (no icon, no coloured band) over one card of rows separated by hairlines,
+  and nothing inside the card is boxed again. From 768px a row puts its label (medium weight) and
+  hint (regular, muted, one size smaller) on the left and its control in a 20rem column on the
+  right, so every field, select and switch ends on the card's right edge, a section's own switch
+  included; on a phone the row stacks. A button that acts at once sits in its own row at its own
+  width, never stretched across the card. Extra fields hide behind a plain "Show advanced options"
+  disclosure at the end of the section. Settings sets its headings and controls in the sans
+  (`settings-ui`) even under a serif theme, so values and labels read as form text.
 - **Charts**: a line or bar chart takes `chart-h` or `chart-h-tall`, a height between a floor and
   a cap that follows the window width, so a wide screen neither flattens it into a strip nor
   stretches it without bound (keep it under about 4.5:1). Bars take their width from their slot

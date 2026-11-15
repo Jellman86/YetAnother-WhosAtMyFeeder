@@ -226,7 +226,7 @@
     "missing_media_title": "Frigate が訪問を失ったとき",
     "missing_media_desc": "Frigate は独自の予定で古いイベントを削除します。ここでは、イベントがなくなったときに YA-WAMF が何を残すかを決めます。",
     "maintenance_jobs_title": "同時に実行するジョブ",
-    "maintenance_jobs_desc": "上のジョブは一つずつ実行されるので、鳥の識別と競合しません。"
+    "maintenance_jobs_desc": "既定では、上の各種ジョブは種類ごとに一つずつ実行され、鳥の識別と競合しません。"
   },
   "security": {
     "title": "セキュリティ",
@@ -240,12 +240,15 @@
     "mqtt_title": "Frigate がイベントを送るブローカーです。YA-WAMF はここで新しい検出を受け取ります。",
     "simulating": "シミュレーション中…",
     "advanced_title": "調整",
-    "full_visit_advanced_title": "フル訪問クリップ（録画から）"
+    "full_visit_advanced_title": "フル訪問クリップ（録画から）",
+    "mqtt_host": "アドレス",
+    "mqtt_section": "MQTT ブローカー",
+    "mqtt_where": "アドレスとポート"
   },
   "common": {
     "save_error": "設定を保存できませんでした",
-    "advanced": "詳細",
-    "advanced_default_title": "詳細オプション"
+    "show_advanced": "詳細オプションを表示",
+    "hide_advanced": "詳細オプションを隠す"
   },
   "tabs": {
     "connection": "接続",
@@ -271,7 +274,9 @@
     "navigation_label": "設定の項目一覧",
     "unsaved_note": "未保存の変更があります",
     "models": "モデル",
-    "maintenance": "メンテナンス"
+    "maintenance": "メンテナンス",
+    "refused": "要修正",
+    "refused_note": "前回の保存で拒否された値があります"
   },
   "debug": {
     "llm_prompts_title": "LLMプロンプトテンプレート",
@@ -298,12 +303,10 @@
     "pricing_not_configured": "正確な費用を出すには、「料金とプロンプトテンプレート」で料金を設定してください。",
     "no_usage_data": "AI使用履歴はまだありません。",
     "clear_usage": "履歴を消去",
-    "clear_usage_confirm": "AI使用履歴を消去しますか？この操作は元に戻せません。",
+    "clear_usage_confirm": "AI の利用履歴を消去しますか？これまでの回数と費用は削除され、元に戻せません。",
     "clear_usage_success": "AI使用履歴を消去しました。",
     "clear_usage_error": "使用履歴の消去に失敗しました。",
     "connection_title": "AI プロバイダー",
-    "provider_info_title": "クラウドAIプロバイダー",
-    "provider_info_desc": "YA-WAMFは行動分析と自然言語インタラクションのためにクラウドLLMを使用します。各プロバイダーのAPIキーが必要です。",
     "prompts_title": "プロンプトテンプレート",
     "prompts_subtitle": "AI機能の動作をカスタマイズ",
     "pricing_title": "コスト見積もり",
@@ -337,7 +340,8 @@
     "test_network_error": "診断要求がYA-WAMFに到達できませんでした。",
     "advanced_title": "料金とプロンプトテンプレート",
     "prompt_style_desc": "スタイルを選ぶと、下の 3 つのテンプレートがその文面に置き換わります。「変更を保存」で確定します。",
-    "prompt_style_custom": "独自の文面"
+    "prompt_style_custom": "独自の文面",
+    "test_needs_key": "接続をテストするには、プロバイダーの API キーを追加してください。キーはプロバイダーごとに発行されます:"
   },
   "integrations": {
     "birdnet": {
@@ -511,8 +515,8 @@
     "open_ebird": "eBird へ移動"
   },
   "auth": {
-    "title": "認証",
-    "desc": "フルアクセスにはログインが必要です。",
+    "title": "サインイン",
+    "desc": "すべてを見たり設定を変えたりする前に、ユーザー名とパスワードを求めます。",
     "enable": "認証を有効化",
     "enable_desc": "設定と管理操作を保護します",
     "username": "管理者ユーザー名",
@@ -540,11 +544,12 @@
     "avatar_remove": "画像を削除",
     "avatar_saving": "保存中…",
     "avatar_too_large": "ファイルが8 MBを超えています。小さい画像を選んでください。",
-    "avatar_failed": "このファイルは画像として使えません。JPEGかPNGを試してください。"
+    "avatar_failed": "このファイルは画像として使えません。JPEGかPNGを試してください。",
+    "off_status": "サインインがオフのため、このアドレスを開ける人は誰でも、すべてを見てすべての設定を変更できます。"
   },
   "public_access": {
     "title": "公開アクセス",
-    "desc": "ログイン不要の読み取り専用アクセス。",
+    "desc": "訪問者はサインインせずに検出を見られます。設定を変えることはできません。",
     "enable": "公開アクセスを有効化",
     "enable_desc": "ゲストが検出を閲覧できます",
     "show_camera_names": "カメラ名を表示",
@@ -574,7 +579,8 @@
     "location_approximate": "おおよそ",
     "location_approximate_sub": "約 10 km。安全な既定値。",
     "location_exact": "正確",
-    "location_exact_sub": "設定した座標をそのまま使用。"
+    "location_exact_sub": "設定した座標をそのまま使用。",
+    "needs_auth": "ゲストアクセスはサインインがオンのときだけ意味があります。それまでは全員がすでにフルアクセスです。先にサインインをオンにしてください。"
   },
   "accessibility": {
     "title": "アクセシビリティオプション",
@@ -585,7 +591,8 @@
     "reduced_motion": "動きを減らす",
     "reduced_motion_desc": "アニメーションと切り替え効果を止めます。端末の「視差効果を減らす」設定も常に反映されます。",
     "live_announcements": "ライブアナウンス",
-    "live_announcements_desc": "新しい検出をスクリーンリーダーで通知します。"
+    "live_announcements_desc": "新しい検出をスクリーンリーダーで通知します。",
+    "scope": "保存すると、ゲストを含めこのインストールを使う全員に適用されます。それまではここでプレビューとして表示されます。"
   },
   "frigate": {
     "title": "Frigate NVR",
@@ -650,14 +657,15 @@
     "test_subtitle": "Frigate API が応答し、MQTT ブローカーが送信を受け付けることを確認します。",
     "test_title": "Frigate と MQTT の接続テスト",
     "recording_frame_delay": "初回識別の待機時間（秒）",
-    "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。"
+    "recording_frame_delay_desc": "最初のスナップショットから1～120秒待ち、その間に受信した最新の追跡画像メタデータを使います。識別と通知が遅くなります。すべてのイベント終了を待つ設定ではなく、保存済みの検出を再識別するものでもありません。",
+    "test_connection_both": "Frigate と MQTT をテスト",
+    "test_again": "もう一度テスト"
   },
   "cameras": {
     "title": "監視するカメラ",
     "none_found": "カメラが見つかりません",
     "syncing": "スキャン中…",
     "preview_close": "プレビューを閉じる",
-    "preview": "{camera} をプレビュー",
     "preview_failed": "プレビューに失敗しました",
     "preview_label": "{camera} のカメラプレビュー",
     "preview_live": "ライブ",
@@ -667,10 +675,10 @@
     "nest_dedupe_label": "巣箱の重複排除ウィンドウ",
     "nest_dedupe_unit": "分",
     "role_feeder": "給餌台",
-    "role_feeder_help": "給餌台カメラ: Frigate のイベントごとに新しい訪問として扱われます (既定)。",
+    "role_feeder_help": "餌台: Frigate のイベントごとに 1 回の訪問です。",
     "role_label": "役割",
     "role_nest": "巣箱",
-    "role_nest_help": "巣箱カメラ: 同じ種の繰り返し検出を重複排除ウィンドウごとに 1 回にまとめ、巣にとどまる鳥でフィードがあふれないようにします。",
+    "role_nest_help": "巣箱: 映ったままの鳥は、イベントごとではなく下の時間枠ごとに 1 回数えます。抱卵中の親鳥でフィードが埋まりません。",
     "preview_needs_url": "カメラをプレビューするには、上で Frigate の URL を入力してください。",
     "watch_desc": "鳥を監視する Frigate カメラを選びます。",
     "watch_desc_garden": "各 Frigate カメラで監視する対象を選びます: 鳥、庭の動物、または両方。",
@@ -691,10 +699,14 @@
     "mode_both": "両方",
     "role_group": "{camera}: 鳥の役割",
     "blocked_last_bird_camera": "少なくとも 1 台のカメラで鳥を監視する必要があるため、このカメラでは鳥の監視をオンのままにします。",
-    "blocked_camera_list_unread": "すべてのカメラで鳥を監視しています。1 台のカメラで鳥の監視をオフにする前に、Frigate からカメラを同期してください。"
+    "blocked_camera_list_unread": "すべてのカメラで鳥を監視しています。1 台のカメラで鳥の監視をオフにする前に、Frigate からカメラを同期してください。",
+    "sync_help": "一覧は Frigate から取得します。Frigate にカメラを追加したら、もう一度同期してください。",
+    "preview_show": "プレビュー",
+    "preview_hide": "プレビューを隠す"
   },
   "telemetry": {
     "title": "テレメトリ",
+    "usage_title": "匿名の利用統計",
     "desc": "YA-WAMF の改善に役立てるための、任意の匿名利用テレメトリです。既定では無効です。",
     "transparency": "透明性: 送信する内容",
     "install_id": "インストール ID",
@@ -735,7 +747,7 @@
   },
   "email": {
     "title": "メール通知",
-    "desc": "鳥の検出のメールアラートを送信",
+    "desc": "各通知をメールで送信します。Gmail、Outlook、または独自のメールサーバーを使えます。",
     "enable": "メール通知を有効にする",
     "auth_mode": "認証モード",
     "oauth": "OAuth（推奨）",
@@ -823,7 +835,7 @@
     "video_fallback_timeout_desc": "任意の追加待機時間です。YA-WAMF は動画パイプラインから自動計算された最小時間より短く待つことはありません。",
     "video_fallback_seconds": "秒",
     "cooldown": "通知クールダウン",
-    "cooldown_desc": "通知間隔の最小時間（分、0で無効）。",
+    "cooldown_desc": "通知を送ったあと、次を送るまでこの時間待ちます。",
     "cooldown_unit": "分",
     "enable_notify_hint": "通知は現在オフです。アラートを送るには「新しい検出で通知」または「更新で通知」を有効にしてください。",
     "min_confidence_label": "通知の最小信頼度: {value}%",
@@ -922,6 +934,7 @@
   },
   "discord": {
     "title": "Discord通知",
+    "desc": "各通知を Webhook 経由で Discord チャンネルに投稿します。",
     "webhook_url": "Webhook URL",
     "webhook_placeholder": "https://discord.com/api/webhooks/...",
     "bot_username": "ボット名",
@@ -932,6 +945,7 @@
   },
   "pushover": {
     "title": "Pushover通知",
+    "desc": "各通知を Pushover アプリ経由でスマートフォンに送信します。",
     "user_key": "ユーザーキー",
     "user_key_placeholder": "Pushoverユーザーキー",
     "api_token": "APIトークン",
@@ -952,6 +966,7 @@
   },
   "telegram": {
     "title": "Telegram通知",
+    "desc": "各通知をボット経由で Telegram チャットに送信します。",
     "bot_token": "ボットトークン",
     "bot_token_placeholder": "123456:ABC-DEF...",
     "chat_id": "チャットID",
@@ -1018,7 +1033,7 @@
     "min_confidence_floor": "最小信頼度下限",
     "floor_capture_all": "すべて記録",
     "floor_reject_unsure": "不確かなものを除外",
-    "floor_help": "この下限未満のイベントは完全に無視されます。下限以上しきい値未満のイベントは「Unknown Bird」として保存されます。",
+    "floor_help": "このスコア未満の写真は保存されません。2 つの間なら、訪問は「不明な鳥」として残り、あとで名前を付けられます。",
     "trust_frigate": "Frigate のサブラベルを信頼",
     "trust_frigate_desc": "Frigate が種を識別した場合は内部分類をスキップ",
     "write_frigate_sublabel": "ラベルを Frigate に書き戻す",
@@ -1055,9 +1070,9 @@
     "provider_saved_unavailable": "{provider} が保存されていますが、このイメージ、このホスト、またはアクティブなモデルでは利用できません。利用可能なプロバイダーまたは自動を選択してください。",
     "provider_intel_cpu": "Intel CPU (OpenVINO)",
     "provider_cpu": "CPU (ONNX Runtime)",
-    "inference_provider_desc": "このイメージに含まれ、このホストで検出され、アクティブなモデルでサポートされるプロバイダーのみを表示します。",
+    "inference_provider_desc": "このイメージに含まれ、このホストにあり、使用中のモデルが対応するデバイスだけを表示します。",
     "gpu_setup_docs": "GPU 設定と診断ガイド",
-    "inference_provider": "推論プロバイダー",
+    "inference_provider": "デバイス",
     "auto_detected": "自動検出",
     "active_provider_label": "使用中",
     "intel_gpu_status": "Intel GPU",
@@ -1066,18 +1081,18 @@
     "provider_intel_gpu": "Intel GPU (OpenVINO)",
     "selected_provider_label": "選択",
     "openvino_status": "OpenVINO",
-    "execution_mode": "実行モード",
+    "execution_mode": "分離",
     "execution_mode_desc": "既定の分離ワーカーは、分類が停止してもアプリを巻き込まず安全に再起動します。各ワーカーはモデルのコピーを保持します。インプロセスはアプリ内で1コピーを共有し、メモリは少なく、分離も弱くなります。",
     "execution_mode_worker_plan": "このインストールでの解決結果: ライブ {live}、バックグラウンド {background} のワーカープロセスが動作し、それぞれがモデルのコピーを保持します。",
     "execution_mode_worker_ram": "アクティブなモデルはコピーあたり約 {each} MB、ワーカー全体で約 {total} MB と推定されます。",
-    "mode_subprocess": "Subprocess（隔離）",
-    "mode_in_process": "In-Process（共有 RAM）",
+    "mode_subprocess": "別のワーカープロセス（推奨）",
+    "mode_in_process": "アプリ内（メモリ少なめ）",
     "model_lineup_eyebrow": "階層型モデル構成",
     "model_lineup_title": "まずは推奨構成から開始",
     "model_lineup_description": "推奨モデルが先に表示され、最も幅広いハードウェアとフィーダー環境に適しています。",
     "model_lineup_advanced_note": "高度なモデルは通常より多くのRAMを必要とし、遅く、より広い野生動物分類を扱うため、多くの環境では不要なので既定で非表示です。",
-    "personalized_rerank": "個別最適化ランキング",
-    "personalized_rerank_desc": "手動タグを使ってカメラごと・モデルごとに順位付けを調整します。無効にするとベースモデルのスコアのみを使用します。",
+    "personalized_rerank": "自分の訂正から学ぶ",
+    "personalized_rerank_desc": "訂正した種を使って、カメラとモデルごとにスコアを調整します。オフではモデル本来のスコアを使います。",
     "video_max_concurrent": "動画同時実行数",
     "video_max_concurrent_label": "動画ジョブの同時実行上限",
     "video_concurrency_best_practice_in_process": "In-Process モードでは 1 つのバックエンドランタイムを共有します。モデルランタイムが重複実行でも安定すると確認できていない限り、動画同時実行数は 1 のままにするのが推奨です。",
@@ -1178,12 +1193,12 @@
     "openvino_compile_failure_detail": "このモデルは現在選択されている OpenVINO デバイスではコンパイルできません。YA-WAMF はモデルをインストールしたまま保持しますが、推論は {fallback} で実行します。",
     "openvino_diagnostics": "OpenVINO 診断",
     "region_override_title": "鳥モデルの地域",
-    "region_override_desc": "自動では設定された国を使用します。手動選択が常に優先されます。",
+    "region_override_desc": "地域版があるモデルもあります。自動では場所の国に従います。上書きするには地域を選んでください。",
     "region_override_auto": "自動",
     "region_override_eu": "ヨーロッパ",
     "region_override_na": "北米",
-    "blocked_species_legacy": "レガシー生ラベル",
-    "blocked_species_picker_desc": "一般名・学名・分類ベースの一致全体で確実にブロックするため、種を検索します。レガシーの生ラベルは削除するまで引き続き適用されます。",
+    "blocked_species_legacy": "古いラベル",
+    "blocked_species_picker_desc": "ブロックした種は訪問として保存されません。一般名か学名で検索します。科や属をブロックすると、その中のすべての種がブロックされます。別に表示される古いラベルは、削除するまで有効です。",
     "blocked_species_placeholder": "ブロックする種を検索",
     "blocked_species_structured": "ブロック済みの種",
     "model_manager_threshold_hint": "このモデルの推奨信頼度しきい値:",
@@ -1256,8 +1271,8 @@
     "band_native_restart": "停止した実行環境を解放するには、コンテナを再起動してください。",
     "band_worker_fallback": "ワーカーが失敗: メインプロセスで分類中",
     "band_worker_fallback_detail": "分離ワーカーがモデル読み込み中に停止し続けています。検出はメインプロセスで継続しています。",
-    "compat_all_hint": "インストール済みのモデルだけでなく、レジストリのすべてのモデルをダウンロードしてテストします（時間がかかります）。",
-    "compat_all_models": "すべてのモデルをテスト",
+    "compat_all_hint": "先にそれぞれをダウンロードするため、チェックにかなり時間がかかります。",
+    "compat_all_models": "インストールされていないモデルもテストする",
     "compat_card_title": "デバイス互換性",
     "compat_model": "モデル",
     "compat_note_baseline": "CPU ベースライン",
@@ -1336,7 +1351,8 @@
     "band_model_missing": "まだインストールされていません。下でダウンロードしてください。",
     "model_manager_in_use": "使用中",
     "model_manager_show_catalogue": "別のモデルを選ぶ",
-    "model_manager_hide_catalogue": "ほかのモデルを隠す"
+    "model_manager_hide_catalogue": "ほかのモデルを隠す",
+    "threshold_help": "このスコア以上なら、訪問は種名で保存されます。"
   },
   "llm": {
     "title": "AI インサイト",
@@ -1438,8 +1454,8 @@
     "garden_animals_desc": "選んだカメラから、猫やキツネなど鳥以外の訪問者を集めて確認できるようにします。",
     "garden_motion_toggle": "{camera} で確認用の動体写真を収集",
     "garden_naming_off": "すべての動物は、確定して名前を付けるまで「要確認」で待機します。",
-    "garden_naming_threshold_help": "70% から 99% まで。値を上げると自動で名前を付ける動物が減り、信頼度の低い写真の除外が増えます。人物の確認は変わりません。",
-    "garden_naming_threshold": "名前付けのしきい値",
+    "garden_naming_threshold_help": "この値以上なら、動物は確認され名前が付けられます。下回ると写真は「除外」に移り、そこから戻せます。",
+    "garden_naming_threshold": "動物に名前を付けるまでの確かさ",
     "garden_naming": "動物に自動で名前を付ける",
     "garden_requirements": "動物を追跡するか、動きの録画を保持する Frigate カメラが必要です。庭のモデルは依頼したときだけダウンロードされます。自動チェック用に 224 MB、任意で 224 MB と 101 MB のモデルがあります。鳥のモデルは変わりません。",
     "garden_models_help": "庭は鳥のモデルとは別の専用モデルを使います。ダウンロードは検証済みファイルを追加するだけで、設定の保存やチェックの開始は行いません。",
@@ -1492,7 +1508,6 @@
     "garden_domestic_birds_none": "まだありません。ニワトリなど飼っている鳥は野鳥として扱われます。",
     "garden_domestic_birds_add": "家禽を追加",
     "garden_domestic_birds_choose": "鳥を選択",
-    "intro": "まだテスト中の機能です。どれもオンにするまではオフで、変更や削除の可能性があります。機能をオフにしても、すでに記録した内容は残ります。ここのスイッチは変更を保存すると有効になります。",
     "learn_more": "詳しく見る",
     "status_off": "オフ",
     "status_off_after_apply": "保存後にオフ",
@@ -1662,7 +1677,8 @@
   "leave": {
     "title": "保存せずに移動しますか?",
     "message": "{tabs} の {count, plural, other {# 件の変更}} が失われます。",
-    "confirm": "保存せずに移動"
+    "confirm": "保存せずに移動",
+    "save_and_leave": "保存して移動"
   },
   "field_errors": {
     "frigate_url": "アドレスは http:// または https:// で始めてください (例: http://frigate:5000)。",
@@ -1701,5 +1717,11 @@
     "testing_desc": "確認済みの写真で、インストール済みのモデルを比較します。",
     "testing_action": "モデル評価は、インストール済みの各モデルをそれらの写真で実行し、正解率と所要時間を表示します。",
     "testing_open": "モデル評価を開く"
-  }
+  },
+  "save_rule": "設定の変更は「変更を保存」を選ぶまで反映されません。テスト、実行、ダウンロードなどのボタンはすぐに動作します。",
+  "appearance": {
+    "typography_title": "フォントと色",
+    "scope": "テーマ、文字サイズ、言語はこの端末ですぐに変わります。それ以外は保存すると、このインストールを使う全員に適用されます。"
+  },
+  "theme_scope": "この端末だけで、すぐに変わります。"
 }

@@ -139,22 +139,10 @@
 {/snippet}
 
 <div class="space-y-6">
-    {#snippet retentionIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l3 1.5" /></svg>
-    {/snippet}
-    {#snippet cacheIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7c0-1.7 3.6-3 8-3s8 1.3 8 3-3.6 3-8 3-8-1.3-8-3Z" /><path d="M4 7v10c0 1.7 3.6 3 8 3s8-1.3 8-3V7" /><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></svg>
-    {/snippet}
 
-    {#snippet missingIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 5 18 14" /></svg>
-    {/snippet}
-    {#snippet backupIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>
-    {/snippet}
 
-    <div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start">
-        <SettingsCard accent iconSnippet={retentionIcon} title={$_('settings.data.retention_title')}>
+    <div class="space-y-8">
+        <SettingsCard title={$_('settings.data.retention_title')}>
             {#if maintenanceStats}
                 <p class="text-sm text-slate-700 dark:text-slate-200" data-history-summary>
                     {maintenanceStats.oldest_detection
@@ -198,24 +186,25 @@
                 {/if}
             </SettingsRow>
 
-            <button
-                type="button"
-                onclick={handleCleanup}
-                disabled={cleaningUp || purgeDisabledReason !== null}
-                aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}
-                class="w-full {buttonDangerOutlineClass}"
-            >
-                {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
-            </button>
-            {#if purgeDisabledReason}
-                <p id="purge-disabled-reason" class="text-xs text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
-            {/if}
+            <div class="space-y-2">
+                <button
+                    type="button"
+                    onclick={handleCleanup}
+                    disabled={cleaningUp || purgeDisabledReason !== null}
+                    aria-describedby={purgeDisabledReason ? 'purge-disabled-reason' : undefined}
+                    class="w-full sm:w-auto {buttonDangerOutlineClass}"
+                >
+                    {cleaningUp ? $_('settings.data.cleaning') : $_('settings.data.purge_button')}
+                </button>
+                {#if purgeDisabledReason}
+                    <p id="purge-disabled-reason" class="text-xs text-slate-600 dark:text-slate-300">{purgeDisabledReason}</p>
+                {/if}
+            </div>
             <p class="text-xs text-slate-600 dark:text-slate-400">{$_('settings.data.auto_cleanup_note')}</p>
         </SettingsCard>
 
         <SettingsCard
             id="data-missing-media"
-            iconSnippet={missingIcon}
             title={$_('settings.data.missing_media_title', { default: 'When Frigate loses a visit' })}
             description={$_('settings.data.missing_media_desc', { default: 'Frigate deletes old events on its own schedule. This decides what YA-WAMF keeps when one is gone.' })}
         >
@@ -238,17 +227,19 @@
                 />
             </SettingsRow>
 
-            <button
-                type="button"
-                onclick={handlePurgeMissingMedia}
-                disabled={purgingMissingMedia}
-                aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-                class={frigateMissingBehavior === 'delete' ? buttonDangerOutlineClass : buttonNeutralClass}
-            >
-                {purgingMissingMedia
-                    ? $_('settings.data.cleaning', { default: 'Cleaning...' })
-                    : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
-            </button>
+            <div>
+                <button
+                    type="button"
+                    onclick={handlePurgeMissingMedia}
+                    disabled={purgingMissingMedia}
+                    aria-label={$_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
+                    class={frigateMissingBehavior === 'delete' ? buttonDangerOutlineClass : buttonNeutralClass}
+                >
+                    {purgingMissingMedia
+                        ? $_('settings.data.cleaning', { default: 'Cleaning...' })
+                        : $_('settings.data.purge_missing_media', { default: 'Run media integrity scan now' })}
+                </button>
+            </div>
 
             <SettingsRow
                 labelId="setting-auto-media-integrity"
@@ -265,12 +256,12 @@
         </SettingsCard>
     </div>
 
-    <SettingsCard accent iconSnippet={cacheIcon} title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
+    <SettingsCard title={$_('settings.data.cache_title', { default: 'Photos and video' })}>
         <p class="text-sm text-slate-600 dark:text-slate-300" data-media-always-kept>
             {$_('settings.data.cache_always_kept', { default: 'Photos, full-visit clips and previews are kept until one of the limits below removes them.' })}
         </p>
         {#if cacheStats && cacheStats.storage_available === false}
-            <p class="rounded-2xl border border-attention-200 bg-attention-50 p-4 text-sm text-attention-800 dark:border-attention-800 dark:bg-attention-950/30 dark:text-attention-200" role="status" data-media-storage-unavailable>
+            <p class="text-sm text-attention-800 dark:text-attention-200" role="status" data-media-storage-unavailable>
                 {$_('settings.data.cache_unavailable', { default: "The media folder can't be written, so photos and video are not being kept. Check the folder's permissions; system checks show the error." })}
             </p>
         {/if}
@@ -353,7 +344,7 @@
                 step="1"
                 bind:value={cachePerSpeciesMinimum}
                 aria-labelledby="setting-cache-species-floor"
-                class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                class="input-base w-24 py-2 text-right font-semibold"
             />
         </SettingsRow>
 
@@ -377,15 +368,17 @@
                 class="input-base w-24 py-2 text-right font-semibold" />
         </SettingsRow>
 
-        <button
-            type="button"
-            onclick={handleCacheCleanup}
-            disabled={cleaningCache}
-            aria-label={$_('settings.data.cache_clear_button')}
-            class="w-full {buttonNeutralClass}"
-        >
-            {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
-        </button>
+        <div>
+            <button
+                type="button"
+                onclick={handleCacheCleanup}
+                disabled={cleaningCache}
+                aria-label={$_('settings.data.cache_clear_button')}
+                class="w-full sm:w-auto {buttonNeutralClass}"
+            >
+                {cleaningCache ? $_('settings.data.cleaning') : $_('settings.data.cache_clear_button')}
+            </button>
+        </div>
 
         <AdvancedSection
             id="data-cache-advanced"
@@ -431,7 +424,7 @@
                 />
             </SettingsRow>
             {#if cacheHighQualityEventSnapshots}
-                <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                <div class="flex items-start gap-3">
                     <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-600 dark:text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         {#if cropDetectorReady}
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -470,73 +463,64 @@
     </SettingsCard>
 
     <SettingsCard
-        iconSnippet={backupIcon}
         title={$_('settings.data.config_backup_title', { default: 'Configuration backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
     >
-        <div class="rounded-2xl border border-attention-200 dark:border-attention-700/60 bg-attention-50 dark:bg-attention-950/20 px-4 py-3 flex items-start gap-3">
-            <svg class="w-4 h-4 text-attention-600 dark:text-attention-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <p class="text-xs font-bold leading-relaxed text-attention-800 dark:text-attention-200">
-                {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
+        <div class="space-y-4">
+            <p class="max-w-prose text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {$_('settings.data.config_backup_secret_warning', { default: 'Backup files include tokens, webhooks, passwords, and auth secrets. Treat them like credentials.' })}
             </p>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button
-                type="button"
-                onclick={handleExportConfigBackup}
-                disabled={exportingConfigBackup || importingConfigBackup}
-                aria-label={$_('settings.data.config_backup_export', { default: 'Export config JSON' })}
-                class="w-full {buttonNeutralClass}"
-            >
-                {#if exportingConfigBackup}
-                    {@render spinner()}
-                {:else}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                {/if}
-                {exportingConfigBackup
-                    ? $_('settings.data.config_backup_exporting', { default: 'Exporting...' })
-                    : $_('settings.data.config_backup_export', { default: 'Export Config' })}
-            </button>
+            <div class="flex flex-wrap gap-3">
+                <button
+                    type="button"
+                    onclick={handleExportConfigBackup}
+                    disabled={exportingConfigBackup || importingConfigBackup}
+                    aria-label={$_('settings.data.config_backup_export', { default: 'Export config JSON' })}
+                    class="w-full sm:w-auto {buttonNeutralClass}"
+                >
+                    {#if exportingConfigBackup}
+                        {@render spinner()}
+                    {:else}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                    {/if}
+                    {exportingConfigBackup
+                        ? $_('settings.data.config_backup_exporting', { default: 'Exporting...' })
+                        : $_('settings.data.config_backup_export', { default: 'Export Config' })}
+                </button>
 
-            <button
-                type="button"
-                onclick={openConfigImportPicker}
-                disabled={exportingConfigBackup || importingConfigBackup}
-                aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
-                class="w-full {buttonDangerOutlineClass}"
-            >
-                {#if importingConfigBackup}
-                    {@render spinner()}
-                {:else}
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
-                    </svg>
-                {/if}
-                {importingConfigBackup
-                    ? $_('settings.data.config_backup_importing', { default: 'Importing...' })
-                    : $_('settings.data.config_backup_import', { default: 'Import Config' })}
-            </button>
-        </div>
+                <button
+                    type="button"
+                    onclick={openConfigImportPicker}
+                    disabled={exportingConfigBackup || importingConfigBackup}
+                    aria-label={$_('settings.data.config_backup_import', { default: 'Import config JSON' })}
+                    class="w-full sm:w-auto {buttonDangerOutlineClass}"
+                >
+                    {#if importingConfigBackup}
+                        {@render spinner()}
+                    {:else}
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l4-4m0 0l4 4m-4-4v12" />
+                        </svg>
+                    {/if}
+                    {importingConfigBackup
+                        ? $_('settings.data.config_backup_importing', { default: 'Importing...' })
+                        : $_('settings.data.config_backup_import', { default: 'Import Config' })}
+                </button>
+            </div>
 
-        <input
-            bind:this={configImportInput}
-            type="file"
-            accept="application/json,.json"
-            class="sr-only"
-            onchange={handleConfigImportChange}
-            aria-label={$_('settings.data.config_backup_import_file', { default: 'Select YA-WAMF config backup JSON' })}
-        />
+            <input
+                bind:this={configImportInput}
+                type="file"
+                accept="application/json,.json"
+                class="sr-only"
+                onchange={handleConfigImportChange}
+                aria-label={$_('settings.data.config_backup_import_file', { default: 'Select YA-WAMF config backup JSON' })}
+            />
 
-        <div class="border-t border-line-soft pt-4 flex items-start gap-3">
-            <svg class="w-4 h-4 text-slate-600 dark:text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+            <p class="max-w-prose text-sm text-slate-600 dark:text-slate-400">
                 {$_('settings.data.config_backup_restore_note', { default: 'After importing on a fresh install, run a detection backfill to rebuild the event history from Frigate.' })}
             </p>
         </div>

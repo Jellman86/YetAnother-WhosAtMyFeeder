@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from './garden-threshold';
+import { gardenThresholdPercentStep, thresholdPercentText } from './garden-threshold';
 
 describe('Garden threshold number-control precision, in percent', () => {
     it.each([0.5, 0.63, 0.95])('steps one percentage point for %s', value => {
@@ -26,13 +26,5 @@ describe('showing a 0 to 1 threshold as a percentage', () => {
 
     it('shows nothing for a value that is not a number, so a half-typed entry is not overwritten', () => {
         expect(thresholdPercentText(Number.NaN)).toBe('');
-    });
-
-    it.each([['64', 0.64], ['62.6', 0.626], ['63.85722', 0.6385722], ['95', 0.95], ['70', 0.7]])('saves %s%% as exactly %s', (text, value) => {
-        expect(percentToThreshold(text)).toBe(value);
-    });
-
-    it.each(['', '  ', 'abc'])('treats %j as no value, which the save check reports', text => {
-        expect(percentToThreshold(text)).toBeNaN();
     });
 });

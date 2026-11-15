@@ -15,7 +15,7 @@ By default, authentication is **disabled** to allow easy first-time setup. To en
 
 1.  Navigate to **Settings → Security**.
 2.  Set a strong password.
-3.  Enable **Authentication**.
+3.  Turn on **Sign-in** (the switch in the card's header).
 4.  (Optional) Enable **Public Access** if you want to share your dashboard.
 
 On a fresh installation, YA-WAMF opens the guided setup automatically because

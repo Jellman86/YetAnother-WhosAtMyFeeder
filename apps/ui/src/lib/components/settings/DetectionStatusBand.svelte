@@ -60,7 +60,7 @@
      is four calm facts, and only trouble grows words. -->
 <div
     role="status"
-    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-line-soft bg-surface-raised p-4 lg:grid-cols-4"
+    class="relative grid grid-cols-2 gap-4 lg:grid-cols-4"
 >
     <button
         type="button"

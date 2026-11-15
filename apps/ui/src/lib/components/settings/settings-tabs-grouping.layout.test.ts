@@ -19,14 +19,15 @@ describe('Settings navigation', () => {
         expect(settingsTabsSource).toContain('href={settingsHref(tab.id)}');
         expect(settingsTabsSource).toContain('toAppPath(`/settings/${tab}`)');
         expect(settingsTabsSource).toContain('event.metaKey');
-        expect(settingsTabsSource).toContain('focus-ring');
-        // The current section also carries a bar and heavier type, not only a tint.
-        expect(settingsTabsSource).toContain('border-brand-600 bg-brand-50 font-semibold');
+        // The kit's sidebar-nav carries the focus ring and the 44 px target.
+        expect(settingsTabsSource).toContain('class="sidebar-nav ');
+        // The current section is the sidebar's recessed key with heavier type, never a bar on one edge.
+        expect(settingsTabsSource).toContain("current ? 'sidebar-nav-active' : 'sidebar-nav-inactive'");
     });
 
     it('is a compact rail beside the settings when there is room for it in rem, with a skip link to them', () => {
         // Measured on the page as a container in rem, so doubled text gets the stacked layout.
-        expect(settingsPageSource).toContain('<div class="@container space-y-6">');
+        expect(settingsPageSource).toContain('<div class="settings-ui @container space-y-6">');
         expect(settingsTabsSource).toContain('data-settings-navigation class="hidden @4xl:block"');
         expect(settingsTabsSource).toContain('data-settings-skip-link');
         expect(settingsPageSource).toContain('@4xl:flex @4xl:items-start');

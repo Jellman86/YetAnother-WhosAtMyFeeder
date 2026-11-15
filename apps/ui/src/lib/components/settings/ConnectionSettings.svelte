@@ -305,13 +305,7 @@
     });
 </script>
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    {#snippet frigateIcon()}
-        <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-6 h-6 object-contain" />
-    {/snippet}
-    {#snippet camerasIcon()}
-        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3" /></svg>
-    {/snippet}
+<div class="space-y-8">
 
     {#snippet cameraPreview(camera: string)}
         <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-lg shadow-slate-900/10 dark:border-slate-700/60 dark:bg-slate-900/95 dark:shadow-black/30">
@@ -351,7 +345,7 @@
         </div>
     {/snippet}
 
-    <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
+    <SettingsCard title={$_('settings.frigate.title')}>
         <SettingsRow
             labelId="setting-frigate-url"
             label={$_('settings.frigate.url')}
@@ -402,105 +396,9 @@
             />
         </SettingsRow>
 
-        <div class="grid grid-cols-2 gap-3">
-            <button
-                type="button"
-                onclick={runConnectionDiagnostic}
-                disabled={fcRunning}
-                aria-label={$_('settings.frigate.test_connection')}
-                class="btn btn-primary min-h-11 px-4 py-3"
-            >
-                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection')}
-            </button>
-            <button
-                type="button"
-                onclick={loadCameras}
-                disabled={camerasLoading}
-                aria-label={$_('settings.frigate.sync_cameras')}
-                class="btn btn-secondary min-h-11 px-4 py-3"
-            >
-                {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
-            </button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-            <SettingsRow
-                labelId="setting-mqtt-broker"
-                label={$_('settings.frigate.mqtt_broker')}
-                description={$_('settings.connection.mqtt_title')}
-                layout="stacked"
-            >
-                <SettingsInput
-                    id="mqtt-server"
-                    field="mqtt_server"
-                    type="text"
-                    value={mqttServer}
-                    placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
-                    ariaLabel={$_('settings.frigate.mqtt_broker')}
-                    oninput={(v) => (mqttServer = v)}
-                />
-            </SettingsRow>
-            <SettingsRow
-                labelId="setting-mqtt-port"
-                label={$_('settings.frigate.mqtt_port')}
-                layout="stacked"
-            >
-                <SettingsInput
-                    id="mqtt-port"
-                    field="mqtt_port"
-                    type="number"
-                    value={mqttPort}
-                    ariaLabel={$_('settings.frigate.mqtt_port')}
-                    oninput={(v) => (mqttPort = Number(v) || 0)}
-                />
-            </SettingsRow>
-        </div>
-
-        <SettingsRow
-            labelId="setting-mqtt-auth"
-            label={$_('settings.frigate.mqtt_auth')}
-        >
-            <SettingsToggle
-                checked={mqttAuth}
-                labelledBy="setting-mqtt-auth"
-                srLabel={$_('settings.frigate.mqtt_auth')}
-                onchange={(v) => (mqttAuth = v)}
-            />
-        </SettingsRow>
-
-        {#if mqttAuth}
-            <div class="space-y-4">
-                <SettingsRow
-                    labelId="setting-mqtt-username"
-                    label={$_('settings.frigate.mqtt_user')}
-                    layout="stacked"
-                >
-                    <SettingsInput
-                        id="mqtt-username"
-                        field="mqtt_username"
-                        type="text"
-                        value={mqttUsername}
-                        ariaLabel={$_('settings.frigate.mqtt_user')}
-                        oninput={(v) => (mqttUsername = v)}
-                    />
-                </SettingsRow>
-                <SettingsRow
-                    labelId="setting-mqtt-password"
-                    label={$_('settings.frigate.mqtt_pass')}
-                    layout="stacked"
-                >
-                    <SecretInput
-                        id="mqtt-password"
-                        value={mqttPassword}
-                        saved={mqttPasswordSaved}
-                        ariaLabel={$_('settings.frigate.mqtt_pass')}
-                        oninput={(v) => (mqttPassword = v)}
-                    />
-                </SettingsRow>
-            </div>
-        {/if}
 
         <ClassificationImageSourceSetting bind:value={classificationImageSource} bind:delay={recordingFrameDelaySeconds} />
+
 
         <SettingsRow
             labelId="setting-clips-enabled"
@@ -640,8 +538,102 @@
     </SettingsCard>
 
     <SettingsCard
-        accent
-        iconSnippet={camerasIcon}
+        title={$_('settings.connection.mqtt_section', { default: 'MQTT broker' })}
+    >
+        <!-- Address and port are one setting: its name and help left, both fields right, side by side
+             with matching labels, on the section's one control edge. -->
+        <div class="settings-row space-y-3 md:grid md:settings-row-columns md:items-start md:gap-x-8 md:space-y-0" data-settings-row data-mqtt-address>
+            <div id="setting-mqtt-broker" class="min-w-0">
+                <span class="block text-base font-medium text-slate-900 dark:text-white">{$_('settings.connection.mqtt_where', { default: 'Address and port' })}</span>
+                <span id="setting-mqtt-broker-desc" class="mt-1 block max-w-prose text-sm leading-snug text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_title')}</span>
+            </div>
+            <div class="flex min-w-0 gap-3">
+                <label class="block min-w-0 flex-1 space-y-1.5">
+                    <span class="block text-sm text-slate-600 dark:text-slate-400">{$_('settings.connection.mqtt_host', { default: 'Address' })}</span>
+                    <SettingsInput
+                        id="mqtt-server"
+                        field="mqtt_server"
+                        type="text"
+                        value={mqttServer}
+                        placeholder={$_('settings.frigate.mqtt_broker_placeholder')}
+                        ariaLabel={`${$_('settings.frigate.mqtt_broker')}: ${$_('settings.connection.mqtt_host', { default: 'Address' })}`}
+                        describedBy="setting-mqtt-broker-desc"
+                        oninput={(v) => (mqttServer = v)}
+                    />
+                </label>
+                <label class="block w-24 shrink-0 space-y-1.5">
+                    <span class="block text-sm text-slate-600 dark:text-slate-400">{$_('settings.frigate.mqtt_port')}</span>
+                    <SettingsInput
+                        id="mqtt-port"
+                        field="mqtt_port"
+                        type="number"
+                        value={mqttPort}
+                        ariaLabel={$_('settings.frigate.mqtt_port')}
+                        oninput={(v) => (mqttPort = Number(v) || 0)}
+                    />
+                </label>
+            </div>
+        </div>
+
+        <SettingsRow
+            labelId="setting-mqtt-auth"
+            label={$_('settings.frigate.mqtt_auth')}
+        >
+            <SettingsToggle
+                checked={mqttAuth}
+                labelledBy="setting-mqtt-auth"
+                srLabel={$_('settings.frigate.mqtt_auth')}
+                onchange={(v) => (mqttAuth = v)}
+            />
+        </SettingsRow>
+
+        {#if mqttAuth}
+            <div class="settings-stack">
+                <SettingsRow
+                    labelId="setting-mqtt-username"
+                    label={$_('settings.frigate.mqtt_user')}
+                    layout="stacked"
+                >
+                    <SettingsInput
+                        id="mqtt-username"
+                        field="mqtt_username"
+                        type="text"
+                        value={mqttUsername}
+                        ariaLabel={$_('settings.frigate.mqtt_user')}
+                        oninput={(v) => (mqttUsername = v)}
+                    />
+                </SettingsRow>
+                <SettingsRow
+                    labelId="setting-mqtt-password"
+                    label={$_('settings.frigate.mqtt_pass')}
+                    layout="stacked"
+                >
+                    <SecretInput
+                        id="mqtt-password"
+                        value={mqttPassword}
+                        saved={mqttPasswordSaved}
+                        ariaLabel={$_('settings.frigate.mqtt_pass')}
+                        oninput={(v) => (mqttPassword = v)}
+                    />
+                </SettingsRow>
+            </div>
+        {/if}
+
+        <!-- After both connections, since it tests both: the Frigate API and an MQTT publish. The one
+             primary action on the tab. -->
+        <div>
+            <button
+                type="button"
+                onclick={runConnectionDiagnostic}
+                disabled={fcRunning}
+                class="btn btn-primary min-h-11 px-4 whitespace-normal"
+            >
+                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection_both', { default: 'Test Frigate and MQTT' })}
+            </button>
+        </div>
+    </SettingsCard>
+
+    <SettingsCard
         title={$_('settings.cameras.title', { default: 'Cameras to watch' })}
         description={betaGardenAnimals
             ? $_('settings.cameras.watch_desc_garden', { default: 'Choose what each Frigate camera is watched for: birds, Garden animals or both.' })
@@ -651,17 +643,28 @@
              card header and cut off the nest window below the list. -->
         <div
             id="settings-camera-list"
-            class="focus-ring space-y-3 focus:outline-hidden"
+            class="focus-ring settings-stack focus:outline-hidden"
             role="group"
             aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}
             tabindex="-1"
             data-camera-list
         >
-            <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft p-3" data-bird-scope>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.sync_help', { default: 'The list comes from Frigate. Sync again after adding a camera there.' })}</p>
+                <button
+                    type="button"
+                    onclick={loadCameras}
+                    disabled={camerasLoading}
+                    class="btn btn-secondary min-h-11 max-w-full px-4 whitespace-normal"
+                >
+                    {camerasLoading ? $_('settings.cameras.syncing') : $_('settings.frigate.sync_cameras')}
+                </button>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3" data-bird-scope>
                 {#if watchesEveryCameraForBirds(watchSettings)}
-                    <p class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}</p>
+                    <p class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.every_camera_on', { default: 'Every Frigate camera is watched for birds, including cameras added to Frigate later.' })}</p>
                 {:else}
-                    <p id="camera-bird-scope-chosen" class="min-w-0 flex-1 basis-56 text-xs text-slate-700 dark:text-slate-300">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</p>
+                    <p id="camera-bird-scope-chosen" class="min-w-0 flex-1 basis-56 text-sm text-slate-600 dark:text-slate-400">{$_('settings.cameras.every_camera_off', { default: 'Only the cameras chosen here are watched for birds. A camera added to Frigate later is not watched until you choose it.' })}</p>
                     <button
                         type="button"
                         class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal"
@@ -687,13 +690,13 @@
             {/if}
             {#if watchRows.length === 0}
                 {#if frigateCameras !== null}
-                    <div class="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                    <div>
                         <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.cameras.none_found')}</p>
                         <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.none_found_help', { default: 'Frigate reported no cameras. Check the Frigate URL above, then choose Sync cameras.' })}</p>
                     </div>
                 {/if}
             {:else}
-                <ul class="grid grid-cols-1 gap-2">
+                <ul class="divide-y divide-line-soft" aria-label={$_('settings.cameras.title', { default: 'Cameras to watch' })}>
                     {#each watchRows as row (row.camera)}
                         <CameraWatchRow
                             {row}
@@ -713,7 +716,7 @@
                 </ul>
             {/if}
         {#if Object.values(cameraRoles).includes('nest')}
-                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line-soft bg-surface-raised/60 p-3" data-nest-dedupe>
+                <div class="flex flex-wrap items-center justify-between gap-3" data-nest-dedupe>
                     <div class="min-w-0 flex-1">
                         <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
                         <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
@@ -724,7 +727,7 @@
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="w-20 h-11 px-2 rounded-lg border border-line bg-surface text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-focus outline-hidden text-right"
+                            class="input-base w-24 text-right tabular-nums"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
                         <span class="text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
@@ -744,7 +747,7 @@
         busy={fcRunning}
         result={fcResult}
         runId={fcRunId}
-        retryLabel={$_('settings.frigate.test_connection')}
+        retryLabel={$_('settings.frigate.test_again', { default: 'Test again' })}
         onClose={() => (fcTestOpen = false)}
         onRetry={runConnectionDiagnostic}
     />

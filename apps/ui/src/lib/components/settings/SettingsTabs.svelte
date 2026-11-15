@@ -20,11 +20,13 @@
         ontabchange: (tab: SettingsTab) => void;
         /** Tabs holding unsaved changes; each is marked in the list with a worded dot. */
         unsavedTabs?: readonly SettingsTab[];
+        /** Tabs holding a value the last save refused; each needs a fix before saving again. */
+        refusedTabs?: readonly SettingsTab[];
         /** The id of the element the skip link moves focus to. */
         contentId: string;
     }
 
-    let { activeTab, ontabchange, unsavedTabs = [], contentId }: Props = $props();
+    let { activeTab, ontabchange, unsavedTabs = [], refusedTabs = [], contentId }: Props = $props();
 
     const groups = $derived<SettingsTabGroup[]>([
         {
@@ -66,6 +68,14 @@
     ]);
 
     const unsavedLabel = $derived($_("settings.tabs.unsaved", { default: "unsaved" }));
+    const refusedLabel = $derived($_("settings.tabs.refused", { default: "needs a fix" }));
+
+    // The phone picker is a native list, so each tab's state is said in words after its name.
+    function optionText(tab: SettingsTabItem): string {
+        if (refusedTabs.includes(tab.id)) return `${tab.label} (${refusedLabel})`;
+        if (unsavedTabs.includes(tab.id)) return `${tab.label} (${unsavedLabel})`;
+        return tab.label;
+    }
 
     function settingsHref(tab: SettingsTab): string {
         return toAppPath(`/settings/${tab}`);
@@ -107,7 +117,7 @@
             {#each groups as group (group.id)}
                 <optgroup label={group.label}>
                     {#each group.tabs as tab (tab.id)}
-                        <option value={tab.id}>{unsavedTabs.includes(tab.id) ? `${tab.label} (${unsavedLabel})` : tab.label}</option>
+                        <option value={tab.id}>{optionText(tab)}</option>
                     {/each}
                 </optgroup>
             {/each}
@@ -121,6 +131,7 @@
 <!-- The word beside a section's name is visible; this says the same to a screen reader without
      changing the link's name. -->
 <span id="settings-tab-unsaved-note" class="sr-only">{$_('settings.tabs.unsaved_note', { default: 'Has unsaved changes' })}</span>
+<span id="settings-tab-refused-note" class="sr-only">{$_('settings.tabs.refused_note', { default: 'Has a value the last save refused' })}</span>
 
 <!-- Room for it (56rem, so it scales with the text): a compact rail beside the settings, so they start at the top of the page. -->
 <nav data-settings-navigation class="hidden @4xl:block" aria-label={$_('settings.tabs.navigation_label', { default: 'Settings sections' })}>
@@ -136,14 +147,13 @@
                                 href={settingsHref(tab.id)}
                                 onclick={(event) => handleLinkClick(event, tab.id)}
                                 aria-current={current ? 'page' : undefined}
-                                aria-describedby={unsavedTabs.includes(tab.id) ? 'settings-tab-unsaved-note' : undefined}
-                                class="flex min-h-10 items-center gap-2 rounded-lg border-l-2 px-3 py-2 text-sm transition-colors focus-ring
-                                       {current
-                                    ? 'border-brand-600 bg-brand-50 font-semibold text-slate-900 dark:border-brand-400 dark:bg-brand-950/60 dark:text-white'
-                                    : 'border-transparent font-medium text-slate-600 hover:bg-surface-raised hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'}"
+                                aria-describedby={refusedTabs.includes(tab.id) ? 'settings-tab-refused-note' : unsavedTabs.includes(tab.id) ? 'settings-tab-unsaved-note' : undefined}
+                                class="sidebar-nav {current ? 'sidebar-nav-active' : 'sidebar-nav-inactive'}"
                             >
                                 <span class="min-w-0 flex-1">{tab.label}</span>
-                                {#if unsavedTabs.includes(tab.id)}
+                                {#if refusedTabs.includes(tab.id)}
+                                    <span class="text-xs font-semibold text-red-700 dark:text-red-300" aria-hidden="true" data-tab-refused>{refusedLabel}</span>
+                                {:else if unsavedTabs.includes(tab.id)}
                                     <span class="flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true" data-tab-unsaved>
                                         <span class="h-1.5 w-1.5 rounded-full bg-brand-600 dark:bg-brand-400" aria-hidden="true"></span>
                                         {unsavedLabel}

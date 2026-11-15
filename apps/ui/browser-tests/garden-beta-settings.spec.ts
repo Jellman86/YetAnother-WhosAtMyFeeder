@@ -73,7 +73,7 @@ async function openSettings(page: Page, overrides: Settings = {}, frigateCameras
 
 async function openBeta(page: Page): Promise<void> {
     await page.getByRole('link', { name: 'Beta features' }).click();
-    await expect(page.getByRole('heading', { name: 'Beta features' })).toBeVisible();
+    await expect(page.locator('[data-beta-intro]')).toBeVisible();
 }
 
 /** Opens one of the Garden card's collapsible sections by its heading. */

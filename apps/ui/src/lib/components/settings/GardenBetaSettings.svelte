@@ -16,6 +16,7 @@
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
+    import SettingsSlider from './_primitives/SettingsSlider.svelte';
     import GardenModelSetup from './GardenModelSetup.svelte';
     import GardenCollectionStatus from './GardenCollectionStatus.svelte';
     import GardenNotificationSettings from './GardenNotificationSettings.svelte';
@@ -23,7 +24,7 @@
     import type { PolicyChannel } from '../../settings/notification-policy';
     import { GardenServiceStatus } from './garden-service-status.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
-    import { gardenThresholdPercentStep, percentToThreshold, thresholdPercentText } from '../../utils/garden-threshold';
+    import { gardenThresholdPercentStep, thresholdPercentText } from '../../utils/garden-threshold';
     import { formatCameraList, gardenMotionWithinGarden } from '../../utils/camera-watch';
     import { DOMESTIC_BIRD_KEYS, domesticBirdKind, type DomesticBirdKey } from '../../utils/domestic-birds';
     import { GARDEN_MODEL_NAME, gardenModelRows, type GardenModelRole } from '../../utils/garden-models';
@@ -179,8 +180,8 @@
 >
     <div class="space-y-4 wrap-break-word" data-garden-beta-settings>
         {#if summary.steps.length > 0}
-            <section class="space-y-2 rounded-xl p-4 {summary.attention ? 'bg-attention-500/5' : 'bg-surface-raised/70'}" aria-labelledby="garden-next-steps" data-garden-next-steps>
-                <h4 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h4>
+            <section class="space-y-2" aria-labelledby="garden-next-steps" data-garden-next-steps>
+                <h3 id="garden-next-steps" class="text-sm font-semibold text-slate-900 dark:text-white">{$_('settings.beta.garden_next_steps', { default: 'Still to set up' })}</h3>
                 <ol class="space-y-2">
                     {#each summary.steps as step (step.kind === 'download_model' ? step.role : step.kind)}
                         <li class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-garden-next-step={step.kind}>
@@ -245,31 +246,19 @@
                     />
                 </SettingsRow>
 
-                <SettingsRow
-                    labelId="setting-garden-motion-confidence"
-                    label={$_('garden.confidence', { default: 'Animal proposal threshold' })}
-                    description={$_('garden.confidence_help', { default: 'From 50% to 95%. Higher values reduce proposals but can miss animals. Applies to new motion photos only; bird detection and person privacy checks are unchanged.' })}
-                    descriptionId="garden-motion-confidence-help"
-                    layout="stacked"
-                >
-                    <div class="flex items-center gap-2">
-                        <div class="min-w-0 flex-1">
-                            <SettingsInput
-                                id="garden-motion-confidence"
-                                field="garden_motion_confidence"
-                                type="number"
-                                min={50}
-                                max={95}
-                                step={gardenThresholdPercentStep(motionConfidence, savedMotionConfidence)}
-                                value={thresholdPercentText(motionConfidence)}
-                                ariaLabel={$_('garden.confidence', { default: 'Animal proposal threshold' })}
-                                describedBy="garden-motion-confidence-help"
-                                oninput={(value) => (motionConfidence = percentToThreshold(value))}
-                            />
-                        </div>
-                        <span class="text-sm font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true">%</span>
-                    </div>
-                </SettingsRow>
+                <SettingsSlider
+                    id="garden-motion-confidence"
+                    field="garden_motion_confidence"
+                    label={$_('garden.confidence', { default: 'How sure before an animal is suggested' })}
+                    description={$_('garden.confidence_help', { default: 'A motion photo becomes a suggestion for you to review only when the check is at least this sure. Higher means fewer suggestions, and more animals missed.' })}
+                    bind:value={motionConfidence}
+                    min={0.5}
+                    max={0.95}
+                    step={gardenThresholdPercentStep(motionConfidence, savedMotionConfidence) / 100}
+                    display={(value) => `${thresholdPercentText(value)}%`}
+                    lowLabel={$_('garden.confidence_low', { default: 'More suggestions' })}
+                    highLabel={$_('garden.confidence_high', { default: 'Fewer suggestions' })}
+                />
             </BetaSection>
 
             <BetaSection id="garden-section-checks" title={$_('settings.beta.garden_section_checks', { default: 'Automatic checks and naming' })} openByDefault>
@@ -287,31 +276,19 @@
                         />
                     </SettingsRow>
                     {#if automaticNaming}
-                        <SettingsRow
-                            labelId="setting-garden-naming-threshold"
-                            label={$_('settings.beta.garden_naming_threshold', { default: 'Naming threshold' })}
-                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'From 70% to 99%. Higher values automatically name fewer animals and dismiss more low-confidence photos. Person checks are unchanged.' })}
-                            descriptionId="garden-naming-threshold-help"
-                            layout="stacked"
-                        >
-                            <div class="flex items-center gap-2">
-                                <div class="min-w-0 flex-1">
-                                    <SettingsInput
-                                        id="garden-naming-threshold"
-                                        field="garden_naming_threshold"
-                                        type="number"
-                                        min={70}
-                                        max={99}
-                                        step={1}
-                                        value={thresholdPercentText(namingThreshold)}
-                                        ariaLabel={$_('settings.beta.garden_naming_threshold', { default: 'Naming threshold' })}
-                                        describedBy="garden-naming-threshold-help"
-                                        oninput={(value) => (namingThreshold = percentToThreshold(value))}
-                                    />
-                                </div>
-                                <span class="text-sm font-semibold text-slate-600 dark:text-slate-300" aria-hidden="true">%</span>
-                            </div>
-                        </SettingsRow>
+                        <SettingsSlider
+                            id="garden-naming-threshold"
+                            field="garden_naming_threshold"
+                            label={$_('settings.beta.garden_naming_threshold', { default: 'How sure before an animal is named' })}
+                            description={$_('settings.beta.garden_naming_threshold_help', { default: 'At or above this, an animal is confirmed and named for you. Below it, its photo goes to Dismissed, where you can restore it.' })}
+                            bind:value={namingThreshold}
+                            min={0.7}
+                            max={0.99}
+                            step={0.01}
+                            display={(value) => `${thresholdPercentText(value)}%`}
+                            lowLabel={$_('garden.naming_low', { default: 'Names more' })}
+                            highLabel={$_('garden.naming_high', { default: 'Names fewer' })}
+                        />
                     {:else}
                         <p class="text-sm text-slate-600 dark:text-slate-400">{$_('settings.beta.garden_naming_off', { default: 'Every animal waits in Needs review for you to confirm and name it.' })}</p>
                     {/if}
@@ -327,9 +304,11 @@
                 </p>
 
                 {#if savedEnabled}
-                    <button type="button" class="btn btn-ghost min-h-11 max-w-full px-3 py-2 whitespace-normal" disabled={service.loading} onclick={() => service.refresh()}>
-                        {$_('settings.beta.garden_status_refresh', { default: 'Refresh status' })}
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary min-h-11 max-w-full self-start px-3 py-2 whitespace-normal" disabled={service.loading} onclick={() => service.refresh()}>
+                            {$_('settings.beta.garden_status_refresh', { default: 'Refresh status' })}
+                        </button>
+                    </div>
                 {/if}
             </BetaSection>
 
@@ -401,9 +380,11 @@
                     statusAvailable={savedEnabled}
                 />
                 {#if onOpenNotifications}
-                    <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
-                        {$_('settings.beta.garden_channels_open', { default: 'Set up channels in Notifications' })}
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-secondary min-h-11 max-w-full px-3 py-2 whitespace-normal" onclick={onOpenNotifications}>
+                            {$_('settings.beta.garden_channels_open', { default: 'Set up channels in Notifications' })}
+                        </button>
+                    </div>
                 {/if}
             </BetaSection>
 

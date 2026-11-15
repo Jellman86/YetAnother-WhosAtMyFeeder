@@ -49,6 +49,7 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
   import { createPublicHistoryRefresh } from './lib/app/public-history-refresh';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
   import { lazyComponent } from './lib/app/lazy-component';
+  import { settingsTabFromRoute } from './lib/settings/settings-route';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -110,7 +111,8 @@ import { unsavedChanges } from './lib/stores/unsaved-changes';
           case 'audio_history': return $_('page_subtitle.audio_history', { default: 'Calls BirdNET-Go has heard, by species and source.' });
           case 'notifications': return $_('page_subtitle.notifications', { default: 'Visits, alerts and background work, newest first.' });
           case 'health': return $_('page_subtitle.health', { default: 'Whether YA-WAMF is working, what the host is doing, and what happened.' });
-          case 'settings': return $_('page_subtitle.settings', { default: 'Connections, identification, integrations and personalisation.' });
+          // One line about the open tab, not a list of every tab.
+          case 'settings': return $_(`page_subtitle.settings_tab.${settingsTabFromRoute(currentRoute)}`);
           case 'model_evaluation': return 'Benchmark every installed classifier against verified bird images.';
           case 'about': return $_('page_subtitle.about', { default: 'Version, changelog, contributors, and support links.' });
           default: return '';

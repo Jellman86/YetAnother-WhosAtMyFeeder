@@ -56,6 +56,15 @@
                 >
                     {pending.cancelLabel || $_('common.cancel')}
                 </button>
+                {#if pending.alternative}
+                    <button
+                        type="button"
+                        class="btn btn-primary min-h-11 px-4 text-sm"
+                        onclick={() => void confirmDialog.runAlternative()}
+                    >
+                        {pending.alternative.label}
+                    </button>
+                {/if}
                 <button
                     type="button"
                     class="btn min-h-11 px-4 text-sm {pending.tone === 'danger' ? 'btn-danger' : 'btn-primary'}"

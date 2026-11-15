@@ -6,10 +6,12 @@
         labelledBy: string;
         srLabel: string;
         disabled?: boolean;
+        /** The id of help text that explains the switch, announced after its name. */
+        describedBy?: string;
         onchange: (next: boolean) => void;
     }
 
-    let { checked, labelledBy, srLabel, disabled = false, onchange }: Props = $props();
+    let { checked, labelledBy, srLabel, disabled = false, describedBy, onchange }: Props = $props();
 
     function toggle() {
         if (disabled) return;
@@ -22,6 +24,7 @@
     role="switch"
     aria-checked={checked}
     aria-labelledby={labelledBy}
+    aria-describedby={describedBy}
     aria-disabled={disabled || undefined}
     onclick={toggle}
     onkeydown={(e) => {

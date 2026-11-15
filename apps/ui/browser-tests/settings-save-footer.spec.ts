@@ -80,3 +80,26 @@ for (const width of [320, 393]) {
         });
     });
 }
+
+test('a control reached with Tab is never hidden under the save bar', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openConnectionSettings(page);
+    await page.locator('#mqtt-server').fill('broker.lan');
+    const bar = page.locator('[data-settings-save-bar]');
+    await expect(bar).toBeVisible();
+    await page.locator('#frigate-url').focus();
+    const hidden: string[] = [];
+    for (let step = 0; step < 40; step += 1) {
+        await page.keyboard.press('Tab');
+        const overlap = await page.evaluate(() => {
+            const focused = document.activeElement as HTMLElement | null;
+            const barElement = document.querySelector('[data-settings-save-bar]');
+            if (!focused || !barElement || barElement.contains(focused)) return null;
+            const box = focused.getBoundingClientRect();
+            if (box.height === 0) return null;
+            return box.bottom > barElement.getBoundingClientRect().top + 1 ? (focused.id || focused.textContent || focused.tagName).trim().slice(0, 40) : null;
+        });
+        if (overlap) hidden.push(overlap);
+    }
+    expect(hidden).toEqual([]);
+});
