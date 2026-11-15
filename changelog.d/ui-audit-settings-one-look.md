@@ -25,3 +25,7 @@
 - **Model testing says where its photos come from.** Models and Model evaluation now say the
   models are compared on reference photos of known species from iNaturalist and Wikimedia
   Commons, not on photos you confirmed.
+- **Settings shows what it will save.** Public access that is on can always be turned off, even
+  while sign-in is off. The notification cooldown shows the whole minutes it saves. An AI
+  provider set outside Settings shows as itself. Garden's suggestion threshold moves one point
+  at a time and keeps a calibrated value exactly until you move it.
