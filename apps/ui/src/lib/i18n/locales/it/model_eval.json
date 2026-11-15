@@ -15,7 +15,7 @@
     },
     "finder": "Rilevatore di uccelli",
     "row": {
-      "activation_failed": "Non è stato possibile caricarlo, quindi nessun provider è stato verificato. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
+      "activation_failed": "Non è stato possibile caricarlo, quindi nessun provider è stato verificato. Usa «Riscarica per riparare» per questo modello in Impostazioni → Modelli.",
       "provider_sweep_failed": "La verifica non è riuscita prima che un provider desse un risultato. Eseguila di nuovo; se non riesce ancora, la causa è nei log del container.",
       "unknown": "Non è stato verificato, per un motivo che questa pagina non sa indicare. La causa è nei log del container."
     },
@@ -138,9 +138,9 @@
     "vocabulary_note": "Le quote considerano solo le specie che un modello sa nominare."
   },
   "skipped": {
-    "activation_failed": "I suoi file mancano o sono incompleti. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
+    "activation_failed": "I suoi file mancano o sono incompleti. Usa «Riscarica per riparare» per questo modello in Impostazioni → Modelli.",
     "other": "È stato saltato per un motivo che questa pagina non sa indicare. La causa è nei log del container.",
-    "reload_failed": "Non è stato possibile caricarlo. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento; se non basta, la causa è nei log del container.",
+    "reload_failed": "Non è stato possibile caricarlo. Usa «Riscarica per riparare» per questo modello in Impostazioni → Modelli; se non basta, la causa è nei log del container.",
     "title": "Modelli non provati"
   },
   "start": {
@@ -148,7 +148,7 @@
     "all_models_desc": "Verifica anche che ogni modello dia le stesse risposte sul chip grafico o sulla NPU e sulla CPU. I modelli non installati vengono prima scaricati e restano installati. Richiede molto più tempo.",
     "all_models_label": "Verifica ogni modello su ogni provider",
     "download_none": "Tutti i modelli sono già installati, quindi non viene scaricato nulla.",
-    "download_note": "Il download può richiedere un po' di tempo, a seconda della connessione. I modelli scaricati restano sul disco finché non ne elimini i file in Impostazioni → Rilevamento → Modelli.",
+    "download_note": "Il download può richiedere un po' di tempo, a seconda della connessione. I modelli scaricati restano sul disco finché non ne elimini i file in Impostazioni → Modelli.",
     "download_reading": "Calcolo della dimensione del download…",
     "download_size": "{count, plural, one {# modello non è ancora installato: un download di circa {size}.} other {# modelli non sono ancora installati: un download di circa {size}.}}",
     "download_size_partial": "{count, plural, one {# modello non è ancora installato.} other {# modelli non sono ancora installati.}} {unknown, plural, one {Di # di questi non si conosce la dimensione;} other {Di # di questi non si conosce la dimensione;}} gli altri sono un download di circa {size}.",
@@ -165,24 +165,24 @@
     "what": "Ogni modello installato dà un nome a foto di uccelli la cui specie è già confermata, così puoi confrontare quanto spesso ciascuno ha ragione e con quale velocità."
   },
   "stopped": {
-    "finder_needs_provider_check": "Un rilevatore di uccelli può essere verificato solo per provider. Avvia la verifica da Impostazioni → Rilevamento.",
-    "models_not_ready": "Un modello scelto per questa verifica non è installato e pronto. Controllalo in Impostazioni → Rilevamento, poi riavvia.",
+    "finder_needs_provider_check": "Un rilevatore di uccelli può essere verificato solo per provider. Avvia la verifica da Impostazioni → Modelli.",
+    "models_not_ready": "Un modello scelto per questa verifica non è installato e pronto. Controllalo in Impostazioni → Modelli, poi riavvia.",
     "network": "Una richiesta a iNaturalist o Wikimedia Commons non è riuscita. Controlla la connessione a internet, poi riavvia.",
-    "no_models": "Nessun modello di uccelli è installato e pronto. Installane uno in Impostazioni → Rilevamento, poi riavvia.",
+    "no_models": "Nessun modello di uccelli è installato e pronto. Installane uno in Impostazioni → Modelli, poi riavvia.",
     "no_test_birds": "Non è stato possibile creare l'elenco degli uccelli di prova perché iNaturalist non ha risposto. Controlla la connessione a internet, poi riavvia.",
     "no_test_photos": "Non è stato possibile recuperare alcuna foto di prova da iNaturalist o Wikimedia Commons. Controlla la connessione a internet, poi riavvia.",
     "unexpected": "Si è fermata per un errore che questa pagina non sa indicare. Avviala di nuovo; se si ferma ancora, la causa è nei log del container."
   },
   "warning": {
-    "high_abstention": "Non ha indicato alcuna specie per il {share}% delle foto. Forse non copre questi uccelli o la sua installazione è incompleta. Controlla il modello in Impostazioni → Rilevamento.",
-    "incomplete_install": "I suoi file sono incompleti. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
+    "high_abstention": "Non ha indicato alcuna specie per il {share}% delle foto. Forse non copre questi uccelli o la sua installazione è incompleta. Controlla il modello in Impostazioni → Modelli.",
+    "incomplete_install": "I suoi file sono incompleti. Usa «Riscarica per riparare» per questo modello in Impostazioni → Modelli.",
     "inference_health_unhealthy": "Durante l'esecuzione si sono verificati errori o timeout. Cerca la causa nei log del container.",
-    "latency_drift_high": "Molto più lento rispetto al caricamento: {measured, number} ms per foto contro {loaded, number} ms. Il provider su cui è stato eseguito potrebbe non funzionare bene. Imposta il provider di inferenza su CPU in Impostazioni → Rilevamento e ripeti la valutazione.",
-    "latency_drift_high_plain": "Molto più lento rispetto al caricamento. Il provider su cui è stato eseguito potrebbe non funzionare bene. Imposta il provider di inferenza su CPU in Impostazioni → Rilevamento e ripeti la valutazione.",
-    "low_shared_core": "Ha nominato correttamente meno della metà degli uccelli comuni da mangiatoia, il che di solito indica un'installazione danneggiata. Usa «Riscarica per riparare» per questo modello in Impostazioni → Rilevamento.",
+    "latency_drift_high": "Molto più lento rispetto al caricamento: {measured, number} ms per foto contro {loaded, number} ms. Il provider su cui è stato eseguito potrebbe non funzionare bene. Imposta il provider di inferenza su CPU in Impostazioni → Modelli e ripeti la valutazione.",
+    "latency_drift_high_plain": "Molto più lento rispetto al caricamento. Il provider su cui è stato eseguito potrebbe non funzionare bene. Imposta il provider di inferenza su CPU in Impostazioni → Modelli e ripeti la valutazione.",
+    "low_shared_core": "Ha nominato correttamente meno della metà degli uccelli comuni da mangiatoia, il che di solito indica un'installazione danneggiata. Usa «Riscarica per riparare» per questo modello in Impostazioni → Modelli.",
     "partial_vocabulary": "Non sa nominare {outside} delle {total} specie di prova, di solito perché vivono fuori dalla sua regione. Le sue quote riguardano le specie che sa nominare.",
     "partial_vocabulary_plain": "Non sa nominare alcune delle specie di prova, di solito perché vivono fuori dalla sua regione. Le sue quote riguardano le specie che sa nominare.",
-    "provider_fallback_active": "È stato eseguito sulla CPU anche se era stato richiesto un provider più veloce. Il motivo è in Diagnostica runtime, in Impostazioni → Rilevamento.",
+    "provider_fallback_active": "È stato eseguito sulla CPU anche se era stato richiesto un provider più veloce. Il motivo è in Diagnostica runtime, in Impostazioni → Modelli.",
     "provider_validation_failed": "Nessun provider ha dato risposte utilizzabili uguali a quelle della CPU. Le verifiche dei provider qui sotto mostrano ogni risultato.",
     "provider_validation_partial": "Alcuni provider non hanno superato la verifica o non sono disponibili qui. Le verifiche dei provider qui sotto mostrano ogni risultato.",
     "region_mismatch": "È pensato per una regione diversa da quella degli uccelli vicino a te, quindi qui le sue quote sono più basse che là.",

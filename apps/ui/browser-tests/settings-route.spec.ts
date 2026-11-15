@@ -18,7 +18,8 @@ async function openOwnerShell(page: Page): Promise<string[]> {
         if (path in responses) return route.fulfill({ json: responses[path] });
         return route.fulfill({ status: 503, json: { detail: 'Unavailable in settings route fixture' } });
     });
-    await page.route('**/health', route => route.fulfill({ json: { status: 'healthy' } }));
+    // The backend's own /health only: a glob would also answer the /settings/health page.
+    await page.route((url) => url.pathname === '/health', route => route.fulfill({ json: { status: 'healthy' } }));
     await page.setViewportSize({ width: 1280, height: 900 });
     return errors;
 }
@@ -38,13 +39,25 @@ test('older and loose Settings addresses open the tab they name at its canonical
         ['/settings', '/settings/connection', 'Connection'],
         ['/settings/', '/settings/connection', 'Connection'],
         ['/settings#notifications', '/settings/notifications', 'Notifications'],
-        ['/settings/errors', '/settings/health', 'Health'],
+        ['/settings/debug', '/settings/models', 'Models'],
         ['/settings/security/', '/settings/security', 'Security'],
         ['/settings/not-a-tab', '/settings/connection', 'Connection'],
     ] as const) {
         await page.goto(address);
         await expectTab(page, path, label);
     }
+});
+
+test('Health is a page of its own, and the old Settings addresses open it', async ({ page }) => {
+    await openOwnerShell(page);
+    for (const address of ['/settings/health', '/settings#health', '/settings/#health', '/settings/errors', '/notifications/errors']) {
+        await page.goto(address);
+        // The first open compiles the Health page on the dev server, which is slow under load.
+        await expect.poll(() => pathname(page), { timeout: 15_000 }).toBe('/system-health');
+        await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible();
+    }
+    await expect(page.locator('#app-sidebar').getByRole('button', { name: 'Health', exact: true })).toHaveAttribute('aria-current', 'page');
+    await expect(settingsNav(page)).toHaveCount(0);
 });
 
 test('choosing a tab, Back and a later non-canonical address all keep the tab and the URL together', async ({ page }) => {

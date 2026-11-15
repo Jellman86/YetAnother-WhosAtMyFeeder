@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-// A realistic Detection tab: an Intel host with CPU, GPU and NPU routes, the
+// A realistic Models tab: an Intel host with CPU, GPU and NPU routes, the
 // registry's recommended lineup, both accurate bird finders and the fast
 // fallback. Each test owns its counters, so saves and reads can be asserted.
 
@@ -94,6 +94,8 @@ export type RangeMock = {
 };
 
 export type DetectionMockOptions = {
+    /** The tab to open; the range filter is in Detection, everything else these tests touch in Models. */
+    tab?: 'detection' | 'models';
     range?: RangeMock;
     finderExecution?: Record<string, unknown>;
     savedFinder?: 'yolox_tiny' | 'rfdetr_nano';
@@ -211,9 +213,12 @@ export async function openDetectionSettings(page: Page, options: DetectionMockOp
     await page.goto('/browser-tests/settings-backfill.html');
     const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
     // The first open compiles the page and its tab on the dev server, which is slow under load.
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible({ timeout: 15_000 });
-    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption('detection');
-    else await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    const tab = options.tab ?? 'models';
+    const tabName = tab === 'models' ? 'Models' : 'Detection';
+    await expect(mobileNavigation.or(page.getByRole('link', { name: tabName, exact: true }))).toBeVisible({ timeout: 15_000 });
+    if (await mobileNavigation.isVisible()) await mobileNavigation.selectOption(tab);
+    else await page.getByRole('link', { name: tabName, exact: true }).click();
+    if (tab === 'detection') return state;
     // Hardware starts closed; these tests exercise what is inside it.
     const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
     if ((await hardware.getAttribute('aria-expanded')) === 'false') await hardware.click();

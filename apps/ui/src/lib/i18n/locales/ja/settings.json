@@ -36,7 +36,7 @@
     "purge_button": "古いレコードを削除",
     "purge_confirm": "{count, plural, other {{days}日より古い#件の検出とBirdNET-Goの音声を完全に削除しますか？お気に入りと各種の保持中の最新の訪問は残ります。この操作は元に戻せません。}}",
     "cleaning": "削除中…",
-    "auto_cleanup_note": "自動クリーンアップは起動時に実行され、その後は 24 時間ごとに実行されます",
+    "auto_cleanup_note": "整理は YA-WAMF の起動時と、その後 24 時間ごとに実行されます。",
     "cache_title": "写真と動画",
     "cache_clips": "Frigate のイベントクリップのコピーを保持",
     "cache_high_quality_event_snapshot_jpeg_quality": "HQ スナップショット JPEG 品質",
@@ -202,7 +202,7 @@
     "bird_scan_standard": "標準",
     "bird_scan_intensive": "高強度",
     "cache_clips_help": "Frigate がすでに保持しています。コピーは Frigate が削除しても残り、1件あたりクリップとほぼ同じサイズです。",
-    "cache_always_kept": "写真、訪問全体のクリップ、プレビューは常に保持されます。保持期間と使用容量は下の上限で決まります。",
+    "cache_always_kept": "写真、訪問全体のクリップ、プレビューは、下のいずれかの上限で削除されるまで保持されます。",
     "cache_unavailable": "メディアフォルダーに書き込めないため、写真と動画は保持されていません。フォルダーの権限を確認してください。エラーはシステムチェックに表示されます。",
     "cache_high_quality_storage_note": "各訪問でフル解像度のフレームも保持され、数MBになることがよくあります。容量が限られる場合は保存容量の上限を設定してください。",
     "automatic_multi_bird_scan": "ほかの鳥を自動で探す",
@@ -219,7 +219,14 @@
     "retention_shrink_kept": "お気に入りは残ります。古い BirdNET-Go の音声と庭の動物の記録も削除されます。",
     "retention_confirm_title": "古い履歴を削除しますか？",
     "retention_confirm_button": "保存して {count, plural, other {# 件}}の検出を削除",
-    "retention_confirm_uncounted": "保存して古い履歴を削除"
+    "retention_confirm_uncounted": "保存して古い履歴を削除",
+    "history_summary": "{count, plural, other {# 件の記録}}。最も古いものは {oldest} です。",
+    "history_summary_empty": "まだ記録はありません。",
+    "history_due": "{count, plural, other {# 件}}が保存期間より古く、次の整理で削除されます。",
+    "missing_media_title": "Frigate が訪問を失ったとき",
+    "missing_media_desc": "Frigate は独自の予定で古いイベントを削除します。ここでは、イベントがなくなったときに YA-WAMF が何を残すかを決めます。",
+    "maintenance_jobs_title": "同時に実行するジョブ",
+    "maintenance_jobs_desc": "上のジョブは一つずつ実行されるので、鳥の識別と競合しません。"
   },
   "security": {
     "title": "セキュリティ",
@@ -244,13 +251,11 @@
     "connection": "接続",
     "detection": "検出",
     "notifications": "通知",
-    "health": "ヘルス",
     "integrations": "統合",
     "data": "データ",
     "security": "セキュリティ",
     "appearance": "外観",
     "accessibility": "アクセシビリティ",
-    "debug": "デバッグ",
     "enrichment": "情報拡充",
     "ai": "AI",
     "groups": {
@@ -264,15 +269,11 @@
     "skip_to_content": "設定へ移動",
     "section_label": "設定の項目",
     "navigation_label": "設定の項目一覧",
-    "unsaved_note": "未保存の変更があります"
+    "unsaved_note": "未保存の変更があります",
+    "models": "モデル",
+    "maintenance": "メンテナンス"
   },
   "debug": {
-    "title": "デバッグツール",
-    "subtitle": "テストと診断のための追加スイッチ。",
-    "model_eval_title": "モデル評価",
-    "model_eval_desc": "種がすでに確認されている写真で、インストール済みのモデルを比較します。",
-    "model_eval_action_desc": "各モデルがどのくらい正解し、どのくらい時間がかかるかを確認できます。",
-    "model_eval_open": "モデル評価を開く",
     "llm_prompts_title": "LLMプロンプトテンプレート",
     "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
     "llm_prompt_style_label": "プロンプトスタイル",
@@ -285,8 +286,8 @@
     "llm_prompt_conversation_hint": "トークン: {species}, {analysis}, {history}, {question}, {language_note}",
     "llm_prompt_chart": "グラフ解析プロンプト",
     "llm_prompt_chart_hint": "トークン: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-    "strict_non_finite_output": "非有限出力の厳格処理",
-    "strict_non_finite_output_desc": "モデルが計算できなかった結果を破棄してモデルを再起動するため、その結果からは何も保存されません。オフにするのはモデルのデバッグ中だけにしてください。"
+    "strict_non_finite_output": "モデルが計算できなかった結果を破棄する",
+    "strict_non_finite_output_desc": "オンのとき、数値でない結果は破棄され、モデルが再起動されます。モデルの不具合を調べている間だけオフにしてください。"
   },
   "ai": {
     "usage_title": "AI使用状況",
@@ -507,7 +508,7 @@
     "disabled": "無効",
     "needs_ebird": "表示なし: eBird の API キーが必要です",
     "ebird_hint": "eBird を API キー付きでオンにすると、種のページに近くの目撃情報、季節性、希少性が表示されます。",
-    "open_ebird": "eBird を設定"
+    "open_ebird": "eBird へ移動"
   },
   "auth": {
     "title": "認証",
@@ -849,16 +850,15 @@
     "instance_url_placeholder": "https://feeder.example.com",
     "link_opens": "通知リンクの開き先",
     "link_opens_yawamf": "この YA-WAMF",
-    "link_opens_yawamf_desc": "検出ページ上のその検出。クリップ、スナップショット、同定を含みます。",
+    "link_opens_yawamf_desc": "エクスプローラーでの訪問。クリップ、スナップショット、識別結果付き。",
     "link_opens_yawamf_req": "上のインスタンスのアドレスを使います。",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Frigate の Explore ページにある同じ追跡オブジェクト。",
-    "link_opens_frigate_req": "Frigate 0.15 以降と、統合設定にある Frigate の公開 URL が必要です。",
+    "link_opens_frigate_req": "Frigate 0.15 以降と、設定 → 接続 で設定する Frigate の公開 URL が必要です。",
     "link_frigate_url_missing": "Frigate の公開 URL が未設定のため、設定されるまで通知にリンクは付きません。",
-    "link_open_integrations": "統合設定を開く",
-    "link_preview_telegram": "Telegram のボタン",
+    "link_preview_telegram": "Telegram のボタンのリンク:",
     "link_preview_others": "Discord のタイトル、Pushover、メールも同じアドレスを使います。",
-    "link_preview_none": "リンクは送信されません",
+    "link_preview_none": "まだありません。そのため Telegram のメッセージにボタンは付きません。",
     "sentence": {
       "chip_context": "（{setting}）",
       "lead": "通知する内容",
@@ -877,16 +877,14 @@
       "species_any": "すべての種",
       "species_all_but": "{count, plural, other {#種を除くすべて}}",
       "species_only": "{count, plural, other {#種のみ}}",
-      "species_jump": "種フィルター: {summary}。種フィルターへ移動します。",
-      "channels_none": "未設定",
-      "channels_hint": "メッセージの送信先を選択します。",
-      "channel_needs_setup": "要設定",
-      "destinations": "送信先",
+      "species_jump": "種のフィルター: {summary}。種のフィルターへ移動。",
+      "channels_none": "まだチャネルなし",
       "channel_discord": "Discord",
       "channel_pushover": "Pushover",
       "channel_telegram": "Telegram",
       "channel_email": "メール",
-      "confidence_chip_audio": "{value}%以上・音声確認あり"
+      "confidence_chip_audio": "{value}%以上・音声確認あり",
+      "channels_jump": "チャネル: {channels}。チャネルへ移動。"
     },
     "test_channel": "チャンネル",
     "test_failed": "テストメッセージを送信できませんでした。",
@@ -901,15 +899,15 @@
       "enabled_help": "動物が自動で名付けられたとき、または種を承認したときに、訪問ごとに 1 件通知します。変更を保存すると有効になります。",
       "send_to": "庭の通知の送信先",
       "use_bird": "鳥の通知先を使う",
-      "use_bird_help": "上で有効になっていて設定済みの通知先です。",
+      "use_bird_help": "通知でオンになっていて設定済みのチャネル。",
       "choose": "通知先を選ぶ",
       "choose_help": "保存済みの認証情報を使います。鳥の通知は無効のままでも構いません。",
       "bird_uses": "{channels} に送信します。",
-      "bird_none": "有効で設定済みの鳥の通知先がないため、庭の通知は送信できません。上でいずれかを有効にするか、通知先を選んでください。",
+      "bird_none": "オンで設定済みの鳥のチャネルがないため、庭の通知は送れません。通知でチャネルをオンにするか、ここでチャネルを選んでください。",
       "channels_label": "庭の通知先",
       "channel": "{channel} で庭の通知",
       "choose_one": "庭の通知先を少なくとも1つ選んでください。",
-      "credentials": "{channels} には保存済みの認証情報がないため、そこへの庭の通知は失敗します。上の通知先カードで追加してください。",
+      "credentials": "{channels} の認証情報が保存されていないため、そこへの庭の通知は失敗します。通知で追加してください。",
       "include_photo": "写真を添付する",
       "include_photo_help": "保存済みの動物の切り抜きを、なければ撮影写真を添付します。送信されるのは確認済みの動物だけなので、あなたまたは自動チェックが承認した写真です。写真を読めない場合はテキストのみです。",
       "privacy": "動物名、カメラ、目撃時刻、選んだ場合は写真をこれらのサービスへ送信します。リンクはここでこの撮影を開きます。訪問者は一般公開で共有されている間だけ開けます。",
@@ -917,7 +915,10 @@
       "status": "保存された送信試行。通知先が受理: {sent}。失敗: {failed}。未確認: {unknown}。スキップ: {skipped}。",
       "status_after_apply": "庭をオンにして保存すると、配信状況がここに表示されます。",
       "refresh": "送信状況を更新"
-    }
+    },
+    "garden_elsewhere": "庭の動物の通知は、ベータ機能の「庭の動物」で設定します。上のチャネルから送信されます。",
+    "garden_open": "庭の通知を開く",
+    "link_open_connection": "接続を開く"
   },
   "discord": {
     "title": "Discord通知",
@@ -994,20 +995,20 @@
     "resolving": "検索中…"
   },
   "danger": {
-    "title": "元に戻せない操作",
-    "subtitle": "破壊的な操作",
-    "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュが消去され、保管済みのお気に入りがすべて削除されます。元に戻せません。",
-    "reset_button": "DBとキャッシュをリセット",
+    "title": "データの削除",
+    "subtitle": "どれも何かを完全に削除します。実行する前に必ず確認します。",
+    "reset_desc": "すべての検出、キャッシュされたすべての写真とクリップ、アーカイブ済みのすべてのお気に入りを削除します。",
+    "reset_button": "履歴をすべて削除",
     "resetting": "リセット中…",
-    "confirm": "危険：すべての検出を削除し、メディアキャッシュを消去し、保管済みのお気に入りをすべて削除します。元に戻せません。よろしいですか？",
-    "clear_feedback_button": "パーソナライズデータを消去",
-    "clear_feedback_desc": "パーソナライズ用フィードバックを消去すると、AI が信頼度スコアの調整に使用している手動タグ修正がすべて削除されます。これにより分類器は初期精度に戻ります。",
-    "clear_feedback_hint": "検出やメディアは削除されません。新しい手動修正を行うと再ランキングは再び学習を始めます。",
+    "confirm": "{count, plural, other {# 件の検出}}、キャッシュされたすべての写真とクリップ、アーカイブ済みのすべてのお気に入りを削除しますか？元に戻せません。",
+    "clear_feedback_button": "訂正を削除",
+    "clear_feedback_desc": "YA-WAMF は、訂正した種を使ってカメラごとにスコアを調整します。訂正を削除すると、モデル本来のスコアに戻ります。",
+    "clear_feedback_hint": "検出と写真は残ります。新しい訂正から調整がやり直されます。",
     "clearing_feedback": "消去中…",
-    "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。",
-    "feedback_title": "パーソナライズデータ",
+    "clear_feedback_confirm": "識別の訂正を削除しますか？スコアはモデル本来のものに戻り、検出と写真は残ります。元に戻せません。",
+    "feedback_title": "識別の訂正",
     "favorites_title": "お気に入り",
-    "reset_title": "データベースとメディアキャッシュ"
+    "reset_title": "すべての検出とそのメディア"
   },
   "detection": {
     "fine_tuning": "微調整",
@@ -1097,14 +1098,12 @@
     "model_manager_crop_policy_automatic_desc": "YA-WAMF はこのモデルで検証済みの切り抜き方針を使用します。モデルを切り替えても調整は不要です。",
     "model_manager_runtime_health": "ランタイムの状態",
     "model_manager_image_preparation": "画像の準備",
-    "model_manager_detector_missing": "ダウンロードが必要",
+    "model_manager_detector_missing": "まだダウンロードされていません。ダウンロードボタンは選択肢の下にあります。",
     "model_manager_lineup_title": "階層型モデル構成",
     "model_manager_lineup_desc": "推奨モデルが先に表示されます。高度なオプションは開くまで非表示のままです。",
     "model_manager_hide_advanced": "高度なモデルを隠す",
     "model_manager_show_advanced": "高度なモデルを表示 ({count})",
     "model_manager_count": "{count} 件表示",
-    "model_manager_advanced_hidden": "高度なモデルは既定で非表示です。より大きな ONNX オプションが必要なときに表示してください。",
-    "model_manager_active": "有効",
     "model_manager_recommended_for": "おすすめ用途",
     "model_manager_notes": "メモ",
     "model_manager_architecture": "アーキテクチャ",
@@ -1116,7 +1115,6 @@
     "model_manager_host_verification": "OpenVINO のホスト検証は、アクティブな ONNX モデルに対して表示されます。",
     "model_manager_downloading": "ダウンロード中…",
     "model_manager_redownloading": "再ダウンロード中…",
-    "model_manager_currently_active": "現在有効",
     "model_manager_activating": "有効化中…",
     "model_manager_activate": "有効化",
     "model_manager_redownload": "再ダウンロード",
@@ -1165,7 +1163,6 @@
     "model_manager_provider_unavailable_suffix": "利用不可",
     "model_manager_provider_fallback_suffix": "フォールバック",
     "model_manager_provider_fallback_title": "表示順に自動フォールバック",
-    "model_manager_tier_cpu_only": "CPU のみ",
     "model_manager_scope_birds_only": "鳥のみ",
     "model_manager_scope_wildlife_wide": "広範な野生動物",
     "model_manager_provider_cpu": "CPU",
@@ -1334,7 +1331,12 @@
     "bird_finder_recommended_unchecked": "{devices}がこのホストでチェックに合格するまではCPUです。アクセラレーターの推奨はまだありません。",
     "bird_finder_recommended_waiting": "{devices}の再チェック用に保存された鳥の写真を待っています。CPUは利用可能です。",
     "model_manager_card_on_disk": "このホストにあり",
-    "models_compare_link": "インストール済みモデルの精度と速度を比較する"
+    "models_elsewhere": "種名を判定するモデルと、それを動かすハードウェアは「モデル」で設定します。",
+    "models_open": "モデルを開く",
+    "band_model_missing": "まだインストールされていません。下でダウンロードしてください。",
+    "model_manager_in_use": "使用中",
+    "model_manager_show_catalogue": "別のモデルを選ぶ",
+    "model_manager_hide_catalogue": "ほかのモデルを隠す"
   },
   "llm": {
     "title": "AI インサイト",
@@ -1376,7 +1378,7 @@
     "description": "このホストが何をしているか、そのうちどれだけがこのアプリか。",
     "window": "直近30分、5秒ごとに計測",
     "legend": "系列",
-    "legend_cpu": "CPU（ホスト全体）",
+    "legend_cpu": "CPU",
     "cpu_now": "現在のCPU",
     "accelerator_now": "現在の{label}",
     "memory_now": "このアプリのメモリ",
@@ -1416,7 +1418,8 @@
     "not_measured": "未計測",
     "measurement_gap": "このサンプルの使用率は取得できませんでした。下のワーカー行に読み込み済みのアクセラレーターが表示されます。この欠測だけではCPUへの切り替えは確認できません。",
     "unreadable_nvidia": "{label} はありますが、そのドライバーはコンテナから読める使用率カウンターを公開しません。",
-    "unreadable_accelerator": "{label} はありますが、そのカウンターはコンテナ内からは読めません。"
+    "unreadable_accelerator": "{label} はありますが、そのカウンターはコンテナ内からは読めません。",
+    "table_region": "プロセス別の負荷"
   },
   "text_size": {
     "label": "文字サイズ",
@@ -1530,7 +1533,8 @@
     "garden_fact_motion_on": "{cameras} でオン",
     "garden_fact_unreadable": "読み取れませんでした。更新して再試行してください。",
     "garden_fact_saved_crops": "保存した切り抜き",
-    "garden_fact_saved_crops_value": "{count, plural, other {#件}} / {limit, number}"
+    "garden_fact_saved_crops_value": "{count, plural, other {#件}} / {limit, number}",
+    "garden_channels_open": "通知でチャネルを設定"
   },
   "native_revalidation": {
     "title": "隔離されたプロファイルを確認",
@@ -1691,5 +1695,11 @@
     "notifications_email_gmail_client_secret": "Gmail クライアントシークレット",
     "notifications_email_outlook_client_secret": "Outlook クライアントシークレット",
     "notifications_email_smtp_password": "SMTP パスワード"
+  },
+  "models": {
+    "testing_title": "モデルのテスト",
+    "testing_desc": "確認済みの写真で、インストール済みのモデルを比較します。",
+    "testing_action": "モデル評価は、インストール済みの各モデルをそれらの写真で実行し、正解率と所要時間を表示します。",
+    "testing_open": "モデル評価を開く"
   }
 }

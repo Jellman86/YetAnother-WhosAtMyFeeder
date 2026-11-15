@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import source from './ModelEvaluation.svelte?raw';
 import apiSource from '../api/model_eval.ts?raw';
-import detectionSource from '../components/settings/DetectionSettings.svelte?raw';
+import modelSettingsSource from '../components/settings/ModelSettings.svelte?raw';
 import wizardSource from '../components/setup/ModelStep.svelte?raw';
 import appSource from '../../App.svelte?raw';
 import settingsSource from './Settings.svelte?raw';
@@ -99,7 +99,7 @@ describe('model evaluation reads in the owner’s language', () => {
     it('says the download may take a while, that models stay on disk, and where to remove them', () => {
         const note = english['model_eval.start.download_note'];
         expect(note).toMatch(/may take a while/);
-        expect(note).toMatch(/stay on disk until you delete their files in Settings → Detection → Models/);
+        expect(note).toMatch(/stay on disk until you delete their files in Settings → Models/);
         expect(markup).toContain("$_('model_eval.start.download_note')");
         // A size is never promised for a model that has none.
         expect(english['model_eval.start.download_size_unknown']).not.toMatch(/\{size\}|MB|GB/);
@@ -256,7 +256,7 @@ describe('model evaluation states what it measured, and nothing else', () => {
             expect(source, leak).not.toContain(leak);
         }
         expect(Object.keys(english).filter((key) => key.startsWith('model_eval.') && /\{detail\}|\{error\}|\{message\}/.test(english[key]))).toEqual([]);
-        for (const [name, other] of [['DetectionSettings', detectionSource], ['ModelStep', wizardSource]] as const) {
+        for (const [name, other] of [['ModelSettings', modelSettingsSource], ['ModelStep', wizardSource]] as const) {
             expect(other, name).toContain('stopCause(summary');
             expect(other, name).not.toMatch(/summary\??\.error\b(?!_code)/);
         }
@@ -363,16 +363,23 @@ describe('model evaluation is operable and steady', () => {
     });
 });
 
-describe('the ways into model evaluation', () => {
-    it('is linked from Settings, Detection, where models are chosen', () => {
-        expect(detectionSettingsSource).toContain("$_('settings.detection.models_compare_link'");
-        expect(settingsSource).toContain("onopenmodelevaluation={() => onNavigate?.('/diagnostics/model-eval')}");
+describe('the way into model evaluation', () => {
+    it('is opened from Settings, Models, beside the model choice, with a kit button', () => {
+        expect(modelSettingsSource).toContain('href="/diagnostics/model-eval"');
+        expect(english['settings.models.testing_open']).toBe('Open model evaluation');
+        expect(settingsSource).toContain("onNavigate('/diagnostics/model-eval')");
     });
 
-    it('is named plainly on the Debug tab and opened with a kit button', () => {
-        expect(english['settings.debug.model_eval_title']).toBe('Model evaluation');
-        expect(english['settings.debug.model_eval_open']).toBe('Open model evaluation');
-        const opener = settingsSource.slice(settingsSource.indexOf('id="debug-model-evaluation"'));
-        expect(openingTags(opener, 'button')[0]).toMatch(/class="btn btn-secondary\b/);
+    it('is not offered from Detection or from the retired Debug tab', () => {
+        expect(detectionSettingsSource).not.toContain('/diagnostics/model-eval');
+        expect(detectionSettingsSource).not.toContain('onopenmodelevaluation');
+        expect(settingsSource).not.toContain('debug-model-evaluation');
+        expect(Object.keys(english).filter((key) => key.startsWith('settings.debug.model_eval') || key === 'settings.detection.models_compare_link')).toEqual([]);
+    });
+
+    it('sends every next step to Settings, Models, where those controls now live', () => {
+        const copy = Object.entries(english).filter(([key]) => key.startsWith('model_eval.')).map(([, value]) => value).join('\n');
+        expect(copy).toContain('Settings → Models');
+        expect(copy).not.toMatch(/Settings → (Detection|Debug)/);
     });
 });

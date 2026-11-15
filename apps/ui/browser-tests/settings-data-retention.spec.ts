@@ -55,17 +55,17 @@ async function openDataSettings(page: Page, savedRetention: number, automaticCle
 
 test('shrinking retention shows the count, and cancelling the confirmation saves nothing', async ({ page }, testInfo) => {
     const fixture = await openDataSettings(page, 30);
-    const tiles = page.locator('.card-base.rounded-2xl.p-6.text-center');
-    await expect(tiles.filter({ hasText: 'Retention' })).toContainText('30');
-    await expect(tiles.filter({ hasText: 'Due for deletion' })).toContainText('0');
+    const summary = page.locator('[data-history-summary]');
+    await expect(summary).toBeVisible();
+    await expect(summary).not.toContainText('older than the saved window');
 
     await page.locator('#retention-days').selectOption('7');
     const note = page.locator('[data-retention-deletion-note]');
     await expect(note).toContainText('Saving this permanently deletes 42 detections older than 7 days at the next cleanup (on restart, then every 24 hours).');
     await expect(note).toContainText('Favourites and the newest 3 detections of each species are kept.');
     await expect(page.locator('#retention-days')).toHaveAttribute('aria-describedby', 'retention-deletion-note');
-    // The tiles still describe the saved policy.
-    await expect(tiles.filter({ hasText: 'Retention' })).toContainText('30');
+    // The summary still describes the saved policy.
+    await expect(summary).not.toContainText('older than the saved window');
     await page.screenshot({ path: testInfo.outputPath('retention-shrink-note.png'), fullPage: true });
 
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
@@ -112,11 +112,13 @@ test('with automatic cleanup off, saving is not presented as a deletion', async 
     await expect.poll(() => fixture.saves.length).toBe(1);
 });
 
-test('the irreversible actions put each consequence beside its own button', async ({ page }, testInfo) => {
+test('the irreversible actions live in Maintenance, each consequence beside its own button', async ({ page }, testInfo) => {
     await openDataSettings(page, 30);
-    await page.getByRole('button', { name: /Actions that cannot be undone/ }).click();
-    await expect(page.getByRole('button', { name: 'Clear personalization data' })).toHaveAccessibleDescription(/does not delete detections or media/);
-    await expect(page.getByRole('button', { name: 'Delete all favorites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
-    await expect(page.getByRole('button', { name: 'Reset database & cache' })).toHaveAccessibleDescription(/permanently delete ALL detections/);
+    await expect(page.locator('[data-danger-actions]')).toHaveCount(0);
+    await page.getByRole('link', { name: 'Maintenance', exact: true }).click();
+    await page.getByRole('button', { name: 'Delete data' }).click();
+    await expect(page.getByRole('button', { name: 'Delete corrections' })).toHaveAccessibleDescription(/Detections and photos stay/);
+    await expect(page.getByRole('button', { name: 'Delete all favourites' })).toHaveAccessibleDescription(/Removes every favourite marker/);
+    await expect(page.getByRole('button', { name: 'Delete all history' })).toHaveAccessibleDescription(/Deletes every detection/);
     await page.locator('[data-danger-actions]').screenshot({ path: testInfo.outputPath('danger-zone.png') });
 });

@@ -253,9 +253,9 @@ const CPU_STYLE: SeriesStyle = {
 // Enough for the accelerators one host can present at once; the list repeats rather
 // than running out, and the dash pattern carries the difference either way.
 const ACCELERATOR_STYLES: SeriesStyle[] = [
-    { stroke: 'stroke-teal-600 dark:stroke-teal-400', text: 'text-teal-700 dark:text-teal-300', dash: '7 4' },
+    { stroke: 'stroke-brand-700 dark:stroke-brand-300', text: 'text-brand-700 dark:text-brand-300', dash: '7 4' },
     { stroke: 'stroke-violet-600 dark:stroke-violet-400', text: 'text-violet-700 dark:text-violet-300', dash: '2 3' },
-    { stroke: 'stroke-amber-700 dark:stroke-amber-500', text: 'text-amber-800 dark:text-amber-400', dash: '11 4 2 4' }
+    { stroke: 'stroke-slate-600 dark:stroke-slate-300', text: 'text-slate-700 dark:text-slate-300', dash: '11 4 2 4' }
 ];
 
 type HistoryLike = Pick<SystemTelemetryHistory, 'points'> & { accelerators?: Accelerator[] };

@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 // Every Settings tab, every section open, read the way a screen reader lists headings: one page
 // title, then no level skipped on the way down. Definition lists hold only terms and descriptions.
 
-const TABS = ['connection', 'detection', 'integrations', 'ai', 'notifications', 'health', 'security', 'data', 'beta', 'appearance', 'accessibility'];
+const TABS = ['connection', 'detection', 'models', 'integrations', 'ai', 'notifications', 'security', 'data', 'maintenance', 'beta', 'appearance', 'accessibility'];
 
 async function openOwnerShell(page: Page, width: number): Promise<void> {
     await page.route('https://fonts.googleapis.com/**', (route) => route.fulfill({ contentType: 'text/css', body: '' }));

@@ -5,7 +5,8 @@
   "events": "Explora, filtra y gestiona cada visita clasificada.",
   "add_observation": "Clasifica una foto o un vídeo, revisa las pruebas y añádelo a tu historial.",
   "notifications": "Visitas, alertas y trabajos en segundo plano, los más recientes primero.",
-  "settings": "Conexiones, clasificación, integraciones y personalización.",
+  "settings": "Conexiones, identificación, integraciones y personalización.",
   "species": "Qué aves visitan más, con qué frecuencia y cuándo.",
+  "health": "Si YA-WAMF funciona, qué está haciendo el equipo y qué ha pasado.",
   "model_evaluation": "Con qué frecuencia cada modelo instalado nombra bien un ave, y con qué rapidez."
 }

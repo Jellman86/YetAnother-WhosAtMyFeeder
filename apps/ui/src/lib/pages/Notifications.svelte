@@ -172,7 +172,7 @@
         </div>
         <div class="flex flex-wrap gap-2">
             {#if isOwner}
-                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/settings/health')}>
+                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/system-health')}>
                     {$_('settings.data.open_diagnostics', { default: 'Open Health' })}
                 </button>
             {/if}

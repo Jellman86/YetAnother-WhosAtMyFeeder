@@ -23,14 +23,14 @@ const ROUTES: { name: string; path: string; ready: (page: Page) => Promise<void>
     { name: 'About', path: '/about', ready: (page) => expect(page.locator('#about-outbound-title')).toBeVisible(READY) },
     { name: 'Add observation', path: '/observations/new', ready: (page) => expect(page.getByRole('heading', { level: 1 })).toBeVisible(READY) },
     { name: 'Model evaluation', path: '/diagnostics/model-eval', ready: (page) => expect(page.getByRole('heading', { level: 1 })).toBeVisible(READY) },
-    { name: 'Health', path: '/settings/health', ready: (page) => expect(page.locator('[data-sidebar-status-link]')).toBeVisible(READY) },
+    { name: 'Health', path: '/system-health', ready: (page) => expect(page.locator('[data-sidebar-status-link]')).toBeVisible(READY) },
     { name: 'Not found', path: '/no-such-page', ready: (page) => expect(page.locator('#not-found-heading')).toBeVisible(READY) }
 ];
 
 interface Finding { rule: string; impact: string; target: string; summary: string }
 
 /** Every Settings tab. Each is scanned as it opens and again with every closed section opened. */
-const SETTINGS_TABS = ['connection', 'detection', 'integrations', 'ai', 'notifications', 'health', 'security', 'data', 'beta', 'appearance', 'accessibility'];
+const SETTINGS_TABS = ['connection', 'detection', 'models', 'integrations', 'ai', 'notifications', 'security', 'data', 'maintenance', 'beta', 'appearance', 'accessibility'];
 const settingsReady = (page: Page) => expect(page.locator('[data-settings-content]')).toBeVisible(READY);
 
 /** Opens every closed section of a Settings tab, nested ones too; popover triggers are left alone. */
@@ -211,7 +211,7 @@ test('the sidebar status is a list inside a live region, and its link is named b
     const card = await page.locator('[data-sidebar-status-card]').boundingBox();
     expect(card).not.toBeNull();
     await page.mouse.click((card?.x ?? 0) + 12, (card?.y ?? 0) + 12);
-    await expect(page).toHaveURL(/\/settings\/health$/);
+    await expect(page).toHaveURL(/\/system-health$/);
 });
 
 /**

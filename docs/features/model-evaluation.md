@@ -2,8 +2,7 @@
 
 Use the owner-only **Model evaluation** page at `/diagnostics/model-eval` to compare installed
 classifiers on taxonomy-verified images or check which providers run correctly on your hardware.
-Open it from **Settings → Detection → Models** (**Compare the accuracy and speed of the installed
-models**) or from **Settings → Debug**. Accuracy evaluation and compatibility checks answer
+Open it from **Settings → Models → Testing the models** (**Open model evaluation**). Accuracy evaluation and compatibility checks answer
 different questions; a passing provider check does not establish correct species identification at
 your feeder.
 
@@ -23,7 +22,7 @@ your feeder.
     download is, and asks you to confirm before it starts. A model the registry gives no size for
     is counted apart from the total ("1 of them has no known size"), and no size is stated when
     none is known. The page and the question both say that the download may take a while and that
-    downloaded models stay on disk until you delete their files in **Settings → Detection →
+    downloaded models stay on disk until you delete their files in **Settings → Models →
     Models**.
 - **Results** shows one evaluation, chosen by its start time in the **Evaluation** list (newest
   first, the 20 most recent). Models are shown by the names Settings uses. **Delete this
@@ -70,7 +69,7 @@ photo's result** (`results.jsonl`) and **Provider checks** (`device_matrix.json`
 evaluation did not write is not offered. Downloads use your current owner session and save the
 file in your browser; a refused download says so on the page. Sign in again if access has expired.
 
-A compatibility check started from **Settings → Detection** or the setup wizard also appears in
+A compatibility check started from **Settings → Models** or the setup wizard also appears in
 the **Evaluation** list. It checks providers but does not score accuracy, so the page labels it
 **Provider check only** and shows each model's fastest provider that passed, that provider's
 typical time per photo, and the providers that passed. It shows no accuracy columns and no average
@@ -132,7 +131,7 @@ The page states each warning as one line under the model's row, with its next st
 | `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check vocabulary coverage, catalogue readiness and preprocessing; a model may not include the feeder species |
 | `low_shared_core` | top-1 < 50% on the shared-core species the model can name (on every shared-core species when its vocabulary is unknown) | inspect install readiness, catalogue or custom label mapping, and preprocessing |
 | `partial_vocabulary` | the model cannot name some test species, usually because they are outside its region | informational — accuracy is shown on the species it can name |
-| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Detection → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
+| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Models → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
 | `incomplete_install` | model is not ready, required config is missing, or neither a complete catalogue mapping nor required legacy labels is available | use Model Manager's repair download; catalogue-backed installs do not require `labels.txt` |
 | `inference_health_unhealthy` | the `InferenceHealth` verdict for this model on the provider it ran on is `unhealthy` at run end | the runtime errored or timed out during the run; check classifier logs |
 | `region_mismatch` | EU model evaluated against NA region (or vice versa) | informational — accuracy will look low but isn't a regression |
@@ -145,7 +144,7 @@ Each row is `(expected_taxa, expected_common, predicted_taxa, predicted_common, 
 
 - A run temporarily changes the active model and provider and can compete with live detections.
   Schedule it for a quiet period, let it finish or cancel it through the UI, then check the restored
-  model and actual worker provider in **Settings → Detection**. Do not reset your database to
+  model and actual worker provider in **Settings → Models**. Do not reset your database to
   recover from a diagnostic run. Backfill can revisit available Frigate events without duplicating
   event IDs, but cannot recreate footage Frigate has already removed.
 - Only one run at a time. Starting a second run while one is in progress returns 409 Conflict.

@@ -78,6 +78,7 @@
         { path: '/observations/new', label: $_('nav.add_observation', { default: 'Add observation' }), icon: 'M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4', section: 'observe', requiresAuth: true },
         { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', section: 'observe' },
         { path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', section: 'manage', requiresAuth: true },
+        { path: '/system-health', label: $_('nav.health', { default: 'Health' }), icon: 'M3 12h4l3-8 4 16 3-8h4', section: 'manage', requiresAuth: true },
         { path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', section: 'manage' },
     ]));
 
@@ -213,12 +214,12 @@
                     <div class="mt-1 min-h-4" aria-hidden="true" bind:this={readoutRow}></div>
                     {#if authStore.showSettings}
                         <a
-                            href="/settings/health"
+                            href="/system-health"
                             class="eyebrow mt-1 flex min-h-4 items-center justify-end gap-1 px-2 transition-colors after:absolute after:-inset-3 after:z-10 hover:text-brand-700 focus-visible:text-brand-700 focus-visible:outline-hidden dark:hover:text-brand-300 dark:focus-visible:text-brand-300"
                             data-sidebar-status-link
                             onclick={(event) => {
                                 event.preventDefault();
-                                navigateAndClose('/settings/health');
+                                navigateAndClose('/system-health');
                             }}
                         >
                             {$_('status.open_health', { default: 'System health' })}

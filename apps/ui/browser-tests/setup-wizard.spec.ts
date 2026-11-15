@@ -570,7 +570,7 @@ test('a failed check is said in words and keeps Continue disabled', async ({ pag
 
     // The server answers with a code. What it raised is in its log, not on the screen.
     fake.failEval('models_not_ready');
-    await expect(wizard(page).getByRole('alert').filter({ hasText: 'A model chosen for this check is not installed and ready. Look at it in Settings → Detection, then start again.' })).toBeVisible({ timeout: 10_000 });
+    await expect(wizard(page).getByRole('alert').filter({ hasText: 'A model chosen for this check is not installed and ready. Look at it in Settings → Models, then start again.' })).toBeVisible({ timeout: 10_000 });
     await expect(continueButton(page)).toBeDisabled();
     await expect(validateButton(page)).toBeEnabled();
     expect(fake.posts(`/api/models/${DINO}/activate`)).toEqual([]);

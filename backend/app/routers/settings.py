@@ -260,16 +260,28 @@ async def test_birdnet_reachability(
     except httpx.TimeoutException:
         return JSONResponse(
             status_code=504,
-            content={"status": "error", "message": f"BirdNET-Go timed out at {redact_address(base_url)}."},
+            content={
+                "status": "error",
+                "message": f"BirdNET-Go at {redact_address(base_url)} did not answer in time. Check the URL in Settings → Integrations, and that BirdNET-Go is running.",
+            },
         )
     except httpx.RequestError as e:
         return JSONResponse(
             status_code=502,
             content={
                 "status": "error",
-                "message": f"Could not reach BirdNET-Go at {redact_address(base_url)} ({type(e).__name__}).",
+                "message": _birdnet_unreachable_message(e, redact_address(base_url)),
             },
         )
+
+
+def _birdnet_unreachable_message(error: httpx.RequestError, address: str) -> str:
+    """Why BirdNET-Go could not be reached and what to check, instead of an exception class."""
+    if isinstance(error, httpx.ConnectError):
+        return (
+            f"Nothing answered at {address}. Check the URL in Settings → Integrations, and that BirdNET-Go is running."
+        )
+    return f"BirdNET-Go at {address} could not be reached. Check the URL in Settings → Integrations, and that BirdNET-Go is running."
 
 
 class MQTTTestRequest(BaseModel):
@@ -297,28 +309,36 @@ async def test_mqtt_publish(
     supplied_password = request.password if request.password not in (None, "", "***REDACTED***") else None
     password = (supplied_password or settings.frigate.mqtt_password) if use_auth else None
 
+    where = f"{server}:{port}"
     try:
-        success = await mqtt_service.test_connection(
+        cause = await mqtt_service.diagnose_connection(
             server=server,
             port=port,
             username=username,
             password=password,
         )
-        if success:
-            return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
-        else:
-            return JSONResponse(
-                status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
-            )
     except Exception as exc:
         log.error("MQTT Test Publish Failed", error_type=type(exc).__name__)
-        return JSONResponse(
-            status_code=502,
-            content={
-                "status": "error",
-                "message": "Could not connect to the MQTT broker. Check the host, port, and credentials.",
-            },
-        )
+        cause = "failed"
+    if cause is None:
+        return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
+    return JSONResponse(status_code=502, content={"status": "error", "message": _mqtt_failure_message(cause, where)})
+
+
+def _mqtt_failure_message(cause: str, where: str) -> str:
+    """The cause of a failed MQTT test and what to change, in the owner's words."""
+    host = where.rsplit(":", 1)[0]
+    messages = {
+        "unresolved": f"The MQTT broker address {host} could not be found. Check the address in Settings → Connection.",
+        "refused": f"Nothing at {where} accepted the connection. Check the port in Settings → Connection, and that the broker is running.",
+        "timeout": f"The MQTT broker at {where} did not answer in time. Check the address in Settings → Connection, and that the broker is running.",
+        "auth": "The MQTT broker refused the username or password. Check them in Settings → Connection.",
+        "unreachable": f"The MQTT broker at {where} could not be reached. Check the address and port in Settings → Connection, and that the broker is running.",
+    }
+    return messages.get(
+        cause,
+        f"Connected to the MQTT broker at {where}, but it did not accept the test message. Check that this user may publish to yawamf/test.",
+    )
 
 
 class NotificationTestRequest(BaseModel):

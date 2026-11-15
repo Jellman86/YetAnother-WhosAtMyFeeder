@@ -5,7 +5,8 @@
   "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
   "add_observation": "Ein eigenes Foto oder Video klassifizieren, die Hinweise prüfen und zum Verlauf hinzufügen.",
   "notifications": "Besuche, Hinweise und Hintergrundarbeiten, neueste zuerst.",
-  "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
+  "settings": "Verbindungen, Bestimmung, Integrationen und Personalisierung.",
   "species": "Welche Vögel am häufigsten kommen, wie oft und wann.",
+  "health": "Ob YA-WAMF funktioniert, was der Rechner gerade tut und was passiert ist.",
   "model_evaluation": "Wie oft jedes installierte Modell einen Vogel richtig benennt und wie schnell."
 }

@@ -35,8 +35,7 @@ retry. Saved credentials remain redacted and can be reused without re-entering t
 If you do not have App Owner approval yet, you can still preview the submission UI:
 
 1. Enable **Debug UI** (`SYSTEM__DEBUG_UI_ENABLED=true` or `system.debug_ui_enabled`).
-2. Open **Settings → Debug** and enable **iNaturalist preview UI**.
-3. Open a detection details card to see the submission panel.
+2. Open a detection details card to see the submission panel.
 
 ## Reliability
 YA-WAMF supports OAuth token refresh. Revoked access, changed credentials, provider policy or network failures can still require reconnection. Review the draft, photograph and location before submission: submitting sends those details to your connected iNaturalist account.

@@ -19,11 +19,11 @@ test('the bird finder choice waits for Save changes and saves with the rest of t
     await expect(finder(page)).toContainText('Save changes to switch');
     expect(state.saves).toEqual([]);
 
-    await page.locator('#confidence-threshold-slider').fill('0.75');
+    await page.locator('#bird-model-region-override').selectOption('eu');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].bird_crop_accurate_detector).toBe('rfdetr_nano');
-    expect(state.saves[0].classification_threshold).toBe(0.75);
+    expect(state.saves[0].bird_model_region_override).toBe('eu');
     await expect(unsaved(page)).toHaveCount(0);
     await expect(wide).toBeChecked();
     await expect(finder(page)).not.toContainText('Save changes to switch');
@@ -33,7 +33,7 @@ test('the bird finder choice waits for Save changes and saves with the rest of t
 test('an unchanged form still sends the saved finder, so an unrelated save never resets it', async ({ page }) => {
     const state = await openDetectionSettings(page, { savedFinder: 'rfdetr_nano' });
     await expect(finder(page).getByRole('radio', { name: /Wide frame/ })).toBeChecked();
-    await page.locator('#confidence-threshold-slider').fill('0.65');
+    await page.locator('#bird-model-region-override').selectOption('na');
     await page.getByRole('button', { name: 'Save changes', exact: true }).click();
     await expect.poll(() => state.saves.length).toBe(1);
     expect(state.saves[0].bird_crop_accurate_detector).toBe('rfdetr_nano');
@@ -110,11 +110,11 @@ test('memory and isolation open from the keyboard and keep their values through 
 });
 
 for (const width of [320, 393]) {
-    test(`the Detection tab reflows at ${width}px with 200% text`, async ({ page }) => {
+    test(`the Models tab reflows at ${width}px with 200% text`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await openDetectionSettings(page);
         await page.addStyleTag({ content: 'html{font-size:200%!important}' });
-        await expect(page.locator('#confidence-threshold-slider')).toBeVisible();
+        await expect(page.locator('#bird-model-region-override')).toBeVisible();
         await page.getByRole('button', { name: /Memory and isolation/ }).click();
         await expect(page.locator('#live-worker-count')).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
@@ -160,7 +160,7 @@ test('the finder keeps an explicit NPU choice even when GPU benchmarks faster', 
     await expect(device).toHaveValue('intel_npu');
     await expect(device.locator('option[value="cuda"]')).toHaveJSProperty('disabled', true);
     await page.reload();
-    await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    await page.getByRole('link', { name: 'Models', exact: true }).click();
     await expect(finder(page).getByRole('combobox', { name: 'Finder device' })).toHaveValue('intel_npu');
 });
 

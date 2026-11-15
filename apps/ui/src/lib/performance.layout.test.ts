@@ -82,10 +82,9 @@ describe('content that arrives late has its space held', () => {
         expect(captureWallSource).toContain('Array.from({ length: columns * rowCount }');
     });
 
-    it('holds the system chart, the status line and the header reading on the Health tab', () => {
+    it('holds the system chart and the status line on the Health page', () => {
         expect(systemHealthPanelSource).toMatch(/class="min-h-96 [^"]*md:min-h-80[^"]*" data-system-health-loading/);
         expect(errorsSource).toContain('min-h-8 text-xs text-slate-600 sm:min-h-4');
-        expect(errorsSource).toContain("refreshedAgoText() ? '' : 'invisible'");
     });
 
     it('holds the Explorer day strip\'s space while the first page is read', () => {

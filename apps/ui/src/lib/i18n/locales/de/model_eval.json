@@ -15,7 +15,7 @@
     },
     "finder": "Vogelfinder",
     "row": {
-      "activation_failed": "Es konnte nicht geladen werden, daher wurde kein Anbieter geprüft. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+      "activation_failed": "Es konnte nicht geladen werden, daher wurde kein Anbieter geprüft. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Modelle.",
       "provider_sweep_failed": "Die Prüfung ist fehlgeschlagen, bevor ein Anbieter ein Ergebnis geliefert hat. Starten Sie sie erneut; wenn sie wieder fehlschlägt, steht die Ursache in den Container-Protokollen.",
       "unknown": "Es wurde nicht geprüft, aus einem Grund, den diese Seite nicht benennen kann. Die Ursache steht in den Container-Protokollen."
     },
@@ -138,9 +138,9 @@
     "vocabulary_note": "Die Anteile zählen nur die Arten, die ein Modell benennen kann."
   },
   "skipped": {
-    "activation_failed": "Seine Dateien fehlen oder sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "activation_failed": "Seine Dateien fehlen oder sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Modelle.",
     "other": "Es wurde aus einem Grund übersprungen, den diese Seite nicht benennen kann. Die Ursache steht in den Container-Protokollen.",
-    "reload_failed": "Es konnte nicht geladen werden. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung; wenn das nicht hilft, steht die Ursache in den Container-Protokollen.",
+    "reload_failed": "Es konnte nicht geladen werden. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Modelle; wenn das nicht hilft, steht die Ursache in den Container-Protokollen.",
     "title": "Nicht getestete Modelle"
   },
   "start": {
@@ -148,7 +148,7 @@
     "all_models_desc": "Prüft zusätzlich, ob jedes Modell auf Ihrem Grafikchip oder Ihrer NPU dieselben Antworten liefert wie auf der CPU. Nicht installierte Modelle werden zuerst heruntergeladen und bleiben installiert. Das dauert deutlich länger.",
     "all_models_label": "Jedes Modell auf jedem Anbieter prüfen",
     "download_none": "Alle Modelle sind bereits installiert, es wird nichts heruntergeladen.",
-    "download_note": "Der Download kann je nach Verbindung eine Weile dauern. Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Erkennung → Modelle löschen.",
+    "download_note": "Der Download kann je nach Verbindung eine Weile dauern. Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Modelle löschen.",
     "download_reading": "Der Umfang des Downloads wird ermittelt…",
     "download_size": "{count, plural, one {# Modell ist noch nicht installiert: ein Download von etwa {size}.} other {# Modelle sind noch nicht installiert: ein Download von etwa {size}.}}",
     "download_size_partial": "{count, plural, one {# Modell ist noch nicht installiert.} other {# Modelle sind noch nicht installiert.}} {unknown, plural, one {Bei # davon ist die Größe nicht bekannt;} other {Bei # davon ist die Größe nicht bekannt;}} die übrigen sind ein Download von etwa {size}.",
@@ -165,24 +165,24 @@
     "what": "Jedes installierte Modell benennt Fotos von Vögeln, deren Art bereits bestätigt ist. So können Sie vergleichen, wie oft jedes richtig liegt und wie schnell es ist."
   },
   "stopped": {
-    "finder_needs_provider_check": "Ein Vogelfinder kann nur auf Anbieter geprüft werden. Starten Sie die Prüfung unter Einstellungen → Erkennung.",
-    "models_not_ready": "Ein für diese Prüfung gewähltes Modell ist nicht installiert und bereit. Sehen Sie unter Einstellungen → Erkennung nach und starten Sie dann erneut.",
+    "finder_needs_provider_check": "Ein Vogelfinder kann nur auf Anbieter geprüft werden. Starten Sie die Prüfung unter Einstellungen → Modelle.",
+    "models_not_ready": "Ein für diese Prüfung gewähltes Modell ist nicht installiert und bereit. Sehen Sie unter Einstellungen → Modelle nach und starten Sie dann erneut.",
     "network": "Eine Anfrage an iNaturalist oder Wikimedia Commons ist fehlgeschlagen. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
-    "no_models": "Es ist kein Vogelmodell installiert und bereit. Installieren Sie eines unter Einstellungen → Erkennung und starten Sie dann erneut.",
+    "no_models": "Es ist kein Vogelmodell installiert und bereit. Installieren Sie eines unter Einstellungen → Modelle und starten Sie dann erneut.",
     "no_test_birds": "Die Liste der Testvögel konnte nicht erstellt werden, weil iNaturalist nicht geantwortet hat. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
     "no_test_photos": "Von iNaturalist oder Wikimedia Commons konnte kein Testfoto abgerufen werden. Prüfen Sie die Internetverbindung und starten Sie dann erneut.",
     "unexpected": "Sie wurde durch einen Fehler beendet, den diese Seite nicht benennen kann. Starten Sie sie erneut; wenn sie wieder abbricht, steht die Ursache in den Container-Protokollen."
   },
   "warning": {
-    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Erkennung.",
-    "incomplete_install": "Seine Dateien sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "high_abstention": "Hat bei {share} % der Fotos keine Art genannt. Möglicherweise deckt es diese Vögel nicht ab, oder die Installation ist unvollständig. Prüfen Sie das Modell unter Einstellungen → Modelle.",
+    "incomplete_install": "Seine Dateien sind unvollständig. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Modelle.",
     "inference_health_unhealthy": "Während des Laufs traten Fehler oder Zeitüberschreitungen auf. Die Ursache steht in den Container-Protokollen.",
-    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Erkennung auf CPU und bewerten Sie erneut.",
-    "latency_drift_high_plain": "Viel langsamer als beim Laden. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Erkennung auf CPU und bewerten Sie erneut.",
-    "low_shared_core": "Hat weniger als die Hälfte der häufigen Futterplatzvögel richtig benannt, was meist auf eine beschädigte Installation hinweist. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Erkennung.",
+    "latency_drift_high": "Viel langsamer als beim Laden: {measured, number} ms pro Foto gegenüber {loaded, number} ms. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Modelle auf CPU und bewerten Sie erneut.",
+    "latency_drift_high_plain": "Viel langsamer als beim Laden. Der Anbieter, auf dem es lief, arbeitet möglicherweise fehlerhaft. Stellen Sie den Inferenzanbieter unter Einstellungen → Modelle auf CPU und bewerten Sie erneut.",
+    "low_shared_core": "Hat weniger als die Hälfte der häufigen Futterplatzvögel richtig benannt, was meist auf eine beschädigte Installation hinweist. Nutzen Sie für dieses Modell „Download reparieren“ unter Einstellungen → Modelle.",
     "partial_vocabulary": "Kann {outside} der {total} Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
     "partial_vocabulary_plain": "Kann einige der Testarten nicht benennen, meist weil sie außerhalb seiner Region leben. Seine Anteile beziehen sich auf die Arten, die es benennen kann.",
-    "provider_fallback_active": "Lief auf der CPU, obwohl ein schnellerer Anbieter angefordert war. Den Grund nennt die Laufzeit-Diagnose unter Einstellungen → Erkennung.",
+    "provider_fallback_active": "Lief auf der CPU, obwohl ein schnellerer Anbieter angefordert war. Den Grund nennt die Laufzeit-Diagnose unter Einstellungen → Modelle.",
     "provider_validation_failed": "Kein Anbieter hat brauchbare Antworten geliefert, die mit der CPU übereinstimmen. Die Anbieterprüfungen unten zeigen jedes Ergebnis.",
     "provider_validation_partial": "Einige Anbieter sind fehlgeschlagen oder hier nicht verfügbar. Die Anbieterprüfungen unten zeigen jedes Ergebnis.",
     "region_mismatch": "Für eine andere Region gebaut als die Vögel in Ihrer Nähe, daher sind seine Anteile hier niedriger als dort.",

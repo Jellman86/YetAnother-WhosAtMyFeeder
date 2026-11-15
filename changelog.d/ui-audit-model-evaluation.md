@@ -10,9 +10,9 @@
   installed; the page now says how many and how large (for example 2 models, about 1.3 GB) and asks
   you to confirm before it starts. A model with no known size is counted apart from the total
   instead of adding nothing to it, and the page says the download may take a while and that the
-  models stay on disk until you delete their files in Settings → Detection → Models.
+  models stay on disk until you delete their files in Settings → Models.
 - **A stopped evaluation says why, and what to do.** Model evaluation, the setup wizard and the
-  Detection check showed whatever the server had raised. A run now records a reason code
+  provider check in Settings showed whatever the server had raised. A run now records a reason code
   (`error_code`: no installed model, no test photos, a failed request, and so on), each shown as a
   cause and a next step; the exception itself stays in the server log and is no longer written to
   the run's summary or answered by the API. The run and list answers have a declared shape
@@ -22,5 +22,5 @@
   place while it reads. Only the files an evaluation wrote are offered for download
   (`available_artifacts` on `GET /api/diagnostics/model-eval/runs/{run_id}`), including each
   photo's result when you asked for it.
-- **Model evaluation is linked from Settings → Detection → Models**, answers the header's Refresh,
+- **Model evaluation** answers the header's Refresh,
   and no longer re-reads a finished evaluation every two seconds while another one runs.
