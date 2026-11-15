@@ -315,16 +315,18 @@ test('a visitor is offered no camera the owner does not share, and search never 
     expect(media).toEqual([]);
 });
 
-test('on a desktop the search heads the page before the count, and stays when the filters are hidden', async ({ page }) => {
+test('on a desktop the search heads the page above the count, and stays when the filters are hidden', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openExplorer(page);
     const header = page.locator('[data-explorer-header-search]');
     await expect(header.locator('[data-explorer-search]')).toBeVisible();
     await expect(page.locator('[data-events-filter-bar] [data-explorer-search]')).toHaveCount(0);
-    // Left of the count and the view switch, and wide enough to read a scientific name in.
+    // Left of the view switch, above the count's own line, and wide enough to read a scientific name in.
     const search = await header.boundingBox();
+    const view = await page.locator('[data-explorer-rail-toggle]').boundingBox();
     const count = await page.locator('[data-explorer-count]').boundingBox();
-    expect(search && count && search.x + search.width <= count.x).toBe(true);
+    expect(search && view && search.x + search.width <= view.x).toBe(true);
+    expect(search && count && search.y + search.height <= count.y).toBe(true);
     expect(search?.width ?? 0).toBeGreaterThanOrEqual(320);
 
     await page.locator('[data-explorer-rail-toggle]').click();
