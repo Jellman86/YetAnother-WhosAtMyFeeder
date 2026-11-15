@@ -606,7 +606,7 @@ test('a German owner gets a German page that fits a phone without scrolling side
     await page.getByRole('button', { name: 'Optionen für die Bewertung anzeigen', exact: true }).click();
     await page.getByRole('switch', { name: 'Jedes Modell auf jedem Anbieter prüfen' }).click();
     await expect(page.locator('[data-model-eval-download]')).toContainText('2 Modelle sind noch nicht installiert: ein Download von etwa 1,3 GB.');
-    await expect(page.locator('[data-model-eval-download]')).toContainText('Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Erkennung → Modelle löschen.');
+    await expect(page.locator('[data-model-eval-download]')).toContainText('Heruntergeladene Modelle bleiben auf der Festplatte, bis Sie ihre Dateien unter Einstellungen → Modelle löschen.');
     const content = page.locator('[data-model-evaluation]');
     await expect(content.getByRole('heading', { level: 2 })).toHaveText(['Bewertung starten', 'Ergebnisse', 'Anbieterprüfungen']);
     // On a phone the figures are a labelled list, not a table to scroll.
@@ -656,8 +656,12 @@ test('Settings opens the page from the Models tab, where models are chosen', asy
     await page.setViewportSize({ width: 1440, height: 900 });
     await replayFeeder(page, 'light', withEvaluation);
     await page.goto('/settings/models');
+    // The Models tab keeps testing in a closed section beside the model choice.
+    const section = page.getByRole('button', { name: 'Testing the models', exact: true });
+    await expect(section).toBeVisible({ timeout: 15_000 });
+    await section.click();
     const link = page.getByRole('link', { name: 'Open model evaluation', exact: true });
-    await expect(link).toBeVisible({ timeout: 15_000 });
+    await expect(link).toBeVisible();
     await expect(link).toHaveAttribute('href', '/diagnostics/model-eval');
     await link.focus();
     await page.keyboard.press('Enter');
