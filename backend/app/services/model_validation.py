@@ -1008,6 +1008,24 @@ def _match_crop_boxes(
     return [(left, right, iou, delta) for right, (left, iou, delta) in assigned.items()]
 
 
+def _suppressed_on_other_side(
+    box: dict[str, Any], other_side: list[dict[str, Any]], *, min_iou: float, max_confidence_delta: float
+) -> bool:
+    """A survivor here can be a suppressed member of a chained NMS group there.
+
+    Box A suppresses B while C survives on one device; on another, B edges ahead
+    and suppresses both A and C. Production keeps one crop for that chain either
+    way, so C is the same bird, not a missing one. Localization and score
+    agreement stay as strict as for survivors.
+    """
+    return any(
+        _normalized_box_iou(box.get("normalized_box") or [], alternative.get("normalized_box") or []) >= min_iou
+        and abs(float(box["confidence"]) - float(alternative["confidence"])) <= max_confidence_delta
+        for survivor in other_side
+        for alternative in survivor.get("alternatives", [])
+    )
+
+
 def _compare_crop_detections(
     baseline_rows: list[dict[str, Any]],
     provider_rows: list[dict[str, Any]],
@@ -1020,7 +1038,8 @@ def _compare_crop_detections(
     # survivors can swap rank at the production 0.6 suppression threshold; their
     # retained alternatives identify the same bird without relaxing 0.85 IoU.
     # A missing proposal within 0.03 of the shared admission floor is numerical
-    # threshold jitter, not evidence that a bird appeared or disappeared.
+    # threshold jitter, not evidence that a bird appeared or disappeared. A strong
+    # survivor that the other device suppressed into a chained group is the same bird.
     baseline_keys = [str(row.get("image") or "") for row in baseline_rows]
     provider_keys = [str(row.get("image") or "") for row in provider_rows]
     duplicate_keys = (len(baseline_keys) != len(set(baseline_keys))) or (len(provider_keys) != len(set(provider_keys)))
@@ -1028,7 +1047,7 @@ def _compare_crop_detections(
     provider_key_set = set(provider_keys)
     coverage_complete = bool(baseline_keys and not duplicate_keys and baseline_key_set == provider_key_set)
     provider_by_image = {str(row.get("image") or ""): row for row in provider_rows}
-    comparisons = matches = matched_boxes = ignored_boundary_boxes = unmatched_required_boxes = 0
+    comparisons = matches = matched_boxes = ignored_boundary_boxes = unmatched_required_boxes = nms_grouped_boxes = 0
     baseline_boxes = sum(len(_comparison_detections(row, score_threshold)) for row in baseline_rows)
     provider_boxes = sum(len(_comparison_detections(row, score_threshold)) for row in provider_rows)
     ious: list[float] = []
@@ -1051,8 +1070,15 @@ def _compare_crop_detections(
         matched_right = {index for _, index, _, _ in pairs}
         missing = [box for index, box in enumerate(left) if index not in matched_left]
         extra = [box for index, box in enumerate(right) if index not in matched_right]
-        strong_unmatched = sum(float(box["confidence"]) + 1e-9 >= required_score for box in [*missing, *extra])
-        ignored_boundary_boxes += len(missing) + len(extra) - strong_unmatched
+        strong_missing = [box for box in missing if float(box["confidence"]) + 1e-9 >= required_score]
+        strong_extra = [box for box in extra if float(box["confidence"]) + 1e-9 >= required_score]
+        tolerance = {"min_iou": min_iou, "max_confidence_delta": max_confidence_delta}
+        grouped = sum(_suppressed_on_other_side(box, right, **tolerance) for box in strong_missing) + sum(
+            _suppressed_on_other_side(box, left, **tolerance) for box in strong_extra
+        )
+        strong_unmatched = len(strong_missing) + len(strong_extra) - grouped
+        ignored_boundary_boxes += len(missing) + len(extra) - len(strong_missing) - len(strong_extra)
+        nms_grouped_boxes += grouped
         unmatched_required_boxes += strong_unmatched
         matched_boxes += len(pairs)
         ious.extend(iou for _, _, iou, _ in pairs)
@@ -1068,6 +1094,7 @@ def _compare_crop_detections(
         "provider_boxes": provider_boxes,
         "matched_boxes": matched_boxes,
         "ignored_boundary_boxes": ignored_boundary_boxes,
+        "nms_grouped_boxes": nms_grouped_boxes,
         "unmatched_required_boxes": unmatched_required_boxes,
         "worst_box_iou": 0.0 if unmatched_required_boxes else (min(ious) if ious else None),
         "mean_box_iou": (sum(ious) / len(ious)) if ious else None,
@@ -1418,6 +1445,7 @@ async def _sweep_crop_model_devices(
                 and not comparison["agrees"]
             ),
             "ignored_boundary_boxes": comparison.get("ignored_boundary_boxes"),
+            "nms_grouped_boxes": comparison.get("nms_grouped_boxes"),
             "images_compared": comparison["images_compared"],
             "image_set_complete": comparison["coverage_complete"],
             "duplicate_image_keys": comparison["duplicate_image_keys"],

@@ -85,6 +85,8 @@ export type FinderRunsOn =
 export interface FinderRunsOnInput {
     installed: boolean;
     execution?: components['schemas']['InferenceExecution'] | null;
+    /** The device the backend will use for the running finder's next frame, from its crop status. */
+    planned?: { model_id?: string | null; provider?: string | null } | null;
     /** The finder's current passing evidence on this host, fastest first. */
     evidence: readonly string[];
     /** Graphics and NPU devices this host offers the finder. */
@@ -128,7 +130,9 @@ export function finderRunsOn(input: FinderRunsOnInput): FinderRunsOn {
     const order = modelId === BIRD_FINDER_MODEL_IDS.rfdetr_nano && ['auto', 'intel_npu', 'intel_gpu'].includes(savedProvider)
         ? (savedProvider === 'intel_gpu' ? ['intel_gpu', 'intel_npu', 'cuda', 'cpu'] : ['intel_npu', 'intel_gpu', 'cuda', 'cpu'])
         : specific ? [specific] : evidence;
-    const running = order.find((provider) => evidence.includes(provider));
+    // The backend's own choice wins; the order above only covers a status read that lacks one.
+    const planned = input.planned?.model_id === modelId ? input.planned.provider : null;
+    const running = planned ?? order.find((provider) => evidence.includes(provider));
     if (running && running !== 'cpu') {
         const measured = check?.runtime_current !== false && check?.state === 'succeeded' && (check.providers ?? []).includes(running);
         return { kind: 'passed', provider: running, checkedAt: measured ? (check.checked_at ?? null) : null };

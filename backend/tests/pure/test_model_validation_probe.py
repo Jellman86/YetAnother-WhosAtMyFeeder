@@ -801,3 +801,34 @@ def test_nms_alternatives_do_not_hide_a_strong_confidence_regression():
         }
 
     assert not mv._compare_crop_detections([row(0.9)], [row(0.7)])["agrees"]
+
+
+def test_a_chained_nms_group_that_changes_the_survivor_count_still_agrees():
+    # A suppresses B on the CPU while C survives; on the NPU B edges ahead and
+    # suppresses both. Production treats the overlapping chain as one bird.
+    a = {"normalized_box": [0.10, 0.1, 0.50, 0.5], "confidence": 0.81}
+    b = {"normalized_box": [0.18, 0.1, 0.58, 0.5], "confidence": 0.80}
+    c = {"normalized_box": [0.26, 0.1, 0.66, 0.5], "confidence": 0.79}
+    assert mv._normalized_box_iou(a["normalized_box"], b["normalized_box"]) >= 0.6
+    assert mv._normalized_box_iou(b["normalized_box"], c["normalized_box"]) >= 0.6
+    assert mv._normalized_box_iou(a["normalized_box"], c["normalized_box"]) < 0.6
+    cpu = [dict(a, alternatives=[a, b]), dict(c, alternatives=[c])]
+    npu_b = dict(b, confidence=0.82)
+    npu = [dict(npu_b, alternatives=[npu_b, dict(a, confidence=0.80), c])]
+    result = mv._compare_crop_detections([{"image": "bird", "detections": cpu}], [{"image": "bird", "detections": npu}])
+    assert result["agrees"] is True
+    assert result["nms_grouped_boxes"] == 1
+    reverse = mv._compare_crop_detections(
+        [{"image": "bird", "detections": npu}], [{"image": "bird", "detections": cpu}]
+    )
+    assert reverse["agrees"] is True
+
+
+def test_a_separate_bird_outside_every_nms_group_still_fails():
+    a = {"normalized_box": [0.10, 0.1, 0.50, 0.5], "confidence": 0.81}
+    far = {"normalized_box": [0.60, 0.6, 0.90, 0.9], "confidence": 0.79}
+    cpu = [dict(a, alternatives=[a]), dict(far, alternatives=[far])]
+    npu = [dict(a, alternatives=[a])]
+    result = mv._compare_crop_detections([{"image": "bird", "detections": cpu}], [{"image": "bird", "detections": npu}])
+    assert result["agrees"] is False
+    assert result["nms_grouped_boxes"] == 0

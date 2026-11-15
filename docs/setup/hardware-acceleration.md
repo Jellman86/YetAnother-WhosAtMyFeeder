@@ -340,7 +340,8 @@ an attempt. A completed pass or box mismatch finishes that runtime, artifact,
 comparison-policy and device-preference context. Interrupted, unfinished or superseded
 checks retry after one hour, then four hours, with at most three attempts in that
 context. A panel without reliable CPU bird detections retries when the saved photo
-set changes. **Check devices** allows an owner-run check at any time.
+set changes, at most once every four hours, because a busy feeder changes that set
+most minutes. **Check devices** allows an owner-run check at any time.
 CPU remains eligible when it runs successfully, even if the photos contain no
 admitted bird boxes; accelerator approval still requires a positive CPU baseline.
 An unavailable CPU baseline is inconclusive and preserves all previous evidence.
@@ -351,6 +352,9 @@ Unmatched proposals within 0.03 of that floor are ignored as threshold jitter;
 stronger extra or missing birds fail. Within each production NMS group, equivalent
 full-frame and tile proposals can match at IoU 0.85 with score difference at most
 0.03, so a small score change that swaps the survivor does not fail the check.
+When overlapping boxes chain (A suppresses B while C survives on one device, and B
+suppresses both on the other), a strong box that the other device suppressed into
+its group, at IoU 0.85 and within 0.03 of its score, counts as the same bird.
 The status API keeps the last result and marks evidence from a different runtime
 as historical, including while a new check runs. A structured
 `bird_finder_revalidation_result` log records the outcome and each provider's box

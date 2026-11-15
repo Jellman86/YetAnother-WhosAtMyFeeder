@@ -405,6 +405,20 @@ def test_inconclusive_retry_backoff_is_capped_and_photo_changes_are_distinct():
     assert not recovery.retry_due(entry, photo_signature="old", now=now)
 
 
+def test_a_photo_set_change_does_not_rerun_an_empty_baseline_check_within_hours():
+    # A busy feeder saves a new snapshot most minutes; each one changes the set.
+    from datetime import datetime, timezone
+
+    entry = {
+        "state": "failed",
+        "reason_code": "no_positive_baseline",
+        "photo_signature": "old",
+        "checked_at": "2026-11-15T00:00:00Z",
+    }
+    assert not recovery.retry_due(entry, photo_signature="new", now=datetime(2026, 11, 15, 1, tzinfo=timezone.utc))
+    assert recovery.retry_due(entry, photo_signature="new", now=datetime(2026, 11, 15, 4, tzinfo=timezone.utc))
+
+
 @pytest.mark.asyncio
 async def test_unavailable_cpu_baseline_keeps_previous_evidence_and_is_inconclusive(environment, monkeypatch):
     monkeypatch.setattr(
@@ -437,10 +451,14 @@ async def test_no_positive_baseline_retries_only_after_photos_change(environment
         ],
         "image_flavor": "intel",
     }
-    runner = recovery.BirdFinderRevalidation()
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    runner = recovery.BirdFinderRevalidation(clock=lambda: now)
     await runner.run()
     assert runner.status()["reason_code"] == "no_positive_baseline"
     assert "did not match" not in runner.status()["reason"]
+    now += timedelta(hours=5)
     await runner.run()
     assert environment.await_count == 1
     monkeypatch.setattr(recovery, "recent_bird_photos", lambda: ["/photos/new.jpg"])

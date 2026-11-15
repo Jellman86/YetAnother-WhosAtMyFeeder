@@ -10,6 +10,10 @@
   Health incident counted in System status. Only disposable provider probes cap CPU
   threads and run at reduced priority. Interrupted or unfinished checks retry with
   capped backoff; inconclusive checks preserve previous passing evidence.
-- Finder checks tolerate score-floor jitter and full-frame/tile NMS survivor swaps.
+- Finder checks tolerate score-floor jitter and full-frame/tile NMS survivor swaps,
+  including chained groups where one device keeps two overlapping boxes and the
+  other keeps one. A check with no birds in the CPU baseline reruns on a changed
+  photo set at most every four hours. The Settings finder card names the backend's
+  planned device for the running finder.
   Settings uses stable failure codes and completed execution evidence, including
   verified GPU recovery when the saved NPU cannot run the model.

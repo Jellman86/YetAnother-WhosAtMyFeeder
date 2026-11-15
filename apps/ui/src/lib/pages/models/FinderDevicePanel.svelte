@@ -26,6 +26,8 @@
         checkRunning: boolean;
         downloading: boolean;
         execution: components['schemas']['InferenceExecution'] | null | undefined;
+        /** The backend's device for the running finder's next frame. */
+        planned: { model_id?: string | null; provider?: string | null } | null;
         oncheck?: () => void;
         ondownload: () => void;
     }
@@ -44,6 +46,7 @@
         checkRunning,
         downloading,
         execution,
+        planned,
         oncheck,
         ondownload
     }: Props = $props();
@@ -75,7 +78,7 @@
         }
     }
 
-    const runsOn = $derived(finderRunsOn({ installed, evidence, accelerators, savedProvider, check, modelId, checkRunning, execution }));
+    const runsOn = $derived(finderRunsOn({ installed, evidence, accelerators, savedProvider, check, modelId, checkRunning, execution, planned }));
 
     // The measured fact, in words. Every sentence names the device first, so the row reads the same way in each state.
     const runsOnText = $derived.by((): string => {

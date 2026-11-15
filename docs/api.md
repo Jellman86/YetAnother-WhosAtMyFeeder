@@ -1212,12 +1212,14 @@ are reported as historical. None of these status fields authorizes a device;
 selection still requires current provider eligibility. `attempt_count` and
 `next_retry_at` describe capped automatic retries: inconclusive checks retry after
 one hour then four hours, up to three attempts per context. A missing positive CPU
-baseline waits for a changed saved photo set instead.
+baseline waits for a changed saved photo set, and at least four hours, instead.
 
 `crop_detector.active_provider` is the provider from its most recent completed
 execution, or null before an execution. `planned_provider` is the current selection
 for the next load; `last_execution` includes the provider, devices and timestamp of
 actual inference. RF-DETR's saved NPU preference can therefore report GPU in use.
+The Settings finder card states `planned_provider` for the running finder before
+any first frame, so it names the same device the backend will load.
 
 `crop_detector.cpu_fallback` reports `active`, `model_id`, `provider`, `reason_code`,
 `reason` and `action` for last-resort RF-DETR CPU use. `/health` and the diagnostics

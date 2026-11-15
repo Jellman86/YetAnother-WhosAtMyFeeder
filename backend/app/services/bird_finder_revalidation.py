@@ -145,31 +145,37 @@ def photo_set_signature(photos: list[str]) -> str:
     return validation._identity_digest({"photos": rows})
 
 
+# A busy feeder saves a snapshot most minutes, so a changed photo set alone
+# would rerun a full device check on every five-minute scheduler pass.
+EMPTY_BASELINE_RETRY_SPACING = timedelta(hours=4)
+
+
+def _parse_utc(value: Any) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+
+
 def retry_due(entry: dict[str, Any], *, photo_signature: str, now: datetime) -> bool:
     """Only a completed comparison consumes a runtime/preference context."""
     state = entry.get("state")
     code = entry.get("reason_code")
     if state == "succeeded" or (state == "failed" and code == "mismatch"):
         return False
+    checked = _parse_utc(entry.get("checked_at"))
+    if checked is None:
+        return False
     if code == "no_positive_baseline":
-        return entry.get("photo_signature") != photo_signature
+        return entry.get("photo_signature") != photo_signature and now >= checked + EMPTY_BASELINE_RETRY_SPACING
     count = int(entry.get("attempt_count") or 1)
     if count >= 3:
         return False
-    try:
-        checked = datetime.fromisoformat(str(entry.get("checked_at") or "").replace("Z", "+00:00"))
-        checked = checked.replace(tzinfo=timezone.utc) if checked.tzinfo is None else checked
-    except ValueError:
-        return False
-    delay = timedelta(hours=1 if count == 1 else 4)
     if entry.get("next_retry_at"):
-        try:
-            deadline = datetime.fromisoformat(str(entry["next_retry_at"]).replace("Z", "+00:00"))
-            deadline = deadline.replace(tzinfo=timezone.utc) if deadline.tzinfo is None else deadline
-            return now >= deadline
-        except ValueError:
-            return False
-    return now >= checked + delay
+        deadline = _parse_utc(entry["next_retry_at"])
+        return deadline is not None and now >= deadline
+    return now >= checked + timedelta(hours=1 if count == 1 else 4)
 
 
 @dataclass(frozen=True)
@@ -502,6 +508,7 @@ class BirdFinderRevalidation:
                                     "provider_boxes",
                                     "matched_boxes",
                                     "ignored_boundary_boxes",
+                                    "nms_grouped_boxes",
                                     "worst_box_iou",
                                     "error",
                                 )

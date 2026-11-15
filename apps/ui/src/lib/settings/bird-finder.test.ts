@@ -166,6 +166,16 @@ describe('finderRunsOn', () => {
             execution: { model_id: finder, provider: 'intel_gpu', devices: ['GPU'], checked_at: '2026-11-15T00:00:00Z' } }))
             .toEqual({ kind: 'active', provider: 'intel_gpu', checkedAt: '2026-11-15T00:00:00Z' });
     });
+    it("states the backend's own device choice for the running finder before deriving one", () => {
+        const evidence = ['intel_npu', 'intel_gpu', 'cpu'];
+        expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence, planned: { model_id: finder, provider: 'intel_gpu' } }))
+            .toEqual({ kind: 'passed', provider: 'intel_gpu', checkedAt: null });
+        expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence, check: check('failed'), planned: { model_id: finder, provider: 'cpu' } }))
+            .toMatchObject({ kind: 'failed' });
+        // A plan for the other, still-running finder says nothing about the one being chosen.
+        expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence, planned: { model_id: 'other', provider: 'cpu' } }))
+            .toEqual({ kind: 'passed', provider: 'intel_npu', checkedAt: null });
+    });
     it('does not date current evidence using a passing check from an older runtime', () => {
         expect(finderRunsOn({ ...base, savedProvider: 'intel_npu', evidence: ['intel_npu'], check: check('succeeded', { runtime_current: false }) }))
             .toMatchObject({ kind: 'passed', checkedAt: null });
