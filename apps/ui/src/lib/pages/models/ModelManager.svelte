@@ -66,6 +66,14 @@
     let wizardRunId = $state(0);
     let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
+    // The model in use is shown on its own; the full list opens on request, or by itself while
+    // nothing is in use, since choosing a model is then the first thing to do.
+    let catalogueRequested = $state(false);
+    const anyModelInUse = $derived(
+        installedModels.some((model) => model.is_active && model.ready !== false)
+            || (Boolean(classifierStatus?.effective_model_id) && classifierStatus?.active_model_installed === true)
+    );
+    const catalogueOpen = $derived(catalogueRequested || !anyModelInUse);
     const cropDetectorStatus = $derived(classifierStatus?.crop_detector ?? null);
     // What the running service has saved, as opposed to the form's staged choice.
     const savedBirdFinder = $derived<BirdFinder | null>(
@@ -108,15 +116,6 @@
             .filter(Boolean)
             .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1).toLowerCase())
             .join(' ');
-    }
-
-    function tierLabel(tier: string): string {
-        switch (tier) {
-            case 'cpu_only':
-                return t('settings.detection.model_manager_tier_cpu_only', 'CPU only');
-            default:
-                return formatMetadataLabel(tier);
-        }
     }
 
     function scopeLabel(scope: string): string {
@@ -177,6 +176,10 @@
             if (!selectedModelId && installed.length > 0) {
                 const activeModel = installed.find(m => m.is_active);
                 if (activeModel) selectedModelId = activeModel.id;
+            }
+            const effectiveId = classifierStatus?.effective_model_id;
+            if (!selectedModelId && effectiveId && available.some(m => m.id === effectiveId)) {
+                selectedModelId = effectiveId;
             }
             if (!selectedModelId && available.length > 0) {
                 const classModels = available.filter(m => (m.artifact_kind || 'classifier') === 'classifier');
@@ -261,7 +264,10 @@
         return Boolean(installed && installed.ready !== false);
     }
 
+    // In use is what the runtime reports, not only the stored choice: the bundled model runs under
+    // its file name, so the model list alone would offer it for download while it identifies birds.
     function isActive(modelId: string): boolean {
+        if (classifierStatus?.effective_model_id === modelId && classifierStatus?.active_model_installed === true) return true;
         return installedModels.some(m => m.id === modelId && m.is_active && m.ready !== false);
     }
 
@@ -581,7 +587,7 @@
     function modelCardStateLabel(state: ModelCardState): string {
         switch (state) {
             case 'active':
-                return t('settings.detection.model_manager_active', 'Active');
+                return t('settings.detection.model_manager_in_use', 'In use');
             case 'repair':
                 return t('settings.detection.model_manager_state_repair', 'Repair needed');
             case 'installed':
@@ -641,9 +647,9 @@
             <div>
                         <div class="flex flex-wrap items-start justify-between gap-3">
                             <div class="min-w-0 flex-1 basis-64">
-                                <h4 id="classifier-model-lineup-label" class="text-base font-bold text-slate-900 dark:text-white">
+                                <h3 id="classifier-model-lineup-label" class="text-base font-bold text-slate-900 dark:text-white">
                                     {$_('settings.detection.identification_title', { default: 'Identification model' })}
-                                </h4>
+                                </h3>
                                 <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                                     {$_('settings.detection.identification_desc', { default: 'Names the species in each bird image. Larger models need more memory for every worker copy and take longer per image. Coverage differs: some know birds only, others birds and other wildlife.' })}
                                 </p>
@@ -661,28 +667,46 @@
                                 {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
                             </button>
                         </div>
-                        <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
+                        <button
+                            type="button"
+                            class="btn btn-secondary mt-3 min-h-11 px-4"
+                            aria-expanded={catalogueOpen}
+                            aria-controls="classifier-model-catalogue"
+                            onclick={() => (catalogueRequested = !catalogueOpen)}
+                            data-model-catalogue-toggle
+                        >
+                            {catalogueOpen
+                                ? $_('settings.detection.model_manager_hide_catalogue', { default: 'Hide the other models' })
+                                : $_('settings.detection.model_manager_show_catalogue', { default: 'Choose another model' })}
+                        </button>
+                        {#if catalogueOpen}
+                        <div id="classifier-model-catalogue">
+                        <div class="mt-3 space-y-4" role="group" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
                                     <p class="mb-2 text-sm font-semibold text-slate-700 dark:text-slate-200">{group.info.label}</p>
-                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                    <ul class="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line-soft">
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
                                             {@const cardSelected = selectedModelId === modelOption.id}
+                                            <li>
                                             <button
                                                 type="button"
                                                 aria-pressed={cardSelected}
                                                 onclick={() => (selectedModelId = modelOption.id)}
-                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
+                                                class="model-card flex min-h-11 w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus {cardSelected ? 'choice-active' : 'hover:bg-surface-raised'}"
                                             >
-                                                <span class="relative flex flex-wrap items-start justify-between gap-2">
-                                                    <span class="min-w-0 wrap-break-word text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
+                                                <span class="flex min-w-0 flex-1 basis-48 flex-wrap items-center gap-2">
+                                                    {#if cardSelected}
+                                                        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4 10-10" /></svg>
+                                                    {/if}
+                                                    <span class="min-w-0 wrap-break-word text-sm font-semibold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <!-- Only the exceptions carry a badge; a model with neither is one to download. -->
                                                     {#if cardState !== 'available'}
                                                         <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
                                                     {/if}
                                                 </span>
-                                                <span class="relative mt-auto flex flex-col gap-1.5">
+                                                <span class="flex flex-wrap gap-x-3 gap-y-1">
                                                     <span class="text-xs font-semibold text-slate-600 dark:text-slate-300">{scopeLabel(modelOption.taxonomy_scope)}</span>
                                                     <span class="text-xs text-slate-600 dark:text-slate-300">
                                                         {cardState === 'available'
@@ -691,8 +715,9 @@
                                                     </span>
                                                 </span>
                                             </button>
+                                            </li>
                                         {/each}
-                                    </div>
+                                    </ul>
                                 </div>
                             {/each}
                         </div>
@@ -715,12 +740,9 @@
                             ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
                             : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
                     </button>
-                    {#if !showAdvancedModels}
-                        <p class="mt-2 px-1 text-sm text-slate-600 dark:text-slate-400">
-                            {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
-                        </p>
-                    {/if}
                 {/if}
+                        </div>
+                        {/if}
             </div>
 
             {#if selectedModelId}
@@ -747,16 +769,13 @@
                                         </h3>
                                         {#if active}
                                             <span class="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-950/60 dark:text-brand-200">
-                                                {$_('settings.detection.model_manager_active', { default: 'Active' })}
+                                                {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
                                             </span>
                                         {/if}
                                     </div>
                                     <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2">
-                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
-                                        {tierLabel(model.tier)}
-                                    </span>
                                     <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {FACT_CHIP}">
                                         {statusLabel(model.status)}
                                     </span>
@@ -997,7 +1016,7 @@
                                             </button>
                                         {:else if active}
                                             <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300">
-                                                {$_('settings.detection.model_manager_currently_active', { default: 'Currently active' })}
+                                                {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
                                             </span>
                                         {/if}
                                         {#if !active}
@@ -1012,6 +1031,10 @@
                                                     : $_('settings.detection.model_manager_delete', { default: 'Delete files' })}
                                             </button>
                                         {/if}
+                                    {:else if active}
+                                        <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300" data-model-in-use>
+                                            {$_('settings.detection.model_manager_in_use', { default: 'In use' })}
+                                        </span>
                                     {:else}
                                         <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
                                             {$_('settings.detection.model_manager_download_setup', { default: 'Download & set up' })}
@@ -1072,7 +1095,7 @@
                                         </span>
                                         <span class="block text-xs font-semibold text-slate-600 dark:text-slate-300">
                                             {#if !optionInstalled}
-                                                {$_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                                                {$_('settings.detection.model_manager_detector_missing', { default: 'Not downloaded yet. The download button is below the choices.' })}
                                             {:else if deviceNote === 'checked'}
                                                 {t('settings.detection.bird_finder_recommended_checked', 'Recommended: {provider}. Passed the device check on this host.', { provider: providerLabel(device.provider) })}
                                             {:else if deviceNote === 'cpu_only'}

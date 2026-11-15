@@ -1,25 +1,30 @@
-import { expect, test } from '@playwright/test';
-import { openSettings } from './settings-page-mock';
+import { expect, test, type Page } from '@playwright/test';
+import { replayFeeder } from './accessibility-mock';
 
-// Settings → Health is the diagnostics page shown as a tab. It loads only when opened, and a
-// detection set aside elsewhere in Settings links straight to it.
+// Health is a page of its own under Manage, at /system-health (the backend answers /health). Its
+// verdict and its list of open problems come from one reading, so the two always agree.
 
-test('Health loads on first open and keeps the form untouched', async ({ page }) => {
-    const harness = await openSettings(page);
-    expect(harness.moduleRequests('Errors.svelte')).toBe(0);
+async function openHealth(page: Page, workspacePayload: unknown): Promise<void> {
+    await replayFeeder(page, 'light', { '/api/diagnostics/workspace': workspacePayload });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/system-health');
+    await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible({ timeout: 15_000 });
+}
 
-    await page.getByRole('link', { name: 'Health' }).click();
-    await expect(page.locator('[data-fixture-route]')).toHaveAttribute('data-fixture-route', '/settings/health');
+test('Health is a page under Manage, reached from the sidebar and from its old Settings address', async ({ page }) => {
+    await replayFeeder(page, 'light');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/settings/health');
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/system-health');
+    await expect(page.getByRole('heading', { level: 1, name: 'Health' })).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-health-timeline]')).toBeVisible();
-    expect(harness.moduleRequests('Errors.svelte')).toBe(1);
-    await expect(page.getByRole('region', { name: 'Unsaved changes' })).toHaveCount(0);
-
-    await page.getByRole('link', { name: 'Connection' }).click();
-    await expect(page.locator('#mqtt-server')).toHaveValue('mqtt');
-    await page.getByRole('link', { name: 'Health' }).click();
-    await expect(page.locator('[data-health-timeline]')).toBeVisible();
-    expect(harness.moduleRequests('Errors.svelte')).toBe(1);
+    await expect(page.locator('[data-settings-navigation]')).toHaveCount(0);
+    await page.locator('#app-sidebar').getByRole('button', { name: 'Settings', exact: true }).click();
+    await expect(page.locator('[data-settings-navigation]').getByRole('link', { name: 'Health' })).toHaveCount(0);
+    await page.locator('#app-sidebar').getByRole('button', { name: 'Health', exact: true }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe('/system-health');
 });
+
 
 function workspace(connections: Record<string, unknown>) {
     return {
@@ -36,14 +41,12 @@ function workspace(connections: Record<string, unknown>) {
     };
 }
 
-test('Health never reads healthy while the broker and Frigate are down', async ({ page }) => {
-    await openSettings(page);
-    await page.route(url => url.pathname === '/api/diagnostics/workspace', route => route.fulfill({ json: workspace({
+test('Health never reads healthy while the broker and Frigate are down, and lists them as the open problems', async ({ page }) => {
+    await openHealth(page, workspace({
         mqtt: { state: 'disconnected', server: 'mqtt.invalid', port: 1883, last_attempt_at: '2026-11-13T18:18:00Z', last_error: '[Errno -2] Name or service not known' },
         frigate: { state: 'unreachable', url: 'http://frigate.invalid:5000', checked_at: '2026-11-13T18:19:00Z', last_failure: 'connection', availability: 'unknown' },
         generated_at: '2026-11-13T18:20:00Z'
-    }) }));
-    await page.getByRole('link', { name: 'Health' }).click();
+    }));
 
     const status = page.locator('[data-health-status]');
     await expect(status.locator('[data-health-status-pill]')).toHaveText('Degraded');
@@ -55,6 +58,10 @@ test('Health never reads healthy while the broker and Frigate are down', async (
     await expect(status.locator('[data-health-problem="frigate_down"]')).toContainText('Frigate at http://frigate.invalid:5000 is not answering');
     await expect(status).not.toContainText('Settings, Connection');
     await expect(page.getByText('All monitored services look healthy right now.')).toHaveCount(0);
+    // Nothing below contradicts the verdict: the panel holds only incidents that have cleared.
+    await expect(page.locator('main')).not.toContainText('0 open');
+    await expect(page.locator('[data-health-earlier-incidents]')).toContainText('Earlier incidents');
+    await expect(page.getByRole('button', { name: 'Clear error history' })).toBeVisible();
 
     await page.locator('[data-subsystem-detail] summary').click();
     const mqtt = page.locator('[data-health-card="mqtt"]');
@@ -69,13 +76,11 @@ test('Health never reads healthy while the broker and Frigate are down', async (
 });
 
 test('Health is healthy only with both connections measured up', async ({ page }) => {
-    await openSettings(page);
-    await page.route(url => url.pathname === '/api/diagnostics/workspace', route => route.fulfill({ json: workspace({
+    await openHealth(page, workspace({
         mqtt: { state: 'connected', server: 'mqtt', port: 1883, connected_since: '2026-11-13T17:00:00Z' },
         frigate: { state: 'reachable', url: 'http://frigate:5000', checked_at: '2026-11-13T18:19:00Z', availability: 'online' },
         generated_at: '2026-11-13T18:20:00Z'
-    }) }));
-    await page.getByRole('link', { name: 'Health' }).click();
+    }));
     await expect(page.locator('[data-health-status-pill]')).toHaveText('Healthy');
     await page.locator('[data-subsystem-detail] summary').click();
     await expect(page.locator('[data-health-card="mqtt"]')).toContainText('Connected to mqtt:1883 since');

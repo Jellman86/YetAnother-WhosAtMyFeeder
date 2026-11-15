@@ -14,7 +14,7 @@
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
-    let container = $state<HTMLElement | null>(null);
+    let container = $state<HTMLDivElement | null>(null);
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
@@ -94,11 +94,8 @@
 </script>
 
 {#if activeJobs.length > 0 || pipeline.kinds.length > 0}
-    <!-- A named region: the banner sits above the page's main landmark, and content outside every
-         landmark is skipped by people who move through a page by its regions. -->
-    <section
+    <div
         bind:this={container}
-        aria-label={$_('jobs.title', { default: 'Jobs' })}
         class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
     >
@@ -201,5 +198,5 @@
                 {/if}
             </div>
         </div>
-    </section>
+    </div>
 {/if}

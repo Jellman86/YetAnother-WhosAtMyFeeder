@@ -6,7 +6,9 @@ import appearanceSource from './AppearanceSettings.svelte?raw';
 import authenticationSource from './AuthenticationSettings.svelte?raw';
 import connectionSource from './ConnectionSettings.svelte?raw';
 import dataSource from './DataSettings.svelte?raw';
+import maintenanceSource from './MaintenanceSettings.svelte?raw';
 import detectionSource from './DetectionSettings.svelte?raw';
+import modelSource from './ModelSettings.svelte?raw';
 import enrichmentSource from './EnrichmentSettings.svelte?raw';
 import integrationSource from './IntegrationSettings.svelte?raw';
 import notificationSource from './NotificationSettings.svelte?raw';
@@ -22,7 +24,9 @@ const settingsSources = [
     authenticationSource,
     connectionSource,
     dataSource,
+    maintenanceSource,
     detectionSource,
+    modelSource,
     enrichmentSource,
     integrationSource,
     notificationSource,
@@ -52,17 +56,21 @@ describe('Settings progressive disclosure', () => {
     });
 
     it('keeps optional, analytical, and destructive work out of the default hierarchy', () => {
-        // Telemetry is what leaves the installation, so it sits with Data, not with the Frigate connection.
+        // Telemetry is what leaves the installation, so it sits with Security, beside who can reach it.
         expect(connectionSource).not.toContain('settings.telemetry.title');
-        expect(settingsPageSource).toContain('<TelemetrySettings');
+        const security = settingsPageSource.slice(settingsPageSource.indexOf("{#if activeTab === 'security'}"), settingsPageSource.indexOf("{#if activeTab === 'data'}"));
+        expect(security).toContain('<TelemetrySettings');
         expect(aiSource).toContain('id="ai-usage"');
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');
-        expect(dataSource).toContain('id="data-tools"');
-        expect(dataSource).toContain('id="data-danger"');
+        // Repairs and deletions have their own tab; the deletions are a closed card at its end.
+        expect(dataSource).not.toContain('id="data-danger"');
+        expect(maintenanceSource).toContain('id="data-danger"');
+        expect(maintenanceSource).toMatch(/<SettingsCard\s+collapsible\s+id="data-danger"/);
         expect(dataSource).not.toContain('settings.data.setup_wizard_title');
-        expect(dataSource.indexOf('id="data-danger"')).toBeLessThan(dataSource.indexOf('settings.danger.reset_desc'));
-        expect(settingsPageSource).toContain('id="debug-model-evaluation"');
-        expect(settingsPageSource).toContain('<SettingsToggle');
+        expect(maintenanceSource.indexOf('id="data-danger"')).toBeLessThan(maintenanceSource.indexOf('settings.danger.reset_desc'));
+        // Testing the models is a closed card at the end of Models.
+        expect(modelSource).toContain('id="models-testing"');
+        expect(modelSource).toContain('<SettingsToggle');
         expect(settingsPageSource).not.toContain('role="switch"');
         expect(advancedSectionSource).toContain('openByDefault?: boolean');
     });

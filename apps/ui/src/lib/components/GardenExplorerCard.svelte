@@ -49,7 +49,7 @@
 </script>
 
 <article
-    class="group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-xs transition-[border-color,box-shadow] duration-200 ease-out hover:border-brand-500/40 hover:shadow-md dark:bg-slate-800/75
+    class="group relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white/90 shadow-xs transition-[border-color,box-shadow] duration-200 ease-out animate-entrance hover:border-brand-500/40 hover:shadow-md dark:bg-slate-800/75
            {view.review ? 'border-attention-500/60' : 'border-slate-200/80 dark:border-slate-700/60'}"
     data-garden-card={capture.status}
 >

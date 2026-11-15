@@ -4,9 +4,7 @@
     import { explanation } from '../utils/explanation';
 
     interface Props extends Omit<HTMLButtonAttributes, 'children' | 'class'> {
-        /** What the badge means, shown on hover, focus or tap and read as its description. */
         text: string;
-        /** A name for a badge with no words of its own (an icon). A badge with words is named by them. */
         label?: string;
         class?: string;
         /**
@@ -23,7 +21,7 @@
 <button
     {...attributes}
     type="button"
-    aria-label={label}
+    aria-label={label ?? text}
     class="pointer-events-auto focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-focus {target ? 'inline-flex min-h-11 min-w-11 -my-3.5 items-center justify-center' : ''} {className}"
     use:explanation={{ text, toggle: true }}
     data-badge-hint

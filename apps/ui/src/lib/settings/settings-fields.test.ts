@@ -6,13 +6,32 @@ describe('where a saved setting lives', () => {
         expect(settingsFieldTab('frigate_url')).toBe('connection');
         expect(settingsFieldTab('mqtt_port')).toBe('connection');
         expect(settingsFieldTab('notifications_discord_webhook_url')).toBe('notifications');
-        expect(settingsFieldTab('garden_notifications_enabled')).toBe('notifications');
+        // Garden's alerts are set with the rest of Garden.
+        expect(settingsFieldTab('garden_notifications_enabled')).toBe('beta');
         expect(settingsFieldTab('garden_cameras')).toBe('connection');
         expect(settingsFieldTab('garden_naming_threshold')).toBe('beta');
         expect(settingsFieldTab('inaturalist_default_latitude')).toBe('integrations');
         expect(settingsFieldTab('llm_api_key')).toBe('ai');
         expect(settingsFieldTab('media_cache_max_size_mb')).toBe('data');
         expect(settingsFieldTab('enrichment_sightings_source')).toBe('integrations');
+    });
+
+    it('keeps identification rules in Detection and everything about the models in Models', () => {
+        for (const field of ['classification_threshold', 'classification_min_confidence', 'blocked_species', 'range_filter_enabled', 'trust_frigate_sublabel', 'auto_video_classification', 'video_classification_frames', 'personalized_rerank_enabled']) {
+            expect(settingsFieldTab(field), field).toBe('detection');
+        }
+        for (const field of ['inference_provider', 'image_execution_mode', 'live_worker_count', 'background_worker_count', 'bird_crop_detector_model_id', 'bird_model_region_override', 'strict_non_finite_output']) {
+            expect(settingsFieldTab(field), field).toBe('models');
+        }
+    });
+
+    it('keeps what is kept in Data, repair jobs in Maintenance, and what leaves the install in Security', () => {
+        expect(settingsFieldTab('retention_days')).toBe('data');
+        expect(settingsFieldTab('frigate_missing_behavior')).toBe('data');
+        expect(settingsFieldTab('auto_purge_missing_clips')).toBe('data');
+        expect(settingsFieldTab('maintenance_max_concurrent')).toBe('maintenance');
+        expect(settingsFieldTab('auto_analyze_unknowns')).toBe('maintenance');
+        expect(settingsFieldTab('telemetry_enabled')).toBe('security');
     });
 
     it('has no home for a field Settings never shows', () => {

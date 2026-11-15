@@ -3182,6 +3182,8 @@ class ClassifierService:
         active_model_estimated_ram_mb: Optional[int] = None
         active_model_labels_path: Optional[str] = None
         active_model_artifact_sha256: Optional[str] = None
+        effective_model_name: Optional[str] = None
+        active_model_installed: Optional[bool] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -3193,6 +3195,15 @@ class ClassifierService:
             active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
             active_model_labels_path = str(active_model_spec.get("labels_path") or "") or None
             active_model_artifact_sha256 = active_model_spec.get("model_sha256")
+            # The name the model's card carries, so Settings never shows a bare file name, and
+            # whether its weights are on disk: the bundled fallback names a file that may be absent.
+            if effective_model_id:
+                from app.services.model_manager import model_manager
+
+                registry_meta = model_manager._get_registry_model_meta(effective_model_id) or {}
+                effective_model_name = str(registry_meta.get("name") or "").strip() or None
+            resolved_model_path = str(active_model_spec.get("model_path") or "")
+            active_model_installed = bool(resolved_model_path) and os.path.exists(resolved_model_path)
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -3238,6 +3249,8 @@ class ClassifierService:
             "onnx_available": runtimes.ONNX_AVAILABLE,
             "active_model_id": active_model_id,
             "effective_model_id": effective_model_id,
+            "effective_model_name": effective_model_name,
+            "active_model_installed": active_model_installed,
             "openvino_available": bool(caps.get("openvino_available")),
             "openvino_version": caps.get("openvino_version"),
             "openvino_import_path": caps.get("openvino_import_path"),

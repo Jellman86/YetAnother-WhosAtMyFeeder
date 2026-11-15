@@ -5,7 +5,7 @@ import { SETTINGS_TAB_ORDER, type SettingsTab } from './settings-route';
  * unsaved changes, and to send a rejected value back to the field that shows it.
  *
  * A field is matched exactly first, then by its longest matching prefix, so a whole family such as
- * `notifications_` has one home and an exception (`garden_notifications_`) can still be named.
+ * `notifications_` has one home and an exception can still be named.
  */
 const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
     frigate_url: 'connection',
@@ -21,23 +21,23 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
     clips_enabled: 'connection',
     frigate_missing_behavior: 'data',
     retention_days: 'data',
-    auto_analyze_unknowns: 'data',
+    auto_analyze_unknowns: 'maintenance',
     classification_threshold: 'detection',
     classification_min_confidence: 'detection',
-    live_worker_count: 'detection',
-    background_worker_count: 'detection',
+    live_worker_count: 'models',
+    background_worker_count: 'models',
     trust_frigate_sublabel: 'detection',
     write_frigate_sublabel: 'detection',
     personalized_rerank_enabled: 'detection',
     auto_video_classification: 'detection',
-    image_execution_mode: 'detection',
-    inference_provider: 'detection',
+    image_execution_mode: 'models',
+    inference_provider: 'models',
     blocked_labels: 'detection',
     blocked_species: 'detection',
     camera_audio_mapping: 'integrations',
     trusted_proxy_hosts: 'security',
     notification_language: 'notifications',
-    strict_non_finite_output: 'debug',
+    strict_non_finite_output: 'models',
     beta_garden_animals: 'beta',
     display_common_names: 'appearance',
     scientific_name_primary: 'appearance',
@@ -51,12 +51,11 @@ const EXACT_FIELD_TABS: Readonly<Record<string, SettingsTab>> = {
 const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['mqtt_', 'connection'],
     ['recording_clip_', 'connection'],
-    ['telemetry_', 'data'],
+    ['telemetry_', 'security'],
     ['video_classification_', 'detection'],
     ['range_filter_', 'detection'],
-    ['bird_model_region_', 'detection'],
-    ['bird_crop_', 'detection'],
-    ['garden_notification', 'notifications'],
+    ['bird_model_region_', 'models'],
+    ['bird_crop_', 'models'],
     ['notifications_', 'notifications'],
     ['garden_', 'beta'],
     ['birdnet_', 'integrations'],
@@ -72,7 +71,7 @@ const PREFIX_FIELD_TABS: ReadonlyArray<readonly [string, SettingsTab]> = [
     ['auth_', 'security'],
     ['public_access_', 'security'],
     ['media_cache_', 'data'],
-    ['maintenance_', 'data'],
+    ['maintenance_', 'maintenance'],
     ['auto_purge_', 'data'],
     ['accessibility_', 'accessibility']
 ];

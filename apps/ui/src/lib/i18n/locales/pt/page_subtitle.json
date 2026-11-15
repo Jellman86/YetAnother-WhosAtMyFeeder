@@ -5,6 +5,7 @@
   "events": "Procura, filtra e gere cada visita classificada.",
   "add_observation": "Classifica uma foto ou vídeo, revê as evidências e adiciona-o ao histórico.",
   "notifications": "Visitas, alertas e trabalho em segundo plano, os mais recentes primeiro.",
-  "settings": "Conexões, classificação, integrações e personalização.",
-  "species": "Que aves visitam mais, com que frequência e quando."
+  "settings": "Conexões, identificação, integrações e personalização.",
+  "species": "Que aves visitam mais, com que frequência e quando.",
+  "health": "Se o YA-WAMF está funcionando, o que o computador está fazendo e o que aconteceu."
 }

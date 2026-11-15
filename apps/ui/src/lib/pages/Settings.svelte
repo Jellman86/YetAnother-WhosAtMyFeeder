@@ -83,10 +83,6 @@
     import { setAppLocale } from '../i18n';
     import SettingsTabs from '../components/settings/SettingsTabs.svelte';
     import SettingsPage from '../components/settings/_primitives/SettingsPage.svelte';
-    import AdvancedSection from '../components/settings/_primitives/AdvancedSection.svelte';
-    import SettingsCard from '../components/settings/_primitives/SettingsCard.svelte';
-    import SettingsRow from '../components/settings/_primitives/SettingsRow.svelte';
-    import SettingsToggle from '../components/settings/_primitives/SettingsToggle.svelte';
     import type { DomesticBirdKey } from '../utils/domestic-birds';
     import { locationChangedFields } from '../settings/location-dirty';
     import { retentionShrinks } from '../settings/retention-change';
@@ -111,6 +107,7 @@
     import { provideSettingsFieldErrors } from '../settings/field-error-context';
     import { unsavedChanges } from '../stores/unsaved-changes';
     import { SettingsDisclosures, provideSettingsDisclosures } from '../settings/disclosures.svelte';
+    import { policyChannels } from '../settings/notification-policy';
     import { RUNTIME_DISCLOSURES, runtimeProblemKey } from '../settings/runtime-problem';
     import { currentAccessIdentity, draftFromForm, mergeDraft, unsavedDraft, type DraftConflict } from '../settings/unsaved-draft';
     import {
@@ -136,14 +133,15 @@
     // Tab bodies load when first opened. Their drafts stay here, so a tab's edits survive leaving it.
     const loadConnectionSettings = lazyComponent(() => import('../components/settings/ConnectionSettings.svelte'));
     const loadDetectionSettings = lazyComponent(() => import('../components/settings/DetectionSettings.svelte'));
+    const loadModelSettings = lazyComponent(() => import('../components/settings/ModelSettings.svelte'));
     const loadNotificationSettings = lazyComponent(() => import('../components/settings/NotificationSettings.svelte'));
     const loadIntegrationSettings = lazyComponent(() => import('../components/settings/IntegrationSettings.svelte'));
     const loadAuthenticationSettings = lazyComponent(() => import('../components/settings/AuthenticationSettings.svelte'));
     const loadDataSettings = lazyComponent(() => import('../components/settings/DataSettings.svelte'));
+    const loadMaintenanceSettings = lazyComponent(() => import('../components/settings/MaintenanceSettings.svelte'));
     const loadGardenBetaSettings = lazyComponent(() => import('../components/settings/GardenBetaSettings.svelte'));
     const loadAppearanceTab = lazyComponent(() => import('../components/settings/AppearanceSettings.svelte'));
     const loadAccessibilityTab = lazyComponent(() => import('../components/settings/AccessibilitySettings.svelte'));
-    const loadHealthTab = lazyComponent(() => import('./Errors.svelte'));
     const loadEnrichmentTab = lazyComponent(() => import('../components/settings/EnrichmentSettings.svelte'));
     const loadAiTab = lazyComponent(() => import('../components/settings/AISettings.svelte'));
     const loadTelemetrySettings = lazyComponent(() => import('../components/settings/TelemetrySettings.svelte'));
@@ -947,6 +945,19 @@
     const disclosures = new SettingsDisclosures();
     provideSettingsDisclosures(disclosures);
 
+    // The bird channels as the draft holds them, which Garden alerts can follow.
+    const gardenBirdChannels = $derived(
+        policyChannels(
+            {
+                discord: { enabled: discordEnabled, webhook: discordWebhook, webhookSaved: discordWebhookSaved },
+                pushover: { enabled: pushoverEnabled, user: pushoverUser, userSaved: pushoverUserSaved, token: pushoverToken, tokenSaved: pushoverTokenSaved },
+                telegram: { enabled: telegramEnabled, token: telegramToken, tokenSaved: telegramTokenSaved, chatId: telegramChatId, chatIdSaved: telegramChatIdSaved },
+                email: { enabled: emailEnabled, useOAuth: emailUseOAuth, connectedEmail: emailConnectedEmail, smtpHost: emailSmtpHost, toEmail: emailToEmail }
+            },
+            (id) => $_(`settings.notifications.sentence.channel_${id}`)
+        )
+    );
+
     // On every read of the runtime or the settings: the sections that show a runtime problem open
     // for a new one, stay open while it clears, and stay closed on one the owner dismissed.
     function reportRuntimeProblem(): void {
@@ -1226,7 +1237,7 @@
     // the completion response. Keep the visible runtime current without touching
     // the settings form or accumulating overlapping background reads.
     $effect(() => {
-        if (activeTab !== 'detection' || !authStore.showSettings) return;
+        if (activeTab !== 'models' || !authStore.showSettings) return;
         const stop = untrack(() => startVisiblePoll({
             read: () => (classifierStatusReads === 0 ? loadClassifierStatus() : undefined),
             delayMs: () => REFRESH_CADENCE_MS.classifierRuntime
@@ -1288,12 +1299,29 @@
         list?.focus({ preventScroll: true });
     }
 
+    // Notifications needs the Frigate public URL for its Frigate links; it is set in Connection.
+    async function openFrigatePublicUrl(): Promise<void> {
+        handleTabChange('connection');
+        const field = await fieldInOpenedTab(loadConnectionSettings, () => document.getElementById('frigate-external-url'));
+        field?.scrollIntoView({ block: 'center' });
+        field?.focus({ preventScroll: true });
+    }
+
+    // Garden alerts are set with Garden; Notifications links straight to their section.
+    async function openGardenAlerts(): Promise<void> {
+        disclosures.setOpen('garden-section-alerts', true);
+        handleTabChange('beta');
+        const toggle = await fieldInOpenedTab(loadGardenBetaSettings, () => document.getElementById('garden-section-alerts-toggle'));
+        toggle?.scrollIntoView({ block: 'start' });
+        toggle?.focus({ preventScroll: true });
+    }
+
     // Drive taxonomy status from the derived active tab so router-driven changes
     // (back/forward, deep links) still flip the lifecycle correctly. Opening the tab reads
     // the status once; polling runs only while a repair runs, not every 3 s for as long as
     // the tab stays open.
     $effect(() => {
-        if (activeTab === 'data') {
+        if (activeTab === 'maintenance') {
             void loadTaxonomyStatus();
         } else {
             stopTaxonomyPolling();
@@ -1674,17 +1702,14 @@
     }
 
     async function handleResetDatabase() {
-        let confirmMsg = 'DANGER: This will delete ALL detections, clear the media cache and remove every archived favourite. This action cannot be undone. Are you sure?';
-        try {
-            confirmMsg = $_('settings.danger.confirm');
-        } catch (e) {
-            console.warn('Translation lookup failed, using fallback', e);
-        }
-
+        const label = $_('settings.danger.reset_button', { default: 'Delete all history' });
         const confirmed = await confirmAction({
-            title: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' }),
-            message: confirmMsg,
-            confirmLabel: $_('settings.danger.reset_button', { default: 'Reset Database & Cache' })
+            title: label,
+            message: $_('settings.danger.confirm', {
+                values: { count: maintenanceStats?.total_detections ?? 0 },
+                default: 'Delete all {count, plural, one {# detection} other {# detections}}, every cached photo and clip, and every archived favourite? This cannot be undone.'
+            }),
+            confirmLabel: label
         });
         if (!confirmed) {
             return;
@@ -1695,7 +1720,7 @@
         try {
             const result = await resetDatabase();
             notify('success', result.message);
-            toastStore.success(result.message || $_('settings.danger.reset_button'));
+            toastStore.success(result.message || $_('settings.danger.reset_button', { default: 'Delete all history' }));
             await Promise.all([loadMaintenanceStats(), loadCacheStats(), loadClassifierStatus()]);
         } catch (e) {
             const errorMessage = getErrorMessage(e) || $_('settings.data.reset_error');
@@ -1707,17 +1732,13 @@
     }
 
     async function handleClearFeedback() {
-        let confirmMsg = 'Are you sure you want to clear all personalized re-ranking data? This will revert the AI back to its baseline accuracy and cannot be undone.';
-        try {
-            confirmMsg = $_('settings.danger.clear_feedback_confirm', { default: confirmMsg });
-        } catch (e) {
-            console.warn('Translation lookup failed, using fallback', e);
-        }
-
+        const label = $_('settings.danger.clear_feedback_button', { default: 'Delete corrections' });
         const confirmed = await confirmAction({
-            title: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' }),
-            message: confirmMsg,
-            confirmLabel: $_('settings.danger.clear_feedback_button', { default: 'Clear Personalization Data' })
+            title: label,
+            message: $_('settings.danger.clear_feedback_confirm', {
+                default: "Delete your identification corrections? Scores go back to the model's own, and detections and photos stay. This cannot be undone."
+            }),
+            confirmLabel: label
         });
         if (!confirmed) {
             return;
@@ -2851,7 +2872,7 @@
 </script>
 
 {#snippet pageTabs()}
-    <SettingsTabs {activeTab} {debugUiEnabled} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
+    <SettingsTabs {activeTab} ontabchange={handleTabChange} unsavedTabs={unsavedSummary.tabs} contentId="settings-content" />
 {/snippet}
 
 <SettingsPage
@@ -2924,8 +2945,6 @@
                 <DetectionSettings
                     bind:threshold
                     bind:minConfidence
-                    bind:liveWorkerCount
-                    bind:backgroundWorkerCount
                     bind:trustFrigateSublabel
                     bind:writeFrigateSublabel
                     bind:personalizedRerankEnabled
@@ -2933,13 +2952,6 @@
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
                     bind:videoClassificationFrames
-                    bind:birdModelRegionOverride
-                    bind:birdFinder
-                    bind:birdFinderProvider
-                    bind:imageExecutionMode
-                    bind:inferenceProvider
-                    {classifierStatus}
-                    onrefreshclassifierstatus={loadClassifierStatus}
                     bind:blockedLabels
                     bind:blockedSpecies
                     {videoCircuitOpen}
@@ -2949,8 +2961,33 @@
                     bind:rangeFilterEnabled
                     bind:rangeFilterRegionLevel
                     onopenebirdsettings={() => openIntegrationField('#ebird-api-key', '[aria-labelledby="setting-ebird-enabled"]')}
-                    onopenactivitylog={() => handleTabChange('health')}
+                    onopenactivitylog={onNavigate ? () => onNavigate('/system-health') : undefined}
                     onopenmanualobservation={onNavigate ? () => onNavigate('/observations/new') : undefined}
+                    onopenmodels={() => handleTabChange('models')}
+                />
+                {/snippet}
+                </LazyRoute>
+            {/if}
+
+            <!-- Models Tab -->
+            {#if activeTab === 'models'}
+                <LazyRoute loader={loadModelSettings} label={$_('settings.tabs.models', { default: 'Models' })}>
+                {#snippet content(ModelSettings)}
+                <ModelSettings
+                    bind:liveWorkerCount
+                    bind:backgroundWorkerCount
+                    autoVideoClassification={autoVideoClassification}
+                    bind:birdModelRegionOverride
+                    bind:birdFinder
+                    bind:birdFinderProvider
+                    bind:imageExecutionMode
+                    bind:inferenceProvider
+                    bind:strictNonFiniteOutput
+                    {debugUiEnabled}
+                    {classifierStatus}
+                    onrefreshclassifierstatus={loadClassifierStatus}
+                    onopenlocationsettings={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
+                    onopenmodelevaluation={onNavigate ? () => onNavigate('/diagnostics/model-eval') : undefined}
                 />
                 {/snippet}
                 </LazyRoute>
@@ -3012,13 +3049,9 @@
                     bind:instanceUrl
                     bind:linkTarget={notifyLinkTarget}
                     {frigateExternalUrl}
-                    onOpenIntegrations={() => handleTabChange('integrations')}
+                    onOpenConnection={() => void openFrigatePublicUrl()}
                     gardenBeta={betaGardenAnimals}
-                    gardenStatusAvailable={settingsStore.settings?.beta_garden_animals === true}
-                    bind:gardenNotificationsEnabled
-                    bind:gardenUseBirdChannels={gardenNotificationsUseBirdChannels}
-                    bind:gardenNotificationChannels
-                    bind:gardenIncludePhoto={gardenNotificationsIncludePhoto}
+                    onOpenGarden={() => void openGardenAlerts()}
                     {sendTestEmail}
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}
@@ -3027,12 +3060,6 @@
                 />
                 {/snippet}
                 </LazyRoute>
-            {/if}
-
-            <!-- Health Tab -->
-            {#if activeTab === 'health'}
-                <!-- The health page builds the System card itself, with its verdict inside it. -->
-                <LazyRoute loader={loadHealthTab} label={$_('settings.tabs.health')} props={{ onNavigate }} />
             {/if}
 
             <!-- Integrations Tab -->
@@ -3171,19 +3198,30 @@
                 />
                 {/snippet}
                 </LazyRoute>
+                <!-- What leaves this install: kept with who can reach it. -->
+                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
+                {#snippet content(TelemetrySettings)}
+                <TelemetrySettings
+                    bind:telemetryEnabled
+                    bind:telemetryHealthEnabled
+                    {telemetryInstallationId}
+                    {telemetryPlatform}
+                    {telemetryPayloadPreview}
+                    {versionInfo}
+                />
+                {/snippet}
+                </LazyRoute>
             {/if}
 
-            <!-- Data Tab -->
+            <!-- Data Tab: what is kept, for how long, and the configuration backup -->
             {#if activeTab === 'data'}
                 <LazyRoute loader={loadDataSettings} label={$_('settings.tabs.data')}>
                 {#snippet content(DataSettings)}
                 <DataSettings
                     bind:retentionDays
-                    bind:maintenanceMaxConcurrent
                     bind:frigateMissingBehavior
                     bind:autoPurgeMissingClips
                     bind:autoPurgeMissingSnapshots
-                    bind:autoAnalyzeUnknowns
                     bind:cacheClips
                     bind:cacheHighQualityEventSnapshots
                     bind:cacheHighQualityEventSnapshotJpegQuality
@@ -3193,11 +3231,6 @@
                     bind:cacheAutomaticMultiBirdScan
                     bind:cacheBirdScanMode
                     bind:cachePerSpeciesMinimum
-                    bind:backfillDateRange
-                    bind:backfillStartDate
-                    bind:backfillEndDate
-                    {backfillCustomError}
-                    {backfillCustomValid}
                     {maintenanceStats}
                     {retentionNote}
                     {cacheStats}
@@ -3206,9 +3239,33 @@
                     onRetryCacheStats={loadCacheStats}
                     {classifierStatus}
                     {cleaningUp}
-                    {clearingFavorites}
                     {purgingMissingMedia}
                     {cleaningCache}
+                    {exportingConfigBackup}
+                    {importingConfigBackup}
+                    {handleCleanup}
+                    {handlePurgeMissingMedia}
+                    {handleCacheCleanup}
+                    {handleExportConfigBackup}
+                    {handleImportConfigBackup}
+                />
+                {/snippet}
+                </LazyRoute>
+            {/if}
+
+            <!-- Maintenance Tab: jobs that repair or fill in the history, and deleting it -->
+            {#if activeTab === 'maintenance'}
+                <LazyRoute loader={loadMaintenanceSettings} label={$_('settings.tabs.maintenance', { default: 'Maintenance' })}>
+                {#snippet content(MaintenanceSettings)}
+                <MaintenanceSettings
+                    bind:maintenanceMaxConcurrent
+                    bind:autoAnalyzeUnknowns
+                    bind:backfillDateRange
+                    bind:backfillStartDate
+                    bind:backfillEndDate
+                    {backfillCustomError}
+                    {backfillCustomValid}
+                    {clearingFavorites}
                     {backfilling}
                     {backfillResult}
                     {backfillTotal}
@@ -3222,37 +3279,18 @@
                     {applyingTimezoneRepair}
                     {resettingDatabase}
                     {clearingFeedback}
-                    {exportingConfigBackup}
-                    {importingConfigBackup}
                     {analyzingUnknowns}
                     {analysisStatus}
                     {analysisTotal}
-                    {handleCleanup}
                     {handleClearFavorites}
-                    {handlePurgeMissingMedia}
-                    {handleCacheCleanup}
                     {handleStartTaxonomySync}
                     {handlePreviewTimezoneRepair}
                     {handleApplyTimezoneRepair}
                     {handleBackfill}
                     {handleWeatherBackfill}
-                    {handleExportConfigBackup}
-                    {handleImportConfigBackup}
                     {handleAnalyzeUnknowns}
                     {handleResetDatabase}
                     {handleClearFeedback}
-                />
-                {/snippet}
-                </LazyRoute>
-                <LazyRoute loader={loadTelemetrySettings} label={$_('settings.telemetry.title')}>
-                {#snippet content(TelemetrySettings)}
-                <TelemetrySettings
-                    bind:telemetryEnabled
-                    bind:telemetryHealthEnabled
-                    {telemetryInstallationId}
-                    {telemetryPlatform}
-                    {telemetryPayloadPreview}
-                    {versionInfo}
                 />
                 {/snippet}
                 </LazyRoute>
@@ -3305,7 +3343,11 @@
                                 motionCameras={gardenMotionCameras}
                                 bind:labels={gardenLabels}
                                 bind:motionConfidence={gardenMotionConfidence}
-                                notificationsEnabled={gardenNotificationsEnabled}
+                                bind:notificationsEnabled={gardenNotificationsEnabled}
+                                bind:notificationsUseBirdChannels={gardenNotificationsUseBirdChannels}
+                                bind:notificationChannels={gardenNotificationChannels}
+                                bind:notificationsIncludePhoto={gardenNotificationsIncludePhoto}
+                                birdChannels={gardenBirdChannels}
                                 onOpenNotifications={() => handleTabChange('notifications')}
                                 onOpenLocation={() => openIntegrationField('#location-lat', '#setting-location-mode + div button[aria-pressed="false"]')}
                                 bind:automaticNaming={gardenAutomaticNaming}
@@ -3320,50 +3362,6 @@
                         </li>
                     </ul>
                 </div>
-            {/if}
-
-            {#if activeTab === 'debug'}
-                {#snippet debugIcon()}
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6m-5 0v5l-5 9a2 2 0 0 0 1.74 3h10.52A2 2 0 0 0 19 17l-5-9V3m-6 11h8" /></svg>
-                {/snippet}
-                <SettingsCard
-                    accent
-                    iconSnippet={debugIcon}
-                    title={$_('settings.debug.title')}
-                    description={$_('settings.debug.subtitle')}
-                >
-                    <SettingsRow
-                        labelId="setting-strict-non-finite-output"
-                        label={$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}
-                        description={$_('settings.debug.strict_non_finite_output_desc', { default: 'When enabled, all-non-finite classifier outputs are rejected and trigger runtime recovery. Disable only for controlled debugging.' })}
-                    >
-                        <SettingsToggle
-                            checked={strictNonFiniteOutput}
-                            labelledBy="setting-strict-non-finite-output"
-                            srLabel={$_('settings.debug.strict_non_finite_output', { default: 'Strict non-finite output handling' })}
-                            onchange={(value) => (strictNonFiniteOutput = value)}
-                        />
-                    </SettingsRow>
-
-                    <AdvancedSection
-                        id="debug-model-evaluation"
-                        title={$_('settings.debug.model_eval_title')}
-                        description={$_('settings.debug.model_eval_desc')}
-                    >
-                        <div class="flex items-center justify-between gap-4">
-                            <p class="text-sm font-medium text-slate-600 dark:text-slate-400">
-                                {$_('settings.debug.model_eval_action_desc')}
-                            </p>
-                            <button
-                                type="button"
-                                onclick={() => onNavigate && onNavigate('/diagnostics/model-eval')}
-                                class="focus-ring min-h-11 shrink-0 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
-                            >
-                                {$_('settings.debug.model_eval_open')}
-                            </button>
-                        </div>
-                    </AdvancedSection>
-                </SettingsCard>
             {/if}
     {/snippet}
 </SettingsPage>

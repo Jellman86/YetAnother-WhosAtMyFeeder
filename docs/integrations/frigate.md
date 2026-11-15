@@ -106,7 +106,7 @@ already waiting events keep their scheduled delay. It has no effect in **Detecti
 ### Import retained event history
 
 During first-run setup, **Import existing detections** can start a one-day, seven-day, or 30-day
-background import. You can run a custom range later under **Settings → Data → Missed Detections**.
+background import. You can run a custom range later under **Settings → Maintenance → Missed detections**.
 Custom dates use your browser timezone and include the whole final day.
 
 YA-WAMF imports only bird events Frigate still returns with a snapshot. Reprocessing the same event

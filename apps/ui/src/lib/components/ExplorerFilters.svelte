@@ -1,9 +1,5 @@
 <script lang="ts">
     import type { Snippet } from 'svelte';
-    import { MediaQuery } from 'svelte/reactivity';
-    import { portal } from '../utils/portal';
-    import { trapFocus } from '../utils/focus-trap';
-    import { lockDocumentScroll } from '../utils/document-scroll-lock';
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
     import { shownExplorerSpecies, sortExplorerSpecies } from '../utils/explorer-species';
@@ -33,10 +29,6 @@
         multipleSpeciesOnly?: boolean;
         /** The Explorer search, at the head of the rail on a phone; a desktop holds it in the page header. */
         search?: Snippet;
-        /** The view switch, beside the Filters button where the page header does not hold it. */
-        beside?: Snippet;
-        /** Page controls used less often, opened with the filters where the page header does not hold them. */
-        controls?: Snippet;
         /** How results are shown: a species' visits, or every capture on its own. */
         groupVisits?: boolean;
         /** Selecting works on captures, so the choice is held while selecting. */
@@ -88,8 +80,6 @@
         audioConfirmedOnly,
         multipleSpeciesOnly = false,
         search,
-        beside,
-        controls,
         groupVisits = true,
         groupingLocked = false,
         showHidden,
@@ -108,45 +98,6 @@
     }: Props = $props();
 
     let panelOpen = $state(false);
-
-    // On a desktop with the rail shown, the filters stand beside the results. Anywhere else the
-    // Filters button opens them as a modal sheet over the page, the app's dialog pattern: named,
-    // portalled, focus held inside, Escape and Close to leave. Tailwind's lg, as the layout uses.
-    const wide = new MediaQuery('min-width: 1024px', false);
-    const rail = $derived(wide.current && !collapsed);
-    const sheetOpen = $derived(panelOpen && !rail);
-    let sheet = $state<HTMLDivElement | null>(null);
-
-    function closeSheet(): void {
-        panelOpen = false;
-    }
-
-    function toggleFilters(event: MouseEvent): void {
-        // Safari does not focus a button it clicks; the trap returns focus to whatever held it.
-        if (event.currentTarget instanceof HTMLElement) event.currentTarget.focus();
-        panelOpen = !panelOpen;
-    }
-
-    function handleSheetKeydown(event: KeyboardEvent): void {
-        // Keys pressed in a modal belong to it: the page's shortcuts (the search's "/", the day
-        // keys) would otherwise act on, or move focus to, what lies beneath.
-        event.stopPropagation();
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            closeSheet();
-        }
-    }
-
-    // trapFocus moves focus in, holds it, and alone returns it to the opener on release.
-    $effect(() => {
-        if (!sheet) return;
-        const unlock = lockDocumentScroll();
-        const release = trapFocus(sheet);
-        return () => {
-            release();
-            unlock();
-        };
-    });
 
     // Collapsing arrives from the header toolbar. The collapsed desktop shares
     // the phone's Filters button, so the moment the rail folds away the facets
@@ -343,8 +294,8 @@
                 ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
                 : 'btn-secondary'} {collapsed ? '' : 'lg:hidden'}"
             aria-expanded={panelOpen}
-            aria-haspopup="dialog"
-            onclick={toggleFilters}
+            aria-controls="explorer-facets"
+            onclick={() => (panelOpen = !panelOpen)}
             data-explorer-filter-toggle
         >
             {$_('events.filters.title', { default: 'Filters' })}
@@ -356,31 +307,28 @@
                 {$_('events.filters.clear_all', { default: 'Clear all' })}
             </button>
         {/if}
-
-        {#if beside}
-            <div class="ml-auto" data-explorer-beside-filters>{@render beside()}</div>
-        {/if}
     </div>
 
-    {#snippet facets()}
-            {#if controls}
-                <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-page-controls-heading">
-                    <p id="explorer-page-controls-heading" class="eyebrow">{$_('events.filters.page_controls', { default: 'View' })}</p>
-                    <div class="mt-2">{@render controls()}</div>
-                </div>
-            {/if}
+    <div
+        id="explorer-facets"
+        class="mt-3 gap-3 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
+            ? 'flex flex-col'
+            : 'hidden'} {collapsed
+            ? ''
+            : 'lg:flex! lg:mt-2 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
+        data-explorer-facets
+    >
             {#if gardenAvailable}
                 <!-- Garden animals are stored apart from birds; this chooses which the results hold. -->
                 <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-visitors-heading" data-explorer-visitors-facet>
                     <p id="explorer-visitors-heading" class="eyebrow">{$_('garden.explorer.visitors', { default: 'Visitors' })}</p>
-                    <!-- Three names of unequal length do not share a rail's width evenly in every language
-                         and text size, so each option takes a full line: equal segments, whole words. -->
-                    <div class="mt-2 flex flex-col gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70" data-explorer-subjects>
+                    <!-- Options size to their names and wrap, so a longer name keeps its words whole. -->
+                    <div class="mt-2 flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70">
                         {#each subjectOptions as option (option.value)}
                             {@const chosen = subjects === option.value}
                             <button
                                 type="button"
-                                class="{segmentButtonClass} w-full py-1 leading-4 {chosen ? segmentChosenClass : segmentIdleClass}"
+                                class="{segmentButtonClass} flex-auto py-1 leading-4 {chosen ? segmentChosenClass : segmentIdleClass}"
                                 aria-pressed={chosen}
                                 aria-describedby="explorer-visitors-hint"
                                 onclick={() => onchange({ subjects: option.value, gardenReview: 'reviewable' })}
@@ -637,46 +585,5 @@
                     ? $_('events.filters.refreshing_options', { default: 'Refreshing options' })
                     : $_('events.filters.refresh_options', { default: 'Refresh options' })}
             </button>
-    {/snippet}
-
-    {#if rail}
-        <div
-            id="explorer-facets"
-            class="mt-2 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain"
-            data-explorer-facets
-        >
-            {@render facets()}
-        </div>
-    {:else if sheetOpen}
-        <div
-            class="fixed inset-0 z-60 flex items-end justify-center bg-slate-950/70 sm:items-stretch sm:justify-end"
-            use:portal
-            role="presentation"
-            onclick={(event) => { if (event.target === event.currentTarget) closeSheet(); }}
-        >
-            <div
-                bind:this={sheet}
-                id="explorer-facets"
-                class="flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface text-slate-900 shadow-2xl sm:h-full sm:max-h-none sm:max-w-sm sm:rounded-none sm:rounded-l-3xl dark:text-slate-100"
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="explorer-filter-sheet-title"
-                tabindex="-1"
-                onkeydown={handleSheetKeydown}
-                data-explorer-filter-sheet
-            >
-                <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft px-4 py-3">
-                    <h2 id="explorer-filter-sheet-title" class="text-base font-semibold text-slate-900 dark:text-white">
-                        {$_('events.filters.title', { default: 'Filters' })}
-                    </h2>
-                    <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={closeSheet} data-explorer-sheet-close>
-                        {$_('common.close', { default: 'Close' })}
-                    </button>
-                </div>
-                <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4" data-explorer-facets>
-                    {@render facets()}
-                </div>
-            </div>
-        </div>
-    {/if}
+    </div>
 </section>

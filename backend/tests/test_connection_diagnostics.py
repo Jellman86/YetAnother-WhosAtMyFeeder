@@ -66,8 +66,8 @@ async def test_frigate_diagnostic_rejects_unsafe_url_override(client):
 @pytest.mark.asyncio
 async def test_mqtt_diagnostic_uses_current_form_values_and_preserves_saved_password(client, monkeypatch):
     settings.frigate.mqtt_password = "stored-password"
-    test_connection = AsyncMock(return_value=True)
-    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.test_connection", test_connection)
+    test_connection = AsyncMock(return_value=None)
+    monkeypatch.setattr("app.services.mqtt_service.mqtt_service.diagnose_connection", test_connection)
 
     response = await client.post(
         "/api/settings/mqtt/test-publish",
@@ -117,3 +117,54 @@ async def test_birdnet_ingest_diagnostic_reports_failed_persistence(client, monk
 
     assert response.status_code == 502
     assert response.json()["status"] == "error"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("cause", "expected"),
+    [
+        ("unresolved", "could not be found"),
+        ("refused", "accepted the connection"),
+        ("timeout", "did not answer in time"),
+        ("auth", "username or password"),
+        ("unreachable", "could not be reached"),
+        ("failed", "did not accept the test message"),
+    ],
+)
+async def test_mqtt_diagnostic_names_the_cause_and_the_next_step(client, monkeypatch, cause, expected):
+    # A failed test says what went wrong and what to change, never "Check logs".
+    monkeypatch.setattr(
+        "app.services.mqtt_service.mqtt_service.diagnose_connection",
+        AsyncMock(return_value=cause),
+    )
+
+    response = await client.post("/api/settings/mqtt/test-publish", json={"server": "mqtt.invalid", "port": 1883})
+
+    assert response.status_code == 502
+    message = response.json()["message"]
+    assert expected in message
+    assert "Check logs" not in message
+    assert "Settings → Connection" in message or "broker is running" in message or "yawamf/test" in message
+
+
+@pytest.mark.asyncio
+async def test_birdnet_url_check_names_the_cause_not_the_exception_class(client, monkeypatch):
+    class _Refusing:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def get(self, url, timeout):
+            raise httpx.ConnectError("[Errno -2] Name or service not known", request=httpx.Request("GET", url))
+
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda **_: _Refusing())
+
+    response = await client.get("/api/settings/birdnet/reachability", params={"url": "http://birdnet.invalid:8080"})
+
+    assert response.status_code == 502
+    message = response.json()["message"]
+    assert "ConnectError" not in message
+    assert "Nothing answered" in message
+    assert "BirdNET-Go is running" in message

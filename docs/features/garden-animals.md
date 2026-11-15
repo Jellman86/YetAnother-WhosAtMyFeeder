@@ -200,7 +200,7 @@ are not shared. Choosing a camera narrows the Garden captures as well as the bir
   the crop to look at the whole photograph with its box; select it to keep that
   view open, then select again or press Escape to return to the crop. A photograph
   without trustworthy geometry stays whole. **Suggest species** runs the installed
-  SpeciesNet model using the device selected in **Settings → Detection**. Model
+  SpeciesNet model using the device selected in **Settings → Models**. Model
   installation stays under **Settings → Beta features → Garden animals → Models**. The
   record has no model or accelerator selectors. Bird actions
   such as scoring again, video scans and audio matching do not apply.
@@ -279,7 +279,7 @@ one operation at a time, so downloads wait while a check, scan or other download
 running; the view says so. There is no percentage progress: the server reports only
 when the download has finished, which can take up to three minutes.
 
-Automatic checks follow the device preference in **Settings → Detection**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Checks run in a separate
+Automatic checks follow the device preference in **Settings → Models**. Before an accelerator is used, its isolated result must agree with a CPU reference on this host. In **Auto**, Garden considers the NPU, Intel GPU and CUDA providers packaged by the image; a failed profile is skipped on later captures. An explicit unavailable or failed preference uses CPU. Motion scans still run on CPU. Checks run in a separate
 process that can keep its model loaded between checks, so a burst of checks pays for loading it
 only once. On an accelerator (NPU, Intel GPU or CUDA), Garden stops that process and waits for it
 to exit before it lets other work start, unless another automatic check is already due and no
@@ -457,7 +457,7 @@ Turning collection off does not immediately erase photos.
 
 For a pending motion photo, **Check photo** offers an advisory assessment before
 presence review. Download the **Automatic check model** (4.0.3a) under **Models** on the Garden card,
-choose the device in **Settings → Detection**, then check the
+choose the device in **Settings → Models**, then check the
 displayed photo. The dialog outlines the exact crop
 and may suggest a bird or a non-human mammal, or remain uncertain. It preserves
 blank and other probability mass; human evidence withholds the suggestion.
@@ -474,7 +474,7 @@ To request a species suggestion, open a confirmed animal in the Explorer:
    **4.0.3b** uses the whole photograph with the model’s vertical border trim.
    **4.0.3a** requires Frigate’s tracked snapshot box or the retained motion detector
    box; it never guesses a crop.
-3. In **Settings → Detection**, choose a device supported by your image and hardware. CPU, Intel CPU/GPU/NPU
+3. In **Settings → Models**, choose a device supported by your image and hardware. CPU, Intel CPU/GPU/NPU
    and NVIDIA GPU are supported runtimes; unavailable hardware produces an error
    rather than a CPU fallback.
 4. Under **Garden animals**, choose **Confirmed animals**, open a capture and select **Suggest species**.
@@ -660,7 +660,7 @@ keeps what the model originally said as evidence.
 
 ## Verify which device ran a model
 
-In **Settings → Detection**, each bird finder shows its recommended device from the
+In **Settings → Models**, each bird finder shows its recommended device from the
 host comparison. The chosen finder also shows its **Last completed run**, device,
 time and CPU fallback, or explicitly says there is no execution report yet. The
 recommendation can differ from the Detection preference because it selects the fastest
@@ -689,9 +689,9 @@ person to confirm presence. Manual confirmation remains available as an override
 
 ## Send Garden notifications
 
-Garden alerts are off by default and are set up in **Settings → Notifications**,
-in the **Garden animals** section that appears while the Garden beta is on.
-**Settings → Beta features** shows whether they are on and links there.
+Garden alerts are off by default and are set in **Settings → Beta features → Garden
+animals → Alerts**, with the rest of Garden. **Settings → Notifications** links there while the
+beta is on, and is where the channels themselves are set up.
 
 1. Turn on **Send Garden alerts**.
 2. Under **Send Garden alerts to**, keep **Use my bird channels** to send on

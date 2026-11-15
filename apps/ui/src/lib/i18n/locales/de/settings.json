@@ -36,7 +36,7 @@
     "purge_button": "Alte Datensätze löschen",
     "purge_confirm": "{count, plural, one {# Erkennung} other {# Erkennungen}} und die BirdNET-Go-Audiodaten, die älter als {days} Tage sind, endgültig löschen? Favoriten und die neuesten behaltenen Besuche jeder Art bleiben erhalten. Dies kann nicht rückgängig gemacht werden.",
     "cleaning": "Wird bereinigt…",
-    "auto_cleanup_note": "Die automatische Bereinigung läuft beim Start und danach alle 24 Stunden",
+    "auto_cleanup_note": "Die Bereinigung läuft beim Start von YA-WAMF und danach alle 24 Stunden.",
     "cache_title": "Fotos und Videos",
     "cache_clips": "Kopien der Frigate-Ereignisclips behalten",
     "cache_high_quality_event_snapshot_jpeg_quality": "JPEG-Qualität für HQ-Schnappschüsse",
@@ -202,7 +202,7 @@
     "bird_scan_standard": "Standard",
     "bird_scan_intensive": "Intensiv",
     "cache_clips_help": "Frigate speichert diese bereits. Kopien bleiben erhalten, wenn Frigate sie löscht, und belegen jeweils etwa so viel Platz wie der Clip.",
-    "cache_always_kept": "Fotos, Clips ganzer Besuche und Vorschauen werden immer behalten. Die Grenzen unten bestimmen, wie lange und wie viel Platz sie belegen.",
+    "cache_always_kept": "Fotos, Clips ganzer Besuche und Vorschauen bleiben erhalten, bis eine der Grenzen unten sie entfernt.",
     "cache_unavailable": "In den Medienordner kann nicht geschrieben werden, daher werden keine Fotos und Videos behalten. Prüfe die Ordnerrechte; die Systemprüfungen zeigen den Fehler.",
     "cache_high_quality_storage_note": "Jeder Besuch behält dann zusätzlich Bilder in voller Auflösung, oft mehrere MB. Lege bei knappem Platz eine Speichergrenze fest.",
     "automatic_multi_bird_scan": "Automatisch weitere Vögel suchen",
@@ -219,7 +219,14 @@
     "retention_shrink_kept": "Favoriten bleiben erhalten. Ältere BirdNET-Go-Audiodaten und Gartentier-Einträge werden ebenfalls gelöscht.",
     "retention_confirm_title": "Älteren Verlauf löschen?",
     "retention_confirm_button": "Speichern und {count, plural, one {# Erkennung} other {# Erkennungen}} löschen",
-    "retention_confirm_uncounted": "Speichern und älteren Verlauf löschen"
+    "retention_confirm_uncounted": "Speichern und älteren Verlauf löschen",
+    "history_summary": "{count, plural, one {# Eintrag} other {# Einträge}}, der älteste vom {oldest}.",
+    "history_summary_empty": "Noch keine Einträge.",
+    "history_due": "{count, plural, one {# ist} other {# sind}} älter als der gespeicherte Zeitraum und {count, plural, one {wird} other {werden}} bei der nächsten Bereinigung gelöscht.",
+    "missing_media_title": "Wenn Frigate einen Besuch verliert",
+    "missing_media_desc": "Frigate löscht alte Ereignisse nach eigenem Zeitplan. Hier legen Sie fest, was YA-WAMF behält, wenn eines fehlt.",
+    "maintenance_jobs_title": "Gleichzeitige Aufgaben",
+    "maintenance_jobs_desc": "Die Aufgaben oben laufen nacheinander, damit sie nie mit der Vogelbestimmung konkurrieren."
   },
   "security": {
     "title": "Sicherheit",
@@ -244,13 +251,11 @@
     "connection": "Verbindung",
     "detection": "Erkennung",
     "notifications": "Benachrichtigungen",
-    "health": "Zustand",
     "integrations": "Integrationen",
     "data": "Daten",
     "security": "Sicherheit",
     "appearance": "Aussehen",
     "accessibility": "Barrierefreiheit",
-    "debug": "Debug",
     "enrichment": "Anreicherung",
     "ai": "KI",
     "groups": {
@@ -264,15 +269,11 @@
     "skip_to_content": "Zu den Einstellungen springen",
     "section_label": "Einstellungsbereich",
     "navigation_label": "Einstellungsbereiche",
-    "unsaved_note": "Enthält ungespeicherte Änderungen"
+    "unsaved_note": "Enthält ungespeicherte Änderungen",
+    "models": "Modelle",
+    "maintenance": "Wartung"
   },
   "debug": {
-    "title": "Debug-Tools",
-    "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
-    "model_eval_title": "Werkzeug zur Modellbewertung",
-    "model_eval_desc": "Bewerten Sie installierte Klassifikatoren mit taxonomisch geprüften Vogelbildern. Artefakte werden unter /config/yawamf-eval/ gespeichert.",
-    "model_eval_action_desc": "Führen Sie Genauigkeits-, Latenz- und Plausibilitätsprüfungen für jedes installierte Modell aus. Nur für Eigentümer.",
-    "model_eval_open": "Öffnen",
     "llm_prompts_title": "LLM-Promptvorlagen",
     "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
     "llm_prompt_style_label": "Prompt-Stil",
@@ -285,8 +286,8 @@
     "llm_prompt_conversation_hint": "Platzhalter: {species}, {analysis}, {history}, {question}, {language_note}",
     "llm_prompt_chart": "Prompt für Diagrammanalyse",
     "llm_prompt_chart_hint": "Platzhalter: {timeframe}, {total_count}, {series}, {weather_notes}, {sun_notes}, {notes}, {language_note}",
-    "strict_non_finite_output": "Strenge Behandlung nicht-endlicher Ausgaben",
-    "strict_non_finite_output_desc": "Verwirft ein Ergebnis, das das Modell nicht berechnen konnte, und startet das Modell neu, sodass nichts daraus gespeichert wird. Schalten Sie dies nur zur Fehlersuche am Modell aus."
+    "strict_non_finite_output": "Ergebnisse verwerfen, die das Modell nicht berechnen konnte",
+    "strict_non_finite_output_desc": "Eingeschaltet wird ein Ergebnis, das keine Zahl ist, verworfen und das Modell neu gestartet. Schalten Sie es nur aus, während Sie einem Modellfehler nachgehen."
   },
   "ai": {
     "usage_title": "KI-Nutzungsübersicht",
@@ -507,7 +508,7 @@
     "disabled": "Deaktiviert",
     "needs_ebird": "Nicht angezeigt: benötigt einen eBird-API-Schlüssel",
     "ebird_hint": "Sichtungen in der Nähe, Saisonalität und Seltenheit erscheinen auf Artenseiten, sobald eBird mit einem API-Schlüssel eingeschaltet ist.",
-    "open_ebird": "eBird einrichten"
+    "open_ebird": "Zu eBird"
   },
   "auth": {
     "title": "Authentifizierung",
@@ -849,16 +850,15 @@
     "instance_url_placeholder": "https://feeder.example.com",
     "link_opens": "Benachrichtigungslink öffnet",
     "link_opens_yawamf": "Dieses YA-WAMF",
-    "link_opens_yawamf_desc": "Die Erkennung auf der Seite Erkennungen, mit Clip, Schnappschüssen und Bestimmung.",
+    "link_opens_yawamf_desc": "Der Besuch im Explorer, mit Clip, Schnappschüssen und Bestimmung.",
     "link_opens_yawamf_req": "Verwendet die Adresse der Instanz oben.",
     "link_opens_frigate": "Frigate",
     "link_opens_frigate_desc": "Dasselbe verfolgte Objekt auf der Explore-Seite von Frigate.",
-    "link_opens_frigate_req": "Benötigt Frigate 0.15 oder neuer und die öffentliche Frigate-URL in den Integrationseinstellungen.",
+    "link_opens_frigate_req": "Benötigt Frigate 0.15 oder neuer und die öffentliche Frigate-URL, einzustellen unter Einstellungen → Verbindung.",
     "link_frigate_url_missing": "Die öffentliche Frigate-URL ist nicht gesetzt; Benachrichtigungen enthalten keinen Link, bis sie gesetzt ist.",
-    "link_open_integrations": "Integrationseinstellungen öffnen",
-    "link_preview_telegram": "Telegram-Schaltfläche",
+    "link_preview_telegram": "Link auf der Telegram-Schaltfläche:",
     "link_preview_others": "Discord-Titel, Pushover und E-Mail verwenden dieselbe Adresse.",
-    "link_preview_none": "es wird kein Link gesendet",
+    "link_preview_none": "noch keiner, daher haben Telegram-Nachrichten keine Schaltfläche.",
     "sentence": {
       "chip_context": "({setting})",
       "lead": "Sag mir Bescheid über",
@@ -877,16 +877,14 @@
       "species_any": "allen Arten",
       "species_all_but": "{count, plural, one {allen außer # Art} other {allen außer # Arten}}",
       "species_only": "{count, plural, one {nur # Art} other {nur # Arten}}",
-      "species_jump": "Artenfilter: {summary}. Zum Artenfilter springen.",
-      "channels_none": "noch nirgendwohin",
-      "channels_hint": "Wähle, wohin Nachrichten gehen.",
-      "channel_needs_setup": "Einrichtung nötig",
-      "destinations": "Ziele",
+      "species_jump": "Artenfilter: {summary}. Zum Artenfilter.",
+      "channels_none": "noch keinem Kanal",
       "channel_discord": "Discord",
       "channel_pushover": "Pushover",
       "channel_telegram": "Telegram",
       "channel_email": "E-Mail",
-      "confidence_chip_audio": "{value} % Sicherheit und gehört"
+      "confidence_chip_audio": "{value} % Sicherheit und gehört",
+      "channels_jump": "Kanäle: {channels}. Zu den Kanälen."
     },
     "test_channel": "Kanal",
     "test_failed": "Die Testnachricht konnte nicht gesendet werden.",
@@ -901,15 +899,15 @@
       "enabled_help": "Eine Meldung pro Besuch, wenn ein Tier automatisch benannt wird oder Sie seine Art bestätigen. Wirkt, sobald Sie die Änderungen speichern.",
       "send_to": "Gartenmeldungen senden an",
       "use_bird": "Meine Vogelkanäle verwenden",
-      "use_bird_help": "Die Kanäle oben, die eingeschaltet und eingerichtet sind.",
+      "use_bird_help": "Die Kanäle unter Benachrichtigungen, die eingeschaltet und eingerichtet sind.",
       "choose": "Kanäle auswählen",
       "choose_help": "Nutzt gespeicherte Zugangsdaten; die Vogelschalter können aus bleiben.",
       "bird_uses": "Sendet an {channels}.",
-      "bird_none": "Kein Vogelkanal ist eingeschaltet und eingerichtet, daher kann keine Gartenmeldung gesendet werden. Schalte oben einen ein oder wähle Kanäle aus.",
+      "bird_none": "Kein Vogelkanal ist eingeschaltet und eingerichtet, daher kann keine Gartentier-Benachrichtigung gesendet werden. Schalten Sie unter Benachrichtigungen einen ein oder wählen Sie hier Kanäle.",
       "channels_label": "Zustellkanäle für den Garten",
       "channel": "Gartenmeldungen über {channel}",
       "choose_one": "Wähle mindestens einen Kanal für Gartenmeldungen.",
-      "credentials": "Für {channels} sind keine Zugangsdaten gespeichert, daher schlagen Gartenmeldungen dort fehl. Trage sie oben in der Kanalkarte ein.",
+      "credentials": "Für {channels} sind keine Zugangsdaten gespeichert, daher schlagen Gartentier-Benachrichtigungen dort fehl. Tragen Sie sie unter Benachrichtigungen ein.",
       "include_photo": "Foto anhängen",
       "include_photo_help": "Hängt den gespeicherten Tierausschnitt an, sonst das Foto der Aufnahme. Gesendet werden nur bestätigte Tiere, also ein Foto, das du oder die automatische Prüfung angenommen habt. Nur Text, wenn kein Foto lesbar ist.",
       "privacy": "Sendet Tiername, Kamera, Sichtungszeit und, falls gewählt, das Foto an diese Dienste. Der Link öffnet diese Aufnahme hier; Besucher können sie nur öffnen, solange der öffentliche Zugang sie teilt.",
@@ -917,7 +915,10 @@
       "status": "Gespeicherte Zustellversuche. Vom Kanal angenommen: {sent}. Fehlgeschlagen: {failed}. Unbestätigt: {unknown}. Übersprungen: {skipped}.",
       "status_after_apply": "Der Zustellstatus erscheint, sobald der Garten eingeschaltet und gespeichert ist.",
       "refresh": "Zustellstatus aktualisieren"
-    }
+    },
+    "garden_elsewhere": "Benachrichtigungen zu Gartentieren werden bei den Gartentieren unter Beta-Funktionen eingestellt. Sie werden über die Kanäle oben gesendet.",
+    "garden_open": "Gartentier-Benachrichtigungen öffnen",
+    "link_open_connection": "Verbindung öffnen"
   },
   "discord": {
     "title": "Discord-Benachrichtigungen",
@@ -994,20 +995,20 @@
     "resolving": "Suche läuft…"
   },
   "danger": {
-    "title": "Aktionen, die sich nicht rückgängig machen lassen",
-    "subtitle": "Destruktive Aktionen",
-    "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen, leert den Medien-Cache und entfernt jeden archivierten Favoriten. Das kann nicht rückgängig gemacht werden.",
-    "reset_button": "Datenbank & Cache zurücksetzen",
+    "title": "Daten löschen",
+    "subtitle": "Jede dieser Aktionen löscht etwas endgültig. Jede fragt nach, bevor sie etwas tut.",
+    "reset_desc": "Löscht alle Erkennungen, alle zwischengespeicherten Fotos und Clips und alle archivierten Favoriten.",
+    "reset_button": "Gesamten Verlauf löschen",
     "resetting": "Wird zurückgesetzt…",
-    "confirm": "ACHTUNG: Dies löscht ALLE Erkennungen, leert den Medien-Cache und entfernt jeden archivierten Favoriten. Das kann nicht rückgängig gemacht werden. Sind Sie sicher?",
-    "clear_feedback_button": "Personalisierungsdaten löschen",
-    "clear_feedback_desc": "Das Löschen des Personalisierungs-Feedbacks entfernt alle manuellen Tag-Korrekturen, die die KI zum Anpassen der Konfidenzwerte nutzt. Dadurch wird der Klassifikator auf seine Basisgenauigkeit zurückgesetzt.",
-    "clear_feedback_hint": "Dadurch werden weder Erkennungen noch Medien gelöscht. Das Re-Ranking beginnt erneut zu lernen, sobald Sie neue manuelle Korrekturen vornehmen.",
+    "confirm": "{count, plural, one {# Erkennung} other {Alle # Erkennungen}}, alle zwischengespeicherten Fotos und Clips und alle archivierten Favoriten löschen? Das lässt sich nicht rückgängig machen.",
+    "clear_feedback_button": "Korrekturen löschen",
+    "clear_feedback_desc": "YA-WAMF nutzt die Arten, die Sie korrigiert haben, um seine Werte je Kamera anzupassen. Ohne die Korrekturen gelten wieder die Werte des Modells.",
+    "clear_feedback_hint": "Erkennungen und Fotos bleiben. Neue Korrekturen starten die Anpassung von vorn.",
     "clearing_feedback": "Wird gelöscht…",
-    "clear_feedback_confirm": "Möchten Sie wirklich alle personalisierten Re-Ranking-Daten löschen? Damit kehrt die KI zur Basisgenauigkeit zurück und der Vorgang kann nicht rückgängig gemacht werden.",
-    "feedback_title": "Personalisierungsdaten",
+    "clear_feedback_confirm": "Ihre Korrekturen von Bestimmungen löschen? Es gelten wieder die Werte des Modells; Erkennungen und Fotos bleiben. Das lässt sich nicht rückgängig machen.",
+    "feedback_title": "Ihre Korrekturen von Bestimmungen",
     "favorites_title": "Favoriten",
-    "reset_title": "Datenbank und Medien-Cache"
+    "reset_title": "Alle Erkennungen und ihre Medien"
   },
   "detection": {
     "fine_tuning": "Feineinstellung",
@@ -1097,14 +1098,12 @@
     "model_manager_crop_policy_automatic_desc": "YA-WAMF verwendet die für dieses Modell getestete Zuschnittsrichtlinie. Beim Modellwechsel ist keine Anpassung nötig.",
     "model_manager_runtime_health": "Laufzeitstatus",
     "model_manager_image_preparation": "Bildvorbereitung",
-    "model_manager_detector_missing": "Download erforderlich",
+    "model_manager_detector_missing": "Noch nicht heruntergeladen. Die Schaltfläche zum Herunterladen steht unter der Auswahl.",
     "model_manager_lineup_title": "Gestaffelte Modellreihe",
     "model_manager_lineup_desc": "Empfohlene Modelle werden zuerst angezeigt. Erweiterte Optionen bleiben eingeklappt, bis Sie sie öffnen.",
     "model_manager_hide_advanced": "Erweiterte Modelle ausblenden",
     "model_manager_show_advanced": "Erweiterte Modelle anzeigen ({count})",
     "model_manager_count": "{count} sichtbar",
-    "model_manager_advanced_hidden": "Erweiterte Modelle sind standardmäßig ausgeblendet. Blenden Sie sie ein, wenn Sie die größeren ONNX-Optionen brauchen.",
-    "model_manager_active": "AKTIV",
     "model_manager_recommended_for": "Empfohlen für",
     "model_manager_notes": "Hinweise",
     "model_manager_architecture": "Architektur",
@@ -1116,7 +1115,6 @@
     "model_manager_host_verification": "Die OpenVINO-Hostprüfung wird für das aktive ONNX-Modell angezeigt.",
     "model_manager_downloading": "Wird heruntergeladen…",
     "model_manager_redownloading": "Wird erneut heruntergeladen…",
-    "model_manager_currently_active": "Derzeit aktiv",
     "model_manager_activating": "Wird aktiviert…",
     "model_manager_activate": "Aktivieren",
     "model_manager_redownload": "Erneut herunterladen",
@@ -1165,7 +1163,6 @@
     "model_manager_provider_unavailable_suffix": "Nicht verfügbar",
     "model_manager_provider_fallback_suffix": "Fallback",
     "model_manager_provider_fallback_title": "Automatischer Fallback in der angezeigten Reihenfolge",
-    "model_manager_tier_cpu_only": "Nur CPU",
     "model_manager_scope_birds_only": "Nur Vögel",
     "model_manager_scope_wildlife_wide": "Breite Tierwelt",
     "model_manager_provider_cpu": "CPU",
@@ -1333,7 +1330,13 @@
     "bird_finder_recommended_running": "Geräteprüfung für {devices} läuft. CPU bleibt während der Prüfung verfügbar.",
     "bird_finder_recommended_unchecked": "CPU, bis {devices} die Geräteprüfung hier bestehen. Noch keine Beschleunigerempfehlung.",
     "bird_finder_recommended_waiting": "Warten auf gespeicherte Vogelfotos zur erneuten Prüfung von {devices}. CPU bleibt verfügbar.",
-    "model_manager_card_on_disk": "Auf diesem Host"
+    "model_manager_card_on_disk": "Auf diesem Host",
+    "models_elsewhere": "Welches Modell die Art bestimmt und auf welcher Hardware es läuft, legen Sie unter Modelle fest.",
+    "models_open": "Modelle öffnen",
+    "band_model_missing": "Noch nicht installiert. Laden Sie es unten herunter.",
+    "model_manager_in_use": "In Verwendung",
+    "model_manager_show_catalogue": "Anderes Modell wählen",
+    "model_manager_hide_catalogue": "Andere Modelle ausblenden"
   },
   "llm": {
     "title": "KI-Einblicke",
@@ -1375,7 +1378,7 @@
     "description": "Was dieser Host gerade tut, und wie viel davon diese App ist.",
     "window": "Letzte 30 Minuten, alle 5 s gemessen",
     "legend": "Reihen",
-    "legend_cpu": "CPU, gesamter Host",
+    "legend_cpu": "CPU",
     "cpu_now": "CPU jetzt",
     "accelerator_now": "{label} jetzt",
     "memory_now": "Diese App im Speicher",
@@ -1415,7 +1418,8 @@
     "not_measured": "Nicht gemessen",
     "measurement_gap": "Für diese Probe liegt kein Auslastungswert vor. Die Worker-Zeilen unten zeigen den geladenen Beschleuniger; diese Lücke belegt keinen Rückfall auf die CPU.",
     "unreadable_nvidia": "{label} ist vorhanden, aber ihr Treiber veröffentlicht keinen Auslastungszähler, den ein Container lesen kann.",
-    "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar."
+    "unreadable_accelerator": "{label} ist vorhanden, aber der Zähler ist aus dem Container heraus nicht lesbar.",
+    "table_region": "Last nach Prozess"
   },
   "text_size": {
     "label": "Textgröße",
@@ -1529,7 +1533,8 @@
     "garden_fact_motion_on": "An für {cameras}",
     "garden_fact_unreadable": "Konnte nicht gelesen werden. Aktualisieren Sie, um es erneut zu versuchen.",
     "garden_fact_saved_crops": "Gespeicherte Ausschnitte",
-    "garden_fact_saved_crops_value": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number}"
+    "garden_fact_saved_crops_value": "{count, plural, one {# Ausschnitt} other {# Ausschnitte}} von {limit, number}",
+    "garden_channels_open": "Kanäle unter Benachrichtigungen einrichten"
   },
   "native_revalidation": {
     "title": "Quarantänisiertes Profil prüfen",
@@ -1690,5 +1695,11 @@
     "notifications_email_gmail_client_secret": "Gmail-Client-Secret",
     "notifications_email_outlook_client_secret": "Outlook-Client-Secret",
     "notifications_email_smtp_password": "SMTP-Passwort"
+  },
+  "models": {
+    "testing_title": "Modelle testen",
+    "testing_desc": "Vergleichen Sie die installierten Modelle an Fotos, die Sie schon bestätigt haben.",
+    "testing_action": "Die Modellbewertung lässt jedes installierte Modell über diese Fotos laufen und zeigt, wie oft es richtig liegt und wie lange es braucht.",
+    "testing_open": "Modellbewertung öffnen"
   }
 }

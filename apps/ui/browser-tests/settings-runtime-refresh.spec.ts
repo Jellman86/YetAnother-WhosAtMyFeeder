@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // The compatibility check can move classification onto a newly validated
-// accelerator. The Detection page must then show the provider the workers
+// accelerator. The Models tab must then show the provider the workers
 // actually run on, read back from the backend, without reloading the settings
 // form and discarding edits the owner has not saved.
 const cpuStatus = {
@@ -32,15 +32,15 @@ const matrix = {
     }
 };
 
-async function selectSettingsSection(page: Page, name: 'Connection' | 'Detection') {
+async function selectSettingsSection(page: Page, name: 'Connection' | 'Models') {
     const mobileNavigation = page.getByRole('combobox', { name: 'Settings section', exact: true });
-    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Detection', exact: true }))).toBeVisible();
+    await expect(mobileNavigation.or(page.getByRole('link', { name: 'Models', exact: true }))).toBeVisible();
     if (await mobileNavigation.isVisible()) {
         await mobileNavigation.selectOption({ label: name });
     } else {
         await page.getByRole('link', { name, exact: true }).click();
     }
-    if (name !== 'Detection') return;
+    if (name !== 'Models') return;
     // Hardware starts closed; these tests read the provider and runtime report inside it.
     const hardware = page.getByRole('button', { name: 'Hardware', exact: true });
     if ((await hardware.getAttribute('aria-expanded')) === 'false') await hardware.click();
@@ -105,7 +105,7 @@ async function openDetectionWithCompatibilityRun(
         return route.fulfill({ json: {} });
     });
     await page.goto('/browser-tests/settings-backfill.html');
-    await selectSettingsSection(page, 'Detection');
+    await selectSettingsSection(page, 'Models');
     return counters;
 }
 
@@ -117,9 +117,10 @@ test('the live runtime is re-read after a compatibility check without losing uns
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await expect(slider).toHaveValue('0.6');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await expect(slider).toHaveValue('auto');
+    await slider.selectOption('eu');
     await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
     const settingsReadsBeforeRun = counters.settingsReads;
 
@@ -131,15 +132,16 @@ test('the live runtime is re-read after a compatibility check without losing uns
     await expect(runtimeCell(page)).not.toContainText('CPU (ONNX Runtime)');
 
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReadsBeforeRun);
     expect(errors).toEqual([]);
 });
 
 test('a failed runtime refresh is said in words rather than leaving the old provider unexplained', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 503, json: { detail: 'Classifier unavailable' } }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
     await page.getByRole('button', { name: 'Run compatibility check', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('All devices match the CPU baseline.', { timeout: 15_000 });
@@ -147,7 +149,7 @@ test('a failed runtime refresh is said in words rather than leaving the old prov
     await dialog.getByRole('button', { name: 'Close', exact: true }).last().click();
     await expect(page.getByRole('alert').filter({ hasText: 'could not read the runtime' })).toBeVisible();
     await expect(runtimeCell(page)).not.toContainText('Intel NPU');
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
 });
 
 test('a recommendation does not replace the provider reported by the worker', async ({ page }) => {
@@ -162,28 +164,30 @@ test('a recommendation does not replace the provider reported by the worker', as
 
 test('refreshing Models reads the runtime without reloading unsaved settings', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
     await page.getByRole('button', { name: 'Refresh', exact: true }).last().click();
     await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 3_000 });
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 });
 
-test('a runtime change after returning to Detection refreshes without another check', async ({ page }) => {
+test('a runtime change after returning to Models refreshes without another check', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }));
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
     await page.getByRole('link', { name: 'Connection', exact: true }).click();
-    await page.getByRole('link', { name: 'Detection', exact: true }).click();
+    await page.getByRole('link', { name: 'Models', exact: true }).click();
     await expect(runtimeCell(page)).toContainText('CPU (ONNX Runtime)');
     const settingsReads = counters.settingsReads;
     counters.runFinished = true;
-    // The runtime line is re-read every 15 seconds while Detection is open.
+    // The runtime line is re-read every 15 seconds while Models is open.
     await expect(runtimeCell(page)).toContainText('Intel NPU (OpenVINO)', { timeout: 20_000 });
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 });
 
@@ -210,19 +214,20 @@ async function applySettings(page: Page, counters: { saves: Record<string, unkno
 test('a provider saved on the server replaces the loaded one in the form and in the next save', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'cpu');
     const provider = page.locator('#inference-provider');
-    const slider = page.locator('#confidence-threshold-slider');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
     await expect(provider).toHaveValue('cpu');
-    await slider.fill('0.75');
+    await slider.selectOption('eu');
     const settingsReads = counters.settingsReads;
 
     await refreshRuntimeFromModels(page, counters, 'intel_npu');
     await expect(provider).toHaveValue('intel_npu');
-    await expect(slider).toHaveValue('0.75');
+    await expect(slider).toHaveValue('eu');
     expect(counters.settingsReads).toBe(settingsReads);
 
     const saved = await applySettings(page, counters);
     expect(saved.inference_provider).toBe('intel_npu');
-    expect(saved.classification_threshold).toBe(0.75);
+    expect(saved.bird_model_region_override).toBe('eu');
 });
 
 for (const { loaded, chosen } of [{ loaded: 'cpu', chosen: 'auto' }, { loaded: 'auto', chosen: 'cpu' }]) {
@@ -259,15 +264,16 @@ test('Auto chosen after a legacy provider was replaced on the server is saved', 
 test('an Auto preference stays Auto while the worker runs on the NPU', async ({ page }) => {
     const counters = await openDetectionWithCompatibilityRun(page, () => ({ status: 200, json: npuStatus }), 'auto');
     const provider = page.locator('#inference-provider');
-    const slider = page.locator('#confidence-threshold-slider');
-    await slider.fill('0.75');
+    // An unsaved edit on the same tab, which a runtime refresh must not undo.
+    const slider = page.locator('#bird-model-region-override');
+    await slider.selectOption('eu');
 
     await refreshRuntimeFromModels(page, counters, 'auto');
     await expect(provider).toHaveValue('auto');
 
     const saved = await applySettings(page, counters);
     expect(saved.inference_provider).toBe('auto');
-    expect(saved.classification_threshold).toBe(0.75);
+    expect(saved.bird_model_region_override).toBe('eu');
 });
 
 test('the recording delay survives navigation and saves with its selected source', async ({ page }) => {
@@ -278,7 +284,7 @@ test('the recording delay survives navigation and saves with its selected source
     const input = page.getByRole('spinbutton', { name: 'Initial identification delay (seconds)' });
     await expect(input).toHaveValue('12');
     await input.fill('45');
-    await selectSettingsSection(page, 'Detection');
+    await selectSettingsSection(page, 'Models');
     await selectSettingsSection(page, 'Connection');
     await expect(input).toHaveValue('45');
     const saved = await applySettings(page, counters);

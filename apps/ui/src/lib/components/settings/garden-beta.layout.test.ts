@@ -98,13 +98,15 @@ describe('Garden animals is a beta feature', () => {
         expect(connectionSource).toContain('gardenEnabled: betaGardenAnimals');
     });
 
-    it('sets up Garden alerts once, in Notifications, and only summarises them here', () => {
-        // Alerts choose channels, so they sit with the channels; Beta features links there.
-        expect(gardenBetaSource).not.toContain('<GardenNotificationSettings');
+    it('sets Garden alerts once, here with the rest of Garden; Notifications only links to them', () => {
+        expect(gardenBetaSource).toContain('<GardenNotificationSettings');
+        expect(gardenBetaSource).toContain('bind:enabled={notificationsEnabled}');
+        expect(settingsSource).toContain('birdChannels={gardenBirdChannels}');
+        expect(notificationSource).not.toContain('<GardenNotificationSettings');
+        expect(notificationSource).toContain('data-garden-alerts-elsewhere');
+        expect(notificationSource).toContain('onclick={onOpenGarden}');
+        // The channels themselves stay in Notifications, so Garden links there for them.
         expect(gardenBetaSource).toContain('onclick={onOpenNotifications}');
-        expect(settingsSource).toContain("onOpenNotifications={() => handleTabChange('notifications')}");
-        expect(notificationSource).toMatch(/\{#if gardenBeta\}\s*<GardenNotificationSettings/);
-        expect(notificationSource).toContain('birdChannels={policyChannels}');
         expect(settingsSource).toContain('gardenBeta={betaGardenAnimals}');
     });
 

@@ -32,7 +32,7 @@ Opening Settings restores the last detection and weather backfill results withou
 them again. A backfill observed running on that page announces its completion or failure once;
 returning to Settings or reloading it does not replay the result.
 
-For a support report, follow **Health · Diagnostics export** to **Settings → Health** and expand
+For a support report, follow **Health · Diagnostics export** to the **Health** page and expand
 **Diagnostics export**. **Capture Bundle** saves a snapshot; **Download without saving** exports
 one directly. Both request current server evidence, even with no browser errors. These actions
 require owner access and do not send a report automatically. A saved bundle retains its original
@@ -158,8 +158,8 @@ rejected. Deleted, hidden, blocked and unknown visits are checked again before d
 
 ## Garden animals
 
-While the Garden animals beta is on, **Settings → Notifications** has a **Garden
-animals** section for alerts about named animals. By default they use your bird
+While the Garden animals beta is on, its alerts about named animals are set in
+**Settings → Beta features → Garden animals → Alerts**, with the rest of Garden; Notifications links there. By default they use your bird
 channels, meaning the ones switched on and configured, and attach the animal photo.
 You can choose channels for Garden alone instead. Bird filters, notification mode
 and the cooldown above apply to birds only. See
