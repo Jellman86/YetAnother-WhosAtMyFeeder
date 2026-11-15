@@ -150,6 +150,11 @@ curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
   and finish counts. Counters reset with the process and update independently of health polling.
   A finish can include failure or cancellation. These are scheduler observations, not exact
   accelerator utilization or live-request latency; short bursts between checks can be missed.
+  `garden_motion_decode` reports how Garden motion recordings decode: `state` (`vaapi`,
+  `not_packaged`, `no_render_node`, `probe_failed`, `decode_failed`, or `not_checked` before the
+  first check), `decoder` (`vaapi` or `software`), the render `device`, a plain-language `message`,
+  `consecutive_fallbacks`, and `software_cameras`: cameras whose recordings decode on the CPU by
+  design (B-frames or edit lists) while the GPU works. CPU decode never sets `status=degraded`.
   Existing maintenance-specific fields remain available. See [video queue behaviour](features/video-analysis.md#settings).
   `mqtt.connection_state` is the broker session as measured (`connecting`, `connected`,
   `disconnected`, `not_configured` or `stopped`), and `frigate_api` carries `state`
@@ -547,9 +552,11 @@ species identification have separate reviews; `frigate_label` remains an upstrea
 - `GET /api/garden/motion` — enabled cameras, catalogue and detector availability,
   shared busy state, `animal_confidence`, collection state/message, last attempted scan/outcome and
   interval/photo limits. `interval_seconds` reports the selected minimum spacing between scan starts:
-  five seconds after a completed window with more footage queued, otherwise ten seconds.
+  five seconds after a completed window with more footage queued, for at most 30 scans in any
+  ten minutes, otherwise ten seconds.
   Processing is included, long scans leave at least one second of rest and failures back off
-  thirty seconds. This is not a promised capture rate. `catchup_seconds` bounds recording age; `queue_limit`
+  thirty seconds. This is not a promised capture rate. `catchup_seconds` (600) bounds recording age;
+  older footage is skipped, not scanned late; `queue_limit`
   caps each rebuilt camera queue. `queued_windows`, `queue_camera` and
   `queue_checked_at` describe the latest inspected camera, not a live total across
   all cameras. More footage may remain when the queue is full. Refresh to read
@@ -633,7 +640,8 @@ keyframe before the requested start, so it can begin up to one 10-second recordi
 early. Samples are taken inside the requested window after that pre-roll, `frame_offset` is
 measured from the requested start, person checks include five seconds of padding and displayed
 observation times are approximate. A recording that cannot be read (invalid metadata, pixel or
-duration limit, a sample that will not decode, an unbounded frame or a photo too large to keep)
+duration limit, over 48 MiB (`size_limit`), a sample that will not decode, an unbounded frame or a
+photo too large to keep)
 is skipped with its reason and counted per camera for the last hour in
 `unreadable_recordings`; it is never retried in a loop and keeps no photo. These
 are detector proposals, including possible birds and false positives. Confirmation

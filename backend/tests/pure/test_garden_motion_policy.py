@@ -44,14 +44,14 @@ def test_queue_is_bounded_ordered_and_does_not_double_scan_overlapping_recording
     windows = recording_queue(records, after=900, now=1000)
     assert windows == [(900, 910), (910, 920), (920, 930), (930, 940), (940, 950), (950, 960), (960, 970), (970, 975)]
     assert recording_queue(list(reversed(records)), after=900, now=1000) == windows
-    assert len(recording_queue([recording(1, end=9900)], after=0, now=10000)) == 24
+    assert len(recording_queue([recording(9000, end=9900)], after=0, now=10000)) == 24
 
 
-def test_queue_catches_up_within_thirty_minutes_and_skips_tiny_tails():
+def test_queue_catches_up_within_ten_minutes_and_skips_tiny_tails():
     from app.services.garden_motion_policy import recording_queue
 
-    assert recording_queue([recording(500)], after=0, now=2000) == [(500, 510)]
-    assert recording_queue([recording(100)], after=0, now=2000) == []
+    assert recording_queue([recording(1500)], after=0, now=2000) == [(1500, 1510)]
+    assert recording_queue([recording(1300)], after=0, now=2000) == []
     assert recording_queue([recording(1950, end=1960.05)], after=1960, now=2000) == []
     assert recording_queue([recording(950, motion=0)], after=900, now=1000) == []
 
@@ -115,22 +115,69 @@ def test_provenance_rejects_unsafe_or_unbound_evidence(change):
         MotionSource.model_validate(values)
 
 
-@pytest.mark.parametrize("outcome", ["candidate", "no_candidate", "person_rejected"])
+@pytest.mark.parametrize("outcome", ["candidate", "no_candidate", "person_rejected", "unusable_recording"])
 @pytest.mark.parametrize("remaining", [1, 2, 24])
 def test_completed_windows_with_backlog_allow_bounded_five_second_catchup(outcome, remaining):
     from app.services.garden_motion_policy import motion_scan_interval
 
-    assert motion_scan_interval(outcome, remaining) == 5
+    assert motion_scan_interval(outcome, remaining, recent_scans=0) == 5
 
 
 @pytest.mark.parametrize("outcome", [None, "failed", "paused", "storage_full", "no_recording", "not_stored"])
 def test_incomplete_or_blocked_work_cannot_enable_fast_catchup(outcome):
     from app.services.garden_motion_policy import motion_scan_interval
 
-    assert motion_scan_interval(outcome, 24) == 10
+    assert motion_scan_interval(outcome, 24, recent_scans=0) == 10
 
 
 def test_drained_queue_returns_to_normal_interval():
     from app.services.garden_motion_policy import motion_scan_interval
 
-    assert motion_scan_interval("no_candidate", 0) == 10
+    assert motion_scan_interval("no_candidate", 0, recent_scans=0) == 10
+
+
+def test_fast_catchup_stops_once_the_cycle_budget_is_spent():
+    from app.models.garden_motion import MOTION_CATCHUP_BUDGET
+    from app.services.garden_motion_policy import motion_scan_interval
+
+    # A long backlog drains at the normal pace after the budget, so a restart cannot hold a core.
+    assert motion_scan_interval("no_candidate", 24, recent_scans=MOTION_CATCHUP_BUDGET - 1) == 5
+    assert motion_scan_interval("no_candidate", 24, recent_scans=MOTION_CATCHUP_BUDGET) == 10
+
+
+def test_recent_scans_count_only_starts_inside_the_budget_cycle():
+    from app.services.garden_motion_policy import recent_scan_count
+
+    assert recent_scan_count([100.0, 650.0, 651.0, 1249.0], now=1250.0) == 2
+    assert recent_scan_count([], now=1250.0) == 0
+
+
+def test_backlog_older_than_the_window_is_counted_once_as_skipped_windows():
+    from app.services.garden_motion_policy import recording_queue, skipped_backlog_windows
+
+    # The host was down; the saved cursor is an hour behind and the window keeps ten minutes.
+    records = [recording(start) for start in range(400, 1800, 10)] + [recording(2900, end=2970)]
+    assert skipped_backlog_windows(records, cursor=400.0, now=3000.0) == 140
+    assert recording_queue(records, after=2400.0, now=3000.0) == [(2900 + i * 10, 2910 + i * 10) for i in range(7)]
+
+
+def test_skipped_backlog_counts_merged_motion_up_to_the_window_floor_only():
+    from app.services.garden_motion_policy import skipped_backlog_windows
+
+    # Overlapping metadata is one interval; the part after the floor is still queued, not skipped.
+    records = [recording(2300, end=2420), recording(2310, end=2350), recording(2200, motion=0)]
+    assert skipped_backlog_windows(records, cursor=2250.0, now=3000.0) == 10
+
+
+@pytest.mark.parametrize("cursor", [None, 2400.0, 2900.0])
+def test_nothing_is_skipped_without_a_cursor_or_when_the_cursor_is_inside_the_window(cursor):
+    from app.services.garden_motion_policy import skipped_backlog_windows
+
+    assert skipped_backlog_windows([recording(start) for start in range(0, 2990, 10)], cursor=cursor, now=3000.0) == 0
+
+
+@pytest.mark.parametrize("bad", [None, {}, [recording(True)], [recording(1, end=2)] * 2049])
+def test_invalid_or_unbounded_recording_metadata_skips_nothing(bad):
+    from app.services.garden_motion_policy import skipped_backlog_windows
+
+    assert skipped_backlog_windows(bad, cursor=100.0, now=3000.0) == 0

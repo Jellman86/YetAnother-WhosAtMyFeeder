@@ -1149,3 +1149,22 @@ async def test_health_degraded_when_db_pool_acquire_wait_is_extreme(
     body = response.json()
     assert body["status"] == "degraded"
     assert body["db_pool"]["acquire_wait_max_ms"] == 6000.0
+
+
+@pytest.mark.asyncio
+async def test_health_says_how_motion_recordings_decode_without_degrading_on_cpu_decode(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    from app.services.garden_motion import garden_motion_service
+    from app.services.garden_motion_decode import MotionDecoder
+
+    app.state.startup_warnings = []
+    monkeypatch.setattr(garden_motion_service, "decoder", MotionDecoder("no_render_node"))
+    body = (await client.get("/health")).json()
+    assert body["garden_motion_decode"]["state"] == "no_render_node"
+    assert body["garden_motion_decode"]["decoder"] == "software"
+    assert "/dev/dri" in body["garden_motion_decode"]["message"]
+    monkeypatch.setattr(garden_motion_service, "decoder", MotionDecoder("vaapi", "/dev/dri/renderD128"))
+    body = (await client.get("/health")).json()
+    assert body["garden_motion_decode"]["decoder"] == "vaapi"
+    assert body["garden_motion_decode"]["device"] == "/dev/dri/renderD128"

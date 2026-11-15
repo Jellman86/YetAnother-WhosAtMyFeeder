@@ -16,6 +16,12 @@ test "$("$HELPER" requirements rpi arm64)" = "requirements-provider-cpu.txt"
 ! "$HELPER" needs-intel-runtime cuda amd64
 ! "$HELPER" needs-intel-runtime rpi arm64
 
+"$HELPER" needs-vaapi intel amd64
+! "$HELPER" needs-vaapi full amd64
+! "$HELPER" needs-vaapi cpu amd64
+! "$HELPER" needs-vaapi cuda amd64
+! "$HELPER" needs-vaapi rpi arm64
+
 test "$("$HELPER" packaged-providers full amd64)" = "cpu,cuda,intel_cpu,intel_gpu,intel_npu"
 test "$("$HELPER" packaged-providers cpu amd64)" = "cpu"
 test "$("$HELPER" packaged-providers intel amd64)" = "cpu,intel_cpu,intel_gpu,intel_npu"

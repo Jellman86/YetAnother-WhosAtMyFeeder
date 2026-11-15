@@ -1244,6 +1244,8 @@ def build_health_payload() -> dict[str, object]:
             "recent_outcomes": [],
         }
     )
+    from app.services.garden_motion import garden_motion_service
+
     health = {
         "status": "ok",
         "service": "ya-wamf-backend",
@@ -1261,6 +1263,9 @@ def build_health_payload() -> dict[str, object]:
         "high_quality_snapshots": high_quality_snapshot_health,
         "notification_dispatcher": notification_dispatch_health,
         "event_pipeline": event_pipeline_health,
+        # Whether garden motion recordings decode on the Intel GPU or the CPU, and why. CPU decode
+        # is a power cost, not a fault, so it never degrades the status above.
+        "garden_motion_decode": garden_motion_service.decode_health(),
         "startup_warnings": startup_warnings,
         # The machine this is running on. A performance report cannot be sized
         # without it, and two bundles were exchanged on #300 before anyone could

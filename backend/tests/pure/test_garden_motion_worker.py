@@ -1,11 +1,13 @@
 """Recording scans discard all proposals on a later person sample."""
 
 import hashlib
+from pathlib import Path
 from unittest.mock import Mock
 
 import numpy as np
 import pytest
 
+from app.services import garden_motion_decode as decode_module
 from app.services import garden_motion_worker as worker
 
 
@@ -116,6 +118,7 @@ def test_recordings_that_cannot_be_read_report_a_reason_without_inference(scan, 
 
 def test_worker_reports_an_unreadable_recording_as_a_result_and_lets_any_other_failure_end_it(monkeypatch):
     served = {}
+    monkeypatch.setattr(worker.os, "nice", lambda increment: increment)
     monkeypatch.setattr(worker, "serve", lambda prefix, handle: served.update(prefix=prefix, handle=handle))
     load = Mock(return_value="detector")
     monkeypatch.setattr(worker, "load_detector", load)
@@ -320,3 +323,180 @@ def test_real_recordings_are_scanned_with_preroll_or_reported_unreadable(tmp_pat
             worker.scan_clip(payload)
         assert raised.value.reason == expected
         runtime.infer.assert_not_called()
+
+
+def hardware_frames(monkeypatch, frames_by_index, *, fail_after=None):
+    from app.services.garden_motion_decode import HardwareDecodeFailed
+
+    calls, closed = [], []
+
+    def stream(device, clip, indices, *, width, height):
+        calls.append(((device, clip, indices), {"width": width, "height": height}))
+        try:
+            for position, index in enumerate(indices):
+                if position == fail_after:
+                    raise HardwareDecodeFailed("exit 1")
+                yield frames_by_index[index]
+        finally:
+            closed.append(True)
+
+    monkeypatch.setattr(worker, "stream_frames", stream)
+    # A constant-rate recording, where OpenCV returns exactly the frames it reports.
+    count = 200
+    rows = "\n".join(
+        f"0, {i * 9000}, {i * 9000}, 9000, 10, 0x0" + ("" if i % 50 == 0 else ", F=0x0") for i in range(count)
+    )
+    timeline = decode_module.parse_timeline("#tb 0: 1/90000\n" + rows)
+    monkeypatch.setattr(worker, "read_timeline", lambda clip: timeline)
+    return calls, closed
+
+
+def test_gpu_decode_pulls_every_sample_in_one_pass_without_seeking_in_software(scan, monkeypatch):
+    payload, reader, runtime, photo, _ = scan
+    still = np.full((100, 100, 3), [10, 20, 30], dtype=np.uint8)
+    moved = still.copy()
+    moved[10:60, 10:60] = 200
+    calls, closed = hardware_frames(monkeypatch, {10: still, 50: moved, 89: still})
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("animal", 0.9, (0.1, 0.1, 0.5, 0.5))])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result["outcome"] == "candidate" and result["decoder"] == "vaapi"
+    assert result["frame_index"] == 10 and result["frame_offset"] == 1
+    (device, clip, indices), size = calls[0]
+    assert device == "/dev/dri/renderD128" and clip == Path(payload["clip"]).resolve()
+    assert indices == [10, 50, 89] and size == {"width": 100, "height": 100}
+    assert closed == [True]
+    reader.set.assert_not_called()
+    reader.read.assert_not_called()
+    assert runtime.infer.call_count == 3
+    reader.release.assert_called_once()
+
+
+def test_gpu_samples_stay_inside_the_requested_window_after_keyframe_preroll(scan, monkeypatch):
+    payload, _, _, _, props = scan
+    props[worker.cv2.CAP_PROP_FRAME_COUNT] = 160
+    blank = np.zeros((100, 100, 3), dtype=np.uint8)
+    calls, _ = hardware_frames(monkeypatch, {index: blank for index in range(160)})
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "vaapi"}
+    assert calls[0][0][2] == [70, 110, 149]
+
+
+def test_a_failed_gpu_decode_reads_the_recording_in_software_and_says_so(scan, monkeypatch):
+    payload, reader, runtime, _, _ = scan
+    hardware_frames(monkeypatch, {}, fail_after=0)
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software_fallback"}
+    assert reader.read.call_count == 3 and runtime.infer.call_count == 3
+
+
+def test_a_gpu_that_stops_part_way_leaves_only_the_remaining_samples_to_software(scan, monkeypatch):
+    payload, reader, runtime, _, _ = scan
+    blank = np.zeros((100, 100, 3), dtype=np.uint8)
+    hardware_frames(monkeypatch, {10: blank}, fail_after=1)
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software_fallback"}
+    assert [call.args[1] for call in reader.set.call_args_list] == pytest.approx([4950.0, 8910.0])
+    assert runtime.infer.call_count == 3
+
+
+def test_a_person_in_the_first_gpu_sample_stops_the_decode_before_later_samples(scan, monkeypatch):
+    payload, _, runtime, photo, _ = scan
+    blank = np.zeros((100, 100, 3), dtype=np.uint8)
+    _, closed = hardware_frames(monkeypatch, {10: blank, 50: blank, 89: blank})
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [("person", 0.3, (0.1, 0.1, 0.5, 0.5))])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "person_rejected", "decoder": "vaapi"}
+    assert runtime.infer.call_count == 1 and closed == [True]
+    assert not photo.exists()
+
+
+def test_software_decode_results_are_unchanged_without_a_decode_device(scan, monkeypatch):
+    payload, *_ = scan
+    read = Mock()
+    monkeypatch.setattr(worker, "stream_frames", read)
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    assert worker.scan_clip(payload) == {"outcome": "no_candidate"}
+    read.assert_not_called()
+
+
+@pytest.mark.parametrize("device", ["/dev/dri/card0", "../renderD128", 128, ""])
+def test_a_decode_device_other_than_a_render_node_is_refused_before_native_work(scan, device):
+    payload, reader, runtime, _, _ = scan
+    with pytest.raises(ValueError, match="render node"):
+        worker.scan_clip(payload | {"decode_device": device})
+    runtime.infer.assert_not_called()
+    reader.read.assert_not_called()
+
+
+def test_an_oversize_recording_is_unusable_not_a_worker_crash(scan, monkeypatch):
+    payload, _, runtime, _, _ = scan
+    clip = Path(payload["clip"])
+    clip.write_bytes(b"\0" * 16)
+    payload = payload | {"clip_sha256": hashlib.sha256(clip.read_bytes()).hexdigest()}
+    monkeypatch.setattr(worker, "MOTION_RECORDING_BYTE_LIMIT", 15)
+    with pytest.raises(worker.UnusableRecording) as raised:
+        worker.scan_clip(payload)
+    assert raised.value.reason == "size_limit"
+    runtime.infer.assert_not_called()
+
+
+def test_the_worker_lowers_its_own_scheduling_priority_before_serving(monkeypatch):
+    calls = []
+    monkeypatch.setattr(worker.os, "nice", lambda increment: calls.append(increment) or increment)
+    monkeypatch.setattr(worker, "serve", lambda prefix, handle: calls.append("serve"))
+    worker.main()
+    assert calls == [worker.MOTION_WORKER_NICENESS, "serve"]
+    assert worker.MOTION_WORKER_NICENESS >= 10
+
+
+def test_a_recording_whose_timestamps_cannot_be_listed_is_read_in_software(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeFailed
+
+    payload, reader, runtime, _, _ = scan
+    hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "read_timeline", Mock(side_effect=HardwareDecodeFailed("listing failed")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software_fallback"}
+    assert reader.read.call_count == 3 and runtime.infer.call_count == 3
+
+
+def test_a_recording_the_gpu_cannot_match_is_read_in_software_without_blaming_the_gpu(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeUnsupported
+
+    payload, reader, runtime, _, _ = scan
+    calls, _ = hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "opencv_seek_frames", Mock(side_effect=HardwareDecodeUnsupported("reorders")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    # Not a GPU failure: the stream itself needs software, so the fallback count is untouched.
+    assert result == {"outcome": "no_candidate", "decoder": "software"}
+    assert calls == [] and reader.read.call_count == 3
+
+
+def test_an_unlistable_recording_is_read_in_software_without_blaming_the_gpu(scan, monkeypatch):
+    from app.services.garden_motion_decode import HardwareDecodeUnsupported
+
+    payload, reader, _, _, _ = scan
+    hardware_frames(monkeypatch, {})
+    monkeypatch.setattr(worker, "read_timeline", Mock(side_effect=HardwareDecodeUnsupported("bad time base")))
+    monkeypatch.setattr(worker, "decode_candidates", lambda *args: [])
+    result = worker.scan_clip(payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "no_candidate", "decoder": "software"}
+
+
+def test_a_gpu_failure_before_an_unreadable_cpu_frame_is_still_reported_as_a_fallback(scan, monkeypatch):
+    payload, reader, _, photo, _ = scan
+    hardware_frames(monkeypatch, {}, fail_after=0)
+    reader.read.side_effect = lambda: (False, None)
+    served = {}
+    monkeypatch.setattr(worker.os, "nice", lambda increment: increment)
+    monkeypatch.setattr(worker, "serve", lambda prefix, handle: served.update(handle=handle))
+    monkeypatch.setattr(worker, "load_detector", Mock(return_value=Mock(actual=["CPUExecutionProvider"])))
+    worker.main()
+    result = served["handle"](payload | {"decode_device": "/dev/dri/renderD128"})
+    assert result == {"outcome": "unusable_recording", "reason": "decode_failed", "decoder": "software_fallback"}
+    assert not photo.exists()
