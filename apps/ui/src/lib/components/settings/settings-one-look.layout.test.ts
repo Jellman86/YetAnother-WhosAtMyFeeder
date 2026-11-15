@@ -98,9 +98,19 @@ describe('Settings has one look across tabs', () => {
         expect(rangeFilterSource.indexOf("settings.range_filter.how_fallback")).toBeGreaterThan(disclosure);
     });
 
+    it('draws every loading spinner, so waiting is never shown as an empty space', () => {
+        for (const [file, source] of Object.entries(tabSources)) {
+            // A spinning ring (a div or span) is drawn only by its border; an SVG spinner draws itself.
+            for (const ring of source.match(/<(div|span)\b[^>]*class="[^"]*\banimate-spin\b[^"]*"/g) ?? []) {
+                expect(ring, file).toMatch(/border-\d/);
+            }
+        }
+    });
+
     it('draws no colour bar along one edge of a note', () => {
         for (const [file, source] of Object.entries(tabSources)) {
             expect(source, file).not.toMatch(/\bborder-l-[24]\b/);
+            expect(source, file).not.toContain('class=""');
         }
     });
 

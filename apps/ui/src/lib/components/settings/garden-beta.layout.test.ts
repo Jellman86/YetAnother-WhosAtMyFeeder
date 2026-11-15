@@ -117,8 +117,10 @@ describe('Garden animals is a beta feature', () => {
         expect(gardenBetaSource).toContain('bind:value={motionConfidence}');
         expect(gardenBetaSource).toContain('bind:value={namingThreshold}');
         expect(gardenBetaSource).toContain('display={(value) => `${thresholdPercentText(value)}%`}');
-        // A calibrated saved value keeps its own precision while the slider moves.
-        expect(gardenBetaSource).toContain('step={gardenThresholdPercentStep(motionConfidence, savedMotionConfidence) / 100}');
+        // Both sliders move one percentage point a step. A calibrated saved value such as 0.6385722
+        // is kept as saved until the slider moves, and a step never shrinks to its precision.
+        expect(gardenBetaSource.match(/step=\{0\.01\}/g)).toHaveLength(2);
+        expect(gardenBetaSource).not.toContain('gardenThresholdPercentStep');
         expect(gardenBetaSource).not.toMatch(/<input\b/);
     });
 

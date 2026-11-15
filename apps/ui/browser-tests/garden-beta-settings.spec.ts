@@ -152,23 +152,32 @@ test('without Garden cameras, Beta features says where to choose them, once', as
     await expect(page.locator('#settings-camera-list')).toBeFocused();
 });
 
-for (const [calibrated, shown, up] of [[0.63, '63', '64'], [0.625, '62.5', '62.6']] as const) {
-    test(`a calibrated ${calibrated} proposal threshold shows as ${shown}% and steps at its own precision`, async ({ page }) => {
+// The slider moves one percentage point a step. A calibrated saved value shows as saved until
+// the slider is moved; the first move lands on a whole point, never a seven-decimal one.
+for (const [calibrated, shown, up, saved] of [[0.63, '63', '64', 0.64], [0.625, '62.5', '64', 0.64], [0.6385722, '63.85722', '65', 0.65]] as const) {
+    test(`a calibrated ${calibrated} proposal threshold shows as ${shown}% and moves a whole point`, async ({ page }) => {
         const { writes } = await openSettings(page, { garden_motion_confidence: calibrated });
         await openBeta(page);
         const threshold = page.getByRole('slider', { name: 'How sure before an animal is suggested' });
         await expect(threshold).toHaveAttribute('aria-valuetext', `${shown}%`);
-        expect(await threshold.evaluate((input: HTMLInputElement) => ({ valid: input.checkValidity(), stepMismatch: input.validity.stepMismatch }))).toEqual({ valid: true, stepMismatch: false });
+        await expect(threshold).toHaveAttribute('step', '0.01');
         await threshold.press('ArrowUp');
         await expect(threshold).toHaveAttribute('aria-valuetext', `${up}%`);
-        await threshold.press('ArrowDown');
-        await expect(threshold).toHaveAttribute('aria-valuetext', `${shown}%`);
-        await threshold.press('ArrowUp');
         await page.getByRole('button', { name: 'Save changes', exact: true }).click();
         await expect.poll(() => writes.length).toBe(1);
-        expect(writes[0].garden_motion_confidence as number).toBeCloseTo(calibrated === 0.63 ? 0.64 : 0.626, 6);
+        expect(writes[0].garden_motion_confidence as number).toBeCloseTo(saved, 9);
     });
 }
+
+test('a calibrated proposal threshold left alone is saved exactly as it was', async ({ page }) => {
+    const { writes } = await openSettings(page, { garden_motion_confidence: 0.6385722 });
+    await openBeta(page);
+    await page.locator('[data-garden-beta-settings]').getByLabel('Frigate animal labels', { exact: true }).fill('cat, fox');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    // Saving the page writes the whole Garden draft: the calibrated value goes back untouched.
+    if ('garden_motion_confidence' in writes[0]) expect(writes[0].garden_motion_confidence).toBe(0.6385722);
+});
 
 // A slider cannot leave its range, so a value the server would refuse is never offered.
 for (const [name, low, high] of [['How sure before an animal is suggested', '50%', '95%'], ['How sure before an animal is named', '70%', '99%']] as const) {

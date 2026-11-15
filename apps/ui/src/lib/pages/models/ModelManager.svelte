@@ -622,7 +622,7 @@
 <div class="space-y-6 wrap-anywhere">
     {#if loading}
         <div class="flex min-h-32 items-center justify-center" role="status">
-            <div class="h-8 w-8 animate-spin"></div>
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent motion-reduce:animate-none" aria-hidden="true"></div>
             <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
         </div>
     {:else if error}

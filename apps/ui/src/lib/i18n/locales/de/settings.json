@@ -248,7 +248,8 @@
   "common": {
     "save_error": "Einstellungen konnten nicht gespeichert werden",
     "show_advanced": "Erweiterte Optionen anzeigen",
-    "hide_advanced": "Erweiterte Optionen ausblenden"
+    "hide_advanced": "Erweiterte Optionen ausblenden",
+    "set_outside": "{value} (außerhalb der Einstellungen festgelegt)"
   },
   "tabs": {
     "connection": "Verbindung",

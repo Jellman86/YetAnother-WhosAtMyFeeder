@@ -3360,7 +3360,6 @@
                                 bind:automaticNaming={gardenAutomaticNaming}
                                 bind:namingThreshold={gardenNamingThreshold}
                                 bind:domesticBirds={gardenDomesticBirds}
-                                savedMotionConfidence={settingsStore.settings?.garden_motion_confidence}
                                 onNavigate={onNavigate ? (path) => onNavigate(path) : undefined}
                                 onOpenCameras={openCameraSettings}
                             />

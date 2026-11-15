@@ -376,11 +376,12 @@
         titleId="security-public-title"
     >
         {#snippet actions()}
+            <!-- Without sign-in it cannot be turned on, but one already on can always be turned off. -->
             <SettingsToggle
                 checked={publicAccessEnabled}
                 labelledBy="security-public-title"
                 describedBy={authEnabled ? undefined : 'security-public-needs-auth'}
-                disabled={!authEnabled}
+                disabled={!authEnabled && !publicAccessEnabled}
                 srLabel={$_('settings.public_access.title')}
                 onchange={(v) => (publicAccessEnabled = v)}
             />

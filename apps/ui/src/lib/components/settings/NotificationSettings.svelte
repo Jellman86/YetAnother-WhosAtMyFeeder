@@ -443,6 +443,10 @@
                                     notifyCooldownMinutes = minutes;
                                     lastCooldownMinutes = minutes;
                                 }}
+                                onblur={(event) => {
+                                    // Show what will be saved: whole minutes, at least one.
+                                    event.currentTarget.value = String(notifyCooldownMinutes);
+                                }}
                                 class="input-base min-h-11 w-24"
                                 aria-labelledby="notification-cooldown-label notification-cooldown-unit"
                             />

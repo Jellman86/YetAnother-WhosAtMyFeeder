@@ -1,23 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gardenThresholdPercentStep, thresholdPercentText } from './garden-threshold';
-
-describe('Garden threshold number-control precision, in percent', () => {
-    it.each([0.5, 0.63, 0.95])('steps one percentage point for %s', value => {
-        expect(gardenThresholdPercentStep(value)).toBe(1);
-    });
-
-    it.each([[0.625, 0.1], [0.6385722, 0.00001]])('preserves the precision of %s', (value, step) => {
-        expect(gardenThresholdPercentStep(value)).toBeCloseTo(step, 12);
-    });
-
-    it.each([undefined, Number.NaN, Number.POSITIVE_INFINITY, 0.2, 1])('keeps a usable step for an invalid or empty edit: %s', value => {
-        expect(gardenThresholdPercentStep(value)).toBe(1);
-    });
-
-    it('keeps a saved finer increment when stepping through a trailing zero', () => {
-        expect(gardenThresholdPercentStep(0.63, 0.625)).toBe(0.1);
-    });
-});
+import { thresholdPercentText } from './garden-threshold';
 
 describe('showing a 0 to 1 threshold as a percentage', () => {
     it.each([[0.5, '50'], [0.63, '63'], [0.625, '62.5'], [0.6385722, '63.85722'], [0.8, '80'], [0.99, '99']])('shows %s as %s', (value, text) => {

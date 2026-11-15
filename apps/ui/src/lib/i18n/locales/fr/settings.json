@@ -248,7 +248,8 @@
   "common": {
     "save_error": "Impossible d’enregistrer les paramètres",
     "show_advanced": "Afficher les options avancées",
-    "hide_advanced": "Masquer les options avancées"
+    "hide_advanced": "Masquer les options avancées",
+    "set_outside": "{value} (défini en dehors des Paramètres)"
   },
   "tabs": {
     "connection": "Connexion",

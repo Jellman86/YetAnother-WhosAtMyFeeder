@@ -202,7 +202,7 @@
 
         {#if timezoneRepairPreview}
             <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.scanned_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_scanned', { default: 'Scanned' })}</p>
                 </div>
@@ -210,22 +210,22 @@
                     <p class="text-lg font-bold text-attention-600 dark:text-attention-400">{fmtCount(timezoneRepairPreview.summary.repair_candidate_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_candidates', { default: 'Repair candidates' })}</p>
                 </div>
-                <div class="">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.missing_frigate_event_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_missing', { default: 'Missing in Frigate' })}</p>
                 </div>
-                <div class="">
+                <div>
                     <p class="text-lg font-bold text-red-700 dark:text-red-400">{fmtCount(timezoneRepairPreview.summary.lookup_error_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_lookup_errors', { default: 'Lookup errors' })}</p>
                 </div>
-                <div class="">
+                <div>
                     <p class="text-lg font-bold text-slate-900 dark:text-white">{fmtCount(timezoneRepairPreview.summary.unsupported_delta_count)}</p>
                     <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_unsupported', { default: 'Unsupported delta' })}</p>
                 </div>
             </div>
 
             {#if timezoneRepairPreview.candidates.length > 0}
-                <div class="">
+                <div>
                     <div class="border-t border-line-soft pt-4 px-5 border-b">
                         <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.data.timezone_repair_preview_list', { default: 'Preview' })}</p>
                     </div>
@@ -355,7 +355,7 @@
                 <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-600 dark:text-slate-400">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-700 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
             </dl>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
-                <div class="">
+                <div>
                     <p class="text-sm font-semibold text-slate-700 mb-2 dark:text-slate-200">{$_('settings.data.backfill_skipped_breakdown')}</p>
                     <div class="grid grid-cols-1 gap-2">
                         {#each Object.entries(backfillResult.skipped_reasons) as [reason, count]}

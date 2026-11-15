@@ -406,7 +406,7 @@
                 </div>
 
                 {#if usage.breakdown.length > 0}
-                    <div class="">
+                    <div>
                         <table class="w-full text-left text-xs">
                             <thead class="bg-slate-50 dark:bg-slate-900/60 text-sm font-semibold text-slate-700 dark:text-slate-200">
                                 <tr>

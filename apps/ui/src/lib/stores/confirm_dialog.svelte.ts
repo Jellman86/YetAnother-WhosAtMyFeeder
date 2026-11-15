@@ -48,6 +48,10 @@ class ConfirmDialogStore {
         let worked = false;
         try {
             worked = await pending.alternative.run();
+        } catch {
+            // The alternative reports its own failure (a save says why in the save bar); here it
+            // only means "do not go ahead", so the page stays.
+            worked = false;
         } finally {
             pending.resolve(worked);
         }

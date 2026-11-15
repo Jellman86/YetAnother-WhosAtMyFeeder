@@ -51,3 +51,24 @@ test('AI loads on first open, follows a provider switch and saves with Save chan
     await expect(unsavedChanges(page)).toHaveCount(0);
     expect(errors).toEqual([]);
 });
+
+test('a provider set outside Settings shows as itself, never as the first choice, and is kept', async ({ page }) => {
+    const harness = await openSettings(page, {
+        llm_enabled: true,
+        llm_provider: 'custom-provider',
+        llm_api_key: '***REDACTED***',
+        llm_model: 'my-model'
+    });
+    await page.getByRole('link', { name: 'AI', exact: true }).click();
+    const provider = page.getByRole('combobox', { name: /^Provider/ });
+    await expect(provider).toHaveValue('custom-provider');
+    await expect(provider.locator('option:checked')).toHaveText('custom-provider (set outside Settings)');
+    await expect(provider.locator('option')).toHaveText(['custom-provider (set outside Settings)', 'Gemini', 'OpenAI', 'Claude', 'OpenRouter']);
+
+    // Saving another change never rewrites the provider to one of the listed choices.
+    await page.getByRole('link', { name: 'Connection', exact: true }).click();
+    await page.locator('#mqtt-server').fill('broker.lan');
+    await page.getByRole('button', { name: 'Save changes', exact: true }).click();
+    await expect.poll(() => harness.writes.length).toBe(1);
+    expect([undefined, 'custom-provider']).toContain(harness.writes[0].llm_provider);
+});

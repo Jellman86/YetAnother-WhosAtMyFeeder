@@ -1,4 +1,6 @@
 <script lang="ts" generics="T extends string">
+    import { _ } from 'svelte-i18n';
+
     interface Option {
         value: T;
         label: string;
@@ -27,6 +29,9 @@
     // choices that need a sentence each, would not fit on one line: a select, or a radio list.
     const described = $derived(options.some((option) => option.sub || option.meta));
     const shape = $derived(described ? 'list' : options.length >= 4 ? 'select' : 'track');
+    // A saved value none of the options name (set by an environment variable, say) is shown as
+    // itself, so the select never claims a choice that is not the saved one.
+    const unknownValue = $derived(value && !options.some((option) => option.value === value) ? value : null);
 </script>
 
 {#if shape === 'select'}
@@ -36,6 +41,9 @@
         {value}
         onchange={(event) => onchange((event.currentTarget as HTMLSelectElement).value as T)}
     >
+        {#if unknownValue}
+            <option value={unknownValue}>{$_('settings.common.set_outside', { values: { value: unknownValue }, default: '{value} (set outside Settings)' })}</option>
+        {/if}
         {#each options as option (option.value)}
             <option value={option.value}>{option.label}</option>
         {/each}

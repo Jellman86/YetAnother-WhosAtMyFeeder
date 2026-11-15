@@ -9,19 +9,6 @@ function clean(value: number): number {
     return Number(value.toPrecision(SIGNIFICANT_DIGITS));
 }
 
-function fractionalDigits(value: number | undefined): number {
-    if (value === undefined || !Number.isFinite(value) || value < 0.5 || value > 0.95) {
-        return 0;
-    }
-    return String(value).split('.')[1]?.length ?? 0;
-}
-
-/** One percentage point, or finer when the value or its saved form was calibrated more precisely. */
-export function gardenThresholdPercentStep(value: number | undefined, savedValue?: number): number {
-    const digits = Math.max(2, fractionalDigits(value), fractionalDigits(savedValue));
-    return 10 ** -(digits - 2);
-}
-
 /** The percentage as shown beside a threshold; empty for a value that is not a number. */
 export function thresholdPercentText(value: number): string {
     return Number.isFinite(value) ? String(clean(value * 100)) : '';

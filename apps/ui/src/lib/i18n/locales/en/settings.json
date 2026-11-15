@@ -248,7 +248,8 @@
   "common": {
     "save_error": "Failed to save settings",
     "show_advanced": "Show advanced options",
-    "hide_advanced": "Hide advanced options"
+    "hide_advanced": "Hide advanced options",
+    "set_outside": "{value} (set outside Settings)"
   },
   "tabs": {
     "connection": "Connection",

@@ -248,7 +248,8 @@
   "common": {
     "save_error": "Falha ao salvar as configurações",
     "show_advanced": "Mostrar opções avançadas",
-    "hide_advanced": "Ocultar opções avançadas"
+    "hide_advanced": "Ocultar opções avançadas",
+    "set_outside": "{value} (definido fora das Configurações)"
   },
   "tabs": {
     "connection": "Conexão",

@@ -24,7 +24,7 @@
     import type { PolicyChannel } from '../../settings/notification-policy';
     import { GardenServiceStatus } from './garden-service-status.svelte';
     import { settingsStore } from '../../stores/settings.svelte';
-    import { gardenThresholdPercentStep, thresholdPercentText } from '../../utils/garden-threshold';
+    import { thresholdPercentText } from '../../utils/garden-threshold';
     import { formatCameraList, gardenMotionWithinGarden } from '../../utils/camera-watch';
     import { DOMESTIC_BIRD_KEYS, domesticBirdKind, type DomesticBirdKey } from '../../utils/domestic-birds';
     import { GARDEN_MODEL_NAME, gardenModelRows, type GardenModelRole } from '../../utils/garden-models';
@@ -50,8 +50,6 @@
         namingThreshold: number;
         /** Domestic birds the owner keeps: Garden animals on every camera, never bird detections. */
         domesticBirds?: DomesticBirdKey[];
-        /** The saved threshold, so a calibrated value keeps its own precision while edited. */
-        savedMotionConfidence?: number;
         onNavigate?: (path: string) => void;
         /** Opens Connection at its camera list. */
         onOpenCameras?: () => void;
@@ -75,7 +73,6 @@
         birdChannels = [],
         namingThreshold = $bindable(0.8),
         domesticBirds = $bindable([]),
-        savedMotionConfidence,
         onNavigate,
         onOpenCameras,
         onOpenNotifications,
@@ -254,7 +251,7 @@
                     bind:value={motionConfidence}
                     min={0.5}
                     max={0.95}
-                    step={gardenThresholdPercentStep(motionConfidence, savedMotionConfidence) / 100}
+                    step={0.01}
                     display={(value) => `${thresholdPercentText(value)}%`}
                     lowLabel={$_('garden.confidence_low', { default: 'More suggestions' })}
                     highLabel={$_('garden.confidence_high', { default: 'Fewer suggestions' })}

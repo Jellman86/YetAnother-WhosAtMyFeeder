@@ -248,7 +248,8 @@
   "common": {
     "save_error": "无法保存设置",
     "show_advanced": "显示高级选项",
-    "hide_advanced": "隐藏高级选项"
+    "hide_advanced": "隐藏高级选项",
+    "set_outside": "{value}（在设置之外指定）"
   },
   "tabs": {
     "connection": "连接",

@@ -248,7 +248,8 @@
   "common": {
     "save_error": "設定を保存できませんでした",
     "show_advanced": "詳細オプションを表示",
-    "hide_advanced": "詳細オプションを隠す"
+    "hide_advanced": "詳細オプションを隠す",
+    "set_outside": "{value}（設定画面の外で指定）"
   },
   "tabs": {
     "connection": "接続",

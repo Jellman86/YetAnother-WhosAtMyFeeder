@@ -66,4 +66,14 @@ describe('a question with a second way forward', () => {
         await confirmDialog.runAlternative();
         await expect(answer).resolves.toBe(false);
     });
+
+    it('answers no, and never throws, when the alternative fails outright', async () => {
+        const answer = confirmAction({
+            title: 'Leave without saving?', message: 'm', confirmLabel: 'Leave without saving',
+            alternative: { label: 'Save and leave', run: async () => { throw new Error('network down'); } }
+        });
+        await expect(confirmDialog.runAlternative()).resolves.toBeUndefined();
+        expect(confirmDialog.current).toBeNull();
+        await expect(answer).resolves.toBe(false);
+    });
 });
