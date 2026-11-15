@@ -14,16 +14,22 @@ describe('collapsing the Explorer filter rail', () => {
         expect(eventsPageSource).toContain("'lg:grid-cols-[16rem_minmax(0,1fr)]'");
     });
 
-    it('sits in the header toolbar beside the view switch and Multi-select', () => {
-        // Inside the rail, the toolbar controls wrapped vertically down a 14rem
-        // column while Multi-select sat alone in the header: three ways of
-        // acting on the same list in two places and two styles. One row now.
-        const railToggleAt = eventsPageSource.indexOf('data-explorer-rail-toggle');
-        const viewToggleAt = eventsPageSource.indexOf('data-explorer-view-toggle');
-        const multiSelectAt = eventsPageSource.indexOf('common.multi_select');
+    it('sits in the header row on a desktop with the other page controls, each written once', () => {
+        // One row on a desktop. On a narrower screen the page places the same controls, without a
+        // second copy: the view switch beside the Filters button, the rest opened with the filters.
+        const header = eventsPageSource.slice(eventsPageSource.indexOf('data-explorer-controls'));
+        const railToggleAt = header.indexOf('data-explorer-rail-toggle');
+        const viewAt = header.indexOf('{@render viewSwitch()}');
+        const multiSelectAt = header.indexOf('{@render multiSelectToggle()}');
+        expect(header.indexOf('{@render heardToggle()}')).toBeGreaterThan(-1);
         expect(railToggleAt).toBeGreaterThan(-1);
-        expect(viewToggleAt).toBeGreaterThan(railToggleAt);
-        expect(multiSelectAt).toBeGreaterThan(viewToggleAt);
+        expect(viewAt).toBeGreaterThan(railToggleAt);
+        expect(multiSelectAt).toBeGreaterThan(viewAt);
+        expect(eventsPageSource.match(/data-explorer-view-toggle/g)).toHaveLength(1);
+        expect(eventsPageSource.match(/data-explorer-heard-toggle/g)).toHaveLength(1);
+        expect(eventsPageSource).toContain('beside={wideExplorer.current ? undefined : viewSwitch}');
+        expect(filtersSource).toContain('{@render beside()}');
+        expect(filtersSource).toContain('{@render controls()}');
         expect(filtersSource).not.toContain('data-explorer-rail-toggle');
         expect(filtersSource).not.toContain('data-explorer-view-toggle');
     });

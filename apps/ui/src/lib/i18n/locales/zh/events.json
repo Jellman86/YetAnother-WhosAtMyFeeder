@@ -20,6 +20,7 @@
     "refreshing_options": "正在刷新选项…",
     "title": "筛选",
     "clear_all": "全部清除",
+    "page_controls": "视图",
     "when": "时间",
     "only": "仅显示",
     "show_rail": "显示筛选",
@@ -137,6 +138,7 @@
   "count_unavailable": "数量不可用",
   "results_loading": "正在加载结果…",
   "selection_count": "{count, plural, =0 {未选择拍摄} other {已选择 # 次拍摄}}",
+  "selection_done": "完成",
   "settings_unavailable": "无法加载您的设置，因此“探索”无法确定要显示哪些访客。未做任何更改。请稍后重试。",
   "bulk_tag_applied": "已将 {count, plural, other {# 条记录}}设为{species}"
 }

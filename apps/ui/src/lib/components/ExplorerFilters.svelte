@@ -29,6 +29,10 @@
         multipleSpeciesOnly?: boolean;
         /** The Explorer search, at the head of the rail on a phone; a desktop holds it in the page header. */
         search?: Snippet;
+        /** The view switch, beside the Filters button where the page header does not hold it. */
+        beside?: Snippet;
+        /** Page controls used less often, opened with the filters where the page header does not hold them. */
+        controls?: Snippet;
         /** How results are shown: a species' visits, or every capture on its own. */
         groupVisits?: boolean;
         /** Selecting works on captures, so the choice is held while selecting. */
@@ -80,6 +84,8 @@
         audioConfirmedOnly,
         multipleSpeciesOnly = false,
         search,
+        beside,
+        controls,
         groupVisits = true,
         groupingLocked = false,
         showHidden,
@@ -307,6 +313,10 @@
                 {$_('events.filters.clear_all', { default: 'Clear all' })}
             </button>
         {/if}
+
+        {#if beside}
+            <div class="ml-auto" data-explorer-beside-filters>{@render beside()}</div>
+        {/if}
     </div>
 
     <div
@@ -318,17 +328,24 @@
             : 'lg:flex! lg:mt-2 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-3 lg:overflow-y-auto lg:overscroll-contain lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
+            {#if controls}
+                <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-page-controls-heading">
+                    <p id="explorer-page-controls-heading" class="eyebrow">{$_('events.filters.page_controls', { default: 'View' })}</p>
+                    <div class="mt-2">{@render controls()}</div>
+                </div>
+            {/if}
             {#if gardenAvailable}
                 <!-- Garden animals are stored apart from birds; this chooses which the results hold. -->
                 <div class="min-w-0 shrink-0" role="group" aria-labelledby="explorer-visitors-heading" data-explorer-visitors-facet>
                     <p id="explorer-visitors-heading" class="eyebrow">{$_('garden.explorer.visitors', { default: 'Visitors' })}</p>
-                    <!-- Options size to their names and wrap, so a longer name keeps its words whole. -->
-                    <div class="mt-2 flex flex-wrap gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70">
+                    <!-- Three names of unequal length do not share a rail's width evenly in every language
+                         and text size, so each option takes a full line: equal segments, whole words. -->
+                    <div class="mt-2 flex flex-col gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/70" data-explorer-subjects>
                         {#each subjectOptions as option (option.value)}
                             {@const chosen = subjects === option.value}
                             <button
                                 type="button"
-                                class="{segmentButtonClass} flex-auto py-1 leading-4 {chosen ? segmentChosenClass : segmentIdleClass}"
+                                class="{segmentButtonClass} w-full py-1 leading-4 {chosen ? segmentChosenClass : segmentIdleClass}"
                                 aria-pressed={chosen}
                                 aria-describedby="explorer-visitors-hint"
                                 onclick={() => onchange({ subjects: option.value, gardenReview: 'reviewable' })}
